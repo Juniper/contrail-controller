@@ -25,6 +25,7 @@
 #include "bgp/bgp_proto.h"
 #include "bgp/bgp_rib_policy.h"
 #include "bgp/ipeer.h"
+#include "bgp/rtarget/rtarget_address.h"
 #include "bgp/state_machine.h"
 #include "db/db_table.h"
 #include "net/address.h"
@@ -87,6 +88,7 @@ public:
 
     typedef std::set<Address::Family> AddressFamilyList;
     typedef AuthenticationData::KeyType KeyType;
+    typedef std::set<RouteTarget> RouteTargetList;
 
     BgpPeer(BgpServer *server, RoutingInstance *instance,
             const BgpNeighborConfig *config);
@@ -355,6 +357,8 @@ public:
     bool IsCloseGraceful() const;
     bool IsRouterTypeBGPaaS() const { return router_type_ == "bgpaas-client"; }
     virtual bool ProcessSession() const;
+    void RoutingInstanceCallback(const std::string &vrf_name, int op);
+    void DeleteRTargets();
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);
@@ -436,6 +440,13 @@ private:
 
     void FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const;
     void FillCloseInfo(BgpNeighborResp *resp) const;
+    BgpAttrPtr GetRouteTargetRouteAttr() const;
+    void BGPaaSAddRTarget(BgpTable *table, BgpAttrPtr attr,
+                          RouteTargetList::const_iterator it);
+    void AddRTargets();
+    void BGPaaSDeleteRTarget(BgpTable *table,
+                             RouteTargetList::const_iterator it);
+    BgpTable *GetRTargetTable();
 
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
     virtual uint32_t GetOutputQueueDepth(Address::Family family) const;
@@ -529,6 +540,8 @@ private:
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;
     KeyType inuse_authkey_type_;
+    RouteTargetList rtargets_;
+    int instance_op_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };

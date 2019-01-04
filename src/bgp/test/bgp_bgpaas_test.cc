@@ -6,6 +6,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include "base/task_annotations.h"
+#include "base/test/task_test_util.h"
 #include "control-node/test/network_agent_mock.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
@@ -20,6 +21,8 @@
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
+#include "rtarget/rtarget_route.h"
+#include "rtarget/rtarget_table.h"
 
 using namespace std;
 
@@ -59,11 +62,13 @@ protected:
         ebgp_ = std::tr1::get<1>(GetParam());
         set_auth_ = std::tr1::get<2>(GetParam());
         server_.reset(new BgpServerTest(&evm_, "local"));
+        server2_.reset(new BgpServerTest(&evm_, "remote"));
         vm1_.reset(new BgpServerTest(&evm_, "vm1"));
         vm2_.reset(new BgpServerTest(&evm_, "vm2"));
         thread_.reset(new ServerThread(&evm_));
 
         server_session_manager_ = server_->session_manager();
+        server2_session_manager_ = server2_->session_manager();
         server_session_manager_->Initialize(0);
         BGP_DEBUG_UT("Created server at port: " <<
             server_session_manager_->GetPort());
@@ -85,15 +90,22 @@ protected:
     }
 
     virtual void TearDown() {
+        vm1_->Shutdown();
+        task_util::WaitForIdle();
+        vm2_->Shutdown();
+        task_util::WaitForIdle();
+        BgpPeerTest *peer_vm1 = FindPeer(server_.get(), "test",
+            BgpConfigParser::session_uuid("bgpaas-server", "vm1", 1));
+        VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm1, false);
+        BgpPeerTest *peer_vm2 = FindPeer(server_.get(), "test",
+            BgpConfigParser::session_uuid("bgpaas-server", "vm2", 1));
+        VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm2, false);
         agent_->SessionDown();
         agent_->Delete();
         task_util::WaitForIdle();
         xmpp_server_->Shutdown();
         server_->Shutdown();
-        vm1_->Shutdown();
-        task_util::WaitForIdle();
-        vm2_->Shutdown();
-        task_util::WaitForIdle();
+        server2_->Shutdown();
         XmppShutdown();
 
         TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
@@ -112,12 +124,110 @@ protected:
         agent_->SubscribeAll("test", 1);
     }
 
+    bool WalkCallback(const DBTablePartBase *tpart,
+                      const DBEntryBase *db_entry) const {
+        CHECK_CONCURRENCY("db::DBTable");
+        const BgpRoute *route = static_cast<const BgpRoute *>(db_entry);
+        std::cout << route->ToString() << "(" << route->count() << ") 0x";
+        std::cout << std::hex << (uint64_t) route << std::endl;
+        return true;
+    }
+
+    void WalkDoneCallback(DBTable::DBTableWalkRef ref,
+                          const DBTableBase *table, bool *complete) const {
+        if (complete)
+            *complete = true;
+    }
+
+    void PrintTable(const BgpTable *table) const {
+        bool complete = false;
+        DBTable::DBTableWalkRef walk_ref =
+            const_cast<BgpTable *>(table)->AllocWalker(
+                boost::bind(&BGPaaSTest::WalkCallback, this, _1, _2),
+                boost::bind(&BGPaaSTest::WalkDoneCallback, this, _1, _2,
+                            &complete));
+        std::cout << "Table " << table->name() << " walk start\n";
+        const_cast<BgpTable *>(table)->WalkTable(walk_ref);
+        TASK_UTIL_EXPECT_TRUE(complete);
+        std::cout << "Table " << table->name() << " walk end\n";
+    }
+
+    void CheckBGPaaSRTargetRoutePresence(const BgpTable *table,
+            const BgpPeerTest *peer, bool *result) const {
+        CHECK_CONCURRENCY("bgp::Config");
+        const RTargetTable::RequestKey key(
+            RTargetPrefix::FromString("64512:target:64512:100", NULL), peer);
+        const BgpRoute *rt = static_cast<const BgpRoute *>(table->Find(&key));
+        if (!rt) {
+            *result = false;
+            return;
+        }
+        const BgpPath *path = rt->FindPath(peer);
+        *result = path != NULL;
+    }
+
+    bool CheckBGPaaSRTargetRoutePresence(const BgpTable *table,
+                                         const BgpPeerTest *peer) const {
+        bool result = false;
+        task_util::TaskFire(
+            boost::bind(&BGPaaSTest::CheckBGPaaSRTargetRoutePresence, this,
+                        table, peer, &result), "bgp::Config");
+        return result;
+    }
+
+    void CheckBGPaaSRTargetRouteAbsence(const BgpTable *table,
+            const BgpPeerTest *peer, bool *result) const {
+        CHECK_CONCURRENCY("bgp::Config");
+        const RTargetTable::RequestKey key(
+            RTargetPrefix::FromString("64512:target:64512:100", NULL), peer);
+        const BgpRoute *rt = static_cast<const BgpRoute *>(table->Find(&key));
+        if (!rt) {
+            *result = true;
+            return;
+        }
+        const BgpPath *path = rt->FindPath(peer);
+        *result = path == NULL;
+    }
+
+    bool CheckBGPaaSRTargetRouteAbsence(const BgpTable *table,
+                                        const BgpPeerTest *peer) const {
+        bool result = false;
+        task_util::TaskFire(
+            boost::bind(&BGPaaSTest::CheckBGPaaSRTargetRouteAbsence, this,
+                        table, peer, &result), "bgp::Config");
+        return result;
+    }
+
+    void VerifyBGPaaSRTargetRoutes(const BgpServerTest *server,
+            const BgpPeerTest *peer, bool presence) const {
+        const RoutingInstance *rtinstance= static_cast<const RoutingInstance *>(
+            server->routing_instance_mgr()->GetRoutingInstance(
+                BgpConfigManager::kMasterInstance));
+        const BgpTable *table = rtinstance->GetTable(Address::RTARGET);
+        if (presence) {
+            BGP_WAIT_FOR_PEER_STATE(peer, StateMachine::ESTABLISHED);
+            TASK_UTIL_EXPECT_EQ(true,
+                CheckBGPaaSRTargetRoutePresence(table, peer));
+        } else {
+            BGP_WAIT_FOR_PEER_STATE_NE(peer, StateMachine::ESTABLISHED);
+            TASK_UTIL_EXPECT_EQ(true,
+                CheckBGPaaSRTargetRouteAbsence(table, peer));
+        }
+    }
+
     void UpdateTemplates() {
-        server_->set_peer_lookup_disable(true);
+        // server_->set_peer_lookup_disable(true);
+        // server2_->set_peer_lookup_disable(true);
         vm1_->set_source_port(11024);
         vm2_->set_source_port(11025);
         boost::replace_all(server_config_, "__server_port__",
             boost::lexical_cast<string>(server_session_manager_->GetPort()));
+        boost::replace_all(server_config_, "__server2_port__",
+            boost::lexical_cast<string>(server2_session_manager_->GetPort()));
+        boost::replace_all(server2_config_, "__server_port__",
+            boost::lexical_cast<string>(server_session_manager_->GetPort()));
+        boost::replace_all(server2_config_, "__server2_port__",
+            boost::lexical_cast<string>(server2_session_manager_->GetPort()));
 
         boost::replace_all(vm1_client_config_, "__server_port__",
             boost::lexical_cast<string>(server_session_manager_->GetPort()));
@@ -437,13 +547,16 @@ protected:
     void InitializeTemplates(bool set_local_as, const string &vm1_server_as,
                              const string &vm2_server_as, bool set_auth);
     void RunTest();
+    void SetUpControlNodes();
 
     EventManager evm_;
     boost::scoped_ptr<ServerThread> thread_;
     boost::scoped_ptr<BgpServerTest> server_;
+    boost::scoped_ptr<BgpServerTest> server2_;
     boost::scoped_ptr<BgpServerTest> vm1_;
     boost::scoped_ptr<BgpServerTest> vm2_;
     BgpSessionManager *server_session_manager_;
+    BgpSessionManager *server2_session_manager_;
     BgpSessionManager *vm1_session_manager_;
     BgpSessionManager *vm2_session_manager_;
     XmppServerTest *xmpp_server_;
@@ -454,6 +567,7 @@ protected:
     string vm1_client_config_;
     string vm2_client_config_;
     string server_config_;
+    string server2_config_;
     string vm1_server_as_;
     string vm2_server_as_;
     string vm1_as_;
@@ -648,10 +762,44 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>64512</autonomous-system> \n"
 "       <identifier>192.168.1.1</identifier> \n"
-"       <port>__server_port__</port> \n"
+"       <port>__server_port__</port> \n" + auth_config_ +
+"       <address-families> \n"
+"           <family>inet</family> \n"
+"           <family>inet-vpn</family> \n"
+"           <family>inet6-vpn</family> \n"
+"           <family>route-target</family> \n"
+"       </address-families> \n"
+"       <session to='remote'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"               <address-family>inet-vpn</address-family> \n"
+"               <address-family>inet6-vpn</address-family> \n"
+"               <address-family>route-target</address-family> \n"
+"           </family-attributes> \n" + auth_config_ +
+"       </session> \n"
+"   </bgp-router> \n"
+"   <bgp-router name='remote'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>64512</autonomous-system> \n"
+"       <identifier>192.168.1.2</identifier> \n"
+"       <port>__server2_port__</port> \n" + auth_config_ +
+"       <address-families> \n"
+"           <family>inet</family> \n"
+"           <family>inet-vpn</family> \n"
+"           <family>inet6-vpn</family> \n"
+"           <family>route-target</family> \n"
+"       </address-families> \n"
+"       <session to='local'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"               <address-family>inet-vpn</address-family> \n"
+"               <address-family>inet6-vpn</address-family> \n"
+"               <address-family>route-target</address-family> \n"
+"           </family-attributes> \n" + auth_config_ +
+"       </session> \n"
 "   </bgp-router> \n"
 "   <routing-instance name='test'> \n"
-"       <vrf-target>target:64512:1</vrf-target> \n"
+"       <vrf-target>target:64512:100</vrf-target> \n"
 "       <bgp-router name='bgpaas-server'> \n"
 "           <router-type>bgpaas-server</router-type> \n"
 "           <autonomous-system>64512</autonomous-system> \n"
@@ -710,7 +858,84 @@ void BGPaaSTest::InitializeTemplates(bool set_local_as,
 "   </routing-instance> \n"
 "</config> \n"
 ;
+    server2_config_ =
+"<?xml version='1.0' encoding='utf-8'?> \n"
+"<config> \n"
+"   <global-system-config>\n"
+"      <graceful-restart-parameters>\n"
+"         <enable>true</enable>\n"
+"         <restart-time>1</restart-time>\n"
+"         <long-lived-restart-time>2</long-lived-restart-time>\n"
+"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
+"         <bgp-helper-enable>true</bgp-helper-enable>\n"
+"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
+"      </graceful-restart-parameters>\n"
+"       <bgpaas-parameters>\n"
+"           <port-start>0</port-start>\n"
+"           <port-end>0</port-end>\n"
+"       </bgpaas-parameters>\n"
+"   </global-system-config>\n"
+"   <bgp-router name='local'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>64512</autonomous-system> \n"
+"       <identifier>192.168.1.1</identifier> \n"
+"       <port>__server_port__</port> \n" + auth_config_ +
+"       <address-families> \n"
+"           <family>inet</family> \n"
+"           <family>inet-vpn</family> \n"
+"           <family>inet6-vpn</family> \n"
+"           <family>route-target</family> \n"
+"       </address-families> \n"
+"       <session to='remote'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"               <address-family>inet-vpn</address-family> \n"
+"               <address-family>inet6-vpn</address-family> \n"
+"               <address-family>route-target</address-family> \n"
+"           </family-attributes> \n" + auth_config_ +
+"       </session> \n"
+"   </bgp-router> \n"
+"   <bgp-router name='remote'> \n"
+"       <address>127.0.0.1</address> \n"
+"       <autonomous-system>64512</autonomous-system> \n"
+"       <identifier>192.168.1.2</identifier> \n"
+"       <port>__server2_port__</port> \n" + auth_config_ +
+"       <address-families> \n"
+"           <family>inet</family> \n"
+"           <family>inet-vpn</family> \n"
+"           <family>inet6-vpn</family> \n"
+"           <family>route-target</family> \n"
+"       </address-families> \n"
+"       <session to='local'> \n"
+"           <family-attributes> \n"
+"               <address-family>inet</address-family> \n"
+"               <address-family>inet-vpn</address-family> \n"
+"               <address-family>inet6-vpn</address-family> \n"
+"               <address-family>route-target</address-family> \n"
+"           </family-attributes> \n" + auth_config_ +
+"       </session> \n"
+"   </bgp-router> \n"
+"</config> \n"
+;
     UpdateTemplates();
+}
+
+void BGPaaSTest::SetUpControlNodes() {
+    server_->Configure(server_config_);
+    server2_->Configure(server2_config_);
+    task_util::WaitForIdle();
+
+    string uuid = BgpConfigParser::session_uuid("local", "remote", 1);
+    TASK_UTIL_EXPECT_NE(static_cast<BgpPeerTest *>(NULL),
+        FindPeer(server_.get(), BgpConfigManager::kMasterInstance, uuid));
+    TASK_UTIL_EXPECT_NE(static_cast<BgpPeerTest *>(NULL),
+        FindPeer(server2_.get(), BgpConfigManager::kMasterInstance, uuid));
+    BgpPeerTest *peer = FindPeer(server_.get(),
+            BgpConfigManager::kMasterInstance, uuid);
+    BgpPeerTest *peer2 = FindPeer(server2_.get(),
+            BgpConfigManager::kMasterInstance, uuid);
+    BGP_WAIT_FOR_PEER_STATE(peer, StateMachine::ESTABLISHED);
+    BGP_WAIT_FOR_PEER_STATE(peer2, StateMachine::ESTABLISHED);
 }
 
 void BGPaaSTest::RunTest() {
@@ -902,7 +1127,7 @@ void BGPaaSTest::RunTest() {
         set_state_machine_restart(true);
     static_cast<BgpPeerCloseTest *>(peer_vm1->peer_close())->
         RestartStateMachine();
-    BGP_WAIT_FOR_PEER_STATE(peer_vm1, StateMachine::ESTABLISHED);
+    VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm1, true);
 
     // GR session would have either got refreshed or deleted, based on the timer
     // expiry and when the session comes up. Most of time time, we expect the
@@ -1080,8 +1305,8 @@ TEST_P(BGPaaSTest, Basic) {
                         set_local_as_ ? "800" : "64512", set_auth_);
     vm1_->Configure(vm1_client_config_);
     vm2_->Configure(vm2_client_config_);
-    server_->Configure(server_config_);
-    task_util::WaitForIdle();
+    SetUpControlNodes();
+
     SetUpAgent();
 
     BgpPeerTest *peer_vm1 = FindPeer(server_.get(), "test",
@@ -1104,6 +1329,12 @@ TEST_P(BGPaaSTest, Basic) {
     int vm2_flap_count = vm2_peer->flap_count();
     EXPECT_EQ(ebgp_ ? BgpProto::EBGP : BgpProto::IBGP, vm1_peer->PeerType());
 
+    // Verify that route-target routes are advertised from server_ to server2_
+    // for target:64512:100, one for each bgpaas peer (only the best path gets
+    // advertised to server2_ though). Hence check in rtarget table of server1_
+    VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm1, true);
+    VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm2, true);
+
     RunTest();
 
     // Set/Clear local-as and rerun the test.
@@ -1124,6 +1355,7 @@ TEST_P(BGPaaSTest, Basic) {
     vm1_->Configure(vm1_client_config_);
     vm2_->Configure(vm2_client_config_);
     server_->Configure(server_config_);
+    server2_->Configure(server2_config_);
     task_util::WaitForIdle();
 
     // Peers should flap due to change in local-as configuration.
@@ -1132,6 +1364,8 @@ TEST_P(BGPaaSTest, Basic) {
     WaitForPeerToComeUp(vm1_.get(), "vm1");
     WaitForPeerToComeUp(vm2_.get(), "vm2");
     EXPECT_EQ(ebgp_ ? BgpProto::EBGP : BgpProto::IBGP, vm1_peer->PeerType());
+    VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm1, true);
+    VerifyBGPaaSRTargetRoutes(server_.get(), peer_vm2, true);
     RunTest();
 }
 
