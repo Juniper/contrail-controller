@@ -484,6 +484,15 @@
         },
         {
           "fq_name": [
+            "label=fabric-pnf-servicechain-ip"
+          ],
+          "name": "label=fabric-pnf-servicechain-ip",
+          "tag_type_name": "label",
+          "tag_value": "fabric-pnf-servicechain-ip",
+          "tag_predefined": true
+        },
+        {
+          "fq_name": [
             "label=fabric-as-number"
           ],
           "name": "label=fabric-as-number",
@@ -556,6 +565,7 @@
               "juniper-srx4600",
               "juniper-srx4100",
               "juniper-srx1500",
+              "juniper-srx240h-poe",
               "juniper-vsrx"
             ]
           }
@@ -798,6 +808,12 @@
             "juniper-srx1500"
           ],
           "name": "juniper-srx1500"
+        },
+        {
+          "fq_name": [
+            "juniper-srx240h-poe"
+          ],
+          "name": "juniper-srx240h-poe"
         },
         {
           "fq_name": [
@@ -1244,6 +1260,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx1500" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx240h-poe" ]
     },
     {
       "from_type": "node_profile",
