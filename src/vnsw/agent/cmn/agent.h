@@ -1274,7 +1274,7 @@ public:
     void SetMeasureQueueDelay(bool val);
     bool MeasureQueueDelay();
     void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
-                   const char *description, uint32_t delay);
+                   const char *description, uint64_t delay);
 
     static uint16_t ProtocolStringToInt(const std::string &str);
     VrouterObjectLimits GetVrouterObjectLimits();
