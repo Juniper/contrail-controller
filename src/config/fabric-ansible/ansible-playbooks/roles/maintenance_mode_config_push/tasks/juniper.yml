@@ -71,3 +71,45 @@
     - name: Print group_info
       debug: msg="{{bgp_group_info}}" verbosity=1
 
+    - block:
+        - name: Get possible lag groups from results
+          set_fact:
+              interface_groups_info: "{{results_json_cfg.groups| selectattr('interfaces','defined')| list}}"
+
+        - name: Print group_info
+          debug: msg="{{interface_groups_info}}" verbosity=1
+
+        #Lag group names without a config group
+        - name: Get lag group names without config groups
+          block:
+            - juniper_junos_config:
+                provider:
+                  host: "{{pr_host}}"
+                  username: "{{pr_user}}"
+                  password: "{{pr_password}}"
+                  port: 22
+                  timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+                retrieve: 'committed'
+                filter: 'interfaces'
+                diff: true
+                check: false
+                commit: false
+                config_mode: 'private'
+                format: xml
+              register: group_info
+          rescue:
+            - name: Perform the necessary error handling
+              include_tasks: error_handler.yml
+              when: "group_info.failed == true"
+              vars:
+                op_err_message: "{{group_info.msg}}"
+                jl_err_message: "Error while obtaining group information (without config groups) from Juniper device: {{group_info.msg}}"
+
+        - name: Get the group information
+          set_fact:
+            interface_results_json: "{{group_info|json_query('config_parsed.configuration')}}"
+
+        - name: Print group_info
+          debug: msg="{{interface_results_json}}" verbosity=1
+      when: physical_role == 'leaf'
+
