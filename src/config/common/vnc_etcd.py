@@ -102,11 +102,11 @@ class VncEtcdWatchHandle(VncAmqpHandle):
     i.e. rabbit msg format.
     """
     def __init__(self, sandesh, logger, db_cls, reaction_map,
-                 notifier_cfg, trace_file=None, timer_obj=None):
+                 notifier_cfg, host_ip, trace_file=None, timer_obj=None):
         self._etcd_cfg = notifier_cfg
         super(VncEtcdWatchHandle, self).__init__(
             sandesh, logger, db_cls, reaction_map, q_name_prefix=None,
-            rabbitmq_cfg=None, trace_file=trace_file, timer_obj=timer_obj)
+            rabbitmq_cfg=None, host_ip=host_ip, trace_file=trace_file, timer_obj=timer_obj)
 
     def establish(self):
         self._vnc_etcd_watcher = VncEtcdWatchClient(
@@ -141,6 +141,9 @@ class VncEtcdWatchHandle(VncAmqpHandle):
 
     def close(self):
         self._vnc_etcd_watcher.shutdown()
+
+    def greenlets(self):
+        return self._vnc_etcd_watcher.greenlets()
 
 
 class VncEtcdWatchClient(VncEtcdClient):
