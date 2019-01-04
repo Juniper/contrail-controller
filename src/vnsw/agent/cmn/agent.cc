@@ -1013,7 +1013,7 @@ boost::shared_ptr<AgentXmppChannel> Agent::controller_xmpp_channel_ref(uint8_t i
 
 void Agent::TaskTrace(const char *file_name, uint32_t line_no,
                       const Task *task, const char *description,
-                      uint32_t delay) {
+                      uint64_t delay) {
     TaskTrace::TraceMsg(TaskTraceBuf, file_name, line_no,
                         task->GetTaskId(), task->GetTaskInstance(),
                         description, delay, task->Description());
