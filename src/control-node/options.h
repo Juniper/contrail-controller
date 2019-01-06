@@ -39,15 +39,6 @@ public:
     std::string syslog_facility() const { return syslog_facility_; }
     bool mvpn_ipv4_enable() const { return mvpn_ipv4_enable_; }
     bool task_track_run_time() const { return task_track_run_time_; }
-    std::string config_db_user() const {
-        return configdb_options_.config_db_username;
-    }
-    std::string config_db_password() const {
-        return configdb_options_.config_db_password;
-    }
-    std::vector<std::string> config_db_server_list() const {
-        return configdb_options_.config_db_server_list;
-    }
     std::vector<std::string> rabbitmq_server_list() const {
         return configdb_options_.rabbitmq_server_list;
     }
@@ -60,12 +51,6 @@ public:
     bool rabbitmq_ssl_enabled() const {
         return configdb_options_.rabbitmq_use_ssl;
     }
-    bool using_etcd_client() const {
-        return configdb_options_.config_db_use_etcd;
-    }
-    const ConfigClientOptions &configdb_options() const {
-        return configdb_options_;
-    }
     uint16_t xmpp_port() const { return xmpp_port_; }
     bool xmpp_auth_enabled() const { return xmpp_auth_enable_; }
     std::string xmpp_server_cert() const { return xmpp_server_cert_; }
@@ -77,11 +62,6 @@ public:
     bool optimize_snat() const { return optimize_snat_; }
     bool gr_helper_bgp_disable() const { return gr_helper_bgp_disable_; }
     bool gr_helper_xmpp_disable() const { return gr_helper_xmpp_disable_; }
-    const std::string cassandra_user() const { return cassandra_user_; }
-    const std::string cassandra_password() const { return cassandra_password_; }
-    const std::vector<std::string> cassandra_server_list() const {
-        return cassandra_server_list_;
-    }
     const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
     void ParseReConfig(bool force_reinit);
@@ -136,9 +116,6 @@ private:
     uint32_t sandesh_ratelimit_;
     bool gr_helper_bgp_disable_;
     bool gr_helper_xmpp_disable_;
-    std::string cassandra_user_;
-    std::string cassandra_password_;
-    std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> default_collector_server_list_;
     SandeshConfig sandesh_config_;
     boost::program_options::options_description config_file_options_;

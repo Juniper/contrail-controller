@@ -334,17 +334,14 @@ int main(int argc, char *argv[]) {
     Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
     // Determine if the number of connections is as expected. At the moment,
-    // consider connections to collector, cassandra and rabbit servers
+    // consider connections to collector and rabbit servers
     //
     // 1. Collector client
-    // 2. Cassandra Server
-    // 3. AMQP Server
+    // 2. AMQP Server
     std::vector<ConnectionTypeName> expected_connections;
     expected_connections = boost::assign::list_of
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, ""))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "Cassandra"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "RabbitMQ"));
 

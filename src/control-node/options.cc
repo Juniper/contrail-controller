@@ -71,10 +71,6 @@ void Options::Initialize(EventManager &evm,
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 
-    vector<string> default_config_db_server_list;
-    string default_config_db_server(host_ip + ":9042");
-    default_config_db_server_list.push_back(default_config_db_server);
-
     vector<string> default_rabbitmq_server_list;
     string default_rabbitmq_server(host_ip + ":5672");
     default_rabbitmq_server_list.push_back(default_rabbitmq_server);
@@ -162,16 +158,6 @@ void Options::Initialize(EventManager &evm,
              "/etc/contrail/ssl/certs/ca-cert.pem"),
              "XMPP CA ssl certificate")
 
-        ("CONFIGDB.config_db_server_list",
-             opt::value<vector<string> >()->default_value(
-             default_config_db_server_list, default_config_db_server),
-             "Config database server list")
-        ("CONFIGDB.config_db_username",
-             opt::value<string>()->default_value(""),
-             "ConfigDB user")
-        ("CONFIGDB.config_db_password",
-             opt::value<string>()->default_value(""),
-             "ConfigDB password")
         ("CONFIGDB.rabbitmq_server_list",
              opt::value<vector<string> >()->default_value(
              default_rabbitmq_server_list, default_rabbitmq_server),
@@ -200,10 +186,6 @@ void Options::Initialize(EventManager &evm,
         ("CONFIGDB.rabbitmq_ssl_ca_certs",
              opt::value<string>()->default_value(""),
              "CA Certificate file for SSL RabbitMQ connection")
-
-        ("CONFIGDB.config_db_use_etcd",
-             opt::value<bool>()->default_value(false),
-             "Use etcd as the contrail DB client")
         ;
 
     sandesh::options::AddOptions(&config, &sandesh_config_);
@@ -223,13 +205,10 @@ uint32_t Options::GenerateHash(const std::vector<std::string> &list) {
 }
 
 uint32_t Options::GenerateHash(const ConfigClientOptions &config) {
-    uint32_t chk_sum = GenerateHash(config.config_db_server_list);
-    chk_sum += GenerateHash(config.rabbitmq_server_list);
+    uint32_t chk_sum = GenerateHash(config.rabbitmq_server_list);
     boost::hash<std::string> string_hash;
     chk_sum += string_hash(config.rabbitmq_user);
     chk_sum += string_hash(config.rabbitmq_password);
-    chk_sum += string_hash(config.config_db_username);
-    chk_sum += string_hash(config.config_db_password);
     return chk_sum;
 }
 
@@ -355,16 +334,6 @@ void Options::ParseReConfig(bool force_reinit) {
 
 void Options::ParseConfigOptions(const boost::program_options::variables_map
                                  &var_map) {
-    configdb_options_.config_db_server_list.clear();
-    GetOptValue< vector<string> >(var_map,
-                                  configdb_options_.config_db_server_list,
-                                  "CONFIGDB.config_db_server_list");
-    GetOptValue<string>(var_map,
-                     configdb_options_.config_db_username,
-                     "CONFIGDB.config_db_username");
-    GetOptValue<string>(var_map,
-                     configdb_options_.config_db_password,
-                     "CONFIGDB.config_db_password");
     configdb_options_.rabbitmq_server_list.clear();
     GetOptValue< vector<string> >(var_map,
                      configdb_options_.rabbitmq_server_list,
@@ -393,8 +362,5 @@ void Options::ParseConfigOptions(const boost::program_options::variables_map
     GetOptValue<string>(var_map,
                      configdb_options_.rabbitmq_ssl_ca_certs,
                      "CONFIGDB.rabbitmq_ssl_ca_certs");
-    GetOptValue<bool>(var_map,
-                     configdb_options_.config_db_use_etcd,
-                     "CONFIGDB.config_db_use_etcd");
     configdb_chksum_ = GenerateHash(configdb_options_);
 }

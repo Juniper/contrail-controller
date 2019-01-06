@@ -34,7 +34,6 @@ protected:
         host_ip_ = GetHostIp(evm_.io_service(), hostname_);
         default_collector_server_list_.push_back("127.0.0.1:8086");
         default_rabbitmq_server_list_.push_back(host_ip_ + ":5672");
-        default_configdb_server_list_.push_back(host_ip_ + ":9042");
     }
 
     virtual void TearDown() {
@@ -46,7 +45,6 @@ protected:
     std::string host_ip_;
     std::vector<std::string> default_collector_server_list_;
     std::vector<std::string> default_rabbitmq_server_list_;
-    std::vector<std::string> default_configdb_server_list_;
     Options options_;
 };
 
@@ -74,15 +72,11 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
-    EXPECT_EQ(options_.config_db_user(), "");
-    EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_rabbitmq_server_list_,
                      options_.rabbitmq_server_list());
-    TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
-                     options_.config_db_server_list());
 
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
@@ -160,15 +154,11 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
-    EXPECT_EQ(options_.config_db_user(), "");
-    EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_rabbitmq_server_list_,
                      options_.rabbitmq_server_list());
-    TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
-                     options_.config_db_server_list());
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
@@ -211,15 +201,11 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
-    EXPECT_EQ(options_.config_db_user(), "");
-    EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_rabbitmq_server_list_,
                      options_.rabbitmq_server_list());
-    TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
-                     options_.config_db_server_list());
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
@@ -261,8 +247,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "\n"
         "\n"
         "[CONFIGDB]\n"
-        "config_db_username=test-db-user\n"
-        "config_db_password=test-db-password\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
         "\n"
@@ -317,8 +301,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
     EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
-    EXPECT_EQ(options_.config_db_user(), "test-db-user");
-    EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
@@ -350,8 +332,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "sandesh_send_rate_limit=5\n"
         "\n"
         "[CONFIGDB]\n"
-        "config_db_username=test-db-user\n"
-        "config_db_password=test-db-password\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
         "\n"
@@ -418,8 +398,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
-    EXPECT_EQ(options_.config_db_user(), "test-db-user");
-    EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.xmpp_port(), 100);
@@ -557,40 +535,24 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     char argv_3[] = "--CONFIGDB.rabbitmq_password=mynewpassword";
     char argv_4[] = "--CONFIGDB.rabbitmq_use_ssl=false";
     char argv_5[] = "--CONFIGDB.rabbitmq_server_list=10.1.1.1:100 10.1.1.2:100";
-    char argv_6[] = "--CONFIGDB.config_db_server_list=20.1.1.1:100 20.1.1.2:100";
-    char argv_7[] = "--CONFIGDB.config_db_username=dbuser";
-    char argv_8[] = "--CONFIGDB.config_db_password=dbpassword";
-    char argv_9[] = "--CONFIGDB.config_db_use_etcd=false";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
     argv[4] = argv_4;
     argv[5] = argv_5;
-    argv[6] = argv_6;
-    argv[7] = argv_7;
-    argv[8] = argv_8;
-    argv[9] = argv_9;
 
     options_.Parse(evm_, argc, argv);
 
-    EXPECT_EQ(options_.config_db_user(), "dbuser");
-    EXPECT_EQ(options_.config_db_password(), "dbpassword");
     EXPECT_EQ(options_.rabbitmq_user(), "myuser");
     EXPECT_EQ(options_.rabbitmq_password(), "mynewpassword");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
-    EXPECT_EQ(options_.using_etcd_client(), false);
 
     vector<string> rabbitmq_server_list;
     rabbitmq_server_list.push_back("10.1.1.1:100");
     rabbitmq_server_list.push_back("10.1.1.2:100");
     TASK_UTIL_EXPECT_VECTOR_EQ(rabbitmq_server_list,
                      options_.rabbitmq_server_list());
-    vector<string> config_db_server_list;
-    config_db_server_list.push_back("20.1.1.1:100");
-    config_db_server_list.push_back("20.1.1.2:100");
-    TASK_UTIL_EXPECT_VECTOR_EQ(config_db_server_list,
-                     options_.config_db_server_list());
 }
 
 TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
@@ -600,8 +562,6 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
         "rabbitmq_password=test-password\n"
         "rabbitmq_use_ssl=true\n"
         "rabbitmq_server_list=10.1.1.1:100 10.1.1.2:100\n"
-        "config_db_server_list=20.1.1.1:100 20.1.1.2:100\n"
-        "config_db_use_etcd=true\n";
 
     ofstream config_file;
     config_file.open("./options_test_config_file.conf");
@@ -616,16 +576,12 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     char argv_3[] = "--CONFIGDB.rabbitmq_password=mynewpassword";
     char argv_4[] = "--CONFIGDB.rabbitmq_use_ssl=false";
     char argv_5[] = "--CONFIGDB.rabbitmq_server_list=30.1.1.1:100 30.1.1.2:100";
-    char argv_6[] = "--CONFIGDB.config_db_server_list=40.1.1.1:100 40.1.1.2:100";
-    char argv_7[] = "--CONFIGDB.config_db_use_etcd=false";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
     argv[4] = argv_4;
     argv[5] = argv_5;
-    argv[6] = argv_6;
-    argv[7] = argv_7;
 
     options_.Parse(evm_, argc, argv);
 
@@ -639,11 +595,6 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
     rabbitmq_server_list.push_back("30.1.1.2:100");
     TASK_UTIL_EXPECT_VECTOR_EQ(rabbitmq_server_list,
                      options_.rabbitmq_server_list());
-    vector<string> config_db_server_list;
-    config_db_server_list.push_back("40.1.1.1:100");
-    config_db_server_list.push_back("40.1.1.2:100");
-    TASK_UTIL_EXPECT_VECTOR_EQ(config_db_server_list,
-                     options_.config_db_server_list());
 }
 
 TEST_F(OptionsTest, ControlNodeExit) {
