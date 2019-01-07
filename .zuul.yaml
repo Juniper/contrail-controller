@@ -1,0 +1,5 @@
+- project:
+    name: Juniper/contrail-controller
+    experimental:
+      jobs:
+        - test-run-jenkins-job
