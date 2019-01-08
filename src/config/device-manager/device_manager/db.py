@@ -568,7 +568,8 @@ class PhysicalRouterDM(DBBaseDM):
             self.dci_ip_map[dci_id] = ip_addr
     # end evaluate_dci_ip_map
 
-    def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
+    def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for,
+                               ignore_external=False, is_erb=False):
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
@@ -587,13 +588,14 @@ class PhysicalRouterDM(DBBaseDM):
         create_set = new_vn_ip_set.difference(old_set)
         for vn_subnet in delete_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
-            if ret == False:
-                self._logger.error("Unable to free ip for vn/subnet/pr "
-                                   "(%s/%s/%s)" % (
-                    vn_uuid,
-                    subnet_prefix,
-                    self.uuid))
+            if not is_erb:
+                ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
+                if ret == False:
+                    self._logger.error("Unable to free ip for vn/subnet/pr "
+                                    "(%s/%s/%s)" % (
+                        vn_uuid,
+                        subnet_prefix,
+                        self.uuid))
 
             ret = self._object_db.delete_ip(
                        self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for)
@@ -613,7 +615,10 @@ class PhysicalRouterDM(DBBaseDM):
             vn = VirtualNetworkDM.get(vn_uuid)
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
-            ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
+            if is_erb:
+                ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
+            else:
+                ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for vn/subnet/pr "
                                    "(%s/%s/%s)" % (

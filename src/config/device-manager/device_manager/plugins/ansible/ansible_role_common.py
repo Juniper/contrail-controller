@@ -36,7 +36,15 @@ class AnsibleRoleCommon(AnsibleConf):
             if gateway_roles:
                 return True
         return False
-    # end is_spine
+    # end is_gateway
+
+    def is_erb_gateway(self):
+        if self.physical_router.routing_bridging_roles:
+            gateway_roles = [r for r in self.physical_router.routing_bridging_roles if 'ERB' in r and 'Gateway' in r]
+            if gateway_roles:
+                return True
+        return False
+    # end is_erb_gateway
 
     def is_dci_gateway(self):
         if self.physical_router.routing_bridging_roles:
@@ -875,8 +883,10 @@ class AnsibleRoleCommon(AnsibleConf):
         vn_dict = self.get_vn_li_map()
         vn_irb_ip_map = None
         if self.is_gateway():
-            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
-            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
+            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()),
+                'l2_l3', 'irb', ignore_external=False, is_erb=self.is_erb_gateway())
+            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()),
+                'l3', 'lo0', ignore_external=True, is_erb=self.is_erb_gateway())
             vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
         for vn_id, interfaces in self.get_sorted_key_value_pairs(vn_dict):
