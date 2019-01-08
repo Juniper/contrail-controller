@@ -177,7 +177,9 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
     mirror_entry->mac_ = data->mac_;
-    mirror_entry->createdvrf_ = data->createdvrf_;
+    if (!mirror_entry->createdvrf_) {
+        mirror_entry->createdvrf_ = data->createdvrf_;
+    }
     if (mirror_entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr ||
         mirror_entry->mirror_flags_ == MirrorEntryData::StaticNH_Without_JuniperHdr)
     {
