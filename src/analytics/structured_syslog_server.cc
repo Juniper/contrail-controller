@@ -360,40 +360,36 @@ StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
     return json_msg;
 }
 
-
+//Identify the prefix and return the VPN name if nothing matches then return routing_instance
 const std::string get_VPNName(const std::string &routing_instance){
-  std::size_t found;
-
-  found = routing_instance.find_last_of("-");
-  if (found!=std::string::npos){
-    return routing_instance.substr(found+1);
-  }
-
-  // found = routing_instance.find("Default-reverse-");
-  // if (found!=std::string::npos){
-  //   return routing_instance.substr(16,(routing_instance.size()-16));
-  //   //return vpn_name;
-  // }
-  // found = routing_instance.find("Default-");
-  // if (found!=std::string::npos){
-  //   return routing_instance.substr(8,(routing_instance.size()-8));
-  //   //return vpn_name;
-  // }
-  // found = routing_instance.find("mpls-");
-  // if (found!=std::string::npos){
-  //   return routing_instance.substr(5,(routing_instance.size()-5));
-  //   //return vpn_name;
-  // }
-  // found = routing_instance.find("internet-");
-  // if (found!=std::string::npos){
-  //   return routing_instance.substr(9,(routing_instance.size()-9));
-  //   //return vpn_name;
-  // }
-  return routing_instance;
+    if (routing_instance.size() > 15 && (routing_instance.compare(0,16,"Default-reverse-")== 0)){
+        return routing_instance.substr(16,(routing_instance.size()-16));
+    }
+    size_t found = routing_instance.find("-");
+    if (found!=std::string::npos){
+        return routing_instance.substr(found+1);
+    }
+    /*
+    if (routing_instance.size() > 7 && (routing_instance.compare(0,8,"Default-") == 0)){
+        return routing_instance.substr(8,(routing_instance.size()-8));
+    }
+    if (routing_instance.size() > 4 && (routing_instance.compare(0,5,"mpls-") == 0)){
+        return routing_instance.substr(5,(routing_instance.size()-5));
+    }
+    if (routing_instance.size() > 8 && ( routing_instance.compare(0,9,"internet-") == 0)){
+        return routing_instance.substr(9,(routing_instance.size()-9));
+    }
+    */
+    return routing_instance;
 }
 
 
 void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize_user, StructuredSyslogConfig *config_obj) {
+    const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
+    // Do not process for APPTRACK_SESSION_CLOSE syslogs is coming from destination site.
+    if (routing_instance.size() > 3 && ( routing_instance.compare(0,4,"LAN-") == 0)){
+        return;
+    }
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
     SDWANKPIMetricsRecord sdwankpimetricrecord_source;
@@ -583,38 +579,41 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     SDWANKPIMetrics_diff sdwankpimetricdiff;
     std::map<std::string, SDWANKPIMetrics_diff> sdwan_kpi_metrics_diff_source;
     if (is_close) {
-      const std::string routing_instance (SyslogParser::GetMapVals(v, "routing-instance", "UNKNOWN"));
-      const std::string vpn_name = get_VPNName(routing_instance);
-      const std::string destination_address (SyslogParser::GetMapVals(v, "destination-address", "UNKNOWN"));
-      const std::string destination_interface_name (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
-      sdwankpimetricdiff.set_session_close_count(1);
-      sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
-      std::string destination_site = config_obj->FindNetwork(destination_address, vpn_name);
-      
-      if (destination_site.empty()){
-         destination_site = "UNKNOWN";
-      }
-      LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
-       " belongs to site : " << destination_site);
+        const std::string vpn_name = get_VPNName(routing_instance);
+        const std::string destination_address (SyslogParser::GetMapVals(v, "destination-address", "UNKNOWN"));
+        const std::string destination_interface_name (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+        sdwankpimetricdiff.set_session_close_count(1);
+        std::string destination_site;
+        sdwankpimetricdiff.set_bps(SyslogParser::GetMapVal(v, "total-bytes", 0));
+        //Find Network only if valid VPN name is parsed from routing instance
+        if (vpn_name != routing_instance){
+            destination_site = config_obj->FindNetwork(destination_address, vpn_name);
+        }
+        // if VPN name == routing instance, then VPN name is not valid and assign destination site to "UNKNOWN"
+        if ((vpn_name == routing_instance) || destination_site.empty() ){
+            destination_site = "UNKNOWN";
+        }
+        LOG(DEBUG,"destination address "<< destination_address  <<" in VPN " << vpn_name <<
+         " belongs to site : " << destination_site);
 
-      std::string searchHubInterface = destination_interface_name + ",";
-      std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
+        std::string searchHubInterface = destination_interface_name + ",";
+        std::size_t destination_interface_name_found = hubs_interfaces.find(searchHubInterface);
 
-       // map key should be destination site for source UVE and source site for destination UVE
-      std::string kpimetricdiff_key_source(destination_site);
-      LOG(DEBUG,"UVE: KPI key destination : " << kpimetricdiff_key_source);
-      sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
+         // map key should be destination site for source UVE and source site for destination UVE
+        std::string kpimetricdiff_key_source(destination_site);
+        LOG(DEBUG,"UVE: KPI key destination : " << kpimetricdiff_key_source);
+        sdwan_kpi_metrics_diff_source.insert(std::make_pair(kpimetricdiff_key_source, sdwankpimetricdiff));
 
-      if (destination_interface_name_found != std::string::npos){
-        LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
+        if (destination_interface_name_found != std::string::npos){
+            LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" found in hubs_interfaces" );
 
-        sdwankpimetricrecord_source.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_source);
-      }
-      else {
-        LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
+            sdwankpimetricrecord_source.set_kpi_metrics_greater_diff(sdwan_kpi_metrics_diff_source);
+        }
+        else {
+            LOG(DEBUG,"destination_interface_name "<< destination_interface_name <<" NOT found in hubs_interfaces" );
 
-        sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
-      }
+            sdwankpimetricrecord_source.set_kpi_metrics_lesser_diff(sdwan_kpi_metrics_diff_source);
+        }
     }
     SDWANKPIMetrics::Send(sdwankpimetricrecord_source,"ObjectCPETable");
     SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
