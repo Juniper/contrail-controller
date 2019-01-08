@@ -121,6 +121,7 @@ class LinuxSysData(object):
             return [self._get_corefile_path() + '/' + core
                     for core in corenames.split() if core not in exception_set]
 
+
     def remove_corefiles(self, core_files):
         for core_file in core_files:
             self.msg_log('deleting core file: %s' % (core_file),
