@@ -25,7 +25,7 @@ class AnalyticsDatabaseEventManager(EventManager):
         self.cassandra_mgr = CassandraManager(
             config.cassandra_repair_logdir, 'analytics', table,
             config.hostip, config.minimum_diskgb,
-            config.db_port, config.db_jmx_port,
+            config.db_port, config.db_jmx_port, config.db_use_ssl,
             config.db_user, config.db_password,
             self.process_info_manager)
 
