@@ -95,8 +95,12 @@ def parse_args(args_str=None):
         'reset_config': None,
         'old_cassandra_user': None,
         'old_cassandra_password': None,
+        'old_cassandra_use_ssl': False,
+        'old_cassandra_ca_certs': None,
         'new_cassandra_user': None,
         'new_cassandra_password': None,
+        'new_cassandra_use_ssl': False,
+        'new_cassandra_ca_certs': None,
         'old_cassandra_address_list': '10.84.24.35:9160',
         'old_zookeeper_address_list': '10.84.24.35:2181',
         'old_rabbit_address_list': '10.84.24.35',
@@ -177,6 +181,18 @@ def parse_args(args_str=None):
     parser.add_argument(
         "--new_cassandra_password",
         help="New Cassandra passwd")
+    parser.add_argument(
+        "--old_cassandra_use_ssl",
+        help="Old Cassandra use ssl flag")
+    parser.add_argument(
+        "--old_cassandra_ca_certs",
+        help="Old Cassandra CA certs file path")
+    parser.add_argument(
+        "--new_cassandra_use_ssl",
+        help="New Cassandra use ssl flag")
+    parser.add_argument(
+        "--new_cassandra_ca_certs",
+        help="New Cassandra CA certs file path")
     parser.add_argument(
         "--old_rabbit_address_list",
         help="Old RMQ addresses")
