@@ -507,12 +507,11 @@ class PhysicalRouterDM(DBBaseDM):
         vn_uuid = DataCenterInterconnectDM.dci_network.uuid
         new_dci_ip_set = set()
         for dci_info in self.get_lr_dci_map():
-            from_lr = dci_info.get("from")
             dci_uuid = dci_info.get("dci")
             dci = DataCenterInterconnectDM.get(dci_uuid)
             if not dci:
                 continue
-            key = from_lr + ":" + dci_uuid
+            key = self.uuid + ":" + dci_uuid
             new_dci_ip_set.add(key)
         old_set = set(self.dci_ip_map.keys())
         delete_set = old_set.difference(new_dci_ip_set)
@@ -521,17 +520,14 @@ class PhysicalRouterDM(DBBaseDM):
             ret = self.free_ip(vn_uuid, self.dci_ip_map[dci_id])
             if ret == False:
                 self._logger.error("Unable to free ip for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
 
-            ret = self._object_db.delete_dci_ip(
-                       self.uuid + ':' + dci_id)
+            ret = self._object_db.delete_dci_ip(dci_id)
             if ret == False:
                 self._logger.error("Unable to free ip from db for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 continue
 
             self._object_db.delete_from_pr_dci_map(self.uuid, dci_id)
@@ -547,22 +543,19 @@ class PhysicalRouterDM(DBBaseDM):
             ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 continue
-            ret = self._object_db.add_dci_ip(self.uuid + ':' + dci_id,
+            ret = self._object_db.add_dci_ip(dci_id,
                                          ip_addr)
             if ret == False:
                 self._logger.error("Unable to store ip for dci/pr "
-                                   "(%s/%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 if self.free_ip(vn_uuid, ip_addr) == False:
                     self._logger.error("Unable to free ip for dci/pr "
-                                       "(%s/%s)" % (
-                        dci_id,
-                        self.uuid))
+                                       "(%s)" % (
+                        dci_id))
                 continue
             self._object_db.add_to_pr_dci_map(self.uuid, dci_id)
             self.dci_ip_map[dci_id] = ip_addr
@@ -2675,8 +2668,8 @@ class DMCassandraDB(VncObjectDBClient):
     def delete_from_pr_dci_map(self, pr_uuid, dci_key):
         if pr_uuid in self.pr_dci_ip_map:
             self.pr_dci_ip_map[pr_uuid].remove((dci_key))
-            if not self.pr_dci_ip_map[pr_key]:
-                del self.pr_dci_ip_map[pr_key]
+            if not self.pr_dci_ip_map[pr_uuid]:
+                del self.pr_dci_ip_map[pr_uuid]
     # end
 
     def delete_pr(self, pr_uuid):
