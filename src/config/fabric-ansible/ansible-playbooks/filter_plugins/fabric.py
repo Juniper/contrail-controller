@@ -15,7 +15,7 @@ import uuid
 from netaddr import IPNetwork
 import jsonschema
 
-from job_manager.job_utils import JobVncApi
+from job_manager.job_utils import JobVncApi, JobAnnotations
 
 from cfgm_common.exceptions import (
     RefsExistError,
@@ -657,6 +657,12 @@ class FilterModule(object):
             fabric_info.get('node_profiles')
         )
 
+        # add fabric annotations
+        self._add_fabric_annotations(
+            vnc_api,
+            fabric_obj
+        )
+
         return fabric_obj
     # end onboard_fabric
 
@@ -996,6 +1002,23 @@ class FilterModule(object):
         _task_done()
         return network
     # end _add_fabric_vn
+
+    def _add_fabric_annotations(self, vnc_api, fabric_obj):
+        job_template_fqname = ['default-global-system-config', 'hitless_upgrade_strategy_template']
+        ja = JobAnnotations(vnc_api)
+        def_job_input = ja.generate_default_json(job_template_fqname)
+        ja.cache_job_input(fabric_obj.uuid, job_template_fqname[-1],
+                           def_job_input)
+
+    # def _add_fabric_annotations(self, vnc_api, fabric_obj):
+    #     #job_template_fqname = ['default-global-system-config', 'hitless_upgrade_strategy_template']
+    #     jt_refs = vnc_api.job_templates_list().get('job-templates')
+    #     for jt_ref in jt_refs:
+    #         job_template_fqname = jt_ref.get('fq_name')
+    #         ja = JobAnnotations(vnc_api)
+    #         def_job_input = ja.generate_default_json(job_template_fqname)
+    #         ja.cache_job_input(fabric_obj.uuid, job_template_fqname[-1],
+    #                            def_job_input)
 
     # ***************** delete_fabric filter **********************************
     def delete_fabric(self, job_ctx):

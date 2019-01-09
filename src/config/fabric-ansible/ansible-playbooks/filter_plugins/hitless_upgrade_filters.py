@@ -12,11 +12,8 @@ import json
 import traceback
 import logging
 import argparse
-from jsonschema import Draft4Validator, validators
-from vnc_api.gen.resource_xsd import (
-    KeyValuePairs,
-    KeyValuePair
-)
+import copy
+from job_manager.job_utils import JobAnnotations
 
 from vnc_api.vnc_api import VncApi
 #import sys
@@ -89,8 +86,9 @@ class FilterModule(object):
             self.fabric_uuid = self.job_input['fabric_uuid']
             self.vncapi = FilterModule._init_vnc_api(job_ctx)
             self.job_ctx = job_ctx
-            self._cache_job_input()
+            self.ja = JobAnnotations(self.vncapi)
             self.advanced_parameters = self._get_advanced_params()
+            self._cache_job_input()
             self.batch_limit = self.advanced_parameters.get(
                 'bulk_device_upgrade_count')
             self.image_upgrade_list = image_upgrade_list
@@ -107,84 +105,23 @@ class FilterModule(object):
             }
     # end get_hitless_upgrade_plan
 
-    # Extension to populate default values when creating JSON data from schema
-    def _extend_with_default(self, validator_class):
-        validate_properties = validator_class.VALIDATORS["properties"]
-        def set_defaults(validator, properties, instance, schema):
-            for property, subschema in properties.iteritems():
-                if "default" in subschema:
-                    instance.setdefault(property, subschema["default"])
-            for error in validate_properties(
-                    validator, properties, instance, schema):
-                yield error
-        return validators.extend(
-            validator_class, {"properties" : set_defaults},
-        )
-    # end _extend_with_default
-
-    # Generate default json object given the schema
-    def _generate_default_json(self, input_schema):
-        return_json = {}
-        default_validator = self._extend_with_default(Draft4Validator)
-        default_validator(input_schema).validate(return_json)
-        return return_json
-    # end _generate_default_json
-
-    # Generate default advanced parameters
-    def _generate_default_advanced_params(self):
-        job_template_fqname = self.job_ctx.get('job_template_fqname')
-        job_template_obj = self.vncapi.job_template_read(
-            fq_name=job_template_fqname)
-        input_schema = job_template_obj.get_job_template_input_schema()
-        def_json = self._generate_default_json(input_schema)
-        return def_json.get("advanced_parameters")
-    # end _generate_default_advanced_params
-
-    # Store advanced parameters to database
-    def _store_default_advanced_params(self, fabric_obj, adv_param_cfg):
-        # For now, use fabric object to store advanced params
-        fabric_obj.set_annotations(KeyValuePairs([
-            KeyValuePair(key='hitless_upgrade_input',
-                         value=json.dumps(adv_param_cfg))]))
-        self.vncapi.fabric_update(fabric_obj)
-    # end _store_default_advanced_params
-
-    # Get advanced parameters from database
-    def _get_advanced_param_config(self):
-        # read advanced params from fabric object
-        hitless_upgrade_input = {}
-        fabric_obj = self.vncapi.fabric_read(self.fabric_uuid)
-        annotations = fabric_obj.get_annotations()
-        if annotations:
-            kvp = annotations.key_value_pair
-            annot_list = [item.value for item in kvp if item.key == 'hitless_upgrade_input']
-            job_input = json.loads(annot_list[0])
-            hitless_upgrade_input = job_input.get('advanced_parameters') if len(annot_list) else {}
-        # if params are stored on fabric object already, return
-        if hitless_upgrade_input:
-            input_json = json.loads(hitless_upgrade_input)
-            adv_param_cfg = input_json.get('advanced_parameters')
-        # Otherwise create and store defaults
-        else:
-            adv_param_cfg = self._generate_default_advanced_params()
-            self._store_default_advanced_params(fabric_obj, adv_param_cfg)
-        return adv_param_cfg
-    # end _get_advanced_param_config
-
     # Get any advanced parameters from job input to override defaults
     def _get_advanced_params(self):
-        adv_params = self._generate_default_advanced_params()
+        job_template_fqname = self.job_ctx.get('job_template_fqname')
+        def_json = self.ja.generate_default_json(job_template_fqname)
+        adv_params = def_json.get("advanced_parameters")
         job_input_adv_params = self.job_input.get('advanced_parameters',{})
-        adv_params.update(job_input_adv_params)
+        adv_params = self.ja.dict_update(adv_params, job_input_adv_params)
         return adv_params
+    # end _get_advanced_params
 
     # Store the job input on the fabric object for UI to retrieve later
     def _cache_job_input(self):
-        fabric_obj = self.vncapi.fabric_read(id=self.fabric_uuid)
-        fabric_obj.set_annotations(KeyValuePairs([
-            KeyValuePair(key='hitless_upgrade_input',
-                         value=json.dumps(self.job_input))]))
-        self.vncapi.fabric_update(fabric_obj)
+        job_input = copy.deepcopy(self.job_input)
+        job_input.update({"advanced_parameters": self.advanced_parameters})
+        self.ja.cache_job_input(self.fabric_uuid,
+                                self.job_ctx.get('job_template_fqname')[-1],
+                                job_input)
     # end _cache_job_input
 
     # Main routine to generate an upgrade plan
