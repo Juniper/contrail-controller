@@ -22,6 +22,7 @@ except ImportError:
     import cgitb as vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 import pycassa
+import pycassa.connection
 import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
@@ -289,7 +290,7 @@ def _parse_args(args_str):
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + __version__)
     parser.add_argument('operation', help=format_help())
-    help = "Path to contrail-api conf file, default /etc/contrail-api.conf"
+    help = "Path to contrail-api conf file, default /etc/contrail/contrail-api.conf"
     parser.add_argument(
         "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
     parser.add_argument(
@@ -358,6 +359,10 @@ class DatabaseManager(object):
                 'username': self._api_args.cassandra_user,
                 'password': self._api_args.cassandra_password,
             }
+        socket_factory = pycassa.connection.default_socket_factory
+        if self._api_args.cassandra_use_ssl:
+            socket_factory = pycassa.connection.make_ssl_socket_factory(
+                self._api_args.cassandra_ca_certs, validate=False)
         for ks_name, cf_name_list in self._db_info:
             if cluster_id:
                 full_ks_name = '%s_%s' % (cluster_id, ks_name)
@@ -366,7 +371,8 @@ class DatabaseManager(object):
             pool = pycassa.ConnectionPool(
                 keyspace=full_ks_name,
                 server_list=self._cassandra_servers,
-                prefill=False, credentials=self.creds)
+                prefill=False, credentials=self.creds,
+                socket_factory=socket_factory)
             for cf_name in cf_name_list:
                 self._cf_dict[cf_name] = pycassa.ColumnFamily(
                     pool, cf_name, read_consistency_level=rd_consistency)

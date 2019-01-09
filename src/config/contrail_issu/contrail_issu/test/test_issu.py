@@ -13,7 +13,6 @@ from test_utils import *
 import test_common
 import test_case
 from test_policy import VerifyPolicy
-from issu_contrail_common import ICCassandraClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import logging
 from flexmock import flexmock
@@ -111,7 +110,7 @@ class TestIssu(test_case.STTestCase, VerifyPolicy):
         vnp = VirtualNetworkPolicyType(seq)
         vn3_obj.set_network_policy(np, vnp)
         vn4_obj.set_network_policy(np, vnp)
-        
+
         self._vnc_lib.virtual_network_create(vn3_obj)
         self._vnc_lib.virtual_network_create(vn4_obj)
 
@@ -123,8 +122,8 @@ class TestIssu(test_case.STTestCase, VerifyPolicy):
         self.check_ri_ref_present(self.get_ri_name(vn4_obj),
                                   self.get_ri_name(vn3_obj))
     # end basic_issu_policy_post
-   
-    
+
+
     def test_issu_policy(self):
 
         self._api_server._db_conn._db_resync_done.wait()
@@ -155,7 +154,7 @@ class TestIssu(test_case.STTestCase, VerifyPolicy):
 
         ifmap_diff = set(_graph_v1.keys()) - set(_graph_v2.keys())
         if not ifmap_diff:
-            print "issu ut successful"       
+            print "issu ut successful"
 
 #end class TestIssu
 
