@@ -58,7 +58,9 @@ class DatabaseExim(object):
         self._cassandra = VncCassandraClient(
             self._api_args.cassandra_server_list, self._api_args.cluster_id,
             rw_keyspaces=ks_cf_info, ro_keyspaces=None, logger=self.log,
-            reset_config=False)
+            reset_config=False,
+            ssl_enabled=self._api_args.cassandra_use_ssl,
+            ca_certs=self._api_args.cassandra_ca_certs)
     # end init_cassandra
 
     def log(self, msg, level):
@@ -67,7 +69,7 @@ class DatabaseExim(object):
 
     def _parse_args(self, args_str):
         parser = argparse.ArgumentParser()
-  
+
         help="Path to contrail-api conf file, default /etc/contrail-api.conf"
         parser.add_argument(
             "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
