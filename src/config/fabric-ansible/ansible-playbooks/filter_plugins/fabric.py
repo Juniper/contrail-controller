@@ -15,7 +15,7 @@ import uuid
 from netaddr import IPNetwork
 import jsonschema
 
-from job_manager.job_utils import JobVncApi
+from job_manager.job_utils import JobVncApi, JobAnnotations
 
 from cfgm_common.exceptions import (
     RefsExistError,
@@ -302,7 +302,7 @@ class FilterModule(object):
                 }
             ]
 
-        return job_input
+        return job_input, job_template_fqname
     # end _validate_job_ctx
 
     @staticmethod
@@ -439,10 +439,11 @@ class FilterModule(object):
         """
         try:
             vnc_api = FilterModule._init_vnc_api(job_ctx)
-            fabric_info = FilterModule._validate_job_ctx(
+            fabric_info, job_template_fqname = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, False
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, True)
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, True,
+                                              job_template_fqname)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -506,10 +507,11 @@ class FilterModule(object):
         """
         try:
             vnc_api = FilterModule._init_vnc_api(job_ctx)
-            fabric_info = FilterModule._validate_job_ctx(
+            fabric_info, job_template_fqname = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, True
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, False)
+            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, False,
+                                              job_template_fqname)
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
@@ -528,7 +530,7 @@ class FilterModule(object):
             }
     # end onboard_existing_fabric
 
-    def _onboard_fabric(self, vnc_api, fabric_info, ztp):
+    def _onboard_fabric(self, vnc_api, fabric_info, ztp, job_template_fqname):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: Dictionary
@@ -536,6 +538,14 @@ class FilterModule(object):
         :return: <vnc_api.gen.resource_client.Fabric>
         """
         fabric_obj = self._create_fabric(vnc_api, fabric_info, ztp)
+
+        # add fabric annotations
+        self._add_fabric_annotations(
+            vnc_api,
+            fabric_obj,
+            job_template_fqname,
+            fabric_info
+        )
 
         # management network
         mgmt_subnets = [
@@ -691,6 +701,7 @@ class FilterModule(object):
         :param fabric_info: dynamic object from job input schema via
                             python_jsonschema_objects
         :param ztp: set to True if fabric is to be ZTPed
+        :param job_template_fqname: job template fqname
         :return: <vnc_api.gen.resource_client.Fabric>
         """
         fq_name = fabric_info.get('fabric_fq_name')
@@ -996,6 +1007,26 @@ class FilterModule(object):
         _task_done()
         return network
     # end _add_fabric_vn
+
+    def _add_fabric_annotations(self, vnc_api, fabric_obj,
+                                onboard_job_template_fqname, job_input):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        """
+        # First add default annotations for all job templates
+        jt_refs = vnc_api.job_templates_list().get('job-templates')
+        ja = JobAnnotations(vnc_api)
+        for jt_ref in jt_refs:
+            job_template_fqname = jt_ref.get('fq_name')
+            def_job_input = ja.generate_default_json(job_template_fqname)
+            ja.cache_job_input(fabric_obj.uuid, job_template_fqname[-1],
+                               def_job_input)
+
+        # Now update the fabric onboarding annotation with the current
+        # job input
+        ja.cache_job_input(fabric_obj.uuid, onboard_job_template_fqname[-1],
+                           job_input)
 
     # ***************** delete_fabric filter **********************************
     def delete_fabric(self, job_ctx):
