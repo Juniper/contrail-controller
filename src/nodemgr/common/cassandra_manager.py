@@ -18,7 +18,7 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_owner, table,
-                 hostip, minimum_diskgb, db_port, db_jmx_port,
+                 hostip, minimum_diskgb, db_port, db_jmx_port, db_use_ssl,
                  db_user, db_password, process_info_manager):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_owner = db_owner
@@ -28,6 +28,7 @@ class CassandraManager(object):
         self.minimum_diskgb = minimum_diskgb
         self.db_port = db_port
         self.db_jmx_port = db_jmx_port
+        self.db_use_ssl = db_use_ssl
         self.db_user = db_user
         self.db_password = db_password
         self.process_info_manager = process_info_manager
@@ -182,11 +183,12 @@ class CassandraManager(object):
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE_NA
 
         # just check connectivity
+        cqlsh_cmd = "cqlsh"
+        if self.db_use_ssl:
+            cqlsh_cmd += " --ssl --cqlshrc /etc/contrail/cqlshrc"
         if (self.db_user and self.db_password):
-            cqlsh_cmd = "cqlsh -u {} -p {} {} {} -e quit".format(
-                self.db_user, self.db_password, self.hostip, self.db_port)
-        else:
-            cqlsh_cmd = "cqlsh {} {} -e quit".format(self.hostip, self.db_port)
+            cqlsh_cmd += " -u {} -p {}".format(self.db_user, self.db_password)
+        cqlsh_cmd = +" {} {} -e quit".format(self.hostip, self.db_port)
         try:
             self.exec_cmd(cqlsh_cmd)
             event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_SERVER_PORT

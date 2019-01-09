@@ -9,11 +9,13 @@ import logging
 
 
 class ICCassandraInfo():
-    def __init__(self, addr_info, user, password, db_prefix,
-                 issu_info, keyspace_info, logger):
+    def __init__(self, addr_info, user, password, use_ssl, ca_certs,
+                 db_prefix, issu_info, keyspace_info, logger):
         self.addr_info = addr_info
         self.user = user
         self.password = password
+        self.use_ssl = use_ssl
+        self.ca_certs = ca_certs
         self.db_prefix = db_prefix
         self.issu_info = issu_info
         self.keyspace_info = keyspace_info
@@ -29,11 +31,17 @@ class ICCassandraClient():
 
     def __init__(self, oldversion_server_list, newversion_server_list,
                  old_user, old_password, new_user, new_password,
-                 odb_prefix, ndb_prefix, issu_info, logger):
+                 odb_use_ssl, odb_ca_certs, ndb_use_ssl, ndb_ca_certs,
+                 odb_prefix, ndb_prefix,
+                 issu_info, logger):
         self._oldversion_server_list = oldversion_server_list
         self._newversion_server_list = newversion_server_list
         self._odb_prefix = odb_prefix
         self._ndb_prefix = ndb_prefix
+        self._odb_use_ssl = odb_use_ssl
+        self._odb_ca_certs = odb_ca_certs
+        self._ndb_use_ssl = ndb_use_ssl
+        self._ndb_ca_certs = ndb_ca_certs
         self._issu_info = issu_info
         self._logger = logger
         self._ks_issu_func_info = {}
@@ -81,12 +89,16 @@ class ICCassandraClient():
         self._oldversion_handle = VncCassandraClient(
             self._oldversion_server_list, self._odb_prefix,
             None, self._okeyspaces, self._logger,
-            credential=self._old_creds)
+            credential=self._old_creds,
+            ssl_enabled=self._odb_use_ssl,
+            ca_certs=self._odb_ca_certs)
 
         self._newversion_handle = VncCassandraClient(
             self._newversion_server_list, self._ndb_prefix,
             self._nkeyspaces, None, self._logger,
-            credential=self._new_creds)
+            credential=self._new_creds,
+            ssl_enabled=self._ndb_use_ssl,
+            ca_certs=self._ndb_ca_certs)
     # end
 
     def _fetch_issu_func(self, ks):
