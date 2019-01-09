@@ -5,7 +5,6 @@
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from issu_contrail_common import ICCassandraClient
-from issu_contrail_common import ICCassandraInfo
 import logging
 import issu_contrail_config
 
@@ -27,6 +26,8 @@ def _issu_cassandra_post_sync_main():
         args.new_cassandra_address_list,
         args.old_cassandra_user, args.old_cassandra_password,
         args.new_cassandra_user, args.new_cassandra_password,
+        args.old_cassandra_use_ssl, args.old_cassandra_ca_certs,
+        args.new_cassandra_use_ssl, args.new_cassandra_ca_certs,
         args.odb_prefix, args.ndb_prefix,
         issu_contrail_config.issu_info_post, issu_contrail_config.logger)
     issu_cass_post.issu_merge_copy(
