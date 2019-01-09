@@ -9,6 +9,12 @@ import random
 from enum import Enum
 import json
 import traceback
+import collections
+from jsonschema import Draft4Validator, validators
+from vnc_api.gen.resource_xsd import (
+    KeyValuePairs,
+    KeyValuePair
+)
 
 from vnc_api.vnc_api import VncApi
 
@@ -75,3 +81,65 @@ class JobUtils(object):
             raise JobException(msg, self._job_execution_id)
         return job_template
 
+
+class JobAnnotations(object):
+
+    def __init__(self, vnc_api):
+        self.vncapi = vnc_api
+
+    skip_validators = ['required', 'minProperties', 'maxProperties']
+
+    # Extension to populate default values when creating JSON data from schema
+    def _extend_with_default(self, validator_class):
+        validate_properties = validator_class.VALIDATORS["properties"]
+        def set_defaults(validator, properties, instance, schema):
+            for property, subschema in properties.iteritems():
+                if "default" in subschema:
+                    instance.setdefault(property, subschema["default"])
+            for error in validate_properties(
+                    validator, properties, instance, schema):
+                yield error
+        extended_validators = validators.extend(
+            validator_class, {"properties" : set_defaults},
+        )
+        VALIDATORS = extended_validators.VALIDATORS
+        for _validator in self.skip_validators:
+            if VALIDATORS.get(_validator):
+                del(VALIDATORS[_validator])
+        return extended_validators
+    # end _extend_with_default
+
+    # Generate default json object given the schema
+    def _generate_default_schema_json(self, input_schema):
+        return_json = {}
+        default_validator = self._extend_with_default(Draft4Validator)
+        default_validator(input_schema).validate(return_json)
+        return return_json
+    # end _generate_default_schema_json
+
+    # Generate default json given the job template
+    def generate_default_json(self, job_template_fqname):
+        job_template_obj = self.vncapi.job_template_read(
+            fq_name=job_template_fqname)
+        input_schema = job_template_obj.get_job_template_input_schema()
+        return self._generate_default_schema_json(input_schema)
+    # end _generate_default_json
+
+    # Recursive update of nested dict
+    def dict_update(self, d, u):
+        for k, v in u.iteritems():
+            if isinstance(v, collections.Mapping):
+                d[k] = self.dict_update(d.get(k, {}), v)
+            else:
+                d[k] = v
+        return d
+    # end dict_update
+
+    # Store the job input on the fabric object for UI to retrieve later
+    def cache_job_input(self, fabric_uuid, job_template_name, job_input):
+        fabric_obj = self.vncapi.fabric_read(id=fabric_uuid)
+        fabric_obj.add_annotations(
+            KeyValuePair(key=job_template_name,
+                         value=json.dumps(job_input)))
+        self.vncapi.fabric_update(fabric_obj)
+    # end _cache_job_input
