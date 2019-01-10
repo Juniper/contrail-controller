@@ -9,6 +9,8 @@
 #include <bgp_router.h>
 #include <config_manager.h>
 
+#define INET_LABELED "inet-labeled"
+
 ////////////////////////////////////////////////////////////////////////////////
 // ControlNodeZone routines
 ////////////////////////////////////////////////////////////////////////////////
@@ -26,12 +28,19 @@ ControlNodeZone::~ControlNodeZone() {
 ////////////////////////////////////////////////////////////////////////////////
 BgpRouter::BgpRouter(const std::string &name,
                      const std::string &ipv4_address,
-                     const uint32_t &port) :
-    name_(name), port_(port) {
+                     const uint32_t &port, autogen::BgpRouterParams &params) :
+    name_(name), port_(port) ,params_(params) {
     boost::system::error_code ec;
     ipv4_address_ = Ip4Address::from_string(ipv4_address, ec);
     if (ec.value() != 0) {
         ipv4_address_ = Ip4Address();
+    }
+    if ( std::find(params.address_families.begin(),
+                params.address_families.end(), INET_LABELED) !=
+            params.address_families.end() ) {
+        inet_labeled_af_enable_ = true;
+    } else {
+        inet_labeled_af_enable_ = false;
     }
 }
 
@@ -49,6 +58,17 @@ void BgpRouter::set_control_node_zone_name(
         const std::string &control_node_zone_name) {
     control_node_zone_name_ = control_node_zone_name;
 }
+ 
+void BgpRouter::set_inet_labeled_af(const autogen::BgpRouterParams params) {
+    if ( std::find(params.address_families.begin(),
+                params.address_families.end(), INET_LABELED) !=
+            params.address_families.end() ) {
+        inet_labeled_af_enable_ = true;
+    } else {
+        inet_labeled_af_enable_ = false;
+    }
+}
+
 
 BgpRouter::~BgpRouter() {
 }
@@ -57,7 +77,7 @@ BgpRouter::~BgpRouter() {
 // BgpRouterConfig routines
 ////////////////////////////////////////////////////////////////////////////////
 BgpRouterConfig::BgpRouterConfig(Agent *agent) :
-    OperIFMapTable(agent) {
+    OperIFMapTable(agent), inet_labeled_af_enabled_(false) {
 }
 
 BgpRouterPtr BgpRouterConfig::GetBgpRouterFromIpAddress(
@@ -176,6 +196,28 @@ void BgpRouterConfig::UpdateControlNodeZoneConfig(IFMapNode *bgp_router_node,
     }
 }
 
+void BgpRouterConfig::UpdateBgpRouterConfigAf(void) { 
+    bool inet_labeled_flag = false;
+    BgpRouterPtr entry;
+    BgpRouterTree::const_iterator it = bgp_router_tree_.begin();
+    while (it != bgp_router_tree_.end()) {
+        entry = it->second;
+        if (entry->get_inet_labeled_af()) {
+            inet_labeled_flag = true;
+            break;
+        }
+        it++;
+    }
+
+    if (inet_labeled_af_enabled_ != inet_labeled_flag) {
+        inet_labeled_af_enabled_ = inet_labeled_flag;
+        agent()->set_inet_labeled_flag(inet_labeled_af_enabled_);
+
+    }
+}
+
+
+
 void BgpRouterConfig::ConfigAddChange(IFMapNode *node) {
     if (node->IsDeleted())
         return;
@@ -194,12 +236,15 @@ void BgpRouterConfig::ConfigAddChange(IFMapNode *node) {
     if (it != bgp_router_tree_.end()) {
         entry = it->second;
         entry->set_ip_address_port(params.address, params.port);
+        entry->set_inet_labeled_af(params);
     } else {
         BgpRouterPtr bgp_router(
-            new BgpRouter(name, params.address, params.port));
+            new BgpRouter(name, params.address, params.port, params));
         entry = bgp_router;
         bgp_router_tree_.insert(std::make_pair(name, entry));
     }
+    //TODO: optimize calling this function 
+    UpdateBgpRouterConfigAf();
     UpdateControlNodeZoneConfig(node, entry);
 
     return;

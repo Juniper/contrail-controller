@@ -163,6 +163,6 @@ extern SandeshTraceBufferPtr PktFlowTraceBuf;
 #define PKTFLOW_TRACE(obj, ...)\
 do {\
     PktFlow##obj::TraceMsg(PktFlowTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(false);\
+} while (false)
 
 #endif // vnsw_agent_flow_proto_hpp

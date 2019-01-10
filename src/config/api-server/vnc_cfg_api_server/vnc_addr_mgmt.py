@@ -223,11 +223,11 @@ class Subnet(object):
                 raise AddrMgmtInvalidAllocPool(name, ip_pool)
 
         # check gw
-        if gw:
+        if gw and gw != 'None':
             try:
                 gw_ip = IPAddress(gw)
             except netaddr.core.AddrFormatError:
-                raise AddrMgmtInvalidGatewayIp(name, gw_ip)
+                raise AddrMgmtInvalidGatewayIp(name, gw)
 
         else:
             if subnetting:
@@ -240,7 +240,7 @@ class Subnet(object):
                     gw_ip = IPAddress(network.last - 1)
 
         # check service_address
-        if service_address:
+        if service_address and service_address != 'None':
             try:
                 service_node_address = IPAddress(service_address)
             except netaddr.core.AddrFormatError:

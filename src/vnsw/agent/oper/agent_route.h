@@ -211,13 +211,13 @@ private:
 #define OPER_TRACE_ROUTE(obj, ...)\
 do {\
    Oper##obj::TraceMsg(GetOperDBTraceBuf(), __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);\
+} while (false)
 
 #define OPER_TRACE_ROUTE_ENTRY(obj, table, ...)\
 do {\
    Oper##obj::TraceMsg(table->GetOperDBTraceBuf(),\
                        __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);\
+} while (false)
 
 // Base class for all Route entries in agent
 class AgentRoute : public Route {
@@ -327,6 +327,7 @@ protected:
     const AgentRouteTable *GetDependentRouteTable(void) const {
         return dependent_route_table_;
     }
+    virtual bool ValidateMcastSrc() const { return true; }
 
 private:
     friend class AgentRouteTable;
@@ -352,6 +353,6 @@ private:
 do {\
     AgentRouteLog::TraceMsg(table->GetOperDBTraceBuf(), __FILE__, __LINE__,\
                             msg, route, vrf, peer_info);\
-} while(false);\
+} while (false)
 
 #endif

@@ -24,6 +24,7 @@ import cgitb
 import gevent
 
 import pycassa
+import pycassa.connection
 from pycassa.system_manager import SystemManager
 import kazoo.client
 import kazoo.handlers.gevent
@@ -58,7 +59,9 @@ class DatabaseExim(object):
         self._cassandra = VncCassandraClient(
             self._api_args.cassandra_server_list, self._api_args.cluster_id,
             rw_keyspaces=ks_cf_info, ro_keyspaces=None, logger=self.log,
-            reset_config=False)
+            reset_config=False,
+            ssl_enabled=self._api_args.cassandra_use_ssl,
+            ca_certs=self._api_args.cassandra_ca_certs)
     # end init_cassandra
 
     def log(self, msg, level):
@@ -67,7 +70,7 @@ class DatabaseExim(object):
 
     def _parse_args(self, args_str):
         parser = argparse.ArgumentParser()
-  
+
         help="Path to contrail-api conf file, default /etc/contrail-api.conf"
         parser.add_argument(
             "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
@@ -182,9 +185,14 @@ class DatabaseExim(object):
                 full_ks_name = ks_name
             cassandra_contents[ks_name] = {}
 
+            socket_factory = pycassa.connection.default_socket_factory
+            if self._api_args.cassandra_use_ssl:
+                socket_factory = pycassa.connection.make_ssl_socket_factory(
+                    self._api_args.cassandra_ca_certs, validate=False)
             pool = pycassa.ConnectionPool(
                 full_ks_name, self._api_args.cassandra_server_list,
-                pool_timeout=120, max_retries=-1, timeout=5)
+                pool_timeout=120, max_retries=-1, timeout=5,
+                socket_factory=socket_factory)
 
             creds = None
             if (self._api_args.cassandra_user and

@@ -141,6 +141,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'db_jmx_port': '7199',
                'db_user': None,
                'db_password': None,
+               'db_use_ssl': False,
                'minimum_diskgb': 256,
                'corefile_path': '/var/crashes',
                'cassandra_repair_interval': 24,
@@ -219,6 +220,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="Cassandra DB cql username")
         parser.add_argument("--db_password",
                             help="Cassandra DB cql password")
+        parser.add_argument("--db_use_ssl",
+                            help="Cassandra DB behind SSL or not")
         parser.add_argument("--cassandra_repair_interval", type=int,
                             help="Time in hours to periodically run "
                             "nodetool repair for cassandra maintenance")
@@ -230,6 +233,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         print_usage_and_exit()
 
     _args.config_file_path = config_file_path
+    _args.db_use_ssl = (str(_args.db_use_ssl).lower() == 'true')
     # done parsing arguments
 
     # TODO: restore rule_file logic somehow if needed for microservices

@@ -386,7 +386,6 @@ bool DnsProto::SendUpdateDnsEntry(const VmInterface *vmitf,
 
     DnsItem ip6_item;
     if (!ip6.is_unspecified()) {
-        // TODO : not adding reverse record for IPv6 currently
         ip6_item.eclass = is_delete ? DNS_CLASS_NONE : DNS_CLASS_IN;
         ip6_item.type = DNS_AAAA_RECORD;
         ip6_item.ttl = is_delete ? 0 : vdns_type.default_ttl_seconds;
@@ -412,22 +411,36 @@ bool DnsProto::SendUpdateDnsEntry(const VmInterface *vmitf,
     // Add a PTR record as well
     DnsUpdateData *ptr_data = new DnsUpdateData();
     ptr_data->virtual_dns = vdns_name;
-    BindUtil::GetReverseZone(ip.to_ulong(), plen, ptr_data->zone);
+    BindUtil::GetReverseZone(ip, plen, ptr_data->zone);
 
     item.type = DNS_PTR_RECORD;
     item.data.swap(item.name);
-    std::stringstream str;
-    for (int i = 0; i < 4; i++) {
-        str << ((ip.to_ulong() >> (i * 8)) & 0xFF);
-        str << ".";
-    }
-    item.name = str.str() + "in-addr.arpa";
+    item.name = BindUtil::GetPtrNameFromAddr(ip);
     ptr_data->items.push_back(item);
 
     DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString() <<
                    " VDNS : " << ptr_data->virtual_dns <<
                    " Zone : " << ptr_data->zone);
     SendDnsUpdateIpc(ptr_data, DnsAgentXmpp::Update, vmitf, is_floating);
+
+    // Add a PTR record for IPv6, if present
+    if (!ip6.is_unspecified()) {
+        DnsUpdateData *ptr6_data = new DnsUpdateData();
+        ptr6_data->virtual_dns = vdns_name;
+        BindUtil::GetReverseZone(ip6, plen6, ptr6_data->zone);
+
+        ip6_item.type = DNS_PTR_RECORD;
+        ip6_item.data.swap(ip6_item.name);
+
+        ip6_item.name = BindUtil::GetPtrNameFromAddr(ip6);
+        ptr6_data->items.push_back(ip6_item);
+
+        DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << ip6_item.ToString() <<
+                " VDNS : " << ptr6_data->virtual_dns <<
+                " Zone : " << ptr6_data->zone);
+        SendDnsUpdateIpc(ptr6_data, DnsAgentXmpp::Update, vmitf, is_floating);
+    }
+
     return true;
 }
 

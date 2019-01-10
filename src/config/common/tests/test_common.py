@@ -7,6 +7,7 @@ gevent.monkey.patch_all()
 
 import logging
 import tempfile
+import mock
 from pprint import pformat
 import coverage
 import fixtures
@@ -66,7 +67,10 @@ except ImportError:
 
 try:
     import device_manager
-    if not hasattr(device_manager, 'main'):
+    if hasattr(device_manager, 'DeviceManager'):
+        import dm_server
+    else:
+        from device_manager import dm_server
         from device_manager import device_manager
 except ImportError:
     device_manager = 'device_manager could not be imported'
@@ -273,6 +277,12 @@ def destroy_api_server_instance_issu(server_info):
 
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
+    kombu_mock = mock.Mock()
+    kombu_patch = mock.patch(
+        'vnc_cfg_api_server.vnc_cfg_api_server.KombuAmqpClient')
+    kombu_init_mock = kombu_patch.start()
+    kombu_init_mock.side_effect = kombu_mock
+
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
@@ -333,7 +343,7 @@ def kill_schema_transformer(glet):
 
 def kill_device_manager(glet):
     glet.kill()
-    device_manager.DeviceManager.destroy_instance()
+    dm_server.sigterm_handler()
 
 def kill_kube_manager(glet):
     glet.kill()
@@ -368,6 +378,13 @@ def launch_schema_transformer(cluster_id, test_id, api_server_ip,
 
 def launch_device_manager(test_id, api_server_ip, api_server_port,
                           conf_sections=None):
+
+    kombu_mock = mock.Mock()
+    kombu_patch = mock.patch(
+        'device_manager.dm_server.KombuAmqpClient')
+    kombu_init_mock = kombu_patch.start()
+    kombu_init_mock.side_effect = kombu_mock
+
     wait_for_device_manager_down()
     allocated_sockets = []
     args_str = ""
@@ -385,9 +402,9 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
             cfg_parser.write(conf)
             conf.flush()
             args_str = args_str + "--conf_file %s " % conf.name
-            device_manager.main(args_str)
+            dm_server.main(args_str)
     else:
-        device_manager.main(args_str)
+        dm_server.main(args_str)
 
 # end launch_device_manager
 

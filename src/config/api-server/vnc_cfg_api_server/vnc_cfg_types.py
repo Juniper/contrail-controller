@@ -833,43 +833,74 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
         return True, ''
 
+    @staticmethod
+    def _find_dci_ipam(fq_name, ipam_refs):
+        if not ipam_refs:
+            return None
+        for ref in ipam_refs or []:
+            if ref.get('to') == fq_name:
+                return ref
+        return None
+
     @classmethod
-    def _create_dci_lo0_network_ipam(cls, db_conn, subnetList):
+    def _create_dci_lo0_network_ipam(cls, subnet_list):
+        db_conn = cls.db_conn
+        obj_type = 'network-ipam'
         vn_fq_name = cfgm_common.DCI_VN_FQ_NAME
         vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        ok, res = cls.dbe_read(db_conn, 'virtual_network', vn_id)
+        ok, res = cls.dbe_read(db_conn, 'virtual_network', vn_id,
+                                      obj_fields=['network_ipam_refs'])
         if not ok:
             return ok, res
-        ipam_refs = res['virtual-network'].get('network_ipam_refs')
-        ipam_obj = None
-        if ipam_refs:
-            ok, ipam_obj = cls.dbe_read(db_conn, 'network_ipam', ipam_refs[0].get("uuid"))
-            if not ok:
-                return ok, ipam_obj
-        is_create = False
-        if not ipam_obj:
-            ipam = NetworkIpam('default-dci-lo0-network-ipam')
-            ipam_dict = json.dumps(ipam, default=_obj_serializer_all)
-            ok, ipam_obj = api_server.internal_request_create('network-ipam',
-                                                        json.loads(ipam_dict))
-            if not ok:
-                return ok, ipam_obj
-            is_create = True
 
-        ipamList = []
-        if subnetList and subnetList.get("subnet"):
-            subList = subnetList.get("subnet")
-            for sub in subList or []:
-                ipamSub = IpamSubnetType(SubnetType(sub.get("ip_prefix"), sub.get("ip_prefix_len")))
-                ipamList.append(ipamSub)
+        ipam_fq = cfgm_common.DCI_IPAM_FQ_NAME
+
+        # find ipam object if created already
+        ipam_ref = cls._find_dci_ipam(ipam_fq, res.get('network_ipam_refs'))
+        ipam_uuid = None
+        if ipam_ref:
+            try:
+                ipam_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq)
+            except cfgm_common.exceptions.NoIdError as e:
+                return (False, str(e))
+
+        is_create = False
+        api_server = cls.server
+
+        # create ipam object for the first time
+        if not ipam_uuid:
+            ipam = NetworkIpam(ipam_fq[-1])
+            ipam_dict = json.dumps(ipam, default=_obj_serializer_all)
+            ipam_obj = None
+            try:
+                ok, ipam_obj = api_server.internal_request_create(obj_type,
+                                                        json.loads(ipam_dict))
+            except cfgm_common.exceptions.HttpError as e:
+                return False, (e.status_code, e.content)
+
+            is_create = True
+            ipam_obj = ipam_obj.get(obj_type)
+            ipam_uuid = ipam_obj.get('uuid')
+
+        # build ipam subnets
+        ipam_list = []
+        if subnet_list and subnet_list.get("subnet"):
+            sub_list = subnet_list.get("subnet")
+            for sub in sub_list or []:
+                ipam_sub = IpamSubnetType(subnet=SubnetType(sub.get("ip_prefix"), sub.get("ip_prefix_len")))
+                ipam_list.append(ipam_sub)
+
         # update ipam
-        attr = VnSubnetsType(ipamList)
-        attr_dict = attr.__dict__
-        api_server = db_conn.get_api_server()
+        attr = VnSubnetsType(ipam_subnets=ipam_list)
+        attr_dict = json.loads(json.dumps(attr, default=_obj_serializer_all))
         op = 'ADD'
-        api_server.internal_request_ref_update('virtual-network', vn_id, op,
-                                               'network-ipam', ipam_obj['network-ipam']['uuid'],
-                                               ipam_obj['network-ipam']['fq_name'], attr=attr_dict)
+        try:
+            api_server.internal_request_ref_update('virtual-network', vn_id, op,
+                                               obj_type, ipam_uuid,
+                                               ipam_fq, attr=attr_dict)
+        except cfgm_common.exceptions.HttpError as e:
+            return False, (e.status_code, e.content)
+        return True, ''
     # end _create_dci_lo0_network_ipam
 
     @classmethod
@@ -877,15 +908,14 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         if 'autonomous_system' in obj_dict:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
-        if obj_dict.get('data_center_interconnect_loopback_namespace'):
-            ok, read_result = cls.dbe_read(db_conn, 'global_system_config', id)
-            if not ok:
-                return ok, read_result
-            if not cls._create_dci_lo0_network_ipam(db_conn,
-                     obj_dict.get('data_center_interconnect_loopback_namespace')):
-                return False, "failed to create/update network ipam for dci loopbacks"
+        if 'data_center_interconnect_loopback_namespace' not in obj_dict:
+            return True, ''
 
-        return True, ''
+        return cls._create_dci_lo0_network_ipam(
+                     obj_dict['data_center_interconnect_loopback_namespace'])
+    # end post_dbe_update
+
+# end GlobalSystemConfigServer
 
 
 class FloatingIpServer(Resource, FloatingIp):
@@ -1353,7 +1383,7 @@ class InstanceIpServer(Resource, InstanceIp):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        if 'virtual_network_refs' in obj_dict: 
+        if 'virtual_network_refs' in obj_dict:
             ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(
                 obj_dict['virtual_network_refs'][0]['to'])
             return ok, '', ip_free_args
@@ -1446,7 +1476,7 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        ok, result = cls.create_dci_vn_and_ref(obj_dict, db_conn)
+        ok, result = cls.create_dci_vn(obj_dict, db_conn)
         if not ok:
             return ok, result
 
@@ -1454,7 +1484,7 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
     # end post_dbe_create
 
     @classmethod
-    def create_dci_vn_and_ref(cls, obj_dict, db_conn):
+    def create_dci_vn(cls, obj_dict, db_conn):
         vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
         vn_obj = VirtualNetwork(name=vn_int_name)
         id_perms = IdPermsType(enable=True, user_visible=False)
@@ -1472,27 +1502,32 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
             vn_obj.set_route_target_list(RouteTargetList(rt_list))
 
         vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
-        api_server = db_conn.get_api_server()
-        status, obj = api_server.internal_request_create('virtual-network',
+        api_server = cls.server
+        try:
+            return api_server.internal_request_create('virtual-network',
                                                         json.loads(vn_int_dict))
-        api_server.internal_request_ref_update('data-center-interconnect', obj_dict['uuid'], 'ADD',
-                                               'virtual-network', obj['virtual-network']['uuid'],
-                                               obj['virtual-network']['fq_name'])
-        return True, ''
+        except cfgm_common.exceptions.HttpError as e:
+            return False, (e.status_code, e.content)
     # end create_dci_vn_and_ref
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        ok, proj_dict = cls.get_parent_project(obj_dict, db_conn)
-        vn_int_fqname = proj_dict.get('fq_name')
+        vn_int_fqname = ["default-domain", "default-project"]
         vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
         vn_int_fqname.append(vn_int_name)
         vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
 
-        api_server = db_conn.get_api_server()
-        api_server.internal_request_ref_update('data-center-interconnect', obj_dict['uuid'], 'DELETE',
+        api_server = cls.server
+        try:
+            api_server.internal_request_ref_update('data-center-interconnect', obj_dict['uuid'], 'DELETE',
                                                    'virtual-network', vn_int_uuid, vn_int_fqname)
-        api_server.internal_request_delete('virtual-network', vn_int_uuid)
+            api_server.internal_request_delete('virtual-network', vn_int_uuid)
+        except cfgm_common.exceptions.HttpError as e:
+            if e.status_code != 404:
+                return False, (e.status_code, e.content), None
+        except cfgm_common.exceptions.NoIdError as e:
+            pass
+
         def undo_dci_vn_delete():
             return cls.create_dci_vn_and_ref(obj_dict, db_conn)
         get_context().push_undo(undo_dci_vn_delete)
@@ -1500,144 +1535,72 @@ class DataCenterInterconnectServer(Resource, DataCenterInterconnect):
         return True,'',None
     # end pre_dbe_delete
 
-    @staticmethod
-    def _check_vxlan_id_in_dci(obj_dict):
-        if ('data_center_interconnect_vxlan_network_identifier' in obj_dict):
-            vxlan_network_identifier = obj_dict['data_center_interconnect_vxlan_network_identifier']
-            if(vxlan_network_identifier != 'None'
-                      and vxlan_network_identifier != None
-                      and vxlan_network_identifier != ''):
-                return vxlan_network_identifier
-            else:
-                obj_dict['data_center_interconnect_vxlan_network_identifier'] = None
-                return None
-        else:
-            return None
-    #end _check_vxlan_id_in_dci
-
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         # make sure referenced LRs belongs to different fabrics
-        if not cls._make_sure_lrs_belongs_to_different_fabrics(db_conn, obj_dict):
-            return False, "Each Logical Router should belong to different Fabric Physical Routers"
-
-        vxlan_id = cls._check_vxlan_id_in_dci(obj_dict)
-        if vxlan_id:
-            #If input vxlan_id is not None, that means we need to reserve it.
-            #First, check if vxlan_id is set for other fq_name
-            existing_fq_name = cls.vnc_zk_client.get_vn_from_id(int(vxlan_id))
-            if(existing_fq_name != None):
-                msg = 'Cannot set VXLAN_ID: %s, it has already been used' % vxlan_id
-                return False, (400, msg)
-
-            #Second, if vxlan_id is not None, set it in Zookeeper and set the
-            #undo function for when any failures happen later.
-            #But first, get the internal_vlan name using which the resource
-            #in zookeeper space will be reserved.
-
-            vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
-            vn_obj = VirtualNetwork(name=vn_int_name)
-            try:
-                vxlan_fq_name = ':'.join(vn_obj.fq_name) + '_vxlan'
-                #Now that we have the internal VN name, allocate it in zookeeper
-                #only if the resource hasn't been reserved already
-                cls.vnc_zk_client.alloc_vxlan_id(
-                      vxlan_fq_name,
-                      int(vxlan_id))
-            except cfgm_common.exceptions.ResourceExistsError as e:
-                msg = 'Cannot allocate VXLAN_ID: %s, it has already been used' % vxlan_id
-                return False, (400, msg)
-
-            def undo_vxlan_id():
-                cls.vnc_zk_client.free_vxlan_id(
-                   int(vxlan_id),
-                   vxlan_fq_name)
-                return True, ""
-            get_context().push_undo(undo_vxlan_id)
-        return True, ''
+        return cls._make_sure_lrs_belongs_to_different_fabrics(db_conn, obj_dict)
     # end pre_dbe_create
 
     @classmethod
     def _make_sure_lrs_belongs_to_different_fabrics(cls, db_conn, dci):
         lr_list = []
-        for lr_ref in dci['logical_router_refs']:
+        for lr_ref in dci.get('logical_router_refs') or []:
             lr_uuid = lr_ref.get('uuid')
             if lr_uuid:
                 lr_list.append(lr_uuid)
 
         if not lr_list:
-            return True
-        fab_list = []
+            return True, ''
+
         for lr_uuid in lr_list:
-            ok, read_result = cls.dbe_read(db_conn, 'logical_router', lr_uuid)
-            if ok:
-                for pr_ref in read_result['physical_router_refs']:
-                    pr_uuid = pr_ref.get('uuid')
-                    status, pr_result = cls.dbe_read(db_conn, 'physical_router', pr_uuid)
-                    if status and pr_result["fabric_refs"]:
-                        fab_id = pr_result["fabric_refs"][0].get('uuid')
-                        if fab_id in fab_list: 
-                            return False
-                        else:
-                            fab_list.append(fab_id)
-                            break
-        return True
+            ok, read_result = cls.dbe_read(db_conn, 'logical_router', lr_uuid,
+                    obj_fields=['physical_router_refs', 'data_center_interconnect_back_refs'])
+
+            if not ok:
+                return False, read_result
+            # check there are no more than one DCI back ref for this LR
+            # it is acceptable that dci object can associate with a lr,
+            # but lr not associated with any PRs yet
+            # make sure LR update should check for this association
+            if len(read_result.get('data_center_interconnect_back_refs') or []) > 1:
+                return False, (400, 'Logical router can not associate with'
+                                         ' more than one DCI: ' + lr_uuid)
+            if len(read_result.get('data_center_interconnect_back_refs') or []) == 1:
+                dci_ref = read_result.get('data_center_interconnect_back_refs')[0]
+                if dci.get('fq_name') != dci_ref.get('to'):
+                    return False, (400, 'Logical router can not associate with'
+                                                ' more than one DCI: ' + lr_uuid)
+            init_fab = None
+            for pr_ref in read_result.get('physical_router_refs') or []:
+                pr_uuid = pr_ref.get('uuid')
+                status, pr_result = cls.dbe_read(db_conn, 'physical_router',
+                                                     pr_uuid, obj_fields=['fabric_refs'])
+                if not status:
+                    return False, pr_result
+
+                if pr_result.get("fabric_refs"):
+                    # pr can be associated to only one Fabric, if not, many other system components will fail
+                    # fabric implementation must ensure this, no need to double check
+                    fab_id = pr_result["fabric_refs"][0].get('uuid')
+                    if init_fab and init_fab != fab_id:
+                        return False, (400, 'Logical router can not associate with PRs belonging '
+                                                  'to different DCI connected Fabrics: ' + lr_uuid)
+                    else:
+                        init_fab = fab_id
+            if not init_fab:
+                return False, (400, 'DCI Logical router is not associated to any fabric: ' + lr_uuid)
+        return True, ''
+    # end _make_sure_lrs_belongs_to_different_fabrics
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        ok, read_result = cls.dbe_read(db_conn, 'data_center_interconnect', id)
+        ok, read_result = cls.dbe_read(db_conn, 'data_center_interconnect',
+                                              id, obj_fields=['logical_router_refs'])
         if not ok:
             return ok, read_result
 
         # make sure referenced LRs belongs to different fabrics
-        if not cls._make_sure_lrs_belongs_to_different_fabrics(db_conn, read_result):
-            return False, "Each Logical Router should belong to different Fabric Physical Routers" 
-
-        if ('data_center_interconnect_vxlan_network_identifier' in obj_dict):
-            new_vxlan_id = None
-            old_vxlan_id = None
-            new_vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
-            #To get the current vxlan_id, read the LR from the DB
-
-            old_vxlan_id = cls._check_vxlan_id_in_dci(read_result)
-
-            if(new_vxlan_id != old_vxlan_id):
-                int_fq_name = None
-                for vn_ref in read_result['virtual_network_refs']:
-                    int_fq_name = vn_ref.get('to')
-                    break
-                if int_fq_name is None:
-                    msg = "DCI Internal VN FQ name not found"
-                    return False, (400, msg)
-                vxlan_fq_name = ':'.join(int_fq_name) + '_vxlan'
-                if(new_vxlan_id != None ):
-                    #First, check if the new_vxlan_id being updated exist for some other VN.
-                    new_vxlan_fq_name_in_db = cls.vnc_zk_client.get_vn_from_id(int(new_vxlan_id))
-                    if(new_vxlan_fq_name_in_db != None):
-                        if(new_vxlan_fq_name_in_db != vxlan_fq_name):
-                            msg = 'Cannot set VXLAN_ID: %s, it has already been used' % (new_vxlan_id)
-                            return (False, (400, msg))
-
-                    #Second, set the new_vxlan_id in Zookeeper.
-                    cls.vnc_zk_client.alloc_vxlan_id(
-                           vxlan_fq_name,
-                           int(new_vxlan_id))
-                    def undo_alloc():
-                        cls.vnc_zk_client.free_vxlan_id(
-                            int(old_vxlan_id), vxlan_fq_name)
-                    get_context().push_undo(undo_alloc)
-
-                #Third, check if old_vxlan_id is not None, if so, delete it from Zookeeper
-                if(old_vxlan_id != None):
-                    cls.vnc_zk_client.free_vxlan_id(
-                         int(old_vxlan_id),
-                         vxlan_fq_name)
-                    def undo_free():
-                        cls.vnc_zk_client.alloc_vxlan_id(
-                            vxlan_fq_name, int(old_vxlan_id))
-                    get_context().push_undo(undo_free)
-
-        return True, ''
+        return cls._make_sure_lrs_belongs_to_different_fabrics(db_conn, read_result)
     # end pre_dbe_update
 
 # end DataCenterInterconnectServer
@@ -1770,8 +1733,38 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return (True, '')
 
     @classmethod
+    def _ensure_lr_dci_association(cls, lr):
+        db_conn = cls.db_conn
+        # if no DCI refs, no need to validate LR - Fabric relationship
+        if not lr.get('data_center_interconnect_back_refs'):
+            return True, ''
+
+        # make sure lr should have association with only one fab PRs
+        fab_list = []
+        for pr_ref in lr.get('physical_router_refs') or []:
+            pr_uuid = pr_ref.get('uuid')
+            status, pr_result = cls.dbe_read(db_conn, 'physical_router',
+                                                     pr_uuid, obj_fields=['fabric_refs'])
+            if not status:
+                return False, pr_result
+            if pr_result.get("fabric_refs"):
+                fab_id = pr_result["fabric_refs"][0].get('uuid')
+                if fab_id in fab_list:
+                    return False, (400, 'LR can not associate with PRs from different Fabrics, if DCI is enabled')
+                else:
+                    fab_list.append(fab_id)
+            else:
+                return False, (400, 'DCI LR can not associate to PRs which are not part of any Fabrics')
+        return True, ''
+    # end _ensure_lr_dci_association
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
+        if not ok:
+            return (ok, result)
+
+        ok, result = cls._ensure_lr_dci_association(obj_dict)
         if not ok:
             return (ok, result)
 
@@ -1848,6 +1841,10 @@ class LogicalRouterServer(Resource, LogicalRouter):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
+        if not ok:
+            return (ok, result)
+
+        ok, result = cls._ensure_lr_dci_association(obj_dict)
         if not ok:
             return (ok, result)
 
@@ -2544,10 +2541,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 # Process only if port profile exists and physical links are specified
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
-                    links  = phy_links['local_link_information']
+                    links = phy_links['local_link_information']
                     lag_uuid = cls._manage_lag_interface(obj_dict['uuid'],
                                    cls.server, db_conn, links, lag_name)
-                    obj_dict['port_link_aggregation_group_id'] = lag_uuid
+                    obj_dict['port_virtual_port_group_id'] = lag_uuid
 
         return True, ""
     # end pre_dbe_create
@@ -2557,9 +2554,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         api_server = db_conn.get_api_server()
 
         # add a ref from LAG to this VMI
-        lag_uuid = obj_dict.get('port_link_aggregation_group_id')
+        lag_uuid = obj_dict.get('port_virtual_port_group_id')
         if lag_uuid:
-            api_server.internal_request_ref_update('link-aggregation-group',
+            api_server.internal_request_ref_update('virtual-port-group',
                lag_uuid, 'ADD', 'virtual-machine-interface', obj_dict['uuid'],
                relax_ref_for_delete=True)
 
@@ -2760,7 +2757,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                                     ['mac_address'])
             esi = "00:00:00:00:" + mac[0]
 
-            lag_refs = phy_interface_dict.get('link_aggregation_group_back_refs')
+            lag_refs = phy_interface_dict.get('virtual_port_group_back_refs')
             if lag_refs and lag_refs[0]['to'][-1] != lag_name:
                 msg = 'Physical interface %s already belong to the lag %s' %\
                       (phy_interface_dict.get('name'), lag_refs[0]['to'][-1])
@@ -2770,14 +2767,14 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             lag_fq_name = ['default-global-system-config', fabric_name,
                            lag_name]
             try:
-                lag_uuid = db_conn.fq_name_to_uuid('link_aggregation_group',
+                lag_uuid = db_conn.fq_name_to_uuid('virtual_port_group',
                                                    lag_fq_name)
             except cfgm_common.exceptions.NoIdError:
                 msg = 'Lag object %s is not found' % lag_name
                 return (False, (404, msg))
 
             (ok, lag_dict) = db_conn.dbe_read(
-                    obj_type='link-aggregation-group', obj_id=lag_uuid)
+                    obj_type='virtual-port-group', obj_id=lag_uuid)
 
             if not ok:
                 return (ok, 400, lag_dict)
@@ -2791,7 +2788,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 lag_update_dict['annotations'] = lag_dict['annotations']
                 lag_update_dict = json.dumps(lag_update_dict,
                                   default=_obj_serializer_all)
-                ok, resp = api_server.internal_request_update('link-aggregation-group',
+                ok, resp = api_server.internal_request_update('virtual-port-group',
                                                               lag_dict['uuid'],
                                                               json.loads(lag_update_dict))
 
@@ -2804,26 +2801,26 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             get_context().push_undo(undo_ae_id)
 
             lag_name = "lag" + str(ae_id)
-            lag_obj = LinkAggregationGroup(parent_type='fabric',
+            lag_obj = VirtualPortGroup(parent_type='fabric',
                 fq_name=['default-global-system-config', fabric_name, lag_name],
-                link_aggregation_group_lacp_enabled=True)
+                virtual_port_group_lacp_enabled=True)
 
             lag_obj.set_annotations(KeyValuePairs(
                                    [KeyValuePair('ae_if_name', str(ae_id)),
                                     KeyValuePair('esi', esi)]))
             lag_int_dict = json.dumps(lag_obj, default=_obj_serializer_all)
 
-            ok, resp = api_server.internal_request_create('link-aggregation-group',
+            ok, resp = api_server.internal_request_create('virtual-port-group',
                                                           json.loads(lag_int_dict))
 
             if not ok:
                 return (ok, 400, resp)
 
-            lag_dict = resp['link-aggregation-group']
-            lag_uuid = resp['link-aggregation-group']['uuid']
+            lag_dict = resp['virtual-port-group']
+            lag_uuid = resp['virtual-port-group']['uuid']
 
             def undo_lag_create():
-                cls.server.internal_request_delete('link-aggregation-group',
+                cls.server.internal_request_delete('virtual-port-group',
                                                    lag_uuid)
                 return True, ''
             get_context().push_undo(undo_lag_create)
@@ -2835,13 +2832,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         # add new physical interfaces to the lag
         for uuid in set(phy_interface_uuids) - set(old_phy_interface_uuids):
-            api_server.internal_request_ref_update('link-aggregation-group',
+            api_server.internal_request_ref_update('virtual-port-group',
                 lag_uuid, 'ADD', 'physical-interface', uuid,
                 relax_ref_for_delete=True)
 
         # delete old physical interfaces to the lag
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
-            api_server.internal_request_ref_update('link-aggregation-group',
+            api_server.internal_request_ref_update('virtual-port-group',
                 lag_uuid, 'DELETE', 'physical-interface', uuid)
 
         return lag_uuid
@@ -2875,7 +2872,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     # ADD a ref from this VMI only if it's getting created first time
                     if not lag_name  and lag_uuid:
                         api_server.internal_request_ref_update(
-                           'link-aggregation-group', lag_uuid, 'ADD',
+                           'virtual-port-group', lag_uuid, 'ADD',
                            'virtual-machine-interface', id,
                             relax_ref_for_delete=True)
 
@@ -2909,16 +2906,16 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         api_server = db_conn.get_api_server()
 
         # For baremetal, delete the LAG object
-        for lag_back_ref in obj_dict.get('link_aggregation_group_back_refs') or []:
+        for lag_back_ref in obj_dict.get('virtual_port_group_back_refs') or []:
             fqname = lag_back_ref['to']
 
             # Check if LAG is involved and and it's not referring to any other VMI.
             # If yes, then clean up
-            lag_uuid = db_conn.fq_name_to_uuid('link_aggregation_group', fqname)
+            lag_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
             (ok, lag_dict) = db_conn.dbe_read(
-                    obj_type='link-aggregation-group', obj_id=lag_uuid)
+                    obj_type='virtual-port-group', obj_id=lag_uuid)
             if not lag_dict.get('virtual_machine_interface_refs'):
-                api_server.internal_request_delete('link_aggregation_group', lag_uuid)
+                api_server.internal_request_delete('virtual_port_group', lag_uuid)
                 id = int(fqname[2][2:])
                 ae_fqname = cls.vnc_zk_client.get_ae_from_id(id)
                 cls.vnc_zk_client.free_ae_id(id, ae_fqname)
@@ -5156,7 +5153,9 @@ class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
         # check rec_name validity
         if rec_type == "ptr":
             if (not VirtualDnsServer.is_valid_ipv4_address(rec_name) and
-                    not "in-addr.arpa" in rec_name.lower()):
+                    not VirtualDnsServer.is_valid_ipv6_address(rec_name) and
+                    not "in-addr.arpa" in rec_name.lower() and
+                    not "ip6.arpa" in rec_name.lower()):
                 return (
                     False,
                     (403,
@@ -6534,17 +6533,27 @@ class BgpvpnServer(Resource, Bgpvpn):
 class BgpRouterServer(Resource, BgpRouter):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        sub_cluster_ref = obj_dict.get('sub_cluster_refs')
         bgp_router_prop = obj_dict.get('bgp_router_parameters')
         if bgp_router_prop:
             asn = bgp_router_prop.get('autonomous_system')
+            router_type = bgp_router_prop.get('router_type');
         else:
             asn = None
+            router_type = None
+
+        sub_cluster_ref = obj_dict.get('sub_cluster_refs')
         if sub_cluster_ref and asn:
             sub_cluster_obj = db_conn.uuid_to_obj_dict(
                          obj_dict['sub_cluster_refs'][0]['uuid'])
             if asn != sub_cluster_obj['prop:sub_cluster_asn']:
                return False, (400, 'Subcluster asn and bgp asn should be same')
+
+        control_node_zone_ref = obj_dict.get('control_node_zone_refs')
+        if control_node_zone_ref and router_type != 'control-node':
+            msg = ("BgpRouter type should be 'control-node'"
+                   " to refer control-node-zone");
+            return False, (400, msg)
+
         return True, ''
 
     @classmethod
@@ -6582,9 +6591,23 @@ class BgpRouterServer(Resource, BgpRouter):
             prop_collection_updates=None, ref_update=None):
         if (('sub_cluster_refs' in obj_dict) or (obj_dict.get('bgp_router_parameters') and
                  obj_dict['bgp_router_parameters'].get('autonomous_system'))):
-            return cls._validate_subcluster_dep(obj_dict, db_conn)
-        return True, ''
+            (ok, msg) = cls._validate_subcluster_dep(obj_dict, db_conn)
+            if not ok:
+                return ok, msg
 
+        router_type = None
+        bgp_router_prop = obj_dict.get('bgp_router_parameters')
+        if not bgp_router_prop:
+            bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
+            bgp_router_prop = bgp_obj.get('prop:bgp_router_parameters')
+        if bgp_router_prop:
+            router_type = bgp_router_prop.get('router_type');
+        if 'control_node_zone_refs' in obj_dict and router_type != 'control-node':
+            msg = (400, "BgpRouter type should be 'control-node'"
+                   " to refer control-node-zone");
+            return False, msg
+
+        return True, ''
 # end class BgpRouterServer
 
 class SubClusterServer(Resource, SubCluster):

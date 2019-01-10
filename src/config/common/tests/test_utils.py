@@ -627,6 +627,8 @@ class FakeKombu(object):
         class ChannelException(Exception): pass
 
         def __init__(self, *args, **kwargs):
+            self._default_channel = None
+            self.args = args
             self.vhost = args[1]
         # end __init__
 
@@ -635,11 +637,21 @@ class FakeKombu(object):
             return chan
         # end channel
 
+        @property
+        def default_channel(self):
+            if self._default_channel is None:
+                self._default_channel = self.channel()
+            return self._default_channel
+
+        def clone(self, **kwargs):
+            return self.__class__(*self.args, **kwargs)
+        # end clone
+
         def close(self):
             pass
         # end close
 
-        def ensure_connection(self):
+        def ensure_connection(self, *args):
             pass
         # end ensure_connection
 
@@ -651,9 +663,21 @@ class FakeKombu(object):
             pass
         # end _info
 
-        def drain_events(self):
+        def drain_events(self, **kwargs):
             gevent.sleep(0.001)
         # end drain_events
+
+        def as_uri(self, *args):
+            return repr(self.args)
+        # end as_uri
+
+        def __enter__(self):
+            return self
+        # end __enter__
+
+        def __exit__(self, *args):
+            self.close()
+        # end __exit__
 
         @property
         def connection_errors(self):
@@ -673,18 +697,19 @@ class FakeKombu(object):
 
     class Consumer(object):
         def __init__(self, *args, **kwargs):
-            self.queues = kwargs['queues']
+            queues = kwargs['queues']
+            self.queue = queues[0] if isinstance(queues, list) else queues
             self.callbacks = kwargs['callbacks']
             self.vhost = ''.join(args[1].vhost)
-            FakeKombu._exchange[self.vhost][self.queues._name] \
-                                            = self.queues._sync_q
+            FakeKombu._exchange[self.vhost][self.queue._name] \
+                                            = self.queue._sync_q
         # end __init__
 
         def consume(self):
-            if not self.queues:
+            if not self.queue:
                 return
             while True:
-                msg = self.queues.get()
+                msg = self.queue.get()
                 try:
                     for c in self.callbacks:
                         c(msg.payload, msg)
@@ -693,10 +718,19 @@ class FakeKombu(object):
         # end consume
 
         def close(self):
-            if self.queues:
-                self.queues.clear()
-                self.queues = None
+            if self.queue:
+                self.queue.clear()
+                self.queue = None
         # end close
+
+        def __enter__(self):
+            self.consume()
+            return self
+        # end __enter__
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+        # end __exit__
 
     # end class Consumer
 
@@ -1291,6 +1325,21 @@ class FakeKazooClient(object):
         self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
     # end create
 
+    def create_node(self, path, value='', *args, **kwargs):
+        scrubbed_path = zk_scrub_path(path)
+        if scrubbed_path in self._values:
+            raise ResourceExistsError(
+                path, str(self._values[scrubbed_path][0]), 'zookeeper')
+        self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
+    # end create
+
+    def read_node(self, path):
+        try:
+            return self._values[zk_scrub_path(path)]
+        except KeyError:
+            raise kazoo.exceptions.NoNodeError()
+    # end get
+
     def get(self, path):
         try:
             return self._values[zk_scrub_path(path)]
@@ -1328,6 +1377,19 @@ class FakeKazooClient(object):
             return self._values[scrubbed_path]
         return None
     # end exists
+
+    def delete_node(self, path, recursive=False):
+        scrubbed_path = zk_scrub_path(path)
+        if not recursive:
+            try:
+                del self._values[scrubbed_path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
+        else:
+            for path_key in self._values.keys():
+                if scrubbed_path in path_key:
+                    del self._values[path_key]
+    # end delete
 
     def delete(self, path, recursive=False):
         scrubbed_path = zk_scrub_path(path)

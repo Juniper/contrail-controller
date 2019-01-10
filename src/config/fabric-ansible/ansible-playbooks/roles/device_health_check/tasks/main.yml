@@ -5,8 +5,12 @@
   include_tasks: error_handler.yml
   when: device_health_report.total_failures > 0 and abort_upon_failure == True
   vars:
-    op_err_message: "Failed device health check with {{ device_health_report.total_failures }} failures"
-    jl_err_message: "Failed device health check with {{ device_health_report.total_failures }} failures"
+    op_err_message: |
+        {{prouter_name}} failed device health check with {{ device_health_report.total_failures }} failures
+        Health report for {{prouter_name}}:\n {{device_health_report|to_yaml}}
+    jl_err_message: |
+        {{prouter_name}} failed device health check with {{ device_health_report.total_failures }} failures
+        Health report for {{prouter_name}}:\n {{device_health_report|to_yaml}}
     results:
       "test_results": "{{ device_health_report }}"
 

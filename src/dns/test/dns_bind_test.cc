@@ -828,6 +828,97 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
 }
 #endif
 
+TEST_F(DnsBindTest, DnsIp6ReverseZone) {
+    string content = FileRead("controller/src/dns/testdata/config_test_ip6.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    NamedConfigTest *cfg = static_cast<NamedConfigTest *>(NamedConfig::GetNamedConfigObject());
+
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.ip6_1"));
+
+    string dns_domains[] = {
+        "3.2.1.in-addr.arpa",
+        "3.9.a.5.9.9.a.e.7.6.8.e.2.b.d.f.ip6.arpa",
+        "test.example.com",
+    };
+    for (int i = 0; i < 3; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+
+    // XXX: Note it doesn't test that actual DNS updates were sent
+    // That's because DnsManager is not easy to test.
+
+    const char config_change_1[] = "\
+<config>\
+    <virtual-network-network-ipam ipam='ipam1' vn='vn2'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>fd94:b576:5b1d:6aa3::</ip-prefix> \
+                <ip-prefix-len>65</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>fd94:b576:5b1d:6aa3::1</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+</config>\
+";
+    EXPECT_TRUE(parser_.Parse(config_change_1));
+    task_util::WaitForIdle();
+
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.ip6_2"));
+
+    string new_domains[] = {
+        "0.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "1.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "2.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "3.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "4.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "5.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "6.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+        "7.3.a.a.6.d.1.b.5.6.7.5.b.4.9.d.f.ip6.arpa.",
+    };
+    for (int i = 0; i < 8; i++) {
+        string s1 = cfg->GetZoneFilePath(new_domains[i]);
+        EXPECT_TRUE(FileExists(s1.c_str()));
+    }
+
+    // XXX: Check new domains
+    const char config_change_2[] = "\
+<delete>\
+    <virtual-network-network-ipam ipam='ipam1' vn='vn2'> \
+        <ipam-subnets> \
+            <subnet> \
+                <ip-prefix>fd94:b576:5b1d:6aa3::</ip-prefix> \
+                <ip-prefix-len>65</ip-prefix-len> \
+            </subnet> \
+            <default-gateway>fd94:b576:5b1d:6aa3::1</default-gateway> \
+        </ipam-subnets> \
+    </virtual-network-network-ipam> \
+</delete>\
+";
+    EXPECT_TRUE(parser_.Parse(config_change_2));
+    task_util::WaitForIdle();
+
+    EXPECT_TRUE(FilesEqual(cfg->named_config_file().c_str(),
+                "controller/src/dns/testdata/named.conf.ip6_1"));
+    for (int i = 0; i < 8; i++) {
+        string s1 = cfg->GetZoneFilePath(new_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    for (int i = 0; i < 3; i++) {
+        string s1 = cfg->GetZoneFilePath(dns_domains[i]);
+        EXPECT_FALSE(FileExists(s1.c_str()));
+    }
+}
+
 TEST_F(DnsBindTest, DnsClassTest) {
     std::string cl = BindUtil::DnsClass(4);
     EXPECT_TRUE(cl == "4");

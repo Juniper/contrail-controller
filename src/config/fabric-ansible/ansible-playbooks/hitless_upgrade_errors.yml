@@ -1,0 +1,21 @@
+- name: Get next batch of devices and return to job manager
+  set_fact:
+    next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
+
+- name: Set next_set
+  set_fact:
+    next_set: "{{next_batch.next.batch_devices}}"
+
+- set_fact:
+    output: {
+       "status": "success",
+       "retry_devices": "{{next_set}}",
+       "message": "{{op_err_message}}",
+       "results": "{{ results if results is defined else {} }}"
+    }
+
+- name: Update prouter logs with failed status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{DEVICE_STATE.HITLESS_IMAGE_UPGRADE_FAILED}}"
+    job_ctx: "{{job_ctx}}"

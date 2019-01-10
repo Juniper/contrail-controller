@@ -36,7 +36,7 @@ class AnsibleRoleCommon(AnsibleConf):
             if gateway_roles:
                 return True
         return False
-    # end is_spine
+    # end is_gateway
 
     def is_dci_gateway(self):
         if self.physical_router.routing_bridging_roles:
@@ -45,20 +45,6 @@ class AnsibleRoleCommon(AnsibleConf):
                 return True
         return False
     # end is_dci_gateway
-
-    def underlay_config(self, is_delete=False):
-        if not self.physical_router.is_ztp():
-            return
-        self._logger.info("underlay config start: %s(%s)\n" %
-                          (self.physical_router.name,
-                           self.physical_router.uuid))
-        if not is_delete:
-            self.build_underlay_bgp()
-        self.send_conf(is_delete=is_delete, retry=False)
-        self._logger.info("underlay config end: %s(%s)\n" %
-                          (self.physical_router.name,
-                           self.physical_router.uuid))
-    # end underlay_config
 
     def initialize(self):
         super(AnsibleRoleCommon, self).initialize()

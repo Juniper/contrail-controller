@@ -222,28 +222,6 @@ TEST_F(TestAap, EvpnRoute) {
     EXPECT_TRUE(agent_->mpls_table()->FindMplsLabel(label) == NULL);
 }
 
-//Check if subnet gateway for allowed address pair route gets set properly
-TEST_F(TestAap, EvpnRoute_1) {
-    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
-    MacAddress mac("0a:0b:0c:0d:0e:0f");
-
-    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
-    AddAap("intf1", 1, ip, mac.ToString());
-    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
-    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, ip, 0));
-    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
-
-    //Make VN as layer2 only
-    AddL2Vn("vn1", 1);
-    client->WaitForIdle();
-    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
-    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, ip, 0));
-    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, Ip4Address(0), 0));
-    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
-    AddAap("intf1", 1, Ip4Address(0), zero_mac.ToString());
-    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
-}
-
 TEST_F(TestAap, EvpnRoute_with_mac_change) {
     Ip4Address ip = Ip4Address::from_string("10.10.10.10");
     MacAddress mac("0a:0b:0c:0d:0e:0f");
@@ -1015,7 +993,7 @@ TEST_F(TestAap, StateMachine_17) {
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     PathPreference path_preference(100, PathPreference::HIGH, false, false);
-    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
+    Inet4TunnelRouteAdd(peer_, "default-project:vn2:vn2", fip, 32, server_ip, bmap,
             16, "vn1", SecurityGroupList(), TagList(), path_preference);
 
     client->WaitForIdle();

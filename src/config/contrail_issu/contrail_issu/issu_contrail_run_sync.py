@@ -118,6 +118,8 @@ class ICRMQMain():
             self.old_cassandra.addr_info, self.new_cassandra.addr_info,
             self.old_cassandra.user, self.old_cassandra.password,
             self.new_cassandra.user, self.new_cassandra.password,
+            self.old_cassandra.use_ssl, self.old_cassandra.ca_certs,
+            self.new_cassandra.use_ssl, self.new_cassandra.ca_certs,
             self.old_cassandra.db_prefix, self.new_cassandra.db_prefix,
             self.cassandra_issu_info, self.logger)
         # Prepare it for Issu
@@ -151,6 +153,8 @@ def _issu_rmq_main():
         args.new_cassandra_address_list,
         args.new_cassandra_user,
         args.new_cassandra_password,
+        args.new_cassandra_use_ssl,
+        args.new_cassandra_ca_certs,
         args.ndb_prefix,
         issu_contrail_config.issu_info_config_db_uuid,
         issu_contrail_config.issu_keyspace_config_db_uuid,
@@ -160,6 +164,8 @@ def _issu_rmq_main():
         args.old_cassandra_address_list,
         args.old_cassandra_user,
         args.old_cassandra_password,
+        args.old_cassandra_use_ssl,
+        args.old_cassandra_ca_certs,
         args.odb_prefix,
         issu_contrail_config.issu_info_config_db_uuid,
         issu_contrail_config.issu_keyspace_config_db_uuid,

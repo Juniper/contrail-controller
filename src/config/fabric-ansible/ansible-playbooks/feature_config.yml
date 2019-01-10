@@ -12,6 +12,7 @@
         feature_role_dir: "./roles/cfg_{{ feature }}"
         hardware: "{{ device_vendor }}-{{ device_model }}"
         cfg_group: "__contrail_{{ feature }}__"
+        device_series: "{{ device_model | regex_search('([a-zA-Z]{2,3}[0-9]{2})', '\\1')| first }}"
 
     - name: Check whether ztp suffix needs to be added to config group name
       set_fact:
@@ -23,10 +24,10 @@
         path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"
       register: p
 
-    - name: Calculate feature name specific to the device specific only
+    - name: Calculate feature name specific to the device series specific only
       block:
         - set_fact:
-            vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ device_model}}_{{ feature }}"
+            vf_feature: "{{ device_vendor }}_{{ device_family }}_{{ device_series }}_{{ feature }}"
         - name: Check whether Jinja file exists for this vendor/family/model/feature
           stat:
             path: "{{ feature_role_dir }}/templates/{{ vf_feature }}.j2"

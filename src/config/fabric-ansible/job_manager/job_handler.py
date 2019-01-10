@@ -15,6 +15,7 @@ import ast
 import time
 import gevent
 
+from cfgm_common.exceptions import ResourceExistsError
 from job_manager.job_exception import JobException
 from job_manager.job_utils import (
     JobStatus, JobFileWrite
@@ -26,9 +27,9 @@ class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
                  job_utils, device_json, auth_token, api_server_host,
-                 job_log_utils, sandesh_args, \
-                 fabric_fq_name,
-                 playbook_timeout, playbook_seq):
+                 job_log_utils, sandesh_args,fabric_fq_name,
+                 playbook_timeout, playbook_seq, vnc_api_init_params,
+                 zk_client):
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -43,7 +44,9 @@ class JobHandler(object):
         self._fabric_fq_name = fabric_fq_name
         self._playbook_timeout = playbook_timeout
         self._playbook_seq = playbook_seq
+        self._vnc_api_init_params = vnc_api_init_params
         self._prouter_info = {}
+        self._zk_client = zk_client
     # end __init__
 
 
@@ -91,6 +94,12 @@ class JobHandler(object):
                                        self._execution_id)
             self._logger.debug(msg)
 
+            # Always acquire the lock while executing the multi device jobs
+            if device_id is not None:
+                if not self._acquire_device_lock(device_id):
+                        raise JobException(MsgBundle.getMessage(
+                            MsgBundle.DEVICE_LOCK_FAILURE))
+
             # get the playbook information from the job template
             playbook_info = self.get_playbook_info(job_percent_per_task,
                                                    device_id)
@@ -110,15 +119,15 @@ class JobHandler(object):
                 job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
-            result_handler.update_job_status(JobStatus.SUCCESS, msg,
-                                             device_id, device_name,
-                                             pb_results=playbook_output_results)
+            result_handler.update_job_status(
+                JobStatus.SUCCESS, msg, device_id, device_name,
+                pb_results=playbook_output_results)
             if playbook_output:
                 result_handler.update_playbook_output(playbook_output)
 
-            self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
-                                                                JobStatus.SUCCESS.value,
-                                                                playbook_output_results)
+            self.check_and_send_prouter_job_uve_for_multidevice(
+                playbook_info, JobStatus.SUCCESS.value,
+                playbook_output_results)
 
             if self.current_percentage:
                 result_handler.percentage_completed = self.current_percentage
@@ -129,8 +138,8 @@ class JobHandler(object):
             result_handler.update_job_status(JobStatus.FAILURE, job_exp.msg,
                                              device_id, device_name)
             if playbook_info:
-                self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
-                                                                JobStatus.FAILURE.value)
+                self.check_and_send_prouter_job_uve_for_multidevice(
+                    playbook_info, JobStatus.FAILURE.value)
 
         except Exception as exp:
             self._logger.error("Error while executing job %s " % repr(exp))
@@ -138,9 +147,47 @@ class JobHandler(object):
             result_handler.update_job_status(JobStatus.FAILURE, exp.message,
                                              device_id, device_name)
             if playbook_info:
-                self.check_and_send_prouter_job_uve_for_multidevice(playbook_info,
-                                                                JobStatus.FAILURE.value)
+                self.check_and_send_prouter_job_uve_for_multidevice(
+                    playbook_info, JobStatus.FAILURE.value)
+        finally:
+            if device_id is not None:
+                self._release_device_lock(device_id)
     # end handle_job
+
+    def _acquire_device_lock(self, device_id):
+        is_lock_acquired = False
+
+        # build the zk lock path
+        device_lock_path =\
+            '/job-manager/' + self._fabric_fq_name + '/' + device_id
+
+        # acquire the lock by creating a node
+        try:
+            self._zk_client.create_node(device_lock_path,
+                                        value=self._execution_id,
+                                        ephemeral=True)
+            is_lock_acquired = True
+            self._logger.info("Acquired device"
+                              " lock for %s " % device_lock_path)
+        except ResourceExistsError:
+            # means the lock was acquired by some other job,
+            value = self._zk_client.read_node(device_lock_path)
+            self._logger.error("Device lock is already acquired by"
+                               " job %s for device %s" % (value, device_id))
+        return is_lock_acquired
+
+    def _release_device_lock(self, device_id):
+        # build the zk lock path
+        device_lock_path =\
+            '/job-manager/' + self._fabric_fq_name + '/' + device_id
+        try:
+            self._zk_client.delete_node(device_lock_path)
+            self._logger.info("Device lock released"
+                              " for %s " % device_lock_path)
+        except Exception as zk_error:
+            self._logger.error("Exception while releasing the zookeeper"
+                               " lock for device %s %s " % (device_id,
+                                                            repr(zk_error)))
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
         try:
@@ -154,6 +201,7 @@ class JobHandler(object):
                 'api_server_host': self._api_server_host,
                 'job_execution_id': self._execution_id,
                 'args': self._sandesh_args,
+                'vnc_api_init_params': self._vnc_api_init_params,
                 'playbook_job_percentage': job_percent_per_task
             }
             playbooks = self._job_template.get_job_template_playbooks()
@@ -200,6 +248,7 @@ class JobHandler(object):
                 # update extra-vars to reflect device-related params
                 device_fqname = device_data.get('device_fqname')
                 device_management_ip = device_data.get('device_management_ip')
+                image_uuid = device_data.get('device_image_uuid')
                 extra_vars.update({
                     'device_id': device_id,
                     'device_fqname': device_fqname,
@@ -209,7 +258,8 @@ class JobHandler(object):
                     'device_family': device_family,
                     'device_username': device_username,
                     'device_password': device_password,
-                    'product_name': device_product
+                    'product_name': device_product,
+                    'device_image_uuid': image_uuid
                 })
 
                 self._logger.debug("Passing the following device "
@@ -309,6 +359,10 @@ class JobHandler(object):
                                         self.send_prouter_log(
                                             **marked_jsons.get(marker)
                                         )
+                                        self.send_prouter_uve(
+                                            exec_id,
+                                            "IN_PROGRESS"
+                                        )
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -391,8 +445,7 @@ class JobHandler(object):
             self._logger.error("Failed to send prouter log: %s" % str(ex))
     # end send_prouter_log
 
-    def send_prouter_uve(self, exec_id, pb_status):
-        status = "SUCCESS" if pb_status == 0 else "FAILURE"
+    def send_prouter_uve(self, exec_id, status):
         job_template_fq_name = ':'.join(
             map(str, self._job_template.fq_name))
         for k, v in self._prouter_info.iteritems():
@@ -444,7 +497,9 @@ class JobHandler(object):
             # create prouter UVE in job_manager only if it is not a multi
             # device job template
             if not self._job_template.get_job_template_multi_device_job():
-                self.send_prouter_uve(exec_id, playbook_process.returncode)
+                status = "SUCCESS" if playbook_process.returncode == 0 \
+                    else "FAILURE"
+                self.send_prouter_uve(exec_id, status)
 
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:

@@ -18,7 +18,7 @@ extern SandeshTraceBufferPtr SessionStatsTraceBuf;
 #define SESSION_STATS_TRACE(obj, ...)\
 do {\
     SessionStats##obj::TraceMsg(SessionStatsTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);
+} while (false)
 
 struct SessionEndpointKey {
 public:

@@ -113,7 +113,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.ae_index_allocator = DMIndexer(
             DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
-        self.ansible_manager = None
         self.fabric = None
         self.link_aggregation_groups = []
         self.node_profile = None
@@ -126,36 +125,29 @@ class PhysicalRouterDM(DBBaseDM):
                                                        self.nc_handler)
     # end __init__
 
+    def use_ansible_plugin(self):
+        return PushConfigState.is_push_mode_ansible() and not self.is_ec2_role()
+    # end use_ansible_plugin
+
     def reinit_device_plugin(self):
         plugin_params = {
             "physical_router": self
         }
 
-        if not self.ansible_manager:
-            self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-        elif self.ansible_manager.verify_plugin(self.vendor,
-                self.product, self.physical_router_role):
-            self.ansible_manager.update()
+        if self.use_ansible_plugin():
+            plugin_base = AnsibleBase
         else:
-            self.ansible_manager.clear()
-            self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-
-        if PushConfigState.is_push_mode_ansible():
-            self.config_manager = self.ansible_manager
-            if not self.is_ec2_role():
-                return
+            plugin_base = DeviceConf
 
         if not self.config_manager:
-            self.config_manager = DeviceConf.plugin(self.vendor,
+            self.config_manager = plugin_base.plugin(self.vendor,
                 self.product, plugin_params, self._logger)
         elif self.config_manager.verify_plugin(self.vendor,
                 self.product, self.physical_router_role):
             self.config_manager.update()
         else:
             self.config_manager.clear()
-            self.config_manager = DeviceConf.plugin(self.vendor,
+            self.config_manager = plugin_base.plugin(self.vendor,
                 self.product, plugin_params, self._logger)
     # end reinit_device_plugin
 
@@ -169,6 +161,14 @@ class PhysicalRouterDM(DBBaseDM):
             return True
         return False
     # end has_rb_role
+
+    def is_erb_gateway(self):
+        if self.routing_bridging_roles:
+            gateway_roles = [r for r in self.routing_bridging_roles if 'ERB' in r and 'Gateway' in r]
+            if gateway_roles:
+                return True
+        return False
+    # end is_erb_gateway
 
     def update(self, obj=None):
         if obj is None:
@@ -336,13 +336,12 @@ class PhysicalRouterDM(DBBaseDM):
     # end allocate_asn
 
     def wait_for_config_push(self, timeout=1):
-        if not self.ansible_manager:
-            return
-        while self.ansible_manager.push_in_progress():
-            try:
-                self.nc_q.get(True, timeout)
-            except queue.Empty:
-                pass
+        if self.use_ansible_plugin() and self.config_manager:
+            while self.config_manager.push_in_progress():
+                try:
+                    self.nc_q.get(True, timeout)
+                except queue.Empty:
+                    pass
     # end wait_for_config_push
 
     def delete_handler(self):
@@ -357,22 +356,19 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('e2_service_provider', {})
         self.update_single_ref('fabric', {})
 
-        if PushConfigState.is_push_mode_ansible() and self.config_manager:
-            self.config_manager.push_conf(is_delete=True)
-            max_retries = 3
-            for _ in range(max_retries):
-                if self.config_manager.retry():
-                    self.config_manager.push_conf(is_delete=True)
-                else:
-                    break
-            self.set_conf_sent_state(False)
-        elif self.ansible_manager:
-            self.ansible_manager.initialize()
-            self.ansible_manager.underlay_config(is_delete=True)
-
-        if self.is_vnc_managed() and self.is_conf_sent():
-            self.config_manager.push_conf(is_delete=True)
-            self.config_manager.clear()
+        if self.config_manager:
+            if self.use_ansible_plugin():
+                self.config_manager.push_conf(is_delete=True)
+                max_retries = 3
+                for _ in range(max_retries):
+                    if self.config_manager.retry():
+                        self.config_manager.push_conf(is_delete=True)
+                    else:
+                        break
+                self.set_conf_sent_state(False)
+            elif self.is_vnc_managed():
+                self.config_manager.push_conf(is_delete=True)
+                self.config_manager.clear()
 
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
@@ -416,7 +412,6 @@ class PhysicalRouterDM(DBBaseDM):
     def nc_handler(self):
         while self.nc_q.get() is not None:
             try:
-                self.push_underlay_config()
                 self.push_config()
             except Exception as e:
                 tb = traceback.format_exc()
@@ -507,12 +502,11 @@ class PhysicalRouterDM(DBBaseDM):
         vn_uuid = DataCenterInterconnectDM.dci_network.uuid
         new_dci_ip_set = set()
         for dci_info in self.get_lr_dci_map():
-            from_lr = dci_info.get("from")
             dci_uuid = dci_info.get("dci")
             dci = DataCenterInterconnectDM.get(dci_uuid)
             if not dci:
                 continue
-            key = from_lr + ":" + dci_uuid
+            key = self.uuid + ":" + dci_uuid
             new_dci_ip_set.add(key)
         old_set = set(self.dci_ip_map.keys())
         delete_set = old_set.difference(new_dci_ip_set)
@@ -521,17 +515,14 @@ class PhysicalRouterDM(DBBaseDM):
             ret = self.free_ip(vn_uuid, self.dci_ip_map[dci_id])
             if ret == False:
                 self._logger.error("Unable to free ip for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
 
-            ret = self._object_db.delete_dci_ip(
-                       self.uuid + ':' + dci_id)
+            ret = self._object_db.delete_dci_ip(dci_id)
             if ret == False:
                 self._logger.error("Unable to free ip from db for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 continue
 
             self._object_db.delete_from_pr_dci_map(self.uuid, dci_id)
@@ -547,28 +538,26 @@ class PhysicalRouterDM(DBBaseDM):
             ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for dci/pr "
-                                   "(%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 continue
-            ret = self._object_db.add_dci_ip(self.uuid + ':' + dci_id,
+            ret = self._object_db.add_dci_ip(dci_id,
                                          ip_addr)
             if ret == False:
                 self._logger.error("Unable to store ip for dci/pr "
-                                   "(%s/%s/%s)" % (
-                    dci_id,
-                    self.uuid))
+                                   "(%s)" % (
+                    dci_id))
                 if self.free_ip(vn_uuid, ip_addr) == False:
                     self._logger.error("Unable to free ip for dci/pr "
-                                       "(%s/%s)" % (
-                        dci_id,
-                        self.uuid))
+                                       "(%s)" % (
+                        dci_id))
                 continue
             self._object_db.add_to_pr_dci_map(self.uuid, dci_id)
             self.dci_ip_map[dci_id] = ip_addr
     # end evaluate_dci_ip_map
 
     def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
+        is_erb = self.is_erb_gateway()
         new_vn_ip_set = set()
         for vn_uuid in vn_set:
             vn = VirtualNetworkDM.get(vn_uuid)
@@ -587,13 +576,14 @@ class PhysicalRouterDM(DBBaseDM):
         create_set = new_vn_ip_set.difference(old_set)
         for vn_subnet in delete_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
-            if ret == False:
-                self._logger.error("Unable to free ip for vn/subnet/pr "
-                                   "(%s/%s/%s)" % (
-                    vn_uuid,
-                    subnet_prefix,
-                    self.uuid))
+            if not is_erb:
+                ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
+                if ret == False:
+                    self._logger.error("Unable to free ip for vn/subnet/pr "
+                                    "(%s/%s/%s)" % (
+                        vn_uuid,
+                        subnet_prefix,
+                        self.uuid))
 
             ret = self._object_db.delete_ip(
                        self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for)
@@ -613,7 +603,10 @@ class PhysicalRouterDM(DBBaseDM):
             vn = VirtualNetworkDM.get(vn_uuid)
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
-            ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
+            if is_erb:
+                ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
+            else:
+                ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for vn/subnet/pr "
                                    "(%s/%s/%s)" % (
@@ -747,17 +740,6 @@ class PhysicalRouterDM(DBBaseDM):
 
         return static_routes
     # end compute_pnf_static_route
-
-    def push_underlay_config(self):
-        if PushConfigState.is_push_mode_ansible():
-            return
-        if self.ansible_manager is None:
-            return
-        if not self.is_vnc_managed():
-            return
-        self.ansible_manager.initialize()
-        self.ansible_manager.underlay_config()
-    # end push_underlay_config
 
     def push_config(self):
         if not self.config_manager:
@@ -2391,9 +2373,9 @@ class DMCassandraDB(VncObjectDBClient):
     dm_object_db_instance = None
 
     @classmethod
-    def get_instance(cls, manager=None, zkclient=None):
+    def get_instance(cls, zkclient=None, args=None, logger=None):
         if cls.dm_object_db_instance is None:
-            cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
+            cls.dm_object_db_instance = DMCassandraDB(zkclient, args, logger)
         return cls.dm_object_db_instance
     # end
 
@@ -2402,10 +2384,9 @@ class DMCassandraDB(VncObjectDBClient):
         cls.dm_object_db_instance = None
     # end
 
-    def __init__(self, manager, zkclient):
+    def __init__(self, zkclient, args, logger):
         self._zkclient = zkclient
-        self._manager = manager
-        self._args = manager._args
+        self._args = args
 
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
@@ -2423,7 +2404,7 @@ class DMCassandraDB(VncObjectDBClient):
 
         super(DMCassandraDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.logger.log, credential=cred,
+            logger.log, credential=cred,
             ssl_enabled=self._args.cassandra_use_ssl,
             ca_certs=self._args.cassandra_ca_certs)
 
@@ -2675,8 +2656,8 @@ class DMCassandraDB(VncObjectDBClient):
     def delete_from_pr_dci_map(self, pr_uuid, dci_key):
         if pr_uuid in self.pr_dci_ip_map:
             self.pr_dci_ip_map[pr_uuid].remove((dci_key))
-            if not self.pr_dci_ip_map[pr_key]:
-                del self.pr_dci_ip_map[pr_key]
+            if not self.pr_dci_ip_map[pr_uuid]:
+                del self.pr_dci_ip_map[pr_uuid]
     # end
 
     def delete_pr(self, pr_uuid):

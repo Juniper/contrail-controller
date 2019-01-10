@@ -7,13 +7,14 @@ Contains utility functions used by the job manager
 """
 import random
 from enum import Enum
-import json
 import traceback
 
 from vnc_api.vnc_api import VncApi
+import vnc_api
 
 from job_exception import JobException
 from job_messages import MsgBundle
+from inflection import camelize
 
 
 class JobStatus(Enum):
@@ -26,11 +27,27 @@ class JobVncApi(object):
     @staticmethod
     def vnc_init(job_ctx):
         host = random.choice(job_ctx.get('api_server_host'))
-        return VncApi(
-            api_server_host=host,
-            auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-            auth_token=job_ctx.get('auth_token')
-        )
+        if job_ctx.get('auth_token') is not None:
+            vnc_api =  VncApi(
+                api_server_host=host,
+                auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                auth_token=job_ctx.get('auth_token')
+            )
+        elif job_ctx.get('vnc_api_init_params') is not None:
+            params = job_ctx.get('vnc_api_init_params')
+            vnc_api = VncApi(
+                params.get('admin_user'), params.get('admin_password'),
+                params.get('admin_tenant_name'), host,
+                params.get('api_server_port'),
+                api_server_use_ssl=params.get('api_server_use_ssl'))
+        else:
+            vnc_api = VncApi()
+        return vnc_api
+
+    @staticmethod
+    def get_vnc_cls(object_type):
+        cls_name = camelize(object_type)
+        return getattr(vnc_api.gen.resource_client, cls_name, None)
 
 class JobFileWrite(object):
     JOB_PROGRESS = 'JOB_PROGRESS##'

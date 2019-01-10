@@ -223,6 +223,6 @@ extern SandeshTraceBufferPtr AclTraceBuf;
 #define ACL_TRACE(obj, ...)\
 do {\
     Acl##obj::TraceMsg(AclTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(false);\
+} while (false)
 
 #endif

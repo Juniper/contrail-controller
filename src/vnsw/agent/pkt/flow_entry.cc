@@ -2427,7 +2427,9 @@ void FlowEntry::ResyncFlow() {
     // If this is forward flow, update the SG action for reflexive entry
     FlowEntry *rflow = (is_flags_set(FlowEntry::ReverseFlow) == false) ?
         reverse_flow_entry() : NULL;
-    if (rflow) {
+    // Dont update reflexive entry for TcpAck Flows. Since it can flip
+    // Deny state for the reflexive entry.
+    if (!(is_flags_set(FlowEntry::TcpAckFlow)) && rflow) {
         // Update action for reverse flow
         rflow->UpdateReflexiveAction();
         rflow->ActionRecompute();
@@ -3714,7 +3716,6 @@ bool PortTable::HandlePortConfig(const PortConfig &pc) {
     port_config_ = pc;
 
     uint16_t count = 0;
-    PortToBitIndexMap::iterator it = port_to_bit_index_.begin();
 
     for (uint16_t index = 0; index < old_port_count; index++) {
         PortPtr port = port_list_.At(index);

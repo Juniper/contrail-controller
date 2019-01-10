@@ -524,11 +524,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         # CREATE:  Make sure LAG is created
         lag_found = False
-        lag_dict = self._vnc_lib.link_aggregation_groups_list()
-        lags = lag_dict['link-aggregation-groups']
+        lag_dict = self._vnc_lib.virtual_port_groups_list()
+        lags = lag_dict['virtual-port-groups']
         lag_obj = None
         for l in lags:
-            lag_obj = self._vnc_lib.link_aggregation_group_read(id=l['uuid'])
+            lag_obj = self._vnc_lib.virtual_port_group_read(id=l['uuid'])
             if lag_obj.parent_uuid == fabric_uuid:
                 lag_found = True
                 break
@@ -545,15 +545,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
         port_dict2 = json.loads(resp.text)
 
         # Make sure LAG has two VMIs associated
-        lag_obj = self._vnc_lib.link_aggregation_group_read(id=lag_obj.uuid)
+        lag_obj = self._vnc_lib.virtual_port_group_read(id=lag_obj.uuid)
         vmi_refs = lag_obj.get_virtual_machine_interface_refs()
         self.assertEqual(len(vmi_refs), 2)
 
         self.delete_resource('port', proj_uuid, port_dict2['id'])
         # Ensure that LAG interface is not deleted
         # since it still has reference to other VMI
-        lag_dict = self._vnc_lib.link_aggregation_groups_list()
-        lags = lag_dict['link-aggregation-groups']
+        lag_dict = self._vnc_lib.virtual_port_groups_list()
+        lags = lag_dict['virtual-port-groups']
         if len(lags) == 0:
             self.assertFalse(True)
 
@@ -565,7 +565,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                             'binding:lag': lag_obj.name,
                             'binding:host_id': 'myhost'}
         self.update_resource('port', port_dict['id'], proj_uuid, extra_res_fields=data)
-        lag_obj = self._vnc_lib.link_aggregation_group_read(id=lag_obj.uuid)
+        lag_obj = self._vnc_lib.virtual_port_group_read(id=lag_obj.uuid)
 
         llc = binding_profile_update['local_link_information']
         ref = lag_obj.get_physical_interface_refs()[0]
@@ -576,8 +576,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('port', proj_uuid, port_dict['id'])
 
         # Ensure that LAG interface is deleted
-        lag_dict = self._vnc_lib.link_aggregation_groups_list()
-        lags = lag_dict['link-aggregation-groups']
+        lag_dict = self._vnc_lib.virtual_port_groups_list()
+        lags = lag_dict['virtual-port-groups']
         if len(lags) > 0:
             self.assertFalse(True)
 

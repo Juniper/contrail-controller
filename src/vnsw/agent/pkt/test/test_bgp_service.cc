@@ -467,6 +467,9 @@ TEST_F(BgpServiceTest, Test_8) {
     EXPECT_TRUE(rfe->key().src_addr == Ip4Address::from_string("127.0.0.1"));
     EXPECT_TRUE(rfe->key().dst_addr == Ip4Address::from_string("10.1.1.1"));
 
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    DelLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    DelLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
     DeleteControlNodeZone("cnz-c");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-a");
@@ -509,6 +512,7 @@ TEST_F(BgpServiceTest, Test_9) {
     EXPECT_TRUE(rfe->key().src_port == 5000);
 
     DelNode("bgpaas-control-node-zone", "link1");
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
     client->WaitForIdle();
@@ -560,6 +564,9 @@ TEST_F(BgpServiceTest, Test_10) {
                 rfe->key().src_port == 5002);
 
     DelNode("bgpaas-control-node-zone", "link1");
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    DelLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-a");
+    DelLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-a");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
     DeleteBgpRouterConfig("127.0.0.11", 0, "ip-fabric");
@@ -601,6 +608,7 @@ TEST_F(BgpServiceTest, Test_11) {
     EXPECT_FALSE(rfe->key().src_port == 5000);
 
     DelNode("bgpaas-control-node-zone", "link1");
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
@@ -640,6 +648,7 @@ TEST_F(BgpServiceTest, Test_12) {
     EXPECT_TRUE(rfe->key().src_port == 5000);
 
     DelNode("bgpaas-control-node-zone", "link1");
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
     DeleteControlNodeZone("cnz-a");
     DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
     client->WaitForIdle();
@@ -695,6 +704,9 @@ TEST_F(BgpServiceTest, Test_13) {
     //Change "Primary" and "Secondary" ControlNodeZone
     DelNode("bgpaas-control-node-zone", "link1");
     DelNode("bgpaas-control-node-zone", "link2");
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    DelLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    DelLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
     DeleteControlNodeZone("cnz-a");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-c");
@@ -749,6 +761,9 @@ TEST_F(BgpServiceTest, Test_13) {
 
     DelNode("bgpaas-control-node-zone", "link1");
     DelNode("bgpaas-control-node-zone", "link2");
+    DelLink("bgp-router", bgp_router_1.c_str(), "control-node-zone", "cnz-a");
+    DelLink("bgp-router", bgp_router_2.c_str(), "control-node-zone", "cnz-b");
+    DelLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
     DeleteControlNodeZone("cnz-a");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-c");

@@ -1296,6 +1296,11 @@ public:
         return fabric_vn_uuid_;
     }
     uint8_t GetInterfaceTransport() const;
+    void set_inet_labeled_flag(bool flag) {
+        inet_labeled_enabled_ = flag;
+    }
+    bool get_inet_labeled_flag() {
+        return inet_labeled_enabled_;}
 private:
 
     uint32_t GenerateHash(std::vector<std::string> &);
@@ -1474,6 +1479,7 @@ private:
     bool server_gateway_mode_;
     bool vcpe_gateway_mode_;
     bool pbb_gateway_mode_;
+    bool inet_labeled_enabled_;
 
     // Flow information
     uint32_t flow_table_size_;

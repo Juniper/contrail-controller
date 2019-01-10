@@ -224,8 +224,10 @@ public:
     ///////////////////////////////////////////////////////////
     // Find DB Entry. Get key from from argument
     DBEntry *Find(const DBEntry *entry);
+    const DBEntry *Find(const DBEntry *entry) const;
 
     DBEntry *Find(const DBRequestKey *key, int id = -1);
+    const DBEntry *Find(const DBRequestKey *key, int id = -1) const;
 
     // Find DB Entry without taking lock. Calling routine must ensure its
     // running in exclusion with DB task

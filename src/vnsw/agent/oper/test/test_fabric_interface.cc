@@ -138,25 +138,6 @@ TEST_F(FabricInterfaceTest, zero_ip_1) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
-// Fabric port with IP Address 0.0.0.0. Needs dhcp_relay
-TEST_F(FabricInterfaceTest, zero_ip_2) {
-    VnAddReq(1, "vn1", 0, fabric_vrf_name_);
-    NovaIntfAdd(this, 1, "fabric1", "1.1.1.1", "00:00:00:00:00:01");
-    client->WaitForIdle();
-    WAIT_FOR(1000, 100, (VmPortInactive(1) == true));
-
-    CfgIntfSync(this, 1, "fabric1", 1, 1, fabric_vrf_name_, "0.0.0.0", true);
-    client->WaitForIdle();
-    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
-    EXPECT_TRUE(intf->do_dhcp_relay());
-
-    NovaDel(this, 1);
-    CfgIntfSync(this, 1, "fabric1", 0, 0, "", "0.0.0.0", true);
-    VnDelReq(1);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(1));
-}
-
 // Fabric port with IP Address != 0.0.0.0. Does not need dhcp_relay
 TEST_F(FabricInterfaceTest, non_zero_ip_1) {
     VnAddReq(1, "vn1", 0, fabric_vrf_name_);

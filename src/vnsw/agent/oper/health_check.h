@@ -14,7 +14,7 @@ extern SandeshTraceBufferPtr HealthCheckTraceBuf;
 do {\
     HealthCheck##obj::TraceMsg(HealthCheckTraceBuf, __FILE__, __LINE__,\
                                __VA_ARGS__);\
-} while(false);
+} while (false)
 
 class Interface;
 class HealthCheckTable;

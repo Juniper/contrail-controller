@@ -22,31 +22,26 @@
         current_index: 1
         jl_message: "Created DHCP and TFTP configuration"
 
-- name: Copy ansible-created script files to TFTP server
-  hosts: tftp
+- name: Publish ansible-created script files for TFTP server
+  hosts: localhost
   gather_facts: no
-  connection: "{{ tftp_connection }}"
+  connection: local
 
   tasks:
     - name: Call TFTP role
       import_role:
         name: ztp_tftp
 
-
-- name: Gather results from TFTP server
+- name: Gather results for TFTP role
   hosts: localhost
   gather_facts: no
   connection: local
 
   tasks:
-    - name: Get TFTP host
-      set_fact:
-        tftp_host: "{{groups['tftp'][0]}}"
-
     - name: Get TFTP results
       set_fact:
         tftp_results: |
-          {%- set output = hostvars[tftp_host].get('tftp_output', None) -%} {{ output }}
+          {%- set output = hostvars['localhost'].get('tftp_output', None) -%} {{ output }}
 
     - name: if error, set ouput and bail
       set_fact:
@@ -57,13 +52,12 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 2
-        jl_message: "Updated TFTP server settings on {{tftp_host}}"
+        jl_message: "Published script files for TFTP server"
 
-
-- name: Insert/update ansible-created section of DHCP server config file
-  hosts: dhcp
+- name: Publish ansible-created DNSMASQ config file
+  hosts: localhost
   gather_facts: no
-  connection: "{{ dhcp_connection }}"
+  connection: local
 
   tasks:
     - name: Call DHCP role
@@ -72,7 +66,7 @@
       when: hostvars['localhost'].output is undefined
 
 
-- name: Finish up on localhost
+- name: Finish up
   hosts: localhost
   gather_facts: no
   connection: local
@@ -80,25 +74,21 @@
   tasks:
     - name: Set final output
       block:
-        - name: set output parameter
+        - name: Set output parameter
           set_fact:
-            outp: {'status':'Success', 'message':'ZTP playbook successfully executed'}
-
-        - name: Get DHCP host
-          set_fact:
-            dhcp_host: "{{groups['dhcp'][0]}}"
-
-        - name: Set log message
-          set_fact:
-            output_msg: "Updated DHCP server settings on {{dhcp_host}}"
+            success_msg: {'status':'Success', 'message':'ZTP playbook successfully executed'}
 
         - name: Get DHCP results
           set_fact:
-            dhcp_results: "{{hostvars[dhcp_host]['dhcp_output']}}"
+            dhcp_results: "{{hostvars['localhost']['dhcp_output']}}"
+
+        - name: Set log message
+          set_fact:
+            output_msg: "Published DHCP config file"
 
         - name: Set final output
           set_fact:
-            output: "{{outp | combine(dhcp_results)}}"
+            output: "{{success_msg | combine(dhcp_results)}}"
       when: output is undefined
 
     - name: print output

@@ -28,7 +28,7 @@ extern SandeshTraceBufferPtr VnswIfTraceBuf;
 
 #define VNSWIF_TRACE(...) do {                                       \
         VnswIfInfoTrace::TraceMsg(VnswIfTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
-} while (0);
+} while (false)
 
 namespace local = boost::asio::local;
 
