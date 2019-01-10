@@ -11,7 +11,7 @@ from etcd3.exceptions import ConnectionFailedError
 from cfgm_common.vnc_etcd import EtcdCache, VncEtcd, _handle_conn_error
 
 
-def _vnc_etcd_factory(host='etcd-host-01', port='2379', prefix='/contrail',
+def _vnc_etcd_factory(host='etcd-host-01', port=2379, prefix='/contrail',
                       kv_store='/vnc', logger=None, obj_cache_exclude_types=None,
                       log_response_time=None, credentials=None):
     """VncEtcd factory function for testing only."""
@@ -25,7 +25,7 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd = _vnc_etcd_factory(obj_cache_exclude_types=['tag_type'])
 
         self.assertEqual(vnc_etcd._host, 'etcd-host-01')
-        self.assertEqual(vnc_etcd._port, '2379')
+        self.assertEqual(vnc_etcd._port, 2379)
         self.assertEqual(vnc_etcd._prefix, '/contrail')
         self.assertEqual(vnc_etcd._kv_store, '/vnc')
         self.assertIsNone(vnc_etcd._logger)
