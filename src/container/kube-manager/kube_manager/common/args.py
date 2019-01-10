@@ -2,10 +2,11 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+import argparse
 import socket
 import sys
 
-import argparse
+from cfgm_common import vnc_etcd
 from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -115,16 +116,6 @@ def parse_args(args_str=None):
         'cassandra_server_list': '',
         'cassandra_use_ssl': False,
         'cassandra_ca_certs': None,
-        'etcd_user': None,
-        'etcd_password': None,
-        'etcd_server': '127.0.0.1',
-        'etcd_port': '2379',
-        'etcd_prefix': '/contrail',
-        'etcd_kv_store': '/vnc',
-        'etcd_use_ssl': False,
-        'etcd_ssl_keyfile': '',
-        'etcd_ssl_certfile': '',
-        'etcd_ssl_ca_certs': '',
         'cluster_id': '',
         'vnc_endpoint_ip': '[127.0.0.1]',
         'vnc_endpoint_port': ApiServerPort,
@@ -187,6 +178,8 @@ def parse_args(args_str=None):
     defaults.update(sandesh_opts)
     defaults.update(auth_opts)
     parser.set_defaults(**defaults)
+
+    parser = vnc_etcd.with_etcd_args(parser)
     args = parser.parse_args(args_str)
 
     if type(args.cassandra_server_list) is str:
