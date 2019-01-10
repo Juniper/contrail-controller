@@ -43,7 +43,7 @@ class ConfigEventManager(EventManager):
                  hostip, db_port, minimum_diskgb, contrail_databases,
                  cassandra_repair_interval,
                  cassandra_repair_logdir,
-                 **dss_kwargs):
+                 **kwargs):
         self.node_type = "contrail-config"
         self.uve_node_type = UVENodeTypeNames[NodeType.CONFIG]
         self.table = "ObjectConfigNode"
@@ -60,6 +60,7 @@ class ConfigEventManager(EventManager):
                                               self.contrail_databases,
                                               self.hostip, self.minimum_diskgb,
                                               self.db_port)
+        self.cassandra_mgr.use_ssl = kwargs.get('cassandra_use_ssl', False)
         if os.path.exists('/tmp/supervisord_config.sock'):
             self.supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
         else:
@@ -74,7 +75,7 @@ class ConfigEventManager(EventManager):
         EventManager.__init__(
             self, rule_file, discovery_server,
             discovery_port, collector_addr, sandesh_global,
-            **dss_kwargs) 
+            **kwargs)
         _disc = self.get_discovery_client()
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
