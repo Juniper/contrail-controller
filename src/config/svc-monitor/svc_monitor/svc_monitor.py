@@ -31,7 +31,7 @@ import logging.handlers
 import cfgm_common
 from cfgm_common import importutils
 from cfgm_common import svc_info
-from cfgm_common import vnc_cgitb
+from cfgm_common import vnc_cgitb, vnc_etcd
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.exceptions import ResourceExhaustionError
@@ -838,6 +838,7 @@ def parse_args(args_str):
     parser.add_argument("--check_service_interval",
                         help="Check service interval")
     SandeshConfig.add_parser_arguments(parser)
+    parser = vnc_etcd.with_etcd_args(parser)
 
     args = parser.parse_args(remaining_argv)
     args._conf_file = saved_conf_file
@@ -855,6 +856,7 @@ def parse_args(args_str):
         args.netns_availability_zone = None
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
+    args.etcd_use_ssl = (str(args.etcd_use_ssl).lower() == 'true')
 
     return args
 
