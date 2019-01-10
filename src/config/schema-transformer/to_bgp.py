@@ -25,7 +25,7 @@ import time
 import hashlib
 import argparse
 
-from cfgm_common import vnc_cgitb
+from cfgm_common import vnc_cgitb, vnc_etcd
 from cfgm_common.exceptions import *
 from config_db import *
 
@@ -475,16 +475,6 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
-        'etcd_user': None,
-        'etcd_password': None,
-        'etcd_server': '127.0.0.1',
-        'etcd_port': '2379',
-        'etcd_prefix': '/contrail',
-        'etcd_kv_store': '/vnc',
-        'etcd_use_ssl': False,
-        'etcd_ssl_keyfile': '',
-        'etcd_ssl_certfile': '',
-        'etcd_ssl_ca_certs': '',
         'zk_timeout': 120,
         'logical_routers_enabled': True,
     }
@@ -617,6 +607,7 @@ def parse_args(args_str):
     parser.add_argument("--cassandra_ca_certs",
                         help="Cassandra CA certs")
     SandeshConfig.add_parser_arguments(parser)
+    parser = vnc_etcd.with_etcd_args(parser)
 
     args = parser.parse_args(remaining_argv)
     args.conf_file = saved_conf_file
@@ -626,6 +617,7 @@ def parse_args(args_str):
         args.collectors = args.collectors.split()
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
+    args.etcd_use_ssl = (str(args.etcd_use_ssl).lower() == 'true')
 
     return args
 # end parse_args
