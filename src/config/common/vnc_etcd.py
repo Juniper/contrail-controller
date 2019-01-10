@@ -23,6 +23,24 @@ from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api import vnc_api
 
 
+def with_etcd_args(parser):
+    """Add etcd-related arguments to given parser.
+
+    :param (argparse.ArgumentParser) parser: Argument parser
+    :return (argparse.ArgumentParser) Extended argument parser
+    """
+    parser.add_argument('--etcd_user', help='etcd user name')
+    parser.add_argument('--etcd_password', help='etcd password')
+    parser.add_argument('--etcd_server', default='127.0.0.1', help='etcd server address')
+    parser.add_argument('--etcd_port', type=int, default=2379, help='etcd server port')
+    parser.add_argument('--etcd_prefix', default='/contrail', help='etcd key prefix')
+    parser.add_argument('--etcd_kv_store', default='/vnc', help='etcd key-value store key prefix')
+    parser.add_argument('--etcd_use_ssl', default='false',
+                        help='Use client SSL certificates for etcd communication')
+    parser.add_argument('--etcd_ssl_ca_certs', help='etcd CA SSL certificate file path')
+    parser.add_argument('--etcd_ssl_keyfile', help='etcd SSL private key file path')
+    parser.add_argument('--etcd_ssl_certfile', help='etcd SSL certificate file path')
+    return parser
 
 def etcd_args(args):
     vnc_db = {
@@ -31,15 +49,16 @@ def etcd_args(args):
         'prefix': args.etcd_prefix,
         'kv_store': args.etcd_kv_store,
     }
-    if args.etcd_user and args.etcd_password:
-        credentials = {'user': args.etcd_user,
-                       'password': args.etcd_password}
 
-        if args.ssl_enabled:
-            credentials['ca_cert'] = args.etcd_ssl_ca_cert
-            credentials['cert_key'] = args.etcd_ssl_keyfile
-            credentials['cert_cert'] = args.etcd_ssl_certfile
-
+    credentials = {}
+    if args.etcd_user:
+        credentials['user'] = args.etcd_user
+        credentials['password'] = args.etcd_password
+    if args.etcd_use_ssl:
+        credentials['ca_cert'] = args.etcd_ssl_ca_cert
+        credentials['cert_key'] = args.etcd_ssl_keyfile
+        credentials['cert_cert'] = args.etcd_ssl_certfile
+    if len(credentials) > 0:
         vnc_db['credentials'] = credentials
 
     return vnc_db
