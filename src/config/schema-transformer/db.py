@@ -6,12 +6,12 @@
 from cassandra import SchemaTransformerDB
 from etcd import SchemaTransformerEtcd
 
-def schema_transformer_db_factory(args, zookeeper_client, logger):
+def schema_transformer_db_factory(args, vnc_lib, zookeeper_client, logger):
     """SchemaTransformerDB factory function"""
 
     if hasattr(args, "db_driver") and args.db_driver == "etcd":
         # Initialize etcd
-        return SchemaTransformerEtcd(args, logger)
+        return SchemaTransformerEtcd(args, vnc_lib, logger)
 
     # Initialize cassandra
     return SchemaTransformerDB(args, zookeeper_client, logger)
