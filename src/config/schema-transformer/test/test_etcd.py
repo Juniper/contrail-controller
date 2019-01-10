@@ -9,22 +9,25 @@ import mock
 
 from cfgm_common.vnc_etcd import VncEtcd
 from schema_transformer.etcd import SchemaTransformerEtcd
+from schema_transformer.to_bgp import parse_args
 
 ETCD_HOST = 'etcd-host-01'
 
 
-def _schema_transformer_etcd_factory(host=ETCD_HOST, port='2379', prefix='/contrail',
-                                     logger=None, log_response_time=None, credentials=None):
+def _schema_transformer_etcd_factory(host=ETCD_HOST, vnc_lib=mock.MagicMock(),
+                                     logger=mock.MagicMock(), log_response_time=None, 
+                                     credentials=None):
     """SchemaTransformerEtcd factory function for testing only."""
+    args = parse_args('')
+    args.etcd_server = ETCD_HOST
 
-    Args = namedtuple("Args", ['etcd_server', 'etcd_port', 'etcd_prefix', 'etcd_user', 'etcd_password'])
-    return SchemaTransformerEtcd(Args(host, port, prefix, "", ""), logger)
+    return SchemaTransformerEtcd(args, vnc_lib, logger)
 
 
 class TestSchemaTransformerEtcd(unittest.TestCase):
 
     def test_create_schema_transformer_etcd_instance(self):
-        schema_transformer_etcd = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        schema_transformer_etcd = _schema_transformer_etcd_factory()
         self.assertIsInstance(
             schema_transformer_etcd._object_db, VncEtcd)
         self.assertIsInstance(
@@ -47,7 +50,7 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
                    ('/contrail/schema_transformer/service_chain/k2', 'value2'),
                    ('/contrail/schema_transformer/service_chain/k3', 'value3'),
                    ]
-        schema_transformer_etcd = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        schema_transformer_etcd = _schema_transformer_etcd_factory()
         schema_transformer_etcd._object_db._client.get_prefix = mock.MagicMock()
         schema_transformer_etcd._object_db._client.get_prefix.return_value = kv_data
 
