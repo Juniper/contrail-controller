@@ -75,6 +75,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'cassandra_repair_logdir': '/var/log/contrail/',
                'sandesh_send_rate_limit': \
                     SandeshSystem.get_sandesh_send_rate_limit(),
+               'cassandra_use_ssl': 'true',
               }
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
@@ -97,6 +98,8 @@ def main(args_str=' '.join(sys.argv[1:])):
     config.read([config_file])
     if 'DEFAULT' in config.sections():
         default.update(dict(config.items('DEFAULT')))
+    if 'DEFAULTS' in config.sections():
+        default.update(dict(config.items('DEFAULTS')))
     if 'DISCOVERY' in config.sections():
         disc_options.update(dict(config.items('DISCOVERY')))
         if 'ssl' in config.options('DISCOVERY'):
@@ -157,6 +160,8 @@ def main(args_str=' '.join(sys.argv[1:])):
                             "nodetool repair for cassandra maintenance")
         parser.add_argument("--cassandra_repair_logdir",
                             help="Directory for storing repair logs")
+        parser.add_argument("--cassandra_use_ssl",
+                            help="To connect SSL enabled cassandra. values: true|false")
     try:
         _args = parser.parse_args(remaining_argv)
     except:
@@ -178,17 +183,21 @@ def main(args_str=' '.join(sys.argv[1:])):
         sys.stderr.flush()
         return
     prog = None
-    dss_kwargs = {}
+    kwargs = {}
     if _args.discovery_ssl:
-        dss_kwargs = {
+        kwargs.update( {
             'cert' : _args.discovery_cert,
             'key' : _args.discovery_key,
             'cacert' : _args.discovery_cacert
-            }
+            } )
+    if _args.cassandra_use_ssl.lower() == 'true':
+        kwargs.update( {
+            'cassandra_use_ssl': True
+        } )
     if (node_type == 'contrail-analytics'):
         prog = AnalyticsEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr, **dss_kwargs)
+            discovery_port, collector_addr, **kwargs)
     elif (node_type == 'contrail-config'):
         hostip = _args.hostip
         db_port = _args.db_port
@@ -201,15 +210,15 @@ def main(args_str=' '.join(sys.argv[1:])):
             discovery_port, collector_addr,
             hostip, db_port, minimum_diskgb, contrail_databases,
             cassandra_repair_interval, cassandra_repair_logdir,
-            **dss_kwargs)
+            **kwargs)
     elif (node_type == 'contrail-control'):
         prog = ControlEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr, **dss_kwargs)
+            discovery_port, collector_addr, **kwargs)
     elif (node_type == 'contrail-vrouter'):
         prog = VrouterEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr, **dss_kwargs)
+            discovery_port, collector_addr, **kwargs)
     elif (node_type == 'contrail-database'):
         hostip = _args.hostip
         db_port = _args.db_port
@@ -222,7 +231,7 @@ def main(args_str=' '.join(sys.argv[1:])):
             discovery_port, collector_addr,
             hostip, db_port, minimum_diskgb, contrail_databases,
 	    cassandra_repair_interval, cassandra_repair_logdir,
-            **dss_kwargs)
+            **kwargs)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
         return

@@ -30,6 +30,7 @@ class CassandraManager(object):
         self.hostip = hostip
         self.db_port = db_port
         self.minimum_diskgb = minimum_diskgb
+        self.use_ssl = False
         # Initialize tpstat structures
         self.cassandra_status_old = CassandraStatusData()
         self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
@@ -188,7 +189,11 @@ class CassandraManager(object):
             event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE_NA
 
-        cqlsh_cmd = "cqlsh " + self.hostip + " " + self.db_port + " -e quit"
+        if self.use_ssl:
+            cqlsh_cmd = "SSL_VALIDATE=false cqlsh --ssl "
+        else:
+            cqlsh_cmd = "cqlsh "
+        cqlsh_cmd += self.hostip + " " + self.db_port + " -e quit"
         proc = subprocess.Popen(cqlsh_cmd, shell=True, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, close_fds=True)
         (output, errout) = proc.communicate()
