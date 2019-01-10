@@ -30,15 +30,16 @@ def etcd_args(args):
         'port': args.etcd_port,
         'prefix': args.etcd_prefix,
     }
-    if args.etcd_user and args.etcd_password:
-        credentials = {'user': args.etcd_user,
-                       'password': args.etcd_password}
 
-        if args.ssl_enabled:
-            credentials['ca_cert'] = args.etcd_ssl_ca_cert
-            credentials['cert_key'] = args.etcd_ssl_keyfile
-            credentials['cert_cert'] = args.etcd_ssl_certfile
-
+    credentials = {}
+    if args.etcd_user:
+        credentials['user'] = args.etcd_user
+        credentials['password'] = args.etcd_password
+    if args.etcd_use_ssl:
+        credentials['ca_cert'] = args.etcd_ssl_ca_cert
+        credentials['cert_key'] = args.etcd_ssl_keyfile
+        credentials['cert_cert'] = args.etcd_ssl_certfile
+    if len(credentials) > 0:
         vnc_db['credentials'] = credentials
 
     return vnc_db
