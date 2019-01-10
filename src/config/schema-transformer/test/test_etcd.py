@@ -58,7 +58,7 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         self.assertIsInstance(
             schema_transformer_etcd._object_db._client, etcd3.Etcd3Client)
         self.assertEqual(schema_transformer_etcd._object_db._host, ETCD_HOST)
-        self.assertEqual(schema_transformer_etcd._object_db._port, '2379')
+        self.assertEqual(schema_transformer_etcd._object_db._port, 2379)
         self.assertIsNone(schema_transformer_etcd._object_db._credentials)
 
     def test_empty_get_service_chain_ip(self):
