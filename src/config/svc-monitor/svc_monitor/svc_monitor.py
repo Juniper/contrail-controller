@@ -855,6 +855,7 @@ def parse_args(args_str):
         args.netns_availability_zone = None
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
+    args.etcd_use_ssl = (str(args.etcd_use_ssl).lower() == 'true')
 
     return args
 
