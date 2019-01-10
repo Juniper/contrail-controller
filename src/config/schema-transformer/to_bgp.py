@@ -189,7 +189,7 @@ class SchemaTransformer(object):
         self._vnc_amqp.establish()
         SchemaTransformer._schema_transformer = self
         try:
-            self._object_db = schema_transformer_db_factory(self._args, _zookeeper_client, self.logger)
+            self._object_db = schema_transformer_db_factory(self._args, _vnc_lib, _zookeeper_client, self.logger)
             DBBaseST.init(self, self.logger, self._object_db)
             DBBaseST._sandesh = self.logger._sandesh
             DBBaseST._vnc_lib = _vnc_lib

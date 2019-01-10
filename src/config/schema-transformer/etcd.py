@@ -8,22 +8,48 @@ Schema transformer DB for etcd to allocate ids and store internal data
 """
 
 from cfgm_common import vnc_object_db, vnc_etcd
+from vnc_api.exceptions import RefsExistError
+
 
 class RTHandler(object):
     def get_range(self):
-        #TODO: Implement for etcd
+        # TODO: Implement for etcd
         return []
+
 
 class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
 
     _ETCD_SERVICE_CHAIN_PATH = "schema_transformer/service_chain"
+    _BGPAAS_PORT_ALLOC_POOL = "bgpaas_port"
 
-    def __init__(self, args, logger):
+    def __init__(self, args, vnc_lib, logger):
+        self._args = args
         self._etcd_args = vnc_etcd.etcd_args(args)
         self._logger = logger
+        self._vnc_lib = vnc_lib
         self._rt_cf = RTHandler()
-        self._logger.log("VncObjectEtcdClient arguments: {}".format(self._etcd_args))
-        super(SchemaTransformerEtcd, self).__init__(logger=self._logger.log, **self._etcd_args)
+        self._logger.log(
+            "VncObjectEtcdClient arguments: {}".format(self._etcd_args))
+        self._init_bgpaas_ports_index_allocator()
+
+        super(SchemaTransformerEtcd, self).__init__(
+            logger=self._logger.log, **self._etcd_args)
+
+    def _init_bgpaas_ports_index_allocator(self):
+        bgpaas_port_start = self._args.bgpaas_port_start
+        bgpaas_port_end = self._args.bgpaas_port_end
+        global_system_config = self._vnc_lib.global_system_config_read(
+            fq_name=['default-global-system-config'])
+        cfg_bgpaas_ports = global_system_config.get_bgpaas_parameters()
+        if cfg_bgpaas_ports:
+            bgpaas_port_start = cfg_bgpaas_ports.get_port_start()
+            bgpaas_port_end = cfg_bgpaas_ports.get_port_end()
+        try:
+            self._vnc_lib.create_int_pool(
+                self._BGPAAS_PORT_ALLOC_POOL, bgpaas_port_start, bgpaas_port_end)
+        except RefsExistError:
+            # int pool already allocated
+            pass
 
     def _patch_encapsulate_value(self, obj):
         """Encaplsulate each obj in dictionary with single element having
@@ -103,14 +129,17 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         key_path = self._path_key(key)
         self._object_db.delete_kv(key_path)
 
-    def get_bgpaas_port(self, port):
-        # TODO (but maybe this method is not used at all, so there might not be any reason implementing it)
-        pass
+    def alloc_bgpaas_port(self, *args, **kwargs):
+        """Allocate unique port for BGPaaS.
 
-    def alloc_bgpaas_port(self, name):
-        # TODO
-        return 0
+        params NOT USED, left for backward compatibility.
+        :return: (int) allocated port number.
+        """
+        return self._vnc_lib.allocate_int(self._BGPAAS_PORT_ALLOC_POOL)
 
     def free_bgpaas_port(self, port):
-        # TODO
-        pass
+        """Free allocated port for BGPaaS.
+
+        :param port (int): Port number to be freed.
+        """
+        self._vnc_lib.deallocate_int(self._BGPAAS_PORT_ALLOC_POOL, port)
