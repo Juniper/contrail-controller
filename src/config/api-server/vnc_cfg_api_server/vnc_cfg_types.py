@@ -6710,3 +6710,227 @@ class RoutingPolicyServer(Resource, RoutingPolicy):
         return True, ""
 # end class RoutingPolicyServer
 
+class PortServer(Resource, Port ):
+    @staticmethod
+    def _create_pi_ref(obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
+        db_conn.config_log('PortSever: create_pi_ref hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("OBJ_DICT %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+
+        if obj_dict.get('bms_port_info') \
+           and obj_dict.get('bms_port_info').get('local_link_connection'):
+           link_details = obj_dict.get('bms_port_info').get('local_link_connection')
+           switch_name = link_details.get('switch_info')
+           port_id = link_details.get('port_id')
+           if switch_name and port_id :
+               pi_fq_name = ['default-global-system-config', switch_name, port_id]
+               pi_uuid = None
+               try:
+                   pi_uuid = db_conn.fq_name_to_uuid('physical_interface', pi_fq_name)
+               except cfgm_common.exceptions.NoIdError as e:
+                   db_conn.config_log("Not PI found for " + switch_name + " => " + port_id , level=SandeshLevel.SYS_WARN)
+                   pass
+               if pi_uuid:
+                   db_conn.config_log(pi_uuid, level=SandeshLevel.SYS_DEBUG)
+                   port_fq_name = db_conn.uuid_to_fq_name(obj_dict['uuid'])
+                   api_server.internal_request_ref_update('physical-interface', pi_uuid, 'ADD',
+                                               'port', obj_dict['uuid'], port_fq_name)
+                   db_conn.config_log("REF UPDATE DONE", level=SandeshLevel.SYS_DEBUG)
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        cls._create_pi_ref(obj_dict, db_conn)
+        return True, ''
+
+    # end post_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        db_conn.config_log('PortSever: post_dbe_update hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("PORT-UPDATE: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        msg = ("PORT-UPDATE : %s", pformat(fq_name))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        msg = ("PORT-UPDATE : %s", pformat(kwargs))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        return True, ''
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        api_server = db_conn.get_api_server()
+        db_conn.config_log('PortSever: post_dbe_update hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("PORT-UPDATE: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        msg = ("PORT-UPDATE : %s", pformat(fq_name))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        msg = ("PORT-UPDATE : %s", pformat(kwargs))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+
+        ok, result = db_conn.dbe_read(obj_type='port',
+                                      obj_id =obj_dict['uuid'],
+                                      obj_fields=['physical_interface_back_refs'])
+        msg = ("PORT-UPDATE BACK-REFS: %s", str(ok))
+        if ok:
+            msg = ("PORT-UPDATE BACK-REFS: %s", pformat(result))
+            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+            if result.get('physical_interface_back_refs'):
+                pi_uuid = result['physical_interface_back_refs'][0]['uuid']
+                port_fq_name = db_conn.uuid_to_fq_name(obj_dict['uuid'])
+                api_server.internal_request_ref_update('physical-interface', pi_uuid, 'DELETE',
+                               'port', obj_dict['uuid'], port_fq_name)
+
+        cls._create_pi_ref(obj_dict, db_conn )
+
+        return True, ''
+
+class EndSystemServer(Resource, EndSystem):
+    @staticmethod
+    def np_get_portmap(np_uuid, db_conn):
+        ok, result = db_conn.dbe_read(obj_type='node-profile',
+                                      obj_id =np_uuid,
+                                      obj_fields=['hardware_refs'])
+        if not ok:
+            db_conn.config_log("node-profile read fail",
+                               level=SandeshLevel.SYS_DEBUG)
+            return None
+
+        ok, result = db_conn.dbe_read(obj_type='hardware',
+                                      obj_id = result.get('hardware_refs')[0]['uuid'],
+                                      obj_fields = ['card_refs'])
+        if not ok:
+            db_conn.config_log("node-profile dbe_read of hardware failed",
+                               level=SandeshLevel.SYS_DEBUG)
+            return None
+
+        ok, result = db_conn.dbe_read(obj_type='card',
+                                      obj_id = result.get('card_refs')[0]['uuid'])
+        if not ok:
+            db_conn.config_log("node-profile dbe_read of card failed",
+                               level=SandeshLevel.SYS_DEBUG)
+            return None
+
+        port_map = result.get('interface_map')['port_info']
+        msg = ("np_get_portmap: %s", pformat(port_map))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        return port_map
+
+    @staticmethod
+    def endsystem_get_ports(obj_dict, db_conn):
+        ok, result = db_conn.dbe_read(obj_type='end-system',
+                                      obj_id = obj_dict['uuid'],
+                                      obj_fields = ['ports'])
+        if not ok:
+            return None
+
+        end_system_ports = {}
+        for port in result['ports']:
+            msg = ("np-node port: %s", pformat(port['uuid']))
+            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+            ok, result = db_conn.dbe_read(obj_type='port',
+                                          obj_id = port['uuid'])
+            if not ok:
+                return None
+
+            msg = ("endsystem_get_ports: %s", pformat(result))
+            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+            port = {}
+            port['uuid'] = result['uuid']
+            port['fq_name'] = result['fq_name']
+            port['name'] = result['fq_name'][-1]
+            port['tag_ref'] = result.get('tag_refs', "")
+            end_system_ports[result['fq_name'][-1]] = port
+
+        return end_system_ports
+
+    @staticmethod
+    def remove_tag_refs(id, db_conn, end_system_ports):
+        api_server = db_conn.get_api_server()
+        for port in end_system_ports:
+            for tag_ref in end_system_ports[port]['tag_ref']:
+                 api_server.internal_request_ref_update('port',
+                      end_system_ports[port]['uuid'], 'DELETE',
+                        'tag', tag_ref['uuid'], tag_ref['to'])
+        return
+
+    @staticmethod
+    def process_node_profile(cls, id, fq_name, obj_dict, db_conn):
+        msg = ("process_node_profile-obj-dict: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        api_server = db_conn.get_api_server()
+
+        end_system_ports = cls.endsystem_get_ports(obj_dict, db_conn)
+        msg = ("ES-PORTS: %s", pformat(end_system_ports))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        cls.remove_tag_refs(id, db_conn, end_system_ports)
+        msg = ("ES-PORTS: %s", pformat(end_system_ports))
+
+        if obj_dict.get('node_profile_refs'):
+            msg = ("process_node_profile: %s", pformat(obj_dict))
+            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+            np_uuid =  obj_dict['node_profile_refs'][0]['uuid']
+            port_map = cls.np_get_portmap(np_uuid, db_conn)
+            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+            for port in port_map:
+                port_labels = port.get('labels')
+                port_name = port.get('name')
+                if not (port_name and end_system_ports.get(port_name)):
+                    continue
+                end_system_ports[port_name]['uuid']
+                db_conn.config_log("process NP " + str(port_labels), level=SandeshLevel.SYS_DEBUG)
+
+                for port_label in port_labels:
+                    port_label_uuid = db_conn.fq_name_to_uuid('tag', ['label='+port_label])
+                    db_conn.config_log("process NP uuid" + port_label_uuid, level=SandeshLevel.SYS_DEBUG)
+
+                    api_server.internal_request_ref_update('port',
+                        end_system_ports[port_name]['uuid'], 'ADD',
+                        'tag', port_label_uuid, ['label='+port_label])
+
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, prop_collection_updates=None):
+        db_conn.config_log('EndSystemSever: pre_dbe_update hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("EndSystem-pre-UPDATE: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        ok, result = db_conn.dbe_read(obj_type='end-system',
+                                      obj_id = obj_dict['uuid'])
+        if ok:
+            msg = ("EndSystem-pre-UPDATE-result: %s", pformat(result))
+            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        else:
+            db_conn.config_log("PRE_DBE-NOT-OK", level=SandeshLevel.SYS_DEBUG)
+        return True, ''
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, prop_collection_updates=None, ref_update=None):
+        db_conn.config_log('EndSystemSever: post_dbe_update hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("EndSystem-UPDATE: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        ok, result = db_conn.dbe_read(obj_type='end-system',
+                                      obj_id = obj_dict['uuid'])
+        msg = ("EndSystem-UPDATE-result: %s", pformat(result))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        cls.process_node_profile(cls, id, fq_name, obj_dict, db_conn)
+        return True, ''
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        db_conn.config_log('EndSystemSever: post_dbe_create hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("EndSystem-Create: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        cls.process_node_profile(cls, id, None, obj_dict, db_conn)
+        return True, ''
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn, prop_collection_updates=None, **kwargs):
+        db_conn.config_log('EndSystemSever:  post_dbe_hit', level=SandeshLevel.SYS_DEBUG)
+        msg = ("EndSystem-Create: %s", pformat(obj_dict))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        msg = ("EndSystem-Create PROP: %s", pformat(prop_collection_updates))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        msg = ("EndSystem-Create KWARGS: %s", pformat(kwargs))
+        db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        #cls.(cls, id, fq_name, obj_dict, db_conn)
+        return True, ''
