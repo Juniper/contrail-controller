@@ -17,6 +17,15 @@
       set_fact:
         upgrade_plan: "{{ job_ctx | hitless_upgrade_plan(image_upgrade_list) }}"
 
+    - name: Check for errors
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{upgrade_plan.error_msg}}"
+            jl_err_message: "Failed creating upgrade plan: {{upgrade_plan.error_msg}}"
+      when: upgrade_plan.status == 'failure'
+
     - name: Print upgrade_plan
       debug: var=upgrade_plan verbosity=1
 
@@ -38,6 +47,15 @@
       set_fact:
         first_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, '') }}"
       when: upgrade_mode == 'upgrade'
+
+    - name: Check for errors
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{first_batch.error_msg}}"
+            jl_err_message: "Failed getting first batch: {{first_batch.error_msg}}"
+      when: first_batch.status == 'failure'
 
     - name: Update job log with percentage
       include_tasks: percentage_update.yml

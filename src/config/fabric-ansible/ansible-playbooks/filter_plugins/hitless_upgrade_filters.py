@@ -485,6 +485,21 @@ class FilterModule(object):
 
     # Get the current and next batch off the batch list and return
     def get_next_batch(self, job_ctx, upgrade_plan, device_uuid):
+        try:
+            return self._get_next_batch(upgrade_plan, device_uuid)
+        except Exception as ex:
+            errmsg = "Unexpected error attempting to get next batch: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end get_next_batch
+
+    # Get the current and next batch off the batch list and return
+    def _get_next_batch(self, upgrade_plan, device_uuid):
         c_idx, n_idx = None, None
         current_batch, next_batch = {}, {}
         batch_info = {
@@ -493,7 +508,8 @@ class FilterModule(object):
             },
             'next': {
                 'batch_name': None, 'batch_index': None, 'batch_devices': {}
-            }
+            },
+            'status': "success"
         }
 
         if device_uuid:
@@ -519,10 +535,25 @@ class FilterModule(object):
             batch_info['next'] = {'batch_name': batch['name'], 'batch_index': n_idx, 'batch_devices': next_batch}
 
         return batch_info
-    # end get_next_batch
+    # end _get_next_batch
 
     # Get list of all devices for use in test_run
     def get_all_devices(self, job_ctx, upgrade_plan):
+        try:
+            return self._get_all_devices(upgrade_plan)
+        except Exception as ex:
+            errmsg = "Unexpected error attempting to get all devices: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            self._logger.error(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end get_all_devices
+
+    # Get list of all devices for use in test_run
+    def _get_all_devices(self, upgrade_plan):
         all_devices = {}
         device_table = upgrade_plan['device_table']
         batch_info = {
@@ -531,7 +562,8 @@ class FilterModule(object):
             },
             'next': {
                 'batch_name': 'all', 'batch_index': 0, 'batch_devices': {}
-            }
+            },
+            'status': "success"
         }
         for device_uuid, device_info in device_table.iteritems():
             all_devices[device_uuid] = device_table[device_uuid]['basic']
