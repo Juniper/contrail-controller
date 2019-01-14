@@ -2190,6 +2190,22 @@ class VncApiServer(object):
         return self._args.listen_port
     # end get_server_port
 
+    def get_enable_ssl(self):
+        return self._args.config_api_ssl_enable
+    # end get_enable_ssl
+
+    def get_keyfile(self):
+        return self._args.config_api_ssl_keyfile
+    # end get_keyfile
+
+    def get_certfile(self):
+        return self._args.config_api_ssl_certfile
+    # end get_certfile
+
+    def get_ca_cert(self):
+        return self._args.config_api_ssl_ca_cert
+    # end get_ca_cert
+
     def get_worker_id(self):
         return int(self._args.worker_id)
     # end get_worker_id
@@ -4920,6 +4936,12 @@ def main(args_str=None, server=None):
     server_ip = vnc_api_server.get_listen_ip()
     server_port = vnc_api_server.get_server_port()
 
+    enable_ssl = vnc_api_server.get_enable_ssl()
+    if enable_ssl:
+        certfile=vnc_api_server.get_certfile()
+        keyfile=vnc_api_server.get_keyfile()
+        ca_cert=vnc_api_server.get_ca_cert()
+
     """ @sigchld
     Disable handling of SIG_CHLD for now as every keystone request to validate
     token sends SIG_CHLD signal to API server.
@@ -4930,8 +4952,18 @@ def main(args_str=None, server=None):
     if pipe_start_app is None:
         pipe_start_app = vnc_api_server.api_bottle
     try:
-        bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
-                   server=get_bottle_server(server._args.max_requests))
+        if enable_ssl:
+            if not (certfile and keyfile and ca_cert):
+                msg = "SSL is enabled but one or more of these options " \
+                      "config_api_ssl_keyfile, config_api_ssl_certfile, " \
+                      "config_api_ssl_ca_cert not specified"
+                raise cfgm_common.exceptions.VncError(msg)
+            bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
+                       ca_certs=ca_cert, keyfile=keyfile, certfile=certfile,
+                       server=get_bottle_server(server._args.max_requests))
+        else:
+            bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
+                       server=get_bottle_server(server._args.max_requests))
     except KeyboardInterrupt:
         # quietly handle Ctrl-C
         pass
