@@ -1975,6 +1975,18 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
+        new_alloc_pool1 = AllocationPoolType(start='11.1.1.100', end='11.1.1.110')
+        new_alloc_pool2 = AllocationPoolType(start='11.1.1.95', end='11.1.1.115')
+        new_alloc_pool3 = AllocationPoolType(start='11.1.1.90', end='11.1.1.104')
+        alloc_pool_list.append(new_alloc_pool1)
+        ipam_sn_v4.set_allocation_pools(alloc_pool_list)
+        vn._pending_field_updates.add('network_ipam_refs')
+        try:
+            self._vnc_lib.virtual_network_update(vn)
+        except HttpError:
+            logger.debug('Not allowed to change alloc pool range')
+            pass
+        net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #cleanup
         logger.debug('Cleaning up')
