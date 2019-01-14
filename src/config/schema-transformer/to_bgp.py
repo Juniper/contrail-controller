@@ -210,7 +210,6 @@ class SchemaTransformer(object):
         BgpRouterST.reinit()
         BgpvpnST.reinit()
         LogicalRouterST.reinit()
-        gevent.sleep(0.001)
         for si in ServiceInstanceST.list_vnc_obj():
             try:
                 si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
@@ -299,7 +298,7 @@ class SchemaTransformer(object):
             self.timer_obj.timed_yield()
         # end for acl
 
-        gevent.sleep(0.001)
+        gevent_sleep()
         for sg in sg_list:
             try:
                 SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
@@ -318,7 +317,7 @@ class SchemaTransformer(object):
                 self.logger.error("Error in updating SG policies %s: %s" % (
                     sg.name, str(e)))
 
-        gevent.sleep(0.001)
+        gevent_sleep()
         RouteTargetST.reinit()
         for vn in vn_list:
             if vn.uuid in ri_deleted:
@@ -346,20 +345,14 @@ class SchemaTransformer(object):
                     si_ri_name, str(e)))
 
         NetworkPolicyST.reinit()
-        gevent.sleep(0.001)
         VirtualMachineInterfaceST.reinit()
 
-        gevent.sleep(0.001)
         InstanceIpST.reinit()
-        gevent.sleep(0.001)
         FloatingIpST.reinit()
         AliasIpST.reinit()
 
-        gevent.sleep(0.001)
         RoutingPolicyST.reinit()
-        gevent.sleep(0.001)
         RouteAggregateST.reinit()
-        gevent.sleep(0.001)
         PortTupleST.reinit()
         BgpAsAServiceST.reinit()
         RouteTableST.reinit()
