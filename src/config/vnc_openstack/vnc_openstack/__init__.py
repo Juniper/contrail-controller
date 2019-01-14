@@ -295,13 +295,32 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     def _get_vnc_conn(self):
         if self._vnc_lib:
             return
-
-        self._vnc_lib = vnc_api.VncApi(
-            api_server_host=self._vnc_api_ip,
-            api_server_port=self._vnc_api_port,
-            username=self._auth_user,
-            password=self._auth_passwd,
-            tenant_name=self._admin_tenant)
+        try:
+            enable_ssl=self._config_sections.get('DEFAULTS',
+                                    'config_api_ssl_enable')
+        except ConfigParser.NoOptionError:
+            enable_ssl=False
+        try:
+            cacert=self._config_sections.get('DEFAULTS',
+                               'config_api_ssl_ca_cert')
+        except ConfigParser.NoOptionError:
+            cacert=None
+        if enable_ssl:
+            self._vnc_lib = vnc_api.VncApi(
+                api_server_host=self._vnc_api_ip,
+                api_server_port=self._vnc_api_port,
+                username=self._auth_user,
+                password=self._auth_passwd,
+                api_server_use_ssl=enable_ssl,
+                apicafile=cacert,
+                tenant_name=self._admin_tenant)
+        else:
+            self._vnc_lib = vnc_api.VncApi(
+                api_server_host=self._vnc_api_ip,
+                api_server_port=self._vnc_api_port,
+                username=self._auth_user,
+                password=self._auth_passwd,
+                tenant_name=self._admin_tenant)
     # end _get_vnc_conn
 
     def _get_keystone_conn(self):
@@ -868,15 +887,35 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
         # get connection to api-server REST interface
         tries = 0
+        try:
+            enable_ssl=self._config_sections.get('DEFAULTS',
+                                    'config_api_ssl_enable')
+        except ConfigParser.NoOptionError:
+            enable_ssl=False
+        try:
+            cacert=self._config_sections.get('DEFAULTS',
+                               'config_api_ssl_ca_cert')
+        except ConfigParser.NoOptionError:
+            cacert=None
         while True:
             try:
                 tries = tries + 1
-                self._vnc_lib = vnc_api.VncApi(
-                    api_server_host=self._vnc_api_ip,
-                    api_server_port=self._vnc_api_port,
-                    username=self._auth_user,
-                    password=self._auth_passwd,
-                    tenant_name=self._admin_tenant)
+                if enable_ssl:
+                    self._vnc_lib = vnc_api.VncApi(
+                        api_server_host=self._vnc_api_ip,
+                        api_server_port=self._vnc_api_port,
+                        username=self._auth_user,
+                        password=self._auth_passwd,
+                        api_server_use_ssl=enable_ssl,
+                        apicafile=cacert,
+                        tenant_name=self._admin_tenant)
+                else:
+                    self._vnc_lib = vnc_api.VncApi(
+                        api_server_host=self._vnc_api_ip,
+                        api_server_port=self._vnc_api_port,
+                        username=self._auth_user,
+                        password=self._auth_passwd,
+                        tenant_name=self._admin_tenant)
                 self._connected_to_api_server.set()
 
                 vnc_lib = self._vnc_lib

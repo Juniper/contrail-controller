@@ -95,6 +95,10 @@ def parse_args(args_str):
              '/etc/contrail/contrail-fabric-ansible.conf'],
         'enable_fabric_ansible': True,
         'max_job_mgr_processes': 100,
+        'config_api_ssl_enable': False,
+        'config_api_ssl_keyfile': '',
+        'config_api_ssl_certfile': '',
+        'config_api_ssl_ca_cert': '',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
