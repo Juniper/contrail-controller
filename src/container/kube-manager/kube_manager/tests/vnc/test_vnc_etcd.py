@@ -491,27 +491,27 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd._client.get_prefix.assert_called_once()
 
     @mock.patch('etcd3.client')
-    def test_patch_refs_to_should_add_missing_key(self, etcd_client):
+    def test_patch_resource_refs_to_should_add_missing_key(self, etcd_client):
         obj = {'uuid': 'test-obj',
                'network_ipam_refs': [{'uuid': 'test-ipam'}]}
 
         vnc_etcd = _vnc_etcd_factory()
         vnc_etcd.uuid_to_fq_name = lambda x: ['default', 'test', 'ipam']
 
-        result = vnc_etcd._patch_refs_to(obj)
+        result = vnc_etcd._patch_resource_refs_to(obj)
         expected_refs = [{'uuid': 'test-ipam',
                           'to': ['default', 'test', 'ipam']}]
         self.assertListEqual(result['network_ipam_refs'], expected_refs)
 
     @mock.patch('etcd3.client')
-    def test_patch_refs_to_should_omit_existing_key(self, etcd_client):
+    def test_patch_resource_refs_to_should_omit_existing_key(self, etcd_client):
         obj = {'uuid': 'test-obj',
                'network_ipam_refs': [{'uuid': 'test-ipam',
                                       'to': ['default', 'test', 'ipam']}]}
         vnc_etcd = _vnc_etcd_factory()
         vnc_etcd.uuid_to_fq_name = lambda x: ['default', 'admin', 'ipam']
 
-        result = vnc_etcd._patch_refs_to(obj)
+        result = vnc_etcd._patch_resource_refs_to(obj)
         expected_refs = [{'uuid': 'test-ipam',
                           'to': ['default', 'test', 'ipam']}]
         self.assertListEqual(result['network_ipam_refs'], expected_refs)

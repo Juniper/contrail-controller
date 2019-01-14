@@ -8,7 +8,6 @@ from functools import wraps
 
 import etcd3
 from etcd3.client import KVMetadata
-import time
 import utils
 from cfgm_common.exceptions import DatabaseUnavailableError, NoIdError, VncError
 from etcd3.exceptions import ConnectionFailedError
@@ -22,6 +21,7 @@ from cfgm_common import vnc_greenlets
 from cfgm_common.vnc_amqp import VncAmqpHandle
 
 from vnc_api import vnc_api
+
 
 def etcd_args(args):
     vnc_db = {
@@ -41,6 +41,7 @@ def etcd_args(args):
         vnc_db['credentials'] = credentials
 
     return vnc_db
+
 
 def _handle_conn_error(func):
     @wraps(func)
@@ -103,15 +104,16 @@ class VncEtcdWatchHandle(VncAmqpHandle):
     def __init__(self, sandesh, logger, db_cls, reaction_map,
                  notifier_cfg, host_ip, trace_file=None, timer_obj=None):
         self._etcd_cfg = notifier_cfg
+        self._vnc_etcd_watcher = None
         super(VncEtcdWatchHandle, self).__init__(
             sandesh, logger, db_cls, reaction_map, q_name_prefix=None,
             rabbitmq_cfg=None, host_ip=host_ip, trace_file=trace_file, timer_obj=timer_obj)
 
     def establish(self):
         self._vnc_etcd_watcher = VncEtcdWatchClient(
-                self._etcd_cfg['host'], self._etcd_cfg['port'],
-                self._etcd_cfg.get('credentials'), self._etcd_cfg['prefix'],
-                self._etcd_callback_wrapper, self.logger.log)
+            self._etcd_cfg['host'], self._etcd_cfg['port'],
+            self._etcd_cfg.get('credentials'), self._etcd_cfg['prefix'],
+            self._etcd_callback_wrapper, self.logger.log)
 
     def _etcd_callback_wrapper(self, event):
         self.logger.debug("Got etcd event: {} {}".format(event.key, event.value))
@@ -278,8 +280,8 @@ class VncEtcd(VncEtcdClient):
         if not obj_uuids:
             return True, results
 
-        for uuid in obj_uuids:
-            key = self._key_obj(obj_type, uuid)
+        for obj_uuid in obj_uuids:
+            key = self._key_obj(obj_type, obj_uuid)
             if ret_readonly is True and key in self._obj_cache:
                 record = self._obj_cache[key]
                 resource = record.resource
@@ -289,7 +291,7 @@ class VncEtcd(VncEtcdClient):
                     # There is no data in etcd, go to next uuid
                     continue
 
-                resource = self._patch_refs_to(json.loads(resource))
+                resource = self._patch_resource(json.loads(resource))
                 record = EtcdCache.Record(resource=resource)
                 self._obj_cache[key] = record
 
@@ -313,7 +315,7 @@ class VncEtcd(VncEtcdClient):
         key = self._key_prefix(obj_type)
         response = self._client.get_prefix(key)
         if response:
-            return (self._patch_refs_to(json.loads(resp[0])) for resp in response)
+            return (self._patch_resource(json.loads(resp[0])) for resp in response)
         else:
             return []
 
@@ -454,8 +456,10 @@ class VncEtcd(VncEtcdClient):
             return resource
 
         event_queue = queue.Queue()
+
         def callback(event):
             event_queue.put(event)
+
         watch_id = self._client.add_watch_callback(key, callback, None)
         resource = None
         try:
@@ -470,8 +474,18 @@ class VncEtcd(VncEtcdClient):
 
         return resource
 
-    def _patch_refs_to(self, obj):
-        """Add missing key "to" for every ref in object.
+    def _patch_resource(self, obj):
+        """Patch resource adds missing fields to obj.
+
+        :param (dict) obj: Vanilla object from etcd
+        :return: (dict) Patched obj
+        """
+        obj = self._patch_resource_refs_to(obj)
+        obj = self._patch_resource_parent_type(obj)
+        return obj
+
+    def _patch_resource_refs_to(self, obj):
+        """Add missing "to" key to every ref in object.
         This is required for backward compatibility.
 
         :param (dict) obj: Vanilla object from etcd
@@ -482,6 +496,18 @@ class VncEtcd(VncEtcdClient):
                 for ref in obj[key]:
                     if 'to' not in ref:
                         ref['to'] = self.uuid_to_fq_name(ref['uuid'])
+        return obj
+
+    def _patch_resource_parent_type(self, obj):
+        """Add missing "parent_type" key to obj, because missing
+        parent type will cause AmbiguousParentError.
+
+        :param (dict) obj: Vanilla object from etcd
+        :return: (dict) Obj with patched 'parent_type' key
+        """
+        if 'parent_uuid' in obj and 'parent_type' not in obj:
+            parent = self._client.get(obj['parent_uuid'])
+            obj['parent_type'] = parent['type']
         return obj
 
     def _get_backrefs(self, parents, obj_type, field):
