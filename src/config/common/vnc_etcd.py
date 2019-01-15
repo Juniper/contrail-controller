@@ -574,6 +574,17 @@ class VncEtcd(VncEtcdClient):
         return self._client.get_prefix(key)
 
     @_handle_conn_error
+    def get_kv(self, key):
+        """Save a value under given key in etcd.
+
+        :param key (str): key (there might be slashes, so key could look like
+                          some kind of path)
+        :return: (val) value
+        """
+        prefixed_key = self._key_path(key)
+        self._client.get(prefixed_key)
+
+    @_handle_conn_error
     def put_kv(self, key, value):
         """Save a value under given key in etcd.
 

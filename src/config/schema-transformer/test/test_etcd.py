@@ -15,7 +15,7 @@ ETCD_HOST = 'etcd-host-01'
 
 
 def _schema_transformer_etcd_factory(host=ETCD_HOST, vnc_lib=mock.MagicMock(),
-                                     logger=mock.MagicMock(), log_response_time=None, 
+                                     logger=mock.MagicMock(), log_response_time=None,
                                      credentials=None):
     """SchemaTransformerEtcd factory function for testing only."""
     args = parse_args('')
@@ -38,7 +38,8 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
 
     def test_empty_list_service_chain_uuid(self):
         kv_data = []
-        schema_transformer_etcd = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        schema_transformer_etcd = _schema_transformer_etcd_factory(
+            logger=mock.MagicMock())
         schema_transformer_etcd._object_db._client.get_prefix = mock.MagicMock()
         schema_transformer_etcd._object_db._client.get_prefix.return_value = kv_data
         self.assertEqual(
@@ -64,7 +65,8 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
                    ('/contrail/schema_transformer/service_chain/k3', 'value3'),
                    ]
 
-        schema_transformer_etcd = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        schema_transformer_etcd = _schema_transformer_etcd_factory(
+            logger=mock.MagicMock())
         schema_transformer_etcd._object_db._client.get_prefix = mock.MagicMock()
         schema_transformer_etcd._object_db._client.get_prefix.return_value = kv_data
         schema_transformer_etcd._object_db._client.put = mock.MagicMock
@@ -84,7 +86,8 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         def etcd3_put(key, value):
             kv_data.append((key, value))
 
-        schema_transformer_etcd = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        schema_transformer_etcd = _schema_transformer_etcd_factory(
+            logger=mock.MagicMock())
         schema_transformer_etcd._object_db._client.put = mock.MagicMock(
             side_effect=etcd3_put)
 
@@ -104,11 +107,13 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
                    ('/contrail/schema_transformer/service_chain/k2', 'value2'),
                    ('/contrail/schema_transformer/service_chain/k3', 'value3'),
                    ]
-        schema_transformer_etcd = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        schema_transformer_etcd = _schema_transformer_etcd_factory(
+            logger=mock.MagicMock())
 
         def etcd3_delete(key):
             i = -1
-            prefixed_key = schema_transformer_etcd._path_key(key)
+            prefixed_key = schema_transformer_etcd._path_key(
+                schema_transformer_etcd._ETCD_SERVICE_CHAIN_PATH, key)
             for (k, _) in kv_data:
                 i += 1
                 if k == prefixed_key:
