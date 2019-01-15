@@ -473,6 +473,10 @@ DBEntry *DBTable::Find(const DBEntry *entry) {
     return tbl_partition->Find(entry);
 }
 
+const DBEntry *DBTable::Find(const DBEntry *entry) const {
+    return const_cast<DBTable *>(this)->Find(entry);
+}
+
 // Find DB Entry without taking lock. Calling routine must ensure its
 // running in exclusion with DB task
 DBEntry *DBTable::FindNoLock(const DBRequestKey *key) {
@@ -488,6 +492,10 @@ DBEntry *DBTable::Find(const DBRequestKey *key, int id) {
     DBTablePartition *tbl_partition =
     static_cast<DBTablePartition *>(GetTablePartition(id));
     return tbl_partition->Find(key);
+}
+
+const DBEntry *DBTable::Find(const DBRequestKey *key, int id) const {
+    return const_cast<DBTable *>(this)->Find(key, id);
 }
 
 //

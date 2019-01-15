@@ -503,6 +503,10 @@ private:
     TASK_UTIL_WAIT_EQ(state, (peer)->GetState(), task_util_wait_time(),        \
                       task_util_retry_count(), "Peer State")
 
+#define BGP_WAIT_FOR_PEER_STATE_NE(peer, state)                                \
+    TASK_UTIL_WAIT_NE(state, (peer)->GetState(), task_util_wait_time(),        \
+                      task_util_retry_count(), "Peer State")
+
 #define BGP_WAIT_FOR_PEER_DELETION(peer)  \
     TASK_UTIL_EXPECT_EQ_MSG(NULL, peer, "Peer Deletion")
 
