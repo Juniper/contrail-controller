@@ -29,6 +29,7 @@ def etcd_args(args):
         'host': args.etcd_server,
         'port': args.etcd_port,
         'prefix': args.etcd_prefix,
+        'kv_store': args.etcd_kv_store,
     }
     if args.etcd_user and args.etcd_password:
         credentials = {'user': args.etcd_user,
@@ -225,12 +226,12 @@ class VncEtcdWatchClient(VncEtcdClient):
 
 class VncEtcd(VncEtcdClient):
     """Database interface for etcd client."""
-
-    def __init__(self, host, port, prefix, logger=None,
+    def __init__(self, host, port, prefix, kv_store, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
                  timeout=5, credentials=None):
         super(VncEtcd, self).__init__(host, port, credentials)
         self._prefix = prefix
+        self._kv_store = kv_store
         self._logger = logger
         self.log_response_time = log_response_time
         self.timeout = timeout
@@ -261,13 +262,13 @@ class VncEtcd(VncEtcdClient):
         key_prefix = self._key_prefix(obj_type)
         return "{prefix}{id}".format(prefix=key_prefix, id=obj_id)
 
-    def _key_path(self, key):
+    def _kv_store_path(self, key):
         """Combine and return self._prefix with given key.
 
         :param (str) key: key of an
         :return: (str) full key ie: "/contrail/virtual_network/aaa-bbb-ccc"
         """
-        return "{prefix}/{key}".format(prefix=self._prefix, key=key)
+        return "{kv_store}/{key}".format(kv_store=self._kv_store, key=key)
 
     @_handle_conn_error
     def object_read(self, obj_type, obj_uuids, field_names=None,
@@ -590,8 +591,20 @@ class VncEtcd(VncEtcdClient):
         :param (str) path: etcd path/key to be listed
         :return: (gen) generator of tuples
         """
-        response = self._client.get_prefix(self._key_prefix(path))
-        return ((kv_meta.key, value) for value, kv_meta in response)
+        response = self._client.get_prefix(self._kv_store_path(path))
+        return ((kv_meta.key.replace(self._kv_store_path(''), '', 1), value) for value, kv_meta in response)
+
+    @_handle_conn_error
+    def get_kv(self, key):
+        """Save a value under given key in etcd.
+
+        :param key (str): key (there might be slashes, so key could look like
+                          some kind of path)
+        :return: (val) value
+        """
+        prefixed_key = self._kv_store_path(key)
+        value, _ = self._client.get(prefixed_key)
+        return value
 
     @_handle_conn_error
     def put_kv(self, key, value):
@@ -602,7 +615,7 @@ class VncEtcd(VncEtcdClient):
         :param value (Any): data to store, typically a string (object
                             serialized with jsonpickle.encode)
         """
-        prefixed_key = self._key_path(key)
+        prefixed_key = self._kv_store_path(key)
         self._client.put(prefixed_key, value)
 
     @_handle_conn_error
@@ -612,7 +625,7 @@ class VncEtcd(VncEtcdClient):
         :param key (str): key (there might be slashes, so key could look like
                           some kind of path)
         """
-        prefixed_key = self._key_path(key)
+        prefixed_key = self._kv_store_path(key)
         self._client.delete(prefixed_key)
 
     @_handle_conn_error
@@ -621,7 +634,7 @@ class VncEtcd(VncEtcdClient):
 
         :param path (str): prefix of entries to be removed
         """
-        self._client.delete_prefix(self._key_path(path))
+        self._client.delete_prefix(self._kv_store_path(path))
 
 
 class EtcdCache(object):

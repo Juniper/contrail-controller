@@ -42,7 +42,7 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         self.assertIsNone(schema_transformer_etcd._object_db._credentials)
 
     def test_empty_get_service_chain_ip(self):
-        # kv_data = [None, MockedMeta('/contrail/schema_transformer/service_chain_ip/test1')]
+        # kv_data = [None, MockedMeta('/vnc/schema_transformer/service_chain_ip/test1')]
         kv_data = [(None, None)]
         schema_transformer_etcd = _schema_transformer_etcd_factory(
             logger=mock.MagicMock())
@@ -54,9 +54,9 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_get_service_chain_ip_len(self, etcd_client):
         kv_data = [('{"ip_uuid": "5f5a8a57-27f1-4e9b-8d11-0bbc4fb01d3e", "ipv6_address": "::1", "ip_address": "127.0.0.1", "ipv6_uuid": "dcf3468d-3d30-4d04-a21c-e58f3b9d767a"}',
-                    MockedMeta('/contrail/schema_transformer/service_chain_ip/test1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_ip/test1')),
                    ('{"ip_uuid": "69ab63ca-7eeb-41d5-a7c5-7762466fd445", "ipv6_address": "2001:1a68:10:1200:215a:fb68:2705:3677", "ip_address": "172.17.16.82", "ipv6_uuid": "508f8294-b2ef-4c13-aaea-8c1e642b0831"}',
-                    MockedMeta('/contrail/schema_transformer/service_chain_ip/test3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_ip/test3')),
                    ]
         schema_transformer_etcd = _schema_transformer_etcd_factory(
             logger=mock.MagicMock())
@@ -69,9 +69,9 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_add_service_chain_ip(self, etcd_client):
         kv_data = [('{"ip_uuid": "5f5a8a57-27f1-4e9b-8d11-0bbc4fb01d3e", "ipv6_address": "::1", "ip_address": "127.0.0.1", "ipv6_uuid": "dcf3468d-3d30-4d04-a21c-e58f3b9d767a"}',
-                    MockedMeta('/contrail/schema_transformer/service_chain_ip/test1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_ip/test1')),
                    ('{"ip_uuid": "69ab63ca-7eeb-41d5-a7c5-7762466fd445", "ipv6_address": "2001:1a68:10:1200:215a:fb68:2705:3677", "ip_address": "172.17.16.82", "ipv6_uuid": "508f8294-b2ef-4c13-aaea-8c1e642b0831"}',
-                    MockedMeta('/contrail/schema_transformer/service_chain_ip/test3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_ip/test3')),
                    ]
 
         def etcd3_put(key, value):
@@ -87,8 +87,8 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         test2_value = None
         for (v, k) in kv_data:
             self.assertEqual(k.key.startswith(
-                '/contrail/schema_transformer/service_chain_ip/test'), True)
-            if k.key == '/contrail/schema_transformer/service_chain_ip/test2':
+                '/vnc/schema_transformer/service_chain_ip/test'), True)
+            if k.key == '/vnc/schema_transformer/service_chain_ip/test2':
                 test2_value = v
         self.assertEqual(
             test2_value,
@@ -97,9 +97,9 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_remove_service_chain_ip(self, etcd_client):
         kv_data = [('{"ip_uuid": "5f5a8a57-27f1-4e9b-8d11-0bbc4fb01d3e", "ipv6_address": "::1", "ip_address": "127.0.0.1", "ipv6_uuid": "dcf3468d-3d30-4d04-a21c-e58f3b9d767a"}',
-                    MockedMeta('/contrail/schema_transformer/service_chain_ip/test1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_ip/test1')),
                    ('{"ip_uuid": "69ab63ca-7eeb-41d5-a7c5-7762466fd445", "ipv6_address": "2001:1a68:10:1200:215a:fb68:2705:3677", "ip_address": "172.17.16.82", "ipv6_uuid": "508f8294-b2ef-4c13-aaea-8c1e642b0831"}',
-                    MockedMeta('/contrail/schema_transformer/service_chain_ip/test3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_ip/test3')),
                    ]
         schema_transformer_etcd = _schema_transformer_etcd_factory(
             logger=mock.MagicMock())
@@ -134,11 +134,11 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_list_service_chain_uuid_len(self, etcd_client):
         kv_data = [('value1',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k1')),
                    ('value2',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k2')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k2')),
                    ('value3',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k3')),
                    ]
         schema_transformer_etcd = _schema_transformer_etcd_factory()
         schema_transformer_etcd._object_db._client.get_prefix = mock.MagicMock()
@@ -150,11 +150,11 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_list_service_chain_uuid_elements_encapsulated(self, etcd_client):
         kv_data = [('value1',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k1')),
                    ('value2',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k2')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k2')),
                    ('value3',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k3')),
                    ]
         schema_transformer_etcd = _schema_transformer_etcd_factory(
             logger=mock.MagicMock())
@@ -170,11 +170,11 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_add_service_chain_uuid(self, etcd_client):
         kv_data = [('value1',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k1')),
                    ('value2',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k2')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k2')),
                    ('value3',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k3')),
                    ]
 
         def etcd3_put(key, value):
@@ -190,19 +190,19 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         k4_value = None
         for (v, k) in kv_data:
             self.assertEqual(k.key.startswith(
-                '/contrail/schema_transformer/service_chain_uuid/k'), True)
-            if k.key == '/contrail/schema_transformer/service_chain_uuid/k4':
+                '/vnc/schema_transformer/service_chain_uuid/k'), True)
+            if k.key == '/vnc/schema_transformer/service_chain_uuid/k4':
                 k4_value = v
         self.assertEqual(k4_value, 'value4')
 
     @mock.patch('etcd3.client')
     def test_remove_service_chain_uuid(self, etcd_client):
         kv_data = [('value1',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k1')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k1')),
                    ('value2',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k2')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k2')),
                    ('value3',
-                    MockedMeta('/contrail/schema_transformer/service_chain_uuid/k3')),
+                    MockedMeta('/vnc/schema_transformer/service_chain_uuid/k3')),
                    ]
         schema_transformer_etcd = _schema_transformer_etcd_factory(
             logger=mock.MagicMock())
@@ -210,10 +210,10 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         def etcd3_delete(key):
             i = -1
             prefixed_key = schema_transformer_etcd._path_key(
-                'service_chain_uuid', key)
-            for (_, k) in kv_data:
+                schema_transformer_etcd._ETCD_SERVICE_CHAIN_PATH, key)
+            for (k, _) in kv_data:
                 i += 1
-                if k.key == prefixed_key:
+                if k == prefixed_key:
                     break
             if i > -1:
                 del kv_data[i]
@@ -225,6 +225,6 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         self.assertEqual(len(kv_data), 2)
         k3_value = None
         for (v, k) in kv_data:
-            if k.key == '/contrail/schema_transformer/service_chain_uuid/k3':
+            if k.key == '/vnc/schema_transformer/service_chain_uuid/k3':
                 k3_value = v
         self.assertIsNone(k3_value)
