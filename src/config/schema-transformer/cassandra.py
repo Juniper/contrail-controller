@@ -184,6 +184,9 @@ class SchemaTransformerDB(VncObjectDBClient):
             pass
     # end free_service_chain_vlan
 
+    def get_route_target_range(self):
+        return self._rt_cf.get_range()
+
     def get_route_target(self, ri_fq_name):
         try:
             return int(self.get_one_col(self._RT_CF, ri_fq_name, 'rtgt_num'))
