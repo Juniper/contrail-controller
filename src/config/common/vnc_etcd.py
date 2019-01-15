@@ -23,6 +23,7 @@ from cfgm_common.vnc_amqp import VncAmqpHandle
 
 from vnc_api import vnc_api
 
+
 def etcd_args(args):
     vnc_db = {
         'host': args.etcd_server,
@@ -41,6 +42,7 @@ def etcd_args(args):
         vnc_db['credentials'] = credentials
 
     return vnc_db
+
 
 def _handle_conn_error(func):
     @wraps(func)
@@ -67,6 +69,7 @@ def _gen_request_id():
 
 class VncEtcdClient(object):
     """Base etcd client."""
+
     def __init__(self, host, port, credentials):
         self._host = host
         self._port = port
@@ -100,6 +103,7 @@ class VncEtcdWatchHandle(VncAmqpHandle):
     etcd events are translated to format which VncAmqpHandle expects
     i.e. rabbit msg format.
     """
+
     def __init__(self, sandesh, logger, db_cls, reaction_map,
                  notifier_cfg, host_ip, trace_file=None, timer_obj=None):
         self._etcd_cfg = notifier_cfg
@@ -109,12 +113,13 @@ class VncEtcdWatchHandle(VncAmqpHandle):
 
     def establish(self):
         self._vnc_etcd_watcher = VncEtcdWatchClient(
-                self._etcd_cfg['host'], self._etcd_cfg['port'],
-                self._etcd_cfg.get('credentials'), self._etcd_cfg['prefix'],
-                self._etcd_callback_wrapper, self.logger.log)
+            self._etcd_cfg['host'], self._etcd_cfg['port'],
+            self._etcd_cfg.get('credentials'), self._etcd_cfg['prefix'],
+            self._etcd_callback_wrapper, self.logger.log)
 
     def _etcd_callback_wrapper(self, event):
-        self.logger.debug("Got etcd event: {} {}".format(event.key, event.value))
+        self.logger.debug(
+            "Got etcd event: {} {}".format(event.key, event.value))
         common_msg = self._parse_event(event)
         self._vnc_subscribe_callback(common_msg)
 
@@ -151,6 +156,7 @@ class VncEtcdWatchClient(VncEtcdClient):
     Similar to VncKombuClient but for etcd.
     Does not support etcd writes by design.
     """
+
     def __init__(self, host, port, credentials, prefix, subscribe_cb, logger):
         self._prefix = prefix
         self.subscribe_cb = subscribe_cb
@@ -219,6 +225,7 @@ class VncEtcdWatchClient(VncEtcdClient):
 
 class VncEtcd(VncEtcdClient):
     """Database interface for etcd client."""
+
     def __init__(self, host, port, prefix, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
                  timeout=5, credentials=None):
@@ -454,6 +461,7 @@ class VncEtcd(VncEtcdClient):
             return resource
 
         event_queue = queue.Queue()
+
         def callback(event):
             event_queue.put(event)
         watch_id = self._client.add_watch_callback(key, callback, None)
@@ -563,15 +571,27 @@ class VncEtcd(VncEtcdClient):
         return result, ret_marker
 
     @_handle_conn_error
+    def get_value(self, key):
+        """Get object with key consisting of self._prefix
+        (usually '/contrail') and `key` (a parameter).
+
+        :param (key) path: etcd key/path to be fetched
+        :return: (str) value from etcd
+        """
+        prefixed_key = self._key_path(key)
+        value, _ = self._client.get(prefixed_key)
+        return value
+
+    @_handle_conn_error
     def list_kv(self, path):
         """List all objects with prefix consisting of self._prefix
         (usually '/contrail') and `path` (a parameter).
 
         :param (str) path: etcd path/key to be listed
-        :return: (gen) generator with dict resources
+        :return: (gen) generator of tuples
         """
-        key = self._key_prefix(path)
-        return self._client.get_prefix(key)
+        response = self._client.get_prefix(self._key_prefix(path))
+        return ((kv_meta.key, value) for value, kv_meta in response)
 
     @_handle_conn_error
     def put_kv(self, key, value):
@@ -591,10 +611,17 @@ class VncEtcd(VncEtcdClient):
 
         :param key (str): key (there might be slashes, so key could look like
                           some kind of path)
-        :param name (str): UUID of object
         """
         prefixed_key = self._key_path(key)
         self._client.delete(prefixed_key)
+
+    @_handle_conn_error
+    def delete_path(self, path):
+        """Delete a range of keys with a prefix in etcd.
+
+        :param path (str): prefix of entries to be removed
+        """
+        self._client.delete_prefix(self._key_path(path))
 
 
 class EtcdCache(object):
