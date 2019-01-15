@@ -9,14 +9,10 @@ Schema transformer DB for etcd to allocate ids and store internal data
 
 import jsonpickle
 
+import cfgm_common as common
+from cfgm_common.exceptions import VncError, NoIdError
 from cfgm_common import vnc_object_db, vnc_etcd
 from vnc_api.exceptions import RefsExistError
-
-
-class RTHandler(object):
-    def get_range(self):
-        # TODO: Implement for etcd
-        return []
 
 
 class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
@@ -25,19 +21,22 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
     _BGPAAS_PORT_ALLOC_POOL = "bgpaas_port"
     _ETCD_SERVICE_CHAIN_UUID_PATH = "service_chain_uuid"
     _ETCD_SERVICE_CHAIN_IP_PATH = "service_chain_ip"
+    _ROUTE_TARGET_NUMBER_ALLOC_POOL = "route_target_number"
+    _ETCD_SERVICE_CHAIN_PATH = "service_chain"
+    _ETCD_ROUTE_TARGET_PATH = "route_target"
 
     def __init__(self, args, vnc_lib, logger):
         self._args = args
         self._etcd_args = vnc_etcd.etcd_args(args)
         self._logger = logger
         self._vnc_lib = vnc_lib
-        self._rt_cf = RTHandler()
         logger_log = None
         if self._logger:
             self._logger.log(
                 "VncObjectEtcdClient arguments: {}".format(self._etcd_args))
             logger_log = self._logger.log
         self._init_bgpaas_ports_index_allocator()
+
         super(SchemaTransformerEtcd, self).__init__(
             logger=logger_log, **self._etcd_args)
 
@@ -57,15 +56,20 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
             # int pool already allocated
             pass
 
-    def _patch_encapsulate_value(self, obj):
+    def _patch_encapsulate_value(self, key, obj):
         """Encaplsulate each obj in dictionary with single element having
         'value' key and `obj` value.
         This is required for backward compatibility.
 
+        :param (key) obj: key value
         :param (obj) obj: Vanilla object from etcd
         :return: (dict) Obj with patched 'value' key
         """
-        return {'value': obj}
+        return {key: obj}
+
+    def _get_key_from_path(self, resource, path):
+        """Strip prefix from etcd key."""
+        return path.replace(self._path_key(resource, ''), '', 1)
 
     def _path_key(self, resource, key):
         """Combine and return self._prefix with given key.
@@ -84,17 +88,44 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         # TODO
         pass
 
-    def get_route_target(self, ri_fq_name):
-        # TODO
-        return 0
+    def get_route_target_range(self):
+        path = self._ETCD_SCHEMA_TRANSFORMER_PREFIX+"/"+self._ETCD_ROUTE_TARGET_PATH
+        response = self._object_db.list_kv(path)
+        return ((self._get_key_from_path(self._ETCD_ROUTE_TARGET_PATH, key), self._patch_encapsulate_value('rtgt_num', value)) for key, value in response)
 
-    def alloc_route_target(self, ri_fq_name, zk_only=False):
-        # TODO
-        return 0
+    def _get_route_target(self, ri_fq_name):
+        key_path = self._path_key(self._ETCD_ROUTE_TARGET_PATH, ri_fq_name)
+        return self._object_db.get_kv(key_path)
+
+    def get_route_target(self, ri_fq_name):
+        rtgt = self._get_route_target(ri_fq_name)
+        if rtgt is None:
+            return 0
+        return int(rtgt)
+
+    def alloc_route_target(self, ri_fq_name, alloc_only=False):
+        if alloc_only:
+            return self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL)
+
+        rtgt = self.get_route_target(ri_fq_name)
+        if rtgt >= common.BGP_RTGT_MIN_ID:
+            # TODO check if rtgt has allocated for this ri_fq_name
+            return rtgt
+        rtgt = self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL)
+        key_path = self._path_key(self._ETCD_ROUTE_TARGET_PATH, ri_fq_name)
+        self._object_db.put_kv(key_path, str(rtgt))
+
+        return rtgt
 
     def free_route_target(self, ri_fq_name):
-        # TODO
-        pass
+        rtgt = self._get_route_target(ri_fq_name)
+        if rtgt is None:
+            return
+
+        self._vnc_lib.deallocate_int(
+            self._ROUTE_TARGET_NUMBER_ALLOC_POOL, int(rtgt))
+        key_path = self._path_key(self._ETCD_ROUTE_TARGET_PATH, ri_fq_name)
+        self._object_db.delete_kv(key_path)
 
     def get_service_chain_ip(self, sc_name):
         """List all service chain ip objects for sc_name.
@@ -138,8 +169,8 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         :return: (gen) Generator of fetched objects
         """
         response = self._object_db.list_kv(
-            "%s/%s" % (self._ETCD_SCHEMA_TRANSFORMER_PREFIX, self._ETCD_SERVICE_CHAIN_UUID_PATH))
-        return (self._patch_encapsulate_value(value) for _, value in response)
+            self._ETCD_SCHEMA_TRANSFORMER_PREFIX+"/"+self._ETCD_SERVICE_CHAIN_PATH)
+        return (self._patch_encapsulate_value('value', value) for key, value in response)
 
     def add_service_chain_uuid(self, key, value):
         """Store a value with a key created from combining prefix,
