@@ -39,9 +39,9 @@ else:
         'tbb',
     ]
 
-    etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL')
-    if etcd_incl:
-        subdirs += ['grpc',]
+    #etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL')
+    #if etcd_incl:
+    subdirs += ['grpc',]
 
     (distname, version, _) = platform.dist()
     if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
