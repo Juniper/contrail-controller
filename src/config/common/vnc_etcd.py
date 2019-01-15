@@ -591,10 +591,18 @@ class VncEtcd(VncEtcdClient):
 
         :param key (str): key (there might be slashes, so key could look like
                           some kind of path)
-        :param name (str): UUID of object
         """
         prefixed_key = self._key_path(key)
         self._client.delete(prefixed_key)
+
+    @_handle_conn_error
+    def delete_path(self, path):
+        """Delete a range of keys with a prefix in etcd.
+
+        :param path (str): prefix of entries to be removed
+        """
+        prefixed_path = self._key_path(path)
+        self._client.delete_prefix(prefixed_path)
 
 
 class EtcdCache(object):
