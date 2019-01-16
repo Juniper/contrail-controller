@@ -24,13 +24,13 @@ class DeviceZtpManager(object):
 
     def __init__(self, amqp_client, args, logger):
         DeviceZtpManager._instance = self
+        self._client = None
         self._active = False
         self._amqp_client = amqp_client
         self._dnsmasq_conf_dir = args.dnsmasq_conf_dir
         self._tftp_dir = args.tftp_dir
         self._dhcp_leases_file = args.dhcp_leases_file
         self._timeout = args.ztp_timeout
-        self._dnsmasq_docker = args.dnsmasq_docker
         self._logger = logger
         self._lease_pattern = None
         self._initialized = False
@@ -52,7 +52,7 @@ class DeviceZtpManager(object):
 
     def _initialize(self):
         if not self._dnsmasq_conf_dir or not self._tftp_dir or\
-                not self._dhcp_leases_file or not self._dnsmasq_docker:
+                not self._dhcp_leases_file:
             return
         self._initialized = True
         self._amqp_client.add_exchange(self.EXCHANGE)
@@ -107,22 +107,19 @@ class DeviceZtpManager(object):
             file_name = headers.get('file_name')
             file_path = os.path.join(self._dnsmasq_conf_dir, file_name)
 
-            client = docker.from_env()
             if action == 'create':
                 self._logger.info("Waiting for file %s to be created" % file_path)
                 while timeout > 0 and not os.path.isfile(file_path):
                     timeout -= 1
                     gevent.sleep(1)
-                self._logger.info("Restarting docker %s" % self._dnsmasq_docker)
-                client.restart(self._dnsmasq_docker)
+                self._restart_dnsmasq_container()
                 self._read_dhcp_leases(headers.get('fabric_name'), config)
             elif action == 'delete':
                 self._logger.info("Waiting for file %s to be deleted" % file_path)
                 while timeout > 0 and os.path.isfile(file_path):
                     timeout -= 1
                     gevent.sleep(1)
-                self._logger.info("Restarting docker %s" % self._dnsmasq_docker)
-                client.restart(self._dnsmasq_docker)
+                self._restart_dnsmasq_container()
         except Exception as e:
             self._logger.error("Error while handling ztp request %s" % repr(e))
     # end _ztp_request
@@ -187,6 +184,20 @@ class DeviceZtpManager(object):
             self._logger.error("ZTP manager: Error handling file request %s" %
                                repr(e))
     # end _handle_file_request
+
+    def _restart_dnsmasq_container(self):
+        if self._client is None:
+            self._client = docker.from_env()
+        self._logger.debug("Fetching all containers")
+        all_containers = self._client.containers(all=True)
+        for container in all_containers:
+            labels = container.get('Labels', dict())
+            service = labels.get('net.juniper.contrail.service')
+            if service == 'dnsmasq':
+                self._logger.info("Restarting dnsmasq docker: %s" %
+                                  str(container))
+                self._client.restart(container)
+    # end _restart_dnsmasq_container
 
     @staticmethod
     def _within_dhcp_subnet(ip_addr, config):
