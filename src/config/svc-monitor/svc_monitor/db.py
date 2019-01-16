@@ -9,10 +9,14 @@ Service monitor DB to store VM, SI information
 import inspect
 
 from cfgm_common import jsonutils as json
-from cfgm_common.vnc_object_db import VncObjectDBClient
+from cfgm_common.vnc_object_db import VncObjectDBClient, VncObjectEtcdClient
+from cfgm_common.vnc_etcd import etcd_args
 from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME
 
-class ServiceMonitorDB(VncObjectDBClient):
+DRIVER_CASS = 'cassandra'
+DRIVER_ETCD = 'etcd'
+
+class ServiceMonitorDB(object):
 
     _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
     _SVC_SI_CF = 'service_instance_table'
@@ -23,6 +27,21 @@ class ServiceMonitorDB(VncObjectDBClient):
     def __init__(self, args, logger):
         self._db_logger = logger
 
+        if args.db_driver == DRIVER_ETCD:
+            self._object_db = self._etcd_driver(args)
+        else:
+            self._object_db = self._cass_driver(args)
+
+        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
+        self._pool_cf = self._cf_dict[self._POOL_CF]
+        self._lb_cf = self._cf_dict[self._LB_CF]
+        self._hm_cf = self._cf_dict[self._HM_CF]
+
+
+    def __getattr__(self, name):
+        return getattr(self._object_db, name)
+
+    def _cass_driver(self, args):
         keyspaces = {
             self._KEYSPACE: {
                 self._SVC_SI_CF: {},
@@ -31,27 +50,26 @@ class ServiceMonitorDB(VncObjectDBClient):
                 self._HM_CF: {},
             }
         }
+        vnc_db = {
+            'server_list': args.cassandra_server_list,
+            'db_prefix': args.cluster_id,
+            'logger': self._db_logger.log,
+            'rw_keyspaces': keyspaces
+            'reset_config': False,
+            'credential': None,
+            'ssl_enabled': args.cassandra_use_ssl,
+            'ca_certs': args.cassandra_ca_certs
+        }
+        if args.cassandra_user and args.cassandra_password:
+            vnc_db['credential'] = {'username': args.cassandra_user,
+                                    'password': args.cassandra_password}
+        self._db_logger.log("VncObjectDBClient arguments: {}".format(vnc_db))
+        return VncObjectDBClient(**vnc_db)
 
-        cred = None
-        if (args.cassandra_user is not None and
-            args.cassandra_password is not None):
-            cred={'username':args.cassandra_user,
-                  'password':args.cassandra_password}
-
-        super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
-                                               args.cluster_id,
-                                               keyspaces,
-                                               None,
-                                               self._db_logger.log,
-                                               reset_config=args.reset_config,
-                                               credential=cred,
-                                               ssl_enabled=args.cassandra_use_ssl,
-                                               ca_certs=args.cassandra_ca_certs)
-
-        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
-        self._pool_cf = self._cf_dict[self._POOL_CF]
-        self._lb_cf = self._cf_dict[self._LB_CF]
-        self._hm_cf = self._cf_dict[self._HM_CF]
+    def _etcd_driver(self, args):
+        vnc_db = etcd_args(args)
+        self._db_logger.log("VncObjectEtcdClient arguments: {}".format(vnc_db))
+        return VncObjectEtcdClient(logger=self._db_logger.log, **vnc_db)
 
     # db CRUD
     def _db_get(self, table, key, column):
