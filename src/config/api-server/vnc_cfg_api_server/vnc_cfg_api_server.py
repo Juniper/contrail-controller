@@ -3956,7 +3956,22 @@ class VncApiServer(object):
 
     def _set_api_audit_info(self, apiConfig):
         apiConfig.url = get_request().url
-        apiConfig.remote_ip = get_request().headers.get('Host')
+        apiConfig.remote_ip = get_request().headers.get('X-Requestor-IP')
+        if not apiConfig.remote_ip:
+            # If the X-Requestor-IP was not sent, it's likely that the request
+            # did not come from node.js. In this case, try to get the remote IP as:
+            # 1. If present, the first IP address of HTTP_X_FORWARDED_FOR.
+            # 2. Else, If present, from the REMOTE_ADDR.
+            # 3. HTTP_X_Host
+
+            if 'HTTP_X_FORWARDED_FOR' in get_request().environ:
+                addr = get_request().environ.get('HTTP_X_FORWARDED_FOR').split(',')
+                apiConfig.remote_ip = addr[0]
+            elif 'REMOTE_ADDR' in get_request().environ:
+                apiConfig.remote_ip = get_request().environ.get('REMOTE_ADDR')
+            else:
+                apiConfig.remote_ip = get_request().headers.get('Host')
+
         useragent = get_request().headers.get('X-Contrail-Useragent')
         if not useragent:
             useragent = get_request().headers.get('User-Agent')
