@@ -26,6 +26,7 @@ class AgentSignal {
     void Terminate();
     void RegisterHandler(SignalHandler handler);
     void RegisterChildHandler(SignalChildHandler handler);
+    void RegisterSigTermHandler();
 
  private:
     void RegisterSigHandler();
@@ -37,6 +38,7 @@ class AgentSignal {
     std::vector<SignalChildHandler> sigchld_callbacks_;
     std::vector<SignalHandler> default_callbacks_;
     boost::asio::signal_set signal_;
+    struct sigaction sact_;
 };
 
 #endif /* AGENT_SIGNAL_H_ */
