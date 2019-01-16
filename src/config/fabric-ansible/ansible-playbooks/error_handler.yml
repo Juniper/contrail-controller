@@ -16,6 +16,13 @@
     device_name: "{{ prouter_name if prouter_name is defined else '' }}"
     details: "{{ jl_details if jl_details is defined else {} }}"
 
+- name: Update prouter logs with failed status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{prouter_log_state}}"
+    job_ctx: "{{job_ctx}}"
+  when: prouter_log_state is defined
+
 - fail:
      msg: "Not able to perform the required action, exiting the playbook."
   when: fail_playbook is defined
