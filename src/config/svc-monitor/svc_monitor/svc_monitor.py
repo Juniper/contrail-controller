@@ -34,6 +34,7 @@ from cfgm_common import svc_info
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common.vnc_etcd import etcd_args, VncEtcdWatchHandle
 from cfgm_common.exceptions import ResourceExhaustionError
 from vnc_api.utils import AAA_MODE_VALID_VALUES
 from config_db import *
@@ -78,16 +79,24 @@ class SvcMonitor(object):
         self._object_db = ServiceMonitorDB(self._args, self.logger)
         DBBaseSM.init(self, self.logger, self._object_db)
 
-        # init rabbit connection
-        rabbitmq_cfg = get_rabbitmq_cfg(args)
         if 'host_ip' in self._args:
             host_ip = self._args.host_ip
         else:
             host_ip = socket.gethostbyname(socket.getfqdn())
-        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger,
-                DBBaseSM, REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
-                host_ip, self._args.trace_file)
-        self.rabbit.establish()
+
+        # init rabbit connection
+        if self._args.notification_driver == "etcd":
+            etcd_cfg = etcd_args(args)
+            self.notifier = VncEtcdWatchHandle(
+                self.logger._sandesh, self.logger, DBBaseSM,
+                REACTION_MAP, etcd_cfg, host_ip, self._args.trace_file)
+        else:
+            rabbitmq_cfg = get_rabbitmq_cfg(args)
+            self.notifier = VncAmqpHandle(
+                self.logger._sandesh, self.logger, DBBaseSM, REACTION_MAP,
+                'svc_monitor', rabbitmq_cfg, host_ip, self._args.trace_file)
+
+        self.notifier.establish()
 
     def post_init(self, vnc_lib, args=None):
         # api server
@@ -193,7 +202,7 @@ class SvcMonitor(object):
         self.vrouter_scheduler.vrouters_running()
         self.launch_services()
 
-        self.rabbit._db_resync_done.set()
+        self.notifier._db_resync_done.set()
 
     def _upgrade_instance_ip(self, vm):
         for vmi_id in vm.virtual_machine_interfaces:
@@ -670,13 +679,24 @@ def parse_args(args_str):
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
     defaults = {
+        'notification_driver': 'rabbit',
         'rabbit_server': 'localhost',
         'rabbit_port': '5672',
         'rabbit_user': 'guest',
         'rabbit_password': 'guest',
         'rabbit_vhost': None,
         'rabbit_ha_mode': False,
+        'db_driver': 'cassandra',
         'cassandra_server_list': '127.0.0.1:9160',
+        'etcd_user': None,
+        'etcd_password': None,
+        'etcd_server': '127.0.0.1',
+        'etcd_port': '2379',
+        'etcd_prefix': '/vnc/svcmonitor',
+        'etcd_use_ssl': False,
+        'etcd_ssl_keyfile': '',
+        'etcd_ssl_certfile': '',
+        'etcd_ssl_ca_certs': '',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
         'api_server_use_ssl': False,
@@ -912,7 +932,7 @@ def run_svc_monitor(sm_logger, args=None):
         timer_task = gevent.spawn(launch_timer, monitor)
         gevent.joinall([timer_task])
     except KeyboardInterrupt:
-        monitor.rabbit.close()
+        monitor.notifier.close()
         raise
 
 
@@ -944,13 +964,15 @@ def main(args_str=None):
         host_ip = args.host_ip
     else:
         host_ip = socket.gethostbyname(socket.getfqdn())
-    rabbitmq_cfg = get_rabbitmq_cfg(args)
-    vnc_amqp = VncAmqpHandle(sm_logger._sandesh, sm_logger, DBBaseSM,
-                             REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
-                             host_ip, args.trace_file)
-    vnc_amqp.establish()
-    vnc_amqp.close()
-    sm_logger.debug("Removed remained AMQP queue")
+
+    if args.notification_driver == "rabbit":
+        rabbitmq_cfg = get_rabbitmq_cfg(args)
+        vnc_amqp = VncAmqpHandle(sm_logger._sandesh, sm_logger, DBBaseSM,
+                                 REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
+                                 host_ip, args.trace_file)
+        vnc_amqp.establish()
+        vnc_amqp.close()
+        sm_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(

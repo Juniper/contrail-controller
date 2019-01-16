@@ -9,96 +9,32 @@ Service monitor DB to store VM, SI information
 import inspect
 
 from cfgm_common import jsonutils as json
-from cfgm_common.vnc_object_db import VncObjectDBClient
+from cfgm_common.vnc_object_db import VncObjectDBClient, VncObjectEtcdClient
+from cfgm_common.vnc_etcd import etcd_args
 from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME
 
-class ServiceMonitorDB(VncObjectDBClient):
+DRIVER_CASS = 'cassandra'
+DRIVER_ETCD = 'etcd'
 
-    _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
-    _SVC_SI_CF = 'service_instance_table'
-    _POOL_CF = 'pool_table'
-    _LB_CF = 'loadbalancer_table'
-    _HM_CF = 'healthmonitor_table'
+class ServiceMonitorDB(object):
 
     def __init__(self, args, logger):
         self._db_logger = logger
 
-        keyspaces = {
-            self._KEYSPACE: {
-                self._SVC_SI_CF: {},
-                self._POOL_CF: {},
-                self._LB_CF: {},
-                self._HM_CF: {},
-            }
-        }
+        if args.db_driver == DRIVER_ETCD:
+            self._object_db = self._etcd_driver(args)
+        else:
+            self._object_db = self._cass_driver(args)
 
-        cred = None
-        if (args.cassandra_user is not None and
-            args.cassandra_password is not None):
-            cred={'username':args.cassandra_user,
-                  'password':args.cassandra_password}
+    def __getattr__(self, name):
+        return getattr(self._object_db, name)
 
-        super(ServiceMonitorDB, self).__init__(args.cassandra_server_list,
-                                               args.cluster_id,
-                                               keyspaces,
-                                               None,
-                                               self._db_logger.log,
-                                               reset_config=args.reset_config,
-                                               credential=cred,
-                                               ssl_enabled=args.cassandra_use_ssl,
-                                               ca_certs=args.cassandra_ca_certs)
+    def _cass_driver(self, args):
+        return ServiceMonitorCass(args, self._db_logger)
 
-        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
-        self._pool_cf = self._cf_dict[self._POOL_CF]
-        self._lb_cf = self._cf_dict[self._LB_CF]
-        self._hm_cf = self._cf_dict[self._HM_CF]
-
-    # db CRUD
-    def _db_get(self, table, key, column):
-        try:
-            entry = self.get_one_col(table.column_family, key, column)
-        except Exception:
-            # TODO(ethuleau): VncError is raised if more than one row was
-            #                 fetched from db with get_one_col method.
-            #                 Probably need to be cleaned
-            self._db_logger.log("DB: %s %s get failed" %
-                             (inspect.stack()[1][3], key))
-            return None
-
-        return entry
-
-    def _db_insert(self, table, key, entry):
-        try:
-            table.insert(key, entry)
-        except Exception:
-            self._db_logger.log("DB: %s %s insert failed" %
-                             (inspect.stack()[1][3], key))
-            return False
-
-        return True
-
-    def _db_remove(self, table, key, columns=None):
-        try:
-            if columns:
-                table.remove(key, columns=columns)
-            else:
-                table.remove(key)
-        except Exception:
-            self._db_logger.log("DB: %s %s remove failed" %
-                             (inspect.stack()[1][3], key))
-            return False
-
-        return True
-
-    def _db_list(self, table):
-        try:
-            entries = list(table.get_range())
-        except Exception:
-            self._db_logger.log("DB: %s list failed" %
-                             (inspect.stack()[1][3]))
-            return None
-
-        return entries
+    def _etcd_driver(self, args):
+        #self._db_logger.log("VncObjectEtcdClient arguments: {}".format(vnc_db))
+        return ServiceMonitorEtcd(args, self._db_logger)
 
     def get_vm_db_prefix(self, inst_count):
         return('vm' + str(inst_count) + '-')
@@ -221,3 +157,155 @@ class ServiceMonitorDB(VncObjectDBClient):
                 driver_info_obj_dict = json.loads(each_entry_data['driver_info'])
             ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
         return ret_list
+
+class ServiceMonitorCass(VncObjectDBClient):
+
+    _KEYSPACE = SVC_MONITOR_KEYSPACE_NAME
+    _SVC_SI_CF = 'service_instance_table'
+    _POOL_CF = 'pool_table'
+    _LB_CF = 'loadbalancer_table'
+    _HM_CF = 'healthmonitor_table'
+
+    def __init__(self, args, logger):
+        self._db_logger = logger
+
+        keyspaces = {
+            self._KEYSPACE: {
+                self._SVC_SI_CF: {},
+                self._POOL_CF: {},
+                self._LB_CF: {},
+                self._HM_CF: {},
+            }
+        }
+
+        cred = None
+        if (args.cassandra_user is not None and
+            args.cassandra_password is not None):
+            cred={'username':args.cassandra_user,
+                  'password':args.cassandra_password}
+
+        super(ServiceMonitorCass, self).__init__(args.cassandra_server_list,
+                                               args.cluster_id,
+                                               keyspaces,
+                                               None,
+                                               self._db_logger.log,
+                                               reset_config=args.reset_config,
+                                               credential=cred,
+                                               ssl_enabled=args.cassandra_use_ssl,
+                                               ca_certs=args.cassandra_ca_certs)
+
+        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
+        self._pool_cf = self._cf_dict[self._POOL_CF]
+        self._lb_cf = self._cf_dict[self._LB_CF]
+        self._hm_cf = self._cf_dict[self._HM_CF]
+
+    def _db_get(self, table, key, column):
+        try:
+            entry = self.get_one_col(table.column_family, key, column)
+        except Exception:
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
+            self._db_logger.log("DB: %s %s get failed" %
+                                (inspect.stack()[1][3], key))
+            return None
+
+        return entry
+
+    def _db_insert(self, table, key, entry):
+        try:
+            table.insert(key, entry)
+        except Exception:
+            self._db_logger.log("DB: %s %s insert failed" %
+                                (inspect.stack()[1][3], key))
+            return False
+
+        return True
+
+    def _db_remove(self, table, key, columns=None):
+        try:
+            if columns:
+                table.remove(key, columns=columns)
+            else:
+                table.remove(key)
+        except Exception:
+            self._db_logger.log("DB: %s %s remove failed" %
+                                (inspect.stack()[1][3], key))
+            return False
+
+        return True
+
+    def _db_list(self, table):
+        try:
+            entries = list(table.get_range())
+        except Exception:
+            self._db_logger.log("DB: %s list failed" %
+                                (inspect.stack()[1][3]))
+            return None
+
+        return entries
+
+
+class ServiceMonitorEtcd(VncObjectEtcdClient):
+
+    def __init__(self, args, logger):
+        self._db_logger = logger
+        # self._prefix = "/vnc/svcmonitor"
+        self._svc_si_cf = "service-instance"
+        self._pool_cf = "pool"
+        self._lb_cf = "loadbalancer"
+        self._hm_cf = "healthmonitor"
+
+        vnc_db = etcd_args(args)
+        super(ServiceMonitorEtcd, self).__init__(logger=self._db_logger.log, **vnc_db)
+
+    @staticmethod
+    def _path_key(rsrc_type, uuid):
+        return "{type}/{uuid}".format(rsrc_type, uuid)
+
+    def _db_get(self, rsrc_type, key, column):
+        try:
+            json_data = self._object_db.get_value(self._path_key(rsrc_type, key))
+            data = json.loads(json_data)
+        except Exception:
+            self._db_logger.log("DB: %s %s get failed" %
+                                (inspect.stack()[1][3], key))
+            return None
+        return data.get(column, None)
+
+    def _db_insert(self, rsrc_type, uuid, entry):
+        key = self._path_key(rsrc_type, uuid)
+        try:
+            self._object_db.put_kv(key, entry)
+        except Exception:
+            self._db_logger.log("DB: %s %s insert failed" %
+                                (inspect.stack()[1][3], key))
+            return False
+        return True
+
+    def _db_remove(self, rsrc_type, uuid, columns=None):
+        key = self._path_key(rsrc_type, uuid)
+        try:
+            if columns:
+                json_data = self._object_db.list_kv(key)
+                data = json.loads(json_data)
+                for col in columns:
+                    data.pop(col, None)
+                if data:
+                    self._object_db.replace_kv(key, json.dumps(data), json_data)
+            else:
+                self._object_db.delete_kv(key)
+        except Exception:
+            self._db_logger.log("DB: %s %s remove failed" %
+                                (inspect.stack()[1][3], key))
+            return False
+        return True
+
+    def _db_list(self, rsrc_type):
+        try:
+            entries = self._object_db.list_kv(rsrc_type)
+        except Exception:
+            self._db_logger.log("DB: %s list failed" %
+                                (inspect.stack()[1][3]))
+            return None
+        return entries
