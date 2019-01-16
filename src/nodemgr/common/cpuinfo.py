@@ -112,10 +112,7 @@ class MemCpuUsageData(object):
         last_cpu = self.last_cpu
         last_time = self.last_time
 
-        if hasattr(self._process, 'get_cpu_times'):
-            current_cpu = self._process.get_cpu_times()
-        else:
-            current_cpu = self._process.cpu_times()
+        current_cpu = self._process.get_cpu_times()
         current_time = os.times()[4]
 
         # tracking system/user time only
