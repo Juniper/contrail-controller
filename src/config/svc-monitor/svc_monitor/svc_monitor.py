@@ -391,7 +391,8 @@ class SvcMonitor(object):
             return
 
         # Create the service template in local db
-        ServiceTemplateSM.locate(st_uuid)
+        st_obj = self._vnc_lib.service_template_read(id=st_uuid)
+        ServiceTemplateSM.locate(st_uuid, st_obj.__dict__)
 
         self.logger.info("%s created with uuid %s" %
                              (st_name, str(st_uuid)))

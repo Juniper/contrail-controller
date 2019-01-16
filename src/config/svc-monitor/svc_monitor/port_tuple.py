@@ -104,7 +104,9 @@ class PortTupleAgent(Agent):
             self._vnc_lib.instance_ip_update(iip_obj)
         except Exception as e:
             return
-        InstanceIpSM.locate(iip_obj.uuid)
+
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+        InstanceIpSM.locate(iip_obj.uuid, iip_obj.__dict__)
         self._vnc_lib.ref_update('instance-ip', iip_obj.uuid,
             'virtual-machine-interface', vmi.uuid, None, 'ADD')
         vmi.update()
