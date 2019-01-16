@@ -10,9 +10,6 @@
 #include <boost/function.hpp>
 #include "base/factory.h"
 
-namespace cass { namespace cql { class CqlIf; } }
-using cass::cql::CqlIf;
-
 class EventManager;
 class IFMapChannelManager;
 class IFMapServer;
@@ -22,10 +19,6 @@ class XmppChannel;
 class IFMapFactory : public Factory<IFMapFactory> {
     FACTORY_TYPE_N3(IFMapFactory, IFMapXmppChannel, XmppChannel *,
                     IFMapServer *, IFMapChannelManager *);
-
-    FACTORY_TYPE_N5(IFMapFactory, CqlIf, EventManager *,
-                    const std::vector<std::string> &, int, const std::string &,
-                    const std::string &);
 };
 
 #endif  // __IFMAP__IFMAP_FACTORY_H__

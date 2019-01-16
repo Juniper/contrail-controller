@@ -62,7 +62,8 @@ class LoadDataBase(object):
     RULES_PER_SG = 4
 
     def __init__(self, force, resources_file, cassandra_servers,
-                 cassandra_username, cassandra_password, db_prefix,
+                 cassandra_username, cassandra_password,
+                 cassandra_use_ssl, cassandra_ca_certs, db_prefix,
                  cassandra_batch_size, zookeeper_servers,
                  rules_per_security_group, keystone_client,
                  dont_populate_zookeeper):
@@ -93,7 +94,9 @@ class LoadDataBase(object):
             self._UUID_KEYSPACE,
             None,
             vnc_cassandra_client_logger,
-            credential=cassandra_credentials)
+            credential=cassandra_credentials,
+            ssl_enabled=cassandra_use_ssl,
+            ca_certs=cassandra_ca_certs)
         self._uuid_cf = self._object_db.get_cf('obj_uuid_table')
         self._fqname_cf = self._object_db.get_cf('obj_fq_name_table')
 
@@ -210,6 +213,12 @@ def main():
                         default=None)
     parser.add_argument('--cassandra-password',
                         help="Cassandra user password (default: %(default)s)",
+                        default=None)
+    parser.add_argument('--cassandra-use-ssl',
+                        help="Cassandra use SSL flag (default: %(default)s)",
+                        default=None)
+    parser.add_argument('--cassandra-ca-certs',
+                        help="Cassandra CA certs file path (default: %(default)s)",
                         default=None)
     parser.add_argument('--db-prefix',
                         help="Cassandra keyspace prefix "
