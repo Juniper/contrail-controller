@@ -192,6 +192,7 @@ public:
     virtual const AgentPath *UsablePath() const;
     //Syncs path parameters. Parent route is also used to pick params.
     virtual bool Sync(AgentRoute *sync_route);
+    void ImportPrevActiveNH(Agent *agent, NextHop *nh);
 
     const SecurityGroupList &sg_list() const {return sg_list_;}
     const CommunityList &communities() const {return communities_;}
