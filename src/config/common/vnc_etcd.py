@@ -606,6 +606,21 @@ class VncEtcd(VncEtcdClient):
         self._client.put(prefixed_key, value)
 
     @_handle_conn_error
+    def replace_kv(self, key, old_value, new_value):
+        """Replace a value under given key in etcd in transaction.
+
+        :param key (str): key (there might be slashes, so key could look like
+                          some kind of path)
+        :param old_value (Any): data to check before replace, typically a string
+                            (object serialized with jsonpickle.encode)
+        :param new_value (Any): data to store if old_value haven't changed.
+                            Typically a string (object serialized
+                            with jsonpickle.encode)
+        """
+        prefixed_key = self._key_path(key)
+        self._client.replace(prefixed_key, old_value, new_value)
+
+    @_handle_conn_error
     def delete_kv(self, key):
         """Delete a single key in etcd.
 
