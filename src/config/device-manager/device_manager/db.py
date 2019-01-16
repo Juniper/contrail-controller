@@ -113,7 +113,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.ae_index_allocator = DMIndexer(
             DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
-        self.ansible_manager = None
         self.fabric = None
         self.link_aggregation_groups = []
         self.node_profile = None
@@ -126,36 +125,29 @@ class PhysicalRouterDM(DBBaseDM):
                                                        self.nc_handler)
     # end __init__
 
+    def use_ansible_plugin(self):
+        return PushConfigState.is_push_mode_ansible() and not self.is_ec2_role()
+    # end use_ansible_plugin
+
     def reinit_device_plugin(self):
         plugin_params = {
             "physical_router": self
         }
 
-        if not self.ansible_manager:
-            self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-        elif self.ansible_manager.verify_plugin(self.vendor,
-                self.product, self.physical_router_role):
-            self.ansible_manager.update()
+        if self.use_ansible_plugin():
+            plugin_base = AnsibleBase
         else:
-            self.ansible_manager.clear()
-            self.ansible_manager = AnsibleBase.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-
-        if PushConfigState.is_push_mode_ansible():
-            self.config_manager = self.ansible_manager
-            if not self.is_ec2_role():
-                return
+            plugin_base = DeviceConf
 
         if not self.config_manager:
-            self.config_manager = DeviceConf.plugin(self.vendor,
+            self.config_manager = plugin_base.plugin(self.vendor,
                 self.product, plugin_params, self._logger)
         elif self.config_manager.verify_plugin(self.vendor,
                 self.product, self.physical_router_role):
             self.config_manager.update()
         else:
             self.config_manager.clear()
-            self.config_manager = DeviceConf.plugin(self.vendor,
+            self.config_manager = plugin_base.plugin(self.vendor,
                 self.product, plugin_params, self._logger)
     # end reinit_device_plugin
 
@@ -344,13 +336,12 @@ class PhysicalRouterDM(DBBaseDM):
     # end allocate_asn
 
     def wait_for_config_push(self, timeout=1):
-        if not self.ansible_manager:
-            return
-        while self.ansible_manager.push_in_progress():
-            try:
-                self.nc_q.get(True, timeout)
-            except queue.Empty:
-                pass
+        if self.use_ansible_plugin() and self.config_manager:
+            while self.config_manager.push_in_progress():
+                try:
+                    self.nc_q.get(True, timeout)
+                except queue.Empty:
+                    pass
     # end wait_for_config_push
 
     def delete_handler(self):
@@ -365,22 +356,19 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('e2_service_provider', {})
         self.update_single_ref('fabric', {})
 
-        if PushConfigState.is_push_mode_ansible() and self.config_manager:
-            self.config_manager.push_conf(is_delete=True)
-            max_retries = 3
-            for _ in range(max_retries):
-                if self.config_manager.retry():
-                    self.config_manager.push_conf(is_delete=True)
-                else:
-                    break
-            self.set_conf_sent_state(False)
-        elif self.ansible_manager:
-            self.ansible_manager.initialize()
-            self.ansible_manager.underlay_config(is_delete=True)
-
-        if self.is_vnc_managed() and self.is_conf_sent():
-            self.config_manager.push_conf(is_delete=True)
-            self.config_manager.clear()
+        if self.config_manager:
+            if self.use_ansible_plugin():
+                self.config_manager.push_conf(is_delete=True)
+                max_retries = 3
+                for _ in range(max_retries):
+                    if self.config_manager.retry():
+                        self.config_manager.push_conf(is_delete=True)
+                    else:
+                        break
+                self.set_conf_sent_state(False)
+            elif self.is_vnc_managed():
+                self.config_manager.push_conf(is_delete=True)
+                self.config_manager.clear()
 
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
@@ -424,7 +412,6 @@ class PhysicalRouterDM(DBBaseDM):
     def nc_handler(self):
         while self.nc_q.get() is not None:
             try:
-                self.push_underlay_config()
                 self.push_config()
             except Exception as e:
                 tb = traceback.format_exc()
@@ -753,17 +740,6 @@ class PhysicalRouterDM(DBBaseDM):
 
         return static_routes
     # end compute_pnf_static_route
-
-    def push_underlay_config(self):
-        if PushConfigState.is_push_mode_ansible():
-            return
-        if self.ansible_manager is None:
-            return
-        if not self.is_vnc_managed():
-            return
-        self.ansible_manager.initialize()
-        self.ansible_manager.underlay_config()
-    # end push_underlay_config
 
     def push_config(self):
         if not self.config_manager:
