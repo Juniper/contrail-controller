@@ -2541,10 +2541,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 # Process only if port profile exists and physical links are specified
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
-                    links  = phy_links['local_link_information']
+                    links = phy_links['local_link_information']
                     lag_uuid = cls._manage_lag_interface(obj_dict['uuid'],
                                    cls.server, db_conn, links, lag_name)
-                    obj_dict['port_link_aggregation_group_id'] = lag_uuid
+                    obj_dict['port_virtual_port_group_id'] = lag_uuid
 
         return True, ""
     # end pre_dbe_create
@@ -2554,9 +2554,9 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         api_server = db_conn.get_api_server()
 
         # add a ref from LAG to this VMI
-        lag_uuid = obj_dict.get('port_link_aggregation_group_id')
+        lag_uuid = obj_dict.get('port_virtual_port_group_id')
         if lag_uuid:
-            api_server.internal_request_ref_update('link-aggregation-group',
+            api_server.internal_request_ref_update('virtual-port-group',
                lag_uuid, 'ADD', 'virtual-machine-interface', obj_dict['uuid'],
                relax_ref_for_delete=True)
 
@@ -2757,7 +2757,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                                     ['mac_address'])
             esi = "00:00:00:00:" + mac[0]
 
-            lag_refs = phy_interface_dict.get('link_aggregation_group_back_refs')
+            lag_refs = phy_interface_dict.get('virtual_port_group_back_refs')
             if lag_refs and lag_refs[0]['to'][-1] != lag_name:
                 msg = 'Physical interface %s already belong to the lag %s' %\
                       (phy_interface_dict.get('name'), lag_refs[0]['to'][-1])
@@ -2767,14 +2767,14 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             lag_fq_name = ['default-global-system-config', fabric_name,
                            lag_name]
             try:
-                lag_uuid = db_conn.fq_name_to_uuid('link_aggregation_group',
+                lag_uuid = db_conn.fq_name_to_uuid('virtual_port_group',
                                                    lag_fq_name)
             except cfgm_common.exceptions.NoIdError:
                 msg = 'Lag object %s is not found' % lag_name
                 return (False, (404, msg))
 
             (ok, lag_dict) = db_conn.dbe_read(
-                    obj_type='link-aggregation-group', obj_id=lag_uuid)
+                    obj_type='virtual-port-group', obj_id=lag_uuid)
 
             if not ok:
                 return (ok, 400, lag_dict)
@@ -2788,7 +2788,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 lag_update_dict['annotations'] = lag_dict['annotations']
                 lag_update_dict = json.dumps(lag_update_dict,
                                   default=_obj_serializer_all)
-                ok, resp = api_server.internal_request_update('link-aggregation-group',
+                ok, resp = api_server.internal_request_update('virtual-port-group',
                                                               lag_dict['uuid'],
                                                               json.loads(lag_update_dict))
 
@@ -2801,26 +2801,26 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             get_context().push_undo(undo_ae_id)
 
             lag_name = "lag" + str(ae_id)
-            lag_obj = LinkAggregationGroup(parent_type='fabric',
+            lag_obj = VirtualPortGroup(parent_type='fabric',
                 fq_name=['default-global-system-config', fabric_name, lag_name],
-                link_aggregation_group_lacp_enabled=True)
+                virtual_port_group_lacp_enabled=True)
 
             lag_obj.set_annotations(KeyValuePairs(
                                    [KeyValuePair('ae_if_name', str(ae_id)),
                                     KeyValuePair('esi', esi)]))
             lag_int_dict = json.dumps(lag_obj, default=_obj_serializer_all)
 
-            ok, resp = api_server.internal_request_create('link-aggregation-group',
+            ok, resp = api_server.internal_request_create('virtual-port-group',
                                                           json.loads(lag_int_dict))
 
             if not ok:
                 return (ok, 400, resp)
 
-            lag_dict = resp['link-aggregation-group']
-            lag_uuid = resp['link-aggregation-group']['uuid']
+            lag_dict = resp['virtual-port-group']
+            lag_uuid = resp['virtual-port-group']['uuid']
 
             def undo_lag_create():
-                cls.server.internal_request_delete('link-aggregation-group',
+                cls.server.internal_request_delete('virtual-port-group',
                                                    lag_uuid)
                 return True, ''
             get_context().push_undo(undo_lag_create)
@@ -2832,13 +2832,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         # add new physical interfaces to the lag
         for uuid in set(phy_interface_uuids) - set(old_phy_interface_uuids):
-            api_server.internal_request_ref_update('link-aggregation-group',
+            api_server.internal_request_ref_update('virtual-port-group',
                 lag_uuid, 'ADD', 'physical-interface', uuid,
                 relax_ref_for_delete=True)
 
         # delete old physical interfaces to the lag
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
-            api_server.internal_request_ref_update('link-aggregation-group',
+            api_server.internal_request_ref_update('virtual-port-group',
                 lag_uuid, 'DELETE', 'physical-interface', uuid)
 
         return lag_uuid
@@ -2872,7 +2872,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     # ADD a ref from this VMI only if it's getting created first time
                     if not lag_name  and lag_uuid:
                         api_server.internal_request_ref_update(
-                           'link-aggregation-group', lag_uuid, 'ADD',
+                           'virtual-port-group', lag_uuid, 'ADD',
                            'virtual-machine-interface', id,
                             relax_ref_for_delete=True)
 
@@ -2906,16 +2906,16 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         api_server = db_conn.get_api_server()
 
         # For baremetal, delete the LAG object
-        for lag_back_ref in obj_dict.get('link_aggregation_group_back_refs') or []:
+        for lag_back_ref in obj_dict.get('virtual_port_group_back_refs') or []:
             fqname = lag_back_ref['to']
 
             # Check if LAG is involved and and it's not referring to any other VMI.
             # If yes, then clean up
-            lag_uuid = db_conn.fq_name_to_uuid('link_aggregation_group', fqname)
+            lag_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
             (ok, lag_dict) = db_conn.dbe_read(
-                    obj_type='link-aggregation-group', obj_id=lag_uuid)
+                    obj_type='virtual-port-group', obj_id=lag_uuid)
             if not lag_dict.get('virtual_machine_interface_refs'):
-                api_server.internal_request_delete('link_aggregation_group', lag_uuid)
+                api_server.internal_request_delete('virtual_port_group', lag_uuid)
                 id = int(fqname[2][2:])
                 ae_fqname = cls.vnc_zk_client.get_ae_from_id(id)
                 cls.vnc_zk_client.free_ae_id(id, ae_fqname)
