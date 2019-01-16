@@ -9,8 +9,10 @@ import mock
 import jsonpickle
 
 from cfgm_common.vnc_etcd import VncEtcd
+from cfgm_common.exceptions import NoIdError
 from schema_transformer.etcd import SchemaTransformerEtcd
 from schema_transformer.to_bgp import parse_args
+from vnc_api.exceptions import RefsExistError
 
 ETCD_HOST = 'etcd-host-01'
 
@@ -324,3 +326,113 @@ class TestSchemaTransformerEtcdRouteTarget(unittest.TestCase):
         # Free route target
         self._schema_transformer_etcd.free_route_target("test_c")
         self.assertEqual(len(self._etcd3._kv_data), 2)
+
+
+class TestAllocServiceChainVlanSTEtcd(unittest.TestCase):
+    def setUp(self):
+        super(TestAllocServiceChainVlanSTEtcd, self).setUp()
+        # prepare schema transformer with default mocks
+        self.st = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        self.st._vnc_lib.create_int_pool = mock.MagicMock(return_value=None)
+        self.st._vnc_lib.allocate_int = mock.MagicMock(return_value=None)
+        self.st._vnc_lib.deallocate_int = mock.MagicMock(return_value=None)
+        self.st._object_db.get_kv = mock.MagicMock(return_value=None)
+        self.st._object_db.put_kv = mock.MagicMock(return_value=None)
+        self.st._object_db.delete_kv = mock.MagicMock(return_value=None)
+
+        # input data
+        self.service_vm = "service_vm-uuid"
+        self.service_chain = "firewall"
+
+        # expected data
+        self.expected_int = 1
+        self.int_pool = "schema_transformer/vlan/service_vm-uuid"
+        self.alloc_kv = "schema_transformer/vlan/service_vm-uuid:firewall"
+        self.min_vlan = self.st._SC_MIN_VLAN
+        self.max_vlan = self.st._SC_MAX_VLAN
+
+    @mock.patch('etcd3.client')
+    def test_alloc_sv_vlan_should_return_new_int(self, etcd_client):
+        self.st._vnc_lib.allocate_int.return_value = self.expected_int
+
+        # invoke and check result
+        result = self.st.allocate_service_chain_vlan(self.service_vm,
+                                                     self.service_chain)
+        self.assertEqual(result, self.expected_int)
+
+        # check if mocked methods are called with expected arguments
+        self.st._vnc_lib.create_int_pool.assert_called_with(self.int_pool,
+                                                            self.min_vlan,
+                                                            self.max_vlan)
+        self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
+        self.st._vnc_lib.allocate_int.assert_called_with(self.int_pool)
+        self.st._object_db.put_kv.assert_called_with(self.alloc_kv,
+                                                     self.expected_int)
+
+    @mock.patch('etcd3.client')
+    def test_alloc_exist_sv_vlan_should_return_old_int(self, etcd_client):
+        self.st._vlan_allocators[self.service_vm] = self.int_pool
+        self.st._object_db.get_kv.return_value = self.expected_int
+
+        # invoke and check result
+        result = self.st.allocate_service_chain_vlan(self.service_vm,
+                                                     self.service_chain)
+        self.assertEqual(result, self.expected_int)
+
+        # check if mocked methods are called with expected arguments
+        self.st._vnc_lib.create_int_pool.assert_not_called()
+        self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
+        self.st._vnc_lib.allocate_int.assert_not_called()
+        self.st._object_db.put_kv.assert_not_called()
+
+    @mock.patch('etcd3.client')
+    def test_alloc_exist_not_in_allocdict_should_return_old_int(self, etcd_client):
+        self.st._vnc_lib.create_int_pool.side_effect = RefsExistError()
+        self.st._object_db.get_kv.return_value = self.expected_int
+
+        # invoke and check result
+        result = self.st.allocate_service_chain_vlan(self.service_vm,
+                                                     self.service_chain)
+        self.assertEqual(result, self.expected_int)
+
+        # check if mocked methods are called with expected arguments
+        self.st._vnc_lib.create_int_pool.assert_called_with(self.int_pool,
+                                                            self.min_vlan,
+                                                            self.max_vlan)
+        self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
+        self.st._vnc_lib.allocate_int.assert_not_called()
+        self.st._object_db.put_kv.assert_not_called()
+
+    @mock.patch('etcd3.client')
+    def test_dealloc_sv_vlan(self, etcd_client):
+        self.st._vlan_allocators[self.service_vm] = self.int_pool
+        self.st._object_db.get_kv.return_value = self.expected_int
+
+        self.st.free_service_chain_vlan(self.service_vm, self.service_chain)
+        self.assertNotIn(self.service_vm, self.st._vlan_allocators)
+
+        self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
+        self.st._vnc_lib.deallocate_int.assert_called_with(self.int_pool,
+                                                           self.expected_int)
+        self.st._object_db.delete_kv.assert_called_with(self.alloc_kv)
+
+    @mock.patch('etcd3.client')
+    def test_dealloc_not_existing_sv_vlan(self, etcd_client):
+        self.st._object_db.get_kv.side_effect = NoIdError(self.expected_int)
+
+        self.st.free_service_chain_vlan(self.service_vm, self.service_chain)
+
+        self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
+        self.st._vnc_lib.deallocate_int.assert_not_called()
+        self.st._object_db.delete_kv.assert_not_called()
+
+    @mock.patch('etcd3.client')
+    def test_dealloc_sv_vlan_which_is_not_in_allocdict(self, etcd_client):
+        self.st._object_db.get_kv.return_value = self.expected_int
+
+        self.st.free_service_chain_vlan(self.service_vm, self.service_chain)
+
+        self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
+        self.st._vnc_lib.deallocate_int.assert_called_with(self.int_pool,
+                                                           self.expected_int)
+        self.st._object_db.delete_kv.assert_called_with(self.alloc_kv)
