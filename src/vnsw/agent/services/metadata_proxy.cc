@@ -364,11 +364,10 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close,
         nova_hostname, &nova_server, &nova_port))
         return NULL;
 
-    boost::asio::ip::tcp::endpoint http_ep;
-    http_ep.address(nova_server);
-    http_ep.port(nova_port);
+    HttpConnection *conn = (nova_hostname != 0 && !nova_hostname->empty()) ? 
+       http_client_->CreateConnection(*nova_hostname, nova_port) :
+       http_client_->CreateConnection(boost::asio::ip::tcp::endpoint(nova_server, nova_port));
 
-    HttpConnection *conn = http_client_->CreateConnection(http_ep);
     map<CURLoption, int> *curl_options = conn->curl_options();
     curl_options->insert(std::make_pair(CURLOPT_HTTP_TRANSFER_DECODING, 0L));
     conn->set_use_ssl(services_->agent()->params()->metadata_use_ssl());
