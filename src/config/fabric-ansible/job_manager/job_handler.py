@@ -359,6 +359,10 @@ class JobHandler(object):
                                         self.send_prouter_log(
                                             **marked_jsons.get(marker)
                                         )
+                                        self.send_prouter_uve(
+                                            exec_id,
+                                            "IN_PROGRESS"
+                                        )
                     else:
                         # this sleep is essential
                         # to yield the context to
@@ -441,8 +445,7 @@ class JobHandler(object):
             self._logger.error("Failed to send prouter log: %s" % str(ex))
     # end send_prouter_log
 
-    def send_prouter_uve(self, exec_id, pb_status):
-        status = "SUCCESS" if pb_status == 0 else "FAILURE"
+    def send_prouter_uve(self, exec_id, status):
         job_template_fq_name = ':'.join(
             map(str, self._job_template.fq_name))
         for k, v in self._prouter_info.iteritems():
@@ -494,7 +497,9 @@ class JobHandler(object):
             # create prouter UVE in job_manager only if it is not a multi
             # device job template
             if not self._job_template.get_job_template_multi_device_job():
-                self.send_prouter_uve(exec_id, playbook_process.returncode)
+                status = "SUCCESS" if playbook_process.returncode == 0 \
+                    else "FAILURE"
+                self.send_prouter_uve(exec_id, status)
 
         except subprocess32.TimeoutExpired as timeout_exp:
             if playbook_process is not None:

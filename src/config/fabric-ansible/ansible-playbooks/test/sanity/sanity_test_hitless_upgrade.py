@@ -119,6 +119,7 @@ class SanityTestHitless(SanityBase):
         # Test hitless image upgrade.
         try:
             final_upgrade_list = []
+            prouter_name_list = []
             for item in self._image_upgrade_list:
                 upgrade_dict = {}
                 device_list = []
@@ -130,6 +131,7 @@ class SanityTestHitless(SanityBase):
                     phy_obj_uuid = self._api.physical_router_read(
                         fq_name=phy_fq_name).uuid
                     device_list.append(phy_obj_uuid)
+                    prouter_name_list.append(phy_fq_name[-1])
                 upgrade_dict['image_uuid'] = image_uuid
                 upgrade_dict['device_list'] = device_list
                 final_upgrade_list.append(upgrade_dict)
@@ -170,9 +172,10 @@ class SanityTestHitless(SanityBase):
             fabric_fq_name = ['default-global-system-config', self.fabric]
             fabric = self._api.fabric_read(fq_name=fabric_fq_name)
             upgrade_mode = "upgrade"
+
             self.image_upgrade_maintenance_mode(final_upgrade_list,
                                                 advanced_params, upgrade_mode,
-                                                fabric)
+                                                fabric, prouter_name_list)
         except Exception as ex:
             self._exit_with_error(
                 "Image upgrade hitless test failed due to unexpected error: %s"
