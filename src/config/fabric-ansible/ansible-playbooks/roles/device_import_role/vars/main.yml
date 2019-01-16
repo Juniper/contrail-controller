@@ -1,3 +1,0 @@
----
-# vars file for device-import-role
-pb_input: "{{playbook_input.input}}"
