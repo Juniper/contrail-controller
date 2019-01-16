@@ -21,10 +21,15 @@ class RTHandler(object):
 
 class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
     _ROUTE_TARGET_NUMBER_ALLOC_POOL = "route_target_number"
+
     _BGPAAS_PORT_ALLOC_POOL = "bgpaas_port"
     _ETCD_SCHEMA_TRANSFORMER_PREFIX = "schema_transformer"
     _ETCD_SERVICE_CHAIN_PATH = "service_chain"
     _ETCD_ROUTE_TARGET_PATH = "route_target"
+    _ETCD_VLAN_PATH = "vlan"
+
+    _SC_MIN_VLAN = 1
+    _SC_MAX_VLAN = 4093
 
     def __init__(self, args, vnc_lib, logger):
         self._args = args
@@ -35,6 +40,8 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         self._logger.log(
             "VncObjectEtcdClient arguments: {}".format(self._etcd_args))
         self._init_bgpaas_ports_index_allocator()
+
+        self._vlan_allocators = {}
 
         super(SchemaTransformerEtcd, self).__init__(
             logger=self._logger.log, **self._etcd_args)
@@ -76,12 +83,50 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         return "%s/%s/%s" % (self._ETCD_SCHEMA_TRANSFORMER_PREFIX, resource, key)
 
     def allocate_service_chain_vlan(self, service_vm, service_chain):
-        # Since vlan tag 0 is not valid, return 1
-        return 1
+        if service_vm not in self._vlan_allocators:
+            int_pool = self._path_key(self._ETCD_VLAN_PATH, service_vm)
+            self._vlan_allocators[service_vm] = int_pool
+            try:
+                self._vnc_lib.create_int_pool(int_pool,
+                                              self._SC_MIN_VLAN,
+                                              self._SC_MAX_VLAN)
+            except RefsExistError:
+                pass  # int pool already allocated
+
+        alloc_kv = self._join_strings(self._vlan_allocators[service_vm],
+                                      service_chain)
+        try:
+            vlan_int = self._object_db.get_kv(alloc_kv)
+            if vlan_int:
+                return int(vlan_int)
+        except (KeyError, VncError, NoIdError):
+            pass  # vlan int isn't allocated yet
+
+        vlan_int = self._vnc_lib.allocate_int(self._vlan_allocators[service_vm])
+        # TODO check if vlan_int has been allocated for this service_chain
+        self._object_db.put_kv(alloc_kv, vlan_int)
+
+        return int(vlan_int)
 
     def free_service_chain_vlan(self, service_vm, service_chain):
-        # TODO
-        pass
+        if service_vm in self._vlan_allocators:
+            int_pool = self._vlan_allocators[service_vm]
+            alloc_kv = self._join_strings(int_pool, service_chain)
+            del self._vlan_allocators[service_vm]
+        else:
+            int_pool = self._path_key(self._ETCD_VLAN_PATH, service_vm)
+            alloc_kv = self._join_strings(int_pool, service_chain)
+
+        try:
+            vlan_int = self._object_db.get_kv(alloc_kv)
+        except (VncError, NoIdError):
+            pass  # vlan int already deallocated
+        else:
+            self._vnc_lib.deallocate_int(int_pool, vlan_int)
+            self._object_db.delete_kv(alloc_kv)
+
+    def _join_strings(self, prefix, suffix, char=":"):
+        return "{p}{c}{s}".format(p=prefix, s=suffix, c=char)
 
     def get_route_target_range(self):
         response = self._object_db.list_kv(
@@ -101,12 +146,12 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
     def alloc_route_target(self, ri_fq_name, alloc_only=False):
         if alloc_only:
             return self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL)
-        
+
         rtgt = self.get_route_target(ri_fq_name)
         if rtgt < common.BGP_RTGT_MIN_ID:
             rtgt = self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL)
         else:
-            #TODO check if rtgt has allocated for this ri_fq_name
+            # TODO check if rtgt has allocated for this ri_fq_name
             pass
 
         return rtgt

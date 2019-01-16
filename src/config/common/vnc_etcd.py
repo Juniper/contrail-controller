@@ -602,7 +602,6 @@ class VncEtcd(VncEtcdClient):
 
         :param key (str): key (there might be slashes, so key could look like
                           some kind of path)
-        :param name (str): UUID of object
         """
         prefixed_key = self._key_path(key)
         self._client.delete(prefixed_key)
