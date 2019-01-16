@@ -249,7 +249,8 @@ class InstanceManager(object):
             self._vnc_lib.interface_route_table_create(rt_obj)
         except RefsExistError:
             self._vnc_lib.interface_route_table_update(rt_obj)
-        InterfaceRouteTableSM.locate(rt_obj.uuid)
+        rt_obj = self._vnc_lib.interface_route_table_read(id=rt_obj.uuid)
+        InterfaceRouteTableSM.locate(rt_obj.uuid, rt_obj.__dict__)
         return rt_obj
 
     def update_static_routes(self, si):
@@ -275,7 +276,8 @@ class InstanceManager(object):
         except RefsExistError:
             self._vnc_lib.virtual_machine_update(vm_obj)
 
-        VirtualMachineSM.locate(vm_obj.uuid)
+        vm_obj = self._vnc_lib.virtual_machine_read(id=vm_obj.uuid)
+        VirtualMachineSM.locate(vm_obj.uuid, vm_obj.__dict__)
         self.logger.info("Info: VM %s updated SI %s" %
                              (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
