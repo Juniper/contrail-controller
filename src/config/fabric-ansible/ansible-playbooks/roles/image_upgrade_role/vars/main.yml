@@ -12,5 +12,5 @@ pr_vendor: "{{playbook_input.vendor|lower}}"
 
 auth_token: "{{playbook_input.auth_token}}"
 image_uuid: "{{playbook_input.device_image_uuid}}"
-
-
+upgrade_plan: "{{playbook_input.input.upgrade_plan}}"
+additional_error_handler: "hitless_upgrade_errors.yml"

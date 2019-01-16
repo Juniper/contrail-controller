@@ -46,6 +46,12 @@
   set_fact:
     device_maintenance_mode: "activate"
 
+- name: Update prouter logs with maintenance mode status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{DEVICE_STATE.VALIDATING}}"
+    job_ctx: "{{job_ctx}}"
+
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
