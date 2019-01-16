@@ -130,21 +130,21 @@ StructuredSyslogConfig::FindNetwork(std::string ip,  std::string key)
             if ((network_addr >= found_network_obj.address_begin)
                 && (network_addr <= found_network_obj.address_end)){
 
-                LOG(DEBUG, "Network found for " << ip << " from routing instance " <<  key <<
+                LOG(DEBUG, "Network found for " << ip << " from Tenant::VPN " <<  key <<
                     " in Site : " << found_network_obj.id );
                 return found_network_obj.id;
             }
             else {
                 LOG(DEBUG,"Network address "<< ip <<" doesnt not belong to the found range " 
-                    << found_network_obj.address_begin << " - " << found_network_obj.address_end << " in VPN " << key);
+                    << found_network_obj.address_begin << " - " << found_network_obj.address_end << " in Tenant::VPN " << key);
             }
         }
         else{
-            LOG(DEBUG,"Network range not found for " << ip << " in VPN " << key );
+            LOG(DEBUG,"Network range not found for " << ip << " in Tenant::VPN " << key );
         }
     }
     else {
-        LOG(DEBUG, "VPN "<< key << " NOT found in Network MAP!");
+        LOG(DEBUG, "Tenant::VPN "<< key << " NOT found in Network MAP!");
     }
     return unknown_location;
  }
@@ -217,8 +217,8 @@ StructuredSyslogConfig::HostnameRecordsHandler(const contrail_rapidjson::Documen
                 for (std::vector<std::string>::iterator iter = network_range_list.begin();
                     iter != network_range_list.end(); iter++){
                     std::vector<std::string> ip_and_subnet = split_into_vector(*iter,'/');
-
-                    AddNetwork (vpn, ip_and_subnet[0], ip_and_subnet[1], location);
+                    std::string network_key = tenant + "::" + vpn;
+                    AddNetwork (network_key, ip_and_subnet[0], ip_and_subnet[1], location);
                 }
             }
         }
