@@ -75,7 +75,6 @@ common_sources = [
            '__init__.py',
            'common/event_manager.py',
            'common/process_stat.py',
-           'common/event_listener_protocol_nodemgr.py',
            'common/cpuinfo.py',
            'common/cassandra_manager.py',
           ]
