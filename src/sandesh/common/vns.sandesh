@@ -13,6 +13,7 @@ const string SERVICE_TOR_AGENT = "contrail-tor-agent"
 const string SERVICE_VROUTER_AGENT = "contrail-vrouter-agent"
 const string SERVICE_CONTROL_NODE = "contrail-control"
 const string SERVICE_DNSD = "contrail-dns"
+const string SERVICE_NAMED = "contrail-named"
 const string SERVICE_API_SERVER = "contrail-api"
 const string SERVICE_API_SERVER_0 = "contrail-api:0"
 const string SERVICE_SCHEMA_TRANSFORMER = "contrail-schema"
@@ -31,6 +32,8 @@ const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
 const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
 const string SERVICE_INVENTORY_AGENT = "contrail-inventory-agent"
 const string SERVICE_CONTRAIL_DATABASE = "contrail-database"
+const string SERVICE_IFMAP_SERVER = "ifmap"
+const string SERVICE_KAFKA = "kafka"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
@@ -245,16 +248,16 @@ const map<byte, string> VrouterAgentPlatformTypeMap = {
 
 const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
 const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
-const string MODULE_API_SERVER_NAME = "contrail-api"
+const string MODULE_API_SERVER_NAME = SERVICE_API_SERVER
 const string MODULE_SCHEMA_TRANSFORMER_NAME = SERVICE_SCHEMA_TRANSFORMER
 const string MODULE_OPSERVER_NAME = SERVICE_OPSERVER
 const string MODULE_ALARM_GENERATOR_NAME = SERVICE_ALARM_GENERATOR
 const string MODULE_COLLECTOR_NAME = SERVICE_COLLECTOR
 const string MODULE_QUERY_ENGINE_NAME = SERVICE_QUERY_ENGINE
 const string MODULE_SVC_MONITOR_NAME = SERVICE_SVC_MONITOR
-const string MODULE_DEVICE_MANAGER_NAME = "contrail-device-manager"
-const string MODULE_DNS_NAME = "contrail-dns"
-const string MODULE_DISCOVERY_SERVICE_NAME = "contrail-discovery"
+const string MODULE_DEVICE_MANAGER_NAME = SERVICE_DEVICE_MANAGER
+const string MODULE_DNS_NAME = SERVICE_DNSD
+const string MODULE_DISCOVERY_SERVICE_NAME = SERVICE_DISCOVERY
 const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
 const string MODULE_XMPP_SERVER_NAME = "XmppServer"
 const string MODULE_ANALYTICS_NODE_MGR_NAME = SERVICE_ANALYTICS_NODE_MGR
@@ -363,6 +366,45 @@ const map<NodeType, string> NodeTypeNames = {
     NodeType.DATABASE        : "Database",
     NodeType.OPENSTACK       : "OpenStack",
     NodeType.SERVERMGR       : "ServerMgr",
+}
+
+const map<NodeType, string> NodeManagerNodeTypeNames = {
+    NodeType.ANALYTICS : 'contrail-analytics',
+    NodeType.CONFIG    : 'contrail-config',
+    NodeType.DATABASE  : 'contrail-database',
+    NodeType.CONTROL   : 'contrail-control',
+    NodeType.COMPUTE   : 'contrail-vrouter',
+}
+
+const map <NodeType, list<string> > NodeType2ServicesNamesMap = {
+    NodeType.CONFIG : [ SERVICE_CONFIG_NODE_MGR,
+                        SERVICE_API_SERVER,
+                        SERVICE_SCHEMA_TRANSFORMER,
+                        SERVICE_SVC_MONITOR,
+                        SERVICE_DEVICE_MANAGER,
+                        SERVICE_DISCOVERY,
+                        SERVICE_IFMAP_SERVER,
+                      ],
+    NodeType.CONTROL : [ SERVICE_CONTROL_NODE_MGR,
+                         SERVICE_CONTROL_NODE,
+                         SERVICE_DNSD,
+                         SERVICE_NAMED,
+                       ],
+    NodeType.ANALYTICS : [ SERVICE_ANALYTICS_NODE_MGR,
+                           SERVICE_COLLECTOR,
+                           SERVICE_QUERY_ENGINE,
+                           SERVICE_OPSERVER,
+                           SERVICE_ALARM_GENERATOR,
+                           SERVICE_SNMP_COLLECTOR,
+                           SERVICE_TOPOLOGY,
+                         ],
+    NodeType.DATABASE : [ SERVICE_DATABASE_NODE_MGR,
+                          SERVICE_CONTRAIL_DATABASE,
+                          SERVICE_KAFKA,
+                        ],
+    NodeType.COMPUTE : [ SERVICE_COMPUTE_NODE_MGR,
+                         SERVICE_VROUTER_AGENT,
+                       ],
 }
 
 const map <Module, NodeType> Module2NodeType = {
