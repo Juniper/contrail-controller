@@ -424,8 +424,46 @@ class SanityBase(object):
             log_ts = time.time() * 1000000
         return False, log_ts
 
+    def _display_prouter_state(self, prouter_states, fabric_fq_name,
+                               job_template_fq_name):
+        fabric_fqname = ':'.join(map(str, fabric_fq_name))
+        job_template_fqname = ':'.join(map(str, job_template_fq_name))
+
+        for prouter_name, prouter_state in prouter_states.iteritems():
+            prouter_fqname = "default-global-system-config:%s" % prouter_name
+            url = "http://%s:%d/analytics/uves/job-execution/%s:%s:%s?flat" %\
+                  (self._analytics['host'],
+                   self._analytics['port'],
+                   prouter_fqname,
+                   fabric_fqname,
+                   job_template_fqname
+                   )
+            r = requests.get(url)
+            if r.status_code == 200:
+                response = r.json()
+                jobex = response.get('PhysicalRouterJobExecution')
+                if jobex:
+                    new_prouter_state = jobex.get('prouter_state')
+                    if isinstance(new_prouter_state, list):
+                        prouter_entry = [e for e in new_prouter_state if \
+                                         "FabricAnsible" in e[1]]
+                        new_prouter_state = prouter_entry[0][0]
+                    if new_prouter_state != prouter_state:
+                        prouter_states[prouter_name] = new_prouter_state
+                        pprint.pprint("-----> {} state: {} <-----".\
+                                      format(prouter_name, new_prouter_state))
+                        print("")
+            else:
+                print("BAD RESPONSE for {}: {}".format(prouter_name, r))
+
     def _wait_and_display_job_progress(self, job_name, job_execution_id,
-                                       fabric_fq_name, job_template_fq_name):
+                                       fabric_fq_name, job_template_fq_name,
+                                       prouter_name_list=None):
+        prouter_states = {}
+        if prouter_name_list:
+            for prouter_name in prouter_name_list:
+                prouter_states[prouter_name] = ""
+
         completed = "SUCCESS"
         failed = "FAILURE"
         url = "http://%s:%d/analytics/query" %\
@@ -443,7 +481,9 @@ class SanityBase(object):
             if status:
                 self._logger.debug("%s job '%s' log records non-zero status",
                                    job_name, job_execution_id)
-
+            # Display prouter state, if applicable
+            self._display_prouter_state(prouter_states, fabric_fq_name,
+                                        job_template_fq_name)
             # check if job completed successfully
             if SanityBase._check_job_status(url, job_execution_id, completed):
                 self._logger.debug("%s job '%s' finished", job_name,
@@ -584,7 +624,7 @@ class SanityBase(object):
 
     def image_upgrade_maintenance_mode(self, image_upgrade_list,
                                        advanced_params, upgrade_mode,
-                                       fabric):
+                                       fabric, prouter_name_list):
         job_template_fq_name = [
             'default-global-system-config', 'hitless_upgrade_strategy_template']
         job_execution_info = self._api.execute_job(
@@ -602,7 +642,8 @@ class SanityBase(object):
             job_execution_id)
         self._wait_and_display_job_progress('Image upgrade', job_execution_id,
                                             fabric.fq_name,
-                                            job_template_fq_name)
+                                            job_template_fq_name,
+                                            prouter_name_list=prouter_name_list)
     #end image_upgrade_maintenance_mode
 
     def ztp(self, fabric_uuid):
