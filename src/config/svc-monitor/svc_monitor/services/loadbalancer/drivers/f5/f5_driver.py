@@ -1211,7 +1211,8 @@ class OpencontrailF5LoadbalancerDriver(
         ip_obj.set_virtual_network(net_obj)
         ip_obj.set_instance_ip_family("v4")
         ip_id = self._api.instance_ip_create(ip_obj)
-        obj = InstanceIpSM.locate(ip_id)
+        ip_obj = self._api.instance_ip_read(id=ip_id)
+        obj = InstanceIpSM.locate(ip_id, ip_obj.__dict__)
         return obj.address, ip_id
     # end _allocate_ip
 
