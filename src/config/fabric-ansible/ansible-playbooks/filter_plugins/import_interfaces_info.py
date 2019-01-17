@@ -16,15 +16,15 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'device_import': self.device_import,
+            'import_interfaces_info': self.import_interfaces_info,
         }
     # end filters
 
     def _instantiate_filter_log_instance(self, device_name):
-        FilterLog.instance("DeviceImportFilter", device_name)
+        FilterLog.instance("Import_interfaces_info_Filter", device_name)
     # end _instantiate_filter_log_instance
 
-    def device_import(self, job_ctx, prouter_name, interfaces_payload):
+    def import_interfaces_info(self, job_ctx, prouter_name, interfaces_payload):
         """
         :param job_ctx: Dictionary
             example:

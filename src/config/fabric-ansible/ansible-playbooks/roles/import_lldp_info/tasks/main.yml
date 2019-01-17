@@ -60,7 +60,7 @@
     # Call the vnc filter plugin for topology discovery
     - name: Call the vnc filter plugin for topology discovery
       set_fact:
-        topology_discovery_result: "{{job_ctx | topology_discovery(prouter_fqname, lldp_neighbors_payload) }}"
+        topology_discovery_result: "{{job_ctx | import_lldp_info(prouter_fqname, lldp_neighbors_payload) }}"
 
     - name: Handle any exception or error cases
       include_tasks: error_handler.yml
