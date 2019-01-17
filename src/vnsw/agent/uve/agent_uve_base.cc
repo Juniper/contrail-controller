@@ -80,6 +80,9 @@ void AgentUveBase::BuildTagNamesFromList(const TagList &tl, UveTagData *info)
             }
             info->labels.append(table->TagName(*it));
             break;
+        case TagTable::NEUTRON_FWAAS:
+            info->application = table->TagName(*it);
+            break;
         default:
             if (info->fill_type == UveTagData::SET) {
                 info->custom_tag_set.insert(table->TagName(*it));
@@ -139,6 +142,9 @@ void AgentUveBase::BuildTagIdsFromList(const TagList &tl, UveTagData *info)
                 info->labels += ";";
             }
             info->labels.append(IntegerToHexString(*it));
+            break;
+        case TagTable::NEUTRON_FWAAS:
+            info->application = IntegerToHexString(*it);
             break;
         default:
             if (info->fill_type == UveTagData::SET) {
