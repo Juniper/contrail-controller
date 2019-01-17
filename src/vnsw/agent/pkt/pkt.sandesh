@@ -108,6 +108,11 @@ struct SandeshFlowData {
     37: FlowAclInfo reverse_sg;
     38: FlowAclInfo reverse_out_sg;
     40: FlowAclInfo vrf_assign_acl;
+    74: FlowAclInfo fwaas_policy_set;
+    75: FlowAclInfo fwaas_out_policy_set;
+    76: FlowAclInfo fwaas_reverse_policy_set;
+    77: FlowAclInfo fwaas_reverse_out_policy_set;
+    78: list<agent.ActionStr> fwaas_action_summary;
     63: FlowAclInfo policy_set;
     64: FlowAclInfo out_policy_set;
     71: FlowAclInfo reverse_policy_set;

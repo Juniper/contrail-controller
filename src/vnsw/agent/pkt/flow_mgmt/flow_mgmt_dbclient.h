@@ -49,6 +49,7 @@ public:
         bool is_vn_qos_config_;
         AgentQosConfigConstRef qos_config_;
         FirewallPolicyList fw_policy_list_;
+        FirewallPolicyList fwaas_fw_policy_list_;
         uint32_t forwarding_vrf_id_;
     };
 
