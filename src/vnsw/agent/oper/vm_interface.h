@@ -1453,6 +1453,9 @@ public:
     const FirewallPolicyList& fw_policy_list() const {
         return fw_policy_list_;
     }
+    const FirewallPolicyList& fwaas_fw_policy_list() const {
+        return fwaas_fw_policy_list_;
+    }
     const boost::uuids::uuid& vmi_cfg_uuid() const {
         return vmi_cfg_uuid_;
     }
@@ -1696,6 +1699,7 @@ private:
     bool layer2_control_word_;
     //Includes global policy apply and application policy set
     FirewallPolicyList fw_policy_list_;
+    FirewallPolicyList fwaas_fw_policy_list_;
     UuidList slo_list_;
     VrfEntryRef forwarding_vrf_;
     // vhostuser mode

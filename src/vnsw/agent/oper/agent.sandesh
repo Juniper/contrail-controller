@@ -322,6 +322,7 @@ struct ItfSandeshData {
    66: bool igmp_enabled;
    /** Max number of flows on vmi **/
    67: i32 max_flows;
+   68: list<string> policy_set_fwaas_list;
 }
 
 /**
