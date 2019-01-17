@@ -3034,7 +3034,9 @@ bool VmInterface::VmiReceiveRoute::DeleteL2(const Agent *agent,
 //1> global-application-policy set.
 //2> application-policy-set attached via application tag
 bool VmInterface::UpdatePolicySet(const Agent *agent) {
+    bool ret = false;
     FirewallPolicyList new_firewall_policy_list;
+    FirewallPolicyList new_fwaas_firewall_policy_list;
 
     PolicySet *gps = agent->policy_set_table()->global_policy_set();
     if (gps) {
@@ -3053,17 +3055,25 @@ bool VmInterface::UpdatePolicySet(const Agent *agent) {
             FirewallPolicyList &tag_fp_list = ps_it->get()->fw_policy_list();
             FirewallPolicyList::iterator fw_policy_it = tag_fp_list.begin();
             for (; fw_policy_it != tag_fp_list.end(); fw_policy_it++) {
-                new_firewall_policy_list.push_back(*fw_policy_it);
+	        if (it->tag_->IsNeutronFwaasTag())
+                    new_fwaas_firewall_policy_list.push_back(*fw_policy_it);
+                else
+                    new_firewall_policy_list.push_back(*fw_policy_it);
             }
         }
     }
 
     if (fw_policy_list_ != new_firewall_policy_list) {
         fw_policy_list_ = new_firewall_policy_list;
-        return true;
+        ret = true;
     }
 
-    return false;
+    if (fwaas_fw_policy_list_ != new_fwaas_firewall_policy_list) {
+        fwaas_fw_policy_list_ = new_fwaas_firewall_policy_list;
+        ret = true;
+    }
+
+    return ret;
 }
 
 void VmInterface::CopyTagIdList(TagList *tag_id_list) const {

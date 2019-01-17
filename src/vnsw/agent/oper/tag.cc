@@ -27,7 +27,8 @@ TagEntry::TagTypeStr = boost::assign::map_list_of
         ((uint32_t)APPLICATION, "application")
         ((uint32_t)TIER, "tier")
         ((uint32_t)DEPLOYMENT, "deployment")
-        ((uint32_t)SITE, "site");
+        ((uint32_t)SITE, "site")
+	((uint32_t)NEUTRON_FWAAS, "neutron_fwaas");
 
 bool TagEntry::IsLess(const DBEntry &rhs) const {
     const TagEntry &a = static_cast<const TagEntry &>(rhs);
@@ -52,6 +53,14 @@ void TagEntry::SetKey(const DBRequestKey *key) {
 
 bool TagEntry::IsApplicationTag() const {
     if (tag_type_ == APPLICATION) {
+        return true;
+    }
+
+    return false;
+}
+
+bool TagEntry::IsNeutronFwaasTag() const {
+    if (tag_type_ == NEUTRON_FWAAS) {
         return true;
     }
 
