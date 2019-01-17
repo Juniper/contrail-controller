@@ -1,0 +1,39 @@
+{
+   "input_schema":{
+       "$schema":"http://json-schema.org/draft-06/schema#",
+       "type": "object",
+       "minProperties":1
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Generic Chassis information output",
+      "type":"object",
+      "minProperties": 1,
+      "properties":{
+         "device_chassis_id_info":{
+            "$id": "/properties/device_chassis_id_info",
+            "type":"array",
+            "description":"List of chassis id objects for the device. Could be public chassis address or private chassis address info",
+            "items": {
+                "type": "object",
+                "properties": {
+                  "device_chassis_id": {
+                    "type": "string",
+                    "description": "Chassis mac address in the 48 bit format separated by colons",
+                    "pattern": "^([A-Fa-f0-9]{2}(:{1}[A-Fa-f0-9]{2}){5})$",
+                    "examples": ["00:11:22:33:44:55", "a1:bd:43:23:12:ef"]
+                  },
+                  "chassis_id_type": {
+                    "type": "string",
+                    "description": "Type of chassis address. Could extend enum to include other types",
+                    "enum": ["public", "private", "fpc"]
+                  }
+                },
+                "required": ["device_chassis_id"]
+            }
+         }
+      },
+      "required": ["device_chassis_id_info"]
+   }
+}
+
