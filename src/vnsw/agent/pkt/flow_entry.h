@@ -263,6 +263,7 @@ struct MatchPolicy {
 
     SessionPolicy sg_policy;
     SessionPolicy aps_policy;
+    SessionPolicy fwaas_policy;
 
     MatchAclParamsList m_mirror_acl_l;
     uint32_t mirror_action;

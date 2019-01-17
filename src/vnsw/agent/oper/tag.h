@@ -60,6 +60,7 @@ public:
         TIER = 2,
         DEPLOYMENT = 3,
         SITE = 4,
+        NEUTRON_FWAAS = 5,
         INVALID = 0xFFFFFFFF
     };
 
@@ -94,6 +95,8 @@ public:
     }
 
     bool IsApplicationTag() const;
+
+    bool IsNeutronFwaasTag() const;
 
     const std::string& name() const {
         return name_;
@@ -130,6 +133,7 @@ public:
         TIER = 2,
         DEPLOYMENT = 3,
         SITE = 4,
+        NEUTRON_FWAAS = 5,
         INVALID = 0xFFFFFFFF
     };
 
