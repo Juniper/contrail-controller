@@ -76,6 +76,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
+    EXPECT_EQ(options_.config_db_use_ssl(), false);
+    EXPECT_EQ(options_.config_db_ca_certs(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
@@ -162,6 +164,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
+    EXPECT_EQ(options_.config_db_use_ssl(), false);
+    EXPECT_EQ(options_.config_db_ca_certs(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
@@ -213,6 +217,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
+    EXPECT_EQ(options_.config_db_use_ssl(), false);
+    EXPECT_EQ(options_.config_db_ca_certs(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
