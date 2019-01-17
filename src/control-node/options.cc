@@ -172,6 +172,12 @@ void Options::Initialize(EventManager &evm,
         ("CONFIGDB.config_db_password",
              opt::value<string>()->default_value(""),
              "ConfigDB password")
+        ("CONFIGDB.config_db_use_ssl",
+             opt::value<bool>()->default_value(false),
+             "Use SSL for Cassandra connection")
+        ("CONFIGDB.config_db_ca_certs",
+             opt::value<string>()->default_value(""),
+             "CA Certificate file for SSL Cassandra connection")
         ("CONFIGDB.rabbitmq_server_list",
              opt::value<vector<string> >()->default_value(
              default_rabbitmq_server_list, default_rabbitmq_server),
@@ -365,6 +371,12 @@ void Options::ParseConfigOptions(const boost::program_options::variables_map
     GetOptValue<string>(var_map,
                      configdb_options_.config_db_password,
                      "CONFIGDB.config_db_password");
+    GetOptValue<bool>(var_map,
+                     configdb_options_.config_db_use_ssl,
+                     "CONFIGDB.config_db_use_ssl");
+    GetOptValue<string>(var_map,
+                     configdb_options_.config_db_ca_certs,
+                     "CONFIGDB.config_db_ca_certs");
     configdb_options_.rabbitmq_server_list.clear();
     GetOptValue< vector<string> >(var_map,
                      configdb_options_.rabbitmq_server_list,
