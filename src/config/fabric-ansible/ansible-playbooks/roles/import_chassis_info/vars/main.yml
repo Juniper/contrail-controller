@@ -1,0 +1,3 @@
+---
+# vars file for import_chassis_info
+timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"
