@@ -263,6 +263,7 @@ struct MatchPolicy {
 
     SessionPolicy sg_policy;
     SessionPolicy aps_policy;
+    SessionPolicy fwaas_policy;
 
     MatchAclParamsList m_mirror_acl_l;
     uint32_t mirror_action;
@@ -692,6 +693,8 @@ class FlowEntry {
                             const VmInterface *reverse_vm_port);
     void GetSgList(const Interface *intf);
     void GetApplicationPolicySet(const Interface *intf,
+                                 const FlowEntry *rflow);
+    void GetFaasPolicySet(const Interface *intf,
                                  const FlowEntry *rflow);
     void SetPacketHeader(PacketHeader *hdr);
     void SetOutPacketHeader(PacketHeader *hdr);
