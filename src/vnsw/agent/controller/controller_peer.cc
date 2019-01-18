@@ -1207,7 +1207,6 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
     IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
     TunnelType::TypeBmap encap = agent_->controller()->GetTypeBitmap
         (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
-
     if (ec.value() != 0) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Error parsing nexthop ip address");
@@ -1259,6 +1258,14 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             prefix_len >= agent_->vhost_prefix_len()) {
             return;
         }
+    }
+
+    // this is temporary workaround for UI issue due to which
+    // tunnel encap type is not for VPN routes, now setting 
+    // tunnel encap to MPLS over MPLS if label inet is enabled
+    // will be removed once UI issue gets fixed
+    if (agent_->get_inet_labeled_flag()) {
+        encap  = 1 << TunnelType::MPLS_OVER_MPLS;
     }
 
     if (agent_->router_id() != addr.to_v4()) {

@@ -700,6 +700,7 @@ Agent::Agent() :
     tsn_enabled_(false),
     tor_agent_enabled_(false), forwarding_enabled_(true),
     server_gateway_mode_(false), pbb_gateway_mode_(false),
+    inet_labeled_enabled_(false),
     flow_table_size_(0), flow_thread_count_(0), flow_trace_enable_(true),
     max_vm_flows_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),

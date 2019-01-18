@@ -7,6 +7,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <oper/oper_db.h>
+#include <bgp_schema_types.h>
 
 #define BGP_ROUTER_TYPE "control-node"
 #define CONTROL_NODE_ZONE_CONFIG_NAME "control-node-zone"
@@ -25,7 +26,7 @@ class BgpRouter {
 public:
     BgpRouter(const std::string &name,
               const std::string &ipv4_address,
-              const uint32_t &port);
+              const uint32_t &port, autogen::BgpRouterParams &params);
     ~BgpRouter();
 
     void set_ip_address_port(const std::string &ip_address, const uint32_t &port);
@@ -37,11 +38,16 @@ public:
     const std::string &control_node_zone_name() const {
         return control_node_zone_name_;
     }
+    void set_inet_labeled_af(const autogen::BgpRouterParams params);
+    bool get_inet_labeled_af() {
+        return inet_labeled_af_enable_;}
 private:
     std::string name_;
     Ip4Address ipv4_address_;
     uint32_t port_;
+    bool inet_labeled_af_enable_;
     std::string control_node_zone_name_;
+    autogen::BgpRouterParams params_;
     DISALLOW_COPY_AND_ASSIGN(BgpRouter);
 };
 
@@ -95,10 +101,14 @@ public:
     void ConfigDelete(IFMapNode *node);
     void ConfigAddChange(IFMapNode *node);
     void ConfigManagerEnqueue(IFMapNode *node);
+    bool GetInetLabeledAfEnableStatus() { 
+                return inet_labeled_af_enabled_; }
 private:
+    void UpdateBgpRouterConfigAf();
     tbb::mutex mutex_;
     BgpRouterTree bgp_router_tree_;
     ControlNodeZoneTree control_node_zone_tree_;
+    bool inet_labeled_af_enabled_;
     DISALLOW_COPY_AND_ASSIGN(BgpRouterConfig);
 };
 
