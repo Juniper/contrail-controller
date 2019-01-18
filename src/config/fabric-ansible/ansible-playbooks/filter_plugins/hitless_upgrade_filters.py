@@ -187,6 +187,16 @@ class FilterModule(object):
         self.vncapi.fabric_update(fabric_obj)
     # end _cache_job_input
 
+    # Read from Node Profile to determine whether the upgrade is hitless
+    def _is_hitless_upgrade(self, device_obj):
+        node_profile_refs = device_obj.get_node_profile_refs()
+        if node_profile_refs:
+            np_uuid = node_profile_refs[0].get('uuid')
+            node_profile_obj = self.vncapi.node_profile_read(id=np_uuid)
+            is_hitless = node_profile_obj.get_node_profile_hitless_upgrade()
+            return is_hitless
+        return True
+
     # Main routine to generate an upgrade plan
     def _get_hitless_upgrade_plan(self):
 
@@ -229,6 +239,7 @@ class FilterModule(object):
                 if not routing_bridging_roles:
                     raise ValueError("Cannot find routing-bridging roles")
                 rb_roles = routing_bridging_roles.get_rb_roles()
+                is_hitless_upgrade = self._is_hitless_upgrade(device_obj)
                 device_info = {
                     "basic": {
                         "device_fqname": device_obj.fq_name,
@@ -239,7 +250,8 @@ class FilterModule(object):
                         "device_management_ip": device_obj.physical_router_management_ip,
                         "device_username": device_obj.physical_router_user_credentials.username,
                         "device_password": self._get_password(device_obj),
-                        "device_image_uuid": image_uuid
+                        "device_image_uuid": image_uuid,
+                        "device_hitless_upgrade": is_hitless_upgrade
                     },
                     'image_family': image_obj.device_image_device_family,
                     'image_version': image_obj.device_image_os_version,
@@ -407,6 +419,7 @@ class FilterModule(object):
             "    lag list     : {}\n"\
             "    lag peers    : {}\n"\
             "    batch        : {}\n"\
+            "    is hitless?  : {}\n"\
             .format(
                 device_info.get('uuid'),
                 basic.get('device_vendor'),
@@ -423,7 +436,8 @@ class FilterModule(object):
                 device_info.get('role'),
                 lag_info.get('lag_list'),
                 lag_info.get('buddies'),
-                batch_name
+                batch_name,
+                basic.get('device_hitless_upgrade'),
             )
         return details
 
@@ -450,7 +464,10 @@ class FilterModule(object):
         for batch in self.batches:
             report += "\n{}:\n".format(batch.get('name'))
             for device_name in batch.get('device_names', []):
-                report += "  {}\n".format(device_name)
+                device_info = devices[device_name]
+                hitless_upgrade = device_info['basic']['device_hitless_upgrade']
+                is_hitless = "" if hitless_upgrade else "(not hitless)"
+                report += "  {} {}\n".format(device_name, is_hitless)
         report += "\n"
 
         # Dump summary of skipped devices
