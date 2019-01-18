@@ -31,6 +31,8 @@ job_ctx:
   api_server_host: "{{ playbook_input.api_server_host }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
   vnc_api_init_params: "{{ playbook_input.vnc_api_init_params }}"
+  cluster_id: "{{ playbook_input.cluster_id }}"
+  db_init_params: "{{ playbook_input.db_init_params }}"
   # This is used to demarcate the marked outputs from playbooks to the common
   # file
   unique_pb_id: "{{ playbook_input.unique_pb_id }}"
