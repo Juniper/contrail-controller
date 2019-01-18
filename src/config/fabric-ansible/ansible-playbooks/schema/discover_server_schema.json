@@ -1,0 +1,116 @@
+{
+  "input_schema": {
+    "title": "server info",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "fabric_fq_name": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "ipmi":{
+        "$id":"/properties/ipmi",
+        "type":"object",
+        "required": [ "ipmi_subnet_list", "ipmi_credentials" ],
+        "properties":{
+          "ipmi_subnet_list":{
+            "$id":"/properties/ipmi/properties/ipmi_subnet_list",
+            "type":"array",
+            "items":{
+              "$id":"/properties/ipmi/properties/ipmi_subnet_list/items",
+              "type": "string",
+              "description": "List of the subnet prefixes that could be carved out for the p2p networks between fabric devices.",
+              "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+            }
+          },
+          "ipmi_credentials":{
+            "$id":"/properties/ipmi/properties/ipmi_credentials",
+            "type":"array",
+            "items":{
+              "$id":"/properties/ipmi/properties/ipmi_credentials/items",
+              "description":"The IPMI user:password credentials",
+              "type": "string"
+            }
+          },
+          "ipmi_port_ranges":{
+            "$id":"/properties/ipmi/properties/ipmi_port_ranges",
+            "type":"array",
+            "items": {
+              "$id": "/properties/ipmi/properties/ipmi_credentials/items",
+              "type":"object",
+              "required": ["port_range_start", "port_range_end"],
+              "properties": {
+                "port_range_start":{
+                  "$id":"/properties/ipmi/properties/ipmi_port_ranges/items/port_range_start",
+                  "description":"Start of IPMI Port Range",
+                  "type": "integer"
+                },
+                "port_range_end":{
+                  "$id":"/properties/ipmi/properties/ipmi_port_ranges/items/port_range_end",
+                  "description":"End of IPMI Port Range",
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ironic":{
+        "$id":"/properties/ironic",
+        "type":"object",
+        "required": [ "auth_url", "username", "password" ],
+        "properties":{
+          "auth_url":{
+            "$id":"/properties/ironic/properties/auth_url",
+            "description":"The Ironic Auth URL",
+            "type":"string"
+          },
+          "username":{
+            "$id":"/properties/ironic/properties/username",
+            "description":"The Ironic Auth username",
+            "type":"string"
+          },
+          "password":{
+            "$id":"/properties/ironic/properties/password",
+            "description":"The Ironic Auth password",
+            "type":"string"
+          },
+          "introspection_flag":{
+            "$id":"/properties/ironic/properties/introspection_flag",
+            "description":"Flag to determine if introspection is needed",
+            "type":"boolean",
+            "default": true
+          }
+        }
+      },
+      "contrail_command_host":{
+        "$id":"/properties/contrail_command_host",
+        "type":"string"
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}
