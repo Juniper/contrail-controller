@@ -1582,7 +1582,6 @@ void VlanNH::SendObjectLog(const NextHopTable *table,
 /////////////////////////////////////////////////////////////////////////////
 void CompositeNHKey::ReplaceLocalNexthop(const ComponentNHKeyList &lnh) {
     //Clear all local nexthop
-    ComponentNHKeyList::iterator it = component_nh_key_list_.begin();
     for (uint32_t i = 0; i < component_nh_key_list_.size();) {
         ComponentNHKeyPtr cnh = component_nh_key_list_[i];
         if (cnh->nh_key()->GetType() == NextHop::INTERFACE) {
