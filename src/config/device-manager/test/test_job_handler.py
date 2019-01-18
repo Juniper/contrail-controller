@@ -6,8 +6,8 @@ import mock
 import cfgm_common
 import requests
 from attrdict import AttrDict
-from job_handler import JobStatus
-from job_handler import JobHandler
+from device_manager.job_handler import JobStatus
+from device_manager.job_handler import JobHandler
 
 
 class TestJobHandler(unittest.TestCase):
@@ -44,6 +44,18 @@ class TestJobHandler(unittest.TestCase):
             'admin_tenant_name': 'test',
             'api_server_port': 8082,
             'api_server_use_ssl': False
+            'api_server_ip': '127.0.0.1',
+            'admin_user': 'admin',
+            'admin_password': 'admin',
+            'admin_tenant_name': 'test',
+            'api_server_port': 8082,
+            'api_server_use_ssl': False,
+            'cluster_id': '',
+            'cassandra_user': '',
+            'cassandra_password': '',
+            'cassandra_server_list': ['127.0.0.1'],
+            'cassandra_use_ssl': False,
+            'cassandra_ca_certs': ''
         })
 
         self.job_handler = JobHandler(self.job_template_name, self.job_input,
