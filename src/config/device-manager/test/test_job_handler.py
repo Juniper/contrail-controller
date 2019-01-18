@@ -4,10 +4,10 @@
 import unittest
 import mock
 import cfgm_common
-import requests
+from cfgm_common.exceptions import TimeOutError
 from attrdict import AttrDict
-from job_handler import JobStatus
-from job_handler import JobHandler
+from device_manager.job_handler import JobStatus
+from device_manager.job_handler import JobHandler
 
 
 class TestJobHandler(unittest.TestCase):
@@ -43,7 +43,13 @@ class TestJobHandler(unittest.TestCase):
             'admin_password': 'admin',
             'admin_tenant_name': 'test',
             'api_server_port': 8082,
-            'api_server_use_ssl': False
+            'api_server_use_ssl': False,
+            'cluster_id': '',
+            'cassandra_user': '',
+            'cassandra_password': '',
+            'cassandra_server_list': ['127.0.0.1'],
+            'cassandra_use_ssl': False,
+            'cassandra_ca_certs': ''
         })
 
         self.job_handler = JobHandler(self.job_template_name, self.job_input,
@@ -144,7 +150,7 @@ class TestJobHandler(unittest.TestCase):
     def test_execute_job_throws(self):
         self.assertFalse(self.job_handler._is_job_done())
         self.amqp_client.publish.side_effect = \
-            cfgm_common.exceptions.TimeOutError(500)
+            TimeOutError(500)
 
         self.assertRaises(Exception, self.job_handler.push, self.TIMEOUT, self.MAX_RETRIES)
 
