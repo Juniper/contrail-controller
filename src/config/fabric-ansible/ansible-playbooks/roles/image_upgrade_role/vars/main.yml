@@ -12,5 +12,6 @@ pr_vendor: "{{playbook_input.vendor|lower}}"
 
 auth_token: "{{playbook_input.auth_token}}"
 image_uuid: "{{playbook_input.device_image_uuid}}"
+is_hitless_upgrade: "{{playbook_input.device_hitless_upgrade}}"
 
 
