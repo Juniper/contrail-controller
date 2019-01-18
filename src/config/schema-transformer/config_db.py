@@ -3447,7 +3447,20 @@ class BgpRouterST(DBBaseST):
 
         # Always create peering from/to route-reflector (server).
         if self.cluster_id or router.cluster_id:
-            return False
+            pr_self_ref = self.obj.get_physical_router_back_refs()
+            pr_router_ref = router.obj.get_physical_router_back_refs()
+
+            if pr_self_ref == None and pr_router_ref == None:
+                return False;
+
+            pr_self = self._vnc_lib.physical_router_read(id=pr_self_ref[0]['uuid'])
+            router_self = self._vnc_lib.physical_router_read(id=pr_router_ref[0]['uuid'])
+
+            fab_self = pr_self.get_fabric_refs()
+            fab_router = router_self.get_fabric_refs()
+
+            if fab_self[0]['uuid'] == fab_router[0]['uuid']:
+                return False
 
         # Only in this case can we opt to skip adding bgp-peering.
         return True
