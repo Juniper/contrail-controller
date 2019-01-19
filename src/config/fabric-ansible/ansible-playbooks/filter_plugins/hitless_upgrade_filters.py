@@ -12,6 +12,7 @@ import json
 import traceback
 import logging
 import argparse
+from datetime import timedelta
 from jsonschema import Draft4Validator, validators
 from vnc_api.gen.resource_xsd import (
     KeyValuePairs,
@@ -30,6 +31,8 @@ ordered_role_groups = [
     ["null@spine", "CRB-Access@spine", "CRB-MCAST-Gateway@spine",
      "CRB-Gateway@spine", "Route-Reflector@spine", "DC-Gateway@spine"],
 ]
+
+IMAGE_UPGRADE_DURATION = 30 # minutes
 
 
 class FilterModule(object):
@@ -391,22 +394,23 @@ class FilterModule(object):
             if batch_index != None else "N/A"
         details += "\n  - {}\n".format(device_name)
         details += \
-            "    uuid         : {}\n"\
-            "    vendor       : {}\n"\
-            "    family       : {}\n"\
-            "    product      : {}\n"\
-            "    serial number: {}\n"\
-            "    management ip: {}\n"\
-            "    username     : {}\n"\
-            "    password     : {}\n"\
-            "    image version: {}\n"\
-            "    image family : {}\n"\
-            "    physical role: {}\n"\
+            "    uuid             : {}\n"\
+            "    vendor           : {}\n"\
+            "    family           : {}\n"\
+            "    product          : {}\n"\
+            "    serial number    : {}\n"\
+            "    management ip    : {}\n"\
+            "    username         : {}\n"\
+            "    password         : {}\n"\
+            "    new image version: {}\n"\
+            "    current image version: {}\n"\
+            "    image family     : {}\n"\
+            "    physical role    : {}\n"\
             "    routing bridging roles: {}\n"\
-            "    role         : {}\n"\
-            "    lag list     : {}\n"\
-            "    lag peers    : {}\n"\
-            "    batch        : {}\n"\
+            "    role             : {}\n"\
+            "    lag list         : {}\n"\
+            "    lag peers        : {}\n"\
+            "    batch            : {}\n"\
             .format(
                 device_info.get('uuid'),
                 basic.get('device_vendor'),
@@ -415,8 +419,9 @@ class FilterModule(object):
                 basic.get('device_serial_number'),
                 basic.get('device_management_ip'),
                 basic.get('device_username'),
-                basic.get('device_password'),
+                "** hidden **", #basic.get('device_password'),
                 device_info.get('image_version'),
+                device_info.get('current_image_version'),
                 device_info.get('image_family'),
                 device_info.get('physical_role'),
                 device_info.get('rb_roles'),
@@ -446,11 +451,19 @@ class FilterModule(object):
         report += "\n*************************** Summary ***************************\n"
 
         # Dump summary of batches
-        report += "\nThe following batches of devices will be upgraded in the order listed:\n"
+        total_time = str(timedelta(minutes=IMAGE_UPGRADE_DURATION*len(self.batches)))
+        report += "\nTotal estimated duration is {}.\n".format(total_time)
+        report += "\nNote that this time estimate may vary depending on network speeds and system capabilities.\n"
+        report += "The following batches of devices will be upgraded in the order listed:\n"
         for batch in self.batches:
             report += "\n{}:\n".format(batch.get('name'))
             for device_name in batch.get('device_names', []):
-                report += "  {}\n".format(device_name)
+                device_info = devices[device_name]
+                current_version = device_info['current_image_version']
+                new_version = device_info['image_version']
+                report += "  {}  {} --> {}\n".format(device_name,
+                                                     current_version,
+                                                     new_version)
         report += "\n"
 
         # Dump summary of skipped devices
