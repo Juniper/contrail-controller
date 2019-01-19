@@ -12,6 +12,7 @@ import json
 import traceback
 import logging
 import argparse
+from datetime import timedelta
 from jsonschema import Draft4Validator, validators
 from vnc_api.gen.resource_xsd import (
     KeyValuePairs,
@@ -30,6 +31,8 @@ ordered_role_groups = [
     ["null@spine", "CRB-Access@spine", "CRB-MCAST-Gateway@spine",
      "CRB-Gateway@spine", "Route-Reflector@spine", "DC-Gateway@spine"],
 ]
+
+IMAGE_UPGRADE_DURATION = 20 # minutes
 
 
 class FilterModule(object):
@@ -446,7 +449,9 @@ class FilterModule(object):
         report += "\n*************************** Summary ***************************\n"
 
         # Dump summary of batches
-        report += "\nThe following batches of devices will be upgraded in the order listed:\n"
+        total_time = str(timedelta(minutes=IMAGE_UPGRADE_DURATION*len(self.batches)))
+        report += "\nTotal estimated duration is {}\n".format(total_time)
+        report += "The following batches of devices will be upgraded in the order listed:\n"
         for batch in self.batches:
             report += "\n{}:\n".format(batch.get('name'))
             for device_name in batch.get('device_names', []):
