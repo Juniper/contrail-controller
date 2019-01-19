@@ -231,6 +231,6 @@ extern SandeshTraceBufferPtr CfgTraceBuf;
 #define CONFIG_TRACE(obj, ...) \
 do {\
     Config##obj::TraceMsg(CfgTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while(0);\
+} while (false)
 
 #endif // vnsw_agent_init_cfg_hpp

@@ -18,7 +18,7 @@ extern SandeshTraceBufferPtr MulticastTraceBuf;
 #define MCTRACE(obj, ...)                                                        \
 do {                                                                             \
     Multicast##obj::TraceMsg(MulticastTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);                                                                 \
+} while (false)
 
 #define IS_BCAST_MCAST(grp)    ((grp.to_ulong() == 0xFFFFFFFF) || \
                                ((grp.to_ulong() & 0xF0000000) == 0xE0000000))

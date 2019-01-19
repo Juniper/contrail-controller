@@ -229,12 +229,12 @@ private:
 #define OPER_TRACE(obj, ...)\
 do {\
    Oper##obj::TraceMsg(GetOperDBTraceBuf(), __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);\
+} while (false)
 
 #define OPER_TRACE_ENTRY(obj, table, ...)\
 do {\
    Oper##obj::TraceMsg(table->GetOperDBTraceBuf(),\
                        __FILE__, __LINE__, __VA_ARGS__);\
-} while (false);\
+} while (false)
 
 #endif // vnsw_agent_db_hpp

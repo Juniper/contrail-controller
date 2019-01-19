@@ -71,7 +71,7 @@ extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
 
 #define AGENT_DBWALK_TRACE(obj, ...) do {                                  \
     obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
-} while (0);
+} while (false)
 
 class AgentRouteWalker;
 class AgentRouteWalkerManager;
