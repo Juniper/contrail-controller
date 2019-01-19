@@ -2240,12 +2240,19 @@ bool VmInterface::AllowedAddressPairList::UpdateList
     AllowedAddressPairSet::iterator it = list_.begin();
     while (it != list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
+        if (!prev->del_pending_)
+            continue;
         VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
         VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
         vmi->UpdateState(&(*prev), l2_op, l3_op);
-        if (prev->del_pending_) {
-            list_.erase(prev);
-        }
+        list_.erase(prev);
+    }
+    it = list_.begin();
+    while (it != list_.end()) {
+        AllowedAddressPairSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
     }
     return true;
 }
