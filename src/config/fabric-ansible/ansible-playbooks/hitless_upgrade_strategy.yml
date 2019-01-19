@@ -61,7 +61,7 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Successfully created upgrade plan: {{upgrade_plan.results}}"
+        jl_message: "Successfully created upgrade plan:\n {{upgrade_plan.results}}"
 
     - name: set output parameter
       set_fact:
