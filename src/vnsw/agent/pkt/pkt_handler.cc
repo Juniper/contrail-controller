@@ -665,16 +665,30 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     // - There is single label
     uint32_t mpls_host = ntohl(hdr->hdr);
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
+    uint32_t ret = sizeof(MplsHdr);
 
     if ((mpls_host & 0x100) == 0) {
-        pkt_info->tunnel.label = MplsTable::kInvalidLabel;
-        PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
-        return -1;
+        // interpret outer label 0xffffff as no label
+        if (((mpls_host & 0xFFFFF000) >> 12) != 
+                MplsTable::kInvalidLabel) {
+            pkt_info->tunnel.label = MplsTable::kInvalidLabel;
+            PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
+            return -1;
+        }
+        hdr = (MplsHdr *) (pkt + 4);
+        mpls_host = ntohl(hdr->hdr);
+        pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
+        if ((mpls_host & 0x100) == 0) {
+            pkt_info->tunnel.label = MplsTable::kInvalidLabel;
+            PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
+            return  -1;
+        }
+        ret  += sizeof(MplsHdr);
+
     }
 
     uint32_t label = pkt_info->tunnel.label;
     MplsLabelKey mpls_key(label);
-    uint32_t ret = sizeof(MplsHdr);
 
     const MplsLabel *mpls = static_cast<const MplsLabel *>(
             agent_->mpls_table()->FindActiveEntry(&mpls_key));
