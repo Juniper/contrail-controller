@@ -138,9 +138,8 @@ class SchemaTransformer(object):
             'virtual_machine_interface': ['bgp_router']
         },
         'bgp_router': {
-            'self': ['bgp_router'],
+            'self': [],
             'bgp_as_a_service': [],
-            'bgp_router': []
         },
         'global_system_config': {
             'self': [],

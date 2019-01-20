@@ -3209,20 +3209,18 @@ class BgpRouterST(DBBaseST):
         self.source_port = None
         self.sub_cluster = None
         self.cluster_id = 0
-        self.bgp_routers = set()
         self.update(obj)
         self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
 
     def update(self, obj=None):
-        self.update_vnc_obj(obj)
-        self.update_multiple_refs('bgp_router', self.obj)
-        self.set_params(self.obj.get_bgp_router_parameters())
+        changed = self.update_vnc_obj(obj)
+        if 'bgp_router_parameters' in changed:
+            self.set_params(self.obj.get_bgp_router_parameters())
     # end update
 
     def delete_obj(self):
         self.update_single_ref('bgp_as_a_service', {})
-        self.update_multiple_refs('bgp_router', {})
         if self.router_type == 'bgpaas-client':
             self._object_db.free_bgpaas_port(self.source_port)
     # end delete_ref
@@ -3232,47 +3230,37 @@ class BgpRouterST(DBBaseST):
         self.identifier = params.identifier
         self.router_type = params.router_type
         self.source_port = params.source_port
-        update_peering = self.update_cluster_id(params.cluster_id)
+        if params.cluster_id != None:
+            self.cluster_id = params.cluster_id
+            # to reduce the peerinf from full mesh to RR
+            self.update_full_mesh_to_rr_peering()
         if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
             if self.vendor == 'contrail':
-                if self.update_global_asn(
-                        GlobalSystemConfigST.get_autonomous_system()):
-                    update_peering = True
+                self.update_global_asn(
+                    GlobalSystemConfigST.get_autonomous_system())
             else:
-                if self.update_autonomous_system(params.autonomous_system):
-                    update_peering = True
-        if update_peering:
-            self.update_peering()
+                self.update_autonomous_system(params.autonomous_system)
     # end set_params
-
-    def update_cluster_id(self, cluster_id):
-        if cluster_id == None:
-            cluster_id = 0
-        if self.cluster_id == int(cluster_id):
-            return False
-        self.cluster_id = int(cluster_id)
-        return True
-    # end update_cluster_id
 
     def update_global_asn(self, asn):
         if self.vendor != 'contrail' or self.asn == int(asn):
-            return False
+            return
         if self.router_type in ('bgpaas-client', 'bgpaas-server'):
-            return False
+            return
         router_obj = self.read_vnc_obj(fq_name=self.name)
         params = router_obj.get_bgp_router_parameters()
         if params.autonomous_system != int(asn):
             params.autonomous_system = int(asn)
             router_obj.set_bgp_router_parameters(params)
             self._vnc_lib.bgp_router_update(router_obj)
-        return self.update_autonomous_system(asn)
+        self.update_autonomous_system(asn)
     # end update_global_asn
 
     def update_autonomous_system(self, asn):
         if self.asn == int(asn):
-            return False
+            return
         self.asn = int(asn)
-        return True
+        self.update_peering()
     # end update_autonomous_system
 
     def evaluate(self):
@@ -3452,6 +3440,13 @@ class BgpRouterST(DBBaseST):
         # Only in this case can we opt to skip adding bgp-peering.
         return True
 
+    def update_full_mesh_to_rr_peering(self):
+        for router in BgpRouterST.values():
+            if router.name == self.name:
+                continue
+            router.update_peering()
+    # end update_full_mesh_to_rr_peering
+
     def update_peering(self):
         if not GlobalSystemConfigST.get_ibgp_auto_mesh():
             return
@@ -3469,7 +3464,7 @@ class BgpRouterST(DBBaseST):
 
         cluster_rr_supported, control_rr_supported = \
                                      self._is_route_reflector_supported()
-        peerings = set(':'.join(ref['to']) for ref in (obj.get_bgp_router_refs() or []))
+        peerings_set = set(':'.join(ref['to']) for ref in (obj.get_bgp_router_refs() or []))
         new_peerings_set = set()
         new_peerings_list = []
         new_peerings_attrs = []
@@ -3480,6 +3475,7 @@ class BgpRouterST(DBBaseST):
                 continue
             if router.router_type in ('bgpaas-server', 'bgpaas-client'):
                 continue
+
             if self.skip_bgp_router_peering_add(router, cluster_rr_supported,
                                                 control_rr_supported):
                 continue
@@ -3493,7 +3489,7 @@ class BgpRouterST(DBBaseST):
             new_peerings_list.append(router_fq_name)
             new_peerings_attrs.append(attr)
 
-        if new_peerings_set != peerings:
+        if new_peerings_set != peerings_set:
             try:
                 obj.set_bgp_router_list(new_peerings_list, new_peerings_attrs)
                 self._vnc_lib.bgp_router_update(obj)
