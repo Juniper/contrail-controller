@@ -6533,17 +6533,27 @@ class BgpvpnServer(Resource, Bgpvpn):
 class BgpRouterServer(Resource, BgpRouter):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        sub_cluster_ref = obj_dict.get('sub_cluster_refs')
         bgp_router_prop = obj_dict.get('bgp_router_parameters')
         if bgp_router_prop:
             asn = bgp_router_prop.get('autonomous_system')
+            router_type = bgp_router_prop.get('router_type');
         else:
             asn = None
+            router_type = None
+
+        sub_cluster_ref = obj_dict.get('sub_cluster_refs')
         if sub_cluster_ref and asn:
             sub_cluster_obj = db_conn.uuid_to_obj_dict(
                          obj_dict['sub_cluster_refs'][0]['uuid'])
             if asn != sub_cluster_obj['prop:sub_cluster_asn']:
                return False, (400, 'Subcluster asn and bgp asn should be same')
+
+        control_node_zone_ref = obj_dict.get('control_node_zone_refs')
+        if control_node_zone_ref and router_type != 'control-node':
+            msg = ("BgpRouter type should be 'control-node'"
+                   " to refer control-node-zone");
+            return False, (400, msg)
+
         return True, ''
 
     @classmethod
@@ -6581,9 +6591,23 @@ class BgpRouterServer(Resource, BgpRouter):
             prop_collection_updates=None, ref_update=None):
         if (('sub_cluster_refs' in obj_dict) or (obj_dict.get('bgp_router_parameters') and
                  obj_dict['bgp_router_parameters'].get('autonomous_system'))):
-            return cls._validate_subcluster_dep(obj_dict, db_conn)
-        return True, ''
+            (ok, msg) = cls._validate_subcluster_dep(obj_dict, db_conn)
+            if not ok:
+                return ok, msg
 
+        router_type = None
+        bgp_router_prop = obj_dict.get('bgp_router_parameters')
+        if not bgp_router_prop:
+            bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
+            bgp_router_prop = bgp_obj.get('prop:bgp_router_parameters')
+        if bgp_router_prop:
+            router_type = bgp_router_prop.get('router_type');
+        if 'control_node_zone_refs' in obj_dict and router_type != 'control-node':
+            msg = (400, "BgpRouter type should be 'control-node'"
+                   " to refer control-node-zone");
+            return False, msg
+
+        return True, ''
 # end class BgpRouterServer
 
 class SubClusterServer(Resource, SubCluster):
