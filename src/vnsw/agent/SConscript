@@ -230,7 +230,6 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
 
 if platform.system() != 'Windows':
     AgentEnv.AppendUnique(CONTRAIL_LIBS = [
-        'tcmalloc',
         'isc',
     ])
 

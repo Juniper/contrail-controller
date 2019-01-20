@@ -104,6 +104,7 @@ private:
     bool is_bridge_;
     bool is_vxlan_routing_;
     COMPOSITETYPE comp_type_;
+    bool validate_mcast_src_;
     TunnelType tunnel_type_;
     uint8_t prefix_len_;
     uint32_t nh_id_;

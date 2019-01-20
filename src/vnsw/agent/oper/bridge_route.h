@@ -54,6 +54,10 @@ public:
                                             &component_nh_key_list,
                                             bool pbb_nh,
                                             bool learning_enabled);
+    static void AddBridgeRoute(const Peer *peer, const string &vrf_name,
+                                            const MacAddress &mac,
+                                            uint32_t ethernet_tag,
+                                            AgentRouteData *data);
     static void AddBridgeBroadcastRoute(const Peer *peer,
                                         const string &vrf_name,
                                         uint32_t ethernet_tag,
@@ -80,6 +84,10 @@ public:
                                    uint32_t ethernet_tag,
                                    COMPOSITETYPE type);
     void DeleteBridgeRoute(const AgentRoute *rt);
+    static void DeleteBridgeRoute(const Peer *peer, const string &vrf_name,
+                                   const MacAddress &mac,
+                                   uint32_t ethernet_tag,
+                                   COMPOSITETYPE type);
     void DeleteMacVmBindingRoute(const Peer *peer,
                          const std::string &vrf_name,
                          const MacAddress &mac,
@@ -119,6 +127,9 @@ public:
     virtual bool ReComputePathAdd(AgentPath *path);
     virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
                                             const AgentRouteData *data) const;
+    virtual bool ValidateMcastSrc() const {
+        return (mac_ == MacAddress::BroadcastMac());
+    }
     const MacAddress &mac() const {return mac_;}
     const MacVmBindingPath *FindMacVmBindingPath() const;
 
