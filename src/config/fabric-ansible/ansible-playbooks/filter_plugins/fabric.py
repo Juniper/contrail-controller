@@ -1377,7 +1377,7 @@ class FilterModule(object):
             for device_obj, device_roles in device2roles_mappings.iteritems():
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
-                    self._logger.info(
+                    _task_done(
                         "Capable role info not populated in physical router "
                         "(no node_profiles attached, cannot assign role for "
                         "device : %s" % device_obj.get(
@@ -1757,7 +1757,7 @@ class FilterModule(object):
 
             device_obj.add_bgp_router(bgp_router_obj)
         else:
-            self._logger.warn(
+            _task_warn_log(
                 "Loopback interfaces are not found on device '%s', therefore"
                 "not creating the bgp router object" % device_obj.name
             )
