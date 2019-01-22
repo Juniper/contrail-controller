@@ -2,11 +2,9 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 import unittest
-from collections import namedtuple
 
 import etcd3
 import mock
-import jsonpickle
 
 from cfgm_common.vnc_etcd import VncEtcd
 from cfgm_common.exceptions import NoIdError
@@ -231,7 +229,7 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
             i = -1
             prefixed_key = schema_transformer_etcd._path_key(
                 schema_transformer_etcd._ETCD_SERVICE_CHAIN_PATH, key)
-            for (k, _) in kv_data:
+            for k, _ in kv_data:
                 i += 1
                 if k == prefixed_key:
                     break
@@ -244,7 +242,7 @@ class TestSchemaTransformerEtcd(unittest.TestCase):
         schema_transformer_etcd.remove_service_chain_uuid('k3')
         self.assertEqual(len(kv_data), 2)
         k3_value = None
-        for (v, k) in kv_data:
+        for v, k in kv_data:
             if k.key == '/vnc/schema_transformer/service_chain_uuid/k3':
                 k3_value = v
         self.assertIsNone(k3_value)
@@ -279,12 +277,14 @@ class TestSchemaTransformerEtcdRouteTarget(unittest.TestCase):
         self._schema_transformer_etcd = _schema_transformer_etcd_factory(
             logger=mock.MagicMock())
         self._schema_transformer_etcd._object_db._client = self._etcd3
+        self._schema_transformer_etcd._vnc_lib.get_int_owner = mock.MagicMock()
+        self._schema_transformer_etcd._vnc_lib.allocate_int = mock.MagicMock()
 
     def test_alloc_route_target(self):
-        self._schema_transformer_etcd._vnc_lib.allocate_int = mock.MagicMock()
-        self._schema_transformer_etcd._vnc_lib.allocate_int.return_value = 8000103
-
         # Allocate a new route target
+        self._schema_transformer_etcd._vnc_lib.allocate_int.return_value = 8000103
+        self._schema_transformer_etcd._vnc_lib.get_int_owner.return_value = 'test_d'
+
         rt_num = self._schema_transformer_etcd.alloc_route_target('test_d')
         self.assertEqual(rt_num, 8000103)
         self.assertEqual(len(self._etcd3._kv_data), 4)
@@ -293,13 +293,16 @@ class TestSchemaTransformerEtcdRouteTarget(unittest.TestCase):
 
         # Try to allocate an existing route target
         self._schema_transformer_etcd._vnc_lib.allocate_int.return_value = 8000104
+        self._schema_transformer_etcd._vnc_lib.get_int_owner.return_value = 'test_b'
+
         rt_num = self._schema_transformer_etcd.alloc_route_target('test_b')
         self.assertEqual(rt_num, 8000101)
 
         # Try to allocate an existing route target using alloc_only
         self._schema_transformer_etcd._vnc_lib.allocate_int.return_value = 8000104
-        rt_num = self._schema_transformer_etcd.alloc_route_target(
-            'test_c', True)
+        self._schema_transformer_etcd._vnc_lib.get_int_owner.return_value = None
+
+        rt_num = self._schema_transformer_etcd.alloc_route_target('test_c', True)
         self.assertEqual(rt_num, 8000104)
         self.assertEqual(len(self._etcd3._kv_data), 4)
 
@@ -331,14 +334,6 @@ class TestSchemaTransformerEtcdRouteTarget(unittest.TestCase):
 class TestAllocServiceChainVlanSTEtcd(unittest.TestCase):
     def setUp(self):
         super(TestAllocServiceChainVlanSTEtcd, self).setUp()
-        # prepare schema transformer with default mocks
-        self.st = _schema_transformer_etcd_factory(logger=mock.MagicMock())
-        self.st._vnc_lib.create_int_pool = mock.MagicMock(return_value=None)
-        self.st._vnc_lib.allocate_int = mock.MagicMock(return_value=None)
-        self.st._vnc_lib.deallocate_int = mock.MagicMock(return_value=None)
-        self.st._object_db.get_kv = mock.MagicMock(return_value=None)
-        self.st._object_db.put_kv = mock.MagicMock(return_value=None)
-        self.st._object_db.delete_kv = mock.MagicMock(return_value=None)
 
         # input data
         self.service_vm = "service_vm-uuid"
@@ -350,6 +345,17 @@ class TestAllocServiceChainVlanSTEtcd(unittest.TestCase):
         self.alloc_kv = "schema_transformer/vlan/service_vm-uuid:firewall"
         self.min_vlan = self.st._SC_MIN_VLAN
         self.max_vlan = self.st._SC_MAX_VLAN
+
+        # prepare schema transformer with default mocks
+        self.st = _schema_transformer_etcd_factory(logger=mock.MagicMock())
+        self.st._vnc_lib.create_int_pool = mock.MagicMock(return_value=None)
+        self.st._vnc_lib.allocate_int = mock.MagicMock(return_value=None)
+        self.st._vnc_lib.deallocate_int = mock.MagicMock(return_value=None)
+        self.st._vnc_lib.get_int_owner = mock.MagicMock(
+            return_value=self.service_chain)
+        self.st._object_db.get_kv = mock.MagicMock(return_value=None)
+        self.st._object_db.put_kv = mock.MagicMock(return_value=None)
+        self.st._object_db.delete_kv = mock.MagicMock(return_value=None)
 
     @mock.patch('etcd3.client')
     def test_alloc_sv_vlan_should_return_new_int(self, etcd_client):
@@ -365,7 +371,8 @@ class TestAllocServiceChainVlanSTEtcd(unittest.TestCase):
                                                             self.min_vlan,
                                                             self.max_vlan)
         self.st._object_db.get_kv.assert_called_with(self.alloc_kv)
-        self.st._vnc_lib.allocate_int.assert_called_with(self.int_pool)
+        self.st._vnc_lib.allocate_int.assert_called_with(self.int_pool,
+                                                         self.service_chain)
         self.st._object_db.put_kv.assert_called_with(self.alloc_kv,
                                                      self.expected_int)
 
