@@ -327,6 +327,7 @@ protected:
     const AgentRouteTable *GetDependentRouteTable(void) const {
         return dependent_route_table_;
     }
+    virtual bool ValidateMcastSrc() const { return true; }
 
 private:
     friend class AgentRouteTable;
