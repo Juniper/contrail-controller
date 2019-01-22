@@ -429,7 +429,6 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_baremetal_logical_interface_bindings
 
-    @unittest.skip("temporarily skip CI")
     def test_baremetal_bindings_with_lag_and_multi_vlan(self):
         """ This test tests the Logical to LAG interface binding.
 
