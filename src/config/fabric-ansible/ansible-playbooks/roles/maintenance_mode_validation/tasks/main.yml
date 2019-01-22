@@ -2,6 +2,12 @@
 
 #Playbook to validate device
 
+- name: Update prouter logs with maintenance mode status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{DEVICE_STATE.VALIDATING}}"
+    job_ctx: "{{job_ctx}}"
+
 - name: Call vnc to read the physical-router {{pr_name}}
   vnc_db_mod:
     job_ctx: "{{ job_ctx }}"
