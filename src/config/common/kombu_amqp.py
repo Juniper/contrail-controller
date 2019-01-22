@@ -218,7 +218,7 @@ class KombuAmqpClient(object):
             ssl_params['ssl_version'] = cls._validate_ssl_version(
                 config.ssl_version)
         if config.ssl_keyfile:
-            ssl_params['keyfile'] = config.keyfile
+            ssl_params['keyfile'] = config.ssl_keyfile
         if config.ssl_certfile:
             ssl_params['certfile'] = config.ssl_certfile
         if config.ssl_ca_certs:
