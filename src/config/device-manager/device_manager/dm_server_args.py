@@ -69,7 +69,6 @@ def default_options():
         'tftp_dir': None,
         'dhcp_leases_file': None,
         'ztp_timeout': 300,
-        'dnsmasq_docker': None,
     }
 # end default_options
 
@@ -168,8 +167,6 @@ def add_parser_arguments(parser):
                         help="Path of the dhcp leases file")
     parser.add_argument("--ztp_timeout",
                         help="Timeout for the DHCP Lease lookup during ZTP")
-    parser.add_argument("--dnsmasq_docker",
-                        help="Name of the dnsmasq docker")
     SandeshConfig.add_parser_arguments(parser)
 # end add_parser_arguments
 
