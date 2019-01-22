@@ -346,8 +346,8 @@ class DeviceJobManager(object):
                                                     100.0)
     # end mark_failure
 
-    def _load_job_log(self, marker):
-        json_str = str.split(marker)[1]
+    def _load_job_log(self, marker, input_str):
+        json_str = input_str.split(marker)[1]
         try:
             return json.loads(json_str)
         except ValueError:
