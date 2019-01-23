@@ -129,6 +129,8 @@ def _pp_json_object(obj):
 def _create_pprinted_prop_list(name, value):
     return sandesh.PropList(name, _pp_json_object(value))
 
+def gevent_sleep(time=0.002):
+    gevent.sleep(time)
 
 class DBBaseST(DBBase):
     obj_type = __name__
@@ -155,6 +157,7 @@ class DBBaseST(DBBase):
             except Exception as e:
                 cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
+        gevent_sleep()
     # end reinit
 
     def handle_st_object_req(self):
@@ -197,16 +200,6 @@ class GlobalSystemConfigST(DBBaseST):
     _autonomous_system = 0
     ibgp_auto_mesh = None
     prop_fields = ['autonomous_system', 'ibgp_auto_mesh', 'bgpaas_parameters']
-
-    @classmethod
-    def reinit(cls):
-        for gsc in cls.list_vnc_obj():
-            try:
-                cls.locate(gsc.get_fq_name_str(), gsc)
-            except Exception as e:
-                cls._logger.error("Error in reinit for %s %s: %s" % (
-                    cls.obj_type, gsc.get_fq_name_str(), str(e)))
-    # end reinit
 
     def __init__(self, name, obj):
         self.name = name
@@ -1583,6 +1576,7 @@ class RouteTargetST(DBBaseST):
             rt_key = "target:%s:%s" % (asn, rt)
             if rt_key not in cls:
                 cls._object_db.free_route_target(ri)
+        gevent_sleep()
     # end reinit
 
     def __init__(self, rt_key, obj=None):
