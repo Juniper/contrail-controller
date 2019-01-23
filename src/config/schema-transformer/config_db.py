@@ -20,6 +20,7 @@ import cfgm_common as common
 from netaddr import IPNetwork, IPAddress
 from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
 from cfgm_common.exceptions import HttpError
+from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common import svc_info
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import *
