@@ -174,5 +174,13 @@
             "contrail-control",
             "contrail-vrouter"
          ]
+    },
+    "default" : {
+      "source_directories" : [ ],
+      "scons_test_targets" : [
+        "src/contrail-analytics/contrail-opserver:test"
+
+      ],
+      "misc_test_targets" : [ ]
     }
 }
