@@ -487,6 +487,7 @@ def parse_args(args_str):
         'etcd_server': '127.0.0.1',
         'etcd_port': '2379',
         'etcd_prefix': '/contrail',
+        'etcd_kv_store': '/vnc',
         'etcd_use_ssl': False,
         'etcd_ssl_keyfile': '',
         'etcd_ssl_certfile': '',
