@@ -122,13 +122,16 @@ class KombuAmqpClient(object):
                              callbacks=[c.callback])
                              for c in self._consumers.values()]
                 self._consumers_changed = False
-                with nested(*consumers):
-                    while self._running and not self._consumers_changed and\
-                          self._connection.connected:
-                        try:
-                            self._connection.drain_events(timeout=1)
-                        except socket.timeout:
-                            pass
+                if len(consumers) == 0:
+                    gevent.sleep(0.1)
+                else:
+                    with nested(*consumers):
+                        while self._running and not self._consumers_changed and\
+                            self._connection.connected:
+                            try:
+                                self._connection.drain_events(timeout=1)
+                            except socket.timeout:
+                                pass
             except errors as e:
                 msg = 'Connection error in Kombu amqp consumer greenlet: %s' % str(e)
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
