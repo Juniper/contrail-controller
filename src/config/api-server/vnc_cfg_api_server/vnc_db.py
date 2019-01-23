@@ -933,7 +933,7 @@ class VncDbClient(object):
             rabbit_vhost, rabbit_ha_mode, host_ip,
             health_check_interval, **kwargs)
 
-    def log_db_response_time(self, db, response_time, oper):
+    def log_db_response_time(self, db, response_time, oper, level=SandeshLevel.SYS_DEBUG):
         response_time_in_usec = ((response_time.days*24*60*60) +
                                  (response_time.seconds*1000000) +
                                  response_time.microseconds)
@@ -943,6 +943,7 @@ class VncDbClient(object):
             req_id = get_trace_id()
         except Exception as e:
             req_id = "NO-REQUESTID"
+
         stats = VncApiLatencyStats(
             operation_type=oper,
             application=db,
@@ -950,7 +951,11 @@ class VncDbClient(object):
             response_size=0,
             identifier=req_id,
         )
-        stats_log = VncApiLatencyStatsLog(node_name="issu-vm6", api_latency_stats=stats, sandesh=self._sandesh)
+        stats_log = VncApiLatencyStatsLog(
+            level=level,
+            node_name="issu-vm6",
+            api_latency_stats=stats,
+            sandesh=self._sandesh)
         x=stats_log.send(sandesh=self._sandesh)
 
 
