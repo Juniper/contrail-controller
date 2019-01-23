@@ -146,12 +146,9 @@ public:
             Agent *agent, DBTableBase::ListenerId id,
             Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
-
     bool Compare(const Peer *rhs) const {
-        const BgpPeer *bgp = static_cast<const BgpPeer *>(rhs);
-        return server_ip_ < bgp->server_ip_;
+        return false;
     }
-
     // For testing
     void SetVrfListenerId(DBTableBase::ListenerId id) { id_ = id; }
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
