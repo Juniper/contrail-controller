@@ -174,5 +174,13 @@
             "contrail-control",
             "contrail-vrouter"
          ]
+    },
+    "default" : {
+      "source_directories" : [ ],
+      "scons_test_targets" : [
+        "controller/src/config/api-server:test"
+
+      ],
+      "misc_test_targets" : [ ]
     }
 }
