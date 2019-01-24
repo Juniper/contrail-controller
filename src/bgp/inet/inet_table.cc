@@ -125,12 +125,18 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);
 
+    // BgpRoute::InsertPath() triggers routing policies processing, which may
+    // change the flags (namely, RoutingPolicyReject). So we check the flags
+    // once again and only notify the partition if the new path is still
+    // different after routing policies were applied.
+    //
     // Notify the route even if the best path may not have changed. For XMPP
     // peers, we support sending multiple ECMP next-hops for a single route.
     //
     // TODO(ananth): Can be optimized for changes that does not result in
     // any change to ECMP list.
-    rtp->Notify(dest_route);
+    if (!dest_path || dest_path->GetFlags() != replicated_path->GetFlags())
+        rtp->Notify(dest_route);
 
     return dest_route;
 }
