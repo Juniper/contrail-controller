@@ -20,7 +20,8 @@ class FilterModule(object):
         }
     # end filters
 
-    def _instantiate_filter_log_instance(self, device_name):
+    @staticmethod
+    def _instantiate_filter_log_instance(device_name):
         FilterLog.instance("DeviceImportFilter", device_name)
     # end _instantiate_filter_log_instance
 
@@ -92,25 +93,26 @@ class FilterModule(object):
 
 
             }
-        :param device_import_resp: Dictionary
-            example:
-            {
-              "phy_intfs_success_names":
-                  <List: <String: phy_intfs_success_name> >,
-              "log_intfs_success_names":
-                  <List: <String: log_intfs_success_name> >,
-              "phy_intf_failed_info":
-                  <List: <Dictionary: phy_intf_failed_object> >,
-              "log_intf_failed_info":
-                  <List: <Dictionary: log_intf_failed_object> >,
-              "dataplane_ip":
-                  <String: dataplane_ip>,
-              "dataplane_ip_upd_resp":
-                  <String: dataplane_ip_upd_resp>,
-              "warning_info": <Dictionary: warning_info>
-            }
+            :param device_import_resp: Dictionary
+                example:
+                {
+                  "phy_intfs_success_names":
+                      <List: <String: phy_intfs_success_name> >,
+                  "log_intfs_success_names":
+                      <List: <String: log_intfs_success_name> >,
+                  "phy_intf_failed_info":
+                      <List: <Dictionary: phy_intf_failed_object> >,
+                  "log_intf_failed_info":
+                      <List: <Dictionary: log_intf_failed_object> >,
+                  "dataplane_ip":
+                      <String: dataplane_ip>,
+                  "dataplane_ip_upd_resp":
+                      <String: dataplane_ip_upd_resp>,
+                  "warning_info": <Dictionary: warning_info>
+                }
         """
         self._instantiate_filter_log_instance(prouter_name)
+        self.vnc_lib = JobVncApi.vnc_init(job_ctx)
         _task_log("Starting Device Import")
         device_import_resp = {}
 
@@ -118,7 +120,6 @@ class FilterModule(object):
             _task_log("Creating interfaces")
             device_import_resp = \
                 self._create_interfaces_and_update_dataplane_ip(
-                    job_ctx,
                     interfaces_payload,
                     prouter_name
                 )
@@ -144,7 +145,8 @@ class FilterModule(object):
                    }
     # end device_import
 
-    def get_create_interfaces_payload(self, device_name,
+    @staticmethod
+    def get_create_interfaces_payload(device_name,
                                       physical_interfaces_list,
                                       logical_interfaces_list):
 
@@ -208,11 +210,9 @@ class FilterModule(object):
 
     # group vnc functions
     def _create_interfaces_and_update_dataplane_ip(self,
-                                                   job_ctx,
                                                    interfaces_payload,
                                                    prouter_name):
 
-        vnc_lib = JobVncApi.vnc_init(job_ctx)
         physical_interfaces_list = interfaces_payload.get(
             'physical_interfaces_list')
         logical_interfaces_list = interfaces_payload.get(
@@ -227,13 +227,13 @@ class FilterModule(object):
 
         phy_intfs_success_names, phy_intf_failed_info =\
             self._create_physical_interfaces(
-                vnc_lib, vnc_physical_interfaces_list)
+                vnc_physical_interfaces_list)
         log_intfs_success_names, log_intf_failed_info =\
             self._create_logical_interfaces(
-                vnc_lib, vnc_logical_interfaces_list)
+                vnc_logical_interfaces_list)
         dataplane_ip, dataplane_ip_upd_resp, warning_info =\
             self._update_dataplane_ip(
-                vnc_lib, dataplane_ip, prouter_name)
+                dataplane_ip, prouter_name)
 
         return {
             "phy_intfs_success_names": list(set(phy_intfs_success_names)),
@@ -246,8 +246,7 @@ class FilterModule(object):
         }
     # end _create_interfaces_and_update_dataplane_ip
 
-    def _create_physical_interfaces(self, vnc_lib,
-                                    physical_interfaces_payload):
+    def _create_physical_interfaces(self, physical_interfaces_payload):
         object_type = "physical_interface"
         success_intfs_names = []
         phy_intf_failed_info = []
@@ -257,20 +256,20 @@ class FilterModule(object):
                 try:
                     cls = JobVncApi.get_vnc_cls(object_type)
                     phy_interface_obj = cls.from_dict(**phy_interface_dict)
-                    existing_obj = vnc_lib.physical_interface_read(
+                    existing_obj = self.vnc_lib.physical_interface_read(
                         fq_name=phy_interface_dict.get('fq_name'))
-                    existing_obj_dict = vnc_lib.obj_to_dict(existing_obj)
+                    existing_obj_dict = self.vnc_lib.obj_to_dict(existing_obj)
                     for key in phy_interface_dict:
                         to_be_upd_value = phy_interface_dict[key]
                         existing_value = existing_obj_dict.get(key)
                         if to_be_upd_value != existing_value:
-                            vnc_lib.physical_interface_update(
+                            self.vnc_lib.physical_interface_update(
                                 phy_interface_obj)
                             break
                     success_intfs_names.append(
                         phy_interface_dict['fq_name'][-1])
-                except NoIdError as exc:
-                    vnc_lib.physical_interface_create(phy_interface_obj)
+                except NoIdError:
+                    self.vnc_lib.physical_interface_create(phy_interface_obj)
                     success_intfs_names.append(
                         phy_interface_dict['fq_name'][-1])
             except Exception as exc:
@@ -283,8 +282,7 @@ class FilterModule(object):
         return success_intfs_names, phy_intf_failed_info
     # end _create_physical_interfaces
 
-    def _create_logical_interfaces(self, vnc_lib,
-                                   logical_interfaces_payload):
+    def _create_logical_interfaces(self, logical_interfaces_payload):
         object_type = "logical_interface"
         success_intfs_names = []
         log_intf_failed_info = []
@@ -294,19 +292,19 @@ class FilterModule(object):
                 try:
                     cls = JobVncApi.get_vnc_cls(object_type)
                     log_interface_obj = cls.from_dict(**log_interface_dict)
-                    existing_obj = vnc_lib.logical_interface_read(
+                    existing_obj = self.vnc_lib.logical_interface_read(
                         fq_name=log_interface_dict.get('fq_name'))
-                    existing_obj_dict = vnc_lib.obj_to_dict(existing_obj)
+                    existing_obj_dict = self.vnc_lib.obj_to_dict(existing_obj)
                     for key in log_interface_dict:
                         to_be_upd_value = log_interface_dict[key]
                         existing_value = existing_obj_dict.get(key)
                         if to_be_upd_value != existing_value:
-                            vnc_lib.logical_interface_update(log_interface_obj)
+                            self.vnc_lib.logical_interface_update(log_interface_obj)
                             break
                     success_intfs_names.append(
                         log_interface_dict['fq_name'][-1])
-                except NoIdError as exc:
-                    vnc_lib.logical_interface_create(log_interface_obj)
+                except NoIdError:
+                    self.vnc_lib.logical_interface_create(log_interface_obj)
                     success_intfs_names.append(
                         log_interface_dict['fq_name'][-1])
             except Exception as exc:
@@ -319,7 +317,7 @@ class FilterModule(object):
         return success_intfs_names, log_intf_failed_info
     # end _create_logical_interfaces
 
-    def _update_dataplane_ip(self, vnc_lib, dataplane_ip, prouter_name):
+    def _update_dataplane_ip(self, dataplane_ip, prouter_name):
         warning_info = {}
         object_type = "physical_router"
         if dataplane_ip == "":
@@ -334,8 +332,18 @@ class FilterModule(object):
                 }
                 cls = JobVncApi.get_vnc_cls(object_type)
                 physical_router_obj = cls.from_dict(**obj_dict)
-                vnc_lib.physical_router_update(physical_router_obj)
+                self.vnc_lib.physical_router_update(physical_router_obj)
                 upd_resp = "\nUpdated device with dataplane ip: "
+            except NoIdError as exc:
+                _task_error_log(str(exc))
+                _task_error_log(traceback.format_exc())
+                upd_resp = "The physical router object trying to" \
+                           "be updated does not exist in the vnc database."
+                warning_info = {
+                    "device_name": prouter_name,
+                    "dataplane_ip": dataplane_ip,
+                    "warning_message": str(exc)
+                }
             except Exception as ex:
                 _task_error_log(str(ex))
                 _task_error_log(traceback.format_exc())
