@@ -149,10 +149,6 @@ class KombuAmqpClient(object):
                     self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                     self._consumer_event.wait()
                     self._consumer_event.clear()
-
-                if not self._running or len(self._consumers.values()) == 0:
-                    msg = 'KombuAmqpClient: No consumers found'
-                    self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                     continue
 
                 consumers = [kombu.Consumer(self._connection, queues=c.queue,

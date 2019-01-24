@@ -22,3 +22,11 @@ def import_ansible_plugins():
     from overlay_conf import OverlayConf
     from pnf_conf import PnfConf
 # end import_ansible_plugins
+
+def import_feature_plugins():
+    from underlay_ip_clos_feature import UnderlayIpClosFeature
+    from overlay_bgp_feature import OverlayBgpFeature
+    from l2_gateway_feature import L2GatewayFeature
+    from l3_gateway_feature import L3GatewayFeature
+    from vn_interconnect_feature import VnInterconnectFeature
+# end import_feature_plugins

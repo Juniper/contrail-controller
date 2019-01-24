@@ -35,13 +35,12 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM, VirtualPortGroupDM, PortDM, TagDM, \
     ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM, \
-    NetworkIpamDM
-
-
+    NetworkIpamDM, FeatureDM, PhysicalRoleDM, OverlayRoleDM, RoleDefinitionDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
+from feature_base import FeatureBase
 from logger import DeviceManagerLogger
 
 
@@ -275,6 +274,9 @@ class DeviceManager(object):
         DeviceManager._instance = self
         self._args = args
         self._amqp_client = amqp_client
+        self.logger = dm_logger or DeviceManagerLogger(args)
+        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
+                                      self._args)
 
         PushConfigState.set_push_mode(int(self._args.push_mode))
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
@@ -290,9 +292,6 @@ class DeviceManager(object):
         if self._args.collectors:
             self._chksum = hashlib.md5(
                 ''.join(self._args.collectors)).hexdigest()
-
-        # Initialize logger
-        self.logger = dm_logger or DeviceManagerLogger(args)
 
         # Register Plugins
         try:
@@ -315,6 +314,18 @@ class DeviceManager(object):
                 "Internal error while registering ansible plugins: " +
                 str(e) + tb)
 
+        # Register Feature Plugins
+        try:
+            FeatureBase.register_plugins()
+        except FeatureBase.PluginRegistrationFailed as e:
+            self.logger.error("Exception: " + str(e))
+        except Exception as e:
+            tb = traceback.format_exc()
+            self.logger.error(
+                "Internal error while registering feature plugins: " +
+                str(e) + tb)
+            raise e
+
         # Retry till API server is up
         connected = False
         self.connection_state_update(ConnectionStatus.INIT)
@@ -336,8 +347,6 @@ class DeviceManager(object):
                 time.sleep(3)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args)
         self._vnc_amqp.establish()
 
         # Initialize cassandra
@@ -345,144 +354,62 @@ class DeviceManager(object):
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
-        for obj in GlobalSystemConfigDM.list_obj():
-            GlobalSystemConfigDM.locate(obj['uuid'], obj)
-
-        for obj in NodeProfileDM.list_obj():
-            NodeProfileDM.locate(obj['uuid'], obj)
-
-        for obj in RoleConfigDM.list_obj():
-            RoleConfigDM.locate(obj['uuid'], obj)
-
-        for obj in GlobalVRouterConfigDM.list_obj():
-            GlobalVRouterConfigDM.locate(obj['uuid'], obj)
-
-        for obj in VirtualNetworkDM.list_obj():
-            VirtualNetworkDM.locate(obj['uuid'], obj)
-
-        dci_obj_list = DataCenterInterconnectDM.list_obj()
-        for obj in dci_obj_list or []:
-            DataCenterInterconnectDM.locate(obj['uuid'], obj)
-
-        for obj in FabricDM.list_obj():
-            FabricDM.locate(obj['uuid'], obj)
-
-        for obj in FabricNamespaceDM.list_obj():
-            FabricNamespaceDM.locate(obj['uuid'], obj)
-
-        for obj in LogicalRouterDM.list_obj():
-            LogicalRouterDM.locate(obj['uuid'], obj)
-
-        for obj in RoutingInstanceDM.list_obj():
-            RoutingInstanceDM.locate(obj['uuid'], obj)
-
-        for obj in FloatingIpPoolDM.list_obj():
-            FloatingIpPoolDM.locate(obj['uuid'], obj)
-
-        for obj in BgpRouterDM.list_obj():
-            BgpRouterDM.locate(obj['uuid'], obj)
-
-        for obj in PhysicalInterfaceDM.list_obj():
-            PhysicalInterfaceDM.locate(obj['uuid'], obj)
-
-        for obj in LogicalInterfaceDM.list_obj():
-            LogicalInterfaceDM.locate(obj['uuid'], obj)
-
-        pr_obj_list = PhysicalRouterDM.list_obj()
-        for obj in pr_obj_list:
-            PhysicalRouterDM.locate(obj['uuid'], obj)
-
-        pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
-        self._object_db.handle_pr_deletes(pr_uuid_set)
-
-        dci_uuid_set = set([dci_obj['uuid'] for dci_obj in dci_obj_list])
-        self._object_db.handle_dci_deletes(dci_uuid_set)
-
-        for obj in LinkAggregationGroupDM.list_obj():
-            LinkAggregationGroupDM.locate(obj['uuid'], obj)
-
-        for obj in VirtualPortGroupDM.list_obj():
-            VirtualPortGroupDM.locate(obj['uuid'], obj)
-
-        for obj in PortDM.list_obj():
-            PortDM.locate(obj['uuid'], obj)
-
-        for obj in TagDM.list_obj():
-            TagDM.locate(obj['uuid'], obj)
-
-        for obj in NetworkIpamDM.list_obj():
-            NetworkIpamDM.locate(obj['uuid'], obj)
-
-        for obj in VirtualMachineInterfaceDM.list_obj():
-            VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
-
-        for obj in SecurityGroupDM.list_obj():
-            SecurityGroupDM.locate(obj['uuid'], obj)
-
-        for obj in AccessControlListDM.list_obj():
-            AccessControlListDM.locate(obj['uuid'], obj)
-
-        for obj in pr_obj_list:
-            pr = PhysicalRouterDM.locate(obj['uuid'], obj)
-            li_set = pr.logical_interfaces
-            vmi_set = set()
-            for pi_id in pr.physical_interfaces:
-                pi = PhysicalInterfaceDM.locate(pi_id)
-                if pi:
-                    li_set |= pi.logical_interfaces
-                    vmi_set |= pi.virtual_machine_interfaces
-            for li_id in li_set:
-                li = LogicalInterfaceDM.locate(li_id)
-                if li and li.virtual_machine_interface:
-                    vmi_set |= set([li.virtual_machine_interface])
-            for vmi_id in vmi_set:
-                vmi = VirtualMachineInterfaceDM.locate(vmi_id)
-
-        si_obj_list = ServiceInstanceDM.list_obj()
-        si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
-        self._object_db.handle_pnf_resource_deletes(si_uuid_set)
-
-        for obj in ServiceApplianceSetDM.list_obj():
-            ServiceApplianceSetDM.locate(obj['uuid'], obj)
-
-        for obj in ServiceApplianceDM.list_obj():
-            ServiceApplianceDM.locate(obj['uuid'], obj)
-
-        for obj in ServiceTemplateDM.list_obj():
-            ServiceTemplateDM.locate(obj['uuid'], obj)
-
-        for obj in si_obj_list:
-            ServiceInstanceDM.locate(obj['uuid'], obj)
-
-        for obj in PortTupleDM.list_obj():
-            PortTupleDM.locate(obj['uuid'], obj)
-
-        for obj in InstanceIpDM.list_obj():
-            InstanceIpDM.locate(obj['uuid'], obj)
-
-        for obj in FloatingIpDM.list_obj():
-            FloatingIpDM.locate(obj['uuid'], obj)
+        GlobalSystemConfigDM.locate_all()
+        FeatureDM.locate_all()
+        PhysicalRoleDM.locate_all()
+        OverlayRoleDM.locate_all()
+        RoleDefinitionDM.locate_all()
+        NodeProfileDM.locate_all()
+        RoleConfigDM.locate_all()
+        GlobalVRouterConfigDM.locate_all()
+        VirtualNetworkDM.locate_all()
+        DataCenterInterconnectDM.locate_all()
+        FabricDM.locate_all()
+        FabricNamespaceDM.locate_all()
+        LogicalRouterDM.locate_all()
+        RoutingInstanceDM.locate_all()
+        FloatingIpPoolDM.locate_all()
+        BgpRouterDM.locate_all()
+        PhysicalInterfaceDM.locate_all()
+        LogicalInterfaceDM.locate_all()
+        PhysicalRouterDM.locate_all()
+        LinkAggregationGroupDM.locate_all()
+        VirtualPortGroupDM.locate_all()
+        PortDM.locate_all()
+        TagDM.locate_all()
+        NetworkIpamDM.locate_all()
+        VirtualMachineInterfaceDM.locate_all()
+        SecurityGroupDM.locate_all()
+        AccessControlListDM.locate_all()
+        ServiceInstanceDM.locate_all()
+        ServiceApplianceSetDM.locate_all()
+        ServiceApplianceDM.locate_all()
+        ServiceTemplateDM.locate_all()
+        PortTupleDM.locate_all()
+        InstanceIpDM.locate_all()
+        FloatingIpDM.locate_all()
 
         for vn in VirtualNetworkDM.values():
             vn.update_instance_ip_map()
 
-        for obj in ServiceEndpointDM.list_obj():
-            ServiceEndpointDM.locate(obj['uuid'], obj)
+        ServiceEndpointDM.locate_all()
+        ServiceConnectionModuleDM.locate_all()
+        ServiceObjectDM.locate_all()
+        NetworkDeviceConfigDM.locate_all()
+        E2ServiceProviderDM.locate_all()
+        PeeringPolicyDM.locate_all()
 
-        for obj in ServiceConnectionModuleDM.list_obj():
-            ServiceConnectionModuleDM.locate(obj['uuid'], obj)
+        pr_obj_list = PhysicalRouterDM.list_obj()
+        pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
+        self._object_db.handle_pr_deletes(pr_uuid_set)
 
-        for obj in ServiceObjectDM.list_obj():
-            ServiceObjectDM.locate(obj['uuid'], obj)
+        dci_obj_list = DataCenterInterconnectDM.list_obj()
+        dci_uuid_set = set([dci_obj['uuid'] for dci_obj in dci_obj_list])
+        self._object_db.handle_dci_deletes(dci_uuid_set)
 
-        for obj in NetworkDeviceConfigDM.list_obj():
-            NetworkDeviceConfigDM.locate(obj['uuid'], obj)
-
-        for obj in E2ServiceProviderDM.list_obj():
-            E2ServiceProviderDM.locate(obj['uuid'], obj)
-
-        for obj in PeeringPolicyDM.list_obj():
-            PeeringPolicyDM.locate(obj['uuid'], obj)
+        si_obj_list = ServiceInstanceDM.list_obj()
+        si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
+        self._object_db.handle_pnf_resource_deletes(si_uuid_set)
 
         for pr in PhysicalRouterDM.values():
             pr.set_config_state()
