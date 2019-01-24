@@ -25,13 +25,13 @@ class OverlayConf(AnsibleRoleCommon):
         return super(OverlayConf, cls).register(qconf)
     # end register
 
-    def push_conf(self, is_delete=False):
+    def push_conf(self, feature_configs=None, is_delete=False):
         if not self.physical_router:
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
         self.set_common_config()
-        return self.send_conf()
+        return self.send_conf(feature_configs=feature_configs)
     # end push_conf
 
 # end LeafConf

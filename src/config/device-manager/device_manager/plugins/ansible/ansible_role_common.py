@@ -188,6 +188,7 @@ class AnsibleRoleCommon(AnsibleConf):
         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn.name else False
         encapsulation_priorities = \
            ri_conf.get("encapsulation_priorities") or ["MPLSoGRE"]
+        highest_encapsulation = encapsulation_priorities[0]
 
         ri = RoutingInstance(name=ri_name)
         if vn:
@@ -220,9 +221,9 @@ class AnsibleRoleCommon(AnsibleConf):
                         ri.add_static_routes(self.get_route_for_cidr(prefix))
                         ri.add_prefixes(self.get_subnet_for_cidr(prefix))
         else:
-            if encapsulation_priorities[0] == "VXLAN":
+            if highest_encapsulation == "VXLAN":
                 ri.set_routing_instance_type("virtual-switch")
-            elif (any(x in encapsulation_priorities for x in ["MPLSoGRE", "MPLSoUDP"])):
+            elif highest_encapsulation in ["MPLSoGRE", "MPLSoUDP"]:
                 ri.set_routing_instance_type("evpn")
 
         if is_internal_vn:
@@ -323,7 +324,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             vlan = None
-            if encapsulation_priorities[0] == "VXLAN":
+            if highest_encapsulation == "VXLAN":
                 vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
                 vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
                 self.vlan_map[vlan.get_name()] = vlan
@@ -333,10 +334,10 @@ class AnsibleRoleCommon(AnsibleConf):
                     # network_id is unique, hence irb
                     irb_intf = "irb." + str(network_id)
                     self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
-            elif (any(x in encapsulation_priorities for x in ["MPLSoGRE", "MPLSoUDP"])):
-                self.init_evpn_config(encapsulation_priorities[1])
+            elif highest_encapsulation in ["MPLSoGRE", "MPLSoUDP"]:
+                self.init_evpn_config(highest_encapsulation)
                 self.evpn.set_comment(
-                      DMUtils.vn_evpn_comment(vn, encapsulation_priorities[1]))
+                      DMUtils.vn_evpn_comment(vn, highest_encapsulation))
                 for interface in interfaces:
                     self.add_ref_to_list(self.evpn.get_interfaces(), interface.name)
 
