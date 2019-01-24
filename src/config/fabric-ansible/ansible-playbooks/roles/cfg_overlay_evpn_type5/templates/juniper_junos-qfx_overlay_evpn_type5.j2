@@ -3,53 +3,43 @@ set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 from
 set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 then accept
 set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 from protocol static
 set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 then accept
-{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%     for ri in device_abstract_config.features.vn_interconnect.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
-{%         set vxlan_id = ri.get('vxlan_id', '') %}
+{%         set vxlan_id = ri.get('vxlan_id') %}
 {%         set router_external = ri.get('is_public_network', '') %}
-{%         if vxlan_id == 'None' %}
-{%             set vxlan_id = ri.get('virtual_network_id') %}
-{%         endif %}
-{%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
-{%             for lo_int in ri.get('loopback_interfaces', []) %}
-{%                 set int_name = lo_int.get('name', '') %}
-{%                 set unit_num = int_name.split('.')[-1] %}
+{%         for lo_int in ri.get('loopback_interfaces', []) %}
+{%             set int_name = lo_int.get('name', '') %}
+{%             set unit_num = int_name.split('.')[-1] %}
 set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
 set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
-{%             endfor %}
+{%         endfor %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options rib {{name}}.inet6.0 multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route 172.16.1.1/32 discard
-{%             if (vxlan_id != '') %}
 set groups {{cfg_group}} protocols evpn default-gateway no-gateway-community
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export dummy_type5
-{%             endif %}
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
-{%             set vrf_import = name+'-import' %}
-{%             set vrf_export = name+'-export' %}
+{%         set vrf_import = name+'-import' %}
+{%         set vrf_export = name+'-export' %}
 set groups {{cfg_group}} routing-instances {{name}} vrf-import {{vrf_import}}
 set groups {{cfg_group}} routing-instances {{name}} vrf-export {{vrf_export}}
-{%             if ri.get('virtual_network_is_shared', '') == true %}
-set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
-{%             endif %}
-{%             for irb_int in ri.get('routing_interfaces', []) %}
-{%                 set irb_name = irb_int.get('name') %}
+{%         for irb_int in ri.get('routing_interfaces', []) %}
+{%             set irb_name = irb_int.get('name') %}
 set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
-{%             endfor %}
-{%             set sys_config = device_abstract_config.get('system', None) %}
-{%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{%             if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
+{%         endfor %}
+{%         set sys_config = device_abstract_config.get('system') %}
+{%         set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%         if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route 0.0.0.0/0 next-table inet.0
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
-{%                 for subnet in ri.get('prefixes', []) %}
-{%                     set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%             for subnet in ri.get('prefixes', []) %}
+{%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
-{%                 endfor %}
+{%             endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
-{%             endif %}{# /* router_external */ #}
-{%         endif %}{# /* virtual_network_is_internal */ #}
+{%         endif %}
 {%     endfor %}
