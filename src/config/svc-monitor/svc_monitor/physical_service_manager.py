@@ -12,7 +12,6 @@ from config_db import (
     PortTupleSM)
 from cfgm_common import svc_info
 
-
 class PhysicalServiceManager(InstanceManager):
 
     def create_service(self, st, si):

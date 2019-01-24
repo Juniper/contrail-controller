@@ -22,6 +22,9 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         self.mocked_vnc.virtual_machine_interface_create = test_utils.vmi_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
+        self.mocked_vnc.instance_ip_read = test_utils.iip_vnc_read
+        self.mocked_vnc.virtual_machine_read = test_utils.vm_vnc_read
+
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
 
@@ -46,6 +49,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         del VirtualRouterSM._object_db
 
     def test_vrouter_instance_create(self):
+        self.mocked_vnc.virtual_machine_interface_read = test_utils.vmi_vnc_read
         test_utils.create_test_project('fake-domain:fake-project')
         test_utils.create_test_security_group('fake-domain:fake-project:default')
         test_utils.create_test_virtual_network('fake-domain:fake-project:mgmt-vn')
