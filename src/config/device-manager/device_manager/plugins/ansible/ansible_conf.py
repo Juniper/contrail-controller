@@ -267,7 +267,7 @@ class AnsibleConf(AnsibleBase):
     # end device_send
 
     def read_node_profile_info(self):
-        feature_configs = {}
+        feature_params = {}
         job_template = None
         if self.physical_router.node_profile is not None:
             node_profile = NodeProfileDM.get(self.physical_router.node_profile)
@@ -278,9 +278,9 @@ class AnsibleConf(AnsibleBase):
                         continue
                     if job_template is None:
                         job_template = role_config.job_template_fq_name
-                    feature_configs[role_config.name] = role_config.config
-        return feature_configs, job_template
-    # end read_feature_configs
+                    feature_params[role_config.name] = role_config.config
+        return feature_params, job_template
+    # end read_node_profile_info
 
     @staticmethod
     def add_to_list(lst, value):
@@ -295,7 +295,6 @@ class AnsibleConf(AnsibleBase):
 
     @classmethod
     def add_ip_address(cls, unit, address, gateway=None):
-        cls.add_to_list(unit.get_ip_list(), address)
         if ':' in address:
             family = 'inet6'
         else:
@@ -314,7 +313,7 @@ class AnsibleConf(AnsibleBase):
         return [(key, dict_obj[key]) for key in sorted(dict_obj.keys())]
     # end get_values_sorted_by_key
 
-    def prepare_conf(self, is_delete=False):
+    def prepare_conf(self, feature_configs=None, is_delete=False):
         device = Device()
         device.set_comment(DMUtils.groups_comment())
         device.set_system(self.system_config)
@@ -336,6 +335,8 @@ class AnsibleConf(AnsibleBase):
         device.set_firewall(self.firewall_config)
         device.set_security_zones(self.get_values_sorted_by_key(self.sc_zone_map))
         device.set_security_policies(self.get_values_sorted_by_key(self.sc_policy_map))
+        if feature_configs:
+            device.features = feature_configs
         return device
     # end prepare_conf
 
@@ -343,11 +344,12 @@ class AnsibleConf(AnsibleBase):
         return self.system_config or self.bgp_map or self.pi_map
     # end has_conf
 
-    def send_conf(self, is_delete=False, retry=True):
+    def send_conf(self, feature_configs=None, is_delete=False, retry=True):
         if not self.has_conf() and not is_delete:
             return 0
-        config = self.prepare_conf(is_delete=is_delete)
-        feature_configs, job_template = self.read_node_profile_info()
+        config = self.prepare_conf(feature_configs=feature_configs,
+                                   is_delete=is_delete)
+        feature_params, job_template = self.read_node_profile_info()
         if not self.physical_router.fabric_obj:
             self._logger.warning("Could not push "
                                  "config to the device: %s, %s; "
@@ -361,7 +363,7 @@ class AnsibleConf(AnsibleBase):
             'fabric_uuid': self.physical_router.fabric,
             'fabric_fq_name': fabric_fq_name,
             'device_management_ip': self.physical_router.management_ip,
-            'additional_feature_params': feature_configs,
+            'additional_feature_params': feature_params,
             'device_abstract_config': self.export_dict(config),
             'is_delete': is_delete,
             'manage_underlay': self.physical_router.underlay_managed
@@ -561,11 +563,18 @@ class AnsibleConf(AnsibleBase):
     def export_dict(obj):
         if obj is None:
             return None
-        obj_json = json.dumps(obj, default=lambda o: dict(
-            (k, v) for k, v in o.__dict__.iteritems()
-            if AnsibleConf.do_export(v)))
+        obj_json = json.dumps(obj, default=AnsibleConf.export_default)
         return json.loads(obj_json)
     # end export_dict
+
+    @staticmethod
+    def export_default(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        if hasattr(obj, '__dict__'):
+            return dict((k, v) for k, v in obj.__dict__.iteritems() if AnsibleConf.do_export(v))
+        raise TypeError('Object of type %s is not JSON serializable' % obj.__class__.__name__)
+    # end export_default
 
 # end AnsibleConf
 
