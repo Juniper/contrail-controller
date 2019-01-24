@@ -77,7 +77,8 @@ class PortTupleAgent(Agent):
             tag = ServiceInterfaceTag(interface_type=port['type'])
             self._vnc_lib.ref_update('service-instance', si.uuid,
                 'instance-ip', iip_id, None, 'ADD', tag)
-            InstanceIpSM.locate(iip_id)
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
+            InstanceIpSM.locate(iip_id, iip_obj.to_dict())
             si.update()
 
         if create_iip or update_vmi:
@@ -98,13 +99,15 @@ class PortTupleAgent(Agent):
         iip_obj.add_virtual_network(vn_obj)
         iip_obj.set_service_health_check_ip(True)
         try:
-            self._vnc_lib.instance_ip_create(iip_obj)
+            iip_uuid = self._vnc_lib.instance_ip_create(iip_obj)
             self._vnc_lib.ref_relax_for_delete(iip_obj.uuid, vn_obj.uuid)
         except RefsExistError:
-            self._vnc_lib.instance_ip_update(iip_obj)
+            iip_res = self._vnc_lib.instance_ip_update(iip_obj)
+            iip_uuid = iip_res['instance-ip']['uuid']
         except Exception as e:
             return
-        InstanceIpSM.locate(iip_obj.uuid)
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_uuid)
+        InstanceIpSM.locate(iip_obj.uuid, iip_obj.to_dict())
         self._vnc_lib.ref_update('instance-ip', iip_obj.uuid,
             'virtual-machine-interface', vmi.uuid, None, 'ADD')
         vmi.update()

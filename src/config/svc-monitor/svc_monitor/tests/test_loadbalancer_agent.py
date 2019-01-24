@@ -7,6 +7,7 @@ from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
 import ConfigParser
+import test_common_utils as test_utils
 
 class LoadbalancerAgentTest(unittest.TestCase):
     def setUp(self):
@@ -69,7 +70,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         self.vnc_lib.global_system_config_read.return_value = mocked_gsc
         def no_id_side_effect(fq_name):
             raise NoIdError("xxx")
-        self.vnc_lib.service_appliance_set_read = mock.Mock(side_effect=no_id_side_effect)
+        self.vnc_lib.service_appliance_set_read = test_utils.sas_vnc_read
         conf_parser = argparse.ArgumentParser(add_help=False)
         config = ConfigParser.SafeConfigParser({'admin_token': None})
         self._args, remaining_argv = conf_parser.parse_known_args()

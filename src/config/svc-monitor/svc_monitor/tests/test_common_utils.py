@@ -291,6 +291,21 @@ def vm_db_read(obj_type, vm_id, **kwargs):
     vm_obj['display_name'] = instance_name + '__' + 'vrouter-instance'
     return True, [vm_obj]
 
+def vm_vnc_read(fq_name=None, fq_name_str=None, id=None, ifmap_id=None):
+    class SI(object):
+        def __init__(self, name, fq_name):
+            self.name = name
+            self.fq_name = fq_name
+
+    vm_obj = VirtualMachine()
+    vm_obj.uuid = 'fake-vm-uuid'
+    vm_obj.fq_name = ['fake-vm-uuid']
+    _fq_name = ['fake-domain', 'fake-project', 'fake-instance']
+    _name = 'fake-instance'
+    si = SI(_name, _fq_name)
+    vm_obj.display_name = test_get_instance_name(si,0) + '__' + 'vrouter-instance'
+    return vm_obj
+
 def vr_db_read(obj_type, vr_id, **kwargs):
     vr_obj = {}
     vr_obj['uuid'] = 'fake-vr-uuid'
@@ -305,11 +320,23 @@ def vmi_db_read(obj_type, vmi_id, **kwargs):
     vmi_obj['parent_uuid'] = 'fake-project'
     return True, [vmi_obj]
 
+def vmi_vnc_read(fq_name=None, fq_name_str=None, id=None, ifmap_id=None):
+    vmi_obj = VirtualMachineInterface(parent_type='project', fq_name=['fake-vmi-uuid'])
+    vmi_obj.uuid = id
+    vmi_obj.parent_uuid = 'fake-project'
+    return vmi_obj
+
 def iip_db_read(obj_type, iip_id, **kwargs):
     iip_obj = {}
     iip_obj['uuid'] = iip_id
     iip_obj['fq_name'] = ['fake-iip-uuid']
     return True, [iip_obj]
+
+def iip_vnc_read(fq_name=None, fq_name_str=None, id=None, ifmap_id=None):
+    iip_obj = InstanceIp()
+    iip_obj.uuid = id
+    iip_obj.fq_name = ['fake-iip-uuid']
+    return iip_obj
 
 def si_db_read(obj_type, si_id, **kwargs):
     name = si_id[0]
@@ -334,8 +361,29 @@ def vn_db_read(obj_type, vn_id, **kwargs):
     vn_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-vn-uuid']
     return True, [vn_obj]
 
+def vn_vnc_read(fq_name=None, fq_name_str=None, id=None, ifmap_id=None):
+    vn_obj = VirtualNetwork()
+    vn_obj.uuid = 'fake-vn-uuid'
+    vn_obj.fq_name = ['fake-domain', 'fake-project', 'fake-vn-uuid']
+    return vn_obj
+
 def irt_db_read(obj_type, irt_id, **kwargs):
     irt_obj = {}
     irt_obj['uuid'] = 'fake-irt-uuid'
     irt_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-irt-uuid']
     return True, [irt_obj]
+
+def irt_vnc_read(fq_name=None, fq_name_str=None, id=None, ifmap_id=None):
+    irt_obj = InterfaceRouteTable()
+    irt_obj.uuid = 'fake-irt-uuid'
+    irt_obj.fq_name = ['fake-domain', 'fake-project', 'fake-irt-uuid']
+    return irt_obj
+
+def sas_vnc_read(fq_name=None, fq_name_str=None, id=None, ifmap_id=None):
+    # First reads (by fq_name) should always fail in tests
+    if fq_name:
+        raise NoIdError("xxx")
+    driver = 'svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver'
+    sas_obj = ServiceApplianceSet(service_appliance_driver = driver)
+    sas_obj.fq_name = ['default-global-system-config', 'opencontrail']
+    return sas_obj
