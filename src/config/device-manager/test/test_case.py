@@ -21,6 +21,8 @@ import device_manager
 
 class DMTestCase(test_common.TestCase):
 
+    GSC = 'default-global-system-config'
+
     @classmethod
     def setUpClass(cls, extra_config_knobs=None, dm_config_knobs=None):
         extra_config = [
@@ -71,49 +73,45 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
-    def create_fabric(self, name):
-        fab = Fabric(
-            name=name,
-            fabric_credentials={
-                'device_credential': [{
-                    'credential': {
-                        'username': 'root', 'password': '123'
-                    },
-                    'vendor': 'Juniper',
-                    'device_family': None
-                }]
-            }
-        )
-        fab_uuid = self._vnc_lib.fabric_create(fab)
-        return fab_uuid
-
-    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None, ignore_bgp=False):
+    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx',
+            ignore_pr=False, role=None, ignore_bgp=False, rb_roles=None,
+            physical_role=None, overlay_role=None, fabric=None, family='junos'):
         bgp_router, pr = None, None
         if not ignore_bgp:
-            bgp_router = BgpRouter(name,
+            bgp_router = BgpRouter(name=name,
                                    display_name=name+"-bgp",
                                    parent_obj=self._get_ip_fabric_ri_obj())
             params = BgpRouterParams()
             params.address = mgmt_ip
             params.identifier = '1.1.1.1'
-            params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
-                                             'inet6-vpn'])
+            params.address_families = AddressFamilies(['route-target',
+                'inet-vpn', 'e-vpn', 'inet6-vpn'])
             params.autonomous_system = randint(0, 64512)
             bgp_router.set_bgp_router_parameters(params)
             self._vnc_lib.bgp_router_create(bgp_router)
 
         if not ignore_pr:
-            pr = PhysicalRouter(name, display_name=name)
+            pr = PhysicalRouter(name=name, display_name=name)
             pr.physical_router_management_ip = mgmt_ip
             pr.physical_router_vendor_name = vendor
             pr.physical_router_product_name = product
+            pr.physical_router_device_family = family
             pr.physical_router_vnc_managed = True
+            pr.physical_router_underlay_managed = False
             if role:
                 pr.physical_router_role = role
+            if rb_roles:
+                pr.routing_bridging_roles = RoutingBridgingRolesType(rb_roles=rb_roles)
             uc = UserCredentials('user', 'pw')
             pr.set_physical_router_user_credentials(uc)
             if not ignore_bgp:
                 pr.set_bgp_router(bgp_router)
+            if physical_role:
+                pr.set_physical_role(physical_role)
+            if overlay_role:
+                pr.set_overlay_role(overlay_role)
+            if fabric:
+                pr.set_fabric(fabric)
             self._vnc_lib.physical_router_create(pr)
 
         return bgp_router, pr
@@ -145,4 +143,3 @@ class DMTestCase(test_common.TestCase):
         return
 
 #end DMTestCase
-
