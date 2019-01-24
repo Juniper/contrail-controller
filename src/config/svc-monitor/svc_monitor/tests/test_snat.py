@@ -20,10 +20,14 @@ class SnatInstanceManager(unittest.TestCase):
         VirtualNetworkSM._object_db.object_read = test_utils.vn_db_read
 
         self.mocked_vnc = mock.MagicMock()
+        self.mocked_vnc.obj_to_dict = test_utils.vnc_obj_to_dict
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
         self.mocked_vnc.virtual_machine_interface_create = test_utils.vmi_create
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
+
+        self.mocked_vnc.instance_ip_read = test_utils.iip_vnc_read
+        self.mocked_vnc.virtual_machine_read = test_utils.vm_vnc_read
 
         self.mocked_scheduler = mock.MagicMock()
         self.mocked_scheduler.schedule = mock.Mock(return_value=('fake-virtual-router'))
@@ -57,6 +61,7 @@ class SnatInstanceManager(unittest.TestCase):
         del VirtualNetworkSM._object_db
 
     def test_snat_instance_create(self):
+        self.mocked_vnc.virtual_machine_interface_read = test_utils.vmi_vnc_read
         test_utils.create_test_project('fake-domain:fake-project')
         test_utils.create_test_virtual_network('fake-domain:fake-project:public-vn')
         test_utils.create_test_virtual_network('fake-domain:fake-project:fake-vn-uuid')
