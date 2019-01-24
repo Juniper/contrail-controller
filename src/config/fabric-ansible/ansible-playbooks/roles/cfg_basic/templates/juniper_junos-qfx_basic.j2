@@ -1,0 +1,53 @@
+delete apply-groups __contrail__
+delete groups __contrail__
+
+{%    set feature_params = additional_feature_params.get(feature) %}
+{%     if feature_params != None %}
+{%         if feature_params.ntp is defined and feature_params.ntp.time_zone is defined %}
+set groups {{cfg_group}} time-zone {{ feature_params.ntp.time_zone }}
+{%         endif %}
+{%         for server in feature_params.get('ntp', {}).get('ntp_servers', []) %}
+set groups {{cfg_group}} ntp server {{ server }}
+{%         endfor %}
+{%         for boot_server in feature_params.get('ntp', {}).get('ntp_boot_servers', []) %}
+set groups {{cfg_group}} ntp boot-server {{ boot_server }}
+{%         endfor %}
+{%         for name_server in feature_params.get('name_servers', []) %}
+set groups {{cfg_group}} name-server {{name_server}}
+{%         endfor %}
+{%         if feature_params.domain_name is defined %}
+set groups {{cfg_group}} domain-name {{feature_params.domain_name}}
+{%         endif %}
+{%         for community in feature_params.get('snmp', {}).get('communities', []) %}
+set groups {{cfg_group}} snmp community {{community.name}} authorization {{'read-only' if community.readonly else 'read-write'}}
+{%         endfor %}
+{%         for route in feature_params.get('static_routes', []) %}
+{%             for cidr in route.get('subnets', []) %}
+set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{route.nexthop}}
+{%             endfor %}
+{%         endfor %}
+{%     endif %}
+
+set policy-options community COM-MAINTENANCE members 9999:9999
+set policy-options policy-statement MAINTENANCE-MODE term term1 from family evpn
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 2
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 1
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 3
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 4
+set policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 5
+set policy-options policy-statement MAINTENANCE-MODE term term1 then community add COM-MAINTENANCE
+set policy-options policy-statement MAINTENANCE-MODE term term1 then accept
+set policy-options policy-statement MAINTENANCE-MODE term term100 then accept
+
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from family evpn
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from community COM-MAINTENANCE
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 2
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 1
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 3
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 4
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 5
+set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 then reject
+set switch-options vrf-import REJECT-MAINTENANCE-MODE
+
+set policy-options policy-statement MAINTENANCE-MODE-underlay then as-path-prepend "9999 9999 9999"
+set policy-options policy-statement MAINTENANCE-MODE-underlay then accept
