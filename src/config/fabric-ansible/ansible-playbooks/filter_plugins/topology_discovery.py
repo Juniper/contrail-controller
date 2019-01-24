@@ -4,6 +4,7 @@ import traceback
 import sys
 
 from job_manager.job_utils import JobVncApi
+from vnc_api.exceptions import NoIdError
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import FilterLog, _task_log, _task_done, \
@@ -17,10 +18,6 @@ class FilterModule(object):
             'topology_discovery': self.topology_discovery,
         }
     # end filters
-
-    def _instantiate_filter_log_instance(self, device_name):
-        FilterLog.instance("TopologyDiscoveryFilter", device_name)
-    # end _instantiate_filter_log_instance
 
     def topology_discovery(self, job_ctx, prouter_fqname,
                            lldp_neighbors_payload):
@@ -91,35 +88,35 @@ class FilterModule(object):
 
 
             }
-        :param topology_discovery_resp: Dictionary
-            example:
-            {
-              "lldp_neighbors_success_names":
-                  <List: <String: lldp_neighbors_success_pair_string>>,
-              "lldp_neighbors_failed_info":
-                  <List: <Dictionary: lldp_neighbor_failed_obj> >
-            }
+            :param topology_discovery_resp: Dictionary
+                example:
+                {
+                  "lldp_neighbors_success_names":
+                      <List: <String: lldp_neighbors_success_pair_string>>,
+                  "lldp_neighbors_failed_info":
+                      <List: <Dictionary: lldp_neighbor_failed_obj> >
+                }
 
-            :param lldp_neighbors_success_names: List
-            example:
-                ["bng-contrail-qfx51-15 : ge-0/0/36 --> dhawan : ge-2/3/1"]
-            :param lldp_neighbors_failed_info: List
-            example:
-                [
-                  {
-                    "lldp_neighbor":
-                        "bng-contrail-qfx51-15 : em0 --> sw174 : ge-1/0/46",
-                    "warning_message":
-                        "Unknown physical interface ng-contrail-qfx51-15:em0"
-                  }
-                ]
+                :param lldp_neighbors_success_names: List
+                example:
+                    ["bng-contrail-qfx51-15 : ge-0/0/36 --> dhawan : ge-2/3/1"]
+                :param lldp_neighbors_failed_info: List
+                example:
+                    [
+                      {
+                        "lldp_neighbor":
+                            "bng-contrail-qfx51-15 : em0 --> sw174 : ge-1/0/46",
+                        "warning_message":
+                            "Unknown physical interface ng-contrail-qfx51-15:em0"
+                      }
+                    ]
         """
-        self._instantiate_filter_log_instance(prouter_fqname[-1])
+        FilterLog.instance("TopologyDiscoveryFilter", prouter_fqname[-1])
+        self.vnc_lib = JobVncApi.vnc_init(job_ctx)
         _task_log("Starting Topology Discovery")
         try:
             _task_log("Creating neighboring links")
             topology_discovery_resp = self._create_neighbor_links(
-                job_ctx,
                 lldp_neighbors_payload,
                 prouter_fqname)
 
@@ -137,7 +134,8 @@ class FilterModule(object):
                     'topology_discovery_log': FilterLog.instance().dump()}
     # end topology_discovery
 
-    def get_vnc_payload(self, prouter_fqname, lldp_neighbors_info):
+    @staticmethod
+    def get_vnc_payload(prouter_fqname, lldp_neighbors_info):
 
         vnc_payload = []
         for lldp_neighbor_info in lldp_neighbors_info or []:
@@ -158,7 +156,7 @@ class FilterModule(object):
     # end get_vnc_payload
 
     # group vnc functions
-    def _create_neighbor_links(self, job_ctx,
+    def _create_neighbor_links(self,
                                lldp_neighbors_payload,
                                prouter_fqname):
 
@@ -169,39 +167,39 @@ class FilterModule(object):
                 'lldp_neighbors_success_names': [],
                 'lldp_neighbors_failed_info': []
             }
-        vnc_lib = JobVncApi.vnc_init(job_ctx)
 
-        vnc_topology_disc_payload = self.get_vnc_payload(
+        vnc_topology_disc_payload = FilterModule.get_vnc_payload(
             prouter_fqname, lldp_neighbors_payload['neighbor_info_list'])
         topology_disc_payload = self._do_further_parsing(
-            vnc_lib, vnc_topology_disc_payload)
+            vnc_topology_disc_payload)
 
         _task_done("Parsed payload completely")
 
         _task_log("Creating links between neighboring physical interfaces")
         topology_discovery_resp = self._create_physical_interface_refs(
-            vnc_lib, topology_disc_payload)
+            topology_disc_payload)
         return topology_discovery_resp
     # end _create_neighbor_links
 
-    def _do_further_parsing(self, vnc_lib, neighbor_info_list):
+    def _do_further_parsing(self, neighbor_info_list):
         topology_disc_payload = []
         for neighbor_info in neighbor_info_list or []:
             remote_neighbor_info = neighbor_info[1].rsplit(":", 1)
-            list_resp = vnc_lib.physical_interfaces_list(
+            list_resp = self.vnc_lib.physical_interfaces_list(
                 parent_fq_name=remote_neighbor_info[0].split(":"),
                 filters={"physical_interface_port_id":
                          remote_neighbor_info[1]}
                 )
             if list_resp['physical-interfaces']:
-                topology_disc_payload.append([neighbor_info[0],
-                                              list_resp['physical-interfaces']
-                                              [0]['fq_name']])
+                topology_disc_payload.append(
+                    [neighbor_info[0],
+                    list_resp['physical-interfaces']
+                    [0]['fq_name']])
 
         return topology_disc_payload
     # end _do_further_parsing
 
-    def _create_physical_interface_refs(self, vnc_lib, topology_disc_payload):
+    def _create_physical_interface_refs(self, topology_disc_payload):
         # create or update refs between physical interfaces
         # on the local device to the remote device
         object_type = "physical_interface"
@@ -213,14 +211,27 @@ class FilterModule(object):
             try:
                 object_fqname = topology_disc_info[0]
                 ref_fqname = topology_disc_info[1]
-                object_uuid = vnc_lib.fq_name_to_id(object_type, object_fqname)
-                vnc_lib.ref_update(object_type, object_uuid,
+                object_uuid = self.vnc_lib.fq_name_to_id(
+                    object_type, object_fqname)
+                self.vnc_lib.ref_update(object_type, object_uuid,
                                    ref_type, None, ref_fqname, 'ADD')
                 lldp_neighbors_success_names.append(object_fqname[-2] + " : " +
                                                     object_fqname[-1] +
                                                     " --> " +
                                                     ref_fqname[-2] + " : " +
                                                     ref_fqname[-1])
+            except NoIdError as exc:
+                _task_error_log(str(exc))
+                _task_error_log(traceback.format_exc())
+                lldp_neighbor_failed_obj = {
+                    "lldp_neighbor": object_fqname[-2] + " : " +
+                                     object_fqname[-1] + " --> " +
+                                     ref_fqname[-2] + " : " +
+                                     ref_fqname[-1],
+                    "warning_message": "Object or Ref does not exist: " +
+                                       str(exc)
+                }
+                lldp_neighbors_failed_info.append(lldp_neighbor_failed_obj)
             except Exception as ex:
                 _task_error_log(str(ex))
                 _task_error_log(traceback.format_exc())
