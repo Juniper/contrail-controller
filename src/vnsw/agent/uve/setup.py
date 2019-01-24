@@ -8,9 +8,9 @@ setup(
     name='vrouter',
     version='0.1dev',
     packages=['vrouter',
-              'vrouter.vrouter', 
-              'vrouter.vrouter.cpuinfo', 
-              'vrouter.vrouter.process_info', 
+              'vrouter.vrouter',
+              'vrouter.vrouter.cpuinfo',
+              'vrouter.vrouter.process_info',
               'vrouter.vrouter.derived_stats_results',
               'vrouter.loadbalancer',
               'vrouter.sandesh',
@@ -31,6 +31,6 @@ setup(
         'redis',
         'xmltodict',
         'prettytable',
-        'psutil>=0.6.0'
+        'psutil==5.4.8',
     ]
 )
