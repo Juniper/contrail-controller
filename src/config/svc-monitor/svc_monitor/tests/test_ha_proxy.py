@@ -7,6 +7,7 @@ from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
 import ConfigParser
+import test_common_utils as test_utils
 
 class HAProxyTest(unittest.TestCase):
     def setUp(self):
@@ -26,8 +27,7 @@ class HAProxyTest(unittest.TestCase):
             mock.Mock(side_effect=no_id_side_effect)
         self.vnc_lib.kv_retrieve.return_value = "fake-pool-vn 40.1.1.0/24"
         self.vnc_lib.service_appliance_set_create.return_value = "opencontrail"
-        self.vnc_lib.service_appliance_set_read = \
-            mock.Mock(side_effect=no_id_side_effect)
+        self.vnc_lib.service_appliance_set_read = test_utils.sas_vnc_read
 
         self._store_si = {}
         def read_si(obj_type, uuid, **kwargs):
@@ -38,6 +38,7 @@ class HAProxyTest(unittest.TestCase):
                 mock.Mock(side_effect=read_si)
             obj.uuid = 'pool-si'
             self._store_si[obj.uuid] = obj
+            return obj.uuid
 
         def update_si_side_effect(obj):
             self._store_si[obj.uuid] = obj
@@ -373,6 +374,15 @@ OpencontrailLoadbalancerDriver")
     # Expected result is the service instance is updated with new interface list
     #
     def test_update_vip(self):
+        def read_si_side_effect(id):
+            if id in self._store_si:
+                return self._store_si[id]
+            else:
+                raise NoIdError(id)
+
+        self.vnc_lib.service_instance_read = \
+            mock.Mock(side_effect=read_si_side_effect)
+
         project = self.create_project("fake-project", "project")
         vip = self.create_vip('vip', project, 'fake-vip-vn', 'vmi', '1.1.1.1')
         pool = self.create_pool("test-lb-pool",
@@ -406,15 +416,6 @@ OpencontrailLoadbalancerDriver")
         # Link it to the pool created before
         pool.virtual_ip = vip_new.uuid
         vip_new.loadbalancer_pool = pool.uuid
-
-        def read_si_side_effect(id):
-            if id in self._store_si:
-                return self._store_si[id]
-            else:
-                raise NoIdError(id)
-        # Return the stored SI data
-        self.vnc_lib.service_instance_read = \
-            mock.Mock(side_effect=read_si_side_effect)
 
         pool.add()
         self.assertEqual(len(self._db), 1)
