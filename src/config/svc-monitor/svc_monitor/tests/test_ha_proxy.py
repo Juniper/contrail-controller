@@ -7,6 +7,7 @@ from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
 import ConfigParser
+import test_common_utils as test_utils
 
 class HAProxyTest(unittest.TestCase):
     def setUp(self):
@@ -26,8 +27,7 @@ class HAProxyTest(unittest.TestCase):
             mock.Mock(side_effect=no_id_side_effect)
         self.vnc_lib.kv_retrieve.return_value = "fake-pool-vn 40.1.1.0/24"
         self.vnc_lib.service_appliance_set_create.return_value = "opencontrail"
-        self.vnc_lib.service_appliance_set_read = \
-            mock.Mock(side_effect=no_id_side_effect)
+        self.vnc_lib.service_appliance_set_read = test_utils.sas_vnc_read
 
         self._store_si = {}
         def read_si(obj_type, uuid, **kwargs):
