@@ -25,6 +25,8 @@ class SnatInstanceManager(unittest.TestCase):
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
+        self.mocked_vnc.instance_ip_read = test_utils.iip_vnc_read
+
         self.mocked_scheduler = mock.MagicMock()
         self.mocked_scheduler.schedule = mock.Mock(return_value=('fake-virtual-router'))
 

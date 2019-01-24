@@ -22,6 +22,7 @@ from config_db import *
 from agent import Agent
 from module_logger import ServiceMonitorModuleLogger,MessageID
 from sandesh.port_tuple import ttypes as sandesh
+from dictify import dictify
 
 class PortTupleAgent(Agent):
 
@@ -77,7 +78,9 @@ class PortTupleAgent(Agent):
             tag = ServiceInterfaceTag(interface_type=port['type'])
             self._vnc_lib.ref_update('service-instance', si.uuid,
                 'instance-ip', iip_id, None, 'ADD', tag)
-            InstanceIpSM.locate(iip_id)
+
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
+            InstanceIpSM.locate(iip_id, dictify(iip_obj))
             si.update()
 
         if create_iip or update_vmi:
@@ -104,7 +107,7 @@ class PortTupleAgent(Agent):
             self._vnc_lib.instance_ip_update(iip_obj)
         except Exception as e:
             return
-        InstanceIpSM.locate(iip_obj.uuid)
+        InstanceIpSM.locate(iip_obj.uuid, dictify(iip_obj))
         self._vnc_lib.ref_update('instance-ip', iip_obj.uuid,
             'virtual-machine-interface', vmi.uuid, None, 'ADD')
         vmi.update()

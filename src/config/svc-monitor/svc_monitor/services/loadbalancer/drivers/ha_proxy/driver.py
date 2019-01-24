@@ -13,6 +13,7 @@ from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 from vnc_api.vnc_api import FatFlowProtocols, ProtocolType
 
 from svc_monitor.config_db import *
+from svc_monitor.dictify import dictify
 import haproxy_config
 
 LOADBALANCER_SERVICE_TEMPLATE = [
@@ -181,7 +182,7 @@ class OpencontrailLoadbalancerDriver(
                 fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
             self._api.service_instance_create(si_obj)
-            ServiceInstanceSM.locate(si_obj.uuid)
+            ServiceInstanceSM.locate(si_obj.uuid)#, dictify(si_obj))
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer-pool', pool.uuid,
@@ -238,7 +239,7 @@ class OpencontrailLoadbalancerDriver(
                 fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
             self._api.service_instance_create(si_obj)
-            ServiceInstanceSM.locate(si_obj.uuid)
+            ServiceInstanceSM.locate(si_obj.uuid, dictify(si_obj))
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer', lb.uuid,

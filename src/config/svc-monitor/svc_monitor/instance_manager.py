@@ -25,6 +25,7 @@ from cfgm_common import analytics_client
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from config_db import *
+from dictify import dictify
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -106,13 +107,13 @@ class InstanceManager(object):
 
         if not iip_obj.uuid:
             try:
-                self._vnc_lib.instance_ip_create(iip_obj)
+                iip_uuid = self._vnc_lib.instance_ip_create(iip_obj)
             except RefsExistError:
                 iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
             except BadRequest:
                 return None
-
-        InstanceIpSM.locate(iip_obj.uuid)
+        iip_obj = self._vnc_lib.instance_ip_read(id = iip_uuid or iip_obj.uuid)
+        InstanceIpSM.locate(iip_obj.uuid, dictify(iip_obj))
         return iip_obj
 
     def _allocate_iip(self, vn_obj, iip_name):
@@ -246,10 +247,12 @@ class InstanceManager(object):
                 return rt_obj
 
         try:
-            self._vnc_lib.interface_route_table_create(rt_obj)
+            rt_id = self._vnc_lib.interface_route_table_create(rt_obj)
         except RefsExistError:
-            self._vnc_lib.interface_route_table_update(rt_obj)
-        InterfaceRouteTableSM.locate(rt_obj.uuid)
+            rt_res = self._vnc_lib.interface_route_table_update(rt_obj)
+            rt_id = rt_res['interface-route-table']['uuid']
+        rt_obj = self._vnc_lib.interface_route_table_read(rt_id)
+        InterfaceRouteTableSM.locate(rt_obj.uuid, dictify(rt_obj))
         return rt_obj
 
     def update_static_routes(self, si):
@@ -271,11 +274,12 @@ class InstanceManager(object):
         si_obj.fq_name = si.fq_name
         vm_obj.set_service_instance(si_obj)
         try:
-            self._vnc_lib.virtual_machine_create(vm_obj)
+            vm_id = self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
-            self._vnc_lib.virtual_machine_update(vm_obj)
+            vm_id = self._vnc_lib.virtual_machine_update(vm_obj)['virtual-machine']['uuid']
+        vm_obj = self._vnc_lib.virtual_machine_read(id = vm_id)
 
-        VirtualMachineSM.locate(vm_obj.uuid)
+        VirtualMachineSM.locate(vm_obj.uuid, dictify(vm_obj))
         self.logger.info("Info: VM %s updated SI %s" %
                              (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
@@ -294,12 +298,13 @@ class InstanceManager(object):
             parent_obj=si_obj,
             uuid=pt_uuid)
         try:
-            self._vnc_lib.port_tuple_create(pt_obj)
+            pt_id = self._vnc_lib.port_tuple_create(pt_obj)
         except RefsExistError:
               self.logger.info("Info: PT %s of SI %s already exist" %
                              (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
+        pt_obj = self._vnc_lib.port_tuple_read(pt_id or pt_uuid)
 
-        PortTupleSM.locate(pt_uuid,pt_obj.__dict__)
+        PortTupleSM.locate(pt_uuid, dictify(pt_obj))
         self.logger.info("Info: PT %s updated SI %s" %
                              (pt_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
         return pt_obj
@@ -338,11 +343,18 @@ class InstanceManager(object):
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
 
         try:
-            self._vnc_lib.virtual_network_create(vn_obj)
+            vn_id = self._vnc_lib.virtual_network_create(vn_obj)
+            vn_obj = self._vnc_lib.virtual_network_read(vn_id)
         except RefsExistError:
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn_obj.get_fq_name())
-        VirtualNetworkSM.locate(vn_obj.uuid)
+
+        if 'mock' in str(type(vn_obj)):
+            raise IndentationError
+        with open('ddd.log', 'a+') as f:
+            f.write('%s\n' % str(dictify(vn_obj)))
+
+        VirtualNetworkSM.locate(vn_obj.uuid, dictify(vn_obj))
 
         return vn_obj.uuid
 
@@ -509,12 +521,12 @@ class InstanceManager(object):
             si_obj.fq_name = si.fq_name
             vm_obj.set_service_instance(si_obj)
             try:
-                self._vnc_lib.virtual_machine_create(vm_obj)
+                vm_id = self._vnc_lib.virtual_machine_create(vm_obj)
             except RefsExistError:
                 vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_obj.fq_name)
                 self._vnc_lib.ref_update('service-instance', si.uuid,
                     'virtual-machine', vm_obj.uuid, vm_obj.fq_name, 'ADD')
-            vm = VirtualMachineSM.locate(vm_obj.uuid)
+            vm = VirtualMachineSM.locate(vm_obj.uuid)#, dictify(vm_obj))
             self.logger.info("Info: VM %s created for SI %s" %
                                  (instance_name, si_obj.get_fq_name_str()))
         else:
@@ -630,9 +642,9 @@ class InstanceManager(object):
                 pt_vnc.fq_name = pt.fq_name
                 vmi_obj.add_port_tuple(pt_vnc)
             try:
-                self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+                vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             except RefsExistError:
-                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+                vmi_id = self._vnc_lib.virtual_machine_interface_update(vmi_obj)['virtual-machine-interface']['uuid']
 
             if pi:
                 self._vnc_lib.ref_relax_for_delete(vmi_obj.uuid, pi.uuid)
@@ -642,7 +654,7 @@ class InstanceManager(object):
         # VMI should be owned by tenant
         self._vnc_lib.chown(vmi_obj.uuid, proj_obj.uuid)
 
-        VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
+        VirtualMachineInterfaceSM.locate(vmi_obj.uuid, dictify(vmi_obj))
 
         # instance ip
         iip_obj = None

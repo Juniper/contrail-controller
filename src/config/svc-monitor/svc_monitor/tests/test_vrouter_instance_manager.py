@@ -22,6 +22,8 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         self.mocked_vnc.virtual_machine_interface_create = test_utils.vmi_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
+        self.mocked_vnc.instance_ip_read = test_utils.iip_vnc_read
+
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
 

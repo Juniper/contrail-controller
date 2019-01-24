@@ -37,6 +37,7 @@ from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.exceptions import ResourceExhaustionError
 from vnc_api.utils import AAA_MODE_VALID_VALUES
 from config_db import *
+from dictify import dictify
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -391,7 +392,7 @@ class SvcMonitor(object):
             return
 
         # Create the service template in local db
-        ServiceTemplateSM.locate(st_uuid)
+        ServiceTemplateSM.locate(st_uuid, dictify(st_obj))
 
         self.logger.info("%s created with uuid %s" %
                              (st_name, str(st_uuid)))
