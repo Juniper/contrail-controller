@@ -9,12 +9,54 @@ Device Manager amqp handler
 
 import socket
 
+from cfgm_common import vnc_etcd
 from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common.vnc_etcd import VncEtcdWatchHandle
 
 from db import DBBaseDM, VirtualNetworkDM, PhysicalRouterDM
 
 
-class DMAmqpHandle(VncAmqpHandle):
+def dm_amqp_factory(logger, reaction_map, args):
+    """Device Mapper Amqp factory function."""
+    q_name_prefix = 'device_manager'
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
+    if hasattr(args, 'notification_driver') and args.notification_driver == 'etcd':
+        return DMAmqpHandleEtcd(logger, reaction_map, args, host_ip, q_name_prefix, timer_obj)
+    return DMAmqpHandleRabbit(logger, reaction_map, args)
+
+
+class DMAmqpHandleEvaluateDependencyMixin(object):
+    """Mixin evaluate_dependency in DMAmqpHandle* classes."""
+
+    def evaluate_dependency(self):
+        if not self.dependency_tracker:
+            return
+        for vn_id in self.dependency_tracker.resources.get(
+                'virtual_network', []):
+            vn = VirtualNetworkDM.get(vn_id)
+            if vn is not None:
+                vn.update_instance_ip_map()
+        for pr_id in self.dependency_tracker.resources.get(
+                'physical_router', []):
+            pr = PhysicalRouterDM.get(pr_id)
+            if pr is not None:
+                pr.set_config_state()
+                pr.uve_send()
+
+
+class DMAmqpHandleEtcd(VncEtcdWatchHandle, DMAmqpHandleEvaluateDependencyMixin):
+
+    def __init__(self, logger, reaction_map, args, host_ip, q_name_prefix, timer_obj=None):
+        etcd_cfg = vnc_etcd.etcd_args(args)
+        super(DMAmqpHandleEtcd, self).__init(logger._sandesh, logger, DBBaseDM,
+                                             reaction_map, etcd_cfg, host_ip,
+                                             timer_obj=timer_obj)
+
+
+class DMAmqpHandleRabbit(VncAmqpHandle, DMAmqpHandleEvaluateDependencyMixin):
 
     def __init__(self, logger, reaction_map, args):
         q_name_prefix = 'device_manager'
@@ -32,22 +74,7 @@ class DMAmqpHandle(VncAmqpHandle):
             host_ip = args.host_ip
         else:
             host_ip = socket.gethostbyname(socket.getfqdn())
-        super(DMAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseDM,
-                reaction_map, q_name_prefix, rabbitmq_cfg, host_ip)
-
-    def evaluate_dependency(self):
-        if not self.dependency_tracker:
-            return
-
-        for vn_id in self.dependency_tracker.resources.get('virtual_network',
-                                                           []):
-            vn = VirtualNetworkDM.get(vn_id)
-            if vn is not None:
-                vn.update_instance_ip_map()
-
-        for pr_id in self.dependency_tracker.resources.get('physical_router',
-                                                           []):
-            pr = PhysicalRouterDM.get(pr_id)
-            if pr is not None:
-                pr.set_config_state()
-                pr.uve_send()
+        super(DMAmqpHandleRabbit, self).__init__(logger._sandesh, logger,
+                                                 DBBaseDM, reaction_map,
+                                                 q_name_prefix, rabbitmq_cfg,
+                                                 host_ip)

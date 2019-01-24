@@ -6,57 +6,62 @@
 This file contains implementation of managing physical router configuration
 """
 
-import gevent
-# Import kazoo.client before monkey patching
-from cfgm_common.zkclient import ZookeeperClient
-from gevent import monkey
-monkey.patch_all()
-import sys
 import argparse
-import requests
 import ConfigParser
-import socket
-import time
 import hashlib
-import signal
 import random
+import signal
+import socket
+import sys
+import time
 import traceback
 from pprint import pformat
 
+import gevent
+import requests
+from gevent import monkey
+
+from ansible_base import AnsibleBase
+from cassandra import DMCassandraDB
+from cfgm_common import vnc_cgitb
+from cfgm_common.dependency_tracker import DependencyTracker
+from cfgm_common.exceptions import NoIdError, ResourceExhaustionError
+from cfgm_common.utils import cgitb_hook
+from cfgm_common.uve.nodeinfo.ttypes import NodeStatus, NodeStatusUVE
+from cfgm_common.uve.virtual_network.ttypes import *
+from cfgm_common.vnc_db import DBBase
+from cfgm_common.vnc_logger import ConfigServiceLogger
+# Import kazoo.client before monkey patching
+from cfgm_common.zkclient import ZookeeperClient
+from db import (AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM,
+                DBBaseDM, DeviceMapperDBMixin, E2ServiceProviderDM, FabricDM,
+                FabricNamespaceDM, FloatingIpDM, FloatingIpPoolDM,
+                GlobalSystemConfigDM, GlobalVRouterConfigDM, InstanceIpDM,
+                LinkAggregationGroupDM, LogicalInterfaceDM, LogicalRouterDM,
+                NetworkDeviceConfigDM, NodeProfileDM, PeeringPolicyDM,
+                PhysicalInterfaceDM, PhysicalRouterDM, PortTupleDM,
+                RoleConfigDM, RoutingInstanceDM, SecurityGroupDM,
+                ServiceConnectionModuleDM, ServiceEndpointDM,
+                ServiceInstanceDM, ServiceObjectDM, VirtualMachineInterfaceDM,
+                VirtualNetworkDM)
+from device_conf import DeviceConf
+from dm_amqp import dm_amqp_factory
+from dm_utils import PushConfigState
+from etcd import DMEtcdDB
+from logger import DeviceManagerLogger
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.virtual_network.ttypes import *
+from sandesh_common.vns.constants import (INSTANCE_ID_DEFAULT, Module2NodeType,
+                                          ModuleNames, NodeTypeNames)
 from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
-    NodeTypeNames, INSTANCE_ID_DEFAULT
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.exceptions import ResourceExhaustionError
-from cfgm_common.exceptions import NoIdError
-from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
-from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
-    NodeStatus
-from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
-    ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
-    VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
-    ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
-    NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
-    SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
-    DataCenterInterconnectDM
-from dm_amqp import DMAmqpHandle
-from dm_utils import PushConfigState
-from ansible_base import AnsibleBase
-from device_conf import DeviceConf
-from cfgm_common.dependency_tracker import DependencyTracker
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
-from cfgm_common.vnc_logger import ConfigServiceLogger
-from logger import DeviceManagerLogger
+
+monkey.patch_all()
+
 
 
 # zookeeper client connection
@@ -320,12 +325,14 @@ class DeviceManager(object):
         gevent.signal(signal.SIGHUP, self.sighup_handler)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args)
+        self._vnc_amqp = dm_amqp_factory(self.logger, self.REACTION_MAP, self._args)
         self._vnc_amqp.establish()
 
-        # Initialize cassandra
-        self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
+        # Initialize etcd or cassandra
+        if hasattr(args, "db_driver") and args.db_driver == "etcd":
+            self._object_db = DMEtcdDB.get_instance(args, self._vnc_lib, self.logger)
+        else:
+            self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
@@ -499,7 +506,7 @@ class DeviceManager(object):
         for obj_cls in DBBaseDM.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
-        DMCassandraDB.clear_instance()
+        DeviceMapperDBMixin.clear_instance()
         inst._object_db = None
         cls._device_manager = None
 
@@ -787,7 +794,7 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
+    vnc_amqp = dm_amqp_factory(dm_logger, DeviceManager.REACTION_MAP, args)
     vnc_amqp.establish()
     vnc_amqp.close()
     dm_logger.debug("Removed remained AMQP queue")
