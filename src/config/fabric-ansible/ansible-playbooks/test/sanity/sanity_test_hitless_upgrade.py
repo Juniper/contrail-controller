@@ -137,6 +137,7 @@ class SanityTestHitless(SanityBase):
                 final_upgrade_list.append(upgrade_dict)
             advanced_params = {
                 "bulk_device_upgrade_count": 4,
+                "health_check_abort": True,
                 "Juniper": {
                     "bgp": {
                         "bgp_flap_count": 4,
