@@ -107,10 +107,15 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt,
                                           path->GetSource(), path->GetPeer(),
                                           path->GetPathId());
+    uint32_t prev_flags = 0 , prev_label = 0;
+    const BgpAttr *prev_attr = NULL;
     if (dest_path != NULL) {
-        if ((new_attr != dest_path->GetOriginalAttr()) ||
-            (path->GetFlags() != dest_path->GetFlags()) ||
-            (path->GetLabel() != dest_path->GetLabel())) {
+        prev_flags = dest_path->GetFlags();
+        prev_label = dest_path->GetLabel();
+        prev_attr = dest_path->GetOriginalAttr();
+        if ((new_attr != prev_attr) ||
+            (path->GetFlags() != prev_flags) ||
+            (path->GetLabel() != prev_label)) {
             // Update Attributes and notify (if needed)
             assert(dest_route->RemoveSecondaryPath(src_rt, path->GetSource(),
                         path->GetPeer(), path->GetPathId()));
@@ -125,12 +130,25 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);
 
+    // BgpRoute::InsertPath() triggers routing policies processing, which may
+    // change the flags (namely, RoutingPolicyReject). So we check the flags
+    // once again and only notify the partition if the new path is still
+    // different after routing policies were applied.
+    bool notify = true;
+    if (dest_path != NULL) {
+        if ((replicated_path->GetOriginalAttr() == prev_attr) &&
+            (replicated_path->GetFlags() == prev_flags) &&
+            (replicated_path->GetLabel() == prev_label))
+            notify = false;
+    }
+
     // Notify the route even if the best path may not have changed. For XMPP
     // peers, we support sending multiple ECMP next-hops for a single route.
     //
     // TODO(ananth): Can be optimized for changes that does not result in
     // any change to ECMP list.
-    rtp->Notify(dest_route);
+    if (notify)
+        rtp->Notify(dest_route);
 
     return dest_route;
 }
