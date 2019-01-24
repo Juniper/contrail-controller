@@ -11,6 +11,7 @@
     jl_err_message: |
         {{prouter_name}} failed device health check with {{ device_health_report.total_failures }} failures
         Health report for {{prouter_name}}:\n {{device_health_report|to_yaml}}
+    upgrade_error_state: "{{DEVICE_STATE.HEALTH_CHECK_FAILED}}"
     results:
       "test_results": "{{ device_health_report }}"
 

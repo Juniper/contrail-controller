@@ -92,13 +92,13 @@ fpc:
 {% endif %}
 {% endif %}
 {% if advanced_parameters.Juniper.storm_control_flag_check == True %}
-ethernet_switching_interface:
-  - command: show ethernet-switching interface
-  - iterate:
-      xpath: '//l2ng-l2ald-iff-interface-entry'
-      id: './l2iff-interface-name'
-      tests:
-        - exists: l2iff-interface-flags
-          err: "Test Failed!! l2iff-interface-flags of {% raw %}<{{post['cl2iff-interface-flags']}}>{% endraw %} is present"
-          info: "Test succeeded!! l2iff-interface-flags is equal to {% raw %}<{{post['l2iff-interface-flags']}}>{% endraw %}"
+#ethernet_switching_interface:
+#  - command: show ethernet-switching interface
+#  - iterate:
+#      xpath: '//l2ng-l2ald-iff-interface-entry'
+#      id: './l2iff-interface-name'
+#      tests:
+#        - exists: l2iff-interface-flags
+#          err: "Test Failed!! l2iff-interface-flags of {% raw %}<{{post['cl2iff-interface-flags']}}>{% endraw %} is present"
+#          info: "Test succeeded!! l2iff-interface-flags is equal to {% raw %}<{{post['l2iff-interface-flags']}}>{% endraw %}"
 {% endif %}
