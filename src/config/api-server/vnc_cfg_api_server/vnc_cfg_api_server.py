@@ -3608,7 +3608,7 @@ class VncApiServer(object):
 
                 # saving the objects to the database
                 for obj in item.get("objects"):
-                    instance_obj = cls_ob(**obj)
+                    instance_obj = cls_ob.from_dict(**obj)
                     self.create_singleton_entry(instance_obj)
 
                     # update the objects if it already exists
