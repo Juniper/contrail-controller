@@ -2,7 +2,7 @@
   block:
     - name: check to see if the ansible file for the vendor and family exists
       stat:
-        path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+        path: "/opt/contrail/fabric_ansible_playbooks/roles/import_interfaces_info/templates/{{prouter_vendor}}_{{prouter_family}}.j2"
       register: p
 
     - name: Use vendor and family specific template

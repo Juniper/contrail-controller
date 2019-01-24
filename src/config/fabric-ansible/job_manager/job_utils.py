@@ -22,6 +22,7 @@ import vnc_api
 from job_exception import JobException
 from job_messages import MsgBundle
 from inflection import camelize
+import json
 
 
 class JobStatus(Enum):
