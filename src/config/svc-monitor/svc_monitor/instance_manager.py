@@ -25,6 +25,7 @@ from cfgm_common import analytics_client
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from config_db import *
+from dictify import dictify
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -342,7 +343,7 @@ class InstanceManager(object):
         except RefsExistError:
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn_obj.get_fq_name())
-        VirtualNetworkSM.locate(vn_obj.uuid)
+        VirtualNetworkSM.locate(vn_obj.uuid, dictify(vn_obj))
 
         return vn_obj.uuid
 
