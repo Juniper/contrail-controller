@@ -167,6 +167,14 @@ void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
         static_cast<const InetUnicastRouteEntry *>(route);
     const AgentPath *active_path = uc_rt->GetActivePath();
 
+    /* This is a defensive check added to prevent the code below from casting NHs
+     * not containing an interface to RECEIVE NH */
+    const NextHop* nh = active_path->nexthop();
+    if ((nh->GetType() != NextHop::INTERFACE) &&
+        (nh->GetType() != NextHop::RECEIVE)) {
+        return;
+    }
+
     const ReceiveNH *rch_nh =
         static_cast<const ReceiveNH*>(active_path->nexthop());
     const VmInterface *vm_intf =
