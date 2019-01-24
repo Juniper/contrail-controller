@@ -180,8 +180,9 @@ class OpencontrailLoadbalancerDriver(
             si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
                 fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
-            self._api.service_instance_create(si_obj)
-            ServiceInstanceSM.locate(si_obj.uuid)
+            si_id = self._api.service_instance_create(si_obj)
+            si_obj = self._api.service_instance_read(id=si_id)
+            ServiceInstanceSM.locate(si_obj.uuid, si_obj.to_dict())
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer-pool', pool.uuid,
@@ -237,8 +238,9 @@ class OpencontrailLoadbalancerDriver(
             si_obj = ServiceInstance(name=fq_name[-1], parent_type='project',
                 fq_name=fq_name, service_instance_properties=props)
             si_obj.set_service_template(self.get_lb_template())
-            self._api.service_instance_create(si_obj)
-            ServiceInstanceSM.locate(si_obj.uuid)
+            si_id = self._api.service_instance_create(si_obj)
+            si_obj = self._api.service_instance_read(id=si_id)
+            ServiceInstanceSM.locate(si_obj.u_uid, si_obj.to_dict())
 
         if si_refs is None or si_refs != si_obj.uuid:
             self._api.ref_update('loadbalancer', lb.uuid,
