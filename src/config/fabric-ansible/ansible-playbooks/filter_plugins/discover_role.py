@@ -40,7 +40,7 @@ class FilterModule(object):
             FilterLog.instance("DiscoverRoleFilter", prouter_name)
             FilterModule._validate_job_ctx(job_ctx)
             fabric_fqname = job_ctx.get('fabric_fqname')
-            vnc_lib = JobVncApi.vnc_init(job_ctx)
+            self.vnc_lib = JobVncApi.vnc_init(job_ctx)
 
             # form the hardware fqname from prouter_vendor_name and
             # prouter_product_name
@@ -50,7 +50,7 @@ class FilterModule(object):
             # read the hardware object with this fq_name
             _task_log("Reading the hardware object")
             try:
-                hw_obj = vnc_lib.hardware_read(fq_name=hw_fq_name)
+                hw_obj = self.vnc_lib.hardware_read(fq_name=hw_fq_name)
             except NoIdError as no_id_exc:
                 _task_log("\nHardware Object not present in "
                           "database: " + str(no_id_exc))
@@ -82,14 +82,14 @@ class FilterModule(object):
             # read the fabric_object to get a list of node-profiles under
             # this fabric_object
             _task_log("Reading the fabric object")
-            fabric_obj = vnc_lib.fabric_read(fq_name=fab_fq_name)
+            fabric_obj = self.vnc_lib.fabric_read(fq_name=fab_fq_name)
             _task_done()
 
             # get the list of node profile_uuids under the given fabric
-            _task_log("Getting the list of node-profile-uuids" \
-                      " under this fabric object .... ")
+            _task_log("Getting the list of node-profile-uuids "
+                      "under this fabric object .... ")
             node_profiles_list = fabric_obj.get_node_profile_refs() or []
-            node_profile_obj_uuid_list = self._get_object_uuid_list(
+            node_profile_obj_uuid_list = FilterModule._get_object_uuid_list(
                 node_profiles_list)
             _task_done()
 
@@ -98,12 +98,12 @@ class FilterModule(object):
             # node-profile that can match a hardware under the current
             # given fabric
 
-            _task_log("Checking to see if any node-profile" \
-                      " is under given fabric .... \n")
+            _task_log("Checking to see if any node-profile "
+                      "is under given fabric .... \n")
             upd_resp, node_profile_refs = self._do_role_discovery(
                 np_back_refs,
                 prouter_name,
-                vnc_lib, prouter_uuid,
+                prouter_uuid,
                 node_profile_obj_uuid_list)
 
             _task_log(upd_resp + "\n")
@@ -135,16 +135,17 @@ class FilterModule(object):
             }
     # end discover_role
 
-    def _get_object_uuid_list(self, object_list):
+    @staticmethod
+    def _get_object_uuid_list(object_list):
         obj_uuid_list = []
 
-        for object in object_list or []:
-            obj_uuid_list.append(object['uuid'])
+        for obj in object_list or []:
+            obj_uuid_list.append(obj['uuid'])
 
         return obj_uuid_list
     # end _get_object_uuid_list
 
-    def _do_role_discovery(self, np_back_refs, prouter_name, vnc_lib,
+    def _do_role_discovery(self, np_back_refs, prouter_name,
                            prouter_uuid, node_profile_obj_uuid_list):
         upd_resp = ""
         node_profile_refs = []
@@ -153,7 +154,7 @@ class FilterModule(object):
             if np_back_ref['uuid'] in node_profile_obj_uuid_list:
                 upd_resp += "Creating ref between %s and %s ....\n" \
                             % (prouter_name, np_back_ref['to'][-1])
-                ref_upd_resp = vnc_lib.ref_update("physical_router",
+                ref_upd_resp = self.vnc_lib.ref_update("physical_router",
                                                   prouter_uuid,
                                                   "node_profile",
                                                   np_back_ref['uuid'],
