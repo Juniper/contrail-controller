@@ -16,6 +16,8 @@ from f5.bigip import bigip_interfaces
 
 from svc_monitor.config_db import *
 
+from svc_monitor.dictify import dictify
+
 APP_COOKIE_RULE_PREFIX = 'app_cookie_'
 RPS_THROTTLE_RULE_PREFIX = 'rps_throttle_'
 
@@ -1211,7 +1213,7 @@ class OpencontrailF5LoadbalancerDriver(
         ip_obj.set_virtual_network(net_obj)
         ip_obj.set_instance_ip_family("v4")
         ip_id = self._api.instance_ip_create(ip_obj)
-        obj = InstanceIpSM.locate(ip_id)
+        obj = InstanceIpSM.locate(ip_id, dictify(ip_obj))
         return obj.address, ip_id
     # end _allocate_ip
 

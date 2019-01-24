@@ -21,6 +21,12 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.mocked_vnc.virtual_machine_interface_create = test_utils.vmi_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
 
+        self.mocked_vnc.instance_ip_read = test_utils.iip_vnc_read
+        self.mocked_vnc.interface_route_table_read = test_utils.irt_vnc_read
+        self.mocked_vnc.virtual_machine_read = test_utils.vm_vnc_read
+        self.mocked_vnc.virtual_network_read = test_utils.vn_vnc_read
+
+
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
 

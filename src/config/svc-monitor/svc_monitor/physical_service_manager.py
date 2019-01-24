@@ -11,7 +11,7 @@ from config_db import (
     ServiceTemplateSM,
     PortTupleSM)
 from cfgm_common import svc_info
-
+from dictify import dictify
 
 class PhysicalServiceManager(InstanceManager):
 
@@ -127,7 +127,8 @@ class PhysicalServiceManager(InstanceManager):
                                          vmi.physical_interface,
                                          None,
                                          'DELETE')
-                PhysicalInterfaceSM.locate(vmi.physical_interface)
+                pi_obj = self._vnc_lib.physical_interface_read(id=vmi.physical_interface)
+                PhysicalInterfaceSM.locate(vmi.physical_interface, dictify(pi_obj))
             except:
                 pass
 
