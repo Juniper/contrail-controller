@@ -7,6 +7,7 @@ from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
 import ConfigParser
+import test_common_utils as test_utils
 
 class F5LBTest(unittest.TestCase):
     def setUp(self):
@@ -70,8 +71,7 @@ class F5LBTest(unittest.TestCase):
         # return NoIdError exception for first query
         def no_id_side_effect(fq_name):
             raise NoIdError("xxx")
-        self.vnc_lib.service_appliance_set_read = \
-            mock.Mock(side_effect=no_id_side_effect)
+        self.vnc_lib.service_appliance_set_read = test_utils.sas_vnc_read
 
         self.lb_agent = loadbalancer_agent.LoadbalancerAgent(self.svc,
             self.vnc_lib, self.object_db, self._args)

@@ -335,6 +335,7 @@ class SvcMonitorTest(unittest.TestCase):
 
         self.add_domain("default-domain", 'default-domain')
         self.vnc_mock.service_template_create = test_utils.st_create
+        self.vnc_mock.virtual_machine_read = test_utils.vm_vnc_read
         config_db.DBBaseSM._object_db = mock.MagicMock()
         config_db.DBBaseSM._object_db.object_list = self.db_list
         config_db.DBBaseSM._object_db.object_read = self.db_read
