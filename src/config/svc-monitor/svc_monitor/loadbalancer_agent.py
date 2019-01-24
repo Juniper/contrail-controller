@@ -97,7 +97,8 @@ class LoadbalancerAgent(Agent):
             sa_set_obj.set_perms2(perms2)
             sa_set_obj.set_service_appliance_driver(driver_name)
             sa_set_uuid = self._vnc_lib.service_appliance_set_create(sa_set_obj)
-            ServiceApplianceSetSM.locate(sa_set_uuid)
+            sa_set_obj = self._vnc_lib.service_appliance_set_read(id = sa_set_uuid)
+            ServiceApplianceSetSM.locate(sa_set_uuid, sa_set_obj.to_dict())
 
     def load_drivers(self):
         for sas in ServiceApplianceSetSM.values():

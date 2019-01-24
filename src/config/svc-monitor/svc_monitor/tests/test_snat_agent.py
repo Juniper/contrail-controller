@@ -13,6 +13,7 @@ from vnc_api.vnc_api import *
 from svc_monitor.module_logger import ServiceMonitorModuleLogger
 from svc_monitor.sandesh.port_tuple import ttypes
 from cfgm_common import exceptions as vnc_exc
+import test_common_utils as test_utils
 
 PROJECT_FQ_NAME = ['default-domain', 'demo']
 PROJECT_UUID = 'a8d55cfc-c66a-4eeb-82f8-d144fe74c46b'
@@ -331,6 +332,7 @@ class SnatAgentTest(unittest.TestCase):
         self.vnc_lib.route_table_create = mock.Mock()
         self.vnc_lib.virtual_network_update = mock.Mock()
         self.vnc_lib.logical_router_update = mock.Mock()
+        self.vnc_lib.virtual_network_read = test_utils.vn_vnc_read
 
         router_obj = config_db.LogicalRouterSM.locate(router['uuid'], router)
         self.snat_agent.update_snat_instance(router_obj)
