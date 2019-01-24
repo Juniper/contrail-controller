@@ -175,7 +175,7 @@ class AnsibleBase(object):
     # end device_get
 
     @abc.abstractmethod
-    def push_conf(self, is_delete=False):
+    def push_conf(self, feature_configs=None, is_delete=False):
         """push config to device"""
         return 0
     # end push_conf
