@@ -6,6 +6,7 @@
 This file contains implementation of data model for physical router
 configuration manager
 """
+from attrdict import AttrDict
 from device_conf import DeviceConf
 from ansible_base import AnsibleBase
 from dm_utils import PushConfigState
@@ -28,12 +29,28 @@ from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 from time import gmtime, strftime
 from cfgm_common.uve.physical_router_config.ttypes import *
 from cfgm_common.uve.service_status.ttypes import *
+from feature_base import FeatureBase
 import re
 import json
 import pyhash
 
 class DBBaseDM(DBBase):
     obj_type = __name__
+
+    @classmethod
+    def locate_all(cls):
+        for obj in cls.list_obj():
+            cls.locate(obj['uuid'], obj)
+    # end locate
+
+    @staticmethod
+    def _read_key_value_pair(obj, prop):
+        kvps = None
+        if obj.get(prop):
+            kvps = obj.get(prop).get('key_value_pair', [])
+            kvps = AttrDict(dict((kvp['key'], kvp['value']) for kvp in kvps))
+        return kvps
+    # end _read_key_value_pair
 # end DBBaseDM
 
 
@@ -88,6 +105,132 @@ class BgpRouterDM(DBBaseDM):
 # end class BgpRouterDM
 
 
+class FeatureDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'feature'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.features = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+
+        self.features = set()
+        self.update_multiple_refs('feature', obj)
+
+        if self.features:
+            self.features = [FeatureDM.get(f) for f in self.features]
+    # end update
+# end class FeatureDM
+
+
+class PhysicalRoleDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'physical_role'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+    # end update
+# end class PhysicalRoleDM
+
+
+class OverlayRoleDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'overlay_role'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+    # end update
+# end class OverlayRoleDM
+
+
+class FeatureConfigDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'feature_config'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.additional_params = None
+        self.vendor_config = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.additional_params = self._read_key_value_pair(obj,
+                                    'feature_config_additional_params')
+        self.vendor_config = self._read_key_value_pair(obj,
+                                    'feature_config_vendor_config')
+    # end update
+# end class FeatureDM
+
+
+class RoleDefinitionDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'role_definition'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.features = set()
+        self.feature_configs = set()
+        self.physical_role = None
+        self.overlay_role = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+
+        self.features = set()
+        self.feature_configs = set()
+        self.physical_role = None
+        self.overlay_role = None
+
+        self.set_children('feature_config', obj)
+        self.update_multiple_refs('feature', obj)
+        self.update_single_ref('physical_role', obj)
+        self.update_single_ref('overlay_role', obj)
+
+        if self.feature_configs:
+            self.feature_configs = [FeatureConfigDM.get(f) for f in self.feature_configs]
+        if self.features:
+            self.features = [FeatureDM.get(f) for f in self.features]
+        if self.physical_role:
+            self.physical_role = PhysicalRoleDM.get(self.physical_role)
+        if self.overlay_role:
+            self.overlay_role = OverlayRoleDM.get(self.overlay_role)
+    # end update
+# end class RoleDefinitionDM
+
+
 class PhysicalRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_router'
@@ -95,6 +238,8 @@ class PhysicalRouterDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.physical_role = None
+        self.overlay_roles = set()
         self.virtual_networks = set()
         self.logical_routers = set()
         self.bgp_router = None
@@ -117,6 +262,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.virtual_port_groups = []
         self.port_tuples = []
         self.node_profile = None
+        self.plugins = None
         self.nc_handler_gl = None
         self.update(obj_dict)
 
@@ -136,6 +282,7 @@ class PhysicalRouterDM(DBBaseDM):
         }
 
         if self.use_ansible_plugin():
+            self.plugins = FeatureBase.plugins(self._logger, self)
             plugin_base = AnsibleBase
         else:
             plugin_base = DeviceConf
@@ -218,8 +365,20 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
         self.update_single_ref('node_profile', obj)
-        self.allocate_asn()
+
+        self.physical_role = None
+        self.overlay_roles = set()
+
+        self.update_single_ref('physical_role', obj)
+        self.update_multiple_refs('overlay_role', obj)
+
+        if self.physical_role:
+            self.physical_role = PhysicalRoleDM.get(self.physical_role)
+        if self.overlay_roles:
+            self.overlay_roles = [OverlayRoleDM.get(o) for o in self.overlay_roles]
+
         self.reinit_device_plugin()
+        self.allocate_asn()
     # end update
 
     def get_dummy_ip(self, obj):
@@ -229,6 +388,24 @@ class PhysicalRouterDM(DBBaseDM):
             kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
             return kvp_dict.get('dummy_ip')
         return None
+    # end get_dummy_ip
+
+    def get_features(self):
+        features = {}
+        if not self.physical_role or not self.overlay_roles:
+            return features.values()
+        for rd in RoleDefinitionDM.values():
+            if rd.physical_role != self.physical_role or \
+                    rd.overlay_role not in self.overlay_roles:
+                continue
+            for feature in rd.features:
+                if feature.name not in features:
+                    features[feature.name] = AttrDict(feature=feature, configs=[])
+            for feature_config in rd.feature_configs:
+                if feature_config.name in features:
+                    features[feature_config.name].configs.append(feature_config)
+        return features.values()
+    # end get_features
 
     def set_associated_lags(self, lag_uuid):
         self.virtual_port_groups.append(lag_uuid)
@@ -304,8 +481,8 @@ class PhysicalRouterDM(DBBaseDM):
     # end verify_allocated_asn
 
     def allocate_asn(self):
-        if not self.fabric or not self.underlay_managed \
-                or not self.fabric_obj:
+        if not self.fabric or not self.underlay_managed or not self.fabric_obj \
+                or not self.config_manager:
             return
         if self.verify_allocated_asn(self.fabric_obj):
             return
@@ -500,25 +677,30 @@ class PhysicalRouterDM(DBBaseDM):
                 for subnet_prefix in vn.gateways.keys():
                     new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
 
-        old_set = set(self.vn_ip_map[ip_used_for].keys())
-        delete_set = old_set.difference(new_vn_ip_set)
-        create_set = new_vn_ip_set.difference(old_set)
+        self.evaluate_vn_ip_map(new_vn_ip_set, self.vn_ip_map[ip_used_for],
+            ip_used_for, use_gateway_ip=self.is_erb_only())
+    # end evaluate_vn_irb_ip_map
 
-        is_erb_only = self.is_erb_only()
-        for vn_subnet in new_vn_ip_set.intersection(old_set):
-            (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
-            vn = VirtualNetworkDM.get(vn_uuid)
-            ip = self.vn_ip_map[ip_used_for][vn_subnet].split('/')[0]
-            if ip == vn.gateways[subnet_prefix].get('default_gateway') and not is_erb_only:
-                create_set.add(vn_subnet)
-                delete_set.add(vn_subnet)
+    def evaluate_vn_ip_map(self, vn_set, ip_map, ip_used_for, use_gateway_ip=False):
+        old_set = set(ip_map.keys())
+        delete_set = old_set.difference(vn_set)
+        create_set = vn_set.difference(old_set)
+
+        if not use_gateway_ip:
+            for vn_subnet in vn_set.intersection(old_set):
+                (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
+                vn = VirtualNetworkDM.get(vn_uuid)
+                ip = ip_map[vn_subnet].split('/')[0]
+                if ip == vn.gateways[subnet_prefix].get('default_gateway'):
+                    create_set.add(vn_subnet)
+                    delete_set.add(vn_subnet)
 
         for vn_subnet in delete_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
-            ip = self.vn_ip_map[ip_used_for][vn_subnet]
+            ip = ip_map[vn_subnet]
             if vn and ip != vn.gateways[subnet_prefix].get('default_gateway'):
-                ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
+                ret = self.free_ip(vn_uuid, ip_map[vn_subnet])
                 if ret == False:
                     self._logger.error("Unable to free ip for vn/subnet/pr "
                                        "(%s/%s/%s)" % (vn_uuid, subnet_prefix,
@@ -533,14 +715,14 @@ class PhysicalRouterDM(DBBaseDM):
                 continue
 
             self._object_db.delete_from_pr_map(self.uuid, vn_subnet, ip_used_for)
-            del self.vn_ip_map[ip_used_for][vn_subnet]
+            del ip_map[vn_subnet]
 
         for vn_subnet in create_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
-            if is_erb_only:
+            if use_gateway_ip:
                 ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
             else:
                 ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
@@ -561,8 +743,38 @@ class PhysicalRouterDM(DBBaseDM):
                                                        self.uuid))
                 continue
             self._object_db.add_to_pr_map(self.uuid, vn_subnet, ip_used_for)
-            self.vn_ip_map[ip_used_for][vn_subnet] = ip_addr + '/' + length
-    # end evaluate_vn_irb_ip_map
+            ip_map[vn_subnet] = ip_addr + '/' + length
+    # end evaluate_vn_ip_map
+
+    def allocate_irb_ips_for(self, vns, use_gateway_ip):
+        new_vns = set()
+        for vn_uuid in vns:
+            vn = VirtualNetworkDM.get(vn_uuid)
+            if not vn:
+                continue
+            if vn.get_forwarding_mode() != 'l2_l3':
+                continue
+            for subnet_prefix in vn.gateways.keys():
+                new_vns.add(vn_uuid + ':' + subnet_prefix)
+
+        irb_ip_map = self.vn_ip_map['irb']
+        self.evaluate_vn_ip_map(new_vns, irb_ip_map, 'irb',
+            use_gateway_ip=use_gateway_ip)
+        return self.get_ip_map_for(irb_ip_map)
+    # end allocate_irb_ips_for
+
+    def get_ip_map_for(self, vn_ip_map):
+        ips = {}
+        for vn_subnet, ip_addr in vn_ip_map.items():
+            (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
+            vn = VirtualNetworkDM.get(vn_uuid)
+            if vn_uuid not in ips:
+                ips[vn_uuid] = set()
+            ips[vn_uuid].add(
+                (ip_addr,
+                vn.gateways[subnet_prefix].get('default_gateway')))
+        return ips
+    # end get_ip_map_for
 
     def is_vnc_managed(self):
         if not self.vnc_managed:
@@ -680,13 +892,24 @@ class PhysicalRouterDM(DBBaseDM):
             return
         if self.delete_config() or not self.is_vnc_managed():
             return
+
         self.config_manager.initialize()
         if not self.config_manager.validate_device():
             self._logger.error("physical router: %s, device config validation failed. "
                   "device configuration=%s" % (self.uuid, \
                            str(self.config_manager.get_device_config())))
             return
-        config_size = self.config_manager.push_conf()
+
+        if self.use_ansible_plugin():
+            feature_configs = {}
+            for plugin in self.plugins:
+                feature_config = plugin.feature_config()
+                if feature_config:
+                    feature_configs[feature_config.name] = feature_config
+            config_size = self.config_manager.push_conf(feature_configs=feature_configs)
+        else:
+            config_size = self.config_manager.push_conf()
+
         if not config_size:
             return
         self.set_conf_sent_state(True)
@@ -1300,10 +1523,18 @@ class LogicalRouterDM(DBBaseDM):
             vn_list.append(self.virtual_network)
         for vmi_uuid in self.virtual_machine_interfaces or []:
             vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
-            if vmi:
+            if vmi and vmi.virtual_network:
                 vn_list.append(vmi.virtual_network)
         return vn_list
     # end get_connected_networks
+
+    def get_dci_network(self):
+        if self.data_center_interconnect:
+            dci = DataCenterInterconnectDM.get(self.data_center_interconnect)
+            if dci:
+                return dci.virtual_network
+        return None
+    # end get_dci_network
 
     @classmethod
     def delete(cls, uuid):
@@ -1405,6 +1636,7 @@ class VirtualNetworkDM(DBBaseDM):
             lr_obj = LogicalRouterDM.get(lr_uuid)
             if lr_obj:
                 self.logical_router = lr_obj.uuid
+                self.router_external = lr_obj.logical_router_gateway_external
                 lr_obj.virtual_network = self.uuid
     # end set_logical_router
 
@@ -1418,10 +1650,8 @@ class VirtualNetworkDM(DBBaseDM):
         self.set_children('floating_ip_pool', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
-        try:
-            self.router_external = obj['router_external']
-        except KeyError:
-            self.router_external = False
+        if not self.logical_router:
+            self.router_external = obj.get('router_external', False)
         self.vn_network_id = obj.get('virtual_network_network_id')
         self.virtual_network_properties = obj.get('virtual_network_properties')
         self.set_forwarding_mode(obj)

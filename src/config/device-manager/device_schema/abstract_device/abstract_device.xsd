@@ -6,6 +6,7 @@
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="system" type="dac:System"/>
+       <!-- Deprecated: These sections are encapsulated inside feature groups -->
        <xsd:element name="evpn" type="dac:Evpn"/>
        <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
        <xsd:element name="routing-instances" type="dac:RoutingInstance" maxOccurs="unbounded"/>
@@ -15,6 +16,23 @@
        <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
        <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
        <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
+       <!-- Deprecated: These sections are encapsulated inside feature groups -->
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Feature">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="evpn" type="dac:Evpn"/>
+        <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
+        <xsd:element name="routing-instances" type="dac:RoutingInstance" maxOccurs="unbounded"/>
+        <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
+        <xsd:element name="firewall" type="dac:Firewall"/>
+        <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
+        <xsd:element name="security-policies" type="dac:SecurityPolicy" maxOccurs="unbounded"/>
+        <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
+        <xsd:element name="tunnel-ip" type="xsd:string"/>
+        <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -32,8 +50,10 @@
        <xsd:element name="credentials" type="dac:Credentials"/>
        <xsd:element name="loopback-ip-list" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="encapsulation-priorities" type="xsd:string" maxOccurs="unbounded"/>
+       <!-- Deprecated: These sections are encapsulated inside feature groups -->
        <xsd:element name="tunnel-ip" type="xsd:string"/>
        <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
+       <!-- Deprecated: These sections are encapsulated inside feature groups -->
        <xsd:element name="is-ucast-gateway-only" type="xsd:boolean"/>
        <xsd:element name="dummy-ip" type="xsd:string"/>
     </xsd:all>
