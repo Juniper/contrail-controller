@@ -1021,6 +1021,101 @@
       ]
     },
     {
+      "object_type": "feature",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "overlay_bgp"
+          ],
+          "name": "overlay_bgp"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "l2_gateway"
+          ],
+          "name": "l2_gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "l3_gateway"
+          ],
+          "name": "l3_gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "vn_interconnect"
+          ],
+          "name": "vn_interconnect"
+        }
+      ]
+    },
+    {
+      "object_type": "physical-role",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "leaf"
+          ],
+          "name": "leaf"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "spine"
+          ],
+          "name": "spine"
+        }
+      ]
+    },
+    {
+      "object_type": "overlay-role",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "erb-ucast-gateway"
+          ],
+          "name": "erb-ucast-gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-mcast-gateway"
+          ],
+          "name": "crb-mcast-gateway"
+        }
+      ]
+    },
+    {
+      "object_type": "role-definition",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "erb_leaf"
+          ],
+          "name": "erb@leaf"
+        }
+      ]
+    },
+    {
+      "object_type": "feature-config",
+      "objects": [
+        {
+          "fq_name": [
+            "default-global-system-config", "erb_leaf", "l3_gateway"
+          ],
+          "name": "l3_gateway",
+          "parent_type": "role-definition",
+          "feature_config_additional_params": [
+            { "use_gateway_ip": "True" }
+          ]
+        }
+      ]
+    },
+    {
       "object_type": "node-profile",
       "objects": [
         {
@@ -1278,6 +1373,36 @@
     }
   ],
   "refs": [
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "underlay_ip_clos" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "overlay_bgp" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l2_gateway" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3_gateway" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn_interconnect" ]
+    },
     {
       "from_type": "node_profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
@@ -1571,6 +1696,18 @@
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx4200" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "to_type": "overlay_role",
+      "to_fq_name": [ "default-global-system-config", "erb-ucast-gateway" ]
     },
     {
       "from_type": "role_config",
