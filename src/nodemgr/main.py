@@ -47,6 +47,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
 from analytics_nodemgr.event_manager import AnalyticsEventManager
+from analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
+from analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
 from config_nodemgr.event_manager import ConfigEventManager
 from control_nodemgr.event_manager import ControlEventManager
 from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
@@ -61,11 +63,25 @@ node_properties = {
         'unit_names': [
             'contrail-collector',
             'contrail-analytics-api',
-            'contrail-snmp-collector',
-            'contrail-query-engine',
-            'contrail-alarm-gen',
-            'contrail-topology',
             'contrail-analytics-nodemgr'
+        ],
+    },
+    'contrail-analytics-snmp': {
+        'config_file': '/etc/contrail/contrail-analytics-snmp-nodemgr.conf',
+        'event_manager': AnalyticsSNMPEventManager,
+        'unit_names': [
+            'contrail-snmp-collector',
+            'contrail-topology',
+            'contrail-analytics-snmp-nodemgr',
+        ],
+    },
+    'contrail-analytics-alarm': {
+        'config_file': '/etc/contrail/contrail-analytics-alarm-nodemgr.conf',
+        'event_manager': AnalyticsAlarmEventManager,
+        'unit_names': [
+            'contrail-alarm-gen',
+            'kafka',
+            'contrail-analytics-alarm-nodemgr',
         ],
     },
     'contrail-config': {
@@ -111,8 +127,7 @@ node_properties = {
         'event_manager': AnalyticsDatabaseEventManager,
         'unit_names': [
             'cassandra',
-            'zookeeper',
-            'kafka',
+            'contrail-query-engine',
             'contrail-database-nodemgr'
         ],
     },

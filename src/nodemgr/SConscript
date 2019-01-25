@@ -36,6 +36,22 @@ analytics_sources_rules = []
 for file in analytics_sources:
     analytics_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_nodemgr"), file))
 
+analytics_alarm_sources = [
+           '__init__.py',
+           'analytics_alarm_nodemgr/event_manager.py'
+          ]
+analytics_alarm_sources_rules = []
+for file in analytics_alarm_sources:
+    analytics_alarm_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_alarm_nodemgr"), file))
+
+analytics_snmp_sources = [
+           '__init__.py',
+           'analytics_snmp_nodemgr/event_manager.py'
+          ]
+analytics_snmp_sources_rules = []
+for file in analytics_snmp_sources:
+    analytics_snmp_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_snmp_nodemgr"), file))
+
 control_sources = [
            '__init__.py',
            'control_nodemgr/event_manager.py'
@@ -111,6 +127,7 @@ def BuildInfoAction(target, source, env):
 build_info_rules = [OpEnv.Command(target='nodemgr/common/buildinfo.py', source = None, action=BuildInfoAction)]
 
 sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rules,
+                 analytics_alarm_sources_rules, analytics_snmp_sources_rules,
                  control_sources_rules, config_sources_rules, common_sources_rules,
                  vrouter_sources_rules, database_sources_rules,
                  config_database_sources_rules, build_info_rules,
