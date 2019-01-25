@@ -45,8 +45,3 @@ class STAmqpHandle(VncAmqpHandle):
             vn = VirtualNetworkST.get(vn_id)
             if vn is not None:
                 vn.uve_send()
-        for bgp_router_id in \
-                self.dependency_tracker.resources.get('bgp_router', []):
-            bgp_router = BgpRouterST.get(bgp_router_id)
-            if bgp_router is not None:
-                bgp_router.update_peering()
