@@ -33,12 +33,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.10"
+__version__ = "1.11"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.11
+  - Make Individual connection timeout and buffer size user configurable
 * 1.10
   - Add support SSL/TLS connection to cassandra DB
 * 1.9
@@ -301,6 +303,14 @@ def _parse_args(args_str):
     parser.add_argument(
         "--debug", help="Run in debug mode, default False",
         action='store_true', default=False)
+    parser.add_argument(
+        "--connection-timeout", type=float,
+        help="Individual Connection timeout, in seconds",
+        default=0.5)
+    parser.add_argument(
+        "--buffer-size", type=int,
+        help="Number of rows fetched at once",
+        default=1024)
 
     if os.path.isdir("/var/log/contrail"):
         default_log = "/var/log/contrail/db_manage.log"
@@ -374,10 +384,13 @@ class DatabaseManager(object):
                 keyspace=full_ks_name,
                 server_list=self._cassandra_servers,
                 prefill=False, credentials=self.creds,
-                socket_factory=socket_factory)
+                socket_factory=socket_factory,
+                timeout=self._args.connection_timeout)
             for cf_name in cf_name_list:
                 self._cf_dict[cf_name] = pycassa.ColumnFamily(
-                    pool, cf_name, read_consistency_level=rd_consistency)
+                    pool, cf_name,
+                    read_consistency_level=rd_consistency,
+                    buffer_size=self._args.buffer_size)
 
         # zookeeper connection
         self.base_vn_id_zk_path = cluster_id + self.BASE_VN_ID_ZK_PATH
