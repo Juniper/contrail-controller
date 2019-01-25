@@ -297,12 +297,10 @@ class DiscoveryClient(DiscoveryRequest):
             return self._verify
         if self._cacert:
             certs=[self._cacert]
-            if self._key and self._cert:
-                certs=[self._cert, self._key, self._cacert]
-                certbundle = os.path.join(
-                    '/tmp', self._server_ip.replace('.', '_'),
-                     DiscoveryClient._DEFAULT_CERT_BUNDLE)
-                self._verify = utils.getCertKeyCaBundle(certbundle, certs)
+            certbundle = os.path.join(
+                '/var/lib/contrail',
+                DiscoveryClient._DEFAULT_CERT_BUNDLE)
+            self._verify = utils.getCertKeyCaBundle(certbundle, certs)
 
         return self._verify
 
