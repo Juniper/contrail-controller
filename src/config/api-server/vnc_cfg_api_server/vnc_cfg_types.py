@@ -1851,6 +1851,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
     portbindings['VNIC_TYPE_BAREMETAL'] = 'baremetal'
+    portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] = 'virtio-forwarder'
     portbindings['PORT_FILTER'] = True
     portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
     portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
@@ -2214,19 +2215,35 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps = bindings['key_value_pair']
             kvp_dict = cls._kvp_to_dict(kvps)
 
-            if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT']:
-                if not 'provider_properties' in  vn_dict:
-                    msg = 'No provider details in direct port'
-                    return (False, (400, msg))
-                kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
-                vif_type = {'key': 'vif_type',
-                            'value': cls.portbindings['VIF_TYPE_HW_VEB']}
-                kvps.append(vif_type)
-                vlan = vn_dict['provider_properties']['segmentation_id']
-                vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
-                              'vlan': str(vlan)}
-                vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
-                kvps.append(vif_details)
+            if (kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_DIRECT'] or
+               kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']):
+                # If the segmentation_id in provider_properties is set, then
+                # a hw_veb VIF is requested.
+                if ('provider_properties' in vn_dict and
+                   vn_dict['provider_properties'] is not None and
+                   'segmentation_id' in vn_dict['provider_properties']):
+                    kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_HW_VEB']}
+                    vlan = vn_dict['provider_properties']['segmentation_id']
+                    vif_params = {'port_filter': cls.portbindings['PORT_FILTER'],
+                                  'vlan': str(vlan)}
+                    vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                    kvps.append(vif_details)
+                    kvps.append(vif_type)
+                else:
+                    # An offloaded port is requested
+                    vnic_type = {'key': 'vnic_type',
+                                 'value': kvp_dict.get('vnic_type')}
+                    if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']:
+                        vif_params = {cls.portbindings['VHOST_USER_MODE']:
+                                      cls.portbindings['VHOST_USER_MODE_SERVER'],
+                                      cls.portbindings['VHOST_USER_SOCKET']:
+                                      cls._get_port_vhostuser_socket_name(obj_dict['uuid'])
+                                     }
+                        vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                        kvps.append(vif_details)
+                    kvps.append(vnic_type)
 
             if 'vif_type' not in kvp_dict:
                 vif_type = {'key': 'vif_type',
@@ -2402,7 +2419,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps_port = bindings_port.get('key_value_pair') or []
             kvp_dict_port = cls._kvp_to_dict(kvps_port)
             kvp_dict = cls._kvp_to_dict(kvps)
-            if ((kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] or
+            if (kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] and
+               kvp_dict.get('host_id') != 'null'):
+                vif_type = {'key': 'vif_type',
+                            'value': cls.portbindings['VIF_TYPE_VROUTER']}
+                vif_params = {cls.portbindings['VHOST_USER_MODE']: \
+                              cls.portbindings['VHOST_USER_MODE_SERVER'],
+                              cls.portbindings['VHOST_USER_SOCKET']: \
+                              cls._get_port_vhostuser_socket_name(id),
+                              cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
+                             }
+                vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                cls._kvps_prop_update(obj_dict, kvps, prop_collection_updates, vif_type, vif_details, True)
+            elif ((kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] or
                     kvp_dict_port.get('vnic_type')  is None) and
                     kvp_dict.get('host_id') != 'null'):
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn, kvp_dict.get('host_id'))
