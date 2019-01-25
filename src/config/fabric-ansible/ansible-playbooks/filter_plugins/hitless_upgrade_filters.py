@@ -9,8 +9,8 @@ This file contains code to support the hitless image upgrade feature
 """
 
 import json
+import sys
 import traceback
-import logging
 import argparse
 from jsonschema import Draft4Validator, validators
 from vnc_api.gen.resource_xsd import (
@@ -18,7 +18,8 @@ from vnc_api.gen.resource_xsd import (
     KeyValuePair
 )
 
-from vnc_api.vnc_api import VncApi
+from job_manager.job_utils import JobVncApi
+
 #import sys
 #sys.path.append("..")
 #from test_hitless_filters import VncApi, mock_job_ctx, \
@@ -31,32 +32,11 @@ ordered_role_groups = [
      "CRB-Gateway@spine", "Route-Reflector@spine", "DC-Gateway@spine"],
 ]
 
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import FilterLog, _task_error_log
+
 
 class FilterModule(object):
-
-    @staticmethod
-    def _init_logging():
-        logger = logging.getLogger('HitlessUpgradeFilter')
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%Y/%m/%d %H:%M:%S'
-        )
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-        return logger
-    # end _init_logging
-
-    @staticmethod
-    def _init_vnc_api(job_ctx):
-        return VncApi(
-            auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-            auth_token=job_ctx.get('auth_token')
-        )
-    # end _init_vnc_api
 
     @staticmethod
     def _validate_job_ctx(job_ctx):
@@ -70,10 +50,6 @@ class FilterModule(object):
         return job_input
     # end _validate_job_ctx
 
-    def __init__(self):
-        self._logger = FilterModule._init_logging()
-    # end __init__
-
     def filters(self):
         return {
             'hitless_upgrade_plan': self.get_hitless_upgrade_plan,
@@ -85,9 +61,10 @@ class FilterModule(object):
     # Wrapper to call main routine
     def get_hitless_upgrade_plan(self, job_ctx, image_upgrade_list):
         try:
+            FilterLog.instance("HitlessUpgradeFilter")
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
             self.fabric_uuid = self.job_input['fabric_uuid']
-            self.vncapi = FilterModule._init_vnc_api(job_ctx)
+            self.vncapi = JobVncApi.vnc_init(job_ctx)
             self.job_ctx = job_ctx
             self._cache_job_input()
             self.advanced_parameters = self._get_advanced_params()
@@ -100,7 +77,7 @@ class FilterModule(object):
             errmsg = "Unexpected error: %s\n%s" % (
                 str(ex), traceback.format_exc()
             )
-            self._logger.error(errmsg)
+            _task_error_log(errmsg)
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
