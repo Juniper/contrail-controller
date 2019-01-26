@@ -294,6 +294,89 @@ TEST_F(BgpRouteTest, PathCompareAsPathLength3) {
 }
 
 //
+// EBGP paths are preferred over IBGP paths.
+//
+TEST_F(BgpRouteTest, PathCompareEIBGP) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::EBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    BgpAttrSpec spec2;
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.250", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+}
+
+//
+// Lower path-id should be preferred if peer-type is same.
+//
+TEST_F(BgpRouteTest, PathComparePathID1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec;
+    BgpAttrPtr attr = db->Locate(spec);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, 1, BgpPath::BGP_XMPP, attr, 0, 0, 0);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, 2, BgpPath::BGP_XMPP, attr, 0, 0, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+//
+// EBGP path shoud be preferred even if path-id is lower.
+//
+TEST_F(BgpRouteTest, PathComparePathID2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec;
+    BgpAttrPtr attr = db->Locate(spec);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, 1, BgpPath::BGP_XMPP, attr, 0, 0, 0);
+
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, 2, BgpPath::BGP_XMPP, attr, 0, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+//
+// EBGP path shoud be preferred even if path-id is lower.
+//
+TEST_F(BgpRouteTest, PathComparePathID3) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec;
+    BgpAttrPtr attr = db->Locate(spec);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path1(&peer1, 2, BgpPath::BGP_XMPP, attr, 0, 0, 0);
+
+    PeerMock peer2(BgpProto::EBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path2(&peer2, 1, BgpPath::BGP_XMPP, attr, 0, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+//
 // Paths with same router id are considered are equal.
 //
 TEST_F(BgpRouteTest, PathCompareRouterId1) {
