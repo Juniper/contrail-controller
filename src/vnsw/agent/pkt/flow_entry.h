@@ -263,6 +263,7 @@ struct MatchPolicy {
 
     SessionPolicy sg_policy;
     SessionPolicy aps_policy;
+    SessionPolicy fwaas_policy;
 
     MatchAclParamsList m_mirror_acl_l;
     uint32_t mirror_action;
@@ -492,6 +493,10 @@ class FlowEntry {
         DROP_OUT_FIREWALL_POLICY,
         DROP_REVERSE_FIREWALL_POLICY,
         DROP_REVERSE_OUT_FIREWALL_POLICY,
+        DROP_FWAAS_POLICY,
+        DROP_FWAAS_OUT_POLICY,
+        DROP_FWAAS_REVERSE_POLICY,
+        DROP_FWAAS_REVERSE_OUT_POLICY,
     };
 
     enum FlowPolicyState {

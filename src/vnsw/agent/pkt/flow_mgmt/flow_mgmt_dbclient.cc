@@ -138,6 +138,7 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->is_vn_qos_config_ = vm_port->is_vn_qos_config();
         state->qos_config_ = vm_port->qos_config();
         state->fw_policy_list_ = vm_port->fw_policy_list();
+        state->fwaas_fw_policy_list_ = vm_port->fwaas_fw_policy_list();
         if (vm_port->forwarding_vrf()) {
             state->forwarding_vrf_id_ = vm_port->forwarding_vrf()->vrf_id();
         }
@@ -175,6 +176,11 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
 
         if (state->fw_policy_list_ != vm_port->fw_policy_list()) {
             state->fw_policy_list_ = vm_port->fw_policy_list();
+            changed = true;
+        }
+
+        if (state->fwaas_fw_policy_list_ != vm_port->fwaas_fw_policy_list()) {
+            state->fwaas_fw_policy_list_ = vm_port->fwaas_fw_policy_list();
             changed = true;
         }
 

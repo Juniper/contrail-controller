@@ -99,7 +99,11 @@ const std::map<uint16_t, const char*>
         ((uint16_t)DROP_REVERSE_FIREWALL_POLICY,     "Flow drop REVERSE Firewall Policy")
         ((uint16_t)DROP_REVERSE_OUT_FIREWALL_POLICY, "Flow drop REVERSE OUT Firewall Policy")
         ((uint16_t)SHORT_NO_SRC_ROUTE_L2RPF, "Short flow No Source route for RPF NH")
-        ((uint16_t)SHORT_FAT_FLOW_NAT_CONFLICT, "Short flow Conflicting config for NAT and FAT flow");
+        ((uint16_t)SHORT_FAT_FLOW_NAT_CONFLICT, "Short flow Conflicting config for NAT and FAT flow")
+        ((uint16_t)DROP_FWAAS_POLICY,     "Flow drop FWAAS Policy")
+        ((uint16_t)DROP_FWAAS_OUT_POLICY, "Flow drop OUT FWAAS Policy")
+        ((uint16_t)DROP_FWAAS_REVERSE_POLICY,     "Flow drop REVERSE FWAAS Policy")
+        ((uint16_t)DROP_FWAAS_REVERSE_OUT_POLICY, "Flow drop REVERSE OUT FWAAS Policy");
 
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowEntry::default_sg_list_;
@@ -358,6 +362,7 @@ void MatchPolicy::Reset() {
     m_vrf_assign_acl_l.clear();
     vrf_assign_acl_action = 0;
     aps_policy.Reset();
+    fwaas_policy.Reset();
     action_info.Clear();
 }
 
@@ -1557,6 +1562,7 @@ void FlowEntry::ResetPolicy() {
     /* Reset sg acl list*/
     data_.match_p.sg_policy.ResetPolicy();
     data_.match_p.aps_policy.ResetPolicy();
+    data_.match_p.fwaas_policy.ResetPolicy();
     data_.match_p.m_vrf_assign_acl_l.clear();
 }
 
@@ -1601,6 +1607,7 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
 
     //Get Application policy set ACL
     GetApplicationPolicySet(data_.intf_entry.get(), rflow);
+
 }
 
 void FlowEntry::GetPolicyInfo() {
@@ -1802,6 +1809,16 @@ void FlowEntry::GetApplicationPolicySet(const Interface *intf,
             data_.match_p.aps_policy.m_reverse_out_acl_l.push_back(acl);
             data_.match_p.aps_policy.reverse_out_rule_present= true;
         }
+
+        // Get the ACL for FWAAS
+        it = vm_port->fwaas_fw_policy_list().begin();
+        for(; it != vm_port->fwaas_fw_policy_list().end(); it++) {
+            acl.acl = *it;
+            data_.match_p.fwaas_policy.m_acl_l.push_back(acl);
+            data_.match_p.fwaas_policy.rule_present = true;
+            data_.match_p.fwaas_policy.m_reverse_out_acl_l.push_back(acl);
+            data_.match_p.fwaas_policy.reverse_out_rule_present= true;
+        }
     }
 
     // For local flows, we have to apply NW Policy from out-vn also
@@ -1827,9 +1844,18 @@ void FlowEntry::GetApplicationPolicySet(const Interface *intf,
             data_.match_p.aps_policy.m_reverse_acl_l.push_back(acl);
             data_.match_p.aps_policy.reverse_rule_present = true;
         }
+
+        // Get the ACL for FWAAS
+        it = vm_port->fwaas_fw_policy_list().begin();
+        for(; it != vm_port->fwaas_fw_policy_list().end(); it++) {
+            acl.acl = *it;
+            data_.match_p.fwaas_policy.m_out_acl_l.push_back(acl);
+            data_.match_p.fwaas_policy.out_rule_present = true;
+            data_.match_p.fwaas_policy.m_reverse_acl_l.push_back(acl);
+            data_.match_p.fwaas_policy.reverse_rule_present = true;
+        }
     }
 }
-
 
 // Ingress-ACL/Egress-ACL in interface with VM as reference point.
 //      Ingress : Packet to VM
@@ -2349,6 +2375,7 @@ bool FlowEntry::DoPolicy() {
 
     data_.match_p.sg_policy.ResetAction();
     data_.match_p.aps_policy.ResetAction();
+    data_.match_p.fwaas_policy.ResetAction();
 
     const string value = FlowPolicyStateStr.at(NOT_EVALUATED);
     FlowPolicyInfo nw_acl_info(value);
@@ -2385,14 +2412,21 @@ bool FlowEntry::DoPolicy() {
     if (!is_flags_set(FlowEntry::ReverseFlow)) {
         SessionPolicy *r_sg_policy = NULL;
         SessionPolicy *r_aps_policy = NULL;
+        SessionPolicy *r_fwaas_policy = NULL;
 
         if (rflow) {
             r_sg_policy = &(rflow->data_.match_p.sg_policy);
             r_aps_policy = &(rflow->data_.match_p.aps_policy);
+            r_fwaas_policy = &(rflow->data_.match_p.fwaas_policy);
         }
 
         SessionMatch(&data_.match_p.sg_policy, r_sg_policy, true);
         if (ShouldDrop(data_.match_p.sg_policy.action_summary)) {
+            goto done;
+        }
+
+        SessionMatch(&data_.match_p.fwaas_policy, r_fwaas_policy, false);
+        if (ShouldDrop(data_.match_p.fwaas_policy.action_summary)) {
             goto done;
         }
 
@@ -2530,7 +2564,8 @@ bool FlowEntry::ActionRecompute() {
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_policy.action_summary |
         data_.match_p.mirror_action | data_.match_p.out_mirror_action |
-        data_.match_p.aps_policy.action_summary;
+        data_.match_p.aps_policy.action_summary |
+        data_.match_p.fwaas_policy.action_summary;
 
     //Only VRF assign acl, can specify action to
     //translate VRF. VRF translate action specified
@@ -2586,6 +2621,14 @@ bool FlowEntry::ActionRecompute() {
             drop_reason = DROP_REVERSE_FIREWALL_POLICY;
         } else if (ShouldDrop(data_.match_p.aps_policy.reverse_out_action)) {
             drop_reason = DROP_REVERSE_OUT_FIREWALL_POLICY;
+        } else if (ShouldDrop(data_.match_p.fwaas_policy.action)) {
+            drop_reason = DROP_FWAAS_POLICY;
+        } else if (ShouldDrop(data_.match_p.fwaas_policy.out_action)) {
+            drop_reason = DROP_FWAAS_OUT_POLICY;
+        } else if (ShouldDrop(data_.match_p.fwaas_policy.reverse_action)) {
+            drop_reason = DROP_FWAAS_REVERSE_POLICY;
+        } else if (ShouldDrop(data_.match_p.fwaas_policy.reverse_out_action)) {
+            drop_reason = DROP_FWAAS_REVERSE_OUT_POLICY;
         } else {
             drop_reason = DROP_UNKNOWN;
         }
@@ -2643,14 +2686,17 @@ void FlowEntry::UpdateReflexiveAction() {
     FlowEntry *rflow = reverse_flow_entry_.get();
     SessionPolicy *r_sg_policy = NULL;
     SessionPolicy *r_aps_policy = NULL;
+    SessionPolicy *r_fwaas_policy = NULL;
 
     if (rflow) {
         r_sg_policy = &(rflow->data_.match_p.sg_policy);
         r_aps_policy = &(rflow->data_.match_p.aps_policy);
+        r_fwaas_policy = &(rflow->data_.match_p.fwaas_policy);
     }
 
     UpdateReflexiveAction(&data_.match_p.sg_policy, r_sg_policy);
     UpdateReflexiveAction(&data_.match_p.aps_policy, r_aps_policy);
+    UpdateReflexiveAction(&data_.match_p.fwaas_policy, r_fwaas_policy);
 }
 
 void FlowEntry::UpdateReflexiveAction(SessionPolicy *sp, SessionPolicy *rsp) {
@@ -2872,6 +2918,17 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const {
         data_.match_p.aps_policy.m_out_acl_l;
     acl_type = "reverse fw acl";
     SetAclListAclAction(out_aps_l,
+                        acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &fwaas_l =
+        data_.match_p.fwaas_policy.m_acl_l;
+    acl_type = "fwaas acl";
+    SetAclListAclAction(fwaas_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &out_fwaas_l =
+        data_.match_p.fwaas_policy.m_out_acl_l;
+    acl_type = "reverse fwaas acl";
+    SetAclListAclAction(out_fwaas_l,
                         acl_action_l, acl_type);
 }
 
@@ -3098,6 +3155,10 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     SetAclListAceId(acl, data_.match_p.aps_policy.m_acl_l,
                     fe_sandesh_data.ace_l);
     SetAclListAceId(acl, data_.match_p.aps_policy.m_out_acl_l,
+                    fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.fwaas_policy.m_acl_l,
+                    fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.fwaas_policy.m_out_acl_l,
                     fe_sandesh_data.ace_l);
 
     fe_sandesh_data.set_reverse_flow(is_flags_set(FlowEntry::ReverseFlow) ?
