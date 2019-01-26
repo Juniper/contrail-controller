@@ -10,12 +10,12 @@ env = DefaultEnvironment()
 
 # Pull the grpc repo (if not present), submodule source code and run make
 if not os.path.exists(Dir(vpath).abspath) or os.listdir(Dir(vpath).abspath) == []:
-    cmd = ('(cd ' + Dir(inspath).abspath + '; ' + 'git clone -b v1.13.x https://github.com/grpc/grpc; ')
+    cmd = ('(cd ' + Dir(inspath).abspath + '; ' +
+           'curl -s http://10.84.5.100/cs-shared/ananth/grpc/grpc.txz | tar Jxf -; ')
 else:
     cmd = '('
 
-sub_cmd = ('cd ' + Dir(vpath).abspath + '; ' +
-           'git submodule update --init --recursive; make; ')
+sub_cmd = ('cd ' + Dir(vpath).abspath + '; make; ')
 
 # Create #build/include/grpc directory if not present
 # if not os.path.exists(Dir(cpppath).abspath):

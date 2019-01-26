@@ -3,8 +3,11 @@
 #
 
 import platform
+import os
 
 env = DefaultEnvironment()
+
+os.environ['CONTRAIL_ETCD_INCL'] = '1'
 
 SConscript(dirs=['lib', 'src'])
 
