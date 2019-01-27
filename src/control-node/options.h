@@ -2,6 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <string>
+#include <vector>
+
 #include <boost/program_options.hpp>
 #include "config_client_options.h"
 #include "io/event_manager.h"
@@ -59,9 +62,6 @@ public:
     }
     bool rabbitmq_ssl_enabled() const {
         return configdb_options_.rabbitmq_use_ssl;
-    }
-    bool using_etcd_client() const {
-        return configdb_options_.config_db_use_etcd;
     }
     const ConfigClientOptions &configdb_options() const {
         return configdb_options_;
