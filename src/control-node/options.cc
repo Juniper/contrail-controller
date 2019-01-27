@@ -204,6 +204,18 @@ void Options::Initialize(EventManager &evm,
         ("CONFIGDB.config_db_use_etcd",
              opt::value<bool>()->default_value(false),
              "Use etcd as the contrail DB client")
+        ("CONFIGDB.etcd_use_ssl",
+             opt::value<bool>()->default_value(false),
+             "Use SSL/TLS for etcd connection")
+        ("CONFIGDB.etcd_key_file",
+             opt::value<string>()->default_value(""),
+             "Key file for SSL/TLS etcd connection")
+        ("CONFIGDB.etcd_cert_file",
+             opt::value<string>()->default_value(""),
+             "Certificate file for SSL/TLS etcd connection")
+        ("CONFIGDB.etcd_ca_cert_file",
+             opt::value<string>()->default_value(""),
+             "CA certificate file for SSL/TLS etcd connection")
         ;
 
     sandesh::options::AddOptions(&config, &sandesh_config_);
@@ -396,5 +408,17 @@ void Options::ParseConfigOptions(const boost::program_options::variables_map
     GetOptValue<bool>(var_map,
                      configdb_options_.config_db_use_etcd,
                      "CONFIGDB.config_db_use_etcd");
+    GetOptValue<bool>(var_map,
+                      configdb_options_.etcd_use_ssl,
+                      "CONFIGDB.etcd_use_ssl");
+    GetOptValue<string>(var_map,
+                        configdb_options_.etcd_key_file,
+                        "CONFIGDB.etcd_key_file");
+    GetOptValue<string>(var_map,
+                        configdb_options_.etcd_cert_file,
+                        "CONFIGDB.etcd_cert_file");
+    GetOptValue<string>(var_map,
+                        configdb_options_.etcd_ca_cert_file,
+                        "CONFIGDB.etcd_ca_cert_file");
     configdb_chksum_ = GenerateHash(configdb_options_);
 }
