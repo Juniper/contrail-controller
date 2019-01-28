@@ -14,3 +14,5 @@ timeout-decorator
 docker
 inflection>=0.3.1
 jsonschema
+attrdict
+etcd3==0.8.1
