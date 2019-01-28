@@ -128,11 +128,11 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Prefer xmpp routes over bgp routes.
     BOOL_COMPARE(peer_->IsXmppPeer(), rhs.peer_->IsXmppPeer());
 
-    KEY_COMPARE(path_id_, rhs.path_id_);
-
     // Path received from EBGP is better than the one received from IBGP
     KEY_COMPARE(peer_->PeerType() == BgpProto::IBGP,
                 rhs.peer_->PeerType() == BgpProto::IBGP);
+
+    KEY_COMPARE(path_id_, rhs.path_id_);
 
     // Lower router id is better. Substitute originator id for router id
     // if the path has an originator id.
