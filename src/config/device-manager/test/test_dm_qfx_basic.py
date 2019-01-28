@@ -13,7 +13,7 @@ from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
 from gevent import monkey
 monkey.patch_all()
-from device_manager.db import DMCassandraDB
+from device_manager.cassandra import DMCassandraDB
 from device_manager.db import DBBaseDM
 from device_manager.device_manager import DeviceManager
 from test_common import *
