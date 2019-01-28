@@ -37,18 +37,19 @@ from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
+from cassandra import DMCassandraDB
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
+    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, PortTupleDM, \
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM
-from dm_amqp import DMAmqpHandle
+from dm_amqp import dm_amqp_factory
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
@@ -320,8 +321,8 @@ class DeviceManager(object):
         gevent.signal(signal.SIGHUP, self.sighup_handler)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args)
+        self._vnc_amqp = dm_amqp_factory(self.logger, self.REACTION_MAP,
+                                         self._args)
         self._vnc_amqp.establish()
 
         # Initialize cassandra
@@ -787,7 +788,8 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
+    vnc_amqp = dm_amqp_factory(dm_logger, DeviceManager.REACTION_MAP, args)
+
     vnc_amqp.establish()
     vnc_amqp.close()
     dm_logger.debug("Removed remained AMQP queue")

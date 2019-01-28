@@ -14,9 +14,17 @@ from cfgm_common.vnc_amqp import VncAmqpHandle
 from db import DBBaseDM, VirtualNetworkDM, PhysicalRouterDM
 
 
-class DMAmqpHandle(VncAmqpHandle):
+def dm_amqp_factory(logger, reaction_map, args):
+    """Device Manager Amqp factory function."""
+    if 'host_ip' in args:
+        host_ip = args.host_ip
+    else:
+        host_ip = socket.gethostbyname(socket.getfqdn())
+    return DMAmqpHandleRabbit(logger, reaction_map, args, host_ip)
 
-    def __init__(self, logger, reaction_map, args):
+
+class DMAmqpHandleRabbit(VncAmqpHandle):
+    def __init__(self, logger, reaction_map, args, host_ip):
         q_name_prefix = 'device_manager'
         rabbitmq_cfg = {
             'servers': args.rabbit_server, 'port': args.rabbit_port,
@@ -28,12 +36,8 @@ class DMAmqpHandle(VncAmqpHandle):
             'ssl_certfile': args.kombu_ssl_certfile,
             'ssl_ca_certs': args.kombu_ssl_ca_certs
         }
-        if 'host_ip' in args:
-            host_ip = args.host_ip
-        else:
-            host_ip = socket.gethostbyname(socket.getfqdn())
-        super(DMAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseDM,
-                reaction_map, q_name_prefix, rabbitmq_cfg, host_ip)
+        super(DMAmqpHandleRabbit, self).__init__(logger._sandesh, logger, DBBaseDM,
+                                                 reaction_map, q_name_prefix, rabbitmq_cfg, host_ip)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
