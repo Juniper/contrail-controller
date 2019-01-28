@@ -39,7 +39,7 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17', 'coverage',
         Dir(env['TOP']).abspath + '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/%s' % env.GetVncAPIPkg(),
-        Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz']
+        Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1.dev0.tar.gz']
 
 build_pkgs = [
         '#controller/src/analytics/test/utils/mockcassandra',
