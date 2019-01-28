@@ -32,7 +32,7 @@ def setup_venv(build_top="../../../../build"):
                 "../../../api-lib/dist/vnc_api-0.1dev.tar.gz")
             local(
                 "pip install --upgrade "
-                "../../../sandesh/library/python/dist/sandesh-0.1dev.tar.gz")
+                "../../../sandesh/library/python/dist/sandesh-0.1.dev0.tar.gz")
             local("pip install paramiko==1.9.0")
             with lcd("../../../../../third_party/kazoo"):
                 local("python setup.py install")
