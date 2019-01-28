@@ -78,7 +78,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 vn_obj = VirtualNetworkDM.get(vn)
                 irb_name = "irb." + str(vn_obj.vn_network_id)
                 if irb_name in self.irb_interfaces:
-                    int_ri.add_routing_interfaces(LogicalInterface(name=irb_name))
+                    self.add_ref_to_list(int_ri.get_routing_interfaces(), irb_name)
     # end set_dci_vn_irb_config
 
     def set_internal_vn_irb_config(self):
@@ -110,9 +110,11 @@ class AnsibleRoleCommon(AnsibleConf):
                                             network_id)
             intf_unit.set_comment(DMUtils.vn_irb_comment(vn, False, is_l2_l3))
             for (irb_ip, gateway) in gateways:
-                intf_unit.add_ip_list(irb_ip)
                 if len(gateway) and gateway != '0.0.0.0':
                     intf_unit.set_gateway(gateway)
+                    self.add_ip_address(intf_unit, irb_ip, gateway=gateway)
+                else:
+                    self.add_ip_address(intf_unit, irb_ip)
     # end add_irb_config
 
     # lo0 interface in RI for route lookup to happen for Inter VN traffic
@@ -123,7 +125,7 @@ class AnsibleRoleCommon(AnsibleConf):
         intf_name = 'lo0.' + str(ifl_num)
         intf_unit = self.set_default_li(li_map, intf_name, ifl_num)
         intf_unit.set_comment(DMUtils.l3_bogus_lo_intf_comment(vn))
-        intf_unit.add_ip_list("127.0.0.1")
+        self.add_ip_address(intf_unit, "127.0.0.1")
         self.add_ref_to_list(ri.get_loopback_interfaces(), intf_name)
     # end add_bogus_lo0
 
@@ -370,7 +372,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     lo_ip = ip + '/' + '128'
                 else:
                     lo_ip = ip + '/' + '32'
-                intf_unit.add_ip_list(lo_ip)
+                self.add_ip_address(intf_unit, lo_ip)
             self.add_ref_to_list(ri.get_loopback_interfaces(), intf_name)
 
         # fip services config
