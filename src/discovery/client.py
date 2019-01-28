@@ -240,7 +240,7 @@ class DiscoveryClient(DiscoveryRequest):
     _DEFAULT_CERT_BUNDLE="discoverycertbundle.pem"
 
     def __init__(self, server_ip, server_port, client_type, pub_id=None,
-                 cert=None, key=None, cacert=None):
+                 **kwargs):
         super(DiscoveryClient, self).__init__()
         self._server_ip = server_ip
         self._server_port = server_port
@@ -255,9 +255,9 @@ class DiscoveryClient(DiscoveryRequest):
         self._sandesh = None
 
         self._verify = False
-        self._cert = cert
-        self._key = key
-        self._cacert = cacert
+        self._cert = kwargs.get('cert', None)
+        self._key = kwargs.get('key', None)
+        self._cacert = kwargs.get('cacert', None)
 
         self.stats = {
             'client_type'    : client_type,
