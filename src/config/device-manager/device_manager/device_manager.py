@@ -24,6 +24,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
+from cassandra import DMCassandraDB
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
@@ -34,8 +35,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM, VirtualPortGroupDM, \
     ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM 
-
-from dm_amqp import DMAmqpHandle
+from dm_amqp import dm_amqp_factory
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
@@ -321,8 +321,8 @@ class DeviceManager(object):
                 time.sleep(3)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args)
+        self._vnc_amqp = dm_amqp_factory(self.logger, self.REACTION_MAP,
+                                         self._args)
         self._vnc_amqp.establish()
 
         DBBaseDM.init(self, self.logger, self._object_db)

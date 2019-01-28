@@ -176,18 +176,38 @@ def add_parser_arguments(parser):
 
 def parse_args(args_str):
     '''
-    Eg. python dm_server.py
-            --rabbit_server localhost
-            --rabbit_port 5672
-            --cassandra_server_list 10.1.2.3:9160
-            --api_server_ip 10.1.2.3
-            --api_server_use_ssl False
-            --analytics_server_ip 10.1.2.3
-            --zk_server_ip 10.1.2.3
-            --zk_server_port 2181
-            --collectors 127.0.0.1:8086
-            --http_server_port 8090
-            [--reset_config]
+    Eg. python device_manager.py  --rabbit_server localhost
+                         -- rabbit_port 5672
+                         -- rabbit_user guest
+                         -- rabbit_password guest
+                         --cassandra_server_list 10.1.2.3:9160
+                         --api_server_ip 10.1.2.3
+                         --api_server_port 8082
+                         --api_server_use_ssl False
+                         --analytics_server_ip 10.1.2.3
+                         --analytics_server_port 8181
+                         --analytics_username admin
+                         --analytics_password admin
+                         --zk_server_ip 10.1.2.3
+                         --zk_server_port 2181
+                         --collectors 127.0.0.1:8086
+                         --http_server_port 8090
+                         --log_local
+                         --log_level SYS_DEBUG
+                         --log_category test
+                         --log_file <stdout>
+                         --use_syslog
+                         --syslog_facility LOG_USER
+                         --cluster_id <testbed-name>
+                         --repush_interval 15
+                         --repush_max_interval 300
+                         --push_delay_per_kb 0.01
+                         --push_delay_max 100
+                         --push_delay_enable True
+                         --push_mode 0
+                         --job_status_retry_timeout 10
+                         --job_status_max_retries 60
+                         [--reset_config]
     '''
 
     # Source any specified config/ini file
@@ -201,6 +221,22 @@ def parse_args(args_str):
     defaults = default_options()
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     defaults.update(SandeshConfig.get_default_options())
+    secopts = {
+        'use_certs': False,
+        'keyfile': '',
+        'certfile': '',
+        'ca_certs': '',
+    }
+    ksopts = {
+        'admin_user': 'user1',
+        'admin_password': 'password1',
+        'admin_tenant_name': 'default-domain',
+    }
+    cassandraopts = {
+        'cassandra_user': None,
+        'cassandra_password': None
+    }
+    sandeshopts = SandeshConfig.get_default_options()
 
     saved_conf_file = args.conf_file
     if args.conf_file:
@@ -210,12 +246,12 @@ def parse_args(args_str):
         if ('SECURITY' in config.sections() and
                 'use_certs' in config.options('SECURITY')):
             if config.getboolean('SECURITY', 'use_certs'):
-                defaults.update(dict(config.items("SECURITY")))
+                secopts.update(dict(config.items("SECURITY")))
         if 'KEYSTONE' in config.sections():
-            defaults.update(dict(config.items("KEYSTONE")))
+            ksopts.update(dict(config.items("KEYSTONE")))
         if 'CASSANDRA' in config.sections():
-            defaults.update(dict(config.items('CASSANDRA')))
-        SandeshConfig.update_options(defaults, config)
+            cassandraopts.update(dict(config.items('CASSANDRA')))
+        SandeshConfig.update_options(sandeshopts, config)
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -227,6 +263,10 @@ def parse_args(args_str):
         # Don't mess with format of description
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    defaults.update(secopts)
+    defaults.update(ksopts)
+    defaults.update(cassandraopts)
+    defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
     add_parser_arguments(parser)
