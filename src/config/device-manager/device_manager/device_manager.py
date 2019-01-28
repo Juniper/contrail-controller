@@ -1,7 +1,6 @@
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
-
 """
 This file contains implementation of managing physical router configuration
 """
@@ -10,6 +9,7 @@ import gevent
 # Import kazoo.client before monkey patching
 from gevent import monkey
 monkey.patch_all()
+
 import requests
 import ConfigParser
 import time
@@ -33,10 +33,10 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM, VirtualPortGroupDM, \
-    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM 
-
-from dm_amqp import DMAmqpHandle
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM
+from dm_amqp import dm_amqp_factory
 from dm_utils import PushConfigState
+from etcd import DMEtcdDB
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
 from logger import DeviceManagerLogger
@@ -48,11 +48,10 @@ _zookeeper_client = None
 class DeviceManager(object):
     REACTION_MAP = {
         'physical_router': {
-            'self': ['bgp_router',
-                     'physical_interface',
-                     'logical_interface',
-                     'e2_service_provider',
-                     'service_endpoint'],
+            'self': [
+                'bgp_router', 'physical_interface', 'logical_interface',
+                'e2_service_provider', 'service_endpoint'
+            ],
             'bgp_router': [],
             'physical_interface': [],
             'logical_interface': [],
@@ -108,10 +107,10 @@ class DeviceManager(object):
             'physical_router': [],
         },
         'physical_interface': {
-            'self': ['physical_router',
-                     'physical_interface',
-                     'logical_interface',
-                     'virtual_port_group'],
+            'self': [
+                'physical_router', 'physical_interface', 'logical_interface',
+                'virtual_port_group'
+            ],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_interface', 'physical_router'],
             'physical_interface': ['physical_router'],
@@ -120,13 +119,14 @@ class DeviceManager(object):
             'service_appliance': ['physical_router'],
         },
         'logical_interface': {
-            'self': ['physical_router',
-                     'physical_interface',
-                     'virtual_machine_interface',
-                     'service_endpoint'],
+            'self': [
+                'physical_router', 'physical_interface',
+                'virtual_machine_interface', 'service_endpoint'
+            ],
             'physical_interface': ['virtual_machine_interface'],
-            'virtual_machine_interface': ['physical_router',
-                                          'physical_interface'],
+            'virtual_machine_interface': [
+                'physical_router', 'physical_interface'
+            ],
             'physical_router': ['virtual_machine_interface'],
             'instance_ip': ['physical_interface'],
         },
@@ -135,15 +135,11 @@ class DeviceManager(object):
             'service_appliance_set': ['physical_interface'],
         },
         'virtual_machine_interface': {
-            'self': ['logical_interface',
-                     'physical_interface',
-                     'virtual_network',
-                     'logical_router',
-                     'floating_ip',
-                     'instance_ip',
-                     'port_tuple',
-                     'service_endpoint',
-                     'virtual_port_group'],
+            'self': [
+                'logical_interface', 'physical_interface', 'virtual_network',
+                'logical_router', 'floating_ip', 'instance_ip', 'port_tuple',
+                'service_endpoint', 'virtual_port_group'
+            ],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface', 'logical_router'],
             'logical_router': [],
@@ -177,14 +173,21 @@ class DeviceManager(object):
         'port_tuple': {
             'self': ['virtual_machine_interface', 'service_instance'],
             'logical_router': ['service_instance'],
-            'service_instance': ['virtual_machine_interface', 'service_template'],
+            'service_instance': [
+                'virtual_machine_interface', 'service_template'
+            ],
             'virtual_machine_interface': ['service_instance']
         },
         'virtual_network': {
-            'self': ['physical_router', 'data_center_interconnect',
-                     'virtual_machine_interface', 'logical_router', 'fabric', 'floating_ip_pool'],
-            'routing_instance': ['physical_router', 'logical_router',
-                                 'virtual_machine_interface'],
+            'self': [
+                'physical_router', 'data_center_interconnect',
+                'virtual_machine_interface', 'logical_router', 'fabric',
+                'floating_ip_pool'
+            ],
+            'routing_instance': [
+                'physical_router', 'logical_router',
+                'virtual_machine_interface'
+            ],
             'physical_router': [],
             'logical_router': ['physical_router'],
             'data_center_interconnect': ['physical_router'],
@@ -200,11 +203,13 @@ class DeviceManager(object):
             'virtual_machine_interface': ['physical_router']
         },
         'routing_instance': {
-            'self': ['routing_instance',
-                     'virtual_network',
-                     'virtual_machine_interface'],
-            'routing_instance': ['virtual_network',
-                                 'virtual_machine_interface'],
+            'self': [
+                'routing_instance', 'virtual_network',
+                'virtual_machine_interface'
+            ],
+            'routing_instance': [
+                'virtual_network', 'virtual_machine_interface'
+            ],
             'virtual_network': []
         },
         'floating_ip': {
@@ -222,9 +227,10 @@ class DeviceManager(object):
             'virtual_machine_interface': [],
         },
         'service_endpoint': {
-            'self': ['physical_router',
-                     'virtual_machine_interface',
-                     'service_connection_module'],
+            'self': [
+                'physical_router', 'virtual_machine_interface',
+                'service_connection_module'
+            ],
             'physical_router': ['service_connection_module'],
             'logical_interface': ['service_connection_module'],
             'virtual_machine_interface': ['service_connection_module'],
@@ -241,8 +247,7 @@ class DeviceManager(object):
             'self': [],
         },
         'e2_service_provider': {
-            'self': ['physical_router',
-                     'peering_policy'],
+            'self': ['physical_router', 'peering_policy'],
             'physical_router': [],
             'peering_policy': [],
         },
@@ -254,8 +259,11 @@ class DeviceManager(object):
 
     _instance = None
 
-    def __init__(self, dm_logger=None, args=None, object_db=None,
-                 amqp_client=None):
+    def __init__(self,
+                 dm_logger=None,
+                 object_db=None,
+                 amqp_client=None,
+                 args=None):
         DeviceManager._instance = self
         self._args = args
         self._amqp_client = amqp_client
@@ -273,8 +281,8 @@ class DeviceManager(object):
 
         self._chksum = ""
         if self._args.collectors:
-            self._chksum = hashlib.md5(
-                ''.join(self._args.collectors)).hexdigest()
+            self._chksum = hashlib.md5(''.join(
+                self._args.collectors)).hexdigest()
 
         # Initialize logger
         self.logger = dm_logger or DeviceManagerLogger(args)
@@ -286,8 +294,8 @@ class DeviceManager(object):
             self.logger.error("Exception: " + str(e))
         except Exception as e:
             tb = traceback.format_exc()
-            self.logger.error(
-                "Internal error while registering plugins: " + str(e) + tb)
+            self.logger.error("Internal error while registering plugins: " +
+                              str(e) + tb)
 
         # Register Ansible Plugins
         try:
@@ -296,9 +304,8 @@ class DeviceManager(object):
             self.logger.error("Exception: " + str(e))
         except Exception as e:
             tb = traceback.format_exc()
-            self.logger.error(
-                "Internal error while registering ansible plugins: " +
-                str(e) + tb)
+            self.logger.error("Internal error while registering ansible " +
+                              "plugins: " + str(e) + tb)
 
         # Retry till API server is up
         connected = False
@@ -307,8 +314,10 @@ class DeviceManager(object):
         while not connected:
             try:
                 self._vnc_lib = VncApi(
-                    args.admin_user, args.admin_password,
-                    args.admin_tenant_name, api_server_list,
+                    args.admin_user,
+                    args.admin_password,
+                    args.admin_tenant_name,
+                    api_server_list,
                     args.api_server_port,
                     api_server_use_ssl=args.api_server_use_ssl)
                 connected = True
@@ -321,8 +330,8 @@ class DeviceManager(object):
                 time.sleep(3)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
-                                      self._args)
+        self._vnc_amqp = dm_amqp_factory(self.logger, self.REACTION_MAP,
+                                         self._args)
         self._vnc_amqp.establish()
 
         DBBaseDM.init(self, self.logger, self._object_db)
@@ -410,7 +419,7 @@ class DeviceManager(object):
                 if li and li.virtual_machine_interface:
                     vmi_set |= set([li.virtual_machine_interface])
             for vmi_id in vmi_set:
-                vmi = VirtualMachineInterfaceDM.locate(vmi_id)
+                VirtualMachineInterfaceDM.locate(vmi_id)
 
         si_obj_list = ServiceInstanceDM.list_obj()
         si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
@@ -464,7 +473,7 @@ class DeviceManager(object):
 
         self._vnc_amqp._db_resync_done.set()
 
-        gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
+        gevent.joinall(self._vnc_amqp.greenlets())
     # end __init__
 
     def get_analytics_config(self):
@@ -497,7 +506,7 @@ class DeviceManager(object):
     @classmethod
     def get_instance(cls):
         return cls._instance
-     # end get_instance
+    # end get_instance
 
     @classmethod
     def destroy_instance(cls):
@@ -513,10 +522,14 @@ class DeviceManager(object):
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
-            conn_type=ConnType.APISERVER, name='ApiServer',
-            status=status, message=message or '',
-            server_addrs=['%s:%s' % (self._args.api_server_ip,
-                                     self._args.api_server_port)])
+            conn_type=ConnType.APISERVER,
+            name='ApiServer',
+            status=status,
+            message=message or '',
+            server_addrs=[
+                '%s:%s' % (self._args.api_server_ip,
+                           self._args.api_server_port)
+            ])
     # end connection_state_update
 
     # sighup handler for applying new configs
@@ -525,16 +538,18 @@ class DeviceManager(object):
             config = ConfigParser.SafeConfigParser()
             config.read(self._args.conf_file)
             if 'DEFAULTS' in config.sections():
-               try:
-                   collectors = config.get('DEFAULTS', 'collectors')
-                   if type(collectors) is str:
-                       collectors = collectors.split()
-                       new_chksum = hashlib.md5("".join(collectors)).hexdigest()
-                       if new_chksum != self._chksum:
-                           self._chksum = new_chksum
-                           config.random_collectors = random.sample(collectors, len(collectors))
-                       # Reconnect to achieve load-balance irrespective of list
-                       self.logger.sandesh_reconfig_collectors(config)
-               except ConfigParser.NoOptionError as _:
-                   pass
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5(
+                            "".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            config.random_collectors = random.sample(
+                                collectors, len(collectors))
+                        # Reconnect to achieve load-balance irrespective of list
+                        self.logger.sandesh_reconfig_collectors(config)
+                except ConfigParser.NoOptionError as _:
+                    pass
     # end sighup_handler
