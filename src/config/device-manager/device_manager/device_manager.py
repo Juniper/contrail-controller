@@ -35,6 +35,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM
 from dm_amqp import dm_amqp_factory
 from dm_utils import PushConfigState
+from etcd import DMEtcdDB
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
 from logger import DeviceManagerLogger
@@ -475,7 +476,6 @@ class DeviceManager(object):
         except KeyboardInterrupt:
             DeviceManager.destroy_instance()
             raise
-
     # end __init__
 
     def get_analytics_config(self):
@@ -485,7 +485,6 @@ class DeviceManager(object):
             'username': self._args.analytics_username,
             'password': self._args.analytics_password
         }
-
     # end get_analytics_config
 
     def get_api_server_config(self):
@@ -497,7 +496,6 @@ class DeviceManager(object):
             'tenant': self._args.admin_tenant_name,
             'use_ssl': self._args.api_server_use_ssl
         }
-
     # end get_api_server_config
 
     def get_job_status_config(self):
@@ -505,13 +503,11 @@ class DeviceManager(object):
             'timeout': int(self._args.job_status_retry_timeout),
             'max_retries': int(self._args.job_status_max_retries)
         }
-
     # end get_job_status_config
 
     @classmethod
     def get_instance(cls):
         return cls._instance
-
     # end get_instance
 
     @classmethod
@@ -524,7 +520,6 @@ class DeviceManager(object):
             obj_cls.reset()
         DBBase.clear()
         cls._instance = None
-
     # end destroy_instance
 
     def connection_state_update(self, status, message=None):
@@ -537,7 +532,6 @@ class DeviceManager(object):
                 '%s:%s' % (self._args.api_server_ip,
                            self._args.api_server_port)
             ])
-
     # end connection_state_update
 
     # sighup handler for applying new configs
@@ -560,5 +554,4 @@ class DeviceManager(object):
                         self.logger.sandesh_reconfig_collectors(config)
                 except ConfigParser.NoOptionError as _:
                     pass
-
     # end sighup_handler

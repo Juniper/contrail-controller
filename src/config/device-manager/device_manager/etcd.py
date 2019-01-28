@@ -18,7 +18,6 @@ from db import (DeviceManagerDBMixin, PortTupleDM,
 from dm_utils import DMUtils
 from vnc_api.exceptions import RefsExistError
 
-
 from gevent import monkey
 monkey.patch_all()
 
