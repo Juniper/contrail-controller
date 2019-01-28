@@ -367,12 +367,15 @@ class VncKubernetes(VncCommon):
     def _allocate_fabric_snat_port_translation_pools(self):
         global_vrouter_fq_name = \
             ['default-global-system-config', 'default-global-vrouter-config']
-        try:
-            global_vrouter_obj = \
-                self.vnc_lib.global_vrouter_config_read(
-                    fq_name=global_vrouter_fq_name)
-        except NoIdError:
-            return
+        global_vrouter_obj_created = False
+        while not global_vrouter_obj_created:
+            try:
+                global_vrouter_obj = \
+                    self.vnc_lib.global_vrouter_config_read(
+                        fq_name=global_vrouter_fq_name)
+                global_vrouter_obj_created = True
+            except NoIdError:
+                time.sleep(3)
         snat_port_range = PortType(start_port = 56000, end_port = 57023)
         port_pool_tcp = PortTranslationPool(
             protocol="tcp", port_count='1024', port_range=snat_port_range)
