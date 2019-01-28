@@ -54,8 +54,8 @@ class DMCassandraDB(VncObjectDBClient, DeviceManagerDBMixin):
     # end
 
     def __init__(self, manager, zkclient):
-        self._zkclient = zkclient
         self._manager = manager
+        self._zkclient = zkclient
         self._args = manager._args
 
         keyspaces = {
