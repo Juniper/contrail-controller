@@ -51,6 +51,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     DataCenterInterconnectDM
 from dm_amqp import dm_amqp_factory
 from dm_utils import PushConfigState
+from etcd import DMEtcdDB
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
 from cfgm_common.dependency_tracker import DependencyTracker
@@ -326,7 +327,10 @@ class DeviceManager(object):
         self._vnc_amqp.establish()
 
         # Initialize cassandra
-        self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
+        if hasattr(args, "db_driver") and args.db_driver == "etcd":
+            self._object_db = DMEtcdDB.get_instance(args, self._vnc_lib, self.logger)
+        else:
+            self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
