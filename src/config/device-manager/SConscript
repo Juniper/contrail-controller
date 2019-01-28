@@ -70,6 +70,7 @@ local_sources = [
     'device_manager/device_job_manager.py',
     'device_manager/device_ztp_manager.py',
     'device_manager/db.py',
+    'device_manager/cassandra.py',
     'device_manager/dm_utils.py',
     'device_manager/dm_amqp.py',
     'device_manager/device_conf.py',
