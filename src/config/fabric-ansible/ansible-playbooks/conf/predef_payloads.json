@@ -377,7 +377,7 @@
           },
           "job_template_output_schema": "",
           "job_template_input_schema": "",
-          "job_template_input_ui_schema": ""
+          "job_template_input_ui_schema": "",
           "job_template_output_ui_schema": ""
         },
         {
@@ -403,7 +403,7 @@
           },
           "job_template_output_schema": "",
           "job_template_input_schema": "",
-          "job_template_input_ui_schema": ""
+          "job_template_input_ui_schema": "",
           "job_template_output_ui_schema": ""
         },
         {
