@@ -317,8 +317,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vn2_name = self.id() + 'vn2'
         vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.2/24'])
 
-        subnet1= SubnetType('10.0.0.2', 24)
-        subnet2= SubnetType('20.0.0.2', 24)
+        subnet1= SubnetType('10.0.0.0', 24)
+        subnet2= SubnetType('20.0.0.0', 24)
 
         service_name = self.id() + 's1'
         kwargs = {'subnet_1': subnet1, 'subnet_2': subnet2}
