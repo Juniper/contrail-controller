@@ -881,6 +881,7 @@ class VncDbClient(object):
             "database_node" : ("ObjectDatabaseInfo", True),
             "config_database_node" : ("ObjectConfigDatabaseInfo", True),
             "config_node" : ("ObjectConfigNode", True),
+            "device_manager_node" : {"ObjectDeviceManagerNode", True},
             "service_chain" : ("ServiceChain", False),
             "physical_router" : ("ObjectPRouter", True),
             "bgp_router": ("ObjectBgpRouter", True),

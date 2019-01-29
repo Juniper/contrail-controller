@@ -17,6 +17,7 @@ setup(
               'nodemgr.analytics_alarm_nodemgr',
               'nodemgr.control_nodemgr',
               'nodemgr.config_nodemgr',
+              'nodemgr.device_manager_nodemgr',
               'nodemgr.analytics_database_nodemgr',
               'nodemgr.config_database_nodemgr',
               'nodemgr.vrouter_nodemgr',

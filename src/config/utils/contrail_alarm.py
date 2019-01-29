@@ -143,6 +143,7 @@ alarm_list = [
                 "control-node",
                 "database-node",
                 "config-database-node",
+                "device-manager-node",
                 "vrouter"
             ]
         }
@@ -183,6 +184,7 @@ alarm_list = [
                 "control-node",
                 "database-node",
                 "config-database-node",
+                "device-manager-node",
                 "vrouter"
             ]
         }
