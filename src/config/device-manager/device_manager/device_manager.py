@@ -622,6 +622,8 @@ def parse_args(args_str):
         'kombu_ssl_ca_certs': '',
         'job_status_retry_timeout': '10',
         'job_status_max_retries': '60',
+        'notification_driver': 'rabbit',
+        'db_driver': 'cassandra',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
@@ -640,6 +642,18 @@ def parse_args(args_str):
         'cassandra_password': None
     }
     sandeshopts = SandeshConfig.get_default_options()
+    etcdopts = {
+        'etcd_user': None,
+        'etcd_password': None,
+        'etcd_server': '127.0.0.1',
+        'etcd_port': '2379',
+        'etcd_prefix': '/contrail',
+        'etcd_use_ssl': False,
+        'etcd_kv_store': '/vnc',
+        'etcd_ssl_keyfile': '',
+        'etcd_ssl_certfile': '',
+        'etcd_ssl_ca_certs': '',
+    }
 
     saved_conf_file = args.conf_file
     if args.conf_file:
@@ -670,6 +684,7 @@ def parse_args(args_str):
     defaults.update(ksopts)
     defaults.update(cassandraopts)
     defaults.update(sandeshopts)
+    defaults.update(etcdopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
