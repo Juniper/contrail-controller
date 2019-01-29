@@ -9,6 +9,7 @@ import random
 from enum import Enum
 import traceback
 import collections
+import json
 from jsonschema import Draft4Validator, validators
 from vnc_api.gen.resource_xsd import (
     KeyValuePairs,
