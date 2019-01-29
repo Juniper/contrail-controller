@@ -309,13 +309,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
     def test_match_subnets_in_service_policy(self, version=None):
         # create  vn1
         vn1_name = self.id() + 'vn1'
-        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.2/24'])
+        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24'])
         # create vn2
         vn2_name = self.id() + 'vn2'
-        vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.2/24'])
+        vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.0/24'])
 
-        subnet1= SubnetType('10.0.0.2', 24)
-        subnet2= SubnetType('20.0.0.2', 24)
+        subnet1= SubnetType('10.0.0.0', 24)
+        subnet2= SubnetType('20.0.0.0', 24)
 
         service_name = self.id() + 's1'
         kwargs = {'subnet_1': subnet1, 'subnet_2': subnet2}
