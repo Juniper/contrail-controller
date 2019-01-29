@@ -8,9 +8,7 @@ Device Manager amqp handler
 
 import socket
 
-from attrdict import AttrDict
 from cfgm_common import vnc_etcd
-from cfgm_common.kombu_amqp import KombuAmqpClient
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.vnc_etcd import VncEtcdWatchHandle
 from db import DBBaseDM, PhysicalRouterDM, VirtualNetworkDM
@@ -61,22 +59,29 @@ class DMAmqpHandleEtcd(DMAmqpHandleMixin, VncEtcdWatchHandle):
             host_ip=host_ip)
 
 
-class DMAmqpHandleKombu(DMAmqpHandleMixin, KombuAmqpClient):
+class DMAmqpHandleKombu(DMAmqpHandleMixin, VncAmqpHandle):
 
     def __init__(self, logger, reaction_map, host_ip, args):
-        rabbitmq_cfg = AttrDict(
-            servers=args.rabbit_server,
-            port=args.rabbit_port,
-            user=args.rabbit_user,
-            password=args.rabbit_password,
-            vhost=args.rabbit_vhost,
-            ha_mode=args.rabbit_ha_mode,
-            use_ssl=args.rabbit_use_ssl,
-            ssl_version=args.kombu_ssl_version,
-            ssl_keyfile=args.kombu_ssl_keyfile,
-            ssl_certfile=args.kombu_ssl_certfile,
-            ssl_ca_certs=args.kombu_ssl_ca_certs)
+        q_name_prefix = 'device_manager'
+        rabbitmq_cfg = {
+            'servers': args.rabbit_server,
+            'port': args.rabbit_port,
+            'user': args.rabbit_user,
+            'password': args.rabbit_password,
+            'vhost': args.rabbit_vhost,
+            'ha_mode': args.rabbit_ha_mode,
+            'use_ssl': args.rabbit_use_ssl,
+            'ssl_version': args.kombu_ssl_version,
+            'ssl_keyfile': args.kombu_ssl_keyfile,
+            'ssl_certfile': args.kombu_ssl_certfile,
+            'ssl_ca_certs': args.kombu_ssl_ca_certs
+        }
         super(DMAmqpHandleKombu, self).__init__(
-            logger.log,
+            logger._sandesh,
+            logger,
+            DBBaseDM,
+            reaction_map,
+            q_name_prefix,
             rabbitmq_cfg,
-            heartbeat=args.rabbit_health_check_interval)
+            host_ip,
+            register_handler=False)

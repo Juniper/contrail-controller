@@ -471,11 +471,8 @@ class DeviceManager(object):
             pr.uve_send()
 
         self._vnc_amqp._db_resync_done.set()
-        try:
-            gevent.joinall(self._vnc_amqp.greenlets())
-        except KeyboardInterrupt:
-            DeviceManager.destroy_instance()
-            raise
+
+        gevent.joinall(self._vnc_amqp.greenlets())
     # end __init__
 
     def get_analytics_config(self):

@@ -65,12 +65,10 @@ def initialize_amqp_client(logger, args):
         if amqp_client is not None:
             amqp_client.stop()
     return amqp_client
-
-
 # end initialize_amqp_client
 
 
-def initialize_vnc_lib(args):
+def initialize_vnc_lib(logger, args):
     connected = False
     vnc_lib = None
     while not connected:
@@ -85,10 +83,13 @@ def initialize_vnc_lib(args):
             connected = True
         except requests.exceptions.ConnectionError as e:
             # Update connection info
+            logger.error(
+                "Error while initializing the VNC LIB %s" % repr(e))
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
     return vnc_lib
+# end initialize_vnc_lib
 
 
 def run_device_manager(dm_logger, args):
@@ -101,32 +102,30 @@ def run_device_manager(dm_logger, args):
     DeviceManager(dm_logger, _object_db, _amqp_client, args)
     if _amqp_client._consumer_gl is not None:
         gevent.joinall([_amqp_client._consumer_gl])
-
-
 # end run_device_manager
 
 
 def sighup_handler():
     if DeviceManager.get_instance() is not None:
         DeviceManager.get_instance().sighup_handler()
-
-
 # end sighup_handler
 
 
 def sigterm_handler():
     global _amqp_client
+    global _object_db
 
     DeviceManager.destroy_instance()
     DeviceZtpManager.destroy_instance()
     DeviceJobManager.destroy_instance()
 
-    DMCassandraDB.clear_instance()
+    if isinstance(_object_db, DMEtcdDB):
+        DMEtcdDB.clear_instance()
+    else:
+        DMCassandraDB.clear_instance()
 
     if _amqp_client is not None:
         _amqp_client.stop()
-
-
 # end sigterm_handler
 
 
@@ -170,7 +169,7 @@ def main(args_str=None):
     _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
                                         args.zk_server_ip, host_ip)
     if hasattr(args, 'db_driver') and args.db_driver == 'etcd':
-        vnc_lib = initialize_vnc_lib(args)
+        vnc_lib = initialize_vnc_lib(dm_logger, args)
         _object_db = DMEtcdDB.get_instance(args, vnc_lib, dm_logger)
     else:
         _object_db = DMCassandraDB.get_instance(_zookeeper_client, args,
@@ -198,16 +197,12 @@ def main(args_str=None):
     _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
                                       os.getpid(), run_device_manager,
                                       dm_logger, args)
-
-
 # end main
 
 
 def server_main():
     vnc_cgitb.enable(format='text')
     main()
-
-
 # end server_main
 
 if __name__ == '__main__':

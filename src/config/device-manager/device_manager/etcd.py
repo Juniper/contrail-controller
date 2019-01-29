@@ -4,8 +4,10 @@
 #
 
 """
-This file contains an etcd and api server backed implementation of data
-model for physical router configuration manager.
+This file contains an etcd and api server backeds implementation for DM.
+
+It is thought as a drop-in replacement for Rabbit and Cassandra backends
+for physical router configuration manager.
 """
 
 import collections
@@ -13,8 +15,8 @@ import jsonpickle
 
 from cfgm_common.vnc_etcd import etcd_args as get_etcd_args
 from cfgm_common.vnc_object_db import VncObjectEtcdClient
-from db import (DeviceManagerDBMixin, PortTupleDM,
-                ServiceInstanceDM, VirtualMachineInterfaceDM)
+from db import (DeviceManagerDBMixin, PortTupleDM, ServiceInstanceDM,
+                VirtualMachineInterfaceDM)
 from dm_utils import DMUtils
 from vnc_api.exceptions import RefsExistError
 
@@ -50,8 +52,7 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
     @classmethod
     def get_instance(cls, args, vnc_lib, logger=None):
         if cls.dm_object_db_instance is None:
-            cls.dm_object_db_instance = DMEtcdDB(
-                args, vnc_lib, logger)
+            cls.dm_object_db_instance = DMEtcdDB(args, vnc_lib, logger)
         return cls.dm_object_db_instance
 
     @classmethod
@@ -63,8 +64,7 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
         logger_log = None
         etcd_args = get_etcd_args(args)
         if logger:
-            logger.log(
-                "VncObjectEtcdClient arguments. {}".format(etcd_args))
+            logger.log("VncObjectEtcdClient arguments. {}".format(etcd_args))
             logger_log = logger.log
         super(DMEtcdDB, self).__init__(logger=logger_log, **etcd_args)
         DeviceManagerDBMixin.__init__(self)
@@ -73,14 +73,15 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
         self._logger = logger
         self._args = args
         self._init_api_int_pool(
-            self._INT_POOL_PNF_NETWORK_ID,
-            self._args.pnf_network_start,
-            self._args.pnf_network_end,
-            self._PNF_MAX_NETWORK_ID)
-        self.pnf_resources_map = dict(self._object_db.list_kv(self._etcd_path_key(self._ETCD_PNF_RESOURCES_PATH)))
+            self._INT_POOL_PNF_NETWORK_ID, self._args.pnf_network_start,
+            self._args.pnf_network_end, self._PNF_MAX_NETWORK_ID)
+        self.pnf_resources_map = dict(
+            self._object_db.list_kv(
+                self._etcd_path_key(self._ETCD_PNF_RESOURCES_PATH)))
     # end __init__
 
-    def _init_api_int_pool(self, int_pool_name, range_from, range_to, range_max):
+    def _init_api_int_pool(self, int_pool_name, range_from, range_to,
+                           range_max):
         """Make API server create an int_pool."""
         if not range_from or not range_to:
             range_from = 1
@@ -96,8 +97,7 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
         """Make an etcd key (or path) for device manager storage."""
         if key:
             return '%s/%s/%s' % (self._ETCD_DEVICE_MANAGER_PREFIX, path, key)
-        else:
-            return '%s/%s' % (self._ETCD_DEVICE_MANAGER_PREFIX, path)
+        return '%s/%s' % (self._ETCD_DEVICE_MANAGER_PREFIX, path)
     # end _etcd_path_key
 
     def _pnf_pi_int_pool_name(self, pi_id):
@@ -113,34 +113,31 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
     def _pnf_vlan_int_pool(self, pr_id):
         """Prepare int_pool for vlans in specified physical router."""
         int_pool_name = self._pnf_pr_int_pool_name(pr_id)
-        self._init_api_int_pool(int_pool_name,
-                                self._args.pnf_vlan_start,
-                                self._args.pnf_vlan_end,
-                                self._PNF_MAX_VLAN)
+        self._init_api_int_pool(int_pool_name, self._args.pnf_vlan_start,
+                                self._args.pnf_vlan_end, self._PNF_MAX_VLAN)
         return int_pool_name
     # end _pnf_vlan_int_pool
 
     def _pnf_unit_int_pool(self, pi_id):
         """Prepare int_pool for units in specified physical interface."""
         int_pool_name = self._pnf_pi_int_pool_name(pi_id)
-        self._init_api_int_pool(int_pool_name,
-                                self._args.pnf_unit_start,
-                                self._args.pnf_unit_end,
-                                self._PNF_MAX_UNIT)
+        self._init_api_int_pool(int_pool_name, self._args.pnf_unit_start,
+                                self._args.pnf_unit_end, self._PNF_MAX_UNIT)
         return int_pool_name
     # end _pnf_unit_int_pool
 
     def _pnf_resources_path(self, si_id):
         """Make etcd key path for pnf resources with si_id."""
-        return '%s/%s/%s' % (self._ETCD_DEVICE_MANAGER_PREFIX,
-                             self._ETCD_PNF_RESOURCES_PATH,
-                             si_id,)
+        return '%s/%s/%s' % (
+            self._ETCD_DEVICE_MANAGER_PREFIX,
+            self._ETCD_PNF_RESOURCES_PATH,
+            si_id,
+        )
     # end _pnf_resources_path
 
     def get_one_entry(self, path, key, column):
         """Get an entry from a serialized dict in etcd."""
-        value = self._object_db.get_value(
-            self._etcd_path_key(path, key))
+        value = self._object_db.get_value(self._etcd_path_key(path, key))
         if not value:
             return None
         try:
@@ -156,8 +153,7 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
     def add(self, path, key, value):
         """Store a key-value pair in etcd."""
         try:
-            self._object_db.put_kv(
-                self._etcd_path_key(path, key), value)
+            self._object_db.put_kv(self._etcd_path_key(path, key), value)
             return True
         except:
             return False
@@ -187,8 +183,7 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
                 pass
         if entries:
             # entries not empty after deletion
-            self._object_db.put_kv(
-                etcd_key, jsonpickle.encode(entries))
+            self._object_db.put_kv(etcd_key, jsonpickle.encode(entries))
         else:
             # nothing left in entries
             self._object_db.delete_kv(etcd_key)
@@ -197,16 +192,12 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
 
     def get_pnf_vlan_allocator(self, pr_id):
         return self.pnf_vlan_allocator_map.setdefault(
-            pr_id,
-            self._pnf_vlan_int_pool(pr_id)
-        )
+            pr_id, self._pnf_vlan_int_pool(pr_id))
     # end get_pnf_vlan_allocator
 
     def get_pnf_unit_allocator(self, pi_id):
         return self.pnf_unit_allocator_map.setdefault(
-            pi_id,
-            self._pnf_unit_int_pool(pi_id)
-        )
+            pi_id, self._pnf_unit_int_pool(pi_id))
     # end get_pnf_unit_allocator
 
     def get_pnf_resources(self, vmi_obj, pr_id):
@@ -243,15 +234,13 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
         }
         self.pnf_resources_map[si_id] = pnf_resources
         self._object_db.put_kv(
-            self._pnf_resources_path(si_id),
-            jsonpickle.encode(pnf_resources))
+            self._pnf_resources_path(si_id), jsonpickle.encode(pnf_resources))
         return pnf_resources
     # end get_pnf_resources
 
     def fetch_pnf_resources(self, si_id):
         """Fetch pnf_resources stored in etcd."""
-        value = self._object_db.get_value(
-            self._pnf_resources_path(si_id))
+        value = self._object_db.get_value(self._pnf_resources_path(si_id))
         if isinstance(value, basestring) or isinstance(value, buffer):
             return jsonpickle.decode(value)
         elif isinstance(value, collections.Mapping):
@@ -260,9 +249,7 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
     # end fetch_pnf_resources
 
     def delete_pnf_resources(self, si_id):
-        """Deallocate PNF resources (network, vlan and unit ids) and remove
-        them from etcd storage.
-        """
+        """Deallocate PNF resources (network, vlan and unit ids) and remove them from etcd storage."""
         pnf_resources = self.pnf_resources_map.get(si_id, None)
         if not pnf_resources:
             pnf_resources = self.fetch_pnf_resources(si_id)
@@ -270,14 +257,15 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
             return
 
         # deallocate network_id
-        self._vnc_lib.deallocate_int(
-            self._INT_POOL_PNF_NETWORK_ID, int(pnf_resources['network_id']))
+        self._vnc_lib.deallocate_int(self._INT_POOL_PNF_NETWORK_ID,
+                                     int(pnf_resources['network_id']))
 
         # deallocate vlan_ids and unset them in specific physical routers' configs
         pr_set = self.get_si_pr_set(si_id)
         for pr_uuid in pr_set:
             self._vnc_lib.deallocate_int(
-                self._pnf_vlan_int_pool(pr_uuid), int(pnf_resources['vlan_id']))
+                self._pnf_vlan_int_pool(pr_uuid),
+                int(pnf_resources['vlan_id']))
 
         # deallocate unit_id and unset it in specifoc physical interface's config
         si_obj = ServiceInstanceDM.get(si_id)
@@ -390,11 +378,13 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
         for vn_subnet_ip_used_for in vn_subnet_set:
             vn_subnet = vn_subnet_ip_used_for[0]
             ip_used_for = vn_subnet_ip_used_for[1]
-            ret = self.delte(self._ETCD_PR_VN_IP_TABLE_KEY, pr_uuid + ':' + vn_subnet,
+            ret = self.delte(self._ETCD_PR_VN_IP_TABLE_KEY,
+                             pr_uuid + ':' + vn_subnet,
                              [DMUtils.get_ip_cs_column_name(ip_used_for)])
             if ret == False:
-                self._logger.error("Unable to free ip from db for vn/pr/subnet/ip_used_for "
-                                   "(%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
+                self._logger.error(
+                    "Unable to free ip from db for vn/pr/subnet/ip_used_for "
+                    "(%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
         esi_map = self.get_pr_ae_id_map(pr_uuid)
         for esi, _ in esi_map.values():
             ret = self.delete(self._ETCD_PR_AE_IP_TABLE_KEY,
@@ -407,8 +397,8 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
             self.asn_pr_map.pop(asn, None)
             ret = self.delete(self._ETCD_PR_ASN_TABLE_KEY, pr_uuid)
             if not ret:
-                self._logger.error("Unable to free asn from db for pr %s" %
-                                   pr_uuid)
+                self._logger.error(
+                    "Unable to free asn from db for pr %s" % pr_uuid)
     # end delete_pr
 
     def delete_dci(self, dci_uuid):
@@ -417,8 +407,8 @@ class DMEtcdDB(VncObjectEtcdClient, DeviceManagerDBMixin):
             self.asn_dci_map.pop(asn, None)
             ret = self.delete(self._ETCD_DCI_ASN_TABLE_KEY, dci_uuid)
             if not ret:
-                self._logger.error("Unable to free dci asn from db for dci %s" %
-                                   dci_uuid)
+                self._logger.error(
+                    "Unable to free dci asn from db for dci %s" % dci_uuid)
     # end delete_dci
 
     def handle_dci_deletes(self, current_dci_set):
