@@ -22,9 +22,9 @@ def dm_amqp_factory(logger, reaction_map, args):
         host_ip = args.host_ip
     else:
         host_ip = socket.gethostbyname(socket.getfqdn())
-    if 'notification_driver' in args and args.notification_driver == 'etcd':
-        return DMAmqpHandleEtcd(logger, reaction_map, args, host_ip)
-    return DMAmqpHandleRabbit(logger, reaction_map, args, host_ip)
+    if hasattr(args, 'notification_driver') and args.notification_driver == 'etcd':
+        return DMAmqpHandleEtcd(logger, reaction_map, host_ip, args)
+    return DMAmqpHandleRabbit(logger, reaction_map, host_ip, args)
 
 
 class DMAmqpHandleMixin(object):
@@ -45,14 +45,14 @@ class DMAmqpHandleMixin(object):
 
 
 class DMAmqpHandleEtcd(DMAmqpHandleMixin, VncEtcdWatchHandle):
-    def __init__(self, logger, reaction_map, args, host_ip):
+    def __init__(self, logger, reaction_map, host_ip, args):
         etcd_cfg = vnc_etcd.etcd_args(args)
         super(DMAmqpHandleEtcd, self).__init__(logger._sandesh, logger, DBBaseDM,
                                                reaction_map, etcd_cfg, host_ip=host_ip)
 
 
 class DMAmqpHandleRabbit(DMAmqpHandleMixin, VncAmqpHandle):
-    def __init__(self, logger, reaction_map, args, host_ip):
+    def __init__(self, logger, reaction_map, host_ip, args):
         q_name_prefix = 'device_manager'
         rabbitmq_cfg = {
             'servers': args.rabbit_server, 'port': args.rabbit_port,
