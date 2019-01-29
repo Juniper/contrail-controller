@@ -33,10 +33,11 @@ class JobStatus(Enum):
 class JobVncApi(object):
     @staticmethod
     def vnc_init(job_ctx):
-        host = random.choice(job_ctx.get('api_server_host'))
+        # randomize list for load balancing, pass list for HA
+        host_list = random.shuffle(job_ctx.get('api_server_host'))
         if job_ctx.get('auth_token') is not None:
             vnc_api =  VncApi(
-                api_server_host=host,
+                api_server_host=host_list,
                 auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                 auth_token=job_ctx.get('auth_token')
             )
@@ -44,7 +45,7 @@ class JobVncApi(object):
             params = job_ctx.get('vnc_api_init_params')
             vnc_api = VncApi(
                 params.get('admin_user'), params.get('admin_password'),
-                params.get('admin_tenant_name'), host,
+                params.get('admin_tenant_name'), host_list,
                 params.get('api_server_port'),
                 api_server_use_ssl=params.get('api_server_use_ssl'))
         else:
