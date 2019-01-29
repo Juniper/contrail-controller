@@ -1,9 +1,12 @@
 import unittest
 import uuid
 from flexmock import flexmock
+import sys
 
 import fake_neutron
 from vnc_openstack import neutron_plugin_db as db
+sys.path.append("../common/tests")
+from test_utils import FakeKazooClient
 
 class MockDbInterface(db.DBInterface):
     def __init__(self):
@@ -11,6 +14,8 @@ class MockDbInterface(db.DBInterface):
             def wait(self):
                 return
         self._connected_to_api_server = MockConnection()
+        self._zookeeper_client = FakeKazooClient()
+        self.security_group_lock_prefix = '/vnc_cfg_api_locks/security_group'
         pass
 
 class TestDbInterface(unittest.TestCase):
@@ -160,6 +165,7 @@ class TestDbInterface(unittest.TestCase):
         sg_obj = flexmock(operational=True,
                           name="non-default",
                           parent_uuid=tenant_uuid)
+        dbi._zookeeper_client.create_node ( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid))
         context = {'tenant_id': tenant_uuid}
         dbi.security_group_delete(context, sg_uuid)
         self.assertEqual(delete_called_for[0], sg_uuid)
@@ -168,6 +174,7 @@ class TestDbInterface(unittest.TestCase):
         sg_obj = flexmock(operational=True,
                           name="non-default",
                           parent_uuid=str(uuid.uuid4()))
+        dbi._zookeeper_client.create_node ( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid))
         dbi.security_group_delete(context, sg_uuid)
         self.assertEqual(delete_called_for[0], sg_uuid)
 
@@ -175,6 +182,7 @@ class TestDbInterface(unittest.TestCase):
         sg_obj = flexmock(operational=True,
                           name="default",
                           parent_uuid=str(uuid.uuid4()))
+        dbi._zookeeper_client.create_node ( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid))
         dbi.security_group_delete(context, sg_uuid)
         self.assertEqual(delete_called_for[0], sg_uuid)
 
@@ -183,4 +191,5 @@ class TestDbInterface(unittest.TestCase):
             sg_obj = flexmock(operational=True,
                               name="default",
                               parent_uuid=tenant_uuid)
+            dbi._zookeeper_client.create_node ( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid))
             dbi.security_group_delete(context, sg_uuid)
