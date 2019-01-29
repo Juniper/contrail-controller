@@ -2,8 +2,6 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-from netaddr import AddrFormatError
-from netaddr import IPAddress
 from netaddr import IPRange
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.resource_common import VirtualRouter
@@ -127,16 +125,6 @@ class VirtualRouterServer(ResourceMixin, VirtualRouter):
 
             for vr_alloc_pool in vr_alloc_pools:
                 vr_alloc_pool.pop('vrouter_specific_pool', None)
-
-            vr_subnets = vr_ipam_data.get('subnet', [])
-            if vr_subnets:
-                for vr_subnet in vr_subnets:
-                    vr_sn_prefix = vr_subnet['ip_prefix']
-                    try:
-                        IPAddress(vr_sn_prefix)
-                    except AddrFormatError:
-                        msg = "vrouter subnet prefix is invalid"
-                        return False, (400, msg)
 
             # get all allocation pools in this ipam
             subnets = ipam_subnets.get('subnets', [])
