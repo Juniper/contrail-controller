@@ -37,6 +37,10 @@
     - set_fact:
         local_interfaces_list: "{{local_interfaces_port_list + local_interfaces_name_list}}"
 
+    - name: Make local_interfaces_list unique
+      set_fact:
+        local_interfaces_list: "{{local_interfaces_list | unique}}"
+
     - name: Execute "show lldp neighbors interface <interface-name>" command
       juniper_junos_command:
         commands:
