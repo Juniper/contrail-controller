@@ -52,6 +52,14 @@ analytics_snmp_sources_rules = []
 for file in analytics_snmp_sources:
     analytics_snmp_sources_rules.append(OpEnv.Install(Dir("nodemgr/analytics_snmp_nodemgr"), file))
 
+device_manager_sources = [
+           '__init__.py',
+           'device_manager_nodemgr/event_manager.py'
+          ]
+device_manager_sources_rules = []
+for file in device_manager_sources:
+    device_manager_sources_rules.append(OpEnv.Install(Dir("nodemgr/device_manager_nodemgr"), file))
+
 control_sources = [
            '__init__.py',
            'control_nodemgr/event_manager.py'
@@ -129,7 +137,7 @@ build_info_rules = [OpEnv.Command(target='nodemgr/common/buildinfo.py', source =
 sdist_depends = [setup_sources_rules, local_sources_rules, analytics_sources_rules,
                  analytics_alarm_sources_rules, analytics_snmp_sources_rules,
                  control_sources_rules, config_sources_rules, common_sources_rules,
-                 vrouter_sources_rules, database_sources_rules,
+                 vrouter_sources_rules, database_sources_rules, device_manager_sources_rules,
                  config_database_sources_rules, build_info_rules,
                  cpuinfo_pkg, process_info_pkg, nodeinfo_pkg, supervisor_events_pkg
                 ]
