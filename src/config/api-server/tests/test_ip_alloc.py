@@ -272,7 +272,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #try adding overlap subnets in ipam2, it should fail
         ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam2_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Overlapping addresses: \[IPNetwork\(\'12.1.2.0/23\'\), IPNetwork\(\'12.1.3.248/28\'\)\]') as e:
+                               'Overlapping addresses: \[IPNetwork\(\'12.1.2.0/23\'\), IPNetwork\(\'12.1.3.240/28\'\)\]') as e:
             self._vnc_lib.network_ipam_update(ipam2)
         ipam2 = self._vnc_lib.network_ipam_read(id=ipam2_uuid)
 
@@ -286,7 +286,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('vn0', project)
         vn.add_network_ipam(ipam0, VnSubnetsType([ipam0_v4, ipam0_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Overlapping addresses: \[IPNetwork\(\'10.1.2.0/23\'\), IPNetwork\(\'10.1.3.248/28\'\)\]') as e:
+                               'Overlapping addresses: \[IPNetwork\(\'10.1.2.0/23\'\), IPNetwork\(\'10.1.3.240/28\'\)\]') as e:
             self._vnc_lib.virtual_network_create(vn)
 
         #create vn with ipam0 with non-overlapping subnets on vn->ipam link
@@ -298,7 +298,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #update network should fail
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam1_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.248/28\'\)\]') as e:
+                               'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.240/28\'\)\]') as e:
             self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
