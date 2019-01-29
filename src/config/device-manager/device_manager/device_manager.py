@@ -327,7 +327,7 @@ class DeviceManager(object):
         self._vnc_amqp.establish()
 
         # Initialize cassandra
-        if hasattr(args, "db_driver") and args.db_driver == "etcd":
+        if hasattr(args, 'db_driver') and args.db_driver == 'etcd':
             self._object_db = DMEtcdDB.get_instance(args, self._vnc_lib, self.logger)
         else:
             self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
@@ -458,7 +458,7 @@ class DeviceManager(object):
 
         self._vnc_amqp._db_resync_done.set()
         try:
-            gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
+            gevent.joinall(self._vnc_amqp.greenlets())
         except KeyboardInterrupt:
             DeviceManager.destroy_instance()
             raise
@@ -622,6 +622,8 @@ def parse_args(args_str):
         'kombu_ssl_ca_certs': '',
         'job_status_retry_timeout': '10',
         'job_status_max_retries': '60',
+        'notification_driver': 'rabbit',
+        'db_driver': 'cassandra',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
@@ -640,6 +642,26 @@ def parse_args(args_str):
         'cassandra_password': None
     }
     sandeshopts = SandeshConfig.get_default_options()
+    etcdopts = {
+        'etcd_user': None,
+        'etcd_password': None,
+        'etcd_server': '127.0.0.1',
+        'etcd_port': '2379',
+        'etcd_prefix': '/contrail',
+        'etcd_use_ssl': False,
+        'etcd_kv_store': '/vnc',
+        'etcd_ssl_keyfile': '',
+        'etcd_ssl_certfile': '',
+        'etcd_ssl_ca_certs': '',
+    }
+    pnfopts = {
+        'pnf_network_start': 1,
+        'pnf_network_end': 2147483644,
+        'pnf_vlan_start': 1,
+        'pnf_vlan_end': 4093,
+        'pnf_unit_start': 1,
+        'pnf_unit_end': 16385,
+    }
 
     saved_conf_file = args.conf_file
     if args.conf_file:
@@ -670,6 +692,8 @@ def parse_args(args_str):
     defaults.update(ksopts)
     defaults.update(cassandraopts)
     defaults.update(sandeshopts)
+    defaults.update(etcdopts)
+    defaults.update(pnfopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(

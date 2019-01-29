@@ -11,3 +11,4 @@ kombu
 netifaces
 bottle
 stevedore
+etcd3==0.8.1
