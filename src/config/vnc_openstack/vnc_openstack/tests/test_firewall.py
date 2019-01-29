@@ -42,6 +42,11 @@ from vnc_openstack.neutron_plugin_db import _NEUTRON_FWAAS_TAG_TYPE
 
 
 class TestFirewallBase(test_case.NeutronBackendTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestFirewallBase, cls).setUpClass(
+            extra_config_knobs=[('NEUTRON', 'fwaas_enabled', True)])
+
     def setUp(self):
         super(TestFirewallBase, self).setUp()
         self.project_id = self._vnc_lib.project_create(
