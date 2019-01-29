@@ -526,4 +526,19 @@ class ZookeeperClient(object):
         self._conn_state = new_conn_state
     # end _sandesh_connection_info_update
 
+    def lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s' % (os.getpid())
+        return self._zk_client.Lock(path, identifier)
+
+    def read_lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s' % (os.getpid())
+        return self._zk_client.ReadLock(path, identifier)
+
+    def write_lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s' % (os.getpid())
+        return self._zk_client.WriteLock(path, identifier)
+
 # end class ZookeeperClient
