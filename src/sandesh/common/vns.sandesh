@@ -49,6 +49,7 @@ const string SERVICE_ANALYTICS_SNMP_NODE_MGR = "contrail-analytics-snmp-nodemgr"
 const string SERVICE_CONFIG_NODE_MGR = "contrail-config-nodemgr"
 const string SERVICE_DATABASE_NODE_MGR = "contrail-database-nodemgr"
 const string SERVICE_CONFIG_DATABASE_NODE_MGR = "contrail-config-database-nodemgr"
+const string SERVICE_DEVICE_MANAGER_NODE_MGR = "contrail-device-manager-nodemgr"
 
 // Http Server (Introspect) Ports
 const u16 HttpPortConfigNodemgr = 8100
@@ -66,6 +67,7 @@ const u16 HttpPortFabricAnsible = 8111
 const u16 HttpPortConfigDatabaseNodemgr = 8112
 const u16 HttpPortAnalyticsAlarmNodemgr = 8113
 const u16 HttpPortAnalyticsSNMPNodemgr = 8114
+const u16 HttpPortDeviceManagerNodemgr = 8115
 const u16 HttpPortvCenterManager = 9090
 
 const u16 HttpPortControl = 8083
@@ -152,6 +154,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_IRONIC_NOTIF_MANAGER: HttpPortIronicNotifManager,
     SERVICE_FABRIC_ANSIBLE: HttpPortFabricAnsible,
     SERVICE_VCENTER_MANAGER: HttpPortvCenterManager,
+    SERVICE_DEVICE_MANAGER_NODE_MGR: HttpPortDeviceManagerNodemgr,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -183,6 +186,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_KUBE_MANAGER,
     SERVICE_MESOS_MANAGER,
     SERVICE_VCENTER_MANAGER,
+    SERVICE_DEVICE_MANAGER_NODE_MGR,
 ]
 
 const list<string> BackupImplementedServices = [
@@ -264,6 +268,7 @@ enum Module {
     FABRIC_ANSIBLE,
     CONFIG_DATABASE_NODE_MGR,
     VCENTER_MANAGER,
+    DEVICE_MANAGER_NODE_MGR,
 }
 
 enum VrouterAgentType {
@@ -353,6 +358,7 @@ const string MODULE_MESOS_MANAGER_NAME = SERVICE_MESOS_MANAGER
 const string MODULE_IRONIC_NOTIF_MANAGER_NAME = SERVICE_IRONIC_NOTIF_MANAGER
 const string MODULE_FABRIC_ANSIBLE_NAME = "FabricAnsible"
 const string MODULE_VCENTER_MANAGER_NAME = SERVICE_VCENTER_MANAGER
+const string MODULE_DEVICE_MANAGER_NODE_MGR_NAME = SERVICE_DEVICE_MANAGER_NODE_MGR
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -390,6 +396,7 @@ const map<Module, string> ModuleNames = {
     Module.IRONIC_NOTIF_MANAGER    : MODULE_IRONIC_NOTIF_MANAGER_NAME,
     Module.FABRIC_ANSIBLE    : MODULE_FABRIC_ANSIBLE_NAME,
     Module.VCENTER_MANAGER    : MODULE_VCENTER_MANAGER_NAME,
+    Module.DEVICE_MANAGER_NODE_MGR : MODULE_DEVICE_MANAGER_NODE_MGR_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -428,6 +435,7 @@ const map<string, Module> ModuleIds = {
     MODULE_IRONIC_NOTIF_MANAGER_NAME   : Module.IRONIC_NOTIF_MANAGER,
     MODULE_FABRIC_ANSIBLE_NAME         : Module.FABRIC_ANSIBLE,
     MODULE_VCENTER_MANAGER_NAME        : Module.VCENTER_MANAGER,
+    MODULE_DEVICE_MANAGER_NODE_MGR_NAME : Module.DEVICE_MANAGER_NODE_MGR,
 }
 
 
@@ -446,6 +454,7 @@ enum NodeType {
     SERVERMGR,
     KUBERNETESMGR,
     CONFIG_DATABASE,
+    DEVICE_MANAGER,
 }
 
 const map<NodeType, string> UVENodeTypeNames = {
@@ -459,6 +468,7 @@ const map<NodeType, string> UVENodeTypeNames = {
     NodeType.DATABASE        : "database-node",
     NodeType.KUBERNETESMGR   : "kubernetes-manager-node",
     NodeType.CONFIG_DATABASE : "config-database-node",
+    NodeType.DEVICE_MANAGER  : "device-manager",
 }
 
 const map<NodeType, string> NodeTypeNames = {
@@ -475,6 +485,7 @@ const map<NodeType, string> NodeTypeNames = {
     NodeType.OPENSTACK       : "OpenStack",
     NodeType.SERVERMGR       : "ServerMgr",
     NodeType.KUBERNETESMGR   : "KubernetesMgr",
+    NodeType.DEVICE_MANAGER  : "DeviceManager",
 }
 
 const map<NodeType, string> NodeManagerNodeTypeNames = {
@@ -486,6 +497,7 @@ const map<NodeType, string> NodeManagerNodeTypeNames = {
     NodeType.DATABASE        : 'contrail-database',
     NodeType.CONTROL         : 'contrail-control',
     NodeType.COMPUTE         : 'contrail-vrouter',
+    NodeType.DEVICE_MANAGER  : 'contrail-device-manager',
 }
 
 const map <Module, NodeType> Module2NodeType = {
@@ -498,7 +510,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.COLLECTOR          : NodeType.ANALYTICS,
     Module.QUERY_ENGINE       : NodeType.DATABASE,
     Module.SVC_MONITOR        : NodeType.CONFIG,
-    Module.DEVICE_MANAGER     : NodeType.CONFIG,
+    Module.DEVICE_MANAGER     : NodeType.DEVICE_MANAGER,
     Module.DNS                : NodeType.CONTROL,
     Module.DISCOVERY_SERVICE  : NodeType.CONFIG,
     Module.IFMAP_SERVER       : NodeType.CONFIG,
@@ -524,6 +536,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.FABRIC_ANSIBLE    : NodeType.CONFIG,
     Module.IRONIC_NOTIF_MANAGER    : NodeType.CONFIG,
     Module.VCENTER_MANAGER    : NodeType.COMPUTE,
+    Module.DEVICE_MANAGER_NODE_MGR : NodeType.DEVICE_MANAGER,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"

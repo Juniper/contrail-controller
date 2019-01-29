@@ -53,6 +53,7 @@ from config_nodemgr.event_manager import ConfigEventManager
 from control_nodemgr.event_manager import ControlEventManager
 from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
 from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
+from device_manager_nodemgr.event_manager import DeviceManagerEventManager
 from vrouter_nodemgr.event_manager import VrouterEventManager
 
 
@@ -91,7 +92,6 @@ node_properties = {
             'contrail-api',
             'contrail-schema',
             'contrail-svc-monitor',
-            'contrail-device-manager',
             'contrail-config-nodemgr'
         ],
     },
@@ -129,6 +129,15 @@ node_properties = {
             'cassandra',
             'contrail-query-engine',
             'contrail-database-nodemgr'
+        ],
+    },
+    'contrail-device-manager': {
+        'config_file': '/etc/contrail/contrail-device-manager-nodemgr.conf',
+        'event_manager': DeviceManagerEventManager,
+        'unit_names': [
+            'dnsmasq',
+            'contrail-device-manager',
+            'contrail-device-manager-nodemgr'
         ],
     },
 }

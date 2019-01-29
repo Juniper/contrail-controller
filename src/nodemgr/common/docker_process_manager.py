@@ -33,7 +33,6 @@ _docker_label_to_unit_name = {
         'config-api': 'contrail-api',
         'config-schema': 'contrail-schema',
         'config-svc-monitor': 'contrail-svc-monitor',
-        'config-device-manager': 'contrail-device-manager',
         'config-nodemgr': 'contrail-config-nodemgr'
     },
     Module.CONFIG_DATABASE_NODE_MGR: {
@@ -55,6 +54,11 @@ _docker_label_to_unit_name = {
         'database-query-engine': 'contrail-query-engine',
         'database-cassandra': 'cassandra',
         'database-nodemgr': 'contrail-database-nodemgr'
+    },
+    Module.DEVICE_MANAGER_NODE_MGR: {
+        'device-manager-dnsmasq': 'dnsmasq',
+        'device-manager-device-manager': 'contrail-device-manager',
+        'device-manager-nodemgr': 'contrail-device-manager-nodemgr'
     },
 }
 
