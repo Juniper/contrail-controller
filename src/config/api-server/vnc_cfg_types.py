@@ -2423,17 +2423,6 @@ class VirtualRouterServer(Resource, VirtualRouter):
             for vr_alloc_pool in vr_alloc_pools:
                 vr_alloc_pool.pop('vrouter_specific_pool', None)
 
-            vr_subnets = vr_ipam_data.get('subnet', [])
-            if vr_subnets:
-                for vr_subnet in vr_subnets:
-                    vr_sn_prefix = vr_subnet['ip_prefix']
-                    vr_sn_prefix_len = vr_subnet['ip_prefix_len']
-                    try:
-                        prefix = IPAddress(vr_sn_prefix)
-                    except netaddr.core.AddrFormatError:
-                        return (False,
-                                "vrouter subnet prefix is invalid")
-
             # get all allocation pools in this ipam
             subnets = ipam_subnets.get('subnets', [])
             ipam_alloc_pools = []
