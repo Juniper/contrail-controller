@@ -76,6 +76,8 @@ class AnsibleRoleCommon(AnsibleConf):
                     continue
                 vn = dci.virtual_network
                 vn_obj = VirtualNetworkDM.get(vn)
+                if vn_obj is None or vn_obj.vn_network_id is None:
+                    continue
                 irb_name = "irb." + str(vn_obj.vn_network_id)
                 if irb_name in self.irb_interfaces:
                     self.add_ref_to_list(int_ri.get_routing_interfaces(), irb_name)
@@ -91,6 +93,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 vn_list = lr.get_connected_networks(include_internal=False)
                 for vn in vn_list:
                     vn_obj = VirtualNetworkDM.get(vn)
+                    if vn_obj is None or vn_obj.vn_network_id is None:
+                        continue
                     irb_name = "irb." + str(vn_obj.vn_network_id)
                     if irb_name in self.irb_interfaces:
                         self.add_ref_to_list(int_ri.get_routing_interfaces(), irb_name)
