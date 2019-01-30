@@ -7,10 +7,11 @@ delete protocols rstp interface {{ifd.name}}
 {%             for ifl in ifd.get('logical_interfaces', []) %}
 delete interfaces {{ifd.name}} unit {{ifl.unit}}
 set interfaces {{ifd.name}} unit {{ifl.unit}} family inet
+{%                 set address = ifl.ip_addresses[0].address %}
 {%                 if ifl.name == 'lo0.0' %}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0]}}/32
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32
 {%                 else %}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{ifl.ip_list[0]}}/30
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/30
 {%                 endif %}
 {%             endfor %}
 {%         endif %}

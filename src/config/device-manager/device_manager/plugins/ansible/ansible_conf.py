@@ -160,7 +160,7 @@ class AnsibleConf(AnsibleBase):
                                          int(li_obj.name.split('.')[-1]))
                 li.set_comment(DMUtils.ip_clos_comment())
 
-                li.add_ip_list(iip_obj.instance_ip_address)
+                self.add_ip_address(li, iip_obj.instance_ip_address)
 
                 self._logger.debug("looking for peers for physical"
                                    " interface %s(%s)" % (pi_obj.name,
@@ -334,6 +334,17 @@ class AnsibleConf(AnsibleBase):
     def add_ref_to_list(lst, value):
         if not any(v.get_name() == value for v in lst):
             lst.append(Reference(name=value))
+    # end add_ref_to_list
+
+    @classmethod
+    def add_ip_address(cls, unit, address, gateway=None):
+        cls.add_to_list(unit.get_ip_list(), address)
+        if ':' in address:
+            family = 'inet6'
+        else:
+            family = 'inet'
+        ip_address = IpAddress(address=address, family=family, gateway=gateway)
+        cls.add_to_list(unit.get_ip_addresses(), ip_address)
     # end add_ref_to_list
 
     @staticmethod

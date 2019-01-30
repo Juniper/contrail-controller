@@ -34,6 +34,14 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="IpAddress">
+    <xsd:all>
+       <xsd:element name="address" type="xsd:string"/>
+       <xsd:element name="family" type="xsd:string"/>
+       <xsd:element name="gateway" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Subnet">
     <xsd:all>
        <xsd:element name="prefix" type="xsd:string"/>
@@ -179,11 +187,14 @@
        <xsd:element name="uuid" type="xsd:string"/>
        <xsd:element name="is-tagged" type="xsd:boolean"/>
        <xsd:element name="vlan-tag" type="xsd:string"/>
-       <xsd:element name="gateway" type="xsd:string"/>
        <xsd:element name="unit" type="xsd:integer"/>
-       <xsd:element name="ip-list" type="xsd:string" maxOccurs="unbounded"/>
-       <xsd:element name="family" type="xsd:string"/>
        <xsd:element name="firewall-filters" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="ip-addresses" type="dac:IpAddress" maxOccurs="unbounded"/>
+       <!-- Deprecated - Use ip-addresses -->
+       <xsd:element name="ip-list" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="gateway" type="xsd:string"/>
+       <xsd:element name="family" type="xsd:string"/>
+       <!-- Deprecated - Use ip-addresses -->
     </xsd:all>
 </xsd:complexType>
 
