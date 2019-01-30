@@ -2090,6 +2090,40 @@ class LogicalRouterServer(Resource, LogicalRouter):
     # end pre_dbe_delete
 # end class LogicalRouterServer
 
+class VirtualPortGroupServer(Resource, VirtualPortGroup):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if ('vpg-internal' in obj_dict['fq_name'][2] and
+            obj_dict.get('virtual_port_group_user_created', True)):
+            msg = "Virtual port group(%s) with name vpg-internal as prefix "\
+                  "can only be created internally"\
+                  %(obj_dict['uuid'])
+            return (False, msg)
+        return True,''
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        # If the user deletes LAG before associated VMIs, make sure that
+        # all the referring VMIs gets deleted before.
+        for vmi_ref in obj_dict.get('virtual_machine_interface_refs') or []:
+            try:
+
+                ok, vmi_dict = cls.dbe_read(db_conn,
+                               'virtual_machine_interface', vmi_ref['uuid'],
+                               obj_fields=['instance_ip_back_refs'])
+                for iip_ref in vmi_dict.get('instance_ip_back_refs') or []:
+                    api_server.internal_request_delete(
+                               'instance-ip', iip_ref['uuid'])
+                cls.server.internal_request_delete('virtual-machine-interface',
+                                                   vmi_ref['uuid'])
+            except cfgm_common.exceptions.HttpError as e:
+                raise
+        return True,'',None
+# end class VirtualPortGroupServer
+
+
+
 class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings = {}
     portbindings['VIF_TYPE_VROUTER'] = 'vrouter'
@@ -2536,15 +2570,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
-            lag_name = kvp_dict.get('lag')
+            vpg_name = kvp_dict.get('vpg')
             if vnic_type == 'baremetal' and kvp_dict.get('profile'):
                 # Process only if port profile exists and physical links are specified
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
-                    lag_uuid = cls._manage_lag_interface(obj_dict['uuid'],
-                                   cls.server, db_conn, links, lag_name)
-                    obj_dict['port_virtual_port_group_id'] = lag_uuid
+                    vpg_uuid = cls._manage_vpg_interface(obj_dict['uuid'],
+                                   cls.server, db_conn, links, vpg_name)
+                    obj_dict['port_virtual_port_group_id'] = vpg_uuid
 
         return True, ""
     # end pre_dbe_create
@@ -2553,11 +2587,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
         api_server = db_conn.get_api_server()
 
-        # add a ref from LAG to this VMI
-        lag_uuid = obj_dict.get('port_virtual_port_group_id')
-        if lag_uuid:
+        # add a ref from VPG to this VMI
+        vpg_uuid = obj_dict.get('port_virtual_port_group_id')
+        if vpg_uuid:
             api_server.internal_request_ref_update('virtual-port-group',
-               lag_uuid, 'ADD', 'virtual-machine-interface', obj_dict['uuid'],
+               vpg_uuid, 'ADD', 'virtual-machine-interface', obj_dict['uuid'],
                relax_ref_for_delete=True)
 
         # Create ref to native/vn-default routing instance
@@ -2727,13 +2761,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end pre_dbe_update
 
     @classmethod
-    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links,
-                              lag_name = None):
+    def _manage_vpg_interface(cls, vmi_id, api_server, db_conn, phy_links,
+                              vpg_name = None):
         fabric_name = None
         phy_interface_uuids = []
         for link in phy_links:
             if fabric_name is not None and fabric_name != link['fabric']:
-                msg = 'Physical interfaces in the same lag should belong to '\
+                msg = 'Physical interfaces in the same vpg should belong to '\
                       'the same fabric'
                 return (False, (400, msg))
             else:
@@ -2746,7 +2780,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             phy_interface_uuids.append(
                 db_conn.fq_name_to_uuid('physical_interface', pi_fq_name))
 
-        # check if new physical interfaces belongs to some other lag
+        # check if new physical interfaces belongs to some other vpg
         for uuid in set(phy_interface_uuids):
             (ok, phy_interface_dict) = db_conn.dbe_read(
                     obj_type='physical-interface', obj_id=uuid)
@@ -2757,42 +2791,42 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                                     ['mac_address'])
             esi = "00:00:00:00:" + mac[0]
 
-            lag_refs = phy_interface_dict.get('virtual_port_group_back_refs')
-            if lag_refs and lag_refs[0]['to'][-1] != lag_name:
-                msg = 'Physical interface %s already belong to the lag %s' %\
-                      (phy_interface_dict.get('name'), lag_refs[0]['to'][-1])
+            vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
+            if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
+                msg = 'Physical interface %s already belong to the vpg %s' %\
+                      (phy_interface_dict.get('name'), vpg_refs[0]['to'][-1])
                 return (False, (400, msg))
 
-        if lag_name: # read the lag object
-            lag_fq_name = ['default-global-system-config', fabric_name,
-                           lag_name]
+        if vpg_name: # read the VirtualPortGroup object
+            vpg_fq_name = ['default-global-system-config', fabric_name,
+                           vpg_name]
             try:
-                lag_uuid = db_conn.fq_name_to_uuid('virtual_port_group',
-                                                   lag_fq_name)
+                vpg_uuid = db_conn.fq_name_to_uuid('virtual_port_group',
+                                                   vpg_fq_name)
             except cfgm_common.exceptions.NoIdError:
-                msg = 'Lag object %s is not found' % lag_name
+                msg = 'Lag object %s is not found' % vpg_name
                 return (False, (404, msg))
 
-            (ok, lag_dict) = db_conn.dbe_read(
-                    obj_type='virtual-port-group', obj_id=lag_uuid)
+            (ok, vpg_dict) = db_conn.dbe_read(
+                    obj_type='virtual-port-group', obj_id=vpg_uuid)
 
             if not ok:
-                return (ok, 400, lag_dict)
+                return (ok, 400, vpg_dict)
 
-            kvps = lag_dict['annotations']['key_value_pair']
+            kvps = vpg_dict['annotations']['key_value_pair']
             kvp_dict = cls._kvp_to_dict(kvps)
-            lag_update_dict = {}
+            vpg_update_dict = {}
             if kvp_dict.get('esi') != esi:
-                lag_dict['annotations']['key_value_pair'][1] = KeyValuePair(
+                vpg_dict['annotations']['key_value_pair'][1] = KeyValuePair(
                                                                   'esi', esi)
-                lag_update_dict['annotations'] = lag_dict['annotations']
-                lag_update_dict = json.dumps(lag_update_dict,
+                vpg_update_dict['annotations'] = vpg_dict['annotations']
+                vpg_update_dict = json.dumps(vpg_update_dict,
                                   default=_obj_serializer_all)
                 ok, resp = api_server.internal_request_update('virtual-port-group',
-                                                              lag_dict['uuid'],
-                                                              json.loads(lag_update_dict))
+                                                              vpg_dict['uuid'],
+                                                              json.loads(vpg_update_dict))
 
-        else: # create lag object
+        else: # create vpg object
             fabric_fq_name=['default-global-system-config', fabric_name, phy_interface_uuids[0]]
             ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(fabric_fq_name))
             def undo_ae_id():
@@ -2800,49 +2834,50 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 return True, ""
             get_context().push_undo(undo_ae_id)
 
-            lag_name = "lag" + str(ae_id)
-            lag_obj = VirtualPortGroup(parent_type='fabric',
-                fq_name=['default-global-system-config', fabric_name, lag_name],
+            vpg_name = "vpg-internal-" + str(ae_id)
+            vpg_obj = VirtualPortGroup(parent_type='fabric',
+                fq_name=['default-global-system-config', fabric_name, vpg_name],
+                virtual_port_group_user_created= False,
                 virtual_port_group_lacp_enabled=True)
 
-            lag_obj.set_annotations(KeyValuePairs(
+            vpg_obj.set_annotations(KeyValuePairs(
                                    [KeyValuePair('ae_if_name', str(ae_id)),
                                     KeyValuePair('esi', esi)]))
-            lag_int_dict = json.dumps(lag_obj, default=_obj_serializer_all)
+            vpg_int_dict = json.dumps(vpg_obj, default=_obj_serializer_all)
 
             ok, resp = api_server.internal_request_create('virtual-port-group',
-                                                          json.loads(lag_int_dict))
+                                                          json.loads(vpg_int_dict))
 
             if not ok:
                 return (ok, 400, resp)
 
-            lag_dict = resp['virtual-port-group']
-            lag_uuid = resp['virtual-port-group']['uuid']
+            vpg_dict = resp['virtual-port-group']
+            vpg_uuid = resp['virtual-port-group']['uuid']
 
-            def undo_lag_create():
+            def undo_vpgg_create():
                 cls.server.internal_request_delete('virtual-port-group',
-                                                   lag_uuid)
+                                                   vpg_uuid)
                 return True, ''
-            get_context().push_undo(undo_lag_create)
+            get_context().push_undo(undo_vpg_create)
 
         old_phy_interface_uuids = []
-        old_phy_interface_refs = lag_dict.get('physical_interface_refs')
+        old_phy_interface_refs = vpg_dict.get('physical_interface_refs')
         for ref in old_phy_interface_refs or []:
             old_phy_interface_uuids.append(ref['uuid'])
 
-        # add new physical interfaces to the lag
+        # add new physical interfaces to the vpg
         for uuid in set(phy_interface_uuids) - set(old_phy_interface_uuids):
             api_server.internal_request_ref_update('virtual-port-group',
-                lag_uuid, 'ADD', 'physical-interface', uuid,
+                vpg_uuid, 'ADD', 'physical-interface', uuid,
                 relax_ref_for_delete=True)
 
-        # delete old physical interfaces to the lag
+        # delete old physical interfaces to the vpg
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
             api_server.internal_request_ref_update('virtual-port-group',
-                lag_uuid, 'DELETE', 'physical-interface', uuid)
+                vpg_uuid, 'DELETE', 'physical-interface', uuid)
 
-        return lag_uuid
-    # end _manage_lag_interface
+        return vpg_uuid
+    # end _manage_vpg_interface
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
@@ -2861,18 +2896,18 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
-            lag_name = kvp_dict.get('lag')
+            vpg_name = kvp_dict.get('vpg')
             if vnic_type == 'baremetal':
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links  = phy_links['local_link_information']
-                    lag_uuid = cls._manage_lag_interface(id, api_server,
-                                                db_conn, links, lag_name)
+                    vpg_uuid = cls._manage_vpg_interface(id, api_server,
+                                                db_conn, links, vpg_name)
 
                     # ADD a ref from this VMI only if it's getting created first time
-                    if not lag_name  and lag_uuid:
+                    if not vpg_name  and vpg_uuid:
                         api_server.internal_request_ref_update(
-                           'virtual-port-group', lag_uuid, 'ADD',
+                           'virtual-port-group', vpg_uuid, 'ADD',
                            'virtual-machine-interface', id,
                             relax_ref_for_delete=True)
 
@@ -2903,20 +2938,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
 
-        api_server = db_conn.get_api_server()
+        # For baremetal, delete the VPG object
+        for vpg_back_ref in obj_dict.get('virtual_port_group_back_refs') or []:
+            fqname = vpg_back_ref['to']
 
-        # For baremetal, delete the LAG object
-        for lag_back_ref in obj_dict.get('virtual_port_group_back_refs') or []:
-            fqname = lag_back_ref['to']
-
-            # Check if LAG is involved and and it's not referring to any other VMI.
+            # Check if VPG is involved and and it's not referring to any other VMI.
             # If yes, then clean up
-            lag_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
-            (ok, lag_dict) = db_conn.dbe_read(
-                    obj_type='virtual-port-group', obj_id=lag_uuid)
-            if not lag_dict.get('virtual_machine_interface_refs'):
-                api_server.internal_request_delete('virtual_port_group', lag_uuid)
-                id = int(fqname[2][2:])
+            vpg_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
+            (ok, vpg_dict) = db_conn.dbe_read(
+                    obj_type='virtual-port-group', obj_id=vpg_uuid)
+            if (not vpg_dict.get('virtual_machine_interface_refs') and
+                                 'vpg-internal' in fqname[2]):
+                cls.server.internal_request_delete('virtual_port_group', vpg_uuid)
+                id = int(fqname[2].split('-')[2])
                 ae_fqname = cls.vnc_zk_client.get_ae_from_id(id)
                 cls.vnc_zk_client.free_ae_id(id, ae_fqname)
 
