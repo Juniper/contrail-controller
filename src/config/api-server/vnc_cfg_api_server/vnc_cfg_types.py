@@ -3061,6 +3061,7 @@ class TagTypeServer(Resource, TagType):
                                 fields=['tag_type_id'])
         if not ok:
             return False, result
+        tag_type = result
 
         return True, int(tag_type['tag_type_id'], 0)
 
@@ -3379,7 +3380,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                 if ep is None:
                     continue
                 ep['tag_ids'] = []
-                for tag_name in set(ep.get('tags', [])):
+                for tag_name in set(ep.get('tags', []) or []):
                     ok, result = _get_tag_fq_name(tag_name)
                     if not ok:
                         return False, result
@@ -3562,12 +3563,58 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
         return True, ""
 
     @classmethod
+    def check_openstack_firewall_group_quota(cls, obj_dict, deleted=False):
+        obj_type = 'firewall_group'
+        if (not obj_dict['id_perms'].get('user_visible', True) or
+                obj_dict.get('parent_type') != ProjectServer.object_type):
+            return True, ''
+
+        ok, result = QuotaHelper.get_project_dict_for_quota(
+            obj_dict['parent_uuid'], cls.db_conn)
+        if not ok:
+            return False, result
+        project = result
+        quota_limit = QuotaHelper.get_quota_limit(project, obj_type)
+        if quota_limit < 0:
+            return True, ''
+
+        quota_count = 1
+        if deleted:
+            quota_count = -1
+
+        path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + project['uuid']
+        path = path_prefix + "/" + obj_type
+        if not cls.server.quota_counter.get(path):
+            QuotaHelper._zk_quota_counter_init(
+                path_prefix,
+                {obj_type: quota_limit},
+                project['uuid'],
+                cls.db_conn,
+                cls.server.quota_counter)
+        return QuotaHelper.verify_quota(
+            obj_type, quota_limit, cls.server.quota_counter[path], quota_count)
+
+        def undo():
+            # revert back counter in case of any failure during creation
+            if not deleted:
+                cls.server.quota_counter[path] -= 1
+            else:
+                cls.server.quota_counter[path] += 1
+        get_context().push_undo(undo)
+
+        return True, ''
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls.check_draft_mode_state(obj_dict)
         if not ok:
             return False, result
 
         ok, result = cls._check_all_applications_flag(obj_dict)
+        if not ok:
+            return False, result
+
+        ok, result = cls.check_openstack_firewall_group_quota(obj_dict)
         if not ok:
             return False, result
 
@@ -3588,14 +3635,34 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
         if not ok:
             return False, result
 
-        return cls.check_associated_firewall_resource_in_same_scope(
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, FirewallPolicyServer)
+        if not ok:
+            return False, result
+
+        if 'user_visible' in obj_dict.get('id_perms', {}):
+            new_user_visible = obj_dict['id_perms'].get('user_visible', True)
+            ok, result = cls.dbe_read(db_conn, 'application_policy_set', id)
+            if not ok:
+                return ok, result
+            aps = result
+            old_user_visible = aps['id_perms'].get('user_visible', True)
+            if new_user_visible and not old_user_visible:
+                return cls.check_openstack_firewall_group_quota(obj_dict)
+            elif not new_user_visible and old_user_visible:
+                return cls.check_openstack_firewall_group_quota(obj_dict, True)
+
+        return True, ''
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, result = cls.check_openstack_firewall_group_quota(obj_dict, True)
+        if not ok:
+            return False, result, None
+
         ok, result = cls.dbe_read(db_conn, 'application_policy_set', id)
         if not ok:
-            return ok, result,None
+            return ok, result, None
         aps = result
 
         if aps.get('all_applications', False) and not is_internal_request():
@@ -3603,7 +3670,7 @@ class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
                    "be deleted")
             return (False, (400, msg), None)
 
-        return True, '',None
+        return True, '', None
 
 
 class VirtualRouterServer(Resource, VirtualRouter):
