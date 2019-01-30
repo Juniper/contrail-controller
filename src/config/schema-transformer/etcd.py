@@ -100,13 +100,13 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
                                            service_chain)
         try:
             vlan_int = self._object_db.get_kv(vlan_int_path)
-            if vlan_int:
-                # TODO check if vlan_int has been allocated for this service_chain
+            int_owner = self._vnc_lib.get_int_owner(self._vlan_allocators[service_vm], vlan_int)
+            if vlan_int and int_owner == service_chain:
                 return int(vlan_int)
         except (KeyError, VncError, NoIdError):
             pass  # vlan int isn't allocated yet
 
-        vlan_int = self._vnc_lib.allocate_int(self._vlan_allocators[service_vm])
+        vlan_int = self._vnc_lib.allocate_int(self._vlan_allocators[service_vm], service_chain)
         self._object_db.put_kv(vlan_int_path, vlan_int)
 
         return int(vlan_int)
@@ -164,13 +164,13 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         :return: (int) allocated route target number
         """
         if alloc_only:
-            return self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL)
+            return self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL, ri_fq_name)
 
         rtgt = self.get_route_target(ri_fq_name)
-        if rtgt >= common.BGP_RTGT_MIN_ID:
-            # TODO check if rtgt has allocated for this ri_fq_name
+        owner = self._vnc_lib.get_int_owner(self._ROUTE_TARGET_NUMBER_ALLOC_POOL, rtgt)
+        if rtgt >= common.BGP_RTGT_MIN_ID and owner == ri_fq_name:
             return rtgt
-        rtgt = self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL)
+        rtgt = self._vnc_lib.allocate_int(self._ROUTE_TARGET_NUMBER_ALLOC_POOL, ri_fq_name)
         key_path = self._path_key(self._ETCD_ROUTE_TARGET_PATH, ri_fq_name)
         self._object_db.put_kv(key_path, str(rtgt))
 
