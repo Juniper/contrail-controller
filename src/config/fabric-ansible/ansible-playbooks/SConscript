@@ -54,6 +54,11 @@ local_sources = [
     'role_assignment.yml',
     'percentage_update.yml',
     'operational_command.yml',
+    'discover_server.yml',
+    'ipmi_discovery.yml',
+    'node_profile.yml',
+    'plugin_ironic.yml',
+    'server_import.yml',
 ]
 
 local_sources_rules = []
