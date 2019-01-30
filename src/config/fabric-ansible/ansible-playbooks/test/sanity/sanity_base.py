@@ -403,12 +403,12 @@ class SanityBase(object):
                                                log_ts_sec_gm) + ".%s" % \
                                                (str(log_ts_ms))[-3:]
                     if log_device_name:
-                        pprint.pprint("[{}%] {}: [{}] {}".format(percentage_complete,
+                        print("[{}%] {}: [{}] {}".format(percentage_complete,
                                                              log_ts_fmt,
                                                              log_device_name,
                                                              log_text))
                     else:
-                        pprint.pprint("[{}%] {}: {}".format(percentage_complete,
+                        print("[{}%] {}: {}".format(percentage_complete,
                                                              log_ts_fmt,
                                                              log_text))
                     print
