@@ -114,7 +114,7 @@ class PhysicalRouterDM(DBBaseDM):
             DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
         self.fabric = None
-        self.link_aggregation_groups = []
+        self.virtual_port_groups = []
         self.node_profile = None
         self.nc_handler_gl = None
         self.update(obj_dict)
@@ -208,10 +208,10 @@ class PhysicalRouterDM(DBBaseDM):
     # end update
 
     def set_associated_lags(self, lag_uuid):
-        self.link_aggregation_groups.append(lag_uuid)
+        self.virtual_port_groups.append(lag_uuid)
 
     def remove_associated_lags(self, lag_uuid):
-        self.link_aggregation_groups.remove(lag_uuid)
+        self.virtual_port_groups.remove(lag_uuid)
 
     def is_ztp(self):
         if self.fabric:
@@ -2189,9 +2189,37 @@ class NodeProfileDM(DBBaseDM):
     # end update
 # end class NodeProfileDM
 
+
 class LinkAggregationGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'link_aggregation_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.physical_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.add_to_parent(obj)
+        self.lacp_enabled = obj.get('link_aggregation_group_lacp_enabled')
+        self.update_multiple_refs('physical_interface', obj)
+    # end update
+
+    def delete_obj(self):
+        self.remove_from_parent()
+        self.update_multiple_refs('physical_interface', {})
+    # end delete_obj
+# end class LinkAggregationGroupDM
+
+
+class VirtualPortGroupDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'virtual_port_group'
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -2208,7 +2236,7 @@ class LinkAggregationGroupDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.add_to_parent(obj)
-        self.lacp_enabled = obj.get('link_aggregation_group_lacp_enabled')
+        self.lacp_enabled = obj.get('virtual_port_group_lacp_enabled')
 
         self.annotations = obj.get('annotations')
         kvps = self.annotations.get('key_value_pair') or []
@@ -2225,7 +2253,7 @@ class LinkAggregationGroupDM(DBBaseDM):
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
-            if self.uuid not in pr_obj.link_aggregation_groups:
+            if self.uuid not in pr_obj.virtual_port_groups:
                 pr_obj.set_associated_lags(self.uuid)
 
     def get_attached_sgs(self, vlan_tag):
@@ -2246,14 +2274,14 @@ class LinkAggregationGroupDM(DBBaseDM):
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
-            if self.uuid in pr_obj.link_aggregation_groups:
+            if self.uuid in pr_obj.virtual_port_groups:
                 pr_obj.remove_associated_lags(self.uuid)
 
         self.update_multiple_refs('physical_interface', {})
         self.update_multiple_refs('virtual_machine_interface', {})
         self.remove_from_parent()
     # end delete_obj
-# end class LinkAggregationGroupDM
+# end class VirtualPortGroupDM
 
 class RoleConfigDM(DBBaseDM):
     _dict = {}

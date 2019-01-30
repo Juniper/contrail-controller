@@ -424,8 +424,8 @@ class AnsibleRoleCommon(AnsibleConf):
             return
 
         sg_list = []
-        for lag_uuid in pr.link_aggregation_groups or []:
-            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+        for lag_uuid in pr.virtual_port_groups or []:
+            lag_obj = VirtualPortGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
             if interface.name == 'ae' + str(lag_obj.ae_id) + unit:
@@ -515,9 +515,9 @@ class AnsibleRoleCommon(AnsibleConf):
         pr = self.physical_router
         if not pr:
             return
-        for lag_uuid in pr.link_aggregation_groups or []:
+        for lag_uuid in pr.virtual_port_groups or []:
             link_members = []
-            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+            lag_obj = VirtualPortGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
             ae_id = lag_obj.ae_id
@@ -575,8 +575,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 for pvn in vn_list or []:
                     vn_dict[pvn] = []
 
-        for lag_uuid in pr.link_aggregation_groups or []:
-            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
+        for lag_uuid in pr.virtual_port_groups or []:
+            lag_obj = VirtualPortGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
             ae_id = lag_obj.ae_id
@@ -757,11 +757,6 @@ class AnsibleRoleCommon(AnsibleConf):
         if not pr:
             return
         sg_list = []
-        for lag_uuid in pr.link_aggregation_groups or []:
-            lag_obj = LinkAggregationGroupDM.get(lag_uuid)
-            if not lag_obj:
-                continue
-            sg_list += lag_obj.get_attached_sgs()
 
         if LogicalInterfaceDM.get_sg_list():
             sg_list += LogicalInterfaceDM.get_sg_list()
