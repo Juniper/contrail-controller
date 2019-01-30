@@ -28,5 +28,5 @@ image_upgrade_list:
       - vqfx3
       - vqfx6
 fabric: fab01
-
+upgrade_mode: upgrade
 

@@ -62,6 +62,7 @@ class SanityTestHitless(SanityBase):
         self._image_details = cfg['images']
         self._image_upgrade_list = cfg['image_upgrade_list']
         self.fabric = cfg['fabric']
+        self.upgrade_mode = cfg['upgrade_mode']
         self._auth_url = 'http://' + self._keystone_ip + ':' + str(self._port) \
                          + '/v3'
         try:
@@ -172,10 +173,10 @@ class SanityTestHitless(SanityBase):
             }
             fabric_fq_name = ['default-global-system-config', self.fabric]
             fabric = self._api.fabric_read(fq_name=fabric_fq_name)
-            upgrade_mode = "upgrade"
 
             self.image_upgrade_maintenance_mode(final_upgrade_list,
-                                                advanced_params, upgrade_mode,
+                                                advanced_params,
+                                                self.upgrade_mode,
                                                 fabric, prouter_name_list)
         except Exception as ex:
             self._exit_with_error(
