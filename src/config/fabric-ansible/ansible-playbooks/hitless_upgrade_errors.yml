@@ -1,6 +1,15 @@
-- name: Get next batch of devices and return to job manager
+- set_fact:
+    deactivate_due_to_errors: true
+
+- name: Deactivate maintenance mode if config is pushed
+  include_role:
+    name: "maintenance_mode_deactivate"
+  when: device_push_response is defined and device_push_response.failed == false and device_maintenance_mode == "activate"
+
+- name: Get the next batch of devices and return to job manager
   set_fact:
     next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
+  when: device_push_response is undefined
 
 - name: Set next_set
   set_fact:

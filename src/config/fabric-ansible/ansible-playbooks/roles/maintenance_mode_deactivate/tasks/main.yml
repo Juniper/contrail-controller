@@ -40,6 +40,7 @@
     prouter_fqname: "{{pr_fqname}}"
     onboarding_state: "{{DEVICE_STATE.HITLESS_IMAGE_UPGRADE_SUCCESSFUL}}"
     job_ctx: "{{job_ctx}}"
+  when: deactivate_due_to_errors is not defined
 
 - name: Get next batch of devices and return to job manager
   set_fact:
