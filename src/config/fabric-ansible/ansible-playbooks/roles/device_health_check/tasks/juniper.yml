@@ -104,7 +104,17 @@
       with_subelements:
         - "{{ test_results_list }}"
         - value
-      when: item[1].failed != []
+      when: item[1].failed != [] and item[1].expected_node_value is defined
+
+    - name: Collect detailed failed test info
+      set_fact:
+        test_results_detail: >
+                              {{test_results_detail|combine({item[0].key+' ('+item[1].node_name+')':
+                                {'failed':item[1].failed}})}}
+      with_subelements:
+        - "{{ test_results_list }}"
+        - value
+      when: item[1].failed != [] and item[1].expected_node_value is not defined
 
     - name: Combine dicts
       set_fact:

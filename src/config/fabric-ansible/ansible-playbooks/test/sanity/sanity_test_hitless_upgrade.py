@@ -62,6 +62,8 @@ class SanityTestHitless(SanityBase):
         self._image_details = cfg['images']
         self._image_upgrade_list = cfg['image_upgrade_list']
         self.fabric = cfg['fabric']
+        self.upgrade_mode = cfg['upgrade_mode']
+        self.advanced_params = cfg['advanced_params']
         self._auth_url = 'http://' + self._keystone_ip + ':' + str(self._port) \
                          + '/v3'
         try:
@@ -135,47 +137,12 @@ class SanityTestHitless(SanityBase):
                 upgrade_dict['image_uuid'] = image_uuid
                 upgrade_dict['device_list'] = device_list
                 final_upgrade_list.append(upgrade_dict)
-            advanced_params = {
-                "bulk_device_upgrade_count": 4,
-                "health_check_abort": True,
-                "Juniper": {
-                    "bgp": {
-                        "bgp_flap_count": 4,
-                        "bgp_flap_count_check": True,
-                        "bgp_down_peer_count": 0,
-                        "bgp_down_peer_count_check": True,
-                        "bgp_peer_state_check": True
-                    },
-                    "alarm": {
-                        "system_alarm_check": True,
-                        "chassis_alarm_check": True
-                    },
-                    "interface": {
-                        "interface_error_check": True,
-                        "interface_drop_count_check": True,
-                        "interface_carrier_transition_count_check": True
-                    },
-                    "routing_engine": {
-                        "routing_engine_cpu_idle": 60,
-                        "routing_engine_cpu_idle_check": True
-                    },
-                    "fpc": {
-                        "fpc_cpu_5min_avg": 50,
-                        "fpc_cpu_5min_avg_check": True,
-                        "fpc_memory_heap_util": 45,
-                        "fpc_memory_heap_util_check": True
-                    },
-                    "active_route_count_check": True,
-                    "l2_total_mac_count_check": True,
-                    "storm_control_flag_check": True
-                }
-            }
             fabric_fq_name = ['default-global-system-config', self.fabric]
             fabric = self._api.fabric_read(fq_name=fabric_fq_name)
-            upgrade_mode = "upgrade"
 
             self.image_upgrade_maintenance_mode(final_upgrade_list,
-                                                advanced_params, upgrade_mode,
+                                                self.advanced_params,
+                                                self.upgrade_mode,
                                                 fabric, prouter_name_list)
         except Exception as ex:
             self._exit_with_error(
