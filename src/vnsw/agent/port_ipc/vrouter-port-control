@@ -20,7 +20,9 @@ PORT_IPC_VROUTER_AGENT_PORT = 9091
 TIMEOUT_SECS = 15
 DPDK_NETLINK_TCP_PORT = 20914
 PORT_OPEN_TIMEOUT_SECS = 120
-DPDK_NETLINK_SOCK_PATH="/var/run/vrouter/dpdk_netlink"
+DPDK_NETLINK_SOCK_PATH = "/var/run/vrouter/dpdk_netlink"
+LINK_STATE = "link-state"
+ESXI_PORT_TYPE = 2
 
 
 class VrouterPortControl(object):
@@ -64,7 +66,7 @@ class VrouterPortControl(object):
             payload = self.GetJSonDict(port_type_value, project_id)
             json_dump = json.dumps(payload)
             if not self._args.no_persist:
-                ret_code = self.WriteToFile(port_type_value, project_id)
+                ret_code = self.WriteToFile(payload)
             try:
                 '''We post the request to agent even if WriteToFile has failed.
                    Agent will write to file if file is not already present
@@ -101,6 +103,11 @@ class VrouterPortControl(object):
             except ConnectionError:
                 pass
         elif self._args.oper == "enable":
+            if not self._args.no_persist:
+                port_data = self.ReadFromFile()
+                if port_data is not None and self.IsESXiPort(port_data):
+                    port_data[LINK_STATE] = 1
+                    self.WriteToFile(port_data)
             url = base_url + "/enable-port/" + self._args.uuid
             try:
                 r = requests.put(url, data=None, headers=headers)
@@ -110,6 +117,12 @@ class VrouterPortControl(object):
             except ConnectionError:
                 pass
         elif self._args.oper == "disable":
+            if not self._args.no_persist:
+                port_data = self.ReadFromFile()
+                if port_data is not None and self.IsESXiPort(port_data):
+                    if LINK_STATE in port_data:
+                        port_data.pop(LINK_STATE)
+                        self.WriteToFile(port_data)
             url = base_url + "/disable-port/" + self._args.uuid
             try:
                 r = requests.put(url, data=None, headers=headers)
@@ -158,7 +171,7 @@ class VrouterPortControl(object):
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
 
-        parser.add_argument('--oper', help="Operation add/delete ",
+        parser.add_argument('--oper', help="Operation add/delete/enable/disable ",
                             required=True)
         parser.add_argument('--uuid', help="port UUID", required=True)
         parser.add_argument('--instance_uuid', help="instance UUID")
@@ -267,9 +280,13 @@ class VrouterPortControl(object):
         return data
     # end GetJSonDict
 
-    def WriteToFile(self, port_type, project_id):
+    def IsESXiPort(self, port_data):
+        return port_data["type"] == ESXI_PORT_TYPE
+    # end IsESXiPort
+
+
+    def WriteToFile(self, data):
         filename = ("%s%s" % (PORT_PATH, self._args.uuid))
-        data = self.GetJSonDict(port_type, project_id)
         try:
             with open(filename, 'w') as outfile:
                 json.dump(data, outfile, True)
@@ -284,6 +301,16 @@ class VrouterPortControl(object):
         if os.path.isfile(filename):
             os.remove(filename)
     # end DeleteFile
+
+    def ReadFromFile(self):
+        filename = ("%s%s" % (PORT_PATH, self._args.uuid))
+        try:
+            with open(filename, 'r') as port_file:
+                json_data = port_file.read()
+                return json.loads(json_data)
+        except:
+            return None
+    # end ReadFromFile
 
     def WaitForNetlinkSocket(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
