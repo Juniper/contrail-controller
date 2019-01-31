@@ -434,8 +434,16 @@ class AnsibleRoleCommon(AnsibleConf):
             lag_obj = VirtualPortGroupDM.get(lag_uuid)
             if not lag_obj:
                 continue
-            if interface.name == 'ae' + str(lag_obj.ae_id) + unit:
-                sg_list += lag_obj.get_attached_sgs(unit)
+            if interface.name == 'ae' + str(lag_obj.ae_id) + '.' + \
+                    unit.get_unit():
+                sg_list += lag_obj.get_attached_sgs(unit.get_unit())
+
+                for sg in sg_list or []:
+                    acls = sg.access_control_lists
+                    for acl in acls or []:
+                        acl = AccessControlListDM.get(acl)
+                        if acl and not acl.is_ingress:
+                            self.build_firewall_filters(sg, acl)
 
         if interface.li_uuid:
             interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
@@ -600,6 +608,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                 ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
                                 vn_dict.setdefault(vn_id, []).append(
                                     JunosInterface(ae_name, 'l2', vlan_tag))
+                                break
         return vn_dict
     # end
 
