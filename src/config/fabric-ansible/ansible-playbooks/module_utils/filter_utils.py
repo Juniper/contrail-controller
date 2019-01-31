@@ -64,6 +64,10 @@ class FilterLog(object):
             self._msg = None
     # end msg_end
 
+    def msg_info(self, msg):
+        self._logger.info(msg)
+    # end msg_error
+
     def msg_error(self, msg):
         self._logger.error(msg)
     # end msg_error
@@ -97,6 +101,11 @@ def _task_done(msg=None):
 # end _task_done
 
 
+def _task_info_log(msg):
+    FilterLog.instance().msg_info(msg)
+# end _task_info_log
+
+
 def _task_error_log(msg):
     FilterLog.instance().msg_error(msg)
 # end _task_error_log
@@ -110,5 +119,3 @@ def _task_debug_log(msg):
 def _task_warn_log(msg):
     FilterLog.instance().msg_warn(msg)
 # end _task_warn_log
-
-
