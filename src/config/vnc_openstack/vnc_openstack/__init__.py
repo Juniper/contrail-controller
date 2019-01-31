@@ -350,25 +350,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
                                status=ConnectionStatus.INIT, message='',
                                server_addrs=[self._auth_url])
-        self._get_keystone_conn()
-
-        if self._ks.version == 'v3':
-            self._ks_domains_list = self._ksv3_domains_list
-            self._ks_domain_get = self._ksv3_domain_get
-            self._ks_projects_list = self._ksv3_projects_list
-            self._ks_project_get = self._ksv3_project_get
-            self.sync_project_to_vnc = self._ksv3_sync_project_to_vnc
-            self._add_project_to_vnc = self._ksv3_add_project_to_vnc
-            self._del_project_from_vnc = self._ksv3_del_project_from_vnc
-            self._vnc_default_domain_id = None
-        else:
-            self._ks_domains_list = None
-            self._ks_domain_get = None
-            self._ks_projects_list = self._ksv2_projects_list
-            self._ks_project_get = self._ksv2_project_get
-            self.sync_project_to_vnc = self._ksv2_sync_project_to_vnc
-            self._add_project_to_vnc = self._ksv2_add_project_to_vnc
-            self._del_project_from_vnc = self._ksv2_del_project_from_vnc
 
         self._vnc_lib = None
 
@@ -460,9 +441,35 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     service_type='identity',
                     endpoint_type=self._endpoint_type)[0]
 
+        if self._ks.version == 'v3':
+            self._ks_domains_list = self._ksv3_domains_list
+            self._ks_domain_get = self._ksv3_domain_get
+            self._ks_projects_list = self._ksv3_projects_list
+            self._ks_project_get = self._ksv3_project_get
+            self.sync_project_to_vnc = self._ksv3_sync_project_to_vnc
+            self._add_project_to_vnc = self._ksv3_add_project_to_vnc
+            self._del_project_from_vnc = self._ksv3_del_project_from_vnc
+            self._vnc_default_domain_id = None
+        else:
+            self._ks_domains_list = None
+            self._ks_domain_get = None
+            self._ks_projects_list = self._ksv2_projects_list
+            self._ks_project_get = self._ksv2_project_get
+            self.sync_project_to_vnc = self._ksv2_sync_project_to_vnc
+            self._add_project_to_vnc = self._ksv2_add_project_to_vnc
+            self._del_project_from_vnc = self._ksv2_del_project_from_vnc
+
         ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
                                status=ConnectionStatus.UP, message='',
                                server_addrs=[self._auth_url])
+
+    def _reset_keystone_connection(self, exc):
+        if self._ks is not None:
+            self._ks = None
+            ConnectionState.update(conn_type=ConnType.OTHER,
+                name='Keystone', status=ConnectionStatus.DOWN,
+                message='Error: %s at UTC %s' %(e, datetime.utcnow()),
+                server_addrs=[self._auth_url])
 
     def _ksv2_projects_list(self):
         return [{'id': tenant.id} for tenant in self._ks.tenants.list()]
@@ -477,12 +484,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             try:
                 return {'name': self._ks.tenants.get(id).name, 'id':id}
             except Exception as e:
-                if self._ks is not None:
-                    self._ks = None
-                    ConnectionState.update(conn_type=ConnType.OTHER,
-                        name='Keystone', status=ConnectionStatus.DOWN,
-                        message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                        server_addrs=[self._auth_url])
+                self._reset_keystone_connection(e)
                 self._get_keystone_conn()
                 return {'name': self._ks.tenants.get(id).name, 'id':id}
         else:
@@ -575,12 +577,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         try:
             return {'name': self._ks.domains.get(id).name}
         except Exception as e:
-            if self._ks is not None:
-                self._ks = None
-                ConnectionState.update(conn_type=ConnType.OTHER,
-                    name='Keystone', status=ConnectionStatus.DOWN,
-                    message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                    server_addrs=[self._auth_url])
+            self._reset_keystone_connection(e)
             self._get_keystone_conn()
             return {'name': self._ks.domains.get(id).name}
     # end _ksv3_domain_get
@@ -595,12 +592,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 project = self._ks.projects.get(id)
                 return {'id': project.id, 'name': project.name, 'domain_id': project.domain_id}
             except Exception as e:
-                if self._ks is not None:
-                    self._ks = None
-                    ConnectionState.update(conn_type=ConnType.OTHER,
-                        name='Keystone', status=ConnectionStatus.DOWN,
-                        message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                        server_addrs=[self._auth_url])
+                self._reset_keystone_connection(e)
                 self._get_keystone_conn()
                 project = self._ks.projects.get(id)
                 return {'id': project.id, 'name': project.name, 'domain_id': project.domain_id}
@@ -761,11 +753,11 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # _del_domain_from_vnc
 
     def _resync_all_domains(self):
+        self._get_keystone_conn()
         if not self._ks_domains_list:
             # < keystonev3, no domains
             return False
 
-        self._get_keystone_conn()
         # compare new and old set,
         # optimize for common case where nothing has changed,
         # so track the project-ids in a set add '-',
@@ -778,12 +770,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     for dom in self._ks_domains_list() if dom['id'] != 'default'])
             ks_domain_ids.add(self._vnc_default_domain_id)
         except Exception as e:
-            if self._ks is not None:
-                self._ks = None
-                ConnectionState.update(conn_type=ConnType.OTHER,
-                    name='Keystone', status=ConnectionStatus.DOWN,
-                    message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                    server_addrs=[self._auth_url])
+            self._reset_keystone_connection(e)
             return True # retry
 
         vnc_domain_ids = self._vnc_domain_ids
@@ -821,12 +808,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 [str(uuid.UUID(proj['id']))
                     for proj in self._ks_projects_list()])
         except Exception as e:
-            if self._ks is not None:
-                self._ks = None
-                ConnectionState.update(conn_type=ConnType.OTHER,
-                    name='Keystone', status=ConnectionStatus.DOWN,
-                    message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                    server_addrs=[self._auth_url])
+            self._reset_keystone_connection(e)
             return True # retry
 
         vnc_project_ids = self._vnc_project_ids
@@ -886,15 +868,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     gevent.sleep(self._resync_interval_secs)
                     continue
             except Exception as e:
-                if self._ks is not None:
-                    self._ks = None
-                    ConnectionState.update(conn_type=ConnType.OTHER,
-                        name='Keystone', status=ConnectionStatus.DOWN,
-                        message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                        server_addrs=[self._auth_url])
-                    self._cgitb_error_log()
-                    self._sandesh_logger.error(
-                        "Failed to resync domains: %s" %  e)
+                self._cgitb_error_log()
+                self._sandesh_logger.error(
+                    "Failed to resync domains: %s" %  e)
+                self._reset_keystone_connection(e)
 
             try:
                 retry = self._resync_all_projects()
@@ -902,15 +879,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     gevent.sleep(self._resync_interval_secs)
                     continue
             except Exception as e:
-                if self._ks is not None:
-                    self._ks = None
-                    ConnectionState.update(conn_type=ConnType.OTHER,
-                        name='Keystone', status=ConnectionStatus.DOWN,
-                        message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                        server_addrs=[self._auth_url])
-                    self._cgitb_error_log()
-                    self._sandesh_logger.error(
-                        "Failed to resync projects: %s" %  e)
+                self._cgitb_error_log()
+                self._sandesh_logger.error(
+                    "Failed to resync projects: %s" %  e)
+                self._reset_keystone_connection(e)
 
             gevent.sleep(self._resync_interval_secs)
 
@@ -1048,12 +1020,14 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # another api server has brought syncd it
             pass
     # end pre_domain_read
+
     @wait_for_api_server_connection
     def pre_project_read_fqname(self, fq_name):
         if not self._keystone_sync_on_demand or fq_name == None:
             # project added via poll
             return
         name = fq_name[-1]
+        self._openstack_drv.self._get_keystone_conn()
         id = self._openstack_drv._ks_project_get(id=None, name=name).get('id')
         if id:
             proj_obj = vnc_api.Project(name)

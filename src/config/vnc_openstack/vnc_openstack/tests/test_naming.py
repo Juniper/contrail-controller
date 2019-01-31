@@ -235,7 +235,8 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
                 self.assertThat(conn_info.status.lower(), Equals('down'))
 
             # verify up->down
-            gevent.sleep(self.resync_interval)
+            # wait more than resync interval to allow code finish its work
+            gevent.sleep(1 + self.resync_interval)
             verify_down()
             self.assertThat(len(fake_list_invoked), Equals(1))
             # should remain down
