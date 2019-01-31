@@ -216,30 +216,31 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
             for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('up'))
 
-        fake_list_invoked = []
+        fake_list_invoked = list()
         def fake_list(*args, **kwargs):
             fake_list_invoked.append(True)
             raise Exception("Fake Keystone Projects List exception")
 
-        with test_common.flexmocks([
-            (self.openstack_driver._ks.tenants, 'list', fake_list)]):
-            proj_id = str(uuid.uuid4())
-            proj_name = self.id()+'verify-down'
-            test_case.get_keystone_client().tenants.add_tenant(
-                proj_id, proj_name)
-            self.openstack_driver._ks = None # force to re-connect on next poll
-            def verify_down():
-                conn_info = [ConnectionState._connection_map[x]
-                    for x in ConnectionState._connection_map
-                    if x[1] == 'Keystone'][0]
-                self.assertThat(conn_info.status.lower(), Equals('down'))
+        def verify_down():
+            conn_info = [ConnectionState._connection_map[x]
+                for x in ConnectionState._connection_map
+                if x[1] == 'Keystone'][0]
+            self.assertThat(conn_info.status.lower(), Equals('down'))
 
-            # verify up->down
-            gevent.sleep(self.resync_interval)
-            verify_down()
+        with test_common.flexmocks([(self.openstack_driver._ks.tenants, 'list', fake_list)]):
+            # wait for tenants.list is invoked for 2*self.resync_interval max
+            for x in range(10):
+                if len(fake_list_invoked) >= 1:
+                    break
+                gevent.sleep(float(self.resync_interval)/5.0)
+            # check that tenants.list was called once
             self.assertThat(len(fake_list_invoked), Equals(1))
+            # wait for 1/10 of self.resync_interval to let code reach reset_connection in service
+            gevent.sleep(float(self.resync_interval)/10.0)
+            # verify up->down
+            verify_down()
             # should remain down
-            gevent.sleep(self.resync_interval)
+            gevent.sleep(float(self.resync_interval)*1.05)
             verify_down()
             self.assertThat(len(fake_list_invoked), Equals(2))
 
