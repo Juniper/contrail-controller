@@ -2262,7 +2262,7 @@ class VirtualPortGroupDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
             if not vmi_obj:
                 return sg_list
-            if vmi_obj.vlan_tag == vlan_tag:
+            if vmi_obj.vlan_tag == int(vlan_tag):
                 for sg in vmi_obj.security_groups or []:
                     sg = SecurityGroupDM.get(sg)
                     if sg and sg not in sg_list:
