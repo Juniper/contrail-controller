@@ -236,25 +236,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
                                status=ConnectionStatus.INIT, message='',
                                server_addrs=[self._auth_url])
-        self._get_keystone_conn()
-
-        if self._ks.version == 'v3':
-            self._ks_domains_list = self._ksv3_domains_list
-            self._ks_domain_get = self._ksv3_domain_get
-            self._ks_projects_list = self._ksv3_projects_list
-            self._ks_project_get = self._ksv3_project_get
-            self.sync_project_to_vnc = self._ksv3_sync_project_to_vnc
-            self._add_project_to_vnc = self._ksv3_add_project_to_vnc
-            self._del_project_from_vnc = self._ksv3_del_project_from_vnc
-            self._vnc_default_domain_id = None
-        else:
-            self._ks_domains_list = None
-            self._ks_domain_get = None
-            self._ks_projects_list = self._ksv2_projects_list
-            self._ks_project_get = self._ksv2_project_get
-            self.sync_project_to_vnc = self._ksv2_sync_project_to_vnc
-            self._add_project_to_vnc = self._ksv2_add_project_to_vnc
-            self._del_project_from_vnc = self._ksv2_del_project_from_vnc
 
         self._vnc_lib = None
 
@@ -346,6 +327,24 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     service_type='identity',
                     endpoint_type=self._endpoint_type)[0]
 
+        if self._ks.version == 'v3':
+            self._ks_domains_list = self._ksv3_domains_list
+            self._ks_domain_get = self._ksv3_domain_get
+            self._ks_projects_list = self._ksv3_projects_list
+            self._ks_project_get = self._ksv3_project_get
+            self.sync_project_to_vnc = self._ksv3_sync_project_to_vnc
+            self._add_project_to_vnc = self._ksv3_add_project_to_vnc
+            self._del_project_from_vnc = self._ksv3_del_project_from_vnc
+            self._vnc_default_domain_id = None
+        else:
+            self._ks_domains_list = None
+            self._ks_domain_get = None
+            self._ks_projects_list = self._ksv2_projects_list
+            self._ks_project_get = self._ksv2_project_get
+            self.sync_project_to_vnc = self._ksv2_sync_project_to_vnc
+            self._add_project_to_vnc = self._ksv2_add_project_to_vnc
+            self._del_project_from_vnc = self._ksv2_del_project_from_vnc
+
         ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
                                status=ConnectionStatus.UP, message='',
                                server_addrs=[self._auth_url])
@@ -359,6 +358,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # before endpoints are populated in keystone) keystoneclient may
         # be valid to list projects, but not to read them. As it won't
         # be reset by resync_all_projects, it is reseted on error here.
+        self._get_keystone_conn()
         if id:
             try:
                 return {'name': self._ks.tenants.get(id).name, 'id':id}
@@ -476,6 +476,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv3_projects_list
 
     def _ksv3_project_get(self, id=None, name=None):
+        self._get_keystone_conn()
         if id:
             try:
                 project = self._ks.projects.get(id)
@@ -647,11 +648,11 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # _del_domain_from_vnc
 
     def _resync_all_domains(self):
+        self._get_keystone_conn()
         if not self._ks_domains_list:
             # < keystonev3, no domains
             return False
 
-        self._get_keystone_conn()
         # compare new and old set,
         # optimize for common case where nothing has changed,
         # so track the project-ids in a set add '-',
@@ -930,6 +931,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # another api server has brought syncd it
             pass
     # end pre_domain_read
+
     @wait_for_api_server_connection
     def pre_project_read_fqname(self, fq_name):
         if not self._keystone_sync_on_demand or fq_name == None:
