@@ -1,17 +1,27 @@
 #!/usr/bin/python
 
 import logging
-import json
+from enum import Enum
 
 from cfgm_common.exceptions import *
 from cfgm_common.vnc_object_db import VncObjectDBClient
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 """
 This filter helps in reading objects from the DB directly without passing the
 data through the additional layers that would encrypt the data. For example
 useful in cases when we need access to the password for the devices etc.
 """
+
+
+class SandeshLogLevels(Enum):
+    SYS_WARN = 4
+    SYS_NOTICE = 5
+    SYS_EMERG = 0
+    SYS_ALERT = 1
+    SYS_CRIT = 2
+    SYS_ERR = 3
+    SYS_DEBUG = 7
+    SYS_INFO = 6
 
 
 class DbLogger(object):
@@ -29,16 +39,17 @@ class DbLogger(object):
 
     def log(self, msg, level):
         if level is not None and msg is not None:
-            if level == SandeshLevel.SYS_WARN or SandeshLevel.SYS_NOTICE:
+            if level is SandeshLogLevels.SYS_WARN.value or \
+                    SandeshLogLevels.SYS_NOTICE.value:
                 self.logger.warn(msg)
-            elif level == SandeshLevel.SYS_EMERG or \
-                    level == SandeshLevel.SYS_ALERT or \
-                    level == SandeshLevel.SYS_CRIT or \
-                    level == SandeshLevel.SYS_ERR:
+            elif level is SandeshLogLevels.SYS_EMERG.value or \
+                    level is SandeshLogLevels.SYS_ALERT.value or \
+                    level is SandeshLogLevels.SYS_CRIT.value or \
+                    level is SandeshLogLevels.SYS_ERR.value:
                 self.logger.error(msg)
-            elif level == SandeshLevel.SYS_DEBUG:
+            elif level is SandeshLogLevels.SYS_DEBUG.value:
                 self.logger.debug(msg)
-            elif level == SandeshLevel.SYS_INFO:
+            elif level is SandeshLogLevels.SYS_INFO.value:
                 self.logger.info(msg)
         elif msg is not None: # for all other sandesh levels just log as info
             self.logger.info(msg)
