@@ -107,10 +107,10 @@ class InstallVenv(object):
         if not os.path.isdir(self.venv):
             print('Creating venv...', end=' ')
             if no_site_packages:
-                self.run_command(['virtualenv', '-q', '--no-site-packages',
+                self.run_command(['virtualenv', '-q', '--no-site-packages', '--no-download',
                                  self.venv])
             else:
-                self.run_command(['virtualenv', '-q', self.venv])
+                self.run_command(['virtualenv', '-q', '--no-download', self.venv])
             print('done.')
         else:
             print("venv already exists...")
