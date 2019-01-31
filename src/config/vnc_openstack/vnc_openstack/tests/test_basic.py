@@ -1252,12 +1252,12 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
     def test_fq_name_project(self):
         proj_id = str(uuid.uuid4())
-        proj_name = 'proj-test'
+        proj_name = 'proj-test-748'
         test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
         read_fail = False
         try:
             proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
-                                                       'proj-test'])
+                                                       'proj-test-748'])
         except Exception as e:
             read_fail = True
         finally:
