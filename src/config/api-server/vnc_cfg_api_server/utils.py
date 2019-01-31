@@ -92,6 +92,10 @@ def parse_args(args_str):
         'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
         'enable_fabric_ansible': True,
         'amqp_timeout': 660,
+        'config_api_ssl_enable': False,
+        'config_api_ssl_keyfile': '',
+        'config_api_ssl_certfile': '',
+        'config_api_ssl_ca_cert': '',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
