@@ -32,7 +32,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
-    DataCenterInterconnectDM
+    DataCenterInterconnectDM, VirtualPortGroupDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -66,7 +66,7 @@ class DeviceManager(object):
             'role_config': [],
             'fabric': [],
             'fabric_namespace': [],
-            'link_aggregation_group': [],
+            'virtual_port_group': [],
         },
         'global_system_config': {
             'self': ['physical_router', 'data_center_interconnect'],
@@ -86,7 +86,7 @@ class DeviceManager(object):
             'self': ['node_profile'],
             'node_profile': [],
         },
-        'link_aggregation_group': {
+        'virtual_port_group': {
             'self': ['physical_interface'],
             'virtual_machine_interface': ['physical_interface'],
             'physical_interface': ['physical_interface'],
@@ -107,11 +107,11 @@ class DeviceManager(object):
             'self': ['physical_router',
                      'physical_interface',
                      'logical_interface',
-                     'link_aggregation_group'],
+                     'virtual_port_group'],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_router'],
             'physical_interface': ['physical_router'],
-            'link_aggregation_group': ['physical_router'],
+            'virtual_port_group': ['physical_router'],
             'virtual_machine_interface': ['physical_interface']
         },
         'logical_interface': {
@@ -134,7 +134,7 @@ class DeviceManager(object):
                      'instance_ip',
                      'port_tuple',
                      'service_endpoint',
-                     'link_aggregation_group'],
+                     'virtual_port_group'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface', 'logical_router'],
             'logical_router': [],
@@ -368,6 +368,9 @@ class DeviceManager(object):
 
         for obj in LinkAggregationGroupDM.list_obj():
             LinkAggregationGroupDM.locate(obj['uuid'], obj)
+
+        for obj in VirtualPortGroupDM.list_obj():
+            VirtualPortGroupDM.locate(obj['uuid'], obj)
 
         for obj in VirtualMachineInterfaceDM.list_obj():
             VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
