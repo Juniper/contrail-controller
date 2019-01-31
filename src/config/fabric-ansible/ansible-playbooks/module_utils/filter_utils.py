@@ -68,6 +68,10 @@ class FilterLog(object):
         self._logger.error(msg)
     # end msg_error
 
+    def msg_info(self, msg):
+        self._logger.info(msg)
+    # end msg_info
+
     def msg_debug(self, msg):
         self._logger.debug(msg)
     # end msg_debug
@@ -101,6 +105,9 @@ def _task_error_log(msg):
     FilterLog.instance().msg_error(msg)
 # end _task_error_log
 
+def _task_info_log(msg):
+    FilterLog.instance().msg_info(msg)
+# end _task_info_log
 
 def _task_debug_log(msg):
     FilterLog.instance().msg_debug(msg)
