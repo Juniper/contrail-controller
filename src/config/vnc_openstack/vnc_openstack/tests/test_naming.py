@@ -227,7 +227,7 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
             proj_name = self.id()+'verify-down'
             test_case.get_keystone_client().tenants.add_tenant(
                 proj_id, proj_name)
-            self.openstack_driver._ks = None # force to re-connect on next poll
+
             def verify_down():
                 conn_info = [ConnectionState._connection_map[x]
                     for x in ConnectionState._connection_map
