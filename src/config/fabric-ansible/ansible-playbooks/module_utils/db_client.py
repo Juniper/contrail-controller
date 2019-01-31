@@ -2,10 +2,14 @@
 
 import logging
 import json
+import sys
 
-from cfgm_common.exceptions import *
 from cfgm_common.vnc_object_db import VncObjectDBClient
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from enum import Enum
+
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import FilterLog, _task_info_log, _task_error_log, \
+    _task_warn_log, _task_debug_log
 
 """
 This filter helps in reading objects from the DB directly without passing the
@@ -14,50 +18,45 @@ useful in cases when we need access to the password for the devices etc.
 """
 
 
-class DbLogger(object):
-    def __init__(self):
-        self.logger = logging.getLogger('DbFilter')
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%Y/%m/%d %H:%M:%S'
-        )
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
-
-    def log(self, msg, level):
-        if level is not None and msg is not None:
-            if level == SandeshLevel.SYS_WARN or SandeshLevel.SYS_NOTICE:
-                self.logger.warn(msg)
-            elif level == SandeshLevel.SYS_EMERG or \
-                    level == SandeshLevel.SYS_ALERT or \
-                    level == SandeshLevel.SYS_CRIT or \
-                    level == SandeshLevel.SYS_ERR:
-                self.logger.error(msg)
-            elif level == SandeshLevel.SYS_DEBUG:
-                self.logger.debug(msg)
-            elif level == SandeshLevel.SYS_INFO:
-                self.logger.info(msg)
-        elif msg is not None: # for all other sandesh levels just log as info
-            self.logger.info(msg)
+class SandeshLogLevels(Enum):
+    SYS_WARN = 4
+    SYS_NOTICE = 5
+    SYS_EMERG = 0
+    SYS_ALERT = 1
+    SYS_CRIT = 2
+    SYS_ERR = 3
+    SYS_DEBUG = 7
+    SYS_INFO = 6
+# end SandeshLogLevels
 
 
-class FilterModule(object):
+class FabricVncObjectDBClient(object):
 
     def __init__(self):
-        self._db_logger = DbLogger()
-        self._logger = self._db_logger.logger
         self.db_client = None
     # end __init__
 
-    def filters(self):
-        return {
-            'read_from_db': self.read_from_db
+    def _instantiate_filter_log_instance(self):
+        FilterLog.instance('DbFilter')
+    # end _instantiate_filter_log_instance
 
-        }
-    # end filters
+    def log(self, msg, level):
+        if level is not None and msg is not None:
+            if level is SandeshLogLevels.SYS_WARN.value or \
+                    level is SandeshLogLevels.SYS_NOTICE.value:
+                _task_warn_log(msg)
+            elif level is SandeshLogLevels.SYS_EMERG.value or \
+                    level is SandeshLogLevels.SYS_ALERT.value or \
+                    level is SandeshLogLevels.SYS_CRIT.value or \
+                    level is SandeshLogLevels.SYS_ERR.value:
+                _task_error_log(msg)
+            elif level is SandeshLogLevels.SYS_DEBUG.value:
+                _task_debug_log(msg)
+            elif level is SandeshLogLevels.SYS_INFO.value:
+                _task_info_log(msg)
+        elif msg is not None: # for all other sandesh levels just log as info
+            _task_info_log(msg)
+    # end log
 
     def _initialize_db_client(self, job_ctx):
         db_init_params = job_ctx.get('db_init_params')
@@ -70,31 +69,32 @@ class FilterModule(object):
             self.db_client = VncObjectDBClient(
                 db_init_params.get('cassandra_server_list'),
                 job_ctx.get('cluster_id'), None, None,
-                logger=self._db_logger.log, credential=cred,
+                logger=self.log, credential=cred,
                 ssl_enabled=db_init_params.get('cassandra_use_ssl'),
                 ca_certs=db_init_params.get('cassandra_ca_certs'))
     # end _initialize_db_client
 
     def read_from_db(self, job_ctx, obj_type, obj_id, obj_fields=None,
                      ret_readonly=False):
+        self._instantiate_filter_log_instance()
         if self.db_client is None:
             try:
                 self._initialize_db_client(job_ctx)
             except Exception as e:
                 msg = "Error while initializing the cassandra DB " \
                       "client. %s " % repr(e)
-                self._logger.error(msg)
+                _task_error_log(msg)
                 return self._build_result(False, msg)
         try:
             ok, cassandra_result = self.db_client.object_read(
                 obj_type, [obj_id], obj_fields, ret_readonly=ret_readonly)
         except Exception as e:
-            self._logger.error("Exception while trying to read %s %s from db"
-                               " %s " % (obj_type, obj_id, repr(e)))
+            _task_error_log("Exception while trying to read %s %s from db: %s"
+                            % (obj_type, obj_id, repr(e)))
             return self._build_result(False, str(e))
 
         return self._build_result(ok, cassandra_result[0])
-    # end db_read
+    # end read_from_db
 
     @staticmethod
     def _build_result(is_ok, result):
@@ -106,7 +106,8 @@ class FilterModule(object):
             'status': status,
             'result': result
         }
-
+    # end _build_result
+# end FabricVncObjectDBClient
 
 def __main__():
     # mock job_ctx
@@ -119,9 +120,8 @@ def __main__():
             'cassandra_use_ssl': False,
             'cassandra_ca_certs': None
         }
-
     }
-    db_filter = FilterModule()
+    db_filter = FabricVncObjectDBClient()
     device_id = "aa994cdb-e53f-4236-b8be-c26f70bf6e12"
     try:
         output = db_filter.read_from_db(
@@ -136,10 +136,8 @@ def __main__():
         msg = "Exception while reading device %s %s " % \
               (device_id, str(e))
         print msg
-
 # end __main__
 
 
 if __name__ == '__main__':
     __main__()
-
