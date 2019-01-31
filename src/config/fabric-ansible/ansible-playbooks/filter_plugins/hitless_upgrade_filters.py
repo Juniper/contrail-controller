@@ -32,6 +32,7 @@ ordered_role_groups = [
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import FilterLog, _task_error_log
+from vnc_db_utils import FabricVncObjectDBClient
 
 IMAGE_UPGRADE_DURATION = 30 # minutes
 
@@ -65,6 +66,7 @@ class FilterModule(object):
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
             self.fabric_uuid = self.job_input['fabric_uuid']
             self.vncapi = JobVncApi.vnc_init(job_ctx)
+            self.db_client = FabricVncObjectDBClient()
             self.job_ctx = job_ctx
             self.ja = JobAnnotations(self.vncapi)
             self.advanced_parameters = self._get_advanced_params()
@@ -153,6 +155,9 @@ class FilterModule(object):
             device_list = image_entry.get('device_list')
             for device_uuid in device_list:
                 device_obj = self.vncapi.physical_router_read(id=device_uuid)
+                status, device_json = self.db_client.read_from_db(self.job_ctx,
+                    "physical-router", [device_uuid],
+                    ['physical_router_user_credentials'])
                 routing_bridging_roles = device_obj.routing_bridging_roles
                 if not routing_bridging_roles:
                     raise ValueError("Cannot find routing-bridging roles")
@@ -167,7 +172,7 @@ class FilterModule(object):
                         "device_serial_number": device_obj.physical_router_serial_number,
                         "device_management_ip": device_obj.physical_router_management_ip,
                         "device_username": device_obj.physical_router_user_credentials.username,
-                        "device_password": self._get_password(device_obj),
+                        "device_password": self._get_password(device_json),
                         "device_image_uuid": image_uuid,
                         "device_hitless_upgrade": is_hitless_upgrade
                     },
@@ -436,7 +441,7 @@ class FilterModule(object):
             errmsg = "Unexpected error attempting to get next batch: %s\n%s" % (
                 str(ex), traceback.format_exc()
             )
-            self._logger.error(errmsg)
+            _task_error_log(errmsg)
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
@@ -490,7 +495,7 @@ class FilterModule(object):
             errmsg = "Unexpected error attempting to get all devices: %s\n%s" % (
                 str(ex), traceback.format_exc()
             )
-            self._logger.error(errmsg)
+            _task_error_log(errmsg)
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
@@ -538,20 +543,14 @@ class FilterModule(object):
     #end _check_skip_device_upgrade
 
     # Get device password
-    def _get_password(self, device_obj):
-        password = ""
-        # TODO get password from first element of fabric object for now
-        # Get fabric object
-        fabric_obj = self.vncapi.fabric_read(id=self.fabric_uuid)
-        credentials = fabric_obj.fabric_credentials
-        if credentials:
-            dev_cred = credentials.get_device_credential()[0]
-            if dev_cred:
-                user_cred = dev_cred.get_credential()
-                if user_cred:
-                    password = user_cred.password
-        return password
-
+    def _get_password(self, device_json):
+        prouter = device_json.get("physical_router")
+        if prouter:
+            user_credentials = prouter.get("physical_router_user_credentials")
+            if user_credentials:
+                return user_credentials.get("password")
+        return ""
+    
 def _parse_args():
     arg_parser = argparse.ArgumentParser(description='fabric filters tests')
     arg_parser.add_argument('-p', '--generate_plan',
