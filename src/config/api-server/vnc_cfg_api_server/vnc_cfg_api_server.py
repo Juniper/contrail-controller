@@ -2818,6 +2818,8 @@ class VncApiServer(object):
                         'pre_%s_read_fqname' %(obj_type), fq_name)
                     id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
                 except Exception as e:
+                    self.config_log("fq_name_to_id_http_post error: " + str(e),
+                                    level=SandeshLevel.SYS_DEBUG)
                     raise cfgm_common.exceptions.HttpError(
                         404, 'Name ' + pformat(fq_name) + ' not found')
             else:
@@ -3047,17 +3049,19 @@ class VncApiServer(object):
     def _load_extensions(self):
         try:
             conf_sections = self._args.config_sections
-            if self._args.auth != 'no-auth':
-                self._extension_mgrs['resync'] = ExtensionManager(
-                    'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
-                    api_server_port=self._args.listen_port,
-                    conf_sections=conf_sections, sandesh=self._sandesh)
             self._extension_mgrs['resourceApi'] = ExtensionManager(
                 'vnc_cfg_api.resourceApi',
                 propagate_map_exceptions=True,
                 api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections, sandesh=self._sandesh)
+            if self._args.auth != 'no-auth':
+                self._extension_mgrs['resync'] = ExtensionManager(
+                    'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
+                    api_server_port=self._args.listen_port,
+                    conf_sections=conf_sections, sandesh=self._sandesh)
+                self._extension_mgrs['resourceApi'].map_method(
+                    'set_resync_extension_manager', self._extension_mgrs['resync'])
             self._extension_mgrs['neutronApi'] = ExtensionManager(
                 'vnc_cfg_api.neutronApi',
                 api_server_ip=self._args.listen_ip_addr,
