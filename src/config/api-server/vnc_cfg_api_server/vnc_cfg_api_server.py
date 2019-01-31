@@ -2818,6 +2818,8 @@ class VncApiServer(object):
                         'pre_%s_read_fqname' %(obj_type), fq_name)
                     id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
                 except Exception as e:
+                    self.config_log("fq_name_to_id_http_post error: " + str(e),
+                                    level=SandeshLevel.SYS_DEBUG)
                     raise cfgm_common.exceptions.HttpError(
                         404, 'Name ' + pformat(fq_name) + ' not found')
             else:
