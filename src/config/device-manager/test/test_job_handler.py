@@ -44,12 +44,7 @@ class TestJobHandler(unittest.TestCase):
             'admin_tenant_name': 'test',
             'api_server_port': 8082,
             'api_server_use_ssl': False,
-            'cluster_id': '',
-            'cassandra_user': '',
-            'cassandra_password': '',
-            'cassandra_server_list': ['127.0.0.1'],
-            'cassandra_use_ssl': False,
-            'cassandra_ca_certs': ''
+            'cluster_id': ''
         })
 
         self.job_handler = JobHandler(self.job_template_name, self.job_input,

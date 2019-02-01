@@ -53,12 +53,7 @@ class DeviceJobManager(object):
             'fabric_ansible_conf_file': self._args.fabric_ansible_conf_file,
             'host_ip': self._args.host_ip,
             'zk_server_ip': self._args.zk_server_ip,
-            'cluster_id': self._args.cluster_id,
-            'cassandra_user': self._args.cassandra_user,
-            'cassandra_password': self._args.cassandra_password,
-            'cassandra_server_list': self._args.cassandra_server_list,
-            'cassandra_use_ssl': self._args.cassandra_use_ssl,
-            'cassandra_ca_certs': self._args.cassandra_ca_certs
+            'cluster_id': self._args.cluster_id
         }
         self._job_args = json.dumps(job_args)
 
