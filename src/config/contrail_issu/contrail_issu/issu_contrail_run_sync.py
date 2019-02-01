@@ -41,9 +41,9 @@ class ICKombuClient(VncKombuClient):
                                             q_name, subscribe_cb, logger)
 
     def _reinit_control(self):
-        cmd_cid = ('docker ps --filter "label=net.juniper.contrail.pod=control"'
+        cmd_cid = ('sudo docker ps --filter "label=net.juniper.contrail.pod=control"'
                    ' --filter "label=net.juniper.contrail.service=control" -q')
-        cmd_reinit = 'docker kill --signal="SIGUSR1" {}'
+        cmd_reinit = 'sudo docker kill --signal="SIGUSR1" {}'
 
         for addr, clist in self._new_api_info.items():
             ssh = paramiko.SSHClient()
