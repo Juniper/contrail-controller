@@ -36,6 +36,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
 set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
 set groups {{cfg_group}} switch-options vrf-import import-evpn
+set switch-options vrf-import REJECT-MAINTENANCE-MODE
 {%                 for ri in device_abstract_config.get('routing_instances', []) %}
 {%                     set name = ri.get('name') %}
 {%                     set vxlan_id = ri.get('vxlan_id') %}
