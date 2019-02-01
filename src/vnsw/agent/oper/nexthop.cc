@@ -1098,6 +1098,18 @@ bool LabelledTunnelNH::TunnelNextHopIsLess(const DBEntry &rhs) const {
     return (transport_mpls_label_ < a.transport_mpls_label_);
 }
 
+bool LabelledTunnelNH::ChangeEntry(const DBRequest *req) {
+    bool ret = false;
+    ret = TunnelNH::ChangeEntry(req);
+    TunnelType::Type transport_tunnel_type = 
+                TunnelType::ComputeType(TunnelType::MplsType());
+    if (transport_tunnel_type != transport_tunnel_type_) {
+        transport_tunnel_type_ = transport_tunnel_type;
+        ret = true;
+    }
+    return ret;
+}
+
 void LabelledTunnelNH::SendObjectLog(const NextHopTable *table,
                              AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
@@ -1966,17 +1978,36 @@ void CompositeNH::CreateComponentNH(Agent *agent,
         const NextHop *nh = (*it)->nh();
         switch (nh->GetType()) {
         case NextHop::TUNNEL: {
-            const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
-            if (type != tnh->GetTunnelType().GetType()) {
-                DBRequest tnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-                tnh_req.key.reset(new TunnelNHKey(tnh->GetVrf()->GetName(),
-                                                  *(tnh->GetSip()),
-                                                  *(tnh->GetDip()),
-                                                  tnh->PolicyEnabled(),
-                                                  type,
-                                                  tnh->rewrite_dmac()));
-                tnh_req.data.reset(new TunnelNHData());
-                agent->nexthop_table()->Process(tnh_req);
+            if (type == TunnelType::MPLS_OVER_MPLS) {
+                const LabelledTunnelNH *tnh =
+                            static_cast<const LabelledTunnelNH *>(nh);
+                if (tnh->GetTransportTunnelType() !=
+                        TunnelType::ComputeType(TunnelType::MplsType())) {
+                    DBRequest tnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+                    tnh_req.key.reset(new LabelledTunnelNHKey(
+                                                tnh->GetVrf()->GetName(),
+                                                *(tnh->GetSip()),
+                                                *(tnh->GetDip()),
+                                                tnh->PolicyEnabled(),
+                                                type,
+                                                tnh->rewrite_dmac(),
+                                                tnh->GetTransportLabel()));
+                    tnh_req.data.reset(new LabelledTunnelNHData());
+                    agent->nexthop_table()->Process(tnh_req);
+                }
+            } else {
+                const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
+                if (type != tnh->GetTunnelType().GetType()) {
+                    DBRequest tnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+                    tnh_req.key.reset(new TunnelNHKey(tnh->GetVrf()->GetName(),
+                                                    *(tnh->GetSip()),
+                                                    *(tnh->GetDip()),
+                                                    tnh->PolicyEnabled(),
+                                                    type,
+                                                    tnh->rewrite_dmac()));
+                    tnh_req.data.reset(new TunnelNHData());
+                    agent->nexthop_table()->Process(tnh_req);
+                }
             }
             break;
         }

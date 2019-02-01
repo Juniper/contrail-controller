@@ -84,6 +84,7 @@ public:
             " rewrite mac " + rewrite_dmac().ToString();
     }
     virtual bool TunnelNextHopIsLess(const DBEntry &rhs) const;
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual KeyPtr GetDBRequestKey() const;
     uint32_t const GetTransportLabel() const { return transport_mpls_label_;};
 
@@ -94,8 +95,15 @@ public:
     }
 
     virtual bool NeedMplsLabel() { return false; }
+    TunnelType::Type const GetTransportTunnelType() const  {
+                return transport_tunnel_type_;}
+    void SetTransportTunnelType() {
+        transport_tunnel_type_ = TunnelType::ComputeType(
+                            TunnelType::MplsType());
+    }
 private:
     uint32_t transport_mpls_label_;
+    TunnelType::Type transport_tunnel_type_;
     DISALLOW_COPY_AND_ASSIGN(LabelledTunnelNH);
 };
 /////////////////////////////////////////////////////////////////////////////

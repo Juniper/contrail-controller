@@ -221,7 +221,12 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
 bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     //Return if there is no change in tunnel type for non Composite NH.
     //For composite NH component needs to be traversed.
-    if ((tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) &&
+    // if tunnel type is MPLS over MPLS, transport tunnel
+    // type might be changed ( mpls over gre or mpls over udp)
+    // so check nh transport tunnel type and trigger update if there
+    // is any change
+    if ((tunnel_type_ != TunnelType::MPLS_OVER_MPLS) &&
+            (tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) &&
         (nh_.get() && nh_.get()->GetType() != NextHop::COMPOSITE)) {
         return false;
     }
@@ -231,21 +236,51 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
         vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
         tunnel_type_ = TunnelType::ComputeType(TunnelType::MplsType());
     }
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    const TunnelNH *tunnel_nh = static_cast<const TunnelNH*>(nh_.get());
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
-        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        const TunnelNH *tunnel_nh = static_cast<const TunnelNH*>(nh_.get());
-        TunnelNHKey *tnh_key =
-            new TunnelNHKey(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
-                            tunnel_dest_, false, tunnel_type_);
-        nh_req.key.reset(tnh_key);
-        nh_req.data.reset(new TunnelNHData());
-        agent->nexthop_table()->Process(nh_req);
+        if (tunnel_nh->GetTunnelType().GetType() == TunnelType::MPLS_OVER_MPLS) {
+            const LabelledTunnelNH *label_tunnel_nh =
+                    static_cast<const LabelledTunnelNH*>(nh_.get());
+            // check if transport tunnel type is changed
+            if (label_tunnel_nh->GetTransportTunnelType() ==
+                    TunnelType::ComputeType(TunnelType::MplsType())) {
+                return false;
+            }
+            LabelledTunnelNHKey *tnh_key =
+                new LabelledTunnelNHKey(agent->fabric_vrf_name(),
+                        *(label_tunnel_nh->GetSip()),
+                        *(label_tunnel_nh->GetDip()),
+                        false, tunnel_type_,
+                        label_tunnel_nh->rewrite_dmac(),
+                        label_tunnel_nh->GetTransportLabel());
+            nh_req.key.reset(tnh_key);
+            nh_req.data.reset(new TunnelNHData());
+            agent->nexthop_table()->Process(nh_req);
 
-        TunnelNHKey nh_key(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
-                           tunnel_dest_, false, tunnel_type_);
-        NextHop *nh = static_cast<NextHop *>
-            (agent->nexthop_table()->FindActiveEntry(&nh_key));
-        ChangeNH(agent, nh);
+            LabelledTunnelNHKey nh_key(agent->fabric_vrf_name(),
+                        *(label_tunnel_nh->GetSip()),
+                        tunnel_dest_, false, tunnel_type_,
+                        label_tunnel_nh->rewrite_dmac(),
+                        label_tunnel_nh->GetTransportLabel());
+            NextHop *nh = static_cast<NextHop *>
+                (agent->nexthop_table()->FindActiveEntry(&nh_key));
+            ChangeNH(agent, nh);
+        } else {
+
+            TunnelNHKey *tnh_key =
+                new TunnelNHKey(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
+                                tunnel_dest_, false, tunnel_type_);
+            nh_req.key.reset(tnh_key);
+            nh_req.data.reset(new TunnelNHData());
+            agent->nexthop_table()->Process(nh_req);
+
+            TunnelNHKey nh_key(agent->fabric_vrf_name(), *(tunnel_nh->GetSip()),
+                            tunnel_dest_, false, tunnel_type_);
+            NextHop *nh = static_cast<NextHop *>
+                (agent->nexthop_table()->FindActiveEntry(&nh_key));
+            ChangeNH(agent, nh);
+        }
     }
 
     if (nh_.get() && nh_->GetType() == NextHop::COMPOSITE) {
