@@ -25,6 +25,7 @@ class DeviceJobManager(object):
     JOB_REQUEST_CONSUMER = "job_request_consumer"
     JOB_REQUEST_ROUTING_KEY = "job.request"
     JOB_STATUS_EXCHANGE = "job_status_exchange"
+    JOB_STATUS_CONSUMER = "job_status_consumer."
     JOB_STATUS_ROUTING_KEY = "job.status."
     JOB_STATUS_TTL = 5*60
     FABRIC_ZK_LOCK = "fabric-job-monitor"
@@ -70,6 +71,14 @@ class DeviceJobManager(object):
         self._logger = self._job_log_utils.config_logger
         self._sandesh = self._logger._sandesh
 
+        self._amqp_client.add_exchange(self.JOB_STATUS_EXCHANGE, type='direct')
+        # add dummy consumer to initialize the exchange
+        self._amqp_client.add_consumer(
+            self.JOB_STATUS_CONSUMER + "dummy",
+            self.JOB_STATUS_EXCHANGE,
+            routing_key=self.JOB_STATUS_ROUTING_KEY + "dummy",
+            auto_delete=True)
+
         self._amqp_client.add_exchange(self.JOB_REQUEST_EXCHANGE,
                                        type='direct')
         self._amqp_client.add_consumer(
@@ -77,7 +86,6 @@ class DeviceJobManager(object):
             self.JOB_REQUEST_EXCHANGE,
             routing_key=self.JOB_REQUEST_ROUTING_KEY,
             callback=self.handle_execute_job_request)
-        self._amqp_client.add_exchange(self.JOB_STATUS_EXCHANGE, type='direct')
     # end __init__
 
     @classmethod
@@ -117,11 +125,10 @@ class DeviceJobManager(object):
         return True
     # end is_max_job_threshold_reached
 
-    def publish_job_status_notification(self, status, job_execution_id):
+    def publish_job_status_notification(self, job_execution_id, status):
         try:
-            msg = {"job_execution_id": job_execution_id,
-                   "job_status": status
-                   }
+            msg = { 'job_execution_id': job_execution_id,
+                    'job_status': status }
             self._amqp_client.publish(
                 msg, self.JOB_STATUS_EXCHANGE,
                 routing_key=self.JOB_STATUS_ROUTING_KEY + job_execution_id,
