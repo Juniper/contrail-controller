@@ -32,7 +32,6 @@
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 7
     jl_message: "Hitless image upgrade workflow completed on device {{prouter_name}}."
 
 - name: Update prouter logs with maintenance mode status

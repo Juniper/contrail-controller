@@ -37,7 +37,6 @@
 - name: Appending job log for retreiving image download link and starting image upgrade with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 3
     jl_message: >
       Now starting image upgrade with image name {{filename}} on the device
       {{prouter_name}}. It may take 10 to 15 mins.
@@ -71,6 +70,5 @@
 - name: Job logs for version validation status with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 6
     jl_message: Image upgrade version validated. The device OS version is now {{device_version}}.
 
