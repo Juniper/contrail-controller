@@ -530,7 +530,13 @@ class VirtualNetworkST(DBBaseST):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.delete_inactive_service_chains(self.service_chains)
         for ri_name in self.routing_instances:
-            RoutingInstanceST.delete(ri_name, True)
+            ri = RoutingInstanceST.get(ri_name)
+            # Don't delete default RI, API server will do and schema will
+            # clean RT and its internal when it will receive the RI delete
+            # notification. That prevents ST to fail to delete RT because RI
+            # was not yet removed
+            if not ri.is_default:
+                ri.delete(ri_name, True)
         if self.acl:
             self._vnc_lib.access_control_list_delete(id=self.acl.uuid)
         if self.dynamic_acl:
