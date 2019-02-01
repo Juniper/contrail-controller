@@ -203,6 +203,7 @@ class VncCassandraClient(object):
 
     def multiget(self, cf_name, keys, columns=None, start='', finish='',
                  timestamp=False, num_columns=None):
+        keys = [k.encode('utf-8') for k in keys]
         _thrift_limit_size = 10000
         results = {}
         cf = self.get_cf(cf_name)
