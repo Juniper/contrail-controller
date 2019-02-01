@@ -75,4 +75,31 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
     # end test_configured_targets
+
+    @retries(5)
+    def wait_for_route_target(self, vn_obj):
+        ri_obj = self._vnc_lib.routing_instance_read(
+                vn_obj.get_routing_instances()[0]['to'])
+        return self._vnc_lib.route_target_read(
+                ri_obj.get_route_target_refs()[0]['to'])
+
+    def test_route_target_of_virtual_network_deleted(self):
+        vn = self.create_virtual_network('vn-%s' % self.id(), '10.0.0.0/24')
+        ri_fq_name = vn.fq_name + [vn.fq_name[-1]]
+        self.wait_to_get_object(config_db.RoutingInstanceST,
+                                ':'.join(ri_fq_name))
+        ri = self._vnc_lib.routing_instance_read(ri_fq_name)
+        rt = self.wait_for_route_target(vn)
+
+        dbe_delete_orig = self._api_server._db_conn.dbe_delete
+
+        def mock_dbe_delete(*args, **kwargs):
+            if (args[0] == 'routing_instance' and
+                    args[1] == ri.uuid):
+                gevent.sleep(3)
+            return dbe_delete_orig(*args, **kwargs)
+        self._api_server._db_conn.dbe_delete = mock_dbe_delete
+
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self.check_rt_is_deleted(rt.fq_name[0])
 # end class TestRouteTarget
