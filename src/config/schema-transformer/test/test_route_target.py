@@ -23,13 +23,13 @@ class VerifyRouteTarget(VerifyPolicy):
         self._vnc_lib = vnc_lib
 
     @retries(5)
-    def check_rt_is_deleted(self, name):
+    def check_rt_is_deleted(self, fq_name):
         try:
-            rt_obj = self._vnc_lib.route_target_read(fq_name=[name])
+            rt_obj = self._vnc_lib.route_target_read(fq_name)
             print "retrying ... ", test_common.lineno()
             raise Exception(
                 'rt %s still exists: RI backrefs %s LR backrefs %s' % (
-                    name, rt_obj.get_routing_instance_back_refs(),
+                    ':'.join(fq_name), rt_obj.get_routing_instance_back_refs(),
                     rt_obj.get_logical_router_back_refs()))
         except NoIdError:
             print 'rt deleted'
@@ -127,5 +127,27 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
             self.assertEqual(db_checker._zk_client.get(new_path)[0],
                              ':'.join(ri_fq_name))
     # test_db_manage_zk_route_target_missing
+
+    def test_route_target_of_virtual_network_deleted(self):
+        vn = self.create_virtual_network('vn-%s' % self.id(), '10.0.0.0/24')
+        ri_fq_name = vn.fq_name + [vn.fq_name[-1]]
+        self.wait_to_get_object(config_db.RoutingInstanceST,
+                                ':'.join(ri_fq_name))
+        ri = self._vnc_lib.routing_instance_read(ri_fq_name)
+        rt = self.wait_for_route_target(vn)
+
+        dbe_delete_orig = self._api_server._db_conn.dbe_delete
+
+        def mock_dbe_delete(*args, **kwargs):
+            if (args[0] == 'routing_instance' and
+                    args[1] == ri.uuid):
+                #self.wait_to_delete_object(config_db.RoutingInstanceST,
+                #                           ':'.join(ri_fq_name))
+                gevent.sleep(3)
+            return dbe_delete_orig(*args, **kwargs)
+        self._api_server._db_conn.dbe_delete = mock_dbe_delete
+
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self.check_rt_is_deleted(rt.fq_name)
 
 # end class TestRouteTarget
