@@ -35,6 +35,7 @@ set groups {{cfg_group}} policy-options community community-esi-in members targe
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in from community community-esi-in
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
 set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
+set groups {{cfg_group}} switch-options vrf-import REJECT-MAINTENANCE-MODE
 set groups {{cfg_group}} switch-options vrf-import import-evpn
 {%                 for ri in device_abstract_config.get('routing_instances', []) %}
 {%                     set name = ri.get('name') %}

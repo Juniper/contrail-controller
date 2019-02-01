@@ -47,7 +47,6 @@ set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri
 set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 4
 set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from nlri-route-type 5
 set policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 then reject
-set switch-options vrf-import REJECT-MAINTENANCE-MODE
 
 set policy-options policy-statement MAINTENANCE-MODE-underlay then as-path-prepend "9999 9999 9999"
 set policy-options policy-statement MAINTENANCE-MODE-underlay then accept
