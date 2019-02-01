@@ -157,17 +157,34 @@ def main(args_str=' '.join(sys.argv[1:])):
         SandeshSystem.set_sandesh_send_rate_limit(_args.sandesh_send_rate_limit)
     # done parsing arguments
 
-    if not 'SUPERVISOR_SERVER_URL' in os.environ:
-        sys.stderr.write('Node manager must be run as a supervisor event '
-                         'listener\n')
-        sys.stderr.flush()
-        return
     prog = None
     if (node_type == 'contrail-analytics'):
+        if not rule_file:
+            rule_file = "/etc/contrail/supervisord_analytics_files/" + \
+                "contrail-analytics.rules"
+        unit_names = ['contrail-collector.service',
+                      'contrail-analytics-api.service',
+                      'contrail-snmp-collector.service',
+                      'contrail-query-engine.service',
+                      'contrail-alarm-gen.service',
+                      'contrail-topology.service',
+                      'contrail-analytics-nodemgr.service',
+                     ]
         prog = AnalyticsEventManager(
-            rule_file, discovery_server,
+            rule_file,unit_names,discovery_server,
             discovery_port, collector_addr)
     elif (node_type == 'contrail-config'):
+        if not rule_file:
+            rule_file = "/etc/contrail/supervisord_config_files/" + \
+                "contrail-config.rules"
+        unit_names = ['contrail-api.service',
+                      'contrail-schema.service',
+                      'contrail-svc-monitor.service',
+                      'contrail-device-manager.service',
+                      'contrail-discovery.service',
+                      'contrail-config-nodemgr.service',
+                      'ifmap.service',
+                     ]
         hostip = _args.hostip
         db_port = _args.db_port
         minimum_diskgb = _args.minimum_diskgb
@@ -175,19 +192,40 @@ def main(args_str=' '.join(sys.argv[1:])):
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = ConfigEventManager(
-            rule_file, discovery_server,
+            rule_file,unit_names, discovery_server,
             discovery_port, collector_addr,
             hostip, db_port, minimum_diskgb, contrail_databases,
             cassandra_repair_interval, cassandra_repair_logdir)
     elif (node_type == 'contrail-control'):
+        if not rule_file:
+            rule_file = "/etc/contrail/supervisord_control_files/" + \
+                "contrail-control.rules"
+        unit_names = ['contrail-control.service',
+                      'contrail-dns.service',
+                      'contrail-named.service',
+                      'contrail-control-nodemgr.service',
+                     ]
         prog = ControlEventManager(
-            rule_file, discovery_server,
+            rule_file,unit_names, discovery_server,
             discovery_port, collector_addr)
     elif (node_type == 'contrail-vrouter'):
+        if not rule_file:
+            rule_file = "/etc/contrail/supervisord_vrouter_files/" + \
+                "contrail-vrouter.rules"
+        unit_names = ['contrail-vrouter-agent.service',
+                      'contrail-vrouter-nodemgr.service',
+                     ]
         prog = VrouterEventManager(
-            rule_file, discovery_server,
+            rule_file,unit_names, discovery_server,
             discovery_port, collector_addr)
     elif (node_type == 'contrail-database'):
+        if not rule_file:
+            rule_file = "/etc/contrail/supervisord_database_files/" + \
+                "contrail-database.rules"
+        unit_names = ['contrail-database.service',
+                      'kafka.service',
+                      'contrail-database-nodemgr.service',
+                     ]
         hostip = _args.hostip
         db_port = _args.db_port
         minimum_diskgb = _args.minimum_diskgb
@@ -195,7 +233,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = DatabaseEventManager(
-            rule_file, discovery_server,
+            rule_file,unit_names, discovery_server,
             discovery_port, collector_addr,
             hostip, db_port, minimum_diskgb, contrail_databases,
 	    cassandra_repair_interval, cassandra_repair_logdir)
@@ -205,7 +243,9 @@ def main(args_str=' '.join(sys.argv[1:])):
     prog.process()
     prog.send_nodemgr_process_status()
     prog.send_process_state_db(prog.group_names)
-    gevent.joinall([gevent.spawn(prog.runforever)])
+
+    gevent.joinall([gevent.spawn(prog.runforever),
+        gevent.spawn(prog.run_periodically(prog.do_periodic_events, 60))])
 
 if __name__ == '__main__':
     main()
