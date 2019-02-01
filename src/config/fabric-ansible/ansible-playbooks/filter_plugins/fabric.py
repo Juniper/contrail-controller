@@ -1398,7 +1398,8 @@ class FilterModule(object):
                         'physical_router_product_name',
                         'physical_interfaces',
                         'fabric_refs',
-                        'node_profile_refs'
+                        'node_profile_refs',
+                        'physical_router_management_ip'
                     ]
                 )
                 device_roles['device_obj'] = device_obj
@@ -1414,9 +1415,8 @@ class FilterModule(object):
                     _task_done(
                         "Capable role info not populated in physical router "
                         "(no node_profiles attached, cannot assign role for "
-                        "device : %s" % device_obj.get(
-                            'physical_router_management_ip'
-                        ))
+                        "device : %s" % device_obj.physical_router_management_ip
+                        )
                 else:
                     node_profile_fq_name = node_profile_refs[0].get('to')
                     node_profile_obj = vnc_api.node_profile_read(
@@ -1529,7 +1529,7 @@ class FilterModule(object):
             if not rb_roles:
                 rb_roles = ['null']
 
-            supported_roles = device_roles.get('supported_roles')
+            supported_roles = device_roles.get('supported_roles', [])
             for role in supported_roles:
                 if str(role.get_physical_role()) == phys_role:
                     if (set(rb_roles) < set(role.get_rb_roles())) or \

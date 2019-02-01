@@ -2022,8 +2022,7 @@ class VncApiServer(object):
                 ssl_certfile=self._args.kombu_ssl_certfile,
                 ssl_ca_certs=self._args.kombu_ssl_ca_certs
             )
-            amqp_client = KombuAmqpClient(self.config_log, rabbitmq_cfg,
-                                          heartbeat=10)
+            amqp_client = KombuAmqpClient(self.config_log, rabbitmq_cfg)
             amqp_client.add_exchange(self.JOB_REQUEST_EXCHANGE, type="direct")
             amqp_client.run()
         except Exception as e:
