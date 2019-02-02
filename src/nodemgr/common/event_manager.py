@@ -30,6 +30,7 @@ from sandesh_common.vns.constants import (INSTANCE_ID_DEFAULT, Module2NodeType,
 
 from process_stat import ProcessStat
 import utils
+import os
 try:
     from docker_process_manager import DockerProcessInfoManager
 except Exception:
@@ -231,6 +232,10 @@ class EventManager(object):
         corenames = self.system_data.get_corefiles()
         process_state_db_tmp = copy.deepcopy(self.process_state_db)
 
+        for group in process_state_db_tmp:
+            for key in process_state_db_tmp[group]:
+                process_state_db_tmp[group][key].core_file_list = []
+
         for corename in corenames:
             try:
                 exec_name = corename.split('.')[1]
@@ -245,8 +250,17 @@ class EventManager(object):
 
         for group in self.process_state_db:
             for key in self.process_state_db[group]:
-                if set(process_state_db_tmp[group][key].core_file_list) != set(
-                        self.process_state_db[group][key].core_file_list):
+                while len(process_state_db_tmp[group][key].core_file_list) > self.max_cores:
+                    try:
+                        if os.path.isfile(process_state_db_tmp[group][key].core_file_list[0]):
+                            self.system_data.remove_corefiles([process_state_db_tmp[group][key].core_file_list[0]])
+                    except OSError as e:
+                        sys.stderr.write('ERROR: ' + str(e) + '\n')
+                    del process_state_db_tmp[group][key].core_file_list[0]
+
+        for group in self.process_state_db:
+            for key in self.process_state_db[group]:
+                if set(process_state_db_tmp[group][key].core_file_list) != set(self.process_state_db[group][key].core_file_list):
                     self.process_state_db[group][key].core_file_list = process_state_db_tmp[group][key].core_file_list
                     ret_value = True
 
@@ -328,33 +342,6 @@ class EventManager(object):
                 self.msg_log('%s with pid: %s exited abnormally' %
                     (pname, process_info['pid']), SandeshLevel.SYS_ERR)
                 proc_stat.last_exit_unexpected = True
-                # check for core file for this exit
-                corename = self.system_data.find_corefile(
-                    "core.[A-Za-z]*." + process_info['pid'] + "*")
-
-                if ((corename is not None) and (len(corename.rstrip()) >= 1)):
-                    self.msg_log('core file: %s' % (corename),
-                        SandeshLevel.SYS_ERR)
-                    # before adding to the core file list make
-                    # sure that we do not have too many cores
-                    self.msg_log('core_file_list: %s, max_cores: %d' %
-                        (str(proc_stat.core_file_list), self.max_cores),
-                        SandeshLevel.SYS_DEBUG)
-                    if (len(proc_stat.core_file_list) >= self.max_cores):
-                        # get rid of old cores
-                        start = self.max_old_cores
-                        end = len(proc_stat.core_file_list) - \
-                                self.max_new_cores + 1
-                        core_files_to_be_deleted = \
-                            proc_stat.core_file_list[start:end]
-                        self.system_data.remove_corefiles(core_files_to_be_deleted)
-                        # now delete the cores from the list as well
-                        del proc_stat.core_file_list[start:end]
-                    # now add the new core to the core file list
-                    proc_stat.core_file_list.append(corename.rstrip())
-                    self.msg_log('# of cores for %s: %d' % (pname,
-                        len(proc_stat.core_file_list)), SandeshLevel.SYS_DEBUG)
-
         send_init_uve = False
         # update process state database
         if not proc_stat.group in self.process_state_db:
