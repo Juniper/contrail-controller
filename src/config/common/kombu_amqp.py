@@ -119,7 +119,7 @@ class KombuAmqpClient(object):
                     if bound_queue is not None:
                         bound_queue.delete()
                 consumers = [kombu.Consumer(self._channel, queues=c.queue,
-                             callbacks=[c.callback])
+                             callbacks=[c.callback] if c.callback else None)
                              for c in self._consumers.values()]
                 self._consumers_changed = False
                 if len(consumers) == 0:

@@ -9,6 +9,7 @@ import gevent
 import uuid
 import time
 
+from attrdict import AttrDict
 from enum import Enum
 
 
@@ -165,7 +166,8 @@ class JobHandler(object):
     def _handle_job_status_change_notification(self, body, message):
         try:
             message.ack()
-            self._job_status = JobStatus.from_str(body.job_status)
+            payload = AttrDict(body)
+            self._job_status = JobStatus.from_str(payload.job_status)
         except Exception as e:
             msg = "Exception while handling the job status update " \
                   "notification %s " % repr(e)
