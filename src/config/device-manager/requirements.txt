@@ -11,6 +11,6 @@ netifaces
 bottle
 stevedore
 timeout-decorator
-docker-py
+docker
 inflection>=0.3.1
 jsonschema

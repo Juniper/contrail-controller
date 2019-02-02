@@ -189,14 +189,14 @@ class DeviceZtpManager(object):
         if self._client is None:
             self._client = docker.from_env()
         self._logger.debug("Fetching all containers")
-        all_containers = self._client.containers(all=True)
+        all_containers = self._client.containers.list(all=True)
         for container in all_containers:
             labels = container.get('Labels', dict())
             service = labels.get('net.juniper.contrail.service')
             if service == 'dnsmasq':
                 self._logger.info("Restarting dnsmasq docker: %s" %
-                                  str(container))
-                self._client.restart(container)
+                                  str(container.name))
+                container.restart()
     # end _restart_dnsmasq_container
 
     @staticmethod
