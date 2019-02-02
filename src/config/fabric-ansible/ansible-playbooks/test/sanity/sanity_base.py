@@ -622,7 +622,7 @@ class SanityBase(object):
 
     # end image_upgrade
 
-    def image_upgrade_maintenance_mode(self, image_upgrade_list,
+    def image_upgrade_maintenance_mode(self, device_list, image_upgrade_list,
                                        advanced_params, upgrade_mode,
                                        fabric, prouter_name_list):
         job_template_fq_name = [
@@ -634,7 +634,8 @@ class SanityBase(object):
                 'advanced_parameters': advanced_params,
                 'upgrade_mode': upgrade_mode,
                 'fabric_uuid': fabric.uuid
-            }
+            },
+            device_list=device_list
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.info(

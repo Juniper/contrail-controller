@@ -13,6 +13,15 @@
         "enum": ["test_run", "dry_run", "upgrade"],
         "description": "Mode in which to run workflow"
       },
+      "device_list": {
+        "type": "array",
+        "description": "List of device UUIDs to be upgraded",
+        "items": {
+          "title": "device uuid",
+          "type": "string",
+          "format": "uuid"
+        }
+      },
       "image_devices": {
         "type": "array",
         "items": {
