@@ -65,14 +65,18 @@ set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
 {%                     if inet_vars.inet6 == 'no' %}
 {%                         set inet_vars.inet6 = 'yes' %}
 {%                     endif %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options rib {{contrail_l3_ri}}.inet6.0 static route {{cidr}} discard
+{%                     if ri.get('is_public_network') == true  %}
+set groups {{cfg_group}} routing-options rib inet6.0 static route {{cidr}} discard
+{%                     endif %}
 {%                 else %}
 {%                     if inet_vars.inet4 == 'no' %}
 {%                         set inet_vars.inet4 = 'yes' %}
 {%                     endif %}
-{%                 endif %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} discard
-{%                 if ri.get('is_public_network') == true  %}
+{%                     if ri.get('is_public_network') == true  %}
 set groups {{cfg_group}} routing-options static route {{cidr}} discard
+{%                     endif %}
 {%                 endif %}
 {%             endfor %}
 {%             if inet_vars.inet4 == 'yes' %}
