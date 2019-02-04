@@ -902,6 +902,7 @@
           "name": "juniper-qfx5k-lean",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
+          "node_profile_hitless_upgrade": true,
           "node_profile_roles": {
             "role_mappings": [
               {
@@ -922,6 +923,7 @@
           "name": "juniper-qfx5k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
+          "node_profile_hitless_upgrade": true,
           "node_profile_roles": {
             "role_mappings": [
               {
@@ -942,6 +944,7 @@
           "name": "juniper-qfx10k",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos-qfx",
+          "node_profile_hitless_upgrade": true,
           "node_profile_roles": {
             "role_mappings": [
               {
@@ -962,6 +965,7 @@
           "name": "juniper-mx",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
+          "node_profile_hitless_upgrade": false,
           "node_profile_roles": {
             "role_mappings": [
               {
@@ -982,6 +986,7 @@
           "name": "juniper-srx",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
+          "node_profile_hitless_upgrade": false,
           "node_profile_roles": {
             "role_mappings": [
               {

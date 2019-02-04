@@ -30,7 +30,6 @@
 - name: Job logs for image upgrade task with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 4
     jl_message: >
       {% if 'Reboot' in junos_response.msg -%}
         Image upgrade task completed on this device: {{junos_response.msg}}. Device reboot may take 15 to 20 mins.
@@ -61,7 +60,6 @@
 - name: Append job logs after device is up with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 5
     jl_message: >
       {% if 'Reboot' in junos_response.msg -%}
         Device is up after reboot. Now validating image version on device.

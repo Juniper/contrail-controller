@@ -55,5 +55,4 @@
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
-    current_index: 1
     jl_message: "Completed health check successfully. Putting device {{prouter_name}} into maintenance mode."
