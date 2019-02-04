@@ -39,7 +39,7 @@
           when:
             - not item is skipped
             - item.path | basename | regex_search('\[(.*?)\]', '\\1') | first in device_model
-      when: device_model is defined and device_model != ''    
+      when: device_model is defined and device_model != ''
 
     - name: Mark if found
       block:
