@@ -320,6 +320,7 @@ def parse_args(args_str):
         args_obj.collectors = args_obj.collectors.split()
     args_obj.sandesh_config = SandeshConfig.from_parser_arguments(args_obj)
     args_obj.cassandra_use_ssl = (str(args_obj.cassandra_use_ssl).lower() == 'true')
+    args_obj.config_api_ssl_enable = (str(args_obj.config_api_ssl_enable).lower() == 'true')
 
     args_obj.conf_file = saved_conf_file
     return args_obj, remaining_argv
