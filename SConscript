@@ -6,7 +6,7 @@ import platform
 
 env = DefaultEnvironment()
 
-SConscript(dirs=['lib', 'src'])
+SConscript(dirs=['src'])
 
 env['api_repo_path'] = '#/src/contrail-api-client'
 SConscript(dirs=['../src/contrail-api-client'])

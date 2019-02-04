@@ -14,18 +14,6 @@ CfgmEnv = BuildEnv.Clone()
 
 # Documentation
 CfgmDocFiles = []
-CfgmDocFiles += CfgmEnv['BASE_DOC_FILES']
-CfgmDocFiles += CfgmEnv['SANDESH_DOC_FILES']
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/acl.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/cfgm_cpuinfo.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/physical_router.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/service_instance.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/vnc_api.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/virtual_machine.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/virtual_network.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/msg_traces.sandesh')
-CfgmDocFiles += CfgmEnv.SandeshGenDoc('uve/config_req.sandesh')
-CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
 
 #
 # Deprecated
@@ -33,15 +21,6 @@ CfgmEnv['CFGM_DOC_FILES'] = CfgmDocFiles
 #
 subdirs=[
     'api-server',
-    'common',
-    'device-manager',
-    'ironic-notification-manager',
-    'schema-transformer',
-    'utils',
-    'uve',
-    'vnc_openstack',
-    'contrail_issu',
-    'fabric-ansible',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
@@ -50,7 +29,6 @@ CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
 # Build into build/noarch
 #
 noarch_subdirs = [
-    'svc-monitor',
 ]
 for sdir in noarch_subdirs:
     CfgmEnv.SConscript('%s/SConscript' % sdir, exports='CfgmEnv',

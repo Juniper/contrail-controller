@@ -39,7 +39,6 @@ env.Default(sdist_gen)
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('traces.sandesh')
-doc_files += env['CFGM_DOC_FILES']
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',

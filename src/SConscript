@@ -7,23 +7,8 @@
 
 import subprocess
 import platform
-Import('contrail_common_base_doc_files')
-Import('contrail_common_io_doc_files')
 
 subdirs = [
-           'analytics/database',
-           'bfd',
-           'bgp',
-           'db',
-           'dns',
-           'ifmap',
-           'net',
-           'route',
-           'sandesh',
-           'storage',
-           'xml',
-           'xmpp',
-           'nodemgr',
            ]
  
 if platform.system() != 'Darwin':
@@ -32,10 +17,6 @@ if platform.system() != 'Darwin':
 if platform.system() != 'Windows':
     subdirs += [
         'config',
-        'container',
-        'control-node',
-        'server-manager',
-        'utils',
     ]
 
 include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#controller/lib']
@@ -86,10 +67,8 @@ elif platform.system() == 'FreeBSD':
 #
 
 # base
-BuildEnv['BASE_DOC_FILES'] = contrail_common_base_doc_files
 
 # IO
-BuildEnv['IO_DOC_FILES'] = contrail_common_io_doc_files
 
 # DB
 db_doc_files = []
@@ -157,8 +136,6 @@ BuildEnv['IFMAP_CLIENT_DOC_FILES'] = ifmap_client_doc_files
 
 BuildEnv['INSTALL_DOC_PKG'] = BuildEnv['INSTALL_DOC'] + '/contrail-docs/html'
 BuildEnv['INSTALL_MESSAGE_DOC'] = BuildEnv['INSTALL_DOC_PKG'] + '/messages'
-
-BuildEnv.SConscript(dirs=['vnsw'], exports='BuildEnv')
 
 for dir in subdirs:
     BuildEnv.SConscript(dir + '/SConscript',
