@@ -134,17 +134,11 @@ std::string SessionAggInfoLog(
 void SessionEndpointObject::LogUnrolled(std::string category,
     SandeshLevel::type level,
     const std::vector<SessionEndpoint> & session_data) {
-    if (!IsLevelCategoryLoggingAllowed(SandeshType::SESSION, level, category)) {
-        return;
-    }
     log4cplus::LogLevel Xlog4level(SandeshLevelTolog4Level(level));
     log4cplus::Logger Xlogger = Sandesh::sampled_logger();
     log4cplus::Logger SLO_logger = Sandesh::slo_logger();
     bool is_send_sample_to_logger_enabled = Sandesh::is_send_sampled_to_logger_enabled();
     bool is_send_slo_to_logger_enabled = Sandesh::is_send_slo_to_logger_enabled();
-    if (!Xlogger.isEnabledFor(Xlog4level)) {
-        return;
-    }
     log4cplus::tostringstream Xbuf;
     std::vector<SessionEndpoint> ::const_iterator sep_iter;
     for (sep_iter = session_data.begin(); sep_iter != session_data.end();
