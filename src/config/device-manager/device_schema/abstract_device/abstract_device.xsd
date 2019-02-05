@@ -10,6 +10,7 @@
        <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
        <xsd:element name="routing-instances" type="dac:RoutingInstance" maxOccurs="unbounded"/>
        <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
+       <xsd:element name="forwarding-options" type="dac:ForwardingOptions"/>
        <xsd:element name="firewall" type="dac:Firewall"/>
        <xsd:element name="physical-interfaces" type="dac:PhysicalInterface" maxOccurs="unbounded"/>
     </xsd:all>
@@ -135,6 +136,21 @@
     <xsd:all>
        <xsd:element name="public-routing-instance" type="xsd:string"/>
        <xsd:element name="floating-ips" type="dac:FloatingIpMap" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ForwardingOptions">
+    <xsd:all>
+        <xsd:element name="dhcp-relay" type="dac:DhcpRelay" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="DhcpRelay">
+    <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="dhcp-server-ips" type="dac:IpAddress" maxOccurs="unbounded"/>
+        <xsd:element name="interfaces" type="dac:Reference" maxOccurs="unbounded"/>
+        <xsd:element name="dhcp-relay-group" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
