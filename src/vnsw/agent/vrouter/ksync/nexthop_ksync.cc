@@ -58,7 +58,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     need_pbb_tunnel_(entry->need_pbb_tunnel_), etree_leaf_(entry->etree_leaf_),
     layer2_control_word_(entry->layer2_control_word_),
     crypt_(entry->crypt_), crypt_path_available_(entry->crypt_path_available_),
-    crypt_interface_(entry->crypt_interface_) {
+    crypt_interface_(entry->crypt_interface_),
+    transport_tunnel_type_(entry->transport_tunnel_type_) {
     }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -134,6 +135,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
             const LabelledTunnelNH *labelled_tunnel =
                     static_cast<const LabelledTunnelNH *>(nh);
             label_ = labelled_tunnel->GetTransportLabel();
+            transport_tunnel_type_ =
+                    labelled_tunnel->GetTransportTunnelType();
         }
         break;
     }
@@ -330,8 +333,12 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         if (rewrite_dmac_ != entry.rewrite_dmac_) {
             return rewrite_dmac_ < entry.rewrite_dmac_;
         }
-
-        return tunnel_type_.IsLess(entry.tunnel_type_);
+        if (tunnel_type_.Compare(entry.tunnel_type_) == false) {
+            return tunnel_type_.IsLess(entry.tunnel_type_);
+        }
+        if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
+            return label_ < entry.label_;
+        }
     }
 
     if (type_ == NextHop::MIRROR) {
@@ -667,6 +674,12 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
                 label_ = labelled_tunnel->GetTransportLabel();
                 ret = true;
             }
+            if (transport_tunnel_type_ !=
+                    labelled_tunnel->GetTransportTunnelType()) {
+                transport_tunnel_type_ =
+                    labelled_tunnel->GetTransportTunnelType();
+                ret = true;
+            }
         }
 
         if (dmac != dmac_) {
@@ -950,6 +963,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 encoder.set_nhr_tun_dip(0);
             } else if (tunnel_type_.GetType() == TunnelType::MPLS_OVER_MPLS) {
                 flags |= NH_FLAG_TUNNEL_MPLS_O_MPLS;
+                if (transport_tunnel_type_ == TunnelType::MPLS_UDP) {
+                    flags |= NH_FLAG_TUNNEL_UDP_MPLS;
+                } else {
+                    flags |= NH_FLAG_TUNNEL_GRE;
+                }
+
                 encoder.set_nhr_transport_label(label_);
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;

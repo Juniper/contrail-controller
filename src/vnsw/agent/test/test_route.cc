@@ -601,7 +601,8 @@ TEST_F(RouteTest, RemoteVmRoute_2_labelled) {
 // Add labeled inet route and verify that VM route is resolved
 // removed labeled inet route and verify that VM route is unsorved.
 TEST_F(RouteTest, RemoteVmRoute_3_labelled) {
-    AddRemoteVmRoute(remote_vm_ip_, remote_pe1_ip_, 32, MplsTable::kStartLabel, (1 << TunnelType::MPLS_OVER_MPLS));
+    AddRemoteVmRoute(remote_vm_ip_, remote_pe1_ip_, 32, MplsTable::kStartLabel,
+                        (1 << TunnelType::MPLS_OVER_MPLS));
 
     EXPECT_TRUE(RouteFind(vrf_name_, remote_vm_ip_, 32));
     InetUnicastRouteEntry *addr_rt = RouteGet(vrf_name_, remote_vm_ip_, 32);
@@ -627,6 +628,52 @@ TEST_F(RouteTest, RemoteVmRoute_3_labelled) {
     DeleteRoute(bgp_peer_, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
 
+    //Delete ARP route
+    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), asbr1_ip_,
+                32);
+    EXPECT_FALSE(RouteFind(agent_->fabric_vrf_name(), asbr1_ip_, 32));
+    DelArp(asbr1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+}
+// change tunnel encap priority list
+// and verify that transport tunnel type is changed accordingly
+TEST_F(RouteTest, RemoteVmRoute_4_labelled) {
+    AddRemoteMplsRoute(remote_pe1_ip_, 32,asbr1_ip_, 100);
+    AddRemoteVmRoute(remote_vm_ip_, remote_pe1_ip_, 32, MplsTable::kStartLabel,
+                        (1 << TunnelType::MPLS_OVER_MPLS));
+    EXPECT_TRUE(RouteFindMpls(agent_->fabric_vrf_name(), remote_pe1_ip_, 32));
+
+    EXPECT_TRUE(RouteFind(vrf_name_, remote_vm_ip_, 32));
+    InetUnicastRouteEntry *addr_rt = RouteGet(vrf_name_, remote_vm_ip_, 32);
+    const NextHop *addr_nh = addr_rt->GetActiveNextHop();
+    EXPECT_TRUE(addr_nh->IsValid() == false);
+
+    //Add ARP for server IP address
+    //Once Arp address is added, remote VM tunnel nexthop
+    //would be reevaluated, and tunnel nexthop would be valid
+    AddArp(asbr1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(addr_nh->IsValid() == true);
+    AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
+    client->WaitForIdle();
+    const LabelledTunnelNH *labelled_nh = dynamic_cast<const LabelledTunnelNH *>(addr_nh);
+    EXPECT_TRUE(labelled_nh->GetTransportTunnelType() == TunnelType::MPLS_UDP);
+    AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
+    client->WaitForIdle();
+    EXPECT_TRUE(labelled_nh->GetTransportTunnelType() == TunnelType::MPLS_GRE);
+    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    client->WaitForIdle();
+    EXPECT_TRUE(labelled_nh->GetTransportTunnelType() == TunnelType::MPLS_UDP);
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->WaitForIdle();
+    EXPECT_TRUE(labelled_nh->GetTransportTunnelType() == TunnelType::MPLS_GRE);
+
+    //Delete Remote VM route
+    DeleteRoute(bgp_peer_, vrf_name_, remote_vm_ip_, 32);
+    EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
+
+    DeleteRouteMpls(bgp_peer_, agent_->fabric_vrf_name(), remote_pe1_ip_, 32);
+    EXPECT_FALSE(RouteFindMpls(agent_->fabric_vrf_name(), asbr1_ip_, 32));
     //Delete ARP route
     DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), asbr1_ip_,
                 32);
