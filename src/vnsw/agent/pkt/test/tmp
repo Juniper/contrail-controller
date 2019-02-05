@@ -1,0 +1,996 @@
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700   1) /*
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700   2)  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700   3)  */
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700   4) 
+813c4fae (Dominik Ermel        2014-10-09 11:29:01 +0200   5) #include "base/os.h"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700   6) #include "test/test_cmn_util.h"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700   7) #include "test_pkt_util.h"
+29fb9061 (hari                 2013-12-31 02:14:58 -0800   8) #include "pkt/flow_proto.h"
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800   9) #include <base/task.h>
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800  10) #include <base/test/task_test_util.h>
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  11) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530  12) VmInterface *vnet[16];
+65a4fe5c (Naveen N             2017-07-23 14:04:14 +0530  13) Interface *vhost;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  14) char vhost_addr[32];
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  15) char vnet_addr[16][32];
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  16) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530  17) PhysicalInterface *eth;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  18) int hash_id;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  19) 
+082ff7d6 (Hari                 2014-04-13 21:24:16 -0700  20) void RouterIdDepInit(Agent *agent) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  21) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  22) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  23) struct PortInfo input1[] = {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  24)     {"vnet1", 1, "1.1.1.1", "00:00:01:01:01:01", 1, 1},
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  25)     {"vnet2", 2, "1.1.1.2", "00:00:01:01:01:02", 1, 2},
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  26) };
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  27) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  28) struct PortInfo input2[] = {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  29)     {"vnet3", 3, "1.1.1.3", "00:00:01:01:01:03", 1, 3},
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  30)     {"vnet4", 4, "1.1.1.4", "00:00:01:01:01:04", 1, 4},
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  31) };
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  32) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530  33) IpamInfo ipam_info[] = {
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530  34)     {"1.1.1.0", 24, "1.1.1.10"},
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530  35) };
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530  36) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700  37) typedef enum {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700  38)     INGRESS = 0,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700  39)     EGRESS = 1,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700  40)     BIDIRECTION = 2
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700  41) } AclDirection;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700  42) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  43) static string AddAclXmlString(const char *node_name, const char *name, int id,
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  44)                               int proto, const char *action) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  45)     char buff[10240];
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  46)     sprintf(buff,
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  47)     "<?xml version=\"1.0\"?>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  48)     "<config>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  49)     "   <update>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  50)     "       <node type=\"%s\">\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  51)     "           <name>%s</name>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  52)     "           <id-perms>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  53)     "               <permissions>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  54)     "                   <owner></owner>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  55)     "                   <owner_access>0</owner_access>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  56)     "                   <group></group>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  57)     "                   <group_access>0</group_access>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  58)     "                   <other_access>0</other_access>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  59)     "               </permissions>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  60)     "               <uuid>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  61)     "                   <uuid-mslong>0</uuid-mslong>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  62)     "                   <uuid-lslong>%d</uuid-lslong>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  63)     "               </uuid>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  64)     "           </id-perms>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  65)     "           <access-control-list-entries>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  66)     "                <acl-rule>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  67)     "                    <match-condition>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  68)     "                        <src-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  69)     "                            <virtual-network> any </virtual-network>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  70)     "                        </src-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  71)     "                        <protocol>%d</protocol>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  72)     "                        <src-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  73)     "                            <start-port> 0 </start-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  74)     "                            <end-port> 10000 </end-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  75)     "                        </src-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  76)     "                        <dst-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  77)     "                            <virtual-network> any </virtual-network>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  78)     "                        </dst-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  79)     "                        <dst-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  80)     "                            <start-port> 0 </start-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  81)     "                            <end-port> 10000 </end-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  82)     "                        </dst-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  83)     "                    </match-condition>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  84)     "                    <action-list>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  85)     "                        <simple-action>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  86)     "                            %s\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  87)     "                        </simple-action>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  88)     "                    </action-list>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  89)     "                </acl-rule>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  90)     "                <acl-rule>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  91)     "                    <match-condition>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  92)     "                        <src-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  93)     "                            <virtual-network> any </virtual-network>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  94)     "                        </src-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  95)     "                        <protocol>any</protocol>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  96)     "                        <src-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  97)     "                            <start-port> 0 </start-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  98)     "                            <end-port> 60000 </end-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700  99)     "                        </src-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 100)     "                        <dst-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 101)     "                            <virtual-network> any </virtual-network>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 102)     "                        </dst-address>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 103)     "                        <dst-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 104)     "                            <start-port> 0 </start-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 105)     "                            <end-port> 60000 </end-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 106)     "                        </dst-port>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 107)     "                    </match-condition>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 108)     "                    <action-list>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 109)     "                        <simple-action>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 110)     "                            deny\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 111)     "                        </simple-action>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 112)     "                    </action-list>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 113)     "                </acl-rule>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 114)     "           </access-control-list-entries>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 115)     "       </node>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 116)     "   </update>\n"
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 117)     "</config>\n", node_name, name, id, proto, action);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 118)     string s(buff);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 119)     return s;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 120) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 121) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 122) static string AddSgIdAclXmlString(const char *node_name, const char *name, int id,
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 123)                                   int proto, int src_sg_id, int dest_sg_id,
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 124)                                   const char *action) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 125)     char buff[10240];
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 126)     sprintf(buff,
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 127)     "<?xml version=\"1.0\"?>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 128)     "<config>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 129)     "   <update>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 130)     "       <node type=\"%s\">\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 131)     "           <name>%s</name>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 132)     "           <id-perms>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 133)     "               <permissions>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 134)     "                   <owner></owner>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 135)     "                   <owner_access>0</owner_access>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 136)     "                   <group></group>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 137)     "                   <group_access>0</group_access>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 138)     "                   <other_access>0</other_access>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 139)     "               </permissions>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 140)     "               <uuid>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 141)     "                   <uuid-mslong>0</uuid-mslong>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 142)     "                   <uuid-lslong>%d</uuid-lslong>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 143)     "               </uuid>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 144)     "           </id-perms>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 145)     "           <access-control-list-entries>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 146)     "                <acl-rule>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 147)     "                    <match-condition>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 148)     "                        <src-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 149)     "                            <security-group> %d </security-group>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 150)     "                        </src-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 151)     "                        <protocol>%d</protocol>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 152)     "                        <src-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 153)     "                            <start-port> 0 </start-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 154)     "                            <end-port> 10000 </end-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 155)     "                        </src-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 156)     "                        <dst-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 157)     "                            <security-group> %d </security-group>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 158)     "                        </dst-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 159)     "                        <dst-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 160)     "                            <start-port> 0 </start-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 161)     "                            <end-port> 10000 </end-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 162)     "                        </dst-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 163)     "                    </match-condition>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 164)     "                    <action-list>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 165)     "                        <simple-action>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 166)     "                            %s\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 167)     "                        </simple-action>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 168)     "                    </action-list>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 169)     "                </acl-rule>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 170)     "                <acl-rule>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 171)     "                    <match-condition>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 172)     "                        <src-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 173)     "                            <security-group> %d </security-group>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 174)     "                        </src-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 175)     "                        <protocol>%d</protocol>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 176)     "                        <src-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 177)     "                            <start-port> 0 </start-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 178)     "                            <end-port> 10000 </end-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 179)     "                        </src-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 180)     "                        <dst-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 181)     "                            <security-group> %d </security-group>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 182)     "                        </dst-address>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 183)     "                        <dst-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 184)     "                            <start-port> 0 </start-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 185)     "                            <end-port> 10000 </end-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 186)     "                        </dst-port>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 187)     "                    </match-condition>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 188)     "                    <action-list>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 189)     "                        <simple-action>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 190)     "                            %s\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 191)     "                        </simple-action>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 192)     "                    </action-list>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 193)     "                </acl-rule>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 194)     "           </access-control-list-entries>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 195)     "       </node>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 196)     "   </update>\n"
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 197)     "</config>\n", node_name, name, id, src_sg_id, proto, dest_sg_id, action,
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 198)                    dest_sg_id, proto, src_sg_id, action);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 199)     string s(buff);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 200)     return s;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 201) }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 202) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 203) static void AddAclEntry(const char *name, int id, int proto,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 204)                         const char *action, AclDirection direction) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 205)     char acl_name[1024];
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 206)     uint16_t max_len = sizeof(acl_name) - 1;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 207)     strncpy(acl_name, name, max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 208)     if (direction == EGRESS) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 209)         strncat(acl_name, "egress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 210)     } else {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 211)         strncat(acl_name, "ingress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 212)     }
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 213)     std::string s = AddAclXmlString("access-control-list", acl_name, id, proto,
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 214)                                     action);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 215)     pugi::xml_document xdoc_;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 216)     pugi::xml_parse_result result = xdoc_.load(s.c_str());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 217)     EXPECT_TRUE(result);
+34bfffad (Praveen K V          2014-06-09 14:31:01 +0530 218)     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 219)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 220) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 221) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 222) static void AddSgIdAcl(const char *name, int id, int proto,
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 223)                        int src_sg_id, int dest_sg_id, const char *action,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 224)                        AclDirection direction) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 225)     char acl_name[1024];
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 226)     uint16_t max_len = sizeof(acl_name) - 1;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 227)     strncpy(acl_name, name, max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 228)     if (direction == EGRESS) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 229)         strncat(acl_name, "egress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 230)     } else {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 231)         strncat(acl_name, "ingress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 232)     }
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 233)     std::string s = AddSgIdAclXmlString("access-control-list", acl_name, id, proto,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 234)                                         src_sg_id, dest_sg_id, action);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 235)     pugi::xml_document xdoc_;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 236)     pugi::xml_parse_result result = xdoc_.load(s.c_str());
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 237)     EXPECT_TRUE(result);
+34bfffad (Praveen K V          2014-06-09 14:31:01 +0530 238)     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 239)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 240) }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 241) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 242) static void AddSgEntry(const char *sg_name, const char *name, int id,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 243)                        int proto, const char *action, AclDirection direction) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 244) 
+0dc90ac2 (manishsingh          2014-06-06 18:41:30 +0530 245)     AddSg(sg_name, 1);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 246)     char acl_name[1024];
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 247)     uint16_t max_len = sizeof(acl_name) - 1;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 248)     strncpy(acl_name, name, max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 249)     switch (direction) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 250)         case INGRESS:
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 251)             AddAclEntry(name, id, proto, action, direction);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 252)             strncat(acl_name, "ingress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 253)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 254)             break;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 255)         case EGRESS:
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 256)             AddAclEntry(name, id, proto, action, direction);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 257)             strncat(acl_name, "egress-access-control-list", max_len);
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 258)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 259)             break;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 260)         case BIDIRECTION:
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 261)             AddAclEntry(name, id, proto, action, EGRESS);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 262)             strncat(acl_name, "egress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 263)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 264) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 265)             strncpy(acl_name, name, max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 266)             strncat(acl_name, "ingress-access-control-list", max_len);
+8fa29cef (Praveen K V          2016-02-03 12:16:26 +0530 267)             AddAclEntry(name, id+1, proto, action, INGRESS);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 268)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 269)             break;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 270)     }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 271) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 272) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 273) static void AddSgEntry(const char *sg_name, const char *name, int id,
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 274)                        int proto, const char *action, uint32_t sg_id,
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 275)                        uint32_t dest_sg_id, AclDirection direction) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 276)     std::stringstream str;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 277)     str << "<security-group-id>" << sg_id << "</security-group-id>" << endl;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 278)     AddNode("security-group", sg_name, id, str.str().c_str());
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 279)     char acl_name[1024];
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 280)     uint16_t max_len = sizeof(acl_name) - 1;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 281)     strncpy(acl_name, name, max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 282)     switch (direction) {
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 283)         case INGRESS:
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 284)             AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, direction);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 285)             strncat(acl_name, "ingress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 286)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 287)             break;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 288)         case EGRESS:
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 289)             AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, direction);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 290)             strncat(acl_name, "egress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 291)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 292)             break;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 293)         case BIDIRECTION:
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 294)             AddSgIdAcl(name, id, proto, sg_id, dest_sg_id, action, EGRESS);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 295)             strncat(acl_name, "egress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 296)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 297) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 298)             strncpy(acl_name, name, max_len);
+8fa29cef (Praveen K V          2016-02-03 12:16:26 +0530 299)             AddSgIdAcl(name, id+1, proto, sg_id, dest_sg_id, action, INGRESS);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 300)             strncat(acl_name, "ingress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 301)             AddLink("security-group", sg_name, "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 302)             break;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 303)     }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 304) }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 305) 
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 306) static void DelSgAcl(const char *name) {
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 307)     char acl_name[1024];
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 308)     strcpy(acl_name, name);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 309)     strcat(acl_name, "ingress-access-control-list");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 310)     DelNode("access-control-list", acl_name);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 311)     client->WaitForIdle();
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 312) 
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 313)     strcpy(acl_name, name);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 314)     strcat(acl_name, "egress-access-control-list");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 315)     DelNode("access-control-list", acl_name);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 316)     client->WaitForIdle();
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 317) }
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 318) 
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 319) static void DelSgAclLink(const char *sg_name, const char *acl_name) {
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 320)     char buff[1024];
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 321) 
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 322)     strcpy(buff, acl_name);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 323)     strcat(buff, "egress-access-control-list");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 324)     DelLink("security-group", sg_name, "access-control-list", buff);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 325) 
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 326)     strcpy(buff, acl_name);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 327)     strcat(buff, "ingress-access-control-list");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 328)     DelLink("security-group", sg_name, "access-control-list", buff);
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 329) }
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 330) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 331) const VmInterface *GetVmPort(int id) {
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 332)     return static_cast<const VmInterface *>(vnet[id]);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 333) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 334) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 335) static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 336)     bool ret = true;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 337) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 338)     AddIPAM("vn1", ipam_info, 1);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 339)     CreateVmportEnv(input, count,  aclid);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 340)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 341) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 342)     for (int i = 0; i < count; i++) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 343)         int id = input[i].intf_id;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 344) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 345)         EXPECT_TRUE(VmPortActive(input, i));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 346)         if (VmPortActive(input, i) == false) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 347)             ret = false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 348)         }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 349) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 350)         if (aclid) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 351)             EXPECT_TRUE(VmPortPolicyEnable(input, i));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 352)             if (VmPortPolicyEnable(input, i) == false) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 353)                 ret = false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 354)             }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 355)         }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 356) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 357)         vnet[id] = VmInterfaceGet(id);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 358)         if (vnet[id] == NULL) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 359)             ret = false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 360)         }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 361) 
+fc5569b3 (Naveen N             2015-08-24 04:25:01 -0700 362)         strcpy(vnet_addr[id], vnet[id]->primary_ip_addr().to_string().c_str());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 363)     }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 364) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 365)     eth = EthInterfaceGet("vnet0");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 366)     EXPECT_TRUE(eth != NULL);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 367)     if (eth == NULL) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 368)         ret = false;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 369)     }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 370) 
+34bfffad (Praveen K V          2014-06-09 14:31:01 +0530 371)     strcpy(vhost_addr, Agent::GetInstance()->router_id().to_string().c_str());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 372)     return ret;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 373) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 374) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 375) bool Init() {
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 376)     boost::system::error_code ec;
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 377)     bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 378)                               "xmpp channel");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 379) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 380)     if (VmPortSetup(input1, 2, 0) == false)
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 381)         return false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 382) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 383)     if (VmPortSetup(input2, 2, 0) == false)
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 384)         return false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 385) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 386)     return true;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 387) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 388) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 389) void Shutdown() {
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 390)     DelIPAM("vn1");
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 391)     DeleteVmportEnv(input1, 2, false);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 392)     DeleteVmportEnv(input2, 2, true, 1);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 393)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 394) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 395)     EXPECT_FALSE(VmPortFind(input1, 0));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 396)     EXPECT_FALSE(VmPortFind(input1, 1));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 397)     EXPECT_FALSE(VmPortFind(input2, 0));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 398)     EXPECT_FALSE(VmPortFind(input2, 1));
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 399)     DeleteBgpPeer(bgp_peer_);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 400)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 401) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 402) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 403) class SgTest : public ::testing::Test {
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 404) public:
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 405)     virtual void SetUp() {
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 406)         agent_ = Agent::GetInstance();
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 407)         flow_proto_ = agent_->pkt()->get_flow_proto();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 408)         client->WaitForIdle();
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 409)         EXPECT_EQ(0U, flow_proto_->FlowCount());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 410) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 411)         const VmInterface *port = GetVmPort(1);
+29d31b8e (Praveen K V          2013-12-19 11:27:44 +0530 412)         EXPECT_EQ(port->sg_list().list_.size(), 0U);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 413)         AddSgEntry("sg1", "sg_acl1", 10, 1, "pass", BIDIRECTION);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 414)         AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 415)         client->WaitForIdle();
+29d31b8e (Praveen K V          2013-12-19 11:27:44 +0530 416)         EXPECT_EQ(port->sg_list().list_.size(), 1U);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 417)     }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 418) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 419)     virtual void TearDown() {
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 420)         //DelIPAM("vn1");
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 421)         client->EnqueueFlowFlush();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 422)         client->WaitForIdle();
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 423)         char acl_name[1024];
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 424)         uint16_t max_len = sizeof(acl_name) - 1;
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 425) 
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 426)         EXPECT_EQ(0U, flow_proto_->FlowCount());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 427)         DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 428)         strncpy(acl_name, "sg_acl1", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 429)         strncat(acl_name, "egress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 430)         DelLink("security-group", "sg1", "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 431)         DelNode("access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 432) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 433)         strncpy(acl_name, "sg_acl1", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 434)         strncat(acl_name, "ingress-access-control-list", max_len);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 435)         DelLink("security-group", "sg1", "access-control-list", acl_name);
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 436)         DelNode("access-control-list", acl_name);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 437)         DelNode("security-group", "sg1");
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 438)         client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 439) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 440)         const VmInterface *port = GetVmPort(1);
+29d31b8e (Praveen K V          2013-12-19 11:27:44 +0530 441)         EXPECT_EQ(port->sg_list().list_.size(), 0U);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 442)     }
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 443) 
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 444)     Agent *agent_;
+536e9362 (Praveen K V          2015-11-08 12:26:35 +0530 445)     FlowProto *flow_proto_;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 446) };
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 447) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 448) bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 449)                     int dport, int action, uint32_t nh_id) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 450)     bool ret = true;
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 451)     FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport, nh_id);
+de88cc9a (Prabhjot Singh Sethi 2014-01-06 10:04:50 -0800 452)     FlowEntry *rfe = fe->reverse_flow_entry();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 453) 
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 454)     EXPECT_TRUE((fe->match_p().sg_policy.action_summary & (1 << action)) != 0);
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 455)     if ((fe->match_p().sg_policy.action_summary & (1 << action)) == 0) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 456)         ret = false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 457)     }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 458) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 459)     if (fe->is_flags_set(FlowEntry::Trap) ||
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 460)             rfe->is_flags_set(FlowEntry::Trap)) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 461)         return ret;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 462)     }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 463) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 464)     if (!fe->is_flags_set(FlowEntry::Trap) &&
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 465)         !rfe->is_flags_set(FlowEntry::Trap)) {
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 466)         EXPECT_EQ(fe->match_p().sg_policy.action_summary,
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 467)                   rfe->match_p().sg_policy.action_summary);
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 468)         if (fe->match_p().sg_policy.action_summary !=
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 469)                 rfe->match_p().sg_policy.action_summary) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 470)             ret = false;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 471)         }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 472)     }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 473) 
+d6546957 (Prabhjot Singh Sethi 2014-01-08 07:47:17 -0800 474)     EXPECT_EQ(fe->match_p().action_info.action,
+d6546957 (Prabhjot Singh Sethi 2014-01-08 07:47:17 -0800 475)               rfe->match_p().action_info.action);
+d6546957 (Prabhjot Singh Sethi 2014-01-08 07:47:17 -0800 476)     if (fe->match_p().action_info.action !=
+d6546957 (Prabhjot Singh Sethi 2014-01-08 07:47:17 -0800 477)         rfe->match_p().action_info.action) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 478)         ret = false;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 479)     }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 480) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 481)     return ret;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 482) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 483) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 484) // Introspec checking
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 485) // Checks for the SG UUID and sg id, if sg_id is -1, then checks num entries
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 486) bool sg_introspec_test = false;
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 487) static void SgListResponse(Sandesh *sandesh, int id, int sg_id, int num_entries)
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 488) {
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 489)     SgListResp *resp = dynamic_cast<SgListResp *>(sandesh);
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 490)     if (resp == NULL) {
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 491)             Pagination *page = dynamic_cast<Pagination *>(sandesh);
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 492)             if (page != NULL) {
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 493)                     return;
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 494)                 }
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 495)             sg_introspec_test = false;
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 496)             return;
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 497)     }
+85362a85 (Praveen K V          2015-07-07 23:35:08 +0530 498) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 499)     EXPECT_EQ(resp->get_sg_list().size(), num_entries);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 500)     if (!sg_id) {
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 501)         EXPECT_EQ(resp->get_sg_list()[0].sg_uuid, UuidToString(MakeUuid(id)));
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 502)         EXPECT_EQ(resp->get_sg_list()[0].sg_id, sg_id);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 503)     }
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 504)     sg_introspec_test = true;
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 505) }
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 506) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 507) // Allow in both forward and reverse directions
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 508) TEST_F(SgTest, Flow_Allow_1) {
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 509)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 510)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 511) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 512)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 513)                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 514)                                vnet[1]->flow_key_nh()->id()));
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 515)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1], vnet_addr[2],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 516)                            1, 0, 0, vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 517)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 518) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 519) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 520) // Deny in both forward and reverse directions
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 521) TEST_F(SgTest, Flow_Deny_1) {
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 522)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 523)     client->WaitForIdle();
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 524) 
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 525)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 526)                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 527)                                vnet[1]->flow_key_nh()->id()));
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 528)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1], vnet_addr[2],
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 529)                            1, 0, 0, vnet[1]->flow_key_nh()->id()));
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 530)     client->WaitForIdle();
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 531) #if 0
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 532)     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
+f94282fd (Praveen K V          2014-03-27 15:47:05 +0530 533)                 10, 20, false);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 534)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 535) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 536)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 537)                                vnet_addr[2], 6, 10, 20, TrafficAction::PASS,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 538)                                vnet[1]->flow_key_nh()->id()));
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 539)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1], vnet_addr[2],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 540)                            6, 10, 20, vnet[1]->flow_key_nh()->id()));
+00000000 (Not Committed Yet    2019-01-12 23:21:57 +0530 541) #endif
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 542) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 543) 
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 544) // Change ACL for forward flow
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 545) TEST_F(SgTest, Fwd_Sg_Change_1) {
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 546)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 547)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 548) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 549)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 550)                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 551)                                vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 552) 
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 553)     AddAclEntry("sg_acl1", 10, 1, "deny", EGRESS);
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 554)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 555)                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 556)                                vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 557) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 558)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 559)                            vnet_addr[2], 1, 0, 0,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 560)                            vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 561) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 562) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 563) //Delete SG ACL for forward flow, and verify that action gets updated
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 564) TEST_F(SgTest, Fwd_Sg_Change_2) {
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 565)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 566)     AddSgEntry("sg2", "ag2", 20, 1, "pass", 2, 2, BIDIRECTION);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 567)     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 568)     AddLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 569)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 570) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 571)     //Reflect route from bgp
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 572)     SecurityGroupList sg_list;
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 573)     sg_list.push_back(2);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 574)     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 575)     const VmInterface *vm_intf = static_cast<const VmInterface *>
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 576)         (VmPortGet(1));
+c72b546a (Hari                 2016-01-14 18:45:55 +0530 577)     VnListType vn_list;
+c72b546a (Hari                 2016-01-14 18:45:55 +0530 578)     vn_list.insert("vn1");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 579)     Agent::GetInstance()->fabric_inet4_unicast_table()->
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 580)         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+c72b546a (Hari                 2016-01-14 18:45:55 +0530 581)                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 582)                 sg_list, TagList(), CommunityList(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 583)                 false, PathPreference(), Ip4Address(0),
+518f025f (Naveen N             2017-10-11 18:37:38 +0530 584)                 EcmpLoadBalance(), false, false, false);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 585)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 586) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 587)     //Packet egress from vnet2, so that its the first entry in flow route map
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 588)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 589)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 590) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 591)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 592)                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 593)                                vnet[1]->flow_key_nh()->id()));
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 594) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 595)     //Delete SG ACL associated with vnet1
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 596)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 597)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 598)     Agent::GetInstance()->fabric_inet4_unicast_table()->
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 599)         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+c72b546a (Hari                 2016-01-14 18:45:55 +0530 600)                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 601)                 SecurityGroupList(), TagList(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 602)                 CommunityList(), false, PathPreference(),
+518f025f (Naveen N             2017-10-11 18:37:38 +0530 603)                 Ip4Address(0), EcmpLoadBalance(), false, false, false);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 604)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 605) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 606)     FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 607)                             vnet_addr[2], 1, 0, 0, vnet[1]->flow_key_nh()->id());
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 608)     EXPECT_TRUE((fe->data().match_p.action_info.action &
+c9fb0454 (Ashok Singh          2015-10-29 20:56:55 -0700 609)                 (1 << TrafficAction::DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 610)     EXPECT_TRUE((fe->data().match_p.action_info.action &
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 611)                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 612)     FlowEntry *reverse_flow = fe->reverse_flow_entry();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 613)     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+c9fb0454 (Ashok Singh          2015-10-29 20:56:55 -0700 614)                 (1 << TrafficAction::DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 615)     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 616)                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 617) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 618)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 619)                            vnet_addr[2], 1, 0, 0,
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 620)                            vnet[1]->flow_key_nh()->id()));
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 621)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 622)     DelLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 623)     DelSgAclLink("sg2", "ag2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 624)     DelSgAcl("ag2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 625)     DelNode("security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 626)     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 627)             bgp_peer_, "vrf1", vm_ip, 32, NULL);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 628)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 629) }
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 630) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 631) //Add sg ACL for destination intf, flow initially gets created
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 632) //with deny action
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 633) //Update source interface also with same SG verify flow action
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 634) //gets set to pass
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 635) TEST_F(SgTest, Fwd_Sg_Change_3) {
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 636)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 637)     AddSgEntry("sg2", "ag2", 20, 1, "pass", 2, 2, BIDIRECTION);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 638)     AddLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 639)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 640) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 641)     //Reflect route from bgp
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 642)     SecurityGroupList sg_list;
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 643)     sg_list.push_back(2);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 644)     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 645)     const VmInterface *vm_intf = static_cast<const VmInterface *>
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 646)         (VmPortGet(1));
+00a4123c (Naveen N             2016-06-24 14:01:56 +0530 647) 
+00a4123c (Naveen N             2016-06-24 14:01:56 +0530 648)     VnListType vn_list;
+00a4123c (Naveen N             2016-06-24 14:01:56 +0530 649)     vn_list.insert("vn1");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 650)     Agent::GetInstance()->fabric_inet4_unicast_table()->
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 651)         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+00a4123c (Naveen N             2016-06-24 14:01:56 +0530 652)                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 653)                 SecurityGroupList(), TagList(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 654)                 CommunityList(), false, PathPreference(),
+518f025f (Naveen N             2017-10-11 18:37:38 +0530 655)                 Ip4Address(0), EcmpLoadBalance(), false, false, false);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 656)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 657) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 658)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 659)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 660) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 661)     FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 662)                             vnet_addr[2], 1, 0, 0, vnet[1]->flow_key_nh()->id());
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 663)     EXPECT_TRUE((fe->data().match_p.action_info.action &
+c9fb0454 (Ashok Singh          2015-10-29 20:56:55 -0700 664)                 (1 << TrafficAction::DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 665)     EXPECT_TRUE((fe->data().match_p.action_info.action &
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 666)                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 667)     FlowEntry *reverse_flow = fe->reverse_flow_entry();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 668)     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+c9fb0454 (Ashok Singh          2015-10-29 20:56:55 -0700 669)                 (1 << TrafficAction::DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 670)     EXPECT_TRUE((reverse_flow->data().match_p.action_info.action &
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 671)                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 672) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 673)     //Add SG ACL associated to vnet1
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 674)     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 675)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 676)     Agent::GetInstance()->fabric_inet4_unicast_table()->
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 677)         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
+00a4123c (Naveen N             2016-06-24 14:01:56 +0530 678)                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 679)                 sg_list, TagList(), CommunityList(), false, PathPreference(),
+518f025f (Naveen N             2017-10-11 18:37:38 +0530 680)                 Ip4Address(0), EcmpLoadBalance(), false, false, false);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 681)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 682) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 683)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 684)                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 685)                                vnet[1]->flow_key_nh()->id()));
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 686) 
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 687)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 688)                            vnet_addr[2], 1, 0, 0,
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 689)                            vnet[1]->flow_key_nh()->id()));
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 690)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 691)     DelLink("virtual-machine-interface", "vnet2", "security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 692)     DelSgAclLink("sg2", "ag2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 693)     DelSgAcl("ag2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 694)     DelNode("security-group", "sg2");
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 695)     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 696)             bgp_peer_, "vrf1", vm_ip, 32, NULL);
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 697)     client->WaitForIdle();
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 698) }
+6991ba73 (Naveen N             2014-08-19 17:37:48 -0700 699) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 700) // Delete SG from interface
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 701) TEST_F(SgTest, Sg_Delete_1) {
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 702)     TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
+f94282fd (Praveen K V          2014-03-27 15:47:05 +0530 703)                 10, 20, false);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 704)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 705) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 706)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 707)                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 708)                                vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 709) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 710)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 711)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 712) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 713)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 714)                                vnet_addr[2], 6, 10, 20, TrafficAction::PASS,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 715)                                vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 716) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 717)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 718)                            vnet_addr[2], 6, 10, 20,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 719)                            vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 720) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 721) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 722) // Packet trap for reverse flow
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 723) TEST_F(SgTest, Rev_Trap_1) {
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 724)     AddAclEntry("sg_acl1", 10, 1, "pass", INGRESS);
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 725)     client->WaitForIdle();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 726) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 727)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 728)     client->WaitForIdle();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 729)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 730)                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 731)                                vnet[1]->flow_key_nh()->id()));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 732) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 733)     FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 734)                               vnet_addr[2], 1, 0, 0,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 735)                               vnet[1]->flow_key_nh()->id());
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 736)     assert(flow);
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 737)     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 738)     FlowEntry *rflow = flow->reverse_flow_entry();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 739)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 740)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 741) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 742)     TxIpPacket(vnet[2]->id(), vnet_addr[2], vnet_addr[1], 1,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 743)                rflow->flow_handle());
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 744)     client->WaitForIdle();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 745)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 746)                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 747)                                vnet[1]->flow_key_nh()->id()));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 748) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 749)     EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 750)     EXPECT_FALSE(flow->is_flags_set(FlowEntry::Trap));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 751) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 752)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 753)                            vnet_addr[2], 1, 0, 0,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 754)                            vnet[1]->flow_key_nh()->id()));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 755) }
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 756) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 757) // Packet trap for forward flow
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 758) TEST_F(SgTest, Rev_Trap_2) {
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 759)     AddAclEntry("sg_acl1", 10, 1, "pass", INGRESS);
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 760)     client->WaitForIdle();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 761) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 762)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 763)     client->WaitForIdle();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 764)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 765)                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 766)                                vnet[1]->flow_key_nh()->id()));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 767) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 768)     FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 769)                               vnet_addr[2], 1, 0, 0,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 770)                               vnet[1]->flow_key_nh()->id());
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 771)     assert(flow);
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 772)     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 773)     FlowEntry *rflow = flow->reverse_flow_entry();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 774)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 775)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 776) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 777)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1, flow->flow_handle());
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 778)     client->WaitForIdle();
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 779)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 780)                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 781)                                vnet[1]->flow_key_nh()->id()));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 782) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 783)     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 784)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 785)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::Trap));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 786) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 787)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 788)                            vnet_addr[2], 1, 0, 0,
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 789)                            vnet[1]->flow_key_nh()->id()));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 790) }
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 791) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 792) // Packet trap for forward flow
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 793) TEST_F(SgTest, Rev_Trap_3) {
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 794)     AddAclEntry("sg_acl1", 10, 1, "deny", INGRESS);
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 795)     AddAclEntry("sg_acl1", 10, 1, "deny", EGRESS);
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 796)     client->WaitForIdle();
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 797) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 798)     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 799)     client->WaitForIdle();
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 800)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 801)                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY,
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 802)                                vnet[1]->flow_key_nh()->id()));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 803) 
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 804)     FlowEntry *flow = FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 805)                               vnet_addr[2], 1, 0, 0,
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 806)                               vnet[1]->flow_key_nh()->id());
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 807)     assert(flow);
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 808)     EXPECT_FALSE(flow->is_flags_set(FlowEntry::ReverseFlow));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 809)     FlowEntry *rflow = flow->reverse_flow_entry();
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 810)     EXPECT_TRUE(rflow->is_flags_set(FlowEntry::ReverseFlow));
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 811)     EXPECT_FALSE(rflow->is_flags_set(FlowEntry::Trap));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 812) 
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 813)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 814)                            vnet_addr[2], 1, 0, 0,
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 815)                            vnet[1]->flow_key_nh()->id()));
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 816) }
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 817) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 818) TEST_F(SgTest, Sg_Introspec) {
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 819)     // Delete sg added for setup()
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 820)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 821) 
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 822)     // Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 823)     // to vnet1
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 824)     AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, BIDIRECTION);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 825)     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 826) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 827)     // Introspec based on the uuid
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 828)     client->WaitForIdle();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 829)     SgListReq *req = new SgListReq();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 830)     req->set_name(UuidToString(MakeUuid(20)));
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 831)     sg_introspec_test = false;
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 832)     Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, 1, 1));
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 833)     req->HandleRequest();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 834)     TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 835)     req->Release();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 836) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 837)     // Introspec based on empty string to return entire list
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 838)     req = new SgListReq();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 839)     req->set_name("");
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 840)     sg_introspec_test = false;
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 841)     Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, -1, 2));
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 842)     req->HandleRequest();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 843)     TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 844)     req->Release();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 845) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 846)     // Introspec based on the sg id
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 847)     req = new SgListReq();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 848)     req->set_name("1");
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 849)     sg_introspec_test = false;
+0dc90ac2 (manishsingh          2014-06-06 18:41:30 +0530 850)     Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, 1, 2));
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 851)     req->HandleRequest();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 852)     TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 853)     req->Release();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 854) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 855)     // Remove the added link and nodes
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 856)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 857)     DelSgAclLink("sg2", "ag2");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 858)     DelSgAcl("ag2");
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 859)     DelNode("security-group", "sg2");
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 860)     boost::system::error_code ec;
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 861)     InetUnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 862)         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 863)     client->WaitForIdle();
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 864) 
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 865) }
+7ff96bf3 (Prasad Miriyala      2014-02-20 16:55:13 -0800 866) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 867) //Add a aggregarate route for destination
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 868) //check if updation of sg_id resulting in correct action
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 869) TEST_F(SgTest, Sg_Policy_1) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 870)     //Delete sg added for setup()
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 871)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 872) 
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 873)     //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 874)     //to vnet1
+660b29b9 (Prasad Miriyala      2014-03-18 15:18:23 -0700 875)     AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, BIDIRECTION);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 876)     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 877) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 878)     SecurityGroupList sg_id_list;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 879)     sg_id_list.push_back(2);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 880)     //Add a remote route pointing to SG id 2
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 881)     boost::system::error_code ec;
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 882)     Inet4TunnelRouteAdd(bgp_peer_, "vrf1",
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 883)                         Ip4Address::from_string("10.10.10.0", ec),
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 884)                         24,
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 885)                         Ip4Address::from_string("10.10.10.10", ec),
+cf594fbe (Ananth Suryanarayana 2018-04-19 09:25:51 -0700 886)                         TunnelType::AllType(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 887)                         17, "vn1", sg_id_list, TagList(),
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 888)                         PathPreference());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 889)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 890) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 891)     char remote_ip[] = "10.10.10.1";
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 892)     TxIpPacket(vnet[1]->id(), vnet_addr[1], remote_ip, 1);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 893)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 894) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 895)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 896)                                remote_ip, 1, 0, 0, TrafficAction::PASS,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 897)                                vnet[1]->flow_key_nh()->id()));
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 898)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 899) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 900)     //Change the route sg id to 3
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 901)     sg_id_list[0] = 3;
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 902)     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 903)                         24, Ip4Address::from_string("10.10.10.10", ec),
+ee30401a (Naveen N             2014-06-19 09:30:55 -0700 904)                         TunnelType::AllType(), 17, "vn1", sg_id_list,
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 905)                         TagList(), PathPreference());
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 906)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 907) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 908)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 909)                                remote_ip, 1, 0, 0,
+c9fb0454 (Ashok Singh          2015-10-29 20:56:55 -0700 910)                                TrafficAction::DENY,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 911)                                vnet[1]->flow_key_nh()->id()));
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 912) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 913)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 914) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 915)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 916)                            remote_ip, 1, 0, 0, vnet[1]->flow_key_nh()->id()));
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 917)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 918)     DelSgAclLink("sg2", "ag2");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 919)     DelSgAcl("ag2");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 920)     DelNode("security-group", "sg2");
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 921)     InetUnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 922)         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 923)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 924) }
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 925) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 926) //Add a aggregarate route for source
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 927) //check if updation of sg_id resulting in correction action
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 928) TEST_F(SgTest, Sg_Policy_2) {
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 929)     //Delete sg added for setup()
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 930)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 931)     //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 932)     //to vnet1
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 933)     AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2, INGRESS);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 934)     AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 935) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 936)     SecurityGroupList sg_id_list;
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 937)     sg_id_list.push_back(2);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 938)     //Add a remote route pointing to SG id 2
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 939)     boost::system::error_code ec;
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 940)     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 941)                         24, Ip4Address::from_string("10.10.10.10", ec),
+ee30401a (Naveen N             2014-06-19 09:30:55 -0700 942)                         TunnelType::AllType(), 17, "vn1", sg_id_list,
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 943)                         TagList(), PathPreference());
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 944)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 945) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 946)     char remote_ip[] = "10.10.10.1";
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 947)     TxIpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, vnet[1]->label(),
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 948)                    remote_ip, vnet_addr[1], 1);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 949)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 950) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 951)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 952)                                vnet_addr[1], 1, 0, 0, TrafficAction::PASS,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 953)                                vnet[1]->flow_key_nh()->id()));
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 954)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 955) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 956)     //Change the route sg id to 3
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 957)     sg_id_list[0] = 3;
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 958)     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 959)                         24, Ip4Address::from_string("10.10.10.10", ec),
+ee30401a (Naveen N             2014-06-19 09:30:55 -0700 960)                         TunnelType::AllType(), 17, "vn1", sg_id_list,
+1679e873 (Naveen N             2017-05-22 12:27:01 +0530 961)                         TagList(), PathPreference());
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 962)     client->WaitForIdle();
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 963) 
+9296fff5 (Praveen K V          2014-02-17 12:54:37 +0530 964)     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 965)                                vnet_addr[1], 1, 0, 0,
+c9fb0454 (Ashok Singh          2015-10-29 20:56:55 -0700 966)                                TrafficAction::DENY,
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 967)                                vnet[1]->flow_key_nh()->id()));
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 968) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 969)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 970) 
+32c3d5f9 (Praveen K V          2013-12-04 22:20:34 +0530 971)     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+8ffd2cbd (Naveen N             2014-06-02 03:45:55 -0700 972)                            remote_ip, 1, 0, 0, vnet[1]->flow_key_nh()->id()));
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 973) 
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 974)     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 975)     DelNode("security-group", "sg2");
+14cdf917 (Praveen K V          2014-07-28 14:41:07 +0530 976)     DelSgAclLink("sg2", "ag2");
+993ef74f (Ananth Suryanarayana 2014-07-07 15:12:13 -0700 977)     DelSgAcl("ag2");
+19c76231 (Naveen N             2016-09-16 12:32:05 +0530 978)     InetUnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1",
+117e4ed1 (manishsingh          2014-06-05 10:31:23 +0530 979)             Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
+5f00e730 (Naveen N             2013-12-10 00:59:52 -0800 980)     client->WaitForIdle();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 981) }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 982) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 983) int main(int argc, char *argv[]) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 984)     int ret = 0;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 985) 
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 986)     GETUSERARGS();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 987)     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 988)     if (Init()) {
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 989)         ret = RUN_ALL_TESTS();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 990)         usleep(100000);
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 991)         Shutdown();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 992)     }
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 993)     TestShutdown();
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 994)     delete client;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 995)     return ret;
+0e25c751 (Pedro Marques        2013-08-27 17:34:34 -0700 996) }
