@@ -1,0 +1,6 @@
+---
+
+- zuul_return:
+    data:
+      contrail_container_tag: '49145-3'
+      contrail_package_repository: 'http://ci-nexus.englab.juniper.net/repository/yum-tungsten/49145-3-centos'

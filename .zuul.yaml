@@ -1,0 +1,11 @@
+- job:
+    name: return-repo-location
+    run: playbooks/run.yaml
+    nodeset: builder-centos-7
+
+
+- project:
+    name: Juniper/contrail-controller
+    experimental:
+      jobs:
+        - return-repo-location
