@@ -515,8 +515,8 @@ public:
     void Verify(FlowEntry *fe) {
         FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
-        EXPECT_TRUE(fe->match_p().action_info.action == action_);
-        EXPECT_TRUE(rev->match_p().action_info.action == rev_action_);
+        EXPECT_TRUE(fe->match_p().action_info.action & action_);
+        EXPECT_TRUE(rev->match_p().action_info.action & rev_action_);
     };
 
 private:
