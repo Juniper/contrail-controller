@@ -589,12 +589,14 @@
           ],
           "supported_device_families": {
             "device_family": [
-              "junos",
-              "junos-qfx"
+		"fungible-f1",
+		"junos",
+		"junos-qfx"
             ]
           },
           "supported_vendor_hardwares": {
             "vendor_hardware": [
+	      "fungible-fs1600",
               "juniper-qfx10002-72q",
               "juniper-qfx10002-36q",
               "juniper-qfx10002-60c",
@@ -644,6 +646,12 @@
     {
       "object_type": "hardware",
       "objects": [
+        {
+          "fq_name": [
+            "fungible-fs1600"
+          ],
+          "name": "fungible-fs1600"
+        },
         {
           "fq_name": [
             "juniper-qfx5100-48sh-afi"
@@ -895,7 +903,27 @@
     {
       "object_type": "node-profile",
       "objects": [
-        {
+         {
+          "fq_name": [
+            "default-global-system-config", "fungible-fs1600"
+          ],
+          "name": "fungible-fs1600",
+          "node_profile_vendor": "fungible",
+          "node_profile_device_family": "fungible-f1",
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                  "rb_roles": ["CRB-Access"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "Route-Reflector"]
+              }		
+            ]
+          }
+        },
+       {
           "fq_name": [
             "default-global-system-config", "juniper-qfx5k-lean"
           ],
@@ -998,6 +1026,30 @@
       "objects": [
         {
           "fq_name": [
+            "default-global-system-config", "fungible-fs1600", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "fungible-fs1600", "underlay_ip_clos"
+          ],
+          "name": "underlay_ip_clos",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "juniper-qfx5k-lean", "basic"
           ],
           "name": "basic",
@@ -1096,6 +1148,12 @@
     }
   ],
   "refs": [
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "fungible-fs1600" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "fungible-fs1600" ]
+    },
     {
       "from_type": "node_profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
@@ -1341,6 +1399,18 @@
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vsrx" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "fungible-fs1600", "basic" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "fungible-fs1600", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
       "from_type": "role_config",

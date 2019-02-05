@@ -1,0 +1,86 @@
+{# Below line is used for standalone testing for jinja template #}
+{# {%- set feature = "underlay_ip_clos" -%} #}
+{
+ "openconfig-interfaces:interfaces": {
+    "interface": [
+{%     for ifd in device_abstract_config.get('physical_interfaces', []) -%}
+{%         if feature in ifd.get('comment', '')     %}
+{#     TODO: Convert infra lo0 to platform name lo  #} 
+{%             set ifd_name= ifd.name               %}
+{%             if ifd.name == 'lo0'                 %}
+{%                 set ifd_name='lo:0'              %}
+{%             endif                                %}
+    {
+      "name": "{{ ifd_name }}",
+      "config": {
+         "name": "{{ ifd_name }}",
+         "loopback-mode": false,
+         "description": "{{ ifd.comment }}",
+         "enabled": true
+      },
+      "subinterfaces": {
+         "subinterface": [
+{%        for ifl in ifd.get('logical_interfaces', []) %}
+            {
+               "index": 1,
+               "config": {
+                   "index": 1,
+                    "description": "{{ ifl.comment }}",
+                    "enabled": true
+               },
+               "openconfig-if-ip:ipv4": {
+                    "addresses": {
+                        "address": [{
+{%-             for addr in ifl.get('ip_list', []) %}						
+                           "ip": "{{ addr }}",
+                           "config": { "ip": "{{ addr }}",
+{%-                 if ifl.name == 'lo.0' -%}
+                              "prefix-length": 32
+{%-                 else -%}
+                              "prefix-length": 30
+{%-                 endif -%}							  
+                           }
+                         }{{- "," if not loop.last else ""-}}
+{%-     endfor %}						 
+                       ]
+                     },
+                     "config": { "enabled": true, "dhcp-client": false }
+                }
+             }{{- "," if not loop.last else "" }}
+{%             endfor %}
+          ]
+       }
+    }{{- "," if not loop.last else "" }}
+{%         endif %}
+{%     endfor %}
+  ]},
+  "openconfig-bgp:bgp": {
+     "global": {
+        "config": {
+{%     for bgp in device_abstract_config.get('bgp', []) %}
+{%         if feature in bgp.get('comment', '') %}	
+           "as":{{ bgp.autonomous_system }}
+{%         endif %}
+{%     endfor %}
+        }
+     },
+     "neighbors": {
+        "neighbor": [
+{%     for bgp in device_abstract_config.get('bgp', []) %}
+{%         if feature in bgp.get('comment', '') %}
+{%         for peer in bgp.get('peers', []) %}
+	   {
+
+              "neighbor-address": "{{peer.ip_address}}", 
+              "config": {
+                 "neighbor-address": "{{peer.ip_address}}", 
+                 "peer-as": {{peer.autonomous_system}} 
+              }
+	    }{{- "," if not loop.last else "" -}}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+        ]
+     }
+  }
+}
