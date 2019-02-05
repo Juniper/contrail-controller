@@ -138,6 +138,13 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="DhcpServer">
+    <xsd:all>
+       <xsd:element name="server-ip" type="xsd:string"/>
+       <xsd:element name="interfaces" type="dac:Reference" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Vlan">
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
