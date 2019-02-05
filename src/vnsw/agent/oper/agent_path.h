@@ -908,7 +908,8 @@ public:
         intf_.reset(intf_key.Clone());
     }
     virtual ~ReceiveRoute() { }
-    void set_proxy_arp() {proxy_arp_ = true;}
+
+    void SetRouteFlags(bool proxy_arp, bool ipam_host_route);
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
     virtual std::string ToString() const {return "receive";}
@@ -920,6 +921,7 @@ private:
     int tunnel_bmap_;
     bool policy_;
     bool proxy_arp_;
+    bool ipam_host_route_;
     std::string vn_;
     SecurityGroupList sg_list_;
     TagList tag_list_;

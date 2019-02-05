@@ -319,11 +319,13 @@ public:
                                   const string &interface,
                                   uint32_t label,
                                   const VnListType &vn_list);
+    // The ipam_host_route parameter is a workaround for Windows APIPA zeroconf feature
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const InterfaceKey &interface,
                                   const IpAddress &addr, uint8_t plen,
                                   const string &vn_name, bool policy,
-                                  bool native_encap);
+                                  bool native_encap,
+                                  bool ipam_host_route = true);
     static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
                                      const InterfaceKey &interface,
                                      const IpAddress &addr, uint8_t plen,
