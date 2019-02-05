@@ -974,6 +974,11 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._openstack_drv = openstack_driver
         self._connected_to_api_server = gevent.event.Event()
         self._conn_glet = gevent.spawn(self._get_api_connection)
+        try:
+            self._neutron_fwaas_enabled = conf_sections.getboolean(
+                'NEUTRON', 'fwaas_enabled')
+        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+            self._neutron_fwaas_enabled = False
     # end __init__
 
     def _get_api_connection(self):
@@ -1018,7 +1023,6 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     def _create_default_firewall_group(self, proj_dict):
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
         ensure_default_firewall_group(self._vnc_lib, proj_obj.uuid)
-    # end _create_default_security_group
 
     def wait_for_api_server_connection(func):
         def wrapper(self, *args, **kwargs):
@@ -1092,7 +1096,8 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     @wait_for_api_server_connection
     def post_project_create(self, proj_dict):
         self._create_default_security_group(proj_dict)
-        self._create_default_firewall_group(proj_dict)
+        if self._neutron_fwaas_enabled:
+            self._create_default_firewall_group(proj_dict)
     # end post_create_project
 
     @wait_for_api_server_connection
@@ -1213,6 +1218,11 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh, **kwargs):
         self._logger = sandesh.logger()
         self.api_server_obj = kwargs.get('api_server_obj')
+        try:
+            self._neutron_fwaas_enabled = conf_sections.getboolean(
+                'NEUTRON', 'fwaas_enabled')
+        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+            self._neutron_fwaas_enabled = False
 
         self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
             conf_sections, sandesh, api_server_obj=self.api_server_obj)
@@ -1265,17 +1275,18 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         self.route('/neutron/virtual_router',
                      'POST', self._npi.plugin_http_post_virtual_router)
 
-        # Bottle callbacks for firewall_group operations
-        self.route('/neutron/firewall_group',
-                   'POST', self._npi.plugin_http_post_firewall_group)
+        if self._neutron_fwaas_enabled:
+            # Bottle callbacks for firewall_group operations
+            self.route('/neutron/firewall_group',
+                       'POST', self._npi.plugin_http_post_firewall_group)
 
-        # Bottle callbacks for firewall_policy operations
-        self.route('/neutron/firewall_policy',
-                   'POST', self._npi.plugin_http_post_firewall_policy)
+            # Bottle callbacks for firewall_policy operations
+            self.route('/neutron/firewall_policy',
+                       'POST', self._npi.plugin_http_post_firewall_policy)
 
-        # Bottle callbacks for firewall_rule operations
-        self.route('/neutron/firewall_rule',
-                   'POST', self._npi.plugin_http_post_firewall_rule)
+            # Bottle callbacks for firewall_rule operations
+            self.route('/neutron/firewall_rule',
+                       'POST', self._npi.plugin_http_post_firewall_rule)
 
     def route(self, uri, method, handler):
         @use_context
