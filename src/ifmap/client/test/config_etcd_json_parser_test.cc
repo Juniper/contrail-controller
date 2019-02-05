@@ -1835,6 +1835,7 @@ TEST_F(ConfigEtcdJsonParserTest, ServerParser18InParts) {
     FeedEventsJson();
     FeedEventsJson();
     FeedEventsJson();
+    FeedEventsJson();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
     TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
