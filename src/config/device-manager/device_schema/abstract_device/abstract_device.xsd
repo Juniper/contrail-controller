@@ -138,6 +138,14 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="ForwardingOptions">
+    <xsd:all>
+        <xsd:element name="dhcp-server-ips" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="interfaces" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="dhcp-relay-group" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Vlan">
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
