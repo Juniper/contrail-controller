@@ -207,11 +207,11 @@ class PhysicalRouterDM(DBBaseDM):
         self.reinit_device_plugin()
     # end update
 
-    def set_associated_lags(self, lag_uuid):
-        self.virtual_port_groups.append(lag_uuid)
+    def set_associated_vpgs(self, vpg_uuid):
+        self.virtual_port_groups.append(vpg_uuid)
 
-    def remove_associated_lags(self, lag_uuid):
-        self.virtual_port_groups.remove(lag_uuid)
+    def remove_associated_vpgs(self, vpg_uuid):
+        self.virtual_port_groups.remove(vpg_uuid)
 
     def is_ztp(self):
         if self.fabric:
@@ -2227,6 +2227,9 @@ class VirtualPortGroupDM(DBBaseDM):
         self.physical_interfaces = set()
         self.virtual_machine_interfaces = set()
         self.ae_id = None
+        self.ae_index_allocator = DMIndexer(
+            DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
+        self.init_current_state()
         self.esi = None
         self.update(obj_dict)
     # end __init__
@@ -2241,20 +2244,37 @@ class VirtualPortGroupDM(DBBaseDM):
         self.annotations = obj.get('annotations')
         kvps = self.annotations.get('key_value_pair') or []
         kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
-        self.ae_id = kvp_dict.get('ae_if_name') or None
+        # self.ae_id = kvp_dict.get('ae_if_name') or None
         self.esi = kvp_dict.get('esi') or 0
-
+        self.ae_id = self._object_db.get_ae_for_vpg(self.uuid)
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
-        self.build_lag_pr_map()
-
+        self.build_vpg_pr_map()
     # end update
-    def build_lag_pr_map(self):
+
+    def init_current_state(self):
+        ae_id = self._object_db.get_ae_for_vpg(self.uuid)
+        if ae_id:
+            self.ae_id = ae_id
+            self.ae_index_allocator.reserve_index(long(ae_id))
+
+    def build_vpg_pr_map(self):
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
             if self.uuid not in pr_obj.virtual_port_groups:
-                pr_obj.set_associated_lags(self.uuid)
+                pr_obj.set_associated_vpgs(self.uuid)
+
+    def allocate_ae(self):
+        index = self.ae_index_allocator.find_next_available_index()
+        if index == -1:
+            self._logger.error("Can't allocate(exhausted) index for VPG:" \
+                                         " %s"% self.uuid)
+            return None
+        self.ae_index_allocator.reserve_index(index)
+        self.ae_id = str(index)
+        self._object_db.add_ae(self.uuid, str(index))
+        return self.ae_id
 
     def get_attached_sgs(self, vlan_tag):
         sg_list = []
@@ -2275,10 +2295,12 @@ class VirtualPortGroupDM(DBBaseDM):
             pi_obj = PhysicalInterfaceDM.get(pi)
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
             if self.uuid in pr_obj.virtual_port_groups:
-                pr_obj.remove_associated_lags(self.uuid)
+                pr_obj.remove_associated_vpgs(self.uuid)
 
         self.update_multiple_refs('physical_interface', {})
         self.update_multiple_refs('virtual_machine_interface', {})
+        self.ae_index_allocator.free_index(long(self.ae_id))
+        self._object_db.delete_vpg(self.uuid)
         self.remove_from_parent()
     # end delete_obj
 # end class VirtualPortGroupDM
@@ -2382,6 +2404,7 @@ class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     _PR_ASN_CF = 'dm_pr_asn_table'
+    _VPG_AE_CF = 'dm_vpg_ae_table'
     _DCI_ASN_CF = 'dm_dci_asn_table'
     _PR_DCI_IP_CF = 'dm_pr_dci_ip_table'
     # PNF table
@@ -2419,6 +2442,7 @@ class DMCassandraDB(VncObjectDBClient):
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
                              self._PR_ASN_CF: {},
+                             self._VPG_AE_CF: {},
                              self._DCI_ASN_CF: {},
                              self._PR_DCI_IP_CF: {},
                              self._PNF_RESOURCE_CF: {}}}
@@ -2440,11 +2464,13 @@ class DMCassandraDB(VncObjectDBClient):
         self.pr_dci_ip_map = {}
         self.pr_asn_map = {}
         self.asn_pr_map = {}
+        self.vpg_ae_map = {}
         self.dci_asn_map = {}
         self.asn_dci_map = {}
         self.init_pr_map()
         self.init_pr_dci_map()
         self.init_pr_asn_map()
+        self.init_vpg_ae_map()
         self.init_dci_asn_map()
 
         self.pnf_vlan_allocator_map = {}
@@ -2592,6 +2618,17 @@ class DMCassandraDB(VncObjectDBClient):
                     self.asn_pr_map[asn] = pr_uuid
     # end init_pr_asn_map
 
+    def init_vpg_ae_map(self):
+        cf = self.get_cf(self._VPG_AE_CF)
+        vpg_entries = dict(cf.get_range())
+        for vpg_uuid in vpg_entries.keys():
+            vpg_entry = vpg_entries[vpg_uuid] or {}
+            ae_id = vpg_entry.get('ae_id')
+            if ae_id:
+                if vpg_uuid not in self.vpg_ae_map:
+                    self.vpg_ae_map[vpg_uuid] = ae_id
+    # end init_vpg_ae_map
+
     def init_dci_asn_map(self):
         cf = self.get_cf(self._DCI_ASN_CF)
         dci_entries = dict(cf.get_range())
@@ -2618,6 +2655,10 @@ class DMCassandraDB(VncObjectDBClient):
         return self.asn_pr_map.get(asn)
     # end get_pr_for_asn
 
+    def get_ae_for_vpg(self, vpg_uuid):
+        return self.vpg_ae_map.get(vpg_uuid)
+    # end get_ae_for_vpg
+
     def get_asn_for_dci(self, dci_uuid):
         return self.dci_asn_map.get(dci_uuid)
     # end get_asn_for_dci
@@ -2643,6 +2684,11 @@ class DMCassandraDB(VncObjectDBClient):
         self.pr_asn_map[pr_uuid] = asn
         self.asn_pr_map[asn] = pr_uuid
     # end add_asn
+
+    def add_ae(self, vpg_uuid, ae_id):
+        self.add(self._VPG_AE_CF, vpg_uuid, {'ae_id': ae_id})
+        self.vpg_ae_map[vpg_uuid] = ae_id
+    # end add_ae
 
     def add_dci_asn(self, dci_uuid, asn):
         self.add(self._DCI_ASN_CF, dci_uuid, {'asn': asn})
@@ -2705,6 +2751,14 @@ class DMCassandraDB(VncObjectDBClient):
             if not ret:
                 self._logger.error("Unable to free asn from db for pr %s" %
                                    pr_uuid)
+    # end
+
+    def delete_vpg(self, vpg_uuid):
+        self.vpg_ae_map.pop(vpg_uuid, None)
+        ret = self.delete(self._VPG_AE_CF, vpg_uuid)
+        if not ret:
+            self._logger.error("Unable to free ae from db for vpg %s" %
+                               vpg_uuid)
     # end
 
     def delete_dci(self, dci_uuid):
