@@ -1,0 +1,17 @@
+- name: Pushing config to fungible device ... please wait
+  uri: 
+    url: http://{{ device_mgmt_ip }}:8000/v1/update/openconfig-combined/
+    method: PUT
+    headers:
+      Content-Type: "application/json"
+    body: "{{ lookup('file','{{ conf_dir }}/final_config/combined_config.conf') }}"
+    status_code: 200
+    body_format: json
+    return_content: yes
+  register: execute_command_resp
+- name: set device_push_response
+  set_fact:
+    device_push_response: "{{ execute_command_resp }}"
+- name: set device_push_message
+  set_fact:
+    device_push_message: "{{ execute_command_resp }}"

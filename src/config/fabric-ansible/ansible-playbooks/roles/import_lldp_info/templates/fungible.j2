@@ -1,0 +1,21 @@
+{%- set neighbor_info_list = []                                                                                                   %}
+{%- for lldp_neighbor_information in device_info.get('Objs', [])                                                                  %}
+{%-     if lldp_neighbor_information.get('remote_device_name') is not none                                                        %}
+{%-         set remote_prouter_name = lldp_neighbor_information.get('remote_device_name')                                         %}
+{%-         set remote_phy_int = lldp_neighbor_information.get('remote_physical_interface_name')                               %}
+{%-         set local_phy_int = lldp_neighbor_information.get('local_physical_interface_name')                                    %}
+{%-         if '.' not in local_phy_int                                                                                           %}
+{%-             set x = neighbor_info_list.append({
+                                                 "local_physical_interface_name":
+                                                 local_phy_int,
+                                                 "remote_device_name":
+                                                 remote_prouter_name,
+                                                 "remote_physical_interface_port_id":
+                                                 remote_phy_int
+                                            })                                                                                    %}
+{%-         endif                                                                                                                 %}
+{%-     endif                                                                                                                     %}
+{%- endfor                                                                                                                        %}
+{
+  "neighbor_info_list": {{ neighbor_info_list }}
+}

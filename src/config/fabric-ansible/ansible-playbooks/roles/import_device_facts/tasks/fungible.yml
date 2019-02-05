@@ -1,0 +1,11 @@
+- name: Use Fungible RESTFUL API
+  uri: 
+    url: http://{{host}}:8000/v1/show/device_info/*
+    method: GET
+    return_content: yes
+    status_code: 200
+    body_format: json
+  register: execute_command_resp
+
+- set_fact:
+    device_info: "{{execute_command_resp.content}}"

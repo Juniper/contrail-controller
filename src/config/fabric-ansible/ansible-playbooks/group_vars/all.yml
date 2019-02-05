@@ -68,6 +68,10 @@ vendor_mapping:
 
 #oid mapping for supported devices
 device_family_info:
+  - vendor: Fungible
+    ssh_probe:
+      - command: /opt/fungible/scripts/contrail/get_f1_device_info.py 
+        data_format: xml
   - vendor: Juniper
     snmp_probe:
       - oid: 1.3.6.1.4.1.2636.1.1.1.4.82.8

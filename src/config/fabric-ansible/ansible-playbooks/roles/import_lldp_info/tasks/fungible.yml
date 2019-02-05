@@ -1,0 +1,13 @@
+- name: Use Fungible RESTFUL API for getting interfaces
+  uri: 
+    url: http://{{host}}:8000/v1/show/lldp_neighbors/*
+    method: GET
+    return_content: yes
+    status_code: 200
+    body_format: json
+  register: execute_command_resp
+- name: Save execute_command_resp as runtime interfaces information
+  set_fact:
+    device_info: "{{execute_command_resp.content}}"
+
+              
