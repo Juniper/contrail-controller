@@ -78,6 +78,8 @@ class DockerProcessInfoManager(object):
         self._update_process_list = update_process_list
         self._process_info_cache = cpm.ProcessInfoCache()
         self._client = docker.from_env()
+        if hasattr(self._client, 'api'):
+            self._client = self._client.api
 
     def _get_full_info(self, cid):
         try:
