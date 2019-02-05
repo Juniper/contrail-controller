@@ -201,6 +201,11 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
             ("virtual-network-network-ipam", list_of("nil"));
     policy->insert(make_pair("network-ipam", react_ipam));
 
+    ReactionMap react_bgpaas = map_list_of<string, PropagateList>
+            ("bgpaas-control-node-zone",
+            list_of("bgpaas-virtual-machine-interface"));
+    policy->insert(make_pair("bgp-as-a-service", react_bgpaas));
+
     InitializeDependencyRules(agent);
 }
 
