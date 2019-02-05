@@ -59,7 +59,8 @@ class FilterModule(object):
     # end filters
 
     # Wrapper to call main routine
-    def get_hitless_upgrade_plan(self, job_ctx, image_upgrade_list):
+    def get_hitless_upgrade_plan(self, job_ctx, image_upgrade_list,
+                                 device_json):
         try:
             FilterLog.instance("HitlessUpgradeFilter")
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
@@ -72,6 +73,7 @@ class FilterModule(object):
             self.batch_limit = self.advanced_parameters.get(
                 'bulk_device_upgrade_count')
             self.image_upgrade_list = image_upgrade_list
+            self.device_json = device_json
             upgrade_plan = self._get_hitless_upgrade_plan()
             return upgrade_plan
         except Exception as ex:
@@ -540,16 +542,9 @@ class FilterModule(object):
     # Get device password
     def _get_password(self, device_obj):
         password = ""
-        # TODO get password from first element of fabric object for now
-        # Get fabric object
-        fabric_obj = self.vncapi.fabric_read(id=self.fabric_uuid)
-        credentials = fabric_obj.fabric_credentials
-        if credentials:
-            dev_cred = credentials.get_device_credential()[0]
-            if dev_cred:
-                user_cred = dev_cred.get_credential()
-                if user_cred:
-                    password = user_cred.password
+        db_client_entry = self.device_json[device_obj.uuid]
+        if db_client_entry:
+            password = db_client_entry.get("device_password")
         return password
 
 def _parse_args():

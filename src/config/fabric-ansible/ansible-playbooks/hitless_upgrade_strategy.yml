@@ -6,6 +6,7 @@
 
   vars:
     image_upgrade_list: "{{playbook_input.input.image_devices}}"
+    device_json: "{{playbook_input.device_json}}"
     upgrade_mode: "{{playbook_input.input.upgrade_mode}}"
     output: {"status":"", "message":""}
 
@@ -15,7 +16,7 @@
 
     - name: Create hitless upgrade plan
       set_fact:
-        upgrade_plan: "{{ job_ctx | hitless_upgrade_plan(image_upgrade_list) }}"
+        upgrade_plan: "{{ job_ctx | hitless_upgrade_plan(image_upgrade_list,device_json) }}"
 
     - name: Check for errors
       block:
