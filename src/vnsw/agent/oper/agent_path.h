@@ -904,11 +904,14 @@ public:
                  uint32_t tunnel_bmap, bool policy, const std::string &vn) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         label_(label), tunnel_bmap_(tunnel_bmap),
-        policy_(policy), proxy_arp_(false), vn_(vn), sg_list_(), tag_list_() {
+        policy_(policy), proxy_arp_(false), ipam_host_route_(false), vn_(vn), sg_list_(), tag_list_() {
         intf_.reset(intf_key.Clone());
     }
     virtual ~ReceiveRoute() { }
-    void set_proxy_arp() {proxy_arp_ = true;}
+
+    void SetProxyArp(bool proxy_arp) { proxy_arp_ = proxy_arp; }
+    void SetIpamHostRoute(bool ipam_host_route) { ipam_host_route_ = ipam_host_route; }
+
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
     virtual std::string ToString() const {return "receive";}
@@ -920,6 +923,7 @@ private:
     int tunnel_bmap_;
     bool policy_;
     bool proxy_arp_;
+    bool ipam_host_route_;
     std::string vn_;
     SecurityGroupList sg_list_;
     TagList tag_list_;
