@@ -172,14 +172,6 @@ class JobLogUtils(object):
         args.host_ip = config_args.get('host_ip')
         args.zk_server_ip = config_args.get('zk_server_ip')
         args.cluster_id = config_args.get('cluster_id')
-        db_init_params = {
-            "cassandra_user": config_args.get('cassandra_user'),
-            "cassandra_password": config_args.get('cassandra_password'),
-            "cassandra_server_list": config_args.get('cassandra_server_list'),
-            "cassandra_use_ssl": config_args.get('cassandra_use_ssl'),
-            "cassandra_ca_certs": config_args.get('cassandra_ca_certs')
-        }
-        args.db_init_params = json.dumps(db_init_params)
         if isinstance(args.collectors, str):
             args.collectors = args.collectors.split()
         args.sandesh_config = SandeshConfig.from_parser_arguments(args)

@@ -33,7 +33,7 @@ class JobManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
                  result_handler, job_utils, playbook_seq, job_percent,
-                 zk_client, db_init_params, cluster_id):
+                 zk_client):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_execution_id = None
@@ -52,8 +52,6 @@ class JobManager(object):
         self.result_handler = result_handler
         self.job_percent = job_percent
         self._zk_client = zk_client
-        self.db_init_params = db_init_params
-        self.cluster_id = cluster_id
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -90,8 +88,7 @@ class JobManager(object):
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq, self.vnc_api_init_params,
-                                 self._zk_client, self.db_init_params,
-                                 self.cluster_id)
+                                 self._zk_client)
 
         if self.device_json is not None:
             if not self.device_json:
@@ -152,14 +149,12 @@ class WFManager(object):
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_input = job_input
-        self.db_init_params = None
         self.job_log_utils = job_log_utils
         self.job_execution_id = None
         self.job_template_id = None
         self.device_json = None
         self.result_handler = None
         self.job_data = None
-        self.cluster_id = None
         self.fabric_fq_name = None
         self.parse_job_input(job_input)
         self.job_utils = JobUtils(self.job_execution_id,
@@ -183,8 +178,6 @@ class WFManager(object):
         self.job_execution_id = job_input_json.get('job_execution_id')
         self.job_data = job_input_json.get('input')
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
-        self.db_init_params = job_input_json.get('db_init_params')
-        self.cluster_id = job_input_json.get('cluster_id')
 
     def _validate_job_input(self, input_schema, ip_json):
         if ip_json is None:
@@ -270,9 +263,7 @@ class WFManager(object):
                                          self.job_input, self.job_log_utils,
                                          job_template,
                                          self.result_handler, self.job_utils, i,
-                                         job_percent, self._zk_client,
-                                         self.db_init_params,
-                                         self.cluster_id)
+                                         job_percent, self._zk_client)
                     job_mgr.start_job()
 
                     # retry the playbook execution if retry_devices is added to

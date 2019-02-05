@@ -151,14 +151,7 @@ class JobHandler(object):
                 "api_server_use_ssl":
                     self._args.api_server_use_ssl
             },
-            "cluster_id": self._args.cluster_id,
-            "db_init_params": {
-                "cassandra_user": self._args.cassandra_user,
-                "cassandra_password": self._args.cassandra_password,
-                "cassandra_server_list": self._args.cassandra_server_list,
-                "cassandra_use_ssl": self._args.cassandra_use_ssl,
-                "cassandra_ca_certs":self._args.cassandra_ca_certs
-            }
+            "cluster_id": self._args.cluster_id
         }
         return job_input_json
 
