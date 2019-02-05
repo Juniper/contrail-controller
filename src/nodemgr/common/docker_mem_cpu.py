@@ -13,6 +13,8 @@ class DockerMemCpuUsageData(object):
         self.last_cpu = last_cpu
         self.last_time = last_time
         self.client = docker.from_env()
+        if hasattr(self.client, 'api'):
+            self.client = self.client.api
         self._id = hex(_id)[2:-1].zfill(64)
 
     def _get_container_stats(self):
