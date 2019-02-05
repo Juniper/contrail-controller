@@ -1,0 +1,15 @@
+- project:
+    name: Juniper/contrail-controller
+    experimental:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7-rocky:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-test-containers:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-sanity-centos7-kolla-rocky:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7-rocky
