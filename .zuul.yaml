@@ -1,0 +1,22 @@
+- project:
+    name: Juniper/contrail-controller
+    experimental:
+      jobs:
+        - contrail-build-containers-centos7-rocky:
+            dependencies:
+              - return-repo-location
+        - contrail-build-test-containers:
+            dependencies:
+              - return-repo-location
+        - contrail-sanity-centos7-kolla-rocky:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7-rocky
+
+- job:
+    name: return-repo-location
+    run: playbooks/run.yaml
+    nodeset:
+      nodes:
+        - name: ubuntu-xenial
+          label: ubuntu-xenial
