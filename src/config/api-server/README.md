@@ -16,14 +16,14 @@ pushed for review.
 
 Contrail API uses [tox](http://tox.readthedocs.org/en/latest/) for managing the
 virtual environments for running test cases. It uses
-[Testr](https://wiki.openstack.org/wiki/Testr) for managing the running of the
-test cases.
+[stestr](https://stestr.readthedocs.io/en/latest/index.html) for managing the
+running of the test cases.
 
 Tox handles the creation of a series of
 [virtualenvs](https://pypi.python.org/pypi/virtualenv) that target specific
-versions of Python (limited to 2.6 for the moment).
+versions of Python (limited to 2.7 for the moment).
 
-Testr handles the parallel execution of series of test cases as well as
+stestr handles the parallel execution of series of test cases as well as
 the tracking of long-running tests and other things.
 
 ### PEP8 and Unit Tests
@@ -48,11 +48,11 @@ the dot-separated path you want as an argument to it.
 
 For example, the following would run only a single test or test case:
 
-      $ tox -e py27 vnc_cfg_api_server.tests.test_virtual_network
-      $ tox -e py27 vnc_cfg_api_server.tests.test_tag.TestTagType
+      $ tox -e py27 vnc_cfg_api_server.tests.resources.test_virtual_network
+      $ tox -e py27 vnc_cfg_api_server.tests.resources.test_tag.TestTagType
       $ tox -e py27 vnc_cfg_api_server.tests.test_perms2.TestPermissions.test_chown_api
 
-If you want to pass other arguments to testr, you can do the following:
+If you want to pass other arguments to stestr, you can do the following:
 
       $ tox -e py27 -- --regex vnc_cfg_api_server.tests.test_subnet --serial
 

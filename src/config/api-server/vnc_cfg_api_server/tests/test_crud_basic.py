@@ -2,15 +2,12 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
-import gevent.monkey
-gevent.monkey.patch_all()
 import os
 import sys
 import socket
 import errno
 import uuid
 import logging
-import coverage
 import random
 import netaddr
 import mock
@@ -28,7 +25,6 @@ import copy
 from lxml import etree
 import inspect
 import pycassa
-import kombu
 import requests
 import bottle
 import stevedore
@@ -51,7 +47,7 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_common
 import test_case
-from vnc_cfg_api_server.vnc_cfg_types import GlobalSystemConfigServer
+from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
