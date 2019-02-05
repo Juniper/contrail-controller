@@ -1,0 +1,4 @@
+- job:
+    name: return-repo-location
+    run: playbooks/run.yaml
+    nodeset: builder-centos-7
