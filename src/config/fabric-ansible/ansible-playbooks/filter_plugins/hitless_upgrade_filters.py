@@ -24,10 +24,9 @@ from job_manager.job_utils import JobVncApi
 #    mock_image_upgrade_list,mock_upgrade_plan,JobAnnotations
 
 ordered_role_groups = [
-    ["CRB-Access@leaf", "ERB-UCAST-Gateway@leaf", "CRB-Gateway@leaf",
-     "DC-Gateway@leaf"],
-    ["null@spine", "CRB-Access@spine", "CRB-MCAST-Gateway@spine",
-     "CRB-Gateway@spine", "Route-Reflector@spine", "DC-Gateway@spine"],
+    ["leaf"],
+    ["spine"],
+    ["default"]
 ]
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
@@ -262,7 +261,7 @@ class FilterModule(object):
             batch_load_list = []
             for role in role_group:
                 # Only allow 1 spine at a time for now
-                batch_max = 1 if "@spine" in role else self.batch_limit
+                batch_max = 1 if "spine" in role else self.batch_limit
                 device_list = self.role_device_groups.get(role, [])
                 for device_uuid in device_list:
                     loaded = False
@@ -528,8 +527,12 @@ class FilterModule(object):
     # Get a single role for this device to be used in determining upgrade
     # ordering
     def _determine_role(self, physical_role, rb_roles):
-        # For now, we simply take the first rb_role listed
-        return rb_roles[0] + '@' + physical_role
+        # Use physical role for now. If not in ordered table, use default
+        for role_group in ordered_role_groups:
+            for role in role_group:
+                if physical_role == role:
+                    return physical_role
+        return "default"
     # end _determine_role
 
     # If old and new image versions match, don't upgrade
