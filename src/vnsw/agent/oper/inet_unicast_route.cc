@@ -1438,11 +1438,12 @@ void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
                                                    const IpAddress &addr,
                                                    uint8_t plen,
                                                    const string &vn_name,
-                                                   bool policy, bool native_encap) {
+                                                   bool policy, bool native_encap, bool ipam_host_route) {
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, intf_key, addr, plen,
                               vn_name, policy, native_encap);
-    static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
+    static_cast<ReceiveRoute *>(req.data.get())->SetProxyArp(true);
+    static_cast<ReceiveRoute *>(req.data.get())->SetIpamHostRoute(ipam_host_route);
     if (addr.is_v4()) {
         Inet4UnicastTableProcess(Agent::GetInstance(), vrf, req);
     } else if (addr.is_v6()) {
@@ -1457,7 +1458,8 @@ void InetUnicastAgentRouteTable::AddVHostRecvRouteReq
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, intf_key, addr, plen,
                               vn_name, policy, native_encap);
-    static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
+    static_cast<ReceiveRoute *>(req.data.get())->SetProxyArp(true);
+    static_cast<ReceiveRoute *>(req.data.get())->SetIpamHostRoute(true);
     if (addr.is_v4()) {
         Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
     } else if (addr.is_v6()) {

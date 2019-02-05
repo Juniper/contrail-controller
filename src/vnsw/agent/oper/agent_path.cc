@@ -1146,7 +1146,7 @@ bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
     // Receive route can be a /32 route of multicast-subnet route
     // proxy_arp_ is set only for host route. So, set ipam_host_route_ if
     // proxy_arp_ enabled
-    return uc_rt->UpdateRouteFlags(false, proxy_arp_, proxy_arp_);
+    return uc_rt->UpdateRouteFlags(false, ipam_host_route_, proxy_arp_);
 }
 
 MulticastRoutePath::MulticastRoutePath(const Peer *peer) :

@@ -319,11 +319,19 @@ public:
                                   const string &interface,
                                   uint32_t label,
                                   const VnListType &vn_list);
+
+    // The ipam_host_route parameter is a workaround for Windows APIPA zeroconf feature.
+    // When creating link local service, route created for the service has flood flag set by default.
+    // Windows OS thinks that link local IPs are always "on-link" so it sends ARP requests for the IPs.
+    // Because of flood flag, the ARP requests are flooded and no reply is sent to the Windows container.
+    // We need to set ipam_host_route to false for link local services, so ARP requests are not flooded, but
+    // proxied by agent.
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const InterfaceKey &interface,
                                   const IpAddress &addr, uint8_t plen,
                                   const string &vn_name, bool policy,
-                                  bool native_encap);
+                                  bool native_encap,
+                                  bool ipam_host_route = true);
     static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
                                      const InterfaceKey &interface,
                                      const IpAddress &addr, uint8_t plen,
