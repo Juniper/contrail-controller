@@ -151,7 +151,6 @@ TEST_F(FlowTest, Flow_return_error_1) {
         }
     };
 
-    sock->SetBlockMsgProcessing(true);
     /* Failure to allocate reverse flow index, convert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
     flow[0].pkt_.set_allow_wait_for_idle(false);
@@ -163,10 +162,8 @@ TEST_F(FlowTest, Flow_return_error_1) {
 
     WAIT_FOR(1000, 1000, (flow_stats_collector_->Size() == 2));
     client->EnqueueFlowAge();
-    WAIT_FOR(1000, 1000, (fe->deleted() == true));
-    assert(fe->deleted());
-    sock->SetBlockMsgProcessing(false);
     client->WaitForIdle();
+    EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     EXPECT_TRUE(FlowTableWait(0));
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, 0);
 }
