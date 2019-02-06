@@ -142,6 +142,9 @@ class JobHandler(object):
             "input": self._job_input,
             "job_template_fq_name": self._job_template_name,
             "api_server_host": self._args.api_server_ip.split(','),
+            "params": {
+                "device_list": self._device_list
+            },
             "vnc_api_init_params": {
                 "admin_user": self._args.admin_user,
                 "admin_password": self._args.admin_password,
