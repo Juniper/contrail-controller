@@ -394,6 +394,8 @@ class EventManager(object):
                 process_stat_ent.start_count += 1
             process_stat_ent.pid = proc_pid
             process_state_db[proc_name] = process_stat_ent
+            if not process_stat_ent.group in self.group_names:
+                self.group_names.append(process_stat_ent.group)
         return process_state_db
     # end get_current_process
 
