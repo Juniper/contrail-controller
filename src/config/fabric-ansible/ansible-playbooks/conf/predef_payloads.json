@@ -10,13 +10,13 @@
           ],
           "name": "image_upgrade_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_concurrency_level": "device",
           "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/image_upgrade.yml",
                 "vendor": "Juniper"
               }
@@ -32,19 +32,20 @@
           ],
           "name": "hitless_upgrade_strategy_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hitless_upgrade_strategy.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hitless_upgrade.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 90
@@ -62,13 +63,13 @@
           ],
           "name": "maintenance_mode_deactivate_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_concurrency_level": "device",
           "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_deactivate.yml",
                 "vendor": "Juniper"
               }
@@ -84,13 +85,13 @@
           ],
           "name": "discover_device_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": false,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
                 "vendor": ""
               }
@@ -106,13 +107,13 @@
           ],
           "name": "discover_role_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
                 "vendor": "Juniper"
               }
@@ -128,13 +129,13 @@
           ],
           "name": "device_import_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
                 "vendor": "Juniper"
               }
@@ -150,13 +151,13 @@
           ],
           "name": "fabric_config_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_type": "config",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/fabric_config.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": ""
               }
@@ -172,7 +173,6 @@
           ],
           "name": "ztp_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
@@ -180,6 +180,7 @@
               {
                 "device_family": "",
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/ztp.yml",
+                "multi_device_playbook": false,
                 "vendor": ""
               }
             ]
@@ -194,13 +195,13 @@
           ],
           "name": "fabric_deletion_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/delete_fabric.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": ""
               }
@@ -216,13 +217,13 @@
           ],
           "name": "device_deletion_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/delete_fabric_devices.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": ""
               }
@@ -238,13 +239,13 @@
           ],
           "name": "role_assignment_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_type": "config",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/role_assignment.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": ""
               }
@@ -260,7 +261,6 @@
           ],
           "name": "topology_discovery_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
@@ -268,6 +268,7 @@
               {
                 "device_family": "",
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper"
               }
             ]
@@ -282,43 +283,48 @@
           ],
           "name": "fabric_onboard_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/fabric_onboard.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 5
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/ztp.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 5
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 30
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
@@ -337,13 +343,13 @@
           "display_name": "Show Interfaces",
           "job_template_description": "This command is used to get a list of physical or logical interfaces from a device and interfaces' operational state information.",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_type": "device_operation",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
                 "vendor": "Juniper"
               }
@@ -363,13 +369,13 @@
           "display_name": "Show Configured Interfaces",
           "job_template_description": "This command is used to get a list of configured interfaces",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_type": "device_operation",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
                 "vendor": "Juniper"
               }
@@ -389,13 +395,13 @@
           "display_name": "Show Interfaces By Names",
           "job_template_description": "This command is used to get operational info for interface(s) as specified in the input",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": true,
           "job_template_type": "device_operation",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
+                "multi_device_playbook": true,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
                 "vendor": "Juniper"
               }
@@ -413,7 +419,6 @@
           ],
           "name": "existing_fabric_onboard_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
@@ -421,29 +426,34 @@
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/existing_fabric_onboard.yml",
                 "vendor": "Juniper",
+                "multi_device_playbook": false,
                 "device_family": "",
                 "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 40
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 20
@@ -460,13 +470,13 @@
           ],
           "name": "discover_server_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_server.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "job_completion_weightage": 100
               }
@@ -482,13 +492,13 @@
           ],
           "name": "server_import_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/server_import.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "job_completion_weightage": 100
               }
@@ -504,13 +514,13 @@
           ],
           "name": "node_profile_template",
           "parent_type": "global-system-config",
-          "job_template_multi_device_job": false,
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
             "playbook_info": [
               {
                 "device_family": "",
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/node_profile.yml",
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "job_completion_weightage": 100
               }
