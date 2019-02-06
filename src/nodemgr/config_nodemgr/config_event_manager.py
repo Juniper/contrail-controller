@@ -39,7 +39,7 @@ class ConfigEventManager(EventManager):
         self.hostip = hostip
         self.db_port = db_port
         self.minimum_diskgb = minimum_diskgb
-        self.sandesh_global = sandesh_global #AddedJan24
+        self.sandesh_global = sandesh_global
         self.contrail_databases = contrail_databases
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
                                               'configDb', self.table,
@@ -53,9 +53,6 @@ class ConfigEventManager(EventManager):
         self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
     # end __init__
 
-    def msg_log(self, msg, level):
-        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
-                            level), msg)
 
     def do_periodic_events(self):
         if not self.db and self.config_db:

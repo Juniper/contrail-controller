@@ -394,12 +394,15 @@ class EventManager(object):
                 process_stat_ent.start_count += 1
             process_stat_ent.pid = proc_pid
             process_state_db[proc_name] = process_stat_ent
+            if not process_stat_ent.group in self.group_names:
+                self.group_names.append(process_stat_ent.group)
         return process_state_db
     # end get_current_process
 
     # Add the current processes in the node to db
     def add_current_process(self):
         self.process_state_db = self.get_current_process()
+        self.send_process_state_db(self.group_names)
     # end add_current_process
 
     # In case the processes in the Node can change, update current processes
@@ -798,7 +801,7 @@ class EventManager(object):
                         self.msg_log(msg, SandeshLevel.SYS_ERR)
                     else:
                         if ret_code:
-			    msg = ('Execution of action ' + rules['action'] + 
+			    msg = ('Execution of action ' + rules['action'] +
 					' returned err ' + str(ret_code))
                             self.msg_log(msg, SandeshLevel.SYS_ERR)
     # end event_process_state
