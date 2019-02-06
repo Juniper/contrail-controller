@@ -137,7 +137,7 @@ class QuotaHelper(object):
                 continue
             tag_fq_name = aps['fq_name'][:-1] + [
                 '%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps['uuid'])]
-            if tag_fq_name in [r['to'] for r in aps['tag_refs']]:
+            if tag_fq_name in [r['to'] for r in aps.get('tag_refs', [])]:
                 quota_count += 1
 
         return quota_count

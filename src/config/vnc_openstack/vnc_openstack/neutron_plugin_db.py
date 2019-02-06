@@ -341,17 +341,15 @@ class DBInterface(object):
         if context and not context['is_admin']:
             return [str(uuid.UUID(context['tenant']))]
 
-        if not filters.get('tenant_id'):
-            return None
-
         return_project_ids = []
-        for project_id in filters.get('tenant_id'):
+        for project_id in (filters.get('tenant_id', []) +
+                           filters.get('project_id', [])):
             try:
                 return_project_ids.append(str(uuid.UUID(project_id)))
             except ValueError:
                 continue
 
-        return return_project_ids
+        return return_project_ids or None
 
     def _obj_to_dict(self, obj):
         return self._vnc_lib.obj_to_dict(obj)
@@ -2680,8 +2678,9 @@ class DBInterface(object):
             port_q_dict['binding:vif_type'] = 'vrouter'
         if 'binding:vnic_type' not in port_q_dict:
             port_q_dict['binding:vnic_type'] = 'normal'
-        if 'binding:host_id' not in port_q_dict:
+        if not port_q_dict.get('binding:host_id'):
             port_q_dict['binding:host_id'] = None
+            port_q_dict['binding:vif_type'] = 'unbound'
 
         dhcp_options_list = port_obj.get_virtual_machine_interface_dhcp_option_list()
         if dhcp_options_list and dhcp_options_list.dhcp_option:
@@ -5155,7 +5154,7 @@ class DBInterface(object):
             aps.set_display_name(firewall_group['name'])
 
         if set(['admin_state_up', 'description']) & set(firewall_group.keys()):
-            id_perms = aps.get_id_perms() or IdPermsType()
+            id_perms = aps.get_id_perms() or IdPermsType(enable=True)
             if 'admin_state_up' in firewall_group:
                 id_perms.set_enable(firewall_group['admin_state_up'])
             if 'description' in firewall_group:
@@ -5387,14 +5386,17 @@ class DBInterface(object):
         if 'name' in filters:
             filters['display_name'] = filters.pop('name')
         shared = filters.pop('shared', [False])[0]
+        parent_ids = self._validate_project_ids(context, filters)
+        filters.pop('tenant_id', None)
+        filters.pop('project_id', None)
         apss = self._vnc_lib.application_policy_sets_list(
             detail=True,
             shared=shared,
-            parent_id=self._validate_project_ids(context, filters),
-            obj_uuids=filters.get('id'),
+            parent_id=parent_ids,
+            obj_uuids=filters.pop('id', None),
             back_ref_id=(
-                filters.get('ingress_firewall_policy_id', []) +
-                filters.get('egress_firewall_policy_id', [])) or None,
+                filters.pop('ingress_firewall_policy_id', []) +
+                filters.pop('egress_firewall_policy_id', [])) or None,
             filters=filters)
         for aps in apss:
             if (shared and aps.get_perms2().owner.replace('-', '') ==
@@ -5535,7 +5537,7 @@ class DBInterface(object):
             fp.set_display_name(firewall_policy['name'])
 
         if set(['audited', 'description']) & set(firewall_policy.keys()):
-            id_perms = fp.get_id_perms() or IdPermsType()
+            id_perms = fp.get_id_perms() or IdPermsType(enable=False)
             if 'audited' in firewall_policy:
                 id_perms.set_enable(firewall_policy['audited'])
             if 'description' in firewall_policy:
@@ -5637,12 +5639,15 @@ class DBInterface(object):
         if 'name' in filters:
             filters['display_name'] = filters.pop('name')
         shared = filters.pop('shared', [False])[0]
+        parent_ids = self._validate_project_ids(context, filters)
+        filters.pop('tenant_id', None)
+        filters.pop('project_id', None)
         fps = self._vnc_lib.firewall_policys_list(
             detail=True,
             shared=shared,
-            parent_id=self._validate_project_ids(context, filters),
-            obj_uuids=filters.get('id'),
-            back_ref_id=filters.get('firewall_rules'),
+            parent_id=parent_ids,
+            obj_uuids=filters.pop('id', None),
+            back_ref_id=filters.pop('firewall_rules', None),
             filters=filters)
         for fp in fps:
             if (shared and fp.get_perms2().owner.replace('-', '') ==
@@ -5855,7 +5860,7 @@ class DBInterface(object):
                 name=firewall_rule.get('name') or str(uuid.uuid4()),
                 parent_obj=project,
                 perms2=PermType2(owner=project.uuid),
-                service=FirewallServiceType(),
+                service=FirewallServiceType(protocol='any'),
                 direction='>',
             )
         else:  # update
@@ -5870,7 +5875,7 @@ class DBInterface(object):
             fr.set_display_name(firewall_rule['name'])
 
         if set(['enabled', 'description']) & set(firewall_rule.keys()):
-            id_perms = fr.get_id_perms() or IdPermsType()
+            id_perms = fr.get_id_perms() or IdPermsType(enable=True)
             if 'enabled' in firewall_rule:
                 id_perms.set_enable(firewall_rule['enabled'])
             if 'description' in firewall_rule:
@@ -5884,9 +5889,9 @@ class DBInterface(object):
 
         if (set(['protocol', 'source_port', 'destination_port']) &
                 set(firewall_rule.keys())):
-            service = fr.get_service() or FirewallServiceType()
+            service = fr.get_service() or FirewallServiceType(protocol='any')
             if 'protocol' in firewall_rule:
-                service.set_protocol(firewall_rule['protocol'])
+                service.set_protocol(firewall_rule['protocol'] or 'any')
             if 'source_port' in firewall_rule:
                 service.set_src_ports(
                     self._get_port_type(firewall_rule['source_port']))
@@ -6076,11 +6081,14 @@ class DBInterface(object):
         if 'name' in filters:
             filters['display_name'] = filters.pop('name')
         shared = filters.pop('shared', [False])[0]
+        parent_ids = self._validate_project_ids(context, filters)
+        filters.pop('tenant_id', None)
+        filters.pop('project_id', None)
         frs = self._vnc_lib.firewall_rules_list(
             detail=True,
             shared=shared,
-            parent_id=self._validate_project_ids(context, filters),
-            obj_uuids=filters.get('id'),
+            parent_id=parent_ids,
+            obj_uuids=filters.pop('id', None),
             filters=filters)
         for fr in frs:
             if (shared and fr.get_perms2().owner.replace('-', '') ==
