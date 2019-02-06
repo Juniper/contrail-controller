@@ -76,7 +76,7 @@ class JobManager(object):
 
         self.vnc_api_init_params = job_input_json.get('vnc_api_init_params')
 
-        self.multi_device_count = self.job_data.get('multi_device_count')
+        self.total_job_task_count = self.job_data.get('total_job_task_count')
 
     def start_job(self):
         # spawn job greenlets
@@ -90,8 +90,13 @@ class JobManager(object):
                                  self.playbook_seq, self.vnc_api_init_params,
                                  self._zk_client)
 
-        if self.device_json is not None:
-            if not self.device_json:
+        # check if its a multi device playbook
+        playbooks = self.job_template.get_job_template_playbooks()
+        play_info = playbooks.playbook_info[self.playbook_seq]
+        is_multi_device_playbook = play_info.multi_device_playbook
+
+        if is_multi_device_playbook is not None and is_multi_device_playbook:
+            if self.device_json is None or not self.device_json:
                 msg = MsgBundle.getMessage(MsgBundle.DEVICE_JSON_NOT_FOUND)
                 raise JobException(msg, self.job_execution_id)
             else:
@@ -104,7 +109,7 @@ class JobManager(object):
         job_worker_pool = Pool(self.max_job_task)
         job_percent_per_task = \
             self.job_log_utils.calculate_job_percentage(
-                self.multi_device_count or len(self.device_json),
+                self.total_job_task_count or len(self.device_json),
                 buffer_task_percent=False,
                 total_percent=self.job_percent)[0]
         for device_id in self.device_json:
@@ -117,19 +122,18 @@ class JobManager(object):
             device_fqname = ':'.join(
                 map(str, device_data.get('device_fqname')))
             device_name = device_data.get('device_fqname', [""])[-1]
-            # create prouter UVE in job_manager only if it is not a multi
-            # device job template
-            if not self.job_template.get_job_template_multi_device_job():
-                job_template_fq_name = ':'.join(
-                    map(str, self.job_template.fq_name))
-                pr_fabric_job_template_fq_name = device_fqname + ":" + \
-                    self.fabric_fq_name + ":" + \
-                    job_template_fq_name
-                self.job_log_utils.send_prouter_job_uve(
-                    self.job_template.fq_name,
-                    pr_fabric_job_template_fq_name,
-                    self.job_execution_id,
-                    job_status="IN_PROGRESS")
+
+            # update prouter UVE
+            job_template_fq_name = ':'.join(
+                map(str, self.job_template.fq_name))
+            pr_fabric_job_template_fq_name = device_fqname + ":" + \
+                self.fabric_fq_name + ":" + \
+                job_template_fq_name
+            self.job_log_utils.send_prouter_job_uve(
+                self.job_template.fq_name,
+                pr_fabric_job_template_fq_name,
+                self.job_execution_id,
+                job_status="IN_PROGRESS")
 
             job_worker_pool.start(Greenlet(job_handler.handle_job,
                                            result_handler,
@@ -243,6 +247,11 @@ class WFManager(object):
 
             for i in range(0, len(playbook_list)):
 
+                # check if its a multi device playbook
+                playbooks = job_template.get_job_template_playbooks()
+                play_info = playbooks.playbook_info[i]
+                multi_device_playbook = play_info.multi_device_playbook
+
                 if len(playbook_list) > 1:
                     # get the job percentage based on weightage of each plabook
                     # when they are chained
@@ -282,9 +291,10 @@ class WFManager(object):
                     # and all the devices have failed some job execution
                     # declare it as failure and the stop the workflow
 
-                    if self.job_input.get('device_json') is None or\
-                        len(self.result_handler.failed_device_jobs)\
-                            == len(self.job_input.get('device_json')):
+                    if not multi_device_playbook or \
+                            (multi_device_playbook and
+                             len(self.result_handler.failed_device_jobs) == \
+                             len(self.job_input.get('device_json'))):
                         self._logger.error(
                             "Stop the workflow on the failed Playbook.")
                         break
@@ -303,7 +313,7 @@ class WFManager(object):
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next
                 # iteration
-                if not self.job_input.get('device_json'):
+                if not multi_device_playbook:
                     device_json = pb_output.pop('device_json', None)
                     self.job_input['device_json'] = device_json
 

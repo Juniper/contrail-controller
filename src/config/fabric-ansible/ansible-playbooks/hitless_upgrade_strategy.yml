@@ -6,7 +6,7 @@
 
   vars:
     image_upgrade_list: "{{playbook_input.input.image_devices}}"
-    device_json: "{{playbook_input.device_json}}"
+    device_json: "{{playbook_input.job_device_json}}"
     upgrade_mode: "{{playbook_input.input.upgrade_mode}}"
     output: {"status":"", "message":""}
 
@@ -66,7 +66,7 @@
 
     - name: set output parameter
       set_fact:
-         output: "{{ output|combine({'status':'SUCCESS', 'message':'Created upgrade plan', 'results': upgrade_plan.results, 'upgrade_plan': upgrade_plan, 'multi_device_count': upgrade_plan.device_count, 'advanced_parameters': upgrade_plan.advanced_parameters})}}"
+         output: "{{ output|combine({'status':'SUCCESS', 'message':'Created upgrade plan', 'results': upgrade_plan.results, 'upgrade_plan': upgrade_plan, 'total_job_task_count': upgrade_plan.device_count, 'advanced_parameters': upgrade_plan.advanced_parameters})}}"
 
     - name: set output parameter
       set_fact:
