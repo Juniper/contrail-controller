@@ -394,7 +394,10 @@ class AnsibleConf(AnsibleBase):
             'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
             'is_delete': is_delete,
-            'is_ztp': self.physical_router.is_ztp()
+            # TODO
+            # Need to support brownfield underlay config
+            #'is_ztp': self.physical_router.is_ztp()
+            'is_ztp': True
         }
         return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf

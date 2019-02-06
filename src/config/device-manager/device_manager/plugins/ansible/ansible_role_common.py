@@ -993,8 +993,12 @@ class AnsibleRoleCommon(AnsibleConf):
     # end build_ri_config
 
     def set_common_config(self):
-        if self.physical_router.is_ztp():
-            self.build_underlay_bgp()
+        #
+        # TODO: Temp workaround for brownfield
+        # Not commit to final
+        #
+        #if self.physical_router.is_ztp():
+        self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
         self.build_bgp_config()

@@ -1689,6 +1689,13 @@ class FilterModule(object):
             return
 
         # create loopback logical interface if needed
+
+        #
+        # TODO: Need to use vendor provided loopback interface name
+        # Linux uses lo instead of lo0
+        # Currently, vendor would convert vendor loopback interface name to lo0 during import
+        # and convert it back during programming
+        #
         loopback_li_fq_name = device_obj.fq_name + ['lo0', 'lo0.0']
         try:
             loopback_li_obj = vnc_api.logical_interface_read(
@@ -1950,8 +1957,19 @@ class FilterModule(object):
         :param logical_interface_index: string
         :return:
         """
+        _task_log(
+                        'DEBUGME: build li name  pr vendor_name %s '
+                        'interfacename: %s' % (device_obj.physical_router_vendor_name, physical_interface_name)
+        )
+        #
+        # TODO:
+        # Add fungible here as a temp solution. This piece needs to be cleaned up at infra level
+        #
         if device_obj.physical_router_vendor_name \
                 and device_obj.physical_router_vendor_name.lower() == 'juniper':
+            return "%s.%d" % (physical_interface_name, logical_interface_index)
+        elif device_obj.physical_router_vendor_name \
+                and device_obj.physical_router_vendor_name.lower() == 'fungible':
             return "%s.%d" % (physical_interface_name, logical_interface_index)
         elif not device_obj.vendor:
             raise ValueError(

@@ -300,8 +300,12 @@ class PhysicalRouterDM(DBBaseDM):
     # end verify_allocated_asn
 
     def allocate_asn(self):
-        if not self.is_ztp():
-            return
+        #
+        # TODO: Temp workaround for brownfield
+        # Not commit to final
+        #
+        #if not self.is_ztp():
+        #    return
         fabric = FabricDM.get(self.fabric)
         if self.verify_allocated_asn(fabric):
             return
