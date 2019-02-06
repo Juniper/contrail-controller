@@ -232,7 +232,8 @@ def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
         fq_name=project_fq_name + [
             _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME],
         display_name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME,
-        id_perms=IdPermsType(description="Default firewall group"),
+        id_perms=IdPermsType(description="Default firewall group",
+                             enable=True),
         perms2=PermType2(owner=project_id),
     )
     try:
@@ -260,13 +261,15 @@ def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
         name=_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME,
         fq_name=project_fq_name + [_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME],
         display_name=_NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME,
-        id_perms=IdPermsType(description="Default firewall rule for IPv4"),
+        id_perms=IdPermsType(description="Default firewall rule for IPv4",
+                             enable=True),
         perms2=PermType2(owner=project_id),
         service=FirewallServiceType(),
         direction='>',
         endpoint_1=FirewallRuleEndpointType(
             tags=['%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps.uuid)]),
         endpoint_2=FirewallRuleEndpointType(subnet=SubnetType('0.0.0.0', 0)),
+        action_list=ActionListType(simple_action='pass'),
     )
     try:
         vnc_lib.firewall_rule_create(fr_v4)
@@ -277,13 +280,15 @@ def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
         name=_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME,
         fq_name=project_fq_name + [_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME],
         display_name=_NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME,
-        id_perms=IdPermsType(description="Default firewall rule for IPv6"),
+        id_perms=IdPermsType(description="Default firewall rule for IPv6",
+                             enable=True),
         perms2=PermType2(owner=project_id),
         service=FirewallServiceType(),
         direction='>',
         endpoint_1=FirewallRuleEndpointType(
             tags=['%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps.uuid)]),
         endpoint_2=FirewallRuleEndpointType(subnet=SubnetType('::', 0)),
+        action_list=ActionListType(simple_action='pass'),
     )
     try:
         vnc_lib.firewall_rule_create(fr_v6)
@@ -297,7 +302,8 @@ def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
         fq_name=project_fq_name + [
             _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME],
         display_name=_NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME,
-        id_perms=IdPermsType(description="Default firewall policy"),
+        id_perms=IdPermsType(description="Default firewall policy",
+                             enable=True),
         perms2=PermType2(owner=project_id),
     )
     fp.add_firewall_rule(fr_v4, FirewallSequence(sequence='0.0'))
