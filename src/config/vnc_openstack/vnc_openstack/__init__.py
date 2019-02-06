@@ -267,6 +267,7 @@ def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
         endpoint_1=FirewallRuleEndpointType(
             tags=['%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps.uuid)]),
         endpoint_2=FirewallRuleEndpointType(subnet=SubnetType('0.0.0.0', 0)),
+        action_list=ActionListType(simple_action='pass'),
     )
     try:
         vnc_lib.firewall_rule_create(fr_v4)
@@ -284,6 +285,7 @@ def _create_default_firewall_group(vnc_lib, project_fq_name, project_id):
         endpoint_1=FirewallRuleEndpointType(
             tags=['%s=%s' % (_NEUTRON_FWAAS_TAG_TYPE, aps.uuid)]),
         endpoint_2=FirewallRuleEndpointType(subnet=SubnetType('::', 0)),
+        action_list=ActionListType(simple_action='pass'),
     )
     try:
         vnc_lib.firewall_rule_create(fr_v6)
