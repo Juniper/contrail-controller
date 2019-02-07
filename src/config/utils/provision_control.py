@@ -6,12 +6,14 @@ import sys
 import argparse
 import ConfigParser
 
+
+from vnc_api.exceptions import NoIdError
 from provision_bgp import BgpProvisioner
 from vnc_api.vnc_api import *
 from vnc_admin_api import VncApiAdmin
 
 
-class ControlProvisioner(object):
+class ControlProvisioner(BgpProvisioner):
 
     def __init__(self, args_str=None):
         self._args = None
@@ -22,68 +24,92 @@ class ControlProvisioner(object):
             peer_list = self._args.peer_list.split(',')
         else:
             peer_list = None
-        if self._args.router_asn and not self._args.oper:
-            self._vnc_lib = VncApiAdmin(
-            self._args.use_admin_api,
-            self._args.admin_user, self._args.admin_password,
-            self._args.admin_tenant_name,
-            self._args.api_server_ip,
-            self._args.api_server_port, '/',
-            api_server_use_ssl=self._args.api_server_use_ssl)
+        super(ControlProvisioner, self).__init__(self._args.admin_user, self._args.admin_password,
+                                                 self._args.admin_tenant_name,
+                                                 self._args.api_server_ip, self._args.api_server_port,
+                                                 api_server_use_ssl=self._args.api_server_use_ssl,
+                                                 use_admin_api=self._args.use_admin_api,
+                                                 sub_cluster_name=self._args.sub_cluster_name,
+                                                 peer_list=peer_list)
+    # end __init__
 
-            # Update global system config also with this ASN
-            gsc_obj = self._vnc_lib.global_system_config_read(
-                  fq_name=['default-global-system-config'])
-            gsc_obj.set_autonomous_system(self._args.router_asn)
-            if self._args.ibgp_auto_mesh is not None:
-                gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
+    def noop(self):
+        return
 
-            if self._args.set_graceful_restart_parameters == True:
-                gr_params = GracefulRestartParametersType()
-                gr_params.set_restart_time(
-                    int(self._args.graceful_restart_time))
-                gr_params.set_long_lived_restart_time(
-                    int(self._args.long_lived_graceful_restart_time))
-                gr_params.set_end_of_rib_timeout(
-                    int(self._args.end_of_rib_timeout))
-                gr_params.set_enable(self._args.graceful_restart_enable)
-                gr_params.set_bgp_helper_enable(
-                    self._args.graceful_restart_bgp_helper_enable)
-                gr_params.set_xmpp_helper_enable(
-                    self._args.graceful_restart_xmpp_helper_enable)
-                gsc_obj.set_graceful_restart_parameters(gr_params)
-            self._vnc_lib.global_system_config_update(gsc_obj)
-            return
+    def run(self):
+        if self.check_if_provision_is_needed():
+            if self._args.router_asn and not self._args.oper:
+                return self.global_bgp_provisioning
+            elif self._args.oper in ['add', 'del']:
+                return self.provision_control_bgp
+            else:
+                print "Unknown operation %s. Only 'add' and 'del' supported" \
+                    % (self._args.oper)
+        return self.noop
 
-        bp_obj = BgpProvisioner(
-            self._args.admin_user, self._args.admin_password,
-            self._args.admin_tenant_name,
-            self._args.api_server_ip, self._args.api_server_port,
-            api_server_use_ssl=self._args.api_server_use_ssl,
-            use_admin_api=self._args.use_admin_api,
-            sub_cluster_name=self._args.sub_cluster_name,
-            peer_list=peer_list)
+    def global_bgp_provisioning(self):
+        print "Perfroming provisioning of global BGP parameters"
+        gsc_obj = self._vnc_lib.global_system_config_read(
+                fq_name=['default-global-system-config'])
+        gsc_obj.set_autonomous_system(self._args.router_asn)
+        if self._args.ibgp_auto_mesh is not None:
+            gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
+
+        if self._args.set_graceful_restart_parameters == True:
+            gr_params = GracefulRestartParametersType()
+            gr_params.set_restart_time(
+                int(self._args.graceful_restart_time))
+            gr_params.set_long_lived_restart_time(
+                int(self._args.long_lived_graceful_restart_time))
+            gr_params.set_end_of_rib_timeout(
+                int(self._args.end_of_rib_timeout))
+            gr_params.set_enable(self._args.graceful_restart_enable)
+            gr_params.set_bgp_helper_enable(
+                self._args.graceful_restart_bgp_helper_enable)
+            gr_params.set_xmpp_helper_enable(
+                self._args.graceful_restart_xmpp_helper_enable)
+            gsc_obj.set_graceful_restart_parameters(gr_params)
+        self._vnc_lib.global_system_config_update(gsc_obj)
+
+    def check_if_provision_is_needed(self):
+        if self._args.host_name is None:
+            hostname = self._vnc_lib.hostname
+        else:
+            hostname = self._args.host_name
+        if not self._args.oper or self._args.oper == 'add':
+            try:
+                router_obj = self._vnc_lib.bgp_router_read(fq_name = self._get_rt_inst_obj().fq_name + [hostname])
+                print "Skip provisioning, router already exists"
+                return False
+            except NoIdError:
+                return True
+            except Exception as e:
+                print "Problem with API query: %s" % str(e)
+        elif self._args.oper == 'del':
+            print "Deleting controller"
+            return True
+        return True
+
+    def provision_control_bgp(self):
         if self._args.oper == 'add':
             if self._args.sub_cluster_name:
-                bp_obj.add_bgp_router('external-control-node',
-                                  self._args.host_name,
-                                  self._args.host_ip, self._args.router_asn,
-                                  self._args.address_families, self._args.md5,
-                                  self._args.local_autonomous_system,
-                                  self._args.bgp_server_port)
+                print "Perfroming provisioning of controller specific BGP parameters"
+                self.add_bgp_router('external-control-node',
+                                self._args.host_name,
+                                self._args.host_ip, self._args.router_asn,
+                                self._args.address_families, self._args.md5,
+                                self._args.local_autonomous_system,
+                                self._args.bgp_server_port)
             else:
-                bp_obj.add_bgp_router('control-node', self._args.host_name,
-                                  self._args.host_ip, self._args.router_asn,
-                                  self._args.address_families, self._args.md5,
-                                  self._args.local_autonomous_system,
-                                  self._args.bgp_server_port)
+                self.add_bgp_router('control-node', self._args.host_name,
+                                self._args.host_ip, self._args.router_asn,
+                                self._args.address_families, self._args.md5,
+                                self._args.local_autonomous_system,
+                                self._args.bgp_server_port)
         elif self._args.oper == 'del':
-            bp_obj.del_bgp_router(self._args.host_name)
-        else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            self._vnc_lib.del_bgp_router(self._args.host_name)
+        return
 
-    # end __init__
 
     def gr_time_type(self, value):
         time = int(value)
@@ -250,7 +276,8 @@ class ControlProvisioner(object):
 
 
 def main(args_str=None):
-    ControlProvisioner(args_str)
+    provisioner = ControlProvisioner(args_str).run()
+    provisioner()
 # end main
 
 if __name__ == "__main__":
