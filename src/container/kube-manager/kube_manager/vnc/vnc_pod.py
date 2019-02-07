@@ -394,7 +394,8 @@ class VncPod(VncCommon):
 
         patch = {'metadata': {'annotations': {\
             'k8s.v1.cni.cncf.io/network-status':\
-                    json.dumps(net_status_dict_list)}}}
+                    json.dumps(net_status_dict_list, sort_keys=True,
+                                indent=4, separators=(',', ': '))}}}
         if self._kube is not None:
             self._kube.patch_resource("pods", pod_name, patch, \
                         pod_namespace, beta=False)
