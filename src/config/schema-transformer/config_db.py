@@ -254,6 +254,10 @@ class GlobalSystemConfigST(DBBaseST):
             old_rtgt_name = "target:%d:%s" % (cls._autonomous_system, target)
             old_rtgt_obj = RouteTarget(old_rtgt_name)
 
+            route_tgt.obj = cls.read_vnc_obj(fq_name=[old_rtgt_name], obj_type='route_target',
+                                                           fields=['logical_router_back_refs',
+                                                                   'routing_instance_back_refs'])
+
             for ri_ref in route_tgt.obj.get_routing_instance_back_refs() or []:
                 rt_inst = RoutingInstanceST.get(':'.join(ri_ref['to']))
                 if rt_inst:
