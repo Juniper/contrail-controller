@@ -3317,6 +3317,71 @@ class BgpAsAServiceST(DBBaseST):
         self.set_bgpaas_clients()
     # end __init__
 
+    @classmethod
+    def reinit(cls):
+        for bgpaas_obj in cls.list_vnc_obj():
+            try:
+                bgpaas_st = cls.locate(bgpaas_obj.get_fq_name_str(), bgpaas_obj)
+            except Exception as e:
+                cls._logger.error("Error in reinit for %s %s: %s" % (
+                    cls.obj_type, bgpaas_obj.get_fq_name_str(), str(e)))
+
+            if bgpaas_obj.get_bgpaas_shared() == True:
+                if bgpaas_obj.name:
+                    cls.check_bgp_session_peering(bgpaas_obj, bgpaas_st.name,
+                        bgpaas_st.peering_attribs)
+            else:
+                for name in bgpaas_st.virtual_machine_interfaces:
+                    cls.check_bgp_session_peering(bgpaas_obj, name,
+                        bgpaas_st.peering_attribs)
+    # end reinit
+
+    @classmethod
+    def check_bgp_session_peering(cls, obj, name, attr):
+
+        shared = obj.get_bgpaas_shared()
+        if shared:
+            if not obj.bgpaas_ip_address:
+                return
+            vmi_refs = obj.get_virtual_machine_interface_refs()
+            if not vmi_refs:
+                return
+            # all vmis will have link to this bgp-router
+            vmis = [VirtualMachineInterfaceST.get(':'.join(ref['to']))
+                       for ref in vmi_refs]
+        else:
+            # only current vmi will have link to this bgp-router
+            vmi = VirtualMachineInterfaceST.get(name)
+            if not vmi:
+                self.virtual_machine_interfaces.discard(name)
+                return
+            vmis = [vmi]
+        vn = VirtualNetworkST.get(vmis[0].virtual_network)
+        if not vn:
+            return
+        ri = vn.get_primary_routing_instance()
+        if not ri:
+            return
+
+        # get the server Bgp Router
+        server_fq_name = ri.obj.get_fq_name_str() + ':bgpaas-server'
+        server_router = BgpRouterST.get(server_fq_name)
+
+        # get the client Bgp Router
+        bgpr_name = obj.name if shared else vmi.obj.name
+        router_fq_name = ri.obj.get_fq_name_str() + ':' + bgpr_name
+        client_bgpr = BgpRouterST.get(router_fq_name)
+
+        # re-create the ref if the bgp peering is broken
+        bgp_peer_found = False
+        for ref in client_bgpr.obj.get_bgp_router_refs() or []:
+            if ref['to'] == server_router.obj.get_fq_name()[0]:
+                bgp_peer_found = True
+        if not bgp_peer_found:
+            client_bgpr.obj.add_bgp_router(server_router.obj, attr)
+            cls._vnc_lib.bgp_router_update(client_bgpr.obj)
+    # end check_bgp_peering
+
     def set_bgpaas_clients(self):
         if (self.bgpaas_shared and self.bgp_routers):
             bgpr = BgpRouterST.get(list(self.bgp_routers)[0])
