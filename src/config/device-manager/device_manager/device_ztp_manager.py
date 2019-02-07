@@ -191,7 +191,7 @@ class DeviceZtpManager(object):
         self._logger.debug("Fetching all containers")
         all_containers = self._client.containers.list(all=True)
         for container in all_containers:
-            labels = container.get('Labels', dict())
+            labels = container.labels or dict()
             service = labels.get('net.juniper.contrail.service')
             if service == 'dnsmasq':
                 self._logger.info("Restarting dnsmasq docker: %s" %
