@@ -11,7 +11,7 @@
     pr_uuid: "{{playbook_input.device_id}}"
     upgrade_plan: "{{playbook_input.input.upgrade_plan}}"
     current_index: 0
-    is_hitless_upgrade: "{{playbook_input.device_hitless_upgrade}} #assuming this will be a boolean value
+    is_hitless_upgrade: "{{playbook_input.device_hitless_upgrade}}" #assuming this will be a boolean value
     hitless_dict:
       total_task_count: 7
       task_weightage_array: [10, 10, 5, 35, 30, 5, 5]
@@ -25,7 +25,7 @@
         percentage_auto_increment: true
 
     - set_fact:
-        final_task_array: "{% if is_hitless_upgrade-%}{{hitless_dict}}{%else -%}{{non_hitless_dict}}{%- endif %}"
+        final_task_array: "{% if is_hitless_upgrade -%}{{hitless_dict}}{%else-%}{{non_hitless_dict}}{%- endif %}"
 
     - set_fact:
         job_ctx: "{{job_ctx|combine(final_task_array)}}"
