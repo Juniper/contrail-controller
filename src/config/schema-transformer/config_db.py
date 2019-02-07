@@ -254,6 +254,24 @@ class GlobalSystemConfigST(DBBaseST):
             old_rtgt_name = "target:%d:%s" % (cls._autonomous_system, target)
             old_rtgt_obj = RouteTarget(old_rtgt_name)
 
+            if route_tgt.obj is None:
+                updated_rt_tgt_obj = cls.read_vnc_obj(fq_name=[old_rtgt_name])
+                self._logger.error("Global ASN %s update error, "
+                                   "Route taget ST object %s is not updated"
+                                   % (new_asn, route_tgt.name))
+            else:
+                updated_rt_tgt_obj = cls.read_vnc_obj(fq_name=[old_rtgt_name])
+                if (updated_rt_tgt_obj.get_routing_instance_back_refs() !=
+                    route_tgt.obj.get_routing_instance_back_refs()):
+                    self._logger.error("Global ASN %s update, missing RI refs, "
+                                       "Route taget ST object %s is not updated"
+                                       % (new_asn, route_tgt.name))
+
+            # update RouteTarget ST cache
+            # TODO(Sahil): Figure out the case when RT cache is not in sync
+            # with cassandra DB.
+            route_tgt.obj = updated_rt_tgt_obj
+
             for ri_ref in route_tgt.obj.get_routing_instance_back_refs() or []:
                 rt_inst = RoutingInstanceST.get(':'.join(ri_ref['to']))
                 if rt_inst:
