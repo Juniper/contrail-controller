@@ -978,11 +978,12 @@ class FilterModule(object):
             vnc_api = JobVncApi.vnc_init(job_ctx)
             fabric_info = job_ctx.get('job_input')
             fabric_fq_name = fabric_info.get('fabric_fq_name')
+            force_delete = fabric_info.get('force_delete')
             fabric_name = fabric_fq_name[-1]
             fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
 
             # validate fabric deletion
-            self._validate_fabric_deletion(vnc_api, fabric_obj)
+            self._validate_fabric_deletion(vnc_api, fabric_obj, force_delete)
 
             # delete fabric
             self._delete_fabric(vnc_api, fabric_obj)
@@ -1027,31 +1028,131 @@ class FilterModule(object):
         return fabric_obj
     # end _get_fabric
 
-    @staticmethod
-    def _validate_fabric_deletion(vnc_api, fabric_obj):
+    def _check_virtual_network_refs(self, device_obj, fabric_obj):
+        """
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        for vn_ref in device_obj.get_virtual_network_refs() or []:
+            vn_fq_name = vn_ref.get('to')
+            if vn_fq_name[1] != 'default-project':
+                _task_done(
+                    'Please delete tenant virtual network %s/%s first '
+                    'before deleting this fabric' % (
+                        vn_fq_name[1], vn_fq_name[2]
+                    )
+                )
+                raise ValueError(
+                    'Failed to delete fabric %s due to existing tenant '
+                    'virtual network %s/%s.' % (
+                        fabric_obj.name, vn_fq_name[1], vn_fq_name[2]
+                    )
+                )
+    # end _check_virtual_network_refs
+
+    def _check_logical_router_refs(self, device_obj, fabric_obj):
+        """
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        for lr_ref in device_obj.get_logical_router_back_refs() or []:
+            lr_fq_name = lr_ref.get('to')
+            if lr_fq_name[1] != 'default-project':
+                _task_done(
+                    'Please delete tenant logical router %s/%s first '
+                    'before deleting this fabric' % (
+                        lr_fq_name[1], lr_fq_name[2]
+                    )
+                )
+                raise ValueError(
+                    'Failed to delete fabric %s due to existing tenant '
+                    'logical router %s/%s.' % (
+                        fabric_obj.name, lr_fq_name[1], lr_fq_name[2]
+                    )
+                )
+    # end _check_logical_router_refs
+
+    def _check_virtual_port_group_refs(self, vnc_api, fabric_obj):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :return:
         """
-        _task_log('Validating no tenant virtual network created on the fabric')
-        if fabric_obj and fabric_obj.get_physical_router_back_refs():
-            vn_refs = vnc_api.virtual_networks_list().get('virtual-networks')
-            for vn_ref in vn_refs or []:
-                vn_fq_name = vn_ref.get('fq_name')
-                if vn_fq_name[1] != 'default-project':
-                    _task_done(
-                        'Please delete tenant virtual network %s/%s first '
-                        'before deleting this fabric' % (
-                            vn_fq_name[1], vn_fq_name[2]
-                        )
+        vpg_refs = vnc_api.virtual_port_groups_list().\
+            get('virtual-port-groups')
+        for vpg_ref in vpg_refs or []:
+            vpg_fq_name = vpg_ref.get('fq_name')
+            if vpg_fq_name[1] == fabric_obj.name:
+                _task_done(
+                    'Please delete virtual port group %s/%s first '
+                    'before deleting this fabric' % (
+                        vpg_fq_name[1], vpg_fq_name[2]
                     )
-                    raise ValueError(
-                        'Failed to delete fabric %s due to existing tenant '
-                        'virtual network %s/%s.' % (
-                            fabric_obj.name, vn_fq_name[1], vn_fq_name[2]
-                        )
+                )
+                raise ValueError(
+                    'Failed to delete fabric %s due to existing tenant '
+                    'virtual port group %s/%s.' % (
+                        fabric_obj.name, vpg_fq_name[1], vpg_fq_name[2]
                     )
+                )
+    # end _check_virtual_port_group_refs
+
+    def _validate_fabric_deletion(self, vnc_api, fabric_obj, force_delete):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :param force_delete: boolean
+        :return:
+        """
+        if force_delete:
+            _task_log('Validating no virtual networks, logical routers, or '
+                      'virtual port groups created on the fabric')
+            if fabric_obj:
+                for device_ref in fabric_obj.get_physical_router_back_refs() \
+                        or []:
+                    device_obj = None
+                    device_uuid = str(device_ref.get('uuid'))
+                    try:
+                        device_obj = vnc_api.physical_router_read(
+                            id=device_uuid
+                            )
+                    except NoIdError:
+                        _task_done(
+                            'Deleting device %s ... device not found'
+                            % (device_uuid if device_obj else '?')
+                        )
+                        continue
+
+                    # Check for virtual network references
+                    self._check_virtual_network_refs(device_obj, fabric_obj)
+                    # Check for logical router references
+                    self._check_logical_router_refs(device_obj, fabric_obj)
+
+                # Check for virtual port groups in this fabric
+                self._check_virtual_port_group_refs(vnc_api, fabric_obj)
+        else:
+            _task_log('Validating no tenant virtual network created '
+                      'on the fabric')
+            if fabric_obj and fabric_obj.get_physical_router_back_refs():
+                vn_refs = vnc_api.virtual_networks_list().\
+                    get('virtual-networks')
+                for vn_ref in vn_refs or []:
+                    vn_fq_name = vn_ref.get('fq_name')
+                    if vn_fq_name[1] != 'default-project':
+                        _task_done(
+                            'Please delete tenant virtual network %s/%s first '
+                            'before deleting this fabric' % (
+                                vn_fq_name[1], vn_fq_name[2]
+                            )
+                        )
+                        raise ValueError(
+                            'Failed to delete fabric %s due to existing tenant'
+                            ' virtual network %s/%s.' % (
+                                fabric_obj.name, vn_fq_name[1], vn_fq_name[2]
+                            )
+                        )
         _task_done()
     # end _validate_fabric_deletion
 
