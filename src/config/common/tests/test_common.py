@@ -805,11 +805,17 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                         create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
-            pr = PhysicalRouter(si_name)
+            pr = PhysicalRouter(si_name, physical_router_role='pnf')
             self._vnc_lib.physical_router_create(pr)
             sa_set = ServiceApplianceSet('sa_set-'+si_name)
             self._vnc_lib.service_appliance_set_create(sa_set)
             sa = ServiceAppliance('sa-'+si_name, parent_obj=sa_set)
+            left_value = "default-global-system-config:5c3-qfx5:et-0/0/50"
+            right_value = "default-global-system-config:5c3-qfx5:et-0/0/51"
+            sa.set_service_appliance_properties(KeyValuePairs([KeyValuePair(key='left-attachment-point',
+                                                               value= left_value),
+                                                               KeyValuePair(key='right-attachment-point',
+                                                               value= right_value)]))
             for if_type, _ in vn_list:
                attr = ServiceApplianceInterfaceType(interface_type=if_type)
                pi = PhysicalInterface('pi-'+si_name+if_type, parent_obj=pr)
@@ -842,6 +848,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                                            scale_out=scale_out)
         service_instance = ServiceInstance(
             name=si_name, service_instance_properties=si_props)
+        service_instance.set_annotations(KeyValuePairs([KeyValuePair(key='left-svc-vlan', value="100"),
+                                                        KeyValuePair(key='right-svc-vlan', value="101"),
+                                                        KeyValuePair(key='left-svc-asns', value="20,21"),
+                                                        KeyValuePair(key='right-svc-asns', value="20,22")]))
         service_instance.add_service_template(service_template)
         self._vnc_lib.service_instance_create(service_instance)
 
