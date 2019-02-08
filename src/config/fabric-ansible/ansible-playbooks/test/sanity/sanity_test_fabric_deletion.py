@@ -23,7 +23,7 @@ class SanityTestFabricDeletion(SanityBase):
         SanityBase.__init__(self, cfg, 'sanity_test_fabric_deletion')
     # end __init__
 
-    def delete_fabric(self, fabric_name):
+    def delete_fabric(self, fabric_name, force_delete):
         """delete fabric and all objects in it"""
         self._logger.info("Delete fabric ...")
         job_template_fq_name = [
@@ -34,7 +34,8 @@ class SanityTestFabricDeletion(SanityBase):
         job_execution_info = self._api.execute_job(
             job_template_fq_name=job_template_fq_name, 
             job_input={
-                "fabric_fq_name": fabric_fq_name
+                "fabric_fq_name": fabric_fq_name,
+                "force_delete": force_delete
             }
         )
         job_execution_id = job_execution_info.get('job_execution_id')
@@ -48,7 +49,7 @@ class SanityTestFabricDeletion(SanityBase):
 
     def test(self):
         try:
-            self.delete_fabric('fab01')
+            self.delete_fabric('fab01', force_delete=True)
         except Exception as ex:
             self._exit_with_error(
                 "Test failed due to unexpected error: %s" % str(ex))

@@ -54,18 +54,52 @@ class SanityTestAssignRoles(SanityBase):
                         {
                             "device_fq_name": [
                                 "default-global-system-config",
-                                "DK588"
+                                "vqfx1"
                             ],
                             "physical_role": "spine",
-                            "routing_bridging_roles": ["centrally-routed-bridging"]
+                            "routing_bridging_roles": ["CRB-Gateway"]
                         },
                         {
                             "device_fq_name": [
                                 "default-global-system-config",
-                                "VF3717350117"
+                                "vqfx2"
                             ],
-                            "physical_role": "leaf"
-                        }
+                            "physical_role": "leaf",
+                            "routing_bridging_roles": ["CRB-Access"]
+                        },
+                        {
+                            "device_fq_name": [
+                                "default-global-system-config",
+                                "vqfx3"
+                            ],
+                            "physical_role": "leaf",
+                            "routing_bridging_roles": ["CRB-Access"]
+                        },
+                        {
+                            "device_fq_name": [
+                                "default-global-system-config",
+                                "vqfx4"
+                            ],
+                            "physical_role": "spine",
+                            "routing_bridging_roles": ["CRB-Gateway",
+                                                       "Route-Reflector"]
+                        },
+                        {
+                            "device_fq_name": [
+                                "default-global-system-config",
+                                "vqfx5"
+                            ],
+                            "physical_role": "leaf",
+                            "routing_bridging_roles": ["CRB-Access"]
+                        },
+                        {
+                            "device_fq_name": [
+                                "default-global-system-config",
+                                "vqfx6"
+                            ],
+                            "physical_role": "leaf",
+                            "routing_bridging_roles": ["CRB-Access"]
+                        },
                     ]
                 }
             )
