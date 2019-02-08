@@ -11,6 +11,11 @@
         "items": {
           "type": "string"
         }
+      },
+      "force_delete": {
+        "type": "boolean",
+        "description": "Force delete fabric, ignoring some warnings",
+        "default": false
       }
     }
   },
