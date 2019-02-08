@@ -33,8 +33,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:
 {%             endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
 {%         endfor %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
-{%         if vni != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%         endif %}
 {%     endfor %}
