@@ -1027,32 +1027,188 @@ class FilterModule(object):
         return fabric_obj
     # end _get_fabric
 
-    @staticmethod
-    def _validate_fabric_deletion(vnc_api, fabric_obj):
+    def _read_device_obj(self, vnc_api, device_uuid):
+        device_obj = None
+        try:
+            device_obj = vnc_api.physical_router_read(id=device_uuid)
+        except NoIdError:
+            _task_done(
+                'Device %s not found'
+                % (device_uuid if device_obj else '?')
+            )
+        return device_obj
+    # end _read_device_obj
+    
+    def _read_service_appliance_obj(self, vnc_api, sa_uuid):
+        sa_obj = None
+        try:
+            sa_obj = vnc_api.service_appliance_read(id=sa_uuid)
+        except NoIdError:
+            _task_done(
+                'Service appliance %s not found'
+                % (sa_uuid if sa_obj else '?')
+            )
+        return sa_obj
+    # end _read_service_appliance_obj
+
+    def _auto_generated_virtual_network(self, vn_fq_name, fabric_name):
+        # If tenant virtual network, it's not auto-generated
+        if vn_fq_name[1] != 'default-project':
+            return False
+        # If it's one of the VNs always generated in default-project
+        if vn_fq_name[2] in ["dci-network",
+                             "default-virtual-network",
+                             "__link_local__",
+                             "ip-fabric"]:
+            return True
+        # If it's one of the fabric-specific VNs in default-project
+        for vn_name in [NetworkType.MGMT_NETWORK,
+                        NetworkType.LOOPBACK_NETWORK,
+                        NetworkType.FABRIC_NETWORK,
+                        NetworkType.PNF_SERVICECHAIN_NETWORK]:
+            if fabric_name + '-' + vn_name == vn_fq_name[2]:
+                return True
+        # Otherwise false
+        return False
+    # end _auto_generated_virtual_network
+
+    def _check_virtual_network_refs(self, device_obj, fabric_obj):
+        """
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        vn_list = []
+        for vn_ref in device_obj.get_virtual_network_refs() or []:
+            vn_fq_name = vn_ref.get('to')
+            if not self._auto_generated_virtual_network(vn_fq_name,
+                                                        fabric_obj.name):
+                vn_list.append(vn_fq_name[1]+':'+vn_fq_name[2])
+        return vn_list
+    # end _check_virtual_network_refs
+
+    def _check_logical_router_refs(self, device_obj, fabric_obj):
+        """
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        lr_list = []
+        for lr_ref in device_obj.get_logical_router_back_refs() or []:
+            lr_fq_name = lr_ref.get('to')
+            lr_list.append(lr_fq_name[1]+':'+lr_fq_name[2])
+        return lr_list
+    # end _check_logical_router_refs
+
+    def _check_virtual_port_group_refs(self, vnc_api, fabric_obj):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :return:
         """
-        _task_log('Validating no tenant virtual network created on the fabric')
-        if fabric_obj and fabric_obj.get_physical_router_back_refs():
-            vn_refs = vnc_api.virtual_networks_list().get('virtual-networks')
-            for vn_ref in vn_refs or []:
-                vn_fq_name = vn_ref.get('fq_name')
-                if vn_fq_name[1] != 'default-project':
-                    _task_done(
-                        'Please delete tenant virtual network %s/%s first '
-                        'before deleting this fabric' % (
-                            vn_fq_name[1], vn_fq_name[2]
-                        )
-                    )
-                    raise ValueError(
-                        'Failed to delete fabric %s due to existing tenant '
-                        'virtual network %s/%s.' % (
-                            fabric_obj.name, vn_fq_name[1], vn_fq_name[2]
-                        )
-                    )
-        _task_done()
+        vpg_list = []
+        vpg_refs = vnc_api.virtual_port_groups_list().\
+            get('virtual-port-groups')
+        for vpg_ref in vpg_refs or []:
+            vpg_fq_name = vpg_ref.get('fq_name')
+            if vpg_fq_name[1] == fabric_obj.name:
+                vpg_list.append(vpg_fq_name[1]+':'+vpg_fq_name[2])
+        return vpg_list
+    # end _check_virtual_port_group_refs
+
+    def _check_pnf_service_refs(self, vnc_api, device_names):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        svc_list = []
+        sa_refs = vnc_api.service_appliances_list().get('service-appliances')
+        for sa_ref in sa_refs or []:
+            sa_uuid = str(sa_ref.get('uuid'))
+            sa_obj = self._read_service_appliance_obj(vnc_api, sa_uuid)
+            if not sa_obj:
+                continue
+            svc_name = sa_obj.name.replace('-appliance','')
+            pi_refs = sa_obj.get_physical_interface_refs() or []
+            for pi_ref in pi_refs:
+                pi_fq_name = pi_ref.get('to')
+                device_name = pi_fq_name[1]
+                if device_name in device_names:
+                    svc_list.append(svc_name)
+                    break
+        return list(set(svc_list))
+    # end _check_pnf_service_refs
+
+    def _validate_fabric_deletion(self, vnc_api, fabric_obj):
+        """
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        if not fabric_obj:
+            return
+
+        _task_log('Validating no Virtual Networks, Logical Routers, '
+                  'Virtual Port Groups, or PNF Services '
+                  'created on the fabric')
+        vn_list = []
+        lr_list = []
+        device_names = []
+        for device_ref in fabric_obj.get_physical_router_back_refs() \
+                or []:
+            device_uuid = str(device_ref.get('uuid'))
+            device_obj = self._read_device_obj(vnc_api, device_uuid)
+            if not device_obj:
+                continue
+            # Save device name in list
+            device_names.append(device_obj.name)
+
+            # Check for virtual network references
+            dev_vn_list = self._check_virtual_network_refs(device_obj,
+                                                       fabric_obj)
+            vn_list.extend(x for x in dev_vn_list if x not in vn_list)
+
+            # Check for logical router references
+            dev_lr_list = self._check_logical_router_refs(device_obj,
+                                                      fabric_obj)
+            lr_list.extend(x for x in dev_lr_list if x not in lr_list)
+
+        # Check for virtual port groups in this fabric
+        vpg_list = self._check_virtual_port_group_refs(vnc_api,
+                                                       fabric_obj)
+        # Check for PNF services
+        svc_list = self._check_pnf_service_refs(vnc_api,
+                                                list(set(device_names)))
+
+        # If references found, create error string
+        err_msg = ""
+
+        if vn_list:
+            err_msg += 'Virtual Networks: {}, '.format(vn_list)
+
+        if lr_list:
+            err_msg += 'Logical Routers: {}, '.format(lr_list)
+
+        if vpg_list:
+            err_msg += 'Virtual Port Groups: {}, '.format(vpg_list)
+
+        if svc_list:
+            err_msg += 'PNF Services: {}, '.format(svc_list)
+
+        # If no references found, just return
+        if err_msg == "":
+            _task_done('OK to delete fabric')
+            return
+
+        _task_done('Failed to delete fabric {}. Please delete the following'
+                  ' overlay objects: {}'.format(fabric_obj.name, err_msg))
+
+        raise ValueError(
+            'Failed to delete fabric {} due to references from '
+            'the following overlay objects: {}'.format(fabric_obj.name,
+                                                       err_msg)
+        )
     # end _validate_fabric_deletion
 
     def _delete_fabric(self, vnc_api, fabric_obj):
