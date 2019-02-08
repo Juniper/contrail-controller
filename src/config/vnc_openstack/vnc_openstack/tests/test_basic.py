@@ -2532,7 +2532,6 @@ class TestRBACPerms(test_case.VncOpenstackTestCase):
             ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
-        cls.setup_flexmock()
         super(TestRBACPerms, cls).setUpClass(extra_mocks=extra_mocks,
             extra_config_knobs=extra_config_knobs)
 

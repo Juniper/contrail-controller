@@ -13,7 +13,7 @@ from vnc_api.vnc_api import *
 from pysandesh.connection_info import ConnectionState
 
 sys.path.append('../common/tests')
-from test_utils import *
+import test_utils
 import test_common
 
 import test_case
@@ -251,3 +251,51 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
         self.assertThat(conn_info.status.lower(), Equals('up'))
     # end test_connection_status_change
 # end class KeystoneConnectionStatus
+
+
+keystone_ready = False
+def get_keystone_client(*args, **kwargs):
+    if keystone_ready:
+        return test_utils.get_keystone_client()
+    raise Exception("keystone connection failed.")
+
+
+class TestKeystoneConnection(test_case.KeystoneSyncTestCase):
+    resync_interval = 0.5
+    @classmethod
+    def setUpClass(cls):
+        keystone_ready = False
+        from keystoneclient import client as keystone
+        extra_mocks = [(keystone, 'Client', get_keystone_client)]
+        super(TestKeystoneConnection, cls).setUpClass(
+            extra_mocks=extra_mocks,
+            extra_config_knobs=[('DEFAULTS', 'keystone_resync_interval_secs',
+                                 cls.resync_interval)])
+    # end setUpClass
+
+    def test_connection_status(self):
+        # check that connection was not obtained
+        conn_info = [ConnectionState._connection_map[x]
+            for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+        self.assertThat(conn_info.status.lower(), Equals('init'))
+
+        # sleep and check again
+        gevent.sleep(self.resync_interval)
+        conn_info = [ConnectionState._connection_map[x]
+            for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+        self.assertThat(conn_info.status.lower(), Equals('init'))
+
+        # allow to create connection
+        global keystone_ready
+        keystone_ready = True
+        # wait for connection set up
+        gevent.sleep(float(self.resync_interval)*1.5)
+        conn_info = [ConnectionState._connection_map[x]
+            for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+        self.assertThat(conn_info.status.lower(), Equals('up'))
+
+        # check that driver works as required
+        proj_id = str(uuid.uuid4())
+        proj_name = self.id() + 'verify-active'
+        get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+        proj_obj = self._vnc_lib.project_read(id=proj_id)
