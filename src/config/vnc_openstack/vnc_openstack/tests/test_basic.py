@@ -639,6 +639,13 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
     # end test_empty_floating_ip_body_disassociates
 
+    def test_fq_name_project(self):
+        proj_id = str(uuid.uuid4())
+        proj_name = 'proj-test'
+        test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', proj_name])
+    #end test_fq_name_project
+
     def test_floating_ip_list(self):
         proj_objs = []
         for i in range(3):

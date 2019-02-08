@@ -2154,9 +2154,13 @@ class AddrMgmt(object):
     def ip_free_notify(self, ip_addr, vn_fq_name, alloc_id=None, ipam_refs=None):
         db_conn = self._get_db_conn()
         if ipam_refs:
-            self._ipam_ip_free_notify(ip_addr, None, ipam_refs)
-            return
-        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+            return self._ipam_ip_free_notify(ip_addr, None, ipam_refs)
+
+        try:
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        except cfgm_common.exceptions.NoIdError as e:
+            return False, (400, str(e))
+
         if alloc_id:
             # In case of inconsistency in the zk db, we should read and check
             # the allocated IP belongs to the interface we are freing. If not
