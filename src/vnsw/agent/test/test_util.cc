@@ -155,6 +155,8 @@ static void BuildLinkToMetadata() {
                       "virtual-network-network-ipam");
     AddLinkToMetadata("virtual-network-network-ipam", "network-ipam",
                       "virtual-network-network-ipam");
+    AddLinkToMetadata("virtual-network", "multicast-policy",
+                      "virtual-network-multicast-policy");
     AddLinkToMetadata("virtual-router", "virtual-router-network-ipam",
                       "virtual-vrouter-network-ipam");
     AddLinkToMetadata("virtual-router-network-ipam", "network-ipam",
@@ -425,6 +427,30 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
     }
     str << "           </value>\n";
     str << "       </node>\n";
+    std::string final_str = str.str();
+    memcpy(buff + len, final_str.data(), final_str.size());
+    len += final_str.size();
+}
+
+void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
+                   MulticastPolicy *msg, int count) {
+
+    std::stringstream str;
+    str << "       <node type=\"" << nodename << "\">\n";
+    str << "           <name>" << name << "</name>\n";
+    str << "           <value>\n";
+    for (int i = 0; i < count; i++) {
+        std::string action = (msg[i].action == true) ? "pass" : "deny";
+
+        str << "               <multicast-source-groups>\n";
+        str << "                   <source-address>" << msg[i].src << "</source-address>\n";
+        str << "                   <group-address>" << msg[i].grp << "</group-address>\n";
+        str << "                   <action>" << action << "</action>\n";
+        str << "               </multicast-source-groups>\n";
+    }
+    str << "           </value>\n";
+    str << "       </node>\n";
+
     std::string final_str = str.str();
     memcpy(buff + len, final_str.data(), final_str.size());
     len += final_str.size();
@@ -2843,6 +2869,37 @@ void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int co
                   1024, global_config.str().c_str());
     AddXmlTail(buf, len);
     ApplyXmlString(buf);
+}
+
+void AddMulticastPolicy(const char *name, uint32_t id, MulticastPolicy *msg,
+                                    int msg_size) {
+
+    std::stringstream policy;
+    policy << "<multicast-source-groups>";
+    for (int i = 0; i < msg_size; ++i) {
+        std::string action = (msg[i].action == true) ? "pass" : "deny";
+
+        policy << "<multicast-source-group>";
+        policy << "<source-address>";
+        policy << msg[i].src;
+        policy << "</source-address>";
+        policy << "<group-address>";
+        policy << msg[i].grp;
+        policy << "</group-address>";
+        policy << "<action>";
+        policy << action;
+        policy << "</action>";
+        policy << "</multicast-source-group>";
+    }
+    policy << "</multicast-source-groups>";
+
+    AddNode("multicast-policy", name, id, policy.str().c_str());
+    return;
+}
+
+void DelMulticastPolicy(const char *name) {
+    DelNode("multicast-policy", name);
+    return;
 }
 
 

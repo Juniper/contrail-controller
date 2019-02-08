@@ -20,12 +20,6 @@ TEST_F(IgmpTest, SendV1Reports) {
         IgmpVmiEnable(idx, true);
     }
 
-    IgmpRxCountReset();
-    while (IgmpRxCountGet() < 7) {
-        usleep(10);
-    }
-    EXPECT_EQ(IgmpRxCountGet(), 7);
-
     idx = 0;
     local_g_add_count++;
     report_count++;
@@ -39,12 +33,7 @@ TEST_F(IgmpTest, SendV1Reports) {
 
     local_g_del_count++;
     ret = WaitForGCount(false, local_g_del_count);
-
-    IgmpRxCountReset();
-    while (IgmpRxCountGet() < 7) {
-        usleep(10);
-    }
-    EXPECT_EQ(IgmpRxCountGet(), 7);
+    EXPECT_EQ(ret, true);
 
     for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
         IgmpVmiEnable(idx, false);
@@ -52,6 +41,9 @@ TEST_F(IgmpTest, SendV1Reports) {
     IgmpGlobalClear();
 
     TestEnvDeinit();
+    client->WaitForIdle();
+
+    return;
 }
 
 TEST_F(IgmpTest, SendV2Reports) {
@@ -75,12 +67,6 @@ TEST_F(IgmpTest, SendV2Reports) {
         IgmpVmiEnable(idx, true);
     }
 
-    IgmpRxCountReset();
-    while (IgmpRxCountGet() < 7) {
-        usleep(10);
-    }
-    EXPECT_EQ(IgmpRxCountGet(), 7);
-
     idx = 0;
     local_g_add_count++;
     report_count++;
@@ -99,14 +85,12 @@ TEST_F(IgmpTest, SendV2Reports) {
     ret = WaitForGCount(true, local_g_add_count);
     EXPECT_EQ(ret, true);
 
-    usleep(5*USECS_PER_SEC);
-
     const NextHop *nh;
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("0.0.0.0", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_0, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -145,16 +129,8 @@ TEST_F(IgmpTest, SendV2Reports) {
     ret = WaitForGCount(false, local_g_del_count);
     EXPECT_EQ(ret, true);
 
-    usleep(5*USECS_PER_SEC);
-
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
     EXPECT_EQ((nh == NULL), true);
-
-    IgmpRxCountReset();
-    while (IgmpRxCountGet() < 7) {
-        usleep(10);
-    }
-    EXPECT_EQ(IgmpRxCountGet(), 7);
 
     for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
         IgmpVmiEnable(idx, false);
@@ -162,6 +138,9 @@ TEST_F(IgmpTest, SendV2Reports) {
     IgmpGlobalClear();
 
     TestEnvDeinit();
+    client->WaitForIdle();
+
+    return;
 }
 
 TEST_F(IgmpTest, SendV2ReportsWithoutLeave) {
@@ -180,12 +159,6 @@ TEST_F(IgmpTest, SendV2ReportsWithoutLeave) {
         IgmpVmiEnable(idx, true);
     }
 
-    IgmpRxCountReset();
-    while (IgmpRxCountGet() < 7) {
-        usleep(10);
-    }
-    EXPECT_EQ(IgmpRxCountGet(), 7);
-
     idx = 0;
     local_g_add_count++;
     report_count++;
@@ -199,12 +172,7 @@ TEST_F(IgmpTest, SendV2ReportsWithoutLeave) {
 
     local_g_del_count++;
     ret = WaitForGCount(false, local_g_del_count);
-
-    IgmpRxCountReset();
-    while (IgmpRxCountGet() < 7) {
-        usleep(10);
-    }
-    EXPECT_EQ(IgmpRxCountGet(), 7);
+    EXPECT_EQ(ret, true);
 
     for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
         IgmpVmiEnable(idx, false);
@@ -212,6 +180,9 @@ TEST_F(IgmpTest, SendV2ReportsWithoutLeave) {
     IgmpGlobalClear();
 
     TestEnvDeinit();
+    client->WaitForIdle();
+
+    return;
 }
 
 TEST_F(IgmpTest, SendV3Reports) {
@@ -319,8 +290,8 @@ TEST_F(IgmpTest, SendV3Reports) {
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     Agent *agent = Agent::GetInstance();
 
@@ -426,6 +397,149 @@ TEST_F(IgmpTest, SendV3Reports) {
     return;
 }
 
+TEST_F(IgmpTest, SendV3ReportsNonSequential) {
+
+    bool ret = false;
+    boost::system::error_code ec;
+
+    uint32_t idx = 0;
+    struct IgmpGroupSource igmp_gs[2];
+
+    uint32_t local_sg_add_count = 0;
+    uint32_t local_sg_del_count = 0;
+    uint32_t report_count = 0;
+
+    uint32_t group = inet_addr(MGROUP_ADDR_1);
+    uint32_t source = inet_addr(MSOURCE_ADDR_11);
+
+    Ip4Address group_v4 = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source_v4 = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
+
+    TestEnvInit(UT_IGMP_VERSION_3, true);
+
+    VmInterface *vmi_0 = VmInterfaceGet(input[0].intf_id);
+    std::string vrf_name = vmi_0->vrf()->GetName();
+
+    IgmpGlobalEnable(true);
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpVmiEnable(idx, true);
+    }
+
+    memset(&igmp_gs, 0x00, sizeof(igmp_gs));
+
+    idx = 0;
+    igmp_gs[0].record_type = 1;
+    igmp_gs[0].source_count = 1;
+    igmp_gs[0].group = ntohl(group);
+
+    local_sg_add_count += igmp_gs[0].source_count;
+    igmp_gs[0].sources[0] = ntohl(source);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[0], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSgCount(true, local_sg_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    igmp_gs[1].record_type = 1;
+    igmp_gs[1].source_count = 1;
+    igmp_gs[1].group = ntohl(group);
+
+    local_sg_add_count += igmp_gs[1].source_count;
+    igmp_gs[1].sources[0] = ntohl(source+1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[1], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSgCount(true, local_sg_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    igmp_gs[2].record_type = 1;
+    igmp_gs[2].source_count = 1;
+    igmp_gs[2].group = ntohl(group);
+
+    local_sg_add_count += igmp_gs[2].source_count;
+    igmp_gs[2].sources[0] = ntohl(source+2);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[2], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSgCount(true, local_sg_add_count);
+    EXPECT_EQ(ret, true);
+
+    const NextHop *nh;
+    const CompositeNH *cnh;
+    const ComponentNH *cnh1;
+
+    Agent *agent = Agent::GetInstance();
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group_v4, source_v4);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    idx = 0;
+    igmp_gs[1].record_type = 6;
+    igmp_gs[1].source_count = 1;
+    igmp_gs[1].group = ntohl(group);
+
+    local_sg_del_count += igmp_gs[1].source_count;
+    igmp_gs[1].sources[0] = ntohl(source+1);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[1], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSgCount(false, local_sg_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    igmp_gs[2].record_type = 6;
+    igmp_gs[2].source_count = 1;
+    igmp_gs[2].group = ntohl(group);
+
+    local_sg_del_count += igmp_gs[2].source_count;
+    igmp_gs[2].sources[0] = ntohl(source+2);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[2], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSgCount(false, local_sg_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    igmp_gs[0].record_type = 6;
+    igmp_gs[0].source_count = 1;
+    igmp_gs[0].group = ntohl(group);
+
+    local_sg_del_count += igmp_gs[0].source_count;
+    igmp_gs[0].sources[0] = ntohl(source);
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV3Report, &igmp_gs[0], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V3_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForSgCount(false, local_sg_del_count);
+    EXPECT_EQ(ret, true);
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group_v4, source_v4);
+    EXPECT_EQ((nh == NULL), true);
+
+    usleep(lmqt);
+
+    IgmpGlobalClear();
+
+    TestEnvDeinit();
+    client->WaitForIdle();
+
+    return;
+}
+
 TEST_F(IgmpTest, IgmpIntfConfig) {
 
     bool ret = false;
@@ -476,8 +590,8 @@ TEST_F(IgmpTest, IgmpIntfConfig) {
     ret = WaitForSgCount(true, local_sg_add_count);
     EXPECT_EQ(ret, true);
 
-    Ip4Address group = Ip4Address::from_string("239.1.1.10", ec);
-    Ip4Address source = Ip4Address::from_string("100.1.1.10", ec);
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_11, ec);
 
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
 
@@ -1006,8 +1120,8 @@ TEST_F(IgmpTest, DISABLED_IgmpTaskTrigger) {
     gmp_proto->ClearStats();
     client->WaitForIdle();
 
-    uint32_t group = inet_addr("239.1.1.10");
-    uint32_t source = inet_addr("100.1.1.10");
+    uint32_t group = inet_addr(MGROUP_ADDR_1);
+    uint32_t source = inet_addr(MSOURCE_ADDR_11);
 
     memset(&igmp_gs, 0x00, sizeof(igmp_gs));
     igmp_gs.record_type = 1;
@@ -1043,8 +1157,8 @@ TEST_F(IgmpTest, DISABLED_IgmpTaskTrigger) {
     uint32_t actual_count = stats.gmp_sg_add_count_;
     EXPECT_EQ(actual_count, ex_count);
 
-    group = inet_addr("239.1.1.10");
-    source = inet_addr("100.1.1.10");
+    group = inet_addr(MGROUP_ADDR_1);
+    source = inet_addr(MSOURCE_ADDR_11);
 
     igmp_gs.record_type = 6;
     igmp_gs.source_count = source_count;

@@ -32,6 +32,7 @@
 #include <filter/acl.h>
 #include <filter/policy_set.h>
 #include <oper/crypt_tunnel.h>
+#include <oper/multicast_policy.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Utility routines
@@ -1404,3 +1405,17 @@ bool AgentCryptTunnelSandesh::Filter(const DBEntryBase *entry) {
         return false;
     return true;
 }
+
+DBTable *AgentMulticastPolicySandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->mp_table());
+}
+
+void AgentMulticastPolicySandesh::Alloc() {
+    resp_ = new MulticastPolicyResp();
+}
+
+bool AgentMulticastPolicySandesh::UpdateResp(DBEntryBase *entry) {
+    MulticastPolicyEntry *ent = static_cast<MulticastPolicyEntry *>(entry);
+    return ent->DBEntrySandesh(resp_, name_);
+}
+
