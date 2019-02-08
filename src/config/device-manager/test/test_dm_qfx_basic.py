@@ -330,11 +330,10 @@ class TestQfxBasicDM(TestCommonDM):
         if ip_pfx_obj.encapsulation != "vxlan":
             raise Exception("vxlan encaps not set in ip_prefix for int vn \
                                                              %s" %vrf_name)
-        if (ip_pfx_obj.vni != '1111') or (vnc_vni != '1111'):
-            raise Exception("vni mismatch for int vn %s: \
-                             in vnc %s, confiugured %s" %(vrf_name,
-                                                           vnc_vni,
-                                                   ip_pfx_obj.vni))
+        if int(ip_pfx_obj.vni) != 1111 or vnc_vni != 1111:
+            raise Exception("vni mismatch for int vn '%s': in vnc %s, "
+                            "confiugured %s" % (vrf_name, vnc_vni,
+                                                ip_pfx_obj.vni))
     # end check_spine_evpn_type5_config
 
     @retries(5, hook=retry_exc_handler)
