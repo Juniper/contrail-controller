@@ -75,12 +75,10 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 2
-        jl_message: "Imported interface(s) from {{prouter_vendor}} device, {{prouter_name}}:\n   - {{device_import_resp.phy_intfs_success_names|length}} physical interfaces\n   - {{device_import_resp.log_intfs_success_names|length}} logical interfaces\n   - loopback ip: {{device_import_resp.dataplane_ip}}"
+        jl_message: "Imported interface(s) from {{prouter_vendor}} device, {{prouter_name}}:\n   - {{device_import_resp.phy_intfs_success_names|length}} physical interfaces\n   - {{device_import_resp.log_intfs_success_names|length}} logical interfaces\n}}"
         jl_details: {
                       "imported_phy_intfs": "{{device_import_resp.phy_intfs_success_names}}",
-                      "imported_log_intfs": "{{device_import_resp.log_intfs_success_names}}",
-                      "dataplane_ip_upd_resp": "{{device_import_resp.dataplane_ip_upd_resp}}{{device_import_resp.dataplane_ip}}",
-                      "warning_info": "{{device_import_resp.warning_info}}"
+                      "imported_log_intfs": "{{device_import_resp.log_intfs_success_names}}"
                     }
 
   rescue:

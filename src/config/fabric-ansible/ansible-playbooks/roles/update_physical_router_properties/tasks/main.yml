@@ -1,0 +1,71 @@
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "/opt/contrail/fabric_ansible_playbooks/roles/update_physical_router_properties/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: check to see if the ansible file for just the vendor exists
+      stat:
+        path: "/opt/contrail/fabric_ansible_playbooks/roles/update_physical_router_properties/tasks/{{prouter_vendor}}.yml"
+      register: p_default
+
+    - name: get additional properties for the device
+      include_tasks: "{{prouter_vendor}}.yml"
+      when: p_default.stat.exists == True
+
+    - name: get additional properties for the device
+      include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      when: p.stat.exists == True
+
+    # validate schema to check if the additional_device_properties is
+    # set as part of the ansible file or left empty by default
+    - name: Validate Input Schema -- additional_device_properties
+      set_fact:
+        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/update_physical_router_properties_schema.json',additional_device_properties, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+
+    - name: Create the obj_dict payload for physical_router_update
+      set_fact:
+        obj_dict_payload: {
+            "fq_name": "{{prouter_fqname}}",
+            "physical_router_dataplane_ip": "{{interfaces_payload.get('dataplane_ip', '')}}",
+            "physical_router_loopback_ip": "{{interfaces_payload.get('dataplane_ip', '')}}",
+            "physical_router_os_version": "{{os_version}}",
+            "additional_properties": "{{additional_device_properties}}"
+        }
+
+    # Call the vnc filter plugin for device update
+    - name: Call the vnc filter plugin for device update
+      set_fact:
+        physical_router_upd_result: "{{job_ctx | update_physical_router(prouter_name, obj_dict_payload, prouter_vendor) }}"
+
+    - name: Set the device_update response
+      set_fact:
+        physical_router_upd_resp: "{{physical_router_upd_result.physical_router_upd_resp}}"
+
+    - name: Handle any exception or error cases
+      include_tasks: error_handler.yml
+      when: "'status' in physical_router_upd_result and physical_router_upd_result.status == 'failure'"
+      vars:
+        op_err_message: "Unable to update {{prouter_vendor}} device: {{ physical_router_upd_result.error_msg }}"
+        jl_err_message: "Failed to update {{prouter_vendor}} device due to error: {{ physical_router_upd_result.error_msg }}. Here is the update_physical_router_log: {{physical_router_upd_result.upd_pr_log}}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 3
+        jl_message: "Updated {{prouter_vendor}} device with:   {{physical_router_upd_resp.job_log_msg}}"
+        jl_details: {
+                      "warning_info": "{{physical_router_upd_resp.warning_info}}"
+                    }
+
+  rescue:
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play
