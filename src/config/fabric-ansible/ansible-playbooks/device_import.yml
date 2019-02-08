@@ -7,6 +7,7 @@
   roles:
     - import_device_facts
     - import_interfaces_info
+    - update_physical_router_properties
 
   tasks:
 
