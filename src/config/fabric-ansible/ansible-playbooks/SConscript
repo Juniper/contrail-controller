@@ -59,6 +59,7 @@ local_sources = [
     'node_profile.yml',
     'plugin_ironic.yml',
     'server_import.yml',
+    'hitless_upgrade_errors.yml',
 ]
 
 local_sources_rules = []
