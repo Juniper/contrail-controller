@@ -1418,8 +1418,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         vn_dict = result
 
-        vlan_tag = ((obj_dict.get('virtual_machine_interface_properties') or
-                     {}).get('sub_interface_vlan_tag'))
+        vlan_tag = (obj_dict.get('virtual_machine_interface_properties') or {}
+                    ).get('sub_interface_vlan_tag') or 0
+        if vlan_tag < 0 or vlan_tag > 4094:
+            return False, (400, "Invalid sub-interface VLAN tag ID: %s" %
+                           vlan_tag)
         if vlan_tag and 'virtual_machine_interface_refs' in obj_dict:
             primary_vmi_ref = obj_dict['virtual_machine_interface_refs']
             ok, primary_vmi = cls.dbe_read(db_conn,
@@ -1650,13 +1653,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
 
-        if 'virtual_machine_interface_properties' in obj_dict:
-            new_vlan = int(obj_dict['virtual_machine_interface_properties']
-                           .get('sub_interface_vlan_tag') or 0)
-            old_vlan = int((read_result.get('virtual_machine_interface_properties') or {})
-                            .get('sub_interface_vlan_tag') or 0)
-            if new_vlan != old_vlan:
-                return (False, (400, "Cannot change Vlan tag"))
+        new_vlan = (obj_dict.get('virtual_machine_interface_properties') or
+                    {}).get('sub_interface_vlan_tag') or 0
+        old_vlan = (read_result.get('virtual_machine_interface_properties') or
+                    {}).get('sub_interface_vlan_tag') or 0
+        if new_vlan != old_vlan:
+            return False, (400, "Cannot change sub-interface VLAN tag ID")
 
         if 'virtual_machine_interface_bindings' in obj_dict or vmib:
             bindings_port = read_result.get('virtual_machine_interface_bindings') or {}
