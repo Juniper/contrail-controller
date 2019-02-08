@@ -590,7 +590,6 @@ class FakeKombu(object):
 
                 def delete(self):
                     self.parent_q.clear()
-                    pass
                 # end delete
             return BoundQueue(self)
         # end __call__
@@ -1120,7 +1119,6 @@ class FakeKeystoneClient(object):
         self.domains = FakeKeystoneClient.Domains()
         self.users = FakeKeystoneClient.Users()
         self.roles = FakeKeystoneClient.Roles()
-        pass
 
     def user_role(self, username, tenant_id):
         return self.roles.get_user_role(username, tenant_id)

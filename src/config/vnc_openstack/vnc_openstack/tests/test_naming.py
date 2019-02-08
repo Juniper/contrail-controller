@@ -2,6 +2,7 @@ import sys
 import json
 import uuid
 import logging
+import gevent
 from gevent import monkey
 monkey.patch_all()
 
@@ -9,11 +10,11 @@ from flexmock import flexmock
 from testtools.matchers import Equals, Contains, Not
 from testtools import content, content_type, ExpectedException
 
-from vnc_api.vnc_api import *
+from vnc_api import vnc_api
 from pysandesh.connection_info import ConnectionState
 
 sys.path.append('../common/tests')
-from test_utils import *
+import test_utils
 import test_common
 
 import test_case
@@ -43,7 +44,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
     # end _change_resource_name
 
     def test_name_change(self):
-        proj_obj = Project('project-%s' % self.id())
+        proj_obj = vnc_api.Project('project-%s' % self.id())
         self._vnc_lib.project_create(proj_obj)
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
@@ -70,7 +71,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
     # end test_name_change
 
     def test_duplicate_name(self):
-        proj_obj = Project('project-%s' % self.id())
+        proj_obj = vnc_api.Project('project-%s' % self.id())
         self._vnc_lib.project_create(proj_obj)
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
@@ -216,30 +217,31 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
             for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
         self.assertThat(conn_info.status.lower(), Equals('up'))
 
-        fake_list_invoked = []
+        fake_list_invoked = list()
         def fake_list(*args, **kwargs):
             fake_list_invoked.append(True)
             raise Exception("Fake Keystone Projects List exception")
 
-        with test_common.flexmocks([
-            (self.openstack_driver._ks.tenants, 'list', fake_list)]):
-            proj_id = str(uuid.uuid4())
-            proj_name = self.id()+'verify-down'
-            test_case.get_keystone_client().tenants.add_tenant(
-                proj_id, proj_name)
-            self.openstack_driver._ks = None # force to re-connect on next poll
-            def verify_down():
-                conn_info = [ConnectionState._connection_map[x]
-                    for x in ConnectionState._connection_map
-                    if x[1] == 'Keystone'][0]
-                self.assertThat(conn_info.status.lower(), Equals('down'))
+        def verify_down():
+            conn_info = [ConnectionState._connection_map[x]
+                for x in ConnectionState._connection_map
+                if x[1] == 'Keystone'][0]
+            self.assertThat(conn_info.status.lower(), Equals('down'))
 
-            # verify up->down
-            gevent.sleep(self.resync_interval)
-            verify_down()
+        with test_common.flexmocks([(self.openstack_driver._ks.tenants, 'list', fake_list)]):
+            # wait for tenants.list is invoked for 2*self.resync_interval max
+            for x in range(10):
+                if len(fake_list_invoked) >= 1:
+                    break
+                gevent.sleep(float(self.resync_interval)/5.0)
+            # check that tenants.list was called once
             self.assertThat(len(fake_list_invoked), Equals(1))
+            # wait for 1/10 of self.resync_interval to let code reach reset_connection in service
+            gevent.sleep(float(self.resync_interval)/10.0)
+            # verify up->down
+            verify_down()
             # should remain down
-            gevent.sleep(self.resync_interval)
+            gevent.sleep(float(self.resync_interval)*1.05)
             verify_down()
             self.assertThat(len(fake_list_invoked), Equals(2))
 
@@ -250,3 +252,51 @@ class KeystoneConnectionStatus(test_case.KeystoneSyncTestCase):
         self.assertThat(conn_info.status.lower(), Equals('up'))
     # end test_connection_status_change
 # end class KeystoneConnectionStatus
+
+
+keystone_ready = False
+def get_keystone_client(*args, **kwargs):
+    if keystone_ready:
+        return test_utils.get_keystone_client()
+    raise Exception("keystone connection failed.")
+
+
+class TestKeystoneConnection(test_case.KeystoneSyncTestCase):
+    resync_interval = 0.5
+    @classmethod
+    def setUpClass(cls):
+        keystone_ready = False
+        from keystoneclient import client as keystone
+        extra_mocks = [(keystone, 'Client', get_keystone_client)]
+        super(TestKeystoneConnection, cls).setUpClass(
+            extra_mocks=extra_mocks,
+            extra_config_knobs=[('DEFAULTS', 'keystone_resync_interval_secs',
+                                 cls.resync_interval)])
+    # end setUpClass
+
+    def test_connection_status(self):
+        # check that connection was not obtained
+        conn_info = [ConnectionState._connection_map[x]
+            for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+        self.assertThat(conn_info.status.lower(), Equals('initializing'))
+
+        # sleep and check again
+        gevent.sleep(self.resync_interval)
+        conn_info = [ConnectionState._connection_map[x]
+            for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+        self.assertThat(conn_info.status.lower(), Equals('initializing'))
+
+        # allow to create connection
+        global keystone_ready
+        keystone_ready = True
+        # wait for connection set up
+        gevent.sleep(float(self.resync_interval)*1.5)
+        conn_info = [ConnectionState._connection_map[x]
+            for x in ConnectionState._connection_map if x[1] == 'Keystone'][0]
+        self.assertThat(conn_info.status.lower(), Equals('up'))
+
+        # check that driver works as required
+        proj_id = str(uuid.uuid4())
+        proj_name = self.id() + 'verify-active'
+        get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+        proj_obj = self._vnc_lib.project_read(id=proj_id)

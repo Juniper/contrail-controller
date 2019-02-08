@@ -39,17 +39,23 @@ class VncOpenstackTestCase(TestCase):
     ]
     _entry_pt_to_classes = FakeExtensionManager._entry_pt_to_classes
     @classmethod
-    def setup_flexmock(cls):
+    def setUpClass(cls, *args, **kwargs):
+        # below code is needed due to different behaviour
+        # of creating flexmock in setUp and in setup_extra_flexmock
         from keystoneclient import client as keystone
+        mocks = kwargs.get('extra_mocks', list())
+        for index in range(len(mocks)):
+            mock = mocks[index]
+            if mock[0] == keystone and mock[1] == 'Client':
+                del mocks[index]
+                kwargs['extra_mocks'] = mocks
+                setup_extra_flexmock([mock])
+                break
+        else:
+            setup_extra_flexmock([(keystone, 'Client', get_keystone_client)])
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resync'] = [vnc_openstack.OpenstackDriver]
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [vnc_openstack.ResourceApiDriver]
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [vnc_openstack.NeutronApiDriver]
-        setup_extra_flexmock([(keystone, 'Client', get_keystone_client)])
-
-    # end setup_flexmock
-
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
         setup_extra_flexmock([(stevedore.extension.ExtensionManager, '__new__', FakeExtensionManager)])
         super(VncOpenstackTestCase, cls).setUpClass(*args, **kwargs)
     # end setUp
@@ -71,7 +77,6 @@ class VncOpenstackTestCase(TestCase):
 class NeutronBackendTestCase(VncOpenstackTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
-        cls.setup_flexmock()
         super(NeutronBackendTestCase, cls).setUpClass(*args, **kwargs)
         cls.neutron_api_obj = FakeExtensionManager.get_extension_objects(
             'vnc_cfg_api.neutronApi')[0]
@@ -207,7 +212,6 @@ class NeutronBackendTestCase(VncOpenstackTestCase):
 class KeystoneSyncTestCase(VncOpenstackTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
-        cls.setup_flexmock()
         super(KeystoneSyncTestCase, cls).setUpClass(*args, **kwargs)
         cls.openstack_driver = FakeExtensionManager.get_extension_objects(
             'vnc_cfg_api.resync')[0]
@@ -218,7 +222,6 @@ class KeystoneSyncTestCase(VncOpenstackTestCase):
 class ResourceDriverTestCase(VncOpenstackTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
-        cls.setup_flexmock()
         super(ResourceDriverTestCase, cls).setUpClass(*args, **kwargs)
         cls.resource_driver = FakeExtensionManager.get_extension_objects(
             'vnc_cfg_api.resourceApi')[0]
