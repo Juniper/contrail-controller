@@ -283,10 +283,12 @@ class VncApiServer(object):
                     cls._validate_complex_type(attr_cls, item)
             else:
                 simple_type = attr_type_vals['simple_type']
-                for item in values:
-                    cls._validate_simple_type(key, attr_type,
-                                              simple_type, item,
-                                              restrictions)
+                for idx, item in enumerate(values):
+                    values[idx] = cls._validate_simple_type(key, attr_type,
+                                                            simple_type, item,
+                                                            restrictions)
+            if not is_array:
+                dict_body[key] = values[0]
     # end _validate_complex_type
 
     @staticmethod
