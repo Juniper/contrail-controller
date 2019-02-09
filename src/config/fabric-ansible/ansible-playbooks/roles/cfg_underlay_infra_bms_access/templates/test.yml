@@ -1,0 +1,148 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  vars:
+    feature: underlay_infra_bms_access
+    cfg_group: __contrail_underlay_infra_bms_access__
+
+  tasks:
+    - set_fact:
+        "device_abstract_config": {
+        "bgp": [
+            {
+                "autonomous_system": 64512,
+                "comment": "/* overlay_bgp: BGP Router: vqfx2-bgp, UUID: dab04a8c-3b6a-4f90-9e2f-28cebba4a3e0 */",
+                "families": [
+                    "inet-vpn",
+                    "inet6-vpn",
+                    "route-target",
+                    "evpn"
+                ],
+                "hold_time": 90,
+                "ip_address": "2.2.2.2",
+                "name": "_contrail_asn-64512",
+                "peers": [
+                    {
+                        "autonomous_system": 64512,
+                        "comment": "/* overlay_bgp: BGP Router: cc2.local, UUID: a8625078-eb89-4a98-a07b-5734b2bfebbd */",
+                        "ip_address": "192.168.3.23",
+                        "name": "192.168.3.23"
+                    },
+                    {
+                        "autonomous_system": 64512,
+                        "comment": "/* overlay_bgp: BGP Router: vqfx3-bgp, UUID: 64979ce7-94b4-4221-9969-2fb4e959003b */",
+                        "ip_address": "2.2.2.3",
+                        "name": "2.2.2.3"
+                    }
+                ],
+                "type_": "internal"
+            }
+        ],
+        "comment": "/* Contrail Generated Group Config */",
+        "forwarding_options": {
+            "dhcp_relay": [
+                {
+                    "comment": "Underlay Infra BMS Access",
+                    "dhcp_relay_group": "SVR_RELAY_GRP_provisioning",
+                    "dhcp_server_ips": [
+                        {
+                            "address": "20.1.1.1"
+                        }
+                    ],
+                    "interfaces": [
+                        {
+                            "name": "irb.0"
+                        }
+                    ]
+                }
+            ]
+        },
+        "physical_interfaces": [
+            {
+                "comment": "Underlay Infra BMS Access",
+                "interface_type": "irb",
+                "logical_interfaces": [
+                    {
+                        "ip_addresses": [
+                            {
+                                "address": "10.1.1.254",
+                                "family": "inet"
+                            }
+                        ],
+                        "ip_list": [
+                            "10.1.1.254"
+                        ],
+                        "name": "irb.0",
+                        "unit": 0
+                    }
+                ],
+                "name": "irb"
+            },
+            {
+                "comment": "Underlay Infra BMS Access",
+                "interface_type": "regular",
+                "logical_interfaces": [
+                    {
+                        "family": "ethernet-switching",
+                        "name": "xe-0/0/2.0",
+                        "unit": 0
+                    }
+                ],
+                "name": "xe-0/0/2"
+            }
+       ],
+        "system": {
+            "credentials": {
+                "authentication_method": "PasswordBasedAuthentication",
+                "password": "c0ntrail123",
+                "user_name": "root"
+            },
+            "device_family": "junos-qfx",
+            "encapsulation_priorities": [
+                "VXLAN",
+                "MPLSoUDP",
+                "MPLSoGRE"
+            ],
+            "loopback_ip_list": [
+                "2.2.2.2"
+            ],
+            "management_ip": "2.2.2.2",
+            "name": "vqfx2",
+            "physical_role": "leaf",
+            "product_name": "vqfx-10000",
+            "routing_bridging_roles": [
+                "CRB-Access"
+            ],
+            "tunnel_destination_networks": [
+                {
+                    "prefix": "172.16.3.0",
+                    "prefix_len": 24
+                }
+            ],
+            "tunnel_ip": "2.2.2.2",
+            "uuid": "1c6545db-d01b-47f9-9558-532b944c0c97",
+            "vendor_name": "Juniper"
+        },
+        "vlans": [
+            {
+                "comment": "Underlay Infra BMS Access",
+                "l3_interface": "irb.0",
+                "name": "provisioning_vlan",
+                "vlan_id": 0
+            }
+        ]
+    }
+    - debug: var=device_abstract_config verbosity=0
+
+    - template:
+        src: juniper_junos-qfx_underlay_infra_bms_access.j2
+        dest: /tmp/output3.json
+
+    - command: cat /tmp/output3.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=0
+
+
