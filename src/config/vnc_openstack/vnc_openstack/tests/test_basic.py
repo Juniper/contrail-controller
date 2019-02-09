@@ -16,6 +16,10 @@ from test_utils import *
 import test_common
 import requests
 import test_case
+try:
+    from neutron_lib import constants
+except ImportError:
+    from neutron.common import constants
 
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
 
@@ -210,6 +214,62 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_router_delete(id=vr_obj)
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_port_bindings
+
+    def test_sub_interfaces_with_vm_attached(self):
+        vn = vnc_api.VirtualNetwork('vn-%s' % (self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+        vmi_prop = vnc_api.VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=256)
+        vmi_name = 'vmi1'
+        vm_name = 'vm1'
+        vm = vnc_api.VirtualMachine(vm_name)
+        self._vnc_lib.virtual_machine_create(vm)
+        vmi_obj = vnc_api.VirtualMachineInterface(vmi_name, parent_obj=vnc_api.Project())
+        vmi_obj.set_virtual_network(vn)
+        vmi_obj.add_virtual_machine(vm)
+        vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        vmi_name = 'sub_vmi1'
+        sub_vmi_obj = vnc_api.VirtualMachineInterface(vmi_name, parent_obj=vnc_api.Project(),
+                                                      virtual_machine_interface_properties=vmi_prop)
+        sub_vmi_obj.set_virtual_network(vn)
+        sub_vmi_obj.set_virtual_machine_interface(vmi_obj)
+        self._vnc_lib.virtual_machine_interface_create(sub_vmi_obj)
+        sub_intf_dict = self.read_resource('port', sub_vmi_obj.uuid)
+        self.assertEqual(sub_intf_dict['status'], constants.PORT_STATUS_ACTIVE)
+
+        # Clean the resources
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=sub_vmi_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+
+    # end test_sub_interfaces_with_vm_attached
+
+    def test_sub_interfaces_with_no_vm_attached(self):
+        vn = vnc_api.VirtualNetwork('vn-%s' % (self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+        vmi_prop = vnc_api.VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=256)
+        vmi_name = 'vmi2'
+        vmi_obj = vnc_api.VirtualMachineInterface(
+            vmi_name, parent_obj=vnc_api.Project())
+        vmi_obj.set_virtual_network(vn)
+        vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        vmi_name = 'sub_vmi2'
+        sub_vmi_obj = vnc_api.VirtualMachineInterface(
+            vmi_name, parent_obj=vnc_api.Project(),
+            virtual_machine_interface_properties=vmi_prop)
+        sub_vmi_obj.set_virtual_network(vn)
+        sub_vmi_obj.set_virtual_machine_interface(vmi_obj)
+        self._vnc_lib.virtual_machine_interface_create(sub_vmi_obj)
+        sub_intf_dict = self.read_resource('port', sub_vmi_obj.uuid)
+        self.assertEqual(sub_intf_dict['status'], constants.PORT_STATUS_DOWN)
+
+        # Clean the resources
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=sub_vmi_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+    # end test_sub_interfaces_with_no_vm_attached
+   
 
     @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings(self):
@@ -1133,7 +1193,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         net_q = self.create_resource('network', proj_id)
         subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
         return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'], 'port_security_enabled':False})
-
+    
     def test_create_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         with ExpectedException(webtest.app.AppError):
