@@ -95,6 +95,7 @@ role_to_feature_mapping:
   CRB-Access@leaf:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -104,6 +105,7 @@ role_to_feature_mapping:
   ERB-UCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -115,6 +117,7 @@ role_to_feature_mapping:
   CRB-Gateway@leaf:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_gateway
@@ -123,11 +126,13 @@ role_to_feature_mapping:
   null@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
   CRB-Access@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_access
@@ -137,6 +142,7 @@ role_to_feature_mapping:
   CRB-Gateway@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_gateway
@@ -145,6 +151,7 @@ role_to_feature_mapping:
   CRB-MCAST-Gateway@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_gateway
@@ -157,6 +164,7 @@ role_to_feature_mapping:
   DC-Gateway@leaf:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -166,6 +174,7 @@ role_to_feature_mapping:
   DC-Gateway@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -175,6 +184,7 @@ role_to_feature_mapping:
   DCI-Gateway@leaf:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -184,6 +194,7 @@ role_to_feature_mapping:
   DCI-Gateway@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_networking
     - overlay_fip_snat
@@ -193,10 +204,12 @@ role_to_feature_mapping:
   Route-Reflector@spine:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
   CRB-MCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
+    - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_gateway
