@@ -70,6 +70,7 @@
   roles:
     - cfg_basic
     - cfg_underlay_ip_clos
+    - cfg_underlay_infra_bms_access
     - cfg_overlay_bgp
     - cfg_overlay_evpn
     - cfg_overlay_evpn_access
@@ -102,7 +103,7 @@
       vars:
         current_index: 2
         jl_message: "Underlay config successful for: {{device_mgmt_ip}}"
-        
+
     - set_fact:
         output: {
               "status": "Success",
