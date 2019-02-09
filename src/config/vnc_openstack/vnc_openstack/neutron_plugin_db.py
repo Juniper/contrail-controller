@@ -13,11 +13,14 @@ import uuid
 from cfgm_common import jsonutils as json
 from cfgm_common import rest
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
+from cfgm_common.utils import _DEFAULT_ZK_LOCK_PATH_PREFIX
+from cfgm_common.utils import _DEFAULT_ZK_LOCK_TIMEOUT
 import netaddr
 from netaddr import IPNetwork, IPSet, IPAddress
 import gevent
 import bottle
 import time
+from kazoo.exceptions import LockTimeout
 
 try:
     from neutron_lib import constants
@@ -270,6 +273,13 @@ class DBInterface(object):
         self._contrail_extensions_enabled = contrail_extensions_enabled
         self._list_optimization_enabled = list_optimization_enabled
 
+        # Set the lock prefix for security_group_rule modifications
+        self.lock_path_prefix = '%s/%s' % (self._api_server_obj._args.cluster_id,
+                                           _DEFAULT_ZK_LOCK_PATH_PREFIX)
+        self.security_group_lock_prefix = '%s/security_group' % self.lock_path_prefix
+
+        self._zookeeper_client = self._api_server_obj._db_conn._zk_db._zk_client
+
         # Retry till a api-server is up
         self._connected_to_api_server = gevent.event.Event()
         connected = False
@@ -454,34 +464,62 @@ class DBInterface(object):
     #end _raise_contrail_exception
 
     def _security_group_rule_create(self, sg_id, sg_rule):
-        try:
-            sg_vnc = self._vnc_lib.security_group_read(id=sg_id)
-        except NoIdError:
-            self._raise_contrail_exception('SecurityGroupNotFound', id=sg_id)
+        # Before we can update the rule inside security_group, get the
+        # lock first. This lock will be released in finally block below.
+        scope_lock = self._zookeeper_client.lock(
+            '%s/%s' % (
+                self.security_group_lock_prefix, sg_id
+            ))
 
-        rules = sg_vnc.get_security_group_entries()
-        if rules is None:
-            rules = PolicyEntriesType([sg_rule])
-        else:
-            rules.add_policy_rule(sg_rule)
-        sg_vnc.set_security_group_entries(rules)
-
+        # (SATHISH) This is a temp fix for fixing lost update problem during
+        # Parallel creation of Security Group Rule 
         try:
-            self._resource_update('security_group', sg_vnc)
-        except BadRequest as e:
-            self._raise_contrail_exception('BadRequest',
-                resource='security_group_rule', msg=str(e))
-        except OverQuota as e:
-            self._raise_contrail_exception('OverQuota',
-                overs=['security_group_rule'], msg=str(e))
-        except RefsExistError as e:
+            acquired_lock = scope_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
+
+            # If this node acquired the lock, continue with creation of
+            # security_group rule.
             try:
-                rule_uuid = str(e).split(':')[1].strip()
-            except IndexError:
-                rule_uuid = None
-            self._raise_contrail_exception('SecurityGroupRuleExists',
-                resource='security_group_rule', id=rule_uuid, rule_id=rule_uuid)
-    # end _security_group_rule_create
+                sg_vnc = self._vnc_lib.security_group_read(id=sg_id)
+            except NoIdError:
+                scope_lock.release()
+                self._raise_contrail_exception('SecurityGroupNotFound', id=sg_id)
+
+            rules = sg_vnc.get_security_group_entries()
+            if rules is None:
+                rules = PolicyEntriesType([sg_rule])
+            else:
+                rules.add_policy_rule(sg_rule)
+            sg_vnc.set_security_group_entries(rules)
+
+            try:
+                self._resource_update('security_group', sg_vnc)
+            except BadRequest as e:
+                scope_lock.release()
+                self._raise_contrail_exception('BadRequest',
+                    resource='security_group_rule', msg=str(e))
+            except OverQuota as e:
+                scope_lock.release()
+                self._raise_contrail_exception('OverQuota',
+                    overs=['security_group_rule'], msg=str(e))
+            except RefsExistError as e:
+                try:
+                    rule_uuid = str(e).split(':')[1].strip()
+                except IndexError:
+                    rule_uuid = None
+                scope_lock.release()
+                self._raise_contrail_exception('SecurityGroupRuleExists',
+                    resource='security_group_rule', id=rule_uuid, rule_id=rule_uuid)
+
+        except LockTimeout:
+            # If the lock was not acquired and timeout of 5 seconds happened, then raise
+            # a bad request error.
+            msg = ("Security Group Rule could not be created, Try again.. ")
+            self._raise_contrail_exception('BadRequest',
+                resource='security_group_rule', msg=msg)
+        finally:
+            scope_lock.release()
+
+    # end _security_group_rule_create 
 
     def _security_group_rule_find(self, sgr_id, project_uuid=None):
         # Get all security group for a project if project uuid is specified
@@ -501,10 +539,29 @@ class DBInterface(object):
     #end _security_group_rule_find
 
     def _security_group_rule_delete(self, sg_obj, sg_rule):
-        rules = sg_obj.get_security_group_entries()
-        rules.get_policy_rule().remove(sg_rule)
-        sg_obj.set_security_group_entries(rules)
-        self._resource_update('security_group', sg_obj)
+        # Before we can delete the rule inside security_group, get the
+        # lock first. This lock will be released in finally block below.
+        scope_lock = self._zookeeper_client.lock(
+            '%s/%s' % (
+                self.security_group_lock_prefix, sg_obj.uuid
+            ))
+
+        try:
+            acquired_lock = scope_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
+            # If this node acquired the lock, continue with deletion of
+            # security_group rule.
+            rules = sg_obj.get_security_group_entries()
+            rules.get_policy_rule().remove(sg_rule)
+            sg_obj.set_security_group_entries(rules)
+            self._resource_update('security_group', sg_obj)
+        except LockTimeout:
+            # If the lock was not acquired and timeout of 5 seconds happened, then raise
+            # a bad request error.
+            msg = ("Security Group Rule could not be deleted, Try again.. ")
+            self._raise_contrail_exception('BadRequest',
+                resource='security_group_rule', msg=msg)
+        finally:
+            scope_lock.release()
     #end _security_group_rule_delete
 
     def _security_group_delete(self, sg_id):
@@ -4669,6 +4726,12 @@ class DBInterface(object):
             self._resource_delete('security_group', sg_id)
         except RefsExistError:
             self._raise_contrail_exception('SecurityGroupInUse', id=sg_id)
+
+        # Once the security group is deleted, delete the zk node
+        self._zookeeper_client.delete_node(
+            '%s/%s' % (
+                self.security_group_lock_prefix, sg_id
+            ))
 
    #end security_group_delete
 
