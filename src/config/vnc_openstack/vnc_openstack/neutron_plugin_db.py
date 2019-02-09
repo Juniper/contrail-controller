@@ -2516,6 +2516,26 @@ class DBInterface(object):
                     sorted_vmis[0].get_instance_ip_back_refs()):
                 return sorted_vmis[0]
 
+    def _port_get_interface_status(self, port_obj):
+        vmi_prop = port_obj.get_virtual_machine_interface_properties()
+        if vmi_prop is None or vmi_prop.get_sub_interface_vlan_tag() is None:
+            return constants.PORT_STATUS_DOWN
+        # if the VMI is a subinterface do special handling.
+        vmi_refs = port_obj.get_virtual_machine_interface_refs()
+        if vmi_refs is None:
+            return constants.PORT_STATUS_DOWN
+        if len(vmi_refs) > 1:
+            msg = ("Sub Interface %s(%s) has more that one VMI reference"
+                   % (port_obj.get_fq_name_str(), port_obj.uuid))
+            self.logger.warning(msg)
+        # if parent interface of a sub interface is attached to a VM, then subinterface
+        # is in PORT_STATUS_ACTIVE .
+        parent_port_obj = self._virtual_machine_interface_read(port_id=vmi_refs[0]['uuid'],
+                                                               fields=['virtual_machine_refs'])
+        if parent_port_obj.get_virtual_machine_refs():
+            return constants.PORT_STATUS_ACTIVE
+        return constants.PORT_STATUS_DOWN
+
     @catch_convert_exception
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None, oper=READ):
         port_q_dict = {}
@@ -2719,8 +2739,7 @@ class DBInterface(object):
         if port_q_dict['device_id']:
             port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
         else:
-            port_q_dict['status'] = constants.PORT_STATUS_DOWN
-
+            port_q_dict['status'] = self._port_get_interface_status(port_obj)
         if self._contrail_extensions_enabled:
             port_q_dict.update(extra_dict)
         port_q_dict['port_security_enabled'] = port_obj.get_port_security_enabled()
