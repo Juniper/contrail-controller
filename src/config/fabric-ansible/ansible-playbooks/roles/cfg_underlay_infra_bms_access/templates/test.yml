@@ -1,0 +1,72 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  vars:
+    feature: underlay_infra_bms_access
+    cfg_group: __contrail_underlay_infra_bms_access__
+
+  tasks:
+    - set_fact:
+        device_abstract_config : {
+          "physical_interfaces": [
+              {
+                  "interface_type": "irb",
+                  "comment": "underlay infra bms access",
+                  "logical_interfaces": [
+                      {
+                          "ip_list": [
+                              "10.87.121.190/27"
+                          ],
+                          "name": "irb.997",
+                          "unit": "997",
+                          "family": "inet"
+                      }
+                  ],
+                  "name": "irb"
+              },
+                 {
+                  "interface_type": "regular",
+                  "comment": "underlay infra bms access",
+                  "logical_interfaces": [
+                      {
+                          "name": "xe-0/0/1.997",
+                          "unit": "997",
+                          "family": "ethernet-switching"
+                      }
+                  ],
+                  "name": "xe-0/0/1"
+              }
+          ],
+          "vlans": [
+              {
+                  "l3-interfaces": "irb.997",
+                  "name": "provisioning_vlan",
+                  "comment": "underlay infra bms access",
+                  "vlan_id": "997"
+              }
+          ],
+          "forwarding_options": [
+                  {
+                      "dhcp-relay-group": "SVRMGR_RELAY",
+                      "comment": "underlay infra bms access",
+                      "dhcp_server_ips" : [
+                          "10.84.5.100"
+                      ],
+                      "interfaces": [
+                          "irb.997"
+                      ]
+                  }
+              ]
+      }
+    - debug: var=device_abstract_config verbosity=0
+
+    - template:
+        src: juniper_junos-qfx_underlay_infra_bms_access.j2
+        dest: /tmp/output3.json
+
+    - command: cat /tmp/output3.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=0
