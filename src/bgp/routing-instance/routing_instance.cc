@@ -444,6 +444,7 @@ bool RoutingInstanceMgr::DeleteVirtualNetworkMapping(
     }
 
     // Send delete uve.
+    instance_info.set_name(virtual_network);
     RoutingInstanceStats::Send(instance_info);
 
     return mapping_deleted;
