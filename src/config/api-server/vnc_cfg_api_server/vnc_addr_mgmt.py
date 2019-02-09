@@ -2223,7 +2223,7 @@ class AddrMgmt(object):
 
         try:
             vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        except cfgm_common.exceptions.NoIdError:
+        except cfgm_common.exceptions.NoIdError as e:
             return False, (400, str(e))
 
         if alloc_id:
