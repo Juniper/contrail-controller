@@ -524,11 +524,11 @@ class VncApiServer(object):
             headers (Type dict): headers for the message
             payload (Type object): the message
         '''
-        self.config_log("Entered amqp-response",
+        self.config_log("Entered amqp-request",
                         level=SandeshLevel.SYS_INFO)
 
         body = get_request().json
-        msg = "Amqp response %s " % json.dumps(body)
+        msg = "Amqp request %s " % json.dumps(body)
         self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         if self._amqp_client.get_exchange(body.get('exchange')) is None:
@@ -553,6 +553,9 @@ class VncApiServer(object):
         finally:
             self._amqp_client.remove_consumer(consumer)
 
+        msg = "Amqp response, status %s, body %s " % (bottle.response.status,
+            json.dumps(amqp_worker.body))
+        self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         return amqp_worker.body
     # end amqp_request_http_post
 
@@ -2022,7 +2025,8 @@ class VncApiServer(object):
                 ssl_certfile=self._args.kombu_ssl_certfile,
                 ssl_ca_certs=self._args.kombu_ssl_ca_certs
             )
-            amqp_client = KombuAmqpClient(self.config_log, rabbitmq_cfg)
+            amqp_client = KombuAmqpClient(self.config_log, rabbitmq_cfg,
+                heartbeat=self.get_rabbit_health_check_interval())
             amqp_client.add_exchange(self.JOB_REQUEST_EXCHANGE, type="direct")
             amqp_client.run()
         except Exception as e:
