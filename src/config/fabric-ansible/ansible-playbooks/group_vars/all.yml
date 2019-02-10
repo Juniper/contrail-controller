@@ -55,8 +55,6 @@ POOL_SIZE: 500
 #Device Retry Timeout in Seconds
 TOTAL_RETRY_TIMEOUT: 3600
 
-TFTP_SERVER: "{{ lookup('env', 'TFTP_NODE') }}"
-
 #vendor mapping
 vendor_mapping:
   - vendor: Juniper

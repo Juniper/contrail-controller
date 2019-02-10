@@ -37,7 +37,7 @@ dhcp-option=option:dns-server,{{ servers | join(',') }}
 {%     endif %}
 {%   endif %}
 {% endif %}
-dhcp-option=66,{{ tftp_server }}
-dhcp-option=150,{{ tftp_server }}
+dhcp-option=66,<host_ip>
+dhcp-option=150,<host_ip>
 dhcp-option=tag:jn,encap:43,1,"{{ fabric_name }}_juniper.sh"
 dhcp-option=tag:jn,encap:43,3,"tftp"

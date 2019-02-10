@@ -49,7 +49,7 @@ def initialize_amqp_client(logger, args):
             ssl_ca_certs=args.kombu_ssl_ca_certs
         )
         amqp_client = KombuAmqpClient(logger.log, rabbitmq_cfg,
-                                      heartbeat=10)
+            heartbeat=args.rabbit_health_check_interval)
         amqp_client.run()
     except Exception as e:
         logger.error("Error while initializing the AMQP"
@@ -144,7 +144,7 @@ def main(args_str=None):
 
     try:
         # Initialize the device ztp manager
-        DeviceZtpManager(_amqp_client, args, dm_logger)
+        DeviceZtpManager(_amqp_client, args, host_ip, dm_logger)
     except Exception as e:
         dm_logger.error("Error while initializing the device ztp "
                         "manager %s" % repr(e))
