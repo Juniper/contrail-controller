@@ -93,12 +93,15 @@ class DeviceZtpManager(object):
     # end handle_tftp_file_request
 
     def handle_ztp_request(self, body, message):
+        self._logger.debug("Entered handle_ztp_request")
         message.ack()
         gevent.spawn(self._ztp_request, message.headers, body)
     # end handle_ztp_request
 
     def _ztp_request(self, headers, config):
         try:
+            self._logger.debug("ztp_request: headers %s, config %s" % \
+                (str(headers), str(config)))
             action = headers.get('action')
             if action is None:
                 return
@@ -163,6 +166,7 @@ class DeviceZtpManager(object):
 
     def _handle_file_request(self, body, message, dir):
         try:
+            self._logger.debug("handle_file_request: headers %s" % str(message.headers))
             message.ack()
             action = message.headers.get('action')
             if action is None:
@@ -191,7 +195,7 @@ class DeviceZtpManager(object):
         self._logger.debug("Fetching all containers")
         all_containers = self._client.containers.list(all=True)
         for container in all_containers:
-            labels = container.get('Labels', dict())
+            labels = container.labels or dict()
             service = labels.get('net.juniper.contrail.service')
             if service == 'dnsmasq':
                 self._logger.info("Restarting dnsmasq docker: %s" %
