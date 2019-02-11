@@ -292,9 +292,10 @@ class PnfScProvisioner(object):
     def add_service_instance(self):
         si_name = self._args.name + "-SI"
         st_name = self._args.name + "-ST"
-        si_fq_name = ['default-domain','default-project', si_name]
+        si_fq_name = ['default-domain','admin', si_name]
         st_fq_name = ['default-domain', st_name]
-        si_obj = ServiceInstance(si_name)
+        si_obj = ServiceInstance(fq_name=si_fq_name)
+        si_obj.fq_name = si_fq_name
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
             print "Service Instance exists " + (si_obj.uuid)
@@ -303,7 +304,7 @@ class PnfScProvisioner(object):
             print "Service Instance created " + (si_uuid)
         try:
             st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
-            si_obj.set_service_template(st_obj)
+            si_obj.add_service_template(st_obj)
         except NoIdError:
             print "Error! Service template not found " + (st_name)
             sys.exit(-1)
@@ -324,6 +325,7 @@ class PnfScProvisioner(object):
             props = ServiceInstanceType()
             props.set_service_virtualization_type(
                                                self._args.virtualization_type)
+            props.set_ha_mode("active-standby")
             si_obj.set_service_instance_properties(props)
         except AttributeError:
             print "Warning: Some attributes of Service Instance missing "\
@@ -334,7 +336,7 @@ class PnfScProvisioner(object):
 
     def del_service_instance(self):
         si_name = self._args.name + "-SI"
-        si_fq_name = ['default-domain', 'default-project', si_name]
+        si_fq_name = ['default-domain', 'admin', si_name]
         try:
             self._vnc_lib.service_instance_delete(fq_name=si_fq_name)
         except NoIdError:
@@ -346,8 +348,8 @@ class PnfScProvisioner(object):
     def add_port_tuple(self):
         pt_name = self._args.name + "-PT"
         si_name = self._args.name + "-SI"
-        si_fq_name = ['default-domain', 'default-project', si_name]
-        pt_fq_name = ['default-domain', 'default-project', si_name, pt_name]
+        si_fq_name = ['default-domain', 'admin', si_name]
+        pt_fq_name = ['default-domain', 'admin', si_name, pt_name]
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
         except NoIdError:
@@ -383,7 +385,7 @@ class PnfScProvisioner(object):
     def del_port_tuple(self):
         pt_name = self._args.name + "-PT"
         si_name = self._args.name + "-SI"
-        pt_fq_name = ['default-domain', 'default-project', si_name, pt_name]
+        pt_fq_name = ['default-domain', 'admin', si_name, pt_name]
         try:
             self._vnc_lib.port_tuple_delete(fq_name=pt_fq_name)
         except NoIdError:
