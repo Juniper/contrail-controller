@@ -142,10 +142,13 @@ class DeviceZtpManager(object):
 
             if os.path.isfile(self._dhcp_leases_file):
                 with open(self._dhcp_leases_file) as lfile:
-                    for match in self._lease_pattern.finditer(lfile.read()):
+                    line = lfile.readline()
+                    while line:
+                        match = self._lease_pattern.match(line)
                         mac = match.group(1)
                         ip_addr = match.group(2)
                         lease_table[mac] = ip_addr
+                        line = lfile.readline()
 
             for mac, ip_addr in lease_table.iteritems():
                 if self._within_dhcp_subnet(ip_addr, config):
