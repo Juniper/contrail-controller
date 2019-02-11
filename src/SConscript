@@ -43,9 +43,7 @@ include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#cont
 libpath = ['#/build/lib']
 
 libs = ['boost_system', 'boost_thread', 'log4cplus']
-if platform.system() == 'Windows':
-    libs.append('windowsstubs')
-else:
+if platform.system() != 'Windows':
     libs.append('pthread')
 
 common = DefaultEnvironment().Clone()

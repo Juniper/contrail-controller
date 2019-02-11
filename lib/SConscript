@@ -7,7 +7,6 @@ if platform.system() == 'Windows':
     subdirs = [
         'boost/windows',
         'libxml2/windows',
-        'windowsstubs',
         'log4cplus/windows',
         'tbb/windows',
         'openssl',
