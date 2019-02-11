@@ -443,6 +443,15 @@ class VncPod(VncCommon):
                         if vr.name == host_id_prefix:
                             vr_uuid = vr.uuid
                             break
+                else:
+                    # Host name on vrouter is a FQNAME. Ignore domain name.
+                    for vr in VirtualRouterKM.values():
+                        if '.' in  vr.name:
+                            host_id_prefix = vr.name.split('.')[0]
+                            if vm_vmi.host_id == host_id_prefix:
+                                vr_uuid = vr.uuid
+                                break
+
 
             if not vr_uuid:
                 self._logger.error("No virtual-router object found for host: "
