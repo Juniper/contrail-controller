@@ -198,6 +198,7 @@ const std::string &XmppConnection::ToUVEKey() const {
 }
 
 static void XMPPPeerInfoSend(XmppPeerInfoData &peer_info) {
+    assert(!peer_info.get_name().empty());
     XMPPPeerInfo::Send(peer_info);
 }
 

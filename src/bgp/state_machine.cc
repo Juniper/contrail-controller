@@ -1718,6 +1718,7 @@ int StateMachine::GetConfiguredHoldTime() const {
 }
 
 void StateMachine::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) {
+    assert(!peer_info.get_name().empty());
     BGPPeerInfo::Send(peer_info);
 }
 

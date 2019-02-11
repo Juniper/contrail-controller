@@ -417,6 +417,7 @@ bool BgpPeerClose::SetGRCapabilities(BgpPeerInfoData *peer_info) {
         peer_info->set_graceful_restart_time(GetGracefulRestartTime());
         peer_info->set_long_lived_graceful_restart_time(
                 GetLongLivedGracefulRestartTime());
+        assert(!peer_info->get_name().empty());
         BGPPeerInfo::Send(*peer_info);
     }
 
