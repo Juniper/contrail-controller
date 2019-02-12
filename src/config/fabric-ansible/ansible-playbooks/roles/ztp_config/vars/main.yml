@@ -4,4 +4,3 @@
 results: {}
 fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
 device_count: "{{ playbook_input.input.device_count }}"
-tftp_server: "{{ TFTP_SERVER }}"

@@ -22,7 +22,7 @@ class DeviceZtpManager(object):
 
     _instance = None
 
-    def __init__(self, amqp_client, args, logger):
+    def __init__(self, amqp_client, args, host_ip, logger):
         DeviceZtpManager._instance = self
         self._client = None
         self._active = False
@@ -31,6 +31,7 @@ class DeviceZtpManager(object):
         self._tftp_dir = args.tftp_dir
         self._dhcp_leases_file = args.dhcp_leases_file
         self._timeout = args.ztp_timeout
+        self._host_ip = host_ip
         self._logger = logger
         self._lease_pattern = None
         self._initialized = False
@@ -93,12 +94,15 @@ class DeviceZtpManager(object):
     # end handle_tftp_file_request
 
     def handle_ztp_request(self, body, message):
+        self._logger.debug("Entered handle_ztp_request")
         message.ack()
         gevent.spawn(self._ztp_request, message.headers, body)
     # end handle_ztp_request
 
     def _ztp_request(self, headers, config):
         try:
+            self._logger.debug("ztp_request: headers %s, config %s" % \
+                (str(headers), str(config)))
             action = headers.get('action')
             if action is None:
                 return
@@ -163,6 +167,7 @@ class DeviceZtpManager(object):
 
     def _handle_file_request(self, body, message, dir):
         try:
+            self._logger.debug("handle_file_request: headers %s" % str(message.headers))
             message.ack()
             action = message.headers.get('action')
             if action is None:
@@ -176,7 +181,10 @@ class DeviceZtpManager(object):
             if action == 'create':
                 self._logger.info("Creating file %s" % file_path)
                 with open(file_path, 'w') as f:
-                    f.write(bytearray(base64.b64decode(body)))
+                    contents = base64.b64decode(body)
+                    contents = contents.replace('<host_ip>',
+                        self._host_ip)
+                    f.write(bytearray(contents))
             elif action == 'delete':
                 self._logger.info("Deleting file %s" % file_path)
                 os.remove(file_path)
@@ -191,7 +199,7 @@ class DeviceZtpManager(object):
         self._logger.debug("Fetching all containers")
         all_containers = self._client.containers.list(all=True)
         for container in all_containers:
-            labels = container.get('Labels', dict())
+            labels = container.labels or dict()
             service = labels.get('net.juniper.contrail.service')
             if service == 'dnsmasq':
                 self._logger.info("Restarting dnsmasq docker: %s" %
