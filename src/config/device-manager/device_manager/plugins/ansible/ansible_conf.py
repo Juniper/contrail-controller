@@ -64,6 +64,7 @@ class AnsibleConf(AnsibleBase):
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
         self.vlan_map = {}
+        self.forwarding_options_map = {}
         self.sc_zone_map = {}
         self.sc_policy_map = {}
         self.bgp_peers = {}
@@ -377,6 +378,8 @@ class AnsibleConf(AnsibleBase):
         device.set_physical_interfaces(pis)
         device.set_routing_instances(self.get_values_sorted_by_key(self.ri_map))
         device.set_vlans(self.get_values_sorted_by_key(self.vlan_map))
+        device.set_forwarding_options(self.get_values_sorted_by_key(
+            self.forwarding_options_map))
         device.set_firewall(self.firewall_config)
         device.set_security_zones(self.get_values_sorted_by_key(self.sc_zone_map))
         device.set_security_policies(self.get_values_sorted_by_key(self.sc_policy_map))
