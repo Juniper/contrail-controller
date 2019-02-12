@@ -18,7 +18,7 @@ class VirtualDnsRecordServer(ResourceMixin, VirtualDnsRecord):
 
     @classmethod
     def validate_dns_record(cls, obj_dict, db_conn):
-        vdns_class = cls.server.get_resource_class('virtual_dns')
+        vdns_class = cls.server.get_resource_class('virtual_DNS')
         rec_data = obj_dict['virtual_DNS_record_data']
         rec_types = ["a", "cname", "ptr", "ns", "mx", "aaaa"]
         rec_type = str(rec_data['record_type']).lower()
