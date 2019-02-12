@@ -1332,11 +1332,73 @@ class AnsibleRoleCommon(AnsibleConf):
                     self.build_service_chain_ri_config(left_vrf_info,
                                                        right_vrf_info)
 
+    def build_server_config(self):
+        pr = self.physical_router
+        if not pr:
+            return
+        pi_vn = []
+        for pi in pr.physical_interfaces:
+            pi_obj = PhysicalInterfaceDM(pi)
+            if pi_obj.port:
+                port = PortDM(pi_obj.port)
+                for tag in port.tags:
+                    tag_obj = TagDM(tag)
+                    pi_info = {'pi': pi, 'tag': tag_obj.name, 'vn': tag_obj.virtual_networks}
+                    pi_vn.append(pi_info)
+        if not pi_vn:
+            return
+
+        for pi_info in pi_vn:
+            for vn in pi_info.get('vn'):
+                vn_obj = VirtualNetworkDM(vn)
+                for server_info in vn_obj.server_discovery_params:
+                    if server_info.get('dhcp_relay_server'):
+                        dhcp_relay_server = server_info.get(
+                            'dhcp_relay_server')[0]
+                        vlan_tag = server_info.get('vlan_tag')
+                        default_gateway = server_info.get('default_gateway')
+
+                        #create irb interface
+                        irb_intf, li_map = self.set_default_pi('irb',
+                                                                'irb')
+                        irb_intf_unit = self.set_default_li(li_map,
+                            'irb.' + str(vlan_tag),
+                            vlan_tag)
+                        irb_intf_unit.set_comment("Underlay Infra BMS Access")
+                        self.add_ip_address(irb_intf_unit, default_gateway)
+                        # create LI
+                        pi_obj = PhysicalInterfaceDM(pi_info.get('pi'))
+                        access_intf, li_map = self.set_default_pi(
+                                    pi_obj.name, 'regular')
+                        access_intf_unit = self.set_default_li(li_map,
+                                                      pi_obj.fq_name[-1] + '.' + str(vlan_tag),
+                                                      vlan_tag)
+                        access_intf_unit.set_comment("Underlay Infra BMS Access")
+                        access_intf_unit.set_family("ethernet-switching")
+
+                        #create Vlan
+                        vlan = Vlan(name=pi_info.get('tag')+"_vlan")
+                        vlan.set_vlan_id(vlan_tag)
+                        vlan.set_comment("Underlay Infra BMS Access")
+                        vlan.set_l3_interface('irb.' + str(vlan_tag))
+                        self.vlan_map[vlan.get_name()] = vlan
+
+                        #set dhcp relay info
+                        fwdOp = ForwardingOptions()
+                        fwdOp.set_comment("Underlay Infra BMS Access")
+                        fwdOp.set_dhcp_relay_group(
+                            "SVR_RELAY_GRP_"+pi_info.get('tag'))
+                        fwdOp.add_dhcp_server_ips(dhcp_relay_server)
+                        fwdOp.add_interfaces('irb.' + str(vlan_tag))
+                        self.forwarding_options_map[fwdOp.get_dhcp_relay_group] \
+                            = fwdOp
+
     def set_common_config(self):
         if self.physical_router.is_ztp():
             self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
+        self.build_server_config()
         self.build_bgp_config()
         self.build_dci_bgp_config()
         self.build_ri_config()
