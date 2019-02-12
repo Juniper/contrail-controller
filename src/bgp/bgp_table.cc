@@ -27,6 +27,7 @@
 
 using std::make_pair;
 using std::string;
+using boost::scoped_ptr;
 
 class BgpTable::DeleteActor : public LifetimeActor {
   public:
@@ -339,13 +340,16 @@ void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const {
     }
 }
 
-void BgpTable::PrependAsToAsPath2Byte(BgpAttr *clone, as_t asn) const {
+void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as_t asn) const {
     if (asn <= AsPathSpec::kMaxPrivateAs) {
-        return PrependAsToAsPath2Byte(clone, (as2_t)asn);
+        if (attr->as_path() && attr->as4_path()) {
+            PrependAsToAs4Path(attr, asn);
+        }
+        return PrependAsToAsPath2Byte(attr, (as2_t)asn);
     }
     as2_t as_trans = AS_TRANS;
-    PrependAsToAsPath2Byte(clone, as_trans);
-    PrependAsToAs4Path(clone, asn);
+    PrependAsToAsPath2Byte(attr, as_trans);
+    PrependAsToAs4Path(attr, asn);
 }
 
 void BgpTable::PrependAsToAsPath4Byte(BgpAttr *clone, as_t asn) const {
@@ -364,6 +368,11 @@ void BgpTable::PrependAsToAsPath4Byte(BgpAttr *clone, as_t asn) const {
 
 void BgpTable::PrependAsToAs4Path(BgpAttr* attr, as_t asn) const {
 
+    if (attr->as_path() && !attr->as4_path()) {
+        CreateAs4Path(attr);
+        assert(attr->as_path()->path().path_segments.size() ==
+                    attr->as4_path()->path().path_segments.size());
+    }
     if (attr->as4_path()) {
         const As4PathSpec &as4_path = attr->as4_path()->path();
         As4PathSpec *as4_path_ptr = as4_path.Add(asn);
@@ -377,9 +386,28 @@ void BgpTable::PrependAsToAs4Path(BgpAttr* attr, as_t asn) const {
     }
 }
 
+// Create as4_path by copying data from as_path
+void BgpTable::CreateAs4Path(BgpAttr *attr) const {
+    if (attr->as_path()) {
+        scoped_ptr<As4PathSpec> new_as_path(new As4PathSpec);
+        const AsPathSpec &as_path = attr->as_path()->path();
+        for (size_t i = 0; i < as_path.path_segments.size(); i++) {
+            As4PathSpec::PathSegment *ps4 = new As4PathSpec::PathSegment;
+            AsPathSpec::PathSegment *ps = as_path.path_segments[i];
+            ps->path_segment_type = ps->path_segment_type;
+            for (size_t j = ps->path_segment.size(); j > 0; j--) {
+                as_t as = ps->path_segment[j-1];
+                ps4->path_segment.push_back(as);
+            }
+            new_as_path->path_segments.push_back(ps4);
+        }
+        attr->set_as4_path(new_as_path.get());
+    }
+}
+
 // Create as_path (and as4_path) from as_path4byte
 void BgpTable::CreateAsPath2Byte(BgpAttr *attr) const {
-    boost::scoped_ptr<AsPathSpec> new_as_path(new AsPathSpec);
+    scoped_ptr<AsPathSpec> new_as_path(new AsPathSpec);
     if (attr->aspath_4byte()) {
         const AsPath4ByteSpec &as_path4 = attr->aspath_4byte()->path();
         for (size_t i = 0; i < as_path4.path_segments.size(); i++) {
@@ -405,7 +433,7 @@ void BgpTable::CreateAsPath2Byte(BgpAttr *attr) const {
 
 // Create aspath_4byte by merging as_path and as4_path
 void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
-    boost::scoped_ptr<AsPath4ByteSpec> aspath_4byte(new AsPath4ByteSpec);
+    scoped_ptr<AsPath4ByteSpec> aspath_4byte(new AsPath4ByteSpec);
     if (attr->as_path()) {
         const AsPathSpec &as_path = attr->as_path()->path();
         if (attr->as4_path()) {
@@ -440,8 +468,7 @@ void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
             }
         }
     }
-    boost::scoped_ptr<AsPath4ByteSpec> as_path_spec(
-        aspath_4byte->Add(local_as));
+    scoped_ptr<AsPath4ByteSpec> as_path_spec(aspath_4byte->Add(local_as));
     attr->set_aspath_4byte(as_path_spec.get());
 }
 
