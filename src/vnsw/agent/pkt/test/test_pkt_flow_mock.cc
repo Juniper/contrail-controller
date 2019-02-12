@@ -146,7 +146,7 @@ void LoadAcl() {
     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc.first_child(), 0);
 }
 
-TEST_F(AclFlowTest, Setup) {
+TEST_F(AclFlowTest, DISABLED_Setup) {
     string str;
     if (setup_file[0] == '\0') {
         ReadSetupFile(NULL);
