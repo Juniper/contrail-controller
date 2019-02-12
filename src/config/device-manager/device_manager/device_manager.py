@@ -32,7 +32,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
-    DataCenterInterconnectDM, VirtualPortGroupDM, \
+    DataCenterInterconnectDM, VirtualPortGroupDM, PortDM, TagDM, \
     ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM 
 
 from dm_amqp import DMAmqpHandle
@@ -111,7 +111,8 @@ class DeviceManager(object):
             'self': ['physical_router',
                      'physical_interface',
                      'logical_interface',
-                     'virtual_port_group'],
+                     'virtual_port_group',
+                     'port'],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_interface', 'physical_router'],
             'physical_interface': ['physical_router'],
@@ -250,6 +251,12 @@ class DeviceManager(object):
             'self': ['e2_service_provider'],
             'e2_service_provider': [],
         },
+        'end_system': {
+            'self': ['port'],
+        },
+        'port': {
+            'self': ['physical_interface'],
+        },
     }
 
     _instance = None
@@ -386,6 +393,12 @@ class DeviceManager(object):
 
         for obj in VirtualPortGroupDM.list_obj():
             VirtualPortGroupDM.locate(obj['uuid'], obj)
+
+        for obj in PortDM.list_obj():
+            PortDM.locate(obj['uuid'], obj)
+
+        for obj in TagDM.list_obj():
+            TagDM.locate(obj['uuid'], obj)
 
         for obj in VirtualMachineInterfaceDM.list_obj():
             VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
