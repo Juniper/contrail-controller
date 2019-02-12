@@ -33,8 +33,9 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
-    DataCenterInterconnectDM, VirtualPortGroupDM, \
-    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM
+    DataCenterInterconnectDM, VirtualPortGroupDM, PortDM, TagDM, \
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM 
+
 
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
@@ -109,13 +110,15 @@ class DeviceManager(object):
             'self': ['physical_router',
                      'physical_interface',
                      'logical_interface',
-                     'virtual_port_group'],
+                     'virtual_port_group'
+                     ],
             'physical_router': ['logical_interface'],
             'logical_interface': ['physical_interface', 'physical_router'],
             'physical_interface': ['physical_router'],
             'virtual_port_group': ['physical_router'],
             'virtual_machine_interface': ['physical_interface'],
             'service_appliance': ['physical_router'],
+            'port': ['physical_router'],
         },
         'logical_interface': {
             'self': ['physical_router',
@@ -180,7 +183,7 @@ class DeviceManager(object):
         },
         'virtual_network': {
             'self': ['physical_router', 'data_center_interconnect',
-                     'virtual_machine_interface', 'logical_router', 'fabric', 'floating_ip_pool'],
+                     'virtual_machine_interface', 'logical_router', 'fabric', 'floating_ip_pool', 'tag'],
             'routing_instance': ['physical_router', 'logical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
@@ -247,6 +250,13 @@ class DeviceManager(object):
         'peering_policy': {
             'self': ['e2_service_provider'],
             'e2_service_provider': [],
+        },
+        'tag': {
+            'self': ['port'],
+        },
+        'port': {
+            'self': ['physical_interface'],
+            'tag': ['physical_interface'],
         },
     }
 
@@ -385,6 +395,12 @@ class DeviceManager(object):
 
         for obj in VirtualPortGroupDM.list_obj():
             VirtualPortGroupDM.locate(obj['uuid'], obj)
+
+        for obj in PortDM.list_obj():
+            PortDM.locate(obj['uuid'], obj)
+
+        for obj in TagDM.list_obj():
+            TagDM.locate(obj['uuid'], obj)
 
         for obj in VirtualMachineInterfaceDM.list_obj():
             VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
