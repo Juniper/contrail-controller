@@ -100,6 +100,12 @@ void PktHandler::CalculatePortIP(PktInfo *pkt) {
     } else if (nh->GetType() == NextHop::VLAN) {
         const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
         in = vlan_nh->GetInterface();
+    } else if (nh->GetType() == NextHop::COMPOSITE) {
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+
+        if (comp_nh->composite_nh_type() == Composite::LOCAL_ECMP) {
+            in = comp_nh->GetFirstLocalEcmpMemberInterface();
+        }
     }
 
     if (in) {
