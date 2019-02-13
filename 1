@@ -1,0 +1,31 @@
+Adding filter to migrate data
+
+- Given the external contrail access details, the filter reads through the fabrics, onboards them in the
+local contrail installation. Then migrates all the PRs, PIs and LIs.
+- The filter also migrates the topology data and the role config data
+- Refactor fabric.py and moved common code to utility class FabricFilterUtils for sharing code between the
+fabric filters and the migration filter
+
+Depends-On: Ide63feccb16a353831b00a6de425708e04265494
+Change-Id: I7f6b36503e4b4ffa850ede0ac71d5cb6ff73af98
+Closes-jira-bug: CEM-226
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# interactive rebase in progress; onto aff10355c
+# Last command done (1 command done):
+#    pick 01fbf8e07 Adding filter to migrate data
+# No commands remaining.
+# You are currently rebasing branch 'data_migration_latest' on 'aff10355c'.
+#
+# Changes to be committed:
+#	modified:   src/config/device-manager/device_manager/device_job_manager.py
+#	modified:   src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json
+#	modified:   src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py
+#	new file:   src/config/fabric-ansible/ansible-playbooks/filter_plugins/migrate_fabric_data.py
+#	new file:   src/config/fabric-ansible/ansible-playbooks/migrate_fabric.yml
+#	new file:   src/config/fabric-ansible/ansible-playbooks/module_utils/fabric_filter_utils.py
+#	new file:   src/config/fabric-ansible/ansible-playbooks/schema/migrate_fabric_schema.json
+#	modified:   src/config/fabric-ansible/job_manager/job_utils.py
+#
