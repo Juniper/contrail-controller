@@ -86,6 +86,14 @@
           }
         }
       },
+      "cc_username":{
+        "$id":"/properties/cc_username",
+        "type":"string"
+      },
+      "cc_password":{
+        "$id":"/properties/cc_password",
+        "type":"string"
+      },
       "contrail_command_host":{
         "$id":"/properties/contrail_command_host",
         "type":"string"

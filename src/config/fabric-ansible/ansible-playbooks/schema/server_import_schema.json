@@ -22,6 +22,16 @@
         "description":"The format of the encoded input file",
         "enum": ["yaml", "json", "YAML", "JSON"]
       },
+      "cc_username":{
+        "$id":"/properties/cc_username",
+        "description":"The Contrail Command Login Username",
+        "type":"string"
+      },
+      "cc_password":{
+        "$id":"/properties/cc_password",
+        "description":"The Contrail Command Login Password",
+        "type":"string"
+      },
       "contrail_command_host":{
         "$id":"/properties/contrail_command_host",
         "description":"The Contrail Command IP",
