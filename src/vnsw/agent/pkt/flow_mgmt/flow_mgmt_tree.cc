@@ -255,6 +255,8 @@ void AclFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree) {
     ExtractKeys(flow, tree, &flow->match_p().m_vrf_assign_acl_l);
     ExtractKeys(flow, tree, &flow->match_p().aps_policy.m_acl_l);
     ExtractKeys(flow, tree, &flow->match_p().aps_policy.m_out_acl_l);
+    ExtractKeys(flow, tree, &flow->match_p().fwaas_policy.m_acl_l);
+    ExtractKeys(flow, tree, &flow->match_p().fwaas_policy.m_out_acl_l);
 }
 
 FlowMgmtEntry *AclFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
