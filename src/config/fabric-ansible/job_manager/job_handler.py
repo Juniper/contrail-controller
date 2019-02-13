@@ -30,6 +30,7 @@ class JobHandler(object):
                  job_log_utils, sandesh_args,fabric_fq_name,
                  playbook_timeout, playbook_seq, vnc_api_init_params,
                  zk_client):
+        self.is_multi_device_playbook = False
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
@@ -71,7 +72,7 @@ class JobHandler(object):
         # For multi device job templates, we need to send the prouter job
         # uves as soon as they are complete in order to prevent them
         # from waiting until the job completes.
-        if self._job_template.get_job_template_multi_device_job():
+        if self.is_multi_device_playbook:
 
             pr_uve_name = self.get_pr_uve_name_from_device_name(
                 playbook_info)
@@ -202,7 +203,8 @@ class JobHandler(object):
                 'job_execution_id': self._execution_id,
                 'args': self._sandesh_args,
                 'vnc_api_init_params': self._vnc_api_init_params,
-                'playbook_job_percentage': job_percent_per_task
+                'playbook_job_percentage': job_percent_per_task,
+                'job_device_json': self._device_json
             }
             playbooks = self._job_template.get_job_template_playbooks()
 
@@ -273,6 +275,7 @@ class JobHandler(object):
             playbook_input = {'playbook_input': extra_vars}
 
             playbook_info = dict()
+            self.is_multi_device_playbook = play_info.multi_device_playbook
             playbook_info['uri'] = play_info.playbook_uri
             playbook_info['extra_vars'] = playbook_input
 
@@ -498,7 +501,7 @@ class JobHandler(object):
 
             # create prouter UVE in job_manager only if it is not a multi
             # device job template
-            if not self._job_template.get_job_template_multi_device_job():
+            if not self.is_multi_device_playbook:
                 status = "SUCCESS" if playbook_process.returncode == 0 \
                     else "FAILURE"
                 self.send_prouter_uve(exec_id, status)
