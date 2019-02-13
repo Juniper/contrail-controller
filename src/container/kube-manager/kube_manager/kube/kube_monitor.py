@@ -286,12 +286,15 @@ class KubeMonitor(object):
         """Process available events."""
         if not self.kube_api_stream_handle:
             self.logger.error("%s - Event handler not found. "
-                              "Cannot process its events." % self.name)
+                              "Cannot process its events. Re-registering event handler" % self.name)
+            self.register_monitor()
             return
 
         resp = self.kube_api_resp
         fp = resp.raw._fp.fp
         if fp is None:
+            self.logger.error("%s - Kube API Resp FP not found. "
+                              "Cannot process events. Re-registering event handler" % self.name)
             self.register_monitor()
             return
 
