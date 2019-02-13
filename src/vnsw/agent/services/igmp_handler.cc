@@ -90,6 +90,11 @@ bool IgmpHandler::HandleVmIgmpPacket() {
     }
 
     const VnIpam *ipam = vn->GetIpam(pkt_info_->ip_saddr);
+    if (!ipam) {
+        igmp_proto->IncrStatsBadInterface();
+        return true;
+    }
+
     IgmpInfo::VnIgmpDBState::IgmpSubnetStateMap::const_iterator it =
                             state->igmp_state_map_.find(ipam->default_gw);
     if (it == state->igmp_state_map_.end()) {
