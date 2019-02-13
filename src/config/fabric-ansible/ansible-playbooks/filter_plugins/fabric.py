@@ -1246,21 +1246,6 @@ class FilterModule(object):
             _task_warn_log('Fabric network "%s" not found' %network_name)
             vn_obj = None
         if vn_obj:
-            if vn_obj.get_network_ipam_refs():
-                _task_log(
-                    'Unassigning network ipam from "%s" network' % network_type
-                )
-                vn_obj.set_network_ipam_list([])
-                vnc_api.virtual_network_update(vn_obj)
-                _task_done()
-
-            for ri_ref in list(vn_obj.get_routing_instances() or []):
-                _task_log(
-                    'Deleting routing instance for fabric "%s"' % fabric_name
-                )
-                vnc_api.routing_instance_delete(id=ri_ref.get('uuid'))
-                _task_done()
-
             _task_log('Deleting fabric network "%s"' % network_name)
             vnc_api.virtual_network_delete(fq_name=network_fq_name)
             _task_done()
@@ -1577,7 +1562,7 @@ class FilterModule(object):
             if assigned_fabric != fabric_name:
                 raise ValueError(
                     '%s is not in the specific fabric: %s' % (
-                        device_obj.get_name(), fabric_name
+                        device_obj.get_fq_name()[-1], fabric_name
                     )
                 )
 
