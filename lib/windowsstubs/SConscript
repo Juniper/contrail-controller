@@ -23,6 +23,7 @@ files = Glob(buildpath + '/misc/*.cc') + [
     buildpath + '/sched.cc',
     buildpath + '/strings.cc',
     buildpath + '/unistd.cc',
+    buildpath + '/wmiutils.cc',
 ]
 
 windowsstubs_lib = env.Library('windowsstubs', files)
