@@ -141,17 +141,16 @@ class PodKM(KubeDBBase):
                 raise Exception(err_msg)
 
         # Parse virtual network annotations.
-        # TODO: Check if this can be reworked with JSON Decoding
         if 'k8s.v1.cni.cncf.io/networks' in annotations:
             self.networks = []
-            networks_string = '{' + \
-                str(annotations['k8s.v1.cni.cncf.io/networks']).split('{',1)[-1]
-            networks_string = networks_string.rsplit('}',1)[0] +'}'
-            networks_string_list = networks_string.replace(' ','').split(',')
-            for network in networks_string_list:
-                nw_dict = get_dict_from_dict_string(network, 'name')
-                if nw_dict:
-                    self.networks.append(nw_dict.get('name'))
+            if str(annotations['k8s.v1.cni.cncf.io/networks'])[:1] == '[':
+                networks_string_list = json.loads(
+                            str(annotations['k8s.v1.cni.cncf.io/networks']))
+                for network in networks_string_list:
+                    self.networks.append(network.get('name'))
+            else:
+                self.networks.extend(
+                    str(annotations['k8s.v1.cni.cncf.io/networks']).split(','))
 
     def get_vn_fq_name(self):
         """Return virtual-network fq-name annotated on this pod."""
@@ -771,7 +770,7 @@ class NetworkKM(KubeDBBase):
 
         # Check if FQ name has already been updated, If so ignore further
         # update calls.
-        if self.annotated_vn_fq_name != "":
+        if self.annotated_vn_fq_name:
             return
 
         # Parse virtual network from annotations.
@@ -788,7 +787,7 @@ class NetworkKM(KubeDBBase):
         elif 'opencontrail.org/cidr' in annotations:
             # CASE 2: Network does not exists in Contrail. The network FQ name
             # will be generated later when processing the request.
-            self.annotated_vn_fq_name = ""
+            self.annotated_vn_fq_name = None
 
     def is_contrail_nw(self):
         return True if self.annotated_vn_fq_name else False
