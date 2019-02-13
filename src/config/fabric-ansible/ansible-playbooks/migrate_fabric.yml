@@ -1,0 +1,34 @@
+---
+- name: Migrate a set of fabrics from one database to another
+
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: migrate fabric
+      set_fact:
+        output: "{{ job_ctx | migrate_fabric_data }}"
+
+    - block:
+        - set_fact:
+            op_err_message: "Failed to migrate the fabrics due to error: {{ output.error_msg }}. Here is the fabric migration log: {{ output.migration_log}}"
+            jl_err_message: "Failed to migrate the fabrics due to error: {{ output.error_msg }}"
+            results: {}
+
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "{{ jl_err_message }}"
+
+        - pause: seconds=5
+
+        - name: handle failure
+          include_tasks: error_handler.yml
+      when: output.status == 'failure'
+
+    - name: Update Job log with fabric migration job status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        message: "Successfully migrated all the fabrics"

@@ -34,7 +34,8 @@ class JobVncApi(object):
     @staticmethod
     def vnc_init(job_ctx):
         # randomize list for load balancing, pass list for HA
-        api_server_ip_list = random.shuffle(job_ctx.get('api_server_host'))
+        api_server_ip_list = job_ctx.get('api_server_host')
+        random.shuffle(api_server_ip_list)
         if job_ctx.get('auth_token') is not None:
             vnc_api =  VncApi(
                 api_server_host=api_server_ip_list,
