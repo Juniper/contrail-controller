@@ -236,7 +236,7 @@ class DeviceJobManager(object):
             if not is_delete:
 
                 # create the UVE
-                if fabric_fq_name is not "__DEFAULT__" and not device_list:
+                if fabric_fq_name and not device_list:
                     self.create_fabric_job_uve(fabric_job_uve_name,
                                                job_input_params.get(
                                                    'job_execution_id'),
@@ -377,7 +377,7 @@ class DeviceJobManager(object):
 
         # update the UVE
         if mark_uve:
-            if fabric_fq_name is not "__DEFAULT__" and not device_list:
+            if fabric_fq_name and not device_list:
                 self.create_fabric_job_uve(fabric_job_uve_name,
                                            job_execution_id,
                                            JobStatus.FAILURE.value, 100.0)
@@ -451,8 +451,8 @@ class DeviceJobManager(object):
             self.job_status[exec_id] = status
             self.publish_job_status_notification(exec_id, status)
 
-            if signal_var.get('fabric_name') is not \
-                    "__DEFAULT__" and not signal_var.get('device_fqnames'):
+            if signal_var.get('fabric_name') and not\
+                    signal_var.get('device_fqnames'):
                 job_execution_data = FabricJobExecution(
                     name=signal_var.get('fabric_name'),
                     job_status=status,
@@ -660,8 +660,9 @@ class DeviceJobManager(object):
             fabric_fq_name = request_params.get('input').get('fabric_fq_name')
         else:
             if "device_deletion_template" in request_params.get(
-                   'job_template_fq_name'):
-                fabric_fq_name = "__DEFAULT__"
+                   'job_template_fq_name') or "migrate_fabric_template" in \
+                    request_params.get('job_template_fq_name'):
+                fabric_fq_name = ["__DEFAULT__"]
             elif not is_delete:
                 err_msg = "Missing fabric details in the job input"
                 raise JobException(err_msg, job_execution_id)
