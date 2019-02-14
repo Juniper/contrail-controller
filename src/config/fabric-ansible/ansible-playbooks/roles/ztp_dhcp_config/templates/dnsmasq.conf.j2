@@ -1,6 +1,6 @@
 dhcp-vendorclass=set:jn,Juniper
-{% if ztp_config.ipam_subnets is defined %}
-{%   for subnet in ztp_config.ipam_subnets %}
+{% if ztp_dhcp_config.ipam_subnets is defined %}
+{%   for subnet in ztp_dhcp_config.ipam_subnets %}
 {%     set cidr = subnet.subnet.ip_prefix + '/' + subnet.subnet.ip_prefix_len|string %}
 {%     set netmask = cidr | ipv4('netmask') %}
 {%     set broadcast = cidr | ipv4('broadcast') %}
@@ -22,22 +22,12 @@ dhcp-option=option:router,{{ subnet.default_gateway }}
 {%     endif %}
 {%   endfor %}
 {% endif %}
-{% if ztp_config.network_ipam_mgmt is defined %}
-{%   if ztp_config.network_ipam_mgmt.dhcp_option_list is defined %}
-{%     if ztp_config.network_ipam_mgmt.dhcp_option_list.dhcp_option is defined %}
-{%       for option in ztp_config.network_ipam_mgmt.dhcp_option_list.dhcp_option %}
-dhcp-option={{ option.dhcp_option_name }},{{ option.dhcp_option_value }}
-{%       endfor %}
-{%     endif %}
-{%   endif %}
-{%   if ztp_config.network_ipam_mgmt.ipam_dns_server is defined %}
-{%     if ztp_config.network_ipam_mgmt.ipam_dns_server.tenant_dns_server_address is defined %}
-{%       set servers = ztp_config.network_ipam_mgmt.ipam_dns_server.tenant_dns_server_address.ip_address %}
-dhcp-option=option:dns-server,{{ servers | join(',') }}
-{%     endif %}
-{%   endif %}
-{% endif %}
 dhcp-option=66,<host_ip>
 dhcp-option=150,<host_ip>
 dhcp-option=tag:jn,encap:43,1,"{{ fabric_name }}_juniper.sh"
 dhcp-option=tag:jn,encap:43,3,"tftp"
+{% if ztp_dhcp_config.static_ips is defined %}
+{%   for ip, mac in ztp_dhcp_config.static_ips.items() %}
+dhcp-host={{ mac }},{{ ip }}
+{%   endfor %}
+{% endif %}

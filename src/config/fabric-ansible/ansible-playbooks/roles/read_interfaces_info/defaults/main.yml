@@ -1,0 +1,8 @@
+---
+output: {
+              "status": "Success",
+              "message": "Read device info for device: {{prouter_name}} successful"
+        }
+execute_command_resp: {}
+device_info: {}
+schema_validation_resp: {}

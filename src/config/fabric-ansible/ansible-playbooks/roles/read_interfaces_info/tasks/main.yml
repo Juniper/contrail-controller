@@ -1,0 +1,40 @@
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: Execute commands from vendor and family specific template
+      block:
+        - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      when: p.stat.exists == True
+
+    # this is assuming device family does not matter
+    - name: Execute commands from vendor specific template
+      block:
+        - include_tasks: "{{prouter_vendor}}.yml"
+      when: p.stat.exists == False
+
+    # validate schema including to check if the device_info is set as part of the ansible file
+    - name: Validate Input Schema -- device_info
+      set_fact:
+        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/import_interfaces_info_schema.json', device_info, prouter_name)}}"
+
+    - name: Perform the necessary error handling when there is a schema validation error
+      include_tasks: error_handler.yml
+      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+      vars:
+        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+
+  rescue:
+    - name: Perform the necessary error handling while trying to execute command
+      include_tasks: error_handler.yml
+      when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
+      vars:
+        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play

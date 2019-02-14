@@ -1,0 +1,30 @@
+---
+- name: Save ZTP TFTP directory
+  set_fact:
+    ztp_tftp_dir: "{{ ztp_conf_dir }}/tftp"
+
+- name: Create ZTP TFTP directory
+  file:
+    path: "{{ ztp_tftp_dir }}"
+    state: directory
+
+- name: Get ZTP TFTP config
+  set_fact:
+     ztp_tftp_config: "{{ job_ctx | ztp_tftp_config(fabric_uuid) }}"
+
+- name: Save ZTP TFTP script file name
+  set_fact:
+     ztp_tftp_script_file: "{{ fabric_name }}_juniper.sh"
+
+- block:
+    - name: Generate TFTP script file
+      template:
+        src: juniper.sh.j2
+        dest: "{{ ztp_tftp_dir }}/{{ ztp_tftp_script_file }}"
+      register: cmd_res
+  rescue:
+    - name: Perform necessary error handling
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: "{{cmd_res.msg}}"
+        jl_err_message: "Failed to generate TFTP script file"

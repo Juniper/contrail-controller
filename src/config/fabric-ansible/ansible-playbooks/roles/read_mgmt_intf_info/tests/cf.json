@@ -1,0 +1,62 @@
+{
+    "config_parsed": {
+        "configuration": {
+            "interfaces": {
+                "interface": [
+                    {
+                        "name": "et-0/0/0",
+                        "unit": {
+                            "name": "0",
+                            "family": {
+                                "ethernet-switching": {
+                                    "storm-control": {
+                                        "profile-name": "default"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "em0",
+                        "unit": {
+                            "name": "0",
+                            "family": {
+                                "inet": {
+                                    "dhcp": {
+                                        "vendor-id": "Juniper-qfx10002-36q-DK588"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "em1",
+                        "unit": {
+                            "name": "0",
+                            "family": {
+                                "inet": {
+                                    "dhcp": {
+                                        "vendor-id": "Juniper-qfx10002-36q-DK588"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "irb",
+                        "unit": {
+                            "name": "0",
+                            "family": {
+                                "inet": {
+                                    "dhcp": {
+                                        "vendor-id": "Juniper-qfx10002-36q-DK588"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

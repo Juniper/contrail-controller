@@ -1,0 +1,39 @@
+---
+- name: Test the assign_device_ip role
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  pre_tasks:
+    - set_fact:
+        playbook_input: {
+            "device_fqname": ["test-router"],
+            "vendor": "Juniper",
+            "device_family": "junos-qfx",
+            "device_management_ip": "192.168.10.151",
+            "device_username": "test-user",
+            "device_password": "test-password",
+        }
+    - set_fact:
+        DEVICE_COMMAND_TIMEOUT: 30
+    - include_vars:
+        file: cf.json
+        name: configured_interfaces_info
+    - include_vars:
+        file: rt.json
+        name: runtime_interfaces_info
+    - set_fact:
+        device_info: {
+          'configured_interfaces_info': "{{configured_interfaces_info}}",
+          'runtime_interfaces_info': "{{runtime_interfaces_info}}"
+        }
+  roles:
+    - role: ../..
+
+  tasks:
+    - debug:
+        msg: "{{interfaces_payload}}"
+    - debug:
+        msg: "{{interface_configuration}}"
+    - debug:
+        msg: "{{output}}"

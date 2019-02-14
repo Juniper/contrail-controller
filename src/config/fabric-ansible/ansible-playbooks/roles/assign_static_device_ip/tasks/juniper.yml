@@ -1,0 +1,38 @@
+---
+    - name: Pushing config ... please wait
+      block:
+        - import_role:
+            name: Juniper.junos
+
+        - juniper_junos_config:
+            load: "set"
+            lines: "{{ device_config }}"
+            comment: "Applied by Ansible"
+            ignore_warning: "True"
+            format: "set"
+            provider:
+              host: "{{ host }}"
+              username: "{{ username }}"
+              password: "{{ password }}"
+              port: 22
+              timeout: "{{ timeout }}"
+          register: junos_response
+        - set_fact:
+           device_push_response: "{{ junos_response }}"
+        - set_fact:
+           device_push_message: >
+               {% if 'diff_lines' in junos_response -%}
+                  Junos config push response for device '{{ prouter_name }}' \n{{ junos_response.msg }} \nDiff: {{ junos_response.diff_lines }}
+               {% else -%}
+                  Junos config push response for device '{{ prouter_name }}' \n{{ junos_response.msg }} \nDiff: "No config change, nothing to deploy"
+               {%- endif %}
+      rescue:
+        - include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{ junos_response.msg }}"
+            results: |
+              {
+                "device_name": "{{ prouter_name }}",
+                "msg": "Junos config push task failed"
+              }
+            jl_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{ junos_response.msg }}"

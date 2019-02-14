@@ -4,29 +4,31 @@
   block:
     - name: Read script file
       slurp:
-        src: "{{ tftp_dir+'/'+script_file }}"
+        src: "{{ ztp_tftp_dir+'/'+ztp_tftp_script_file }}"
       register: script_file_contents
 
     - name: Publish create script file message
       set_fact:
-        publish_result: "{{ script_file_contents.content | create_tftp_file(script_file, fabric_name, job_ctx) }}"
+        publish_result: "{{ script_file_contents.content | create_tftp_file(ztp_tftp_script_file, fabric_name, job_ctx) }}"
   rescue:
     - set_fact:
         tftp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to copy TFTP script files"}
+          "results": {"jl_message": "Failed to copy TFTP script file"}
         }
-  when: ztp_create == True
+  when:
+    - ztp_create is defined
+    - ztp_create
 
 - name: Remove script files from remote host
   block:
     - name: Publish delete script file message
       set_fact:
-        publish_result: "{{ script_file | delete_tftp_file(fabric_name, job_ctx) }}"
+        publish_result: "{{ ztp_tftp_script_file | delete_tftp_file(fabric_name, job_ctx) }}"
   rescue:
     - set_fact:
         tftp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to remove TFTP script files"}
+          "results": {"jl_message": "Failed to remove TFTP script file"}
         }
-  when: ztp_create == False
+  when: ztp_create is undefined or ztp_create == False
