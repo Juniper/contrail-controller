@@ -374,19 +374,30 @@ StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
 
 //Identify the prefix and return the VPN name if nothing matches then return routing_instance
 const std::string get_VPNName(const std::string &routing_instance){
-    if (routing_instance.size() > 15 && (routing_instance.compare(0,16,"Default-reverse-")== 0)){
-        return routing_instance.substr(16,(routing_instance.size()-16));
+    if (routing_instance.size() > 16 && (routing_instance.compare(0, 16, "Default-reverse-") == 0)){
+        if (routing_instance.size() > 20 && (routing_instance.compare(16, 4, "hub-") == 0)){
+            return routing_instance.substr(20, (routing_instance.size() - 20));
+        }
+        return routing_instance.substr(16, (routing_instance.size() - 16));
     }
-    if (routing_instance.size() > 7 && (routing_instance.compare(0,8,"Default-") == 0)){
-        return routing_instance.substr(8,(routing_instance.size()-8));
+    if (routing_instance.size() > 8 && (routing_instance.compare(0, 8,"Default-") == 0)){
+        if (routing_instance.size() > 12 && (routing_instance.compare(8, 4, "hub-") == 0)){
+            return routing_instance.substr(12, (routing_instance.size() - 12));
+        }
+        return routing_instance.substr(8, (routing_instance.size() - 8));
+   }
+    if (routing_instance.size() > 5 && (routing_instance.compare(0, 5, "mpls-") == 0)){
+        if (routing_instance.size() > 9 && (routing_instance.compare(5, 4, "hub-") == 0)){
+            return routing_instance.substr(9, (routing_instance.size() - 9));
+        }
+        return routing_instance.substr(5, (routing_instance.size() - 5));
     }
-    if (routing_instance.size() > 4 && (routing_instance.compare(0,5,"mpls-") == 0)){
-        return routing_instance.substr(5,(routing_instance.size()-5));
+    if (routing_instance.size() > 9 && ( routing_instance.compare(0, 9, "internet-") == 0)){
+        if (routing_instance.size() > 13 && (routing_instance.compare(9, 4, "hub-") == 0)){
+            return routing_instance.substr(13, (routing_instance.size() - 13));
+        }
+        return routing_instance.substr(9, (routing_instance.size() - 9));
     }
-    if (routing_instance.size() > 8 && ( routing_instance.compare(0,9,"internet-") == 0)){
-        return routing_instance.substr(9,(routing_instance.size()-9));
-    }
-
     return routing_instance;
 }
 
@@ -625,6 +636,59 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     return;
 }
 
+
+double calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter,
+                           int64_t effective_latency_threshold, int64_t latency_factor,
+                           int64_t jitter_factor, int64_t packet_loss_factor) {
+
+    double effective_latency, r_factor, mos, latency_ms, jitter_ms;
+    latency_ms = latency/1000;  // latency in milli secs
+    jitter_ms = jitter/1000;    // jitter in milli secs
+
+    // Setting the default values for coefficients
+    if (effective_latency_threshold == 0)
+        effective_latency_threshold = 160;
+    if (latency_factor == 0)
+        latency_factor = 100;
+    if (jitter_factor == 0)
+        jitter_factor = 200;
+    if (packet_loss_factor == 0)
+        packet_loss_factor = 250;
+
+    LOG(DEBUG, "Link score calculation coefficients, effective_latency_threshold : "
+                                                   << effective_latency_threshold
+                                                   << ", latency_factor : " << latency_factor
+                                                   << ", jitter_factor : " << jitter_factor
+                                                   << ", packet_loss_factor : " 
+                                                   << packet_loss_factor);
+
+    // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
+    effective_latency =
+    ((latency_ms * (latency_factor/100.0)) + ((jitter_factor/100.0)*jitter_ms) + 10);
+    // Step-2: Calculate Intermediate R-Value
+    if (effective_latency < effective_latency_threshold) {
+        r_factor = 93.2 - (effective_latency/40);
+    }
+    else {
+        r_factor = 93.2 - (effective_latency - 120)/10;
+    }
+    // Step-3: Adjust R-Value for PacketLoss
+    r_factor =  r_factor - (packet_loss * packet_loss_factor/100.0);
+    // Step-4: Calculate MeanOpinionScore
+    if (r_factor < 0 ){
+        mos = 1;
+    }
+    else if ((r_factor > 0) && (r_factor < 100)) {
+        mos = 1 + (0.035) * r_factor + (0.000007) * r_factor * (r_factor - 60) * (100 - r_factor);
+    }
+    else {
+        mos = 4.5;
+    }
+    LOG(DEBUG, "Calculated Mean Opinion Score (link_score) for sla params is : " << mos);
+    return (mos * 20);
+}
+
+
 void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool summarize_user) {
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
@@ -658,7 +722,7 @@ void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool sum
     int64_t rtt_jitter = SyslogParser::GetMapVal(v, "rtt-jitter", -1);
     int64_t egress_jitter = SyslogParser::GetMapVal(v, "egress-jitter", -1);
     int64_t ingress_jitter = SyslogParser::GetMapVal(v, "ingress-jitter", -1);
-    int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
+
     if (rtt != -1) {
         sdwanmetric.set_rtt(rtt);
     }
@@ -674,9 +738,14 @@ void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool sum
     if (pkt_loss != -1) {
         sdwanmetric.set_pkt_loss(pkt_loss);
     }
-    if (sampling_percentage != -1) {
-        sdwanmetric.set_sampling_percentage(sampling_percentage);
+    if ((rtt != -1) && (rtt_jitter != -1) && (pkt_loss != -1)) {
+        sdwanmetric.set_score((int64_t)calculate_link_score(rtt/2, pkt_loss, rtt_jitter,
+                             SyslogParser::GetMapVal(v, "effective-latency-threshold",0),
+                             SyslogParser::GetMapVal(v, "latency-factor",0),
+                             SyslogParser::GetMapVal(v, "jitter-factor",0),
+                             SyslogParser::GetMapVal(v, "packet-loss-factor",0) ));
     }
+    
     // Map:  app_metrics_dial_sla
     std::map<std::string, SDWANMetrics_dial> app_metrics_dial_sla;
     std::string slamap_key(tt_app_dept_info + sla_profile);
@@ -904,54 +973,6 @@ void StructuredSyslogUVESummarizeAppQoeSMV(SyslogParser::syslog_m_t v, bool summ
     return;
 }
 
-float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter,
-                           int64_t effective_latency_threshold, int64_t latency_factor,
-                           int64_t jitter_factor, int64_t packet_loss_factor) {
-
-    float effective_latency, r_factor, mos, latency_ms, jitter_ms;
-    latency_ms = latency/1000;  // latency in milli secs
-    jitter_ms = jitter/1000;    // jitter in milli secs
-
-    // Setting the default values for coefficients
-    if (effective_latency_threshold == 0)
-        effective_latency_threshold = 160;
-    if (latency_factor == 0)
-        latency_factor = 100;
-    if (jitter_factor == 0)
-        jitter_factor = 200;
-    if (packet_loss_factor == 0)
-        packet_loss_factor = 250;
-
-    LOG(DEBUG, "Link score calculation coefficients, effective_latency_threshold : " << effective_latency_threshold
-                                                   << ", latency_factor : " << latency_factor
-                                                   << ", jitter_factor : " << jitter_factor
-                                                   << ", packet_loss_factor : " << packet_loss_factor);
-
-    // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
-    effective_latency = ((latency_ms * (latency_factor/100.0)) + ((jitter_factor/100.0)*jitter_ms) +10);
-    // Step-2: Calculate Intermediate R-Value
-    if (effective_latency < effective_latency_threshold) {
-        r_factor = 93.2 - (effective_latency/40);
-    }
-    else {
-        r_factor = 93.2 - (effective_latency -120)/10;
-    }
-    // Step-3: Adjust R-Value for PacketLoss
-    r_factor =  r_factor - (packet_loss*packet_loss_factor/100.0);
-    // Step-4: Calculate MeanOpinionScore
-    if (r_factor< 0 ){
-        mos = 1;
-    }
-    else if ((r_factor > 0) && (r_factor < 100)) {
-        mos = 1 + (0.035) * r_factor + (0.000007) * r_factor * (r_factor-60) * (100-r_factor);
-    }
-    else {
-        mos = 4.5;
-    }
-    LOG(DEBUG, "Calculated Mean Opinion Score (link_score) for sla params is : " << mos);
-    return (mos *20);
-}
-
 void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool summarize_user) {
     SDWANMetricsRecord sdwanmetricrecord;
     SDWANTenantMetricsRecord sdwantenantmetricrecord;
@@ -990,10 +1011,10 @@ void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool sum
     }
     if ((rtt != -1) && (rtt_jitter != -1) && (pkt_loss != -1)) {
         sdwanmetric.set_score((int64_t)calculate_link_score(rtt/2, pkt_loss, rtt_jitter,
-                             SyslogParser::GetMapVal(v,"effective-latency-threshold",0),
-                             SyslogParser::GetMapVal(v,"latency-factor",0),
-                             SyslogParser::GetMapVal(v,"jitter-factor",0),
-                             SyslogParser::GetMapVal(v,"packet-loss-factor",0) ));
+                             SyslogParser::GetMapVal(v, "effective-latency-threshold",0),
+                             SyslogParser::GetMapVal(v, "latency-factor",0),
+                             SyslogParser::GetMapVal(v, "jitter-factor",0),
+                             SyslogParser::GetMapVal(v, "packet-loss-factor",0) ));
     }
     // Map:  link_metrics_dial_traffic_type
     std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
