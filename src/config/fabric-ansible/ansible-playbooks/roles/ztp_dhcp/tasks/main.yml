@@ -4,37 +4,47 @@
   block:
     - name: Read dhcp config file
       slurp:
-        src: "{{ dhcp_dir+'/'+config_file }}"
+        src: "{{ ztp_dhcp_dir+'/'+ztp_dhcp_config_file }}"
       register: config_file_contents
 
     - name: Publish create dhcp config file message
       set_fact:
-        dhcp_output: "{{ config_file_contents.content | create_dhcp_file(config_file, fabric_name, job_ctx) }}"
+        publish_result: "{{ config_file_contents.content | create_dhcp_file(ztp_dhcp_config_file, fabric_name, job_ctx) }}"
 
     - name: Read dhcp leases
       set_fact:
-        dhcp_output: "{{ device_count | read_dhcp_leases(ztp_config['ipam_subnets'], config_file, fabric_name, job_ctx) }}"
+        publish_result: "{{ device_count | read_dhcp_leases(ztp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
+      when: only_restart is undefined or only_restart == False
+
+    - name: Restart dhcp server
+      set_fact:
+        publish_result: "{{ ztp_dhcp_config_file | restart_dhcp_server(fabric_name, job_ctx) }}"
+      when:
+        - only_restart is defined
+        - only_restart
   rescue:
     - set_fact:
         dhcp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to copy DHCP config files"},
+          "results": {"jl_message": "Failed to copy DHCP config file"},
         }
-  when: ztp_create == True
+  when:
+    - ztp_create is defined
+    - ztp_create
 
 - name: Remove dhcp config files from remote host
   block:
     - name: Publish delete dhcp config file message
       set_fact:
-        dhcp_output: "{{ config_file | delete_dhcp_file(fabric_name, job_ctx) }}"
+        publish_result: "{{ ztp_dhcp_config_file | delete_dhcp_file(fabric_name, job_ctx) }}"
 
     - name: Restart dhcp server
       set_fact:
-        dhcp_output: "{{ config_file | restart_dhcp_server(fabric_name, job_ctx) }}"
+        publish_result: "{{ ztp_dhcp_config_file | restart_dhcp_server(fabric_name, job_ctx) }}"
   rescue:
     - set_fact:
         dhcp_output: {
           "status": "Failure",
-          "results": {"jl_message": "Failed to remove DHCP config files"},
+          "results": {"jl_message": "Failed to remove DHCP config file"},
         }
-  when: ztp_create == False
+  when: ztp_create is undefined or ztp_create == False

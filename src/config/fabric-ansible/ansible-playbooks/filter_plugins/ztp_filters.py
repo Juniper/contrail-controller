@@ -27,7 +27,8 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'ztpcfg': self.get_ztp_config,
+            'ztp_dhcp_config': self.get_ztp_dhcp_config,
+            'ztp_tftp_config': self.get_ztp_tftp_config,
             'create_tftp_file': self.create_tftp_file,
             'delete_tftp_file': self.delete_tftp_file,
             'create_dhcp_file': self.create_dhcp_file,
@@ -37,25 +38,19 @@ class FilterModule(object):
         }
 
     @classmethod
-    def get_ztp_config(cls, job_ctx, fabric_uuid):
-        ztp_config = {}
+    def get_ztp_dhcp_config(cls, job_ctx, fabric_uuid):
+        dhcp_config = {}
         try:
             vncapi = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                             auth_token=job_ctx.get('auth_token'))
             fabric = vncapi.fabric_read(id=fabric_uuid)
             fabric_dict = vncapi.obj_to_dict(fabric)
-            fabric_creds = fabric_dict.get('fabric_credentials')
-            if fabric_creds:
-                device_creds = fabric_creds.get('device_credential')
-                if device_creds:
-                    dev_cred = device_creds[0]
-                    ztp_config['password'] = dev_cred['credential']['password']
 
             # From here we get the 'management' type virtual network
             vn_uuid = None
             virtual_network_refs = fabric_dict.get('virtual_network_refs') or []
             for virtual_net_ref in virtual_network_refs:
-                if "management" in virtual_net_ref['attr']['network_type']:
+                if 'management' in virtual_net_ref['attr']['network_type']:
                     vn_uuid = virtual_net_ref['uuid']
                     break
             if vn_uuid is None:
@@ -72,14 +67,45 @@ class FilterModule(object):
                 ipam_dict = vncapi.obj_to_dict(ipam)
                 ipam_subnets = ipam_dict.get('ipam_subnets')
                 if ipam_subnets:
-                    ztp_config['ipam_subnets'] = ipam_subnets.get('subnets')
-        except NoIdError:
-            logging.error("Cannot find mgmt virtual network")
-        except Exception as ex:
-            logging.error("Error getting ZTP configuration: {}".format(ex))
+                    dhcp_config['ipam_subnets'] = ipam_subnets.get('subnets')
 
-        return ztp_config
-    # end get_ztp_config
+            # Get static ip configuration for physical routers
+            pr_refs = fabric_dict.get('physical_router_back_refs') or []
+            static_ips = {}
+            for pr_uuid in pr_refs:
+                pr = vncapi.physical_router_read(id=pr_uuid)
+                pr_dict = vncapi.obj_to_dict(pr)
+                mac = pr_dict.get('physical_router_management_mac')
+                ip = pr_dict.get('physical_router_management_ip')
+                if mac and ip:
+                    static_ips[ip] = mac
+            if static_ips:
+                dhcp_config['static_ips'] = static_ips
+        except Exception as ex:
+            logging.error("Error getting ZTP DHCP configuration: {}".format(ex))
+
+        return dhcp_config
+    # end get_ztp_dhcp_config
+
+    @classmethod
+    def get_ztp_tftp_config(cls, job_ctx, fabric_uuid):
+        tftp_config = {}
+        try:
+            vncapi = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                            auth_token=job_ctx.get('auth_token'))
+            fabric = vncapi.fabric_read(id=fabric_uuid)
+            fabric_dict = vncapi.obj_to_dict(fabric)
+            fabric_creds = fabric_dict.get('fabric_credentials')
+            if fabric_creds:
+                device_creds = fabric_creds.get('device_credential')
+                if device_creds:
+                    dev_cred = device_creds[0]
+                    tftp_config['password'] = dev_cred['credential']['password']
+        except Exception as ex:
+            logging.error("Error getting ZTP TFTP configuration: {}".format(ex))
+
+        return tftp_config
+    # end get_ztp_tftp_config
 
     @classmethod
     def create_tftp_file(cls, file_contents, file_name,

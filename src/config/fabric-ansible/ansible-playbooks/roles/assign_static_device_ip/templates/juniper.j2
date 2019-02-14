@@ -1,0 +1,2 @@
+delete interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet dhcp
+set interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet address {{interface_configuration.get('ip_address')}}/{{interface_configuration.get('prefix')}}

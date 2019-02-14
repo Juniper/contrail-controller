@@ -6,6 +6,7 @@
 
   roles:
     - import_device_facts
+    - read_interfaces_info
     - import_interfaces_info
 
   tasks:

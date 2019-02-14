@@ -13,15 +13,15 @@
         fabric_name: "{{ job_ctx.job_input.fabric_fq_name[-1] }}"
       when: fabric_name is undefined
 
-    - name: Save ZTP DNSMASQ conf file name
+    - name: Save ZTP DHCP config file name
       set_fact:
-        ztp_dnsmasq_conf_file: "{{ fabric_name }}.conf"
+        ztp_dhcp_conf_file: "{{ fabric_name }}.conf"
 
-    - name: Save ZTP script file name
+    - name: Save ZTP TFTP script file name
       set_fact:
-        ztp_script_file: "{{ fabric_name }}_juniper.sh"
+        ztp_tftp_script_file: "{{ fabric_name }}_juniper.sh"
 
-    - name: delete devices in a fabric
+    - name: Delete devices in a fabric
       set_fact:
         output: "{{ job_ctx | delete_fabric }}"
 
@@ -50,79 +50,61 @@
         current_index: 1
         jl_message: "Completed fabric removal from database"
 
-
-
-- name: Delete ansible-created script files from TFTP server
+- name: Delete TFTP script file
   hosts: localhost
   gather_facts: no
   connection: local
 
   tasks:
-    - name: Call TFTP role
-      import_role:
+    - import_role:
         name: ztp_tftp
 
-
-- name: Gather results from TFTP server
-  hosts: localhost
-  gather_facts: no
-  connection: local
-
-  tasks:
-    - name: Get TFTP results
+    - name: If error, set output and bail
       set_fact:
-        tftp_results: |
-          {%- set outp = hostvars['localhost'].get('tftp_output', None) -%} {{ outp }}
-
-    - name: if error, set ouput and bail
-      block:
-        - name: set output
-          set_fact:
-            output: "{{ output | combine(tftp_results) }}"
-        - name: set tftp_err
-          set_fact:
-            tftp_err: True
-      when: tftp_results != "\n"
+        output: "{{ output | combine(tftp_output) }}"
+      when: tftp_output is defined
 
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
         current_index: 2
-        jl_message: "Removed TFTP file"
+        jl_message: "Removed TFTP script file"
+      when: tftp_output is undefined
 
-
-- name: Delete ansible-created section of DHCP server config file
+- name: Delete DHCP config file
   hosts: localhost
   gather_facts: no
   connection: local
 
   tasks:
-    - name: Call DHCP role
-      import_role:
+    - import_role:
         name: ztp_dhcp
-      when: hostvars['localhost'].tftp_err is undefined
+      when: tftp_output is undefined
 
+    - name: If error, set output and bail
+      set_fact:
+        output: "{{ output | combine(dhcp_output) }}"
+      when: dhcp_output is defined
 
-- name: Finish up on localhost
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 3
+        jl_message: "Removed DHCP config file"
+      when:
+        - tftp_output is undefined
+        - dhcp_output is undefined
+
+- name: Finish up
   hosts: localhost
   gather_facts: no
   connection: local
 
   tasks:
-    - name: Set final output
-      block:
-        - name: Get DHCP results
-          set_fact:
-            dhcp_results: |
-              {%- set outp = hostvars['localhost'].get('dhcp_output', None) -%} {{ outp }}
+    - name: Print Output
+      debug: var=output verbosity=1
 
-        - name: Set final output
-          set_fact:
-            output: "{{output | combine(dhcp_results)}}"
-          when: dhcp_results != "\n"
-      when: tftp_err is undefined
-
-    - name: check failure
+    - name: Check for failure
       include_tasks: error_handler.yml
       when: output.status == 'Failure'
       vars:
@@ -130,9 +112,3 @@
         jl_err_message: "Failed to delete fabric {{ playbook_input.input.fabric_fq_name }} due to error: {{ output.message }}"
         results:
           fabric_uuid: "{{ playbook_input.input.fabric_fq_name }}"
-
-    - name: Update job log with job completed status
-      include_tasks: percentage_update.yml
-      vars:
-        current_index: 3
-        jl_message: "Removed DHCP config file"

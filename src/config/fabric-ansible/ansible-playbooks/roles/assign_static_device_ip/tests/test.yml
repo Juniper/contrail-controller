@@ -1,0 +1,32 @@
+---
+- name: Test the assign_device_ip role
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  pre_tasks:
+    - set_fact:
+        playbook_input: {
+            "device_fqname": ["test-router"],
+            "vendor": "Juniper",
+            "device_family": "junos-qfx",
+            "device_management_ip": "192.168.10.151",
+            "device_username": "test-user",
+            "device_password": "test-password",
+        }
+    - set_fact:
+        JUNOS_COMMIT_TIMEOUT: 30
+    - set_fact:
+        interface_configuration: {
+            "ip_address": "192.168.10.151",
+            "mac_address": "e8:b6:c2:4a:23:81",
+            "name": "em0",
+            "prefix": "24",
+            "unit": "0"
+        }
+  roles:
+    - role: ../..
+
+  tasks:
+    - debug:
+        msg: "{{output}}"
