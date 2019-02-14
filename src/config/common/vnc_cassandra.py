@@ -27,7 +27,8 @@ from operator import itemgetter
 import itertools
 import sys
 from collections import Mapping, OrderedDict
-from thrift.transport import TSocket
+from thrift.transport import TSSLSocket
+import ssl
 
 
 def merge_dict(orig_dict, new_dict):
@@ -629,20 +630,19 @@ class VncCassandraClient(object):
                     **create_cf_kwargs)
     # end _cassandra_ensure_keyspace
 
-    def _make_default_socket_factory(self):
-        def default_socket_factory(host, port):
-            return TSocket.TSocket(host, port)
-        return default_socket_factory
-
-    def _make_socket_factory(self):
-        socket_factory = self._make_default_socket_factory()
-        if self._ssl_enabled:
-            socket_factory = pycassa.connection.make_ssl_socket_factory(
-                self._ca_certs, validate=False)
-        return socket_factory
+    def _make_ssl_socket_factory(self, ca_certs, validate=True):
+        # copy method from pycassa library because no other method
+        # to override ssl version
+        def ssl_socket_factory(host, port):
+            TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
+            return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
+        return ssl_socket_factory
 
     def _cassandra_init_conn_pools(self):
-        socket_factory = self._make_socket_factory()
+        socket_factory = pycassa.connection.default_socket_factory
+        if self._ssl_enabled:
+            socket_factory = self._make_ssl_socket_factory(
+                self._ca_certs, validate=False)
         for ks, cf_dict in itertools.chain(self._rw_keyspaces.items(),
                                            self._ro_keyspaces.items()):
             keyspace = '%s%s' % (self._db_prefix, ks)
