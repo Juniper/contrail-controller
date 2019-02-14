@@ -119,6 +119,11 @@
             ]
         }
       },
+      "import_configured": {
+        "type": "boolean",
+        "default": false,
+        "description": "Not importing configured interfaces by default. Set this option to true if configured interfaces need to be imported as part of onboarding."
+      },
       "device_count": {
         "title": "Number of fabric devices",
         "type": "integer",
