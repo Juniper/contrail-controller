@@ -65,9 +65,12 @@ class UVEServer(object):
                 r_port = test_elem[1]
                 self._redis_uve_map[test_elem] = None
                 ConnectionState.update(ConnectionType.REDIS_UVE,\
-                    r_ip+":"+str(r_port), ConnectionStatus.INIT)
+                    r_ip+":"+str(r_port), ConnectionStatus.INIT,
+                    [r_ip + ":" + str(r_port)],
+                    message = 'Insert New Redis Instance')
         if chg:
-            self._logger.error("updated redis_uve_list %s" % str(self._redis_uve_map)) 
+            self._logger.error("Updated redis_uve_list %s" % 
+                                str(self._redis_uve_map))
 
         # Exercise redis connections to update health
         if len(newlist):
@@ -92,7 +95,10 @@ class UVEServer(object):
 
     def run(self):
 	ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-            name = 'LOCAL', status = ConnectionStatus.INIT)
+            name = 'LOCAL', status = ConnectionStatus.INIT,
+            message = 'Local Redis Instance initialized',
+            server_addrs = ['%s:%s' % 
+                (self._local_redis_uve[0],self._local_redis_uve[1])])
         while True:
             if self._redis:
                 redish = self._redis
@@ -119,7 +125,11 @@ class UVEServer(object):
                 if self._redis:
                     #send redis connection down msg. Coule be bcos of authentication
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                        name = 'LOCAL', status = ConnectionStatus.DOWN)
+                        name = 'LOCAL', status = ConnectionStatus.DOWN,
+                        message = 'Local Redis Instance is down',
+                        server_addrs = ['%s:%s' % 
+                            (self._local_redis_uve[0],
+                            self._local_redis_uve[1])])
                     self._redis = None
                 gevent.sleep(5)
             else:
@@ -127,7 +137,11 @@ class UVEServer(object):
                 if not self._redis:
                     self._redis = redish
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                        name = 'LOCAL', status = ConnectionStatus.UP)
+                        name = 'LOCAL', status = ConnectionStatus.UP,
+                        message = 'Local Redis Instance updated',
+                        server_addrs = ['%s:%s' % 
+                            (self._local_redis_uve[0],
+                            self._local_redis_uve[1])])
 
     @staticmethod
     def _is_agg_list(attr):
@@ -167,15 +181,16 @@ class UVEServer(object):
     def _redis_inst_get(self, r_inst):
         r_ip = r_inst[0]
         r_port = r_inst[1]
-	if r_inst in self._redis_uve_map and not self._redis_uve_map[r_inst]:
-	    return redis.StrictRedis(
-		    host=r_ip, port=r_port,
-		    password=self._redis_password, db=1, socket_timeout=30)
-	else:
+        if r_inst in self._redis_uve_map and not self._redis_uve_map[r_inst]:
+            return redis.StrictRedis(
+                        host=r_ip, port=r_port,
+                        password=self._redis_password, db=1, socket_timeout=30)
+        else:
             if r_inst in self._redis_uve_map:
-	        return self._redis_uve_map[r_inst]
+                return self._redis_uve_map[r_inst]
             else:
-                self._logger.error("redis instance %s not in _redis_uve_map" % (str(r_inst)))
+                self._logger.error("redis instance %s not in _redis_uve_map" %
+                    (str(r_inst)))
                 return None
 
     def _redis_inst_up(self, r_inst, redish):
@@ -183,8 +198,9 @@ class UVEServer(object):
             r_ip = r_inst[0]
             r_port = r_inst[1]
 	    self._redis_uve_map[r_inst] = redish
-	    ConnectionState.update(ConnectionType.REDIS_UVE,
-		r_ip + ":" + str(r_port), ConnectionStatus.UP)
+	    ConnectionState.update(ConnectionType.REDIS_UVE,\
+		r_ip + ":" + str(r_port), ConnectionStatus.UP,
+                [r_ip + ":" + str(r_port)], message = 'Redis Instance is up')
 
     def _redis_inst_down(self, r_inst):
 	if r_inst in self._redis_uve_map and self._redis_uve_map[r_inst]:
@@ -192,7 +208,8 @@ class UVEServer(object):
             r_port = r_inst[1]
 	    self._redis_uve_map[r_inst] = None
 	    ConnectionState.update(ConnectionType.REDIS_UVE,
-		r_ip + ":" + str(r_port), ConnectionStatus.DOWN)
+		    r_ip + ":" + str(r_port), ConnectionStatus.DOWN, 
+                    message = 'Redis Instance is down')
  
     def get_tables(self):
         tables = set() 
