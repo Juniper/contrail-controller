@@ -1,0 +1,334 @@
+{
+    "parsed_output": {
+        "interface-information": {
+            "physical-interface": [
+                {
+                    "name": "gr-0/0/0",
+                    "traffic-statistics": {
+                        "input-pps": "0",
+                        "input-bps": "0",
+                        "@junos:style": "brief",
+                        "output-pps": "0",
+                        "output-bps": "0"
+                    },
+                    "admin-status": "up",
+                    "ifd-specific-config-flags": null,
+                    "if-config-flags": {
+                        "iff-point-to-point": null,
+                        "iff-snmp-traps": null
+                    },
+                    "snmp-index": "503",
+                    "link-level-type": "GRE",
+                    "local-index": "134",
+                    "mtu": "Unlimited",
+                    "oper-status": "up",
+                    "if-type": "GRE",
+                    "speed": "800mbps",
+                    "if-device-flags": {
+                        "ifdf-running": null,
+                        "ifdf-present": null
+                    }
+                },
+                {
+                    "name": "pfe-0/0/0",
+                    "traffic-statistics": {
+                        "input-packets": "0",
+                        "@junos:style": "brief",
+                        "output-packets": "0"
+                    },
+                    "admin-status": "up",
+                    "ifd-specific-config-flags": null,
+                    "if-config-flags": null,
+                    "logical-interface": {
+                        "name": "pfe-0/0/0.16383",
+                        "traffic-statistics": {
+                            "input-packets": "0",
+                            "@junos:style": "brief",
+                            "output-packets": "0"
+                        },
+                        "if-config-flags": {
+                            "iff-up": null,
+                            "iff-snmp-traps": null
+                        },
+                        "filter-information": null,
+                        "policer-overhead": null,
+                        "encapsulation": "ENET2",
+                        "local-index": "552",
+                        "address-family": [
+                            {
+                                "intf-curr-cnt": "0",
+                                "intf-unresolved-cnt": "0",
+                                "intf-dropcnt": "0",
+                                "mtu": "Unlimited",
+                                "max-local-cache": "0",
+                                "address-family-name": "inet",
+                                "address-family-flags": {
+                                    "ifff-none": null
+                                },
+                                "new-hold-limit": "0"
+                            },
+                            {
+                                "intf-curr-cnt": "0",
+                                "intf-unresolved-cnt": "0",
+                                "intf-dropcnt": "0",
+                                "mtu": "Unlimited",
+                                "max-local-cache": "0",
+                                "address-family-name": "inet6",
+                                "address-family-flags": {
+                                    "ifff-is-primary": null
+                                },
+                                "new-hold-limit": "0"
+                            }
+                        ],
+                        "snmp-index": "506"
+                    },
+                    "if-device-flags": {
+                        "ifdf-running": null,
+                        "ifdf-present": null
+                    },
+                    "interface-flapped": "Never",
+                    "local-index": "136",
+                    "oper-status": "up",
+                    "snmp-index": "505",
+                    "if-media-flags": {
+                        "ifmf-none": null
+                    }
+                },
+                {
+                    "active-alarms": {
+                        "interface-alarms": {
+                            "alarm-not-present": null
+                        }
+                    },
+                    "ethernet-prbs-mode": {
+                        "@junos:style": "verbose",
+                        "prbs_mode": "Disabled"
+                    },
+                    "if-config-flags": {
+                        "internal-flags": "0x4000",
+                        "iff-snmp-traps": null
+                    },
+                    "physical-interface-cos-information": {
+                        "physical-interface-cos-hw-max-queues": "8",
+                        "physical-interface-cos-use-max-queues": "8"
+                    },
+                    "current-physical-address": "e8:b6:c2:4a:14:0f",
+                    "local-index": "137",
+                    "ethernet-fec-statistics": {
+                        "fec_ccw_error_rate": "0",
+                        "fec_nccw_count": "0",
+                        "fec_ccw_count": "0",
+                        "@junos:style": "verbose",
+                        "fec_nccw_error_rate": "0"
+                    },
+                    "speed": "40Gbps",
+                    "bpdu-error": "none",
+                    "ethernet-fec-mode": {
+                        "@junos:style": "verbose",
+                        "enabled_fec_mode": "NONE"
+                    },
+                    "loopback": "disabled",
+                    "snmp-index": "514",
+                    "ethernet-pcs-statistics": {
+                        "bit-error-seconds": "1",
+                        "errored-blocks-seconds": "1",
+                        "@junos:style": "verbose"
+                    },
+                    "source-filtering": "disabled",
+                    "interface-flapped": "2019-02-14 18:00:17 UTC (03:13:42 ago)",
+                    "hardware-physical-address": "e8:b6:c2:4a:14:0f",
+                    "eth-switch-error": "none",
+                    "oper-status": "up",
+                    "l2pt-error": "none",
+                    "ld-pdu-error": "none",
+                    "if-device-flags": {
+                        "ifdf-running": null,
+                        "ifdf-present": null
+                    },
+                    "active-defects": {
+                        "interface-alarms": {
+                            "alarm-not-present": null
+                        }
+                    },
+                    "if-media-flags": {
+                        "ifmf-none": null
+                    },
+                    "name": "et-0/0/32",
+                    "if-media-type": "Fiber",
+                    "traffic-statistics": {
+                        "input-pps": "0",
+                        "input-bps": "0",
+                        "@junos:style": "brief",
+                        "output-pps": "0",
+                        "output-bps": "504"
+                    },
+                    "mtu": "1514",
+                    "logical-interface": {
+                        "name": "et-0/0/32.0",
+                        "traffic-statistics": {
+                            "input-packets": "1065",
+                            "@junos:style": "brief",
+                            "output-packets": "7798"
+                        },
+                        "if-config-flags": {
+                            "iff-up": null,
+                            "internal-flags": "0x24024000",
+                            "iff-snmp-traps": null
+                        },
+                        "filter-information": null,
+                        "policer-overhead": null,
+                        "encapsulation": "Ethernet-Bridge",
+                        "local-index": "554",
+                        "address-family": {
+                            "address-family-flags": {
+                                "internal-flags": "0x4000000",
+                                "ifff-is-primary": null
+                            },
+                            "address-family-name": "eth-switch",
+                            "mtu": "1514"
+                        },
+                        "snmp-index": "518"
+                    },
+                    "sonet-mode": "LAN-PHY",
+                    "if-flow-control": "disabled",
+                    "interface-transmit-statistics": "Disabled",
+                    "admin-status": "up",
+                    "link-level-type": "Ethernet"
+                },
+                {
+                    "name": "em0",
+                    "traffic-statistics": {
+                        "input-packets": "1651",
+                        "@junos:style": "brief",
+                        "output-packets": "2879"
+                    },
+                    "admin-status": "up",
+                    "interface-flapped": "2019-02-14 17:59:21 UTC (03:14:38 ago)",
+                    "ifd-specific-config-flags": null,
+                    "if-config-flags": {
+                        "iff-snmp-traps": null
+                    },
+                    "snmp-index": "17",
+                    "link-type": "Full-Duplex",
+                    "logical-interface": {
+                        "name": "em0.0",
+                        "traffic-statistics": {
+                            "input-packets": "1630",
+                            "@junos:style": "brief",
+                            "output-packets": "2880"
+                        },
+                        "if-config-flags": {
+                            "iff-up": null,
+                            "internal-flags": "0x4000000",
+                            "iff-snmp-traps": null
+                        },
+                        "filter-information": null,
+                        "policer-overhead": null,
+                        "encapsulation": "ENET2",
+                        "local-index": "5",
+                        "address-family": {
+                            "intf-curr-cnt": "2",
+                            "intf-unresolved-cnt": "0",
+                            "interface-address": {
+                                "ifa-local": "192.168.10.151",
+                                "ifa-destination": "192.168.10/24",
+                                "ifa-flags": {
+                                    "ifaf-current-default": null,
+                                    "ifaf-current-primary": null,
+                                    "ifaf-current-preferred": null
+                                },
+                                "ifa-broadcast": "192.168.10.255"
+                            },
+                            "intf-dropcnt": "0",
+                            "mtu": "1500",
+                            "max-local-cache": "75000",
+                            "address-family-name": "inet",
+                            "address-family-flags": {
+                                "ifff-sendbcast-pkt-to-re": null,
+                                "ifff-is-primary": null
+                            },
+                            "new-hold-limit": "75000"
+                        },
+                        "snmp-index": "18"
+                    },
+                    "if-media-flags": {
+                        "internal-flags": "0x4"
+                    },
+                    "link-level-type": "Ethernet",
+                    "hardware-physical-address": "e8:b6:c2:4a:23:81",
+                    "current-physical-address": "e8:b6:c2:4a:23:81",
+                    "local-index": "64",
+                    "mtu": "1514",
+                    "oper-status": "up",
+                    "if-type": "Ethernet",
+                    "speed": "1000mbps",
+                    "if-device-flags": {
+                        "ifdf-running": null,
+                        "ifdf-present": null
+                    }
+                },
+                {
+                    "name": "em1",
+                    "traffic-statistics": {
+                        "input-packets": "64964",
+                        "@junos:style": "brief",
+                        "output-packets": "245"
+                    },
+                    "admin-status": "up",
+                    "interface-flapped": "2019-02-14 17:59:21 UTC (03:14:38 ago)",
+                    "ifd-specific-config-flags": null,
+                    "if-config-flags": {
+                        "iff-snmp-traps": null
+                    },
+                    "snmp-index": "23",
+                    "link-type": "Full-Duplex",
+                    "logical-interface": {
+                        "name": "em1.0",
+                        "traffic-statistics": {
+                            "input-packets": "64400",
+                            "@junos:style": "brief",
+                            "output-packets": "245"
+                        },
+                        "if-config-flags": {
+                            "iff-up": null,
+                            "internal-flags": "0x4000000",
+                            "iff-snmp-traps": null
+                        },
+                        "filter-information": null,
+                        "policer-overhead": null,
+                        "encapsulation": "ENET2",
+                        "local-index": "6",
+                        "address-family": {
+                            "intf-curr-cnt": "0",
+                            "intf-unresolved-cnt": "0",
+                            "intf-dropcnt": "0",
+                            "mtu": "1500",
+                            "max-local-cache": "75000",
+                            "address-family-name": "inet",
+                            "address-family-flags": {
+                                "ifff-sendbcast-pkt-to-re": null
+                            },
+                            "new-hold-limit": "75000"
+                        },
+                        "snmp-index": "24"
+                    },
+                    "if-media-flags": {
+                        "internal-flags": "0x4"
+                    },
+                    "link-level-type": "Ethernet",
+                    "hardware-physical-address": "e8:b6:c2:4a:23:82",
+                    "current-physical-address": "e8:b6:c2:4a:23:82",
+                    "local-index": "66",
+                    "mtu": "1514",
+                    "oper-status": "up",
+                    "if-type": "Ethernet",
+                    "speed": "1000mbps",
+                    "if-device-flags": {
+                        "ifdf-running": null,
+                        "ifdf-present": null
+                    }
+                }
+            ]
+        }
+    }
+}

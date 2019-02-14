@@ -13,3 +13,4 @@ dist
 .idea
 .DS_Store
 Doxygen
+*.retry

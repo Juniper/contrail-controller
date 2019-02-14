@@ -2,21 +2,19 @@
   block:
     - name: check to see if the ansible file for the vendor and family exists
       stat:
-        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+        path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
       register: p
 
-    - name: Execute commands on device
+    - name: Use vendor and family specific template
       block:
-        - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
         - name: set the jinja template file path
           set_fact:
             jinja_file_path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
       when: p.stat.exists == True
 
     # this is assuming device family does not matter
-    - name: Execute commands on device from default location
+    - name: Use vendor specific template
       block:
-        - include_tasks: "{{prouter_vendor}}.yml"
         - name: set the jinja template file path
           set_fact:
             jinja_file_path: "../templates/{{prouter_vendor}}.j2"
@@ -84,13 +82,6 @@
                     }
 
   rescue:
-    - name: Perform the necessary error handling while trying to execute command
-      include_tasks: error_handler.yml
-      when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
-      vars:
-        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
-        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
-
     - name: Perform the necessary error handling when parsing the device_info
       include_tasks: error_handler.yml
       when: "'failed' in parser_output and parser_output.failed == true"

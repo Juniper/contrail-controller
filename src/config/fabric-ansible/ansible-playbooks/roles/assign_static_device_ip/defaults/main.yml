@@ -1,0 +1,5 @@
+---
+output: {
+              "status": "Success",
+              "message": "Assigned static mgmt ip for device: {{prouter_name}}"
+        }
