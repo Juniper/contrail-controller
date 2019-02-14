@@ -69,16 +69,6 @@ class ProjectServer(ResourceMixin, Project):
             return ok, result
         db_obj_dict = result
 
-        if 'vxlan_routing' in obj_dict:
-            # VxLAN routing can be enabled or disabled
-            # only when the project does not have any
-            # Logical routers already attached.
-            if (db_obj_dict.get('vxlan_routing') !=
-                    obj_dict['vxlan_routing'] and
-                    'logical_routers' in db_obj_dict):
-                return False, (400, 'VxLAN Routing update cannot be ' +
-                               'done when Logical Routers are configured')
-
         if 'enable_security_policy_draft' in obj_dict:
             obj_dict['fq_name'] = db_obj_dict['fq_name']
             obj_dict['uuid'] = db_obj_dict['uuid']

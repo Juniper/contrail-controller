@@ -937,6 +937,7 @@ class TestQfxBasicDM(TestCommonDM):
         fq_name = ['default-domain', 'default-project', 'lr1' + self.id() + "-" + product]
         lr = LogicalRouter(fq_name=fq_name, parent_type = 'project', vxlan_network_identifier='1111')
         lr.set_physical_router(pr)
+        lr.set_logical_router_type('vxlan-routing')
         lr.add_virtual_machine_interface(vmi1)
         lr_uuid = self._vnc_lib.logical_router_create(lr)
 
