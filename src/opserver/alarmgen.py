@@ -62,7 +62,7 @@ from opserver_util import ServicePoller
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
-import discoveryclient.client as client 
+import discoveryclient.client as client
 from kafka import KafkaClient, SimpleProducer
 import redis
 from collections import namedtuple
@@ -88,7 +88,7 @@ class AGTabStats(object):
     def record_call(self, get_time):
         self.call_time += get_time
         self.call_n += 1
-    
+
     def get_result(self):
         if self.get_n:
             return self.get_time / self.get_n
@@ -114,8 +114,8 @@ class AGTabStats(object):
         self.get_n = 0
         self.pub_time = 0
         self.pub_n = 0
-        
-    
+
+
 class AGKeyInfo(object):
     """ This class is used to maintain UVE contents
     """
@@ -126,7 +126,7 @@ class AGKeyInfo(object):
 
         self.current_dict = {}
         self.update({})
-        
+
     def update_single(self, typ, val):
         # A single UVE struct has changed
         # If the UVE has gone away, the val is passed in as None
@@ -154,7 +154,7 @@ class AGKeyInfo(object):
                 self.current_dict[typ] = val
 
     def update(self, new_dict):
-        # A UVE has changed, and we have the entire new 
+        # A UVE has changed, and we have the entire new
         # content of the UVE available in new_dict
         set_current = set(new_dict.keys())
         set_past = set(self.current_dict.keys())
@@ -727,7 +727,7 @@ class AlarmStateMachine:
 
     def run_idle_timer(self, curr_time):
         """
-        This is the handler function for checking timer in Soak_Idle state. 
+        This is the handler function for checking timer in Soak_Idle state.
         State Machine should be deleted by the caller if this timer fires
         """
         idleTimerExpired = 0
@@ -749,7 +749,7 @@ class AlarmStateMachine:
 
     def run_delete_timer(self, curr_time):
         """
-        This is the handler function for checking timer in Idle state. 
+        This is the handler function for checking timer in Idle state.
         State Machine should be deleted by the caller if this timer fires
         """
         delete_alarm = False
@@ -815,7 +815,7 @@ class AlarmStateMachine:
             for timer in update_timers:
                 if timer.timeout_val is not None or timer.delete_alarm:
                     AlarmStateMachine.update_tab_alarms_timer(timer.tab,
-                                    timer.uv, timer.nm, timer.old_to, 
+                                    timer.uv, timer.nm, timer.old_to,
                                     timer.timeout_val, tab_alarms)
         AlarmStateMachine.last_timers_run = curr_time + 1
         return delete_alarms, update_alarms
@@ -858,7 +858,7 @@ class Controller(object):
     def fail_cb(self, manager, entrypoint, exception):
         self._sandesh._logger.info("Load failed for %s with exception %s" % \
                                      (str(entrypoint),str(exception)))
-        
+
     def __init__(self, conf, test_logger=None):
         self._conf = conf
         module = Module.ALARM_GENERATOR
@@ -939,7 +939,7 @@ class Controller(object):
             {'name':'AlarmStateChangeTrace', 'size':1000},
             {'name':'UVEQTrace', 'size':20000}
         ]
-        # Create trace buffers 
+        # Create trace buffers
         for buf in self.trace_buf:
             self._sandesh.trace_buffer_create(name=buf['name'], size=buf['size'])
 
@@ -962,7 +962,7 @@ class Controller(object):
                 invoke_args=(),
                 on_load_failure_callback=self.fail_cb
             )
-            
+
             for extn in self.mgrs[table][table]:
                 self._logger.info('Loaded extensions for %s: %s,%s doc %s' % \
                     (table, extn.name, extn.entry_point_target, extn.obj.__doc__))
@@ -1014,7 +1014,7 @@ class Controller(object):
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
-        UVETableAlarmReq.handle_request = self.handle_UVETableAlarmReq 
+        UVETableAlarmReq.handle_request = self.handle_UVETableAlarmReq
         UVETableInfoReq.handle_request = self.handle_UVETableInfoReq
         UVETablePerfReq.handle_request = self.handle_UVETablePerfReq
         AlarmConfigRequest.handle_request = self.handle_AlarmConfigRequest
@@ -1033,9 +1033,9 @@ class Controller(object):
         agp = AlarmgenPartition()
         agp.name = self._hostname
         agp.inst_parts = [agpi]
-       
+
         agp_trace = AlarmgenPartitionTrace(data=agp, sandesh=self._sandesh)
-        agp_trace.send(sandesh=self._sandesh) 
+        agp_trace.send(sandesh=self._sandesh)
 
         newset = set(part_list)
         oldset = self._partset
@@ -1084,9 +1084,9 @@ class Controller(object):
             agp = AlarmgenPartition()
             agp.name = self._hostname
             agp.inst_parts = [agpi]
-           
+
             agp_trace = AlarmgenPartitionTrace(data=agp, sandesh=self._sandesh)
-            agp_trace.send(sandesh=self._sandesh) 
+            agp_trace.send(sandesh=self._sandesh)
 
             pc = PartitionClient(self._conf.kafka_prefix() + "-alarmgen",
                     self._libpart_name, ag_list,
@@ -1100,7 +1100,7 @@ class Controller(object):
 
     def handle_uve_notifq(self, part, uves):
         """
-        uves : 
+        uves :
           This is a dict of UVEs that have changed, as per the following scheme:
           <UVE-Key> : None               # Any of the types may have changed
                                          # Used during stop_partition and GenDelete
@@ -1137,34 +1137,34 @@ class Controller(object):
         """
         This function compares the set of synced redis instances
         against the set now being reported by UVEServer
-       
+
         It returns :
         - The updated set of redis instances
         - A set of collectors to be removed
         - A dict with the collector to be added, with the contents
         """
         us_redis_inst = self._us.redis_instances()
-        disc_instances = copy.deepcopy(us_redis_inst) 
-        
+        disc_instances = copy.deepcopy(us_redis_inst)
+
         r_added = disc_instances - current_inst
         r_deleted = current_inst - disc_instances
-        
+
         coll_delete = set()
         for r_inst in r_deleted:
             ipaddr = r_inst[0]
             port = r_inst[1]
             coll_delete.add(ipaddr + ":" + str(port))
-        
+
         chg_res = {}
         for r_inst in r_added:
             coll, res = self._us.get_part(part, r_inst)
             chg_res[coll] = res
 
-        return disc_instances, coll_delete, chg_res            
+        return disc_instances, coll_delete, chg_res
 
     def reconnect_agg_uve(self, lredis):
         self._logger.error("Connected to Redis for Agg")
-        lredis.set(self._moduleid+':'+self._instance_id, "True")
+        lredis.set(self._moduleid+':'+self._instance_id,"True")
         for pp in self._workers.keys():
             self._workers[pp].reset_acq_time()
             self._workers[pp].kill(\
@@ -1203,7 +1203,7 @@ class Controller(object):
 	pperes3 = ppe3.execute()
 
     def send_agg_uve(self, redish, inst, part, acq_time, rows):
-        """ 
+        """
         This function writes aggregated UVEs to redis
 
         Each row has a UVE key, one of it's structs type names and the structs value
@@ -1226,10 +1226,10 @@ class Controller(object):
                         (inst, part, int(old_acq_time), acq_time))
                 self.clear_agg_uve(redish, inst, part, acq_time)
 
-        pub_list = []        
+        pub_list = []
         ppe = redish.pipeline()
         check_keys = set()
-        for row in rows: 
+        for row in rows:
             vjson = json.dumps(row.val)
             typ = row.typ
             key = row.key
@@ -1251,8 +1251,8 @@ class Controller(object):
                     ppe.hset("AGPARTVALUES:%s:%d:%s" % (inst, part, key),
                         typ, vjson)
         ppe.execute()
-        
-        # Find the keys that have no content (all structs have been deleted) 
+
+        # Find the keys that have no content (all structs have been deleted)
         ppe4 = redish.pipeline()
         check_keys_list = list(check_keys)
         for kk in check_keys_list:
@@ -1276,7 +1276,7 @@ class Controller(object):
 
         if retry:
             self._logger.error("Agg unexpected rows %s" % str(rows))
-        
+
     def send_alarm_update(self, tab, uk):
         ustruct = None
         alm_copy = []
@@ -1372,7 +1372,7 @@ class Controller(object):
                                   % (str(self._conf.discovery()), str(data)))
                     self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
                 oldworkerset = copy.deepcopy(workerset)
-             
+
             for part in self._uveqf.keys():
                 self._logger.error("Stop UVE processing for %d:%d" % \
                         (part, self._uveqf[part]))
@@ -1398,19 +1398,23 @@ class Controller(object):
                             db=7)
                     self.reconnect_agg_uve(lredis)
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                          name = 'AggregateRedis', status = ConnectionStatus.UP)
+                          name = 'AggregateRedis', status = ConnectionStatus.UP,
+                          server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port())],
+                          message = "Connect to Aggregate Redis for Aggregation")
                 else:
                     if not lredis.exists(self._moduleid+':'+self._instance_id):
                         self._logger.error('Identified redis restart')
                         self.reconnect_agg_uve(lredis)
                 gevs = {}
                 pendingset = {}
-		kafka_topic_down = False
+                kafka_topic_down = False
                 for part in self._uveq.keys():
                     if not len(self._uveq[part]):
                         continue
                     self._logger.info("UVE Process for %d" % part)
-		    kafka_topic_down |= self._workers[part].failed()
+                    if self._workers[part].failed() is True:
+                        kafka_part_failed = part
+                        kafka_topic_down = True
 
                     # Allow the partition handlers to queue new UVEs without
                     # interfering with the work of processing the current UVEs
@@ -1423,50 +1427,59 @@ class Controller(object):
                         icount += 1
                     self._logger.info("UVE Process for %d : %d, %d remain" % \
                             (part, len(pendingset[part]), len(self._uveq[part])))
-                        
+
                     gevs[part] = gevent.spawn(self.handle_uve_notif, part,\
                         pendingset[part])
-		if kafka_topic_down:
+		    if kafka_topic_down:
                     ConnectionState.update(conn_type = ConnectionType.KAFKA_PUB,
-                        name = 'KafkaTopic', status = ConnectionStatus.DOWN)
+                        name = 'KafkaTopic', status = ConnectionStatus.DOWN,
+                        server_addrs = self._workers[kafka_part_failed]._brokers,
+                        message = "Some Kafka partitions are not reacheable")
 	        else:
+                    if pendingset:
+                        valid_part = list(pendingset.keys())[0]
+                        server_list.append(self._workers[valid_part]._brokers)
+                    else:
+                        server_list = None
                     ConnectionState.update(conn_type = ConnectionType.KAFKA_PUB,
-                        name = 'KafkaTopic', status = ConnectionStatus.UP)
+                        name = 'KafkaTopic', status = ConnectionStatus.UP,
+                        server_addrs = server_list,
+                        message = "All Kafka partitions are reachable")
 
-                if len(gevs):
-                    gevent.joinall(gevs.values())
-                    self._logger.info("UVE Processing joined")
-                    outp={}
-                    gevs_out={}
-                    for part in gevs.keys():
-                        # If UVE processing failed, requeue the working set
-                        try:
-                            outp[part] = gevs[part].get()
-                        except Exception as ex:
-                            template = "Exception {0} in notif worker. Arguments:\n{1!r}"
-                            messag = template.format(type(ex).__name__, ex.args)
-                            self._logger.error("%s : traceback %s" % \
-                                    (messag, traceback.format_exc()))
-                            outp[part] = None
-                        if outp[part] is None:
-                            self._logger.error("UVE Process failed for %d" % part)
-                            self.handle_uve_notifq(part, pendingset[part])
-                        elif not part in self._workers:
-                            outp[part] = None
-                            self._logger.error(
-                                    "Part %d is gone, cannot process UVEs" % part)
-                        else:
-                            self._logger.info("UVE Agg on %d items in part %d" % \
-                                    (len(outp), part))
-                            gevs_out[part] = gevent.spawn(self.run_uve_agg, lredis,\
-                                    outp[part], part, self._workers[part].acq_time())
+            if len(gevs):
+                gevent.joinall(gevs.values())
+                self._logger.info("UVE Processing joined")
+                outp={}
+                gevs_out={}
+                for part in gevs.keys():
+                    # If UVE processing failed, requeue the working set
+                    try:
+                        outp[part] = gevs[part].get()
+                    except Exception as ex:
+                        template = "Exception {0} in notif worker. Arguments:\n{1!r}"
+                        messag = template.format(type(ex).__name__, ex.args)
+                        self._logger.error("%s : traceback %s" % \
+                                (messag, traceback.format_exc()))
+                        outp[part] = None
+                    if outp[part] is None:
+                        self._logger.error("UVE Process failed for %d" % part)
+                        self.handle_uve_notifq(part, pendingset[part])
+                    elif not part in self._workers:
+                        outp[part] = None
+                        self._logger.error(
+                                "Part %d is gone, cannot process UVEs" % part)
+                    else:
+                        self._logger.info("UVE Agg on %d items in part %d" % \
+                                (len(outp), part))
+                        gevs_out[part] = gevent.spawn(self.run_uve_agg, lredis,\
+                                outp[part], part, self._workers[part].acq_time())
 
                     if len(gevs_out):
-                        gevent.joinall(gevs_out.values()) 
+                        gevent.joinall(gevs_out.values())
 
                         # Check for exceptions during processing
                         for part in gevs_out.keys():
-                            gevs_out[part].get()                        
+                            gevs_out[part].get()
 
                 # If there are alarm config changes, then start a gevent per
                 # partition to process the alarm config changes
@@ -1489,12 +1502,14 @@ class Controller(object):
                                   (messag, traceback.format_exc()))
                 lredis = None
                 ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                      name = 'AggregateRedis', status = ConnectionStatus.DOWN)
+                      name = 'AggregateRedis', status = ConnectionStatus.DOWN,
+                      server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port())],
+                      message = messag)
                 gevent.sleep(1)
-                        
+
             curr = time.time()
             try:
-		self.run_alarm_timers(int(curr))
+		        self.run_alarm_timers(int(curr))
             except Exception as ex:
                 template = "Exception {0} in timer proc. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
@@ -1654,7 +1669,7 @@ class Controller(object):
                      The value is either a dict of UVE structs, or "None",
                      which means that all UVE structs should be processed.
 
-        Returns: 
+        Returns:
             status of operation (True for success)
         """
         self._logger.debug("Changed part %d UVEs : %s" % (part, str(uves)))
@@ -1684,7 +1699,7 @@ class Controller(object):
                     self._uvestats[part][tab][uv] = 1
 
             uve_name = uv.split(':',1)[1]
-            prevt = UTCTimestampUsec() 
+            prevt = UTCTimestampUsec()
             filters = {}
             if types:
                 filters["cfilt"] = {}
@@ -1772,14 +1787,14 @@ class Controller(object):
             if not touched:
                 del output[uv]
             local_uve = self.ptab_info[part][tab][uve_name].values()
-            
+
             self.tab_perf[tab].record_pub(UTCTimestampUsec() - prevt)
 
             if len(local_uve.keys()) == 0:
                 self._logger.info("UVE %s deleted in proc" % (uv))
                 del self.ptab_info[part][tab][uve_name]
                 output[uv] = None
-                
+
                 if tab in self.tab_alarms:
                     if uv in self.tab_alarms[tab]:
                         del_types = []
@@ -1794,7 +1809,7 @@ class Controller(object):
                 # Both alarm and non-alarm contents are gone.
                 # We do not need to do alarm evaluation
                 continue
-            
+
             # Withdraw the alarm if the UVE has no non-alarm structs
             if len(local_uve.keys()) == 1 and "UVEAlarms" in local_uve:
                 if tab in self.tab_alarms:
@@ -1830,13 +1845,13 @@ class Controller(object):
 		    sandesh=self._sandesh)
             self._logger.info("Ending UVE proc for part %d with error" % part)
             return None
- 
+
     def handle_UVETableInfoReq(self, req):
         if req.partition == -1:
             parts = self.ptab_info.keys()
         else:
             parts = [req.partition]
-        
+
         self._logger.info("Got UVETableInfoReq : %s" % str(parts))
         np = 1
         for part in parts:
@@ -1883,7 +1898,7 @@ class Controller(object):
                         uves.append(UVEAlarmStateMachineInfo(
                             uai = UVEAlarms(name = uk, alarms = alm_copy),
                             uac = av.get_uac(), uas = av.get_uas()))
-            resp.uves = uves 
+            resp.uves = uves
             if np == len(parts):
                 mr = False
             else:
@@ -1935,7 +1950,7 @@ class Controller(object):
         Args:
             parts : Set of Partition Numbers, or a single partition
             enl   : True for acquiring, False for giving up
-        Returns: 
+        Returns:
             status of operation (True for success)
         """
         if not isinstance(parts,set):
@@ -1970,7 +1985,7 @@ class Controller(object):
                         break
                     idx += 1
                 if len(parts - set(self._uveq.keys())) == 0:
-                    status = True 
+                    status = True
                 else:
                     # TODO: The partition has not started yet,
                     #       but it still might start later.
@@ -2007,7 +2022,7 @@ class Controller(object):
                         break
                     idx += 1
                 if len(parts - set(self._uveq.keys())) == len(parts):
-                    status = True 
+                    status = True
                     self._logger.error("Wait done for parts %s to exit" % str(parts))
                 else:
                     # TODO: The partition has not stopped yet
@@ -2020,7 +2035,7 @@ class Controller(object):
                 self._logger.info("No partition %d" % partno)
 
         return status
-    
+
     def handle_PartitionOwnershipReq(self, req):
         self._logger.info("Got PartitionOwnershipReq: %s" % str(req))
         status = self.partition_change(req.partition, req.ownership)
@@ -2028,9 +2043,9 @@ class Controller(object):
         resp = PartitionOwnershipResp()
         resp.status = status
 	resp.response(req.context())
-               
+
     def process_stats(self):
-        ''' Go through the UVEKey-Count stats collected over 
+        ''' Go through the UVEKey-Count stats collected over
             the previous time period over all partitions
             and send it out
         '''
@@ -2107,20 +2122,20 @@ class Controller(object):
                         self._sandesh._module + ':' + \
                         self._sandesh._instance_id
         au.alarmgens.append(agname)
- 
+
         atrace = AlarmgenStatusTrace(data = au, sandesh = self._sandesh)
         self._logger.debug('send alarmgen status : %s' % (atrace.log()))
         atrace.send(sandesh=self._sandesh)
-         
+
     def handle_PartitionStatusReq(self, req):
-        ''' Return the entire contents of the UVE DB for the 
+        ''' Return the entire contents of the UVE DB for the
             requested partitions
         '''
         if req.partition == -1:
             parts = self._workers.keys()
         else:
             parts = [req.partition]
-        
+
         self._logger.info("Got PartitionStatusReq: %s" % str(parts))
         np = 1
         for pt in parts:
@@ -2210,8 +2225,8 @@ class Controller(object):
         '''
         Analytics node may be brought up/down any time. For UVE aggregation,
         alarmgen needs to know the list of all Analytics nodes (redis-uves).
-        Periodically poll the Collector list [in lieu of 
-        redi-uve nodes] from the discovery. 
+        Periodically poll the Collector list [in lieu of
+        redi-uve nodes] from the discovery.
         '''
         self._logger.error("Discovery Collector callback : %s" % str(clist))
         newlist = []
