@@ -190,7 +190,8 @@ class DeviceZtpManager(object):
                     f.write(bytearray(contents))
             elif action == 'delete':
                 self._logger.info("Deleting file %s" % file_path)
-                os.remove(file_path)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
         except Exception as e:
             self._logger.error("ZTP manager: Error handling file request %s" %
                                repr(e))

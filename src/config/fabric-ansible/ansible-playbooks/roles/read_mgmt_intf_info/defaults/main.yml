@@ -1,0 +1,10 @@
+---
+output: {
+              "status": "Success",
+              "message": "Read mgmt interface info for device: {{prouter_name}}"
+        }
+execute_command_resp: {}
+device_info: {}
+parser_output: {}
+interfaces_payload: {}
+device_import_result: {}

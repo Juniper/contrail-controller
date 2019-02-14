@@ -1,7 +1,0 @@
----
-# vars file for ztp_tftp role
-
-ztp_create: "{{ True if hostvars['localhost'].get('ztp_create') else False }}"
-fabric_name: "{{hostvars['localhost']['fabric_name']}}"
-tftp_dir: "{{hostvars['localhost']['ztp_tftp_dir']}}"
-script_file: "{{hostvars['localhost']['ztp_script_file']}}"

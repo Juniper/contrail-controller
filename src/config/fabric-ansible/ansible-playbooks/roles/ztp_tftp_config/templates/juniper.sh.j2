@@ -4,7 +4,7 @@ cat <<EOF > /tmp/juniper.config
 system {
     host-name "$serial_number"
     root-authentication {
-        encrypted-password "{{ ztp_config.password | encrypt | shell_escape }}";
+        encrypted-password "{{ ztp_tftp_config.password | encrypt | shell_escape }}";
     }
     services {
         ssh {
