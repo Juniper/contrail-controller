@@ -3176,6 +3176,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         rtr_vmi_obj.add_virtual_network(vn_obj)
         self._vnc_lib.virtual_machine_interface_create(rtr_vmi_obj)
         lr_obj = LogicalRouter('rtr-%s' %(self.id()), proj_obj)
+        lr_obj.set_logical_router_type('vxlan-routing')
         lr_obj.add_virtual_machine_interface(rtr_vmi_obj)
         self._vnc_lib.logical_router_create(lr_obj)
 

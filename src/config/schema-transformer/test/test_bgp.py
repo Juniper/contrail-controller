@@ -159,6 +159,7 @@ class TestVxLan(STTestCase, VerifyBgp):
         self._vnc_lib.project_update(proj_obj)
         lr_name = self.id() + '_logicalrouter'
         lr = LogicalRouter(lr_name)
+        lr.set_logical_router_type('vxlan-routing')
         rtgt_list = RouteTargetList(route_target=['target:3:1'])
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_create(lr)
@@ -214,6 +215,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # create logical router with RT
         lr_name = self.id() + '_lr1'
         lr = LogicalRouter(lr_name)
+        lr.set_logical_router_type('vxlan-routing')
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
@@ -319,6 +321,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # create logical router
         lr_name = self.id() + 'lr1'
         lr = LogicalRouter(lr_name)
+        lr.set_logical_router_type('vxlan-routing')
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
