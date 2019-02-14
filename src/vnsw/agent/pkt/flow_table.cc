@@ -144,6 +144,12 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
 }
 
 void FlowTable::Copy(FlowEntry *lhs, FlowEntry *rhs, bool update) {
+    /* Flow copy, if results in UUID change, stop updating UVE stats
+     * for old flow
+     */
+    if (update==false)
+        DeleteFlowUveInfo(lhs);
+
     RevFlowDepParams params;
     lhs->RevFlowDepInfo(&params);
     DeleteFlowInfo(lhs, params);
@@ -477,6 +483,10 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
             rflow->set_flags(FlowEntry::Multicast);
         }
     }
+}
+
+void FlowTable::DeleteFlowUveInfo(FlowEntry *fe) {
+    agent_->pkt()->flow_mgmt_manager(table_index_)->EnqueueUveDeleteEvent(fe);
 }
 
 ////////////////////////////////////////////////////////////////////////////
