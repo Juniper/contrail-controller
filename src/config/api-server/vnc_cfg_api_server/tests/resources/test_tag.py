@@ -228,6 +228,7 @@ class TestTag(TestTagBase):
         self.assertEqual(tag_type_uuid, tag_type.uuid)
 
     def test_pre_defined_tag_type_is_not_deleted_even_if_not_use(self):
+        mock_zk = self._api_server._db_conn._zk_db
         tag_value = 'fake_value1-%s' % self.id()
         for tag_type_name in constants.TagTypeNameToId.keys():
             tag = Tag(tag_type_name=tag_type_name, tag_value=tag_value)
@@ -235,11 +236,20 @@ class TestTag(TestTagBase):
             tag = self.api.tag_read(id=tag_uuid)
 
             tag_type_uuid = tag.get_tag_type_refs()[0]['uuid']
+            zk_id = int(tag.tag_id, 0) & 0x0000ffff
+            self.assertEqual(
+                mock_zk.get_tag_value_from_id(tag.tag_type_name, zk_id),
+                tag.get_fq_name_str(),
+            )
             self.api.tag_delete(id=tag_uuid)
             with mock.patch.object(self._api_server, 'is_admin_request',
                                    return_value=True):
                 tag_type = self.api.tag_type_read(id=tag_type_uuid)
             self.assertEqual(tag_type_uuid, tag_type.uuid)
+            self.assertNotEqual(
+                mock_zk.get_tag_value_from_id(tag.tag_type_name, zk_id),
+                tag.get_fq_name_str(),
+            )
 
     def test_tag_type_is_allocated(self):
         tag_type = 'fake_type-%s' % self.id()
