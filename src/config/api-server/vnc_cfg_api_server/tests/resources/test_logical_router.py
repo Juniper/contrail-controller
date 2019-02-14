@@ -437,6 +437,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
+        lr.set_logical_router_type('snat-routing')
         self._vnc_lib.logical_router_create(lr)
 
         # Add Router Interface
@@ -472,6 +473,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
 
@@ -487,29 +489,6 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             # the presence of the object. Hack!
             if "This object is not visible" not in str(e):
                 assert(False)
-
-        # Check to see if we are not able to attach Ext Gateway when
-        # VxLAN Routing is enabled.
-        ext_vn = VirtualNetwork(name=self.id() + '_ext_lr')
-        ext_vn_uuid = self._vnc_lib.virtual_network_create(ext_vn)
-        ext_vn = self._vnc_lib.virtual_network_read(id=ext_vn_uuid)
-        lr.add_virtual_network(ext_vn)
-        try:
-            self._vnc_lib.logical_router_update(lr)
-            self.fail("API allow to add an external gateway to the logical "
-                      "router while the VxLAN routing is enabled")
-        except BadRequest:
-            pass
-
-        # Check to see if we are not able to disable VxLAN routing in the
-        # project when there is one LR in the project.
-        project.set_vxlan_routing(False)
-        try:
-            self._vnc_lib.project_update(project)
-            self.fail("API allows to disable VxLAN routhing while there is a "
-                      "logical router in the project")
-        except BadRequest:
-            pass
 
         # Check to see if deleting the VN deletes the internal VN
         # that was created.
@@ -536,6 +515,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_vxlan_network_identifier('5000')
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
         vxlan_id = lr.get_vxlan_network_identifier()
@@ -558,6 +538,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_vxlan_network_identifier('5001')
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr_read = self._vnc_lib.logical_router_read(id=lr_uuid)
         vxlan_id = lr_read.get_vxlan_network_identifier()
@@ -587,6 +568,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr1 = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr1.set_vxlan_network_identifier('5003')
+        lr1.set_logical_router_type('vxlan-routing')
         lr1_uuid = self._vnc_lib.logical_router_create(lr1)
         lr1_read = self._vnc_lib.logical_router_read(id=lr1_uuid)
         vxlan_id1 = lr1_read.get_vxlan_network_identifier()
@@ -594,6 +576,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         lr2 = LogicalRouter('router-test-v4-%s-2' % self.id(), project)
         lr2.set_vxlan_network_identifier('5004')
+        lr2.set_logical_router_type('vxlan-routing')
         lr2_uuid = self._vnc_lib.logical_router_create(lr2)
         lr2_read = self._vnc_lib.logical_router_read(id=lr2_uuid)
         vxlan_id2 = lr2_read.get_vxlan_network_identifier()
@@ -627,6 +610,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_vxlan_network_identifier('5005')
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
         vxlan_id = lr.get_vxlan_network_identifier()
@@ -638,3 +622,40 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.logical_router_delete(id=lr_uuid)
         self.assertNotEqual(':'.join(int_vn_fqname) + "_vxlan",
                             mock_zk.get_vn_from_id(int(vxlan_id)))
+
+    def test_change_from_vxlan_to_snat(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        # Create Logical Router enabled for VxLAN.
+        lr = LogicalRouter('router-test-vxlan-to-snat-%s' %
+                           (self.id()), project)
+
+        lr.set_logical_router_type('vxlan-routing')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        lr.set_logical_router_type('snat-routing')
+        with ExpectedException(BadRequest):
+            self._vnc_lib.logical_router_update(lr)
+
+        logger.debug('PASS - Could not update LR from VXLAN to SNAT')
+
+    def test_change_from_snat_to_vxlan(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        # Create Logical Router enabled for SNAT.
+        lr = LogicalRouter(
+            'router-test-snat-to-vxlan-%s'
+            % (self.id()), project)
+
+        lr.set_logical_router_type('snat-routing')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        lr.set_logical_router_type('vxlan-routing')
+        with ExpectedException(BadRequest):
+            self._vnc_lib.logical_router_update(lr)
+
+        logger.debug('PASS: Could not update LR from SNAT to VXLAN')

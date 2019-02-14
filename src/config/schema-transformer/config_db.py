@@ -4178,10 +4178,7 @@ class LogicalRouterST(DBBaseST):
         self.bgpvpn_import_rt_list = set()
         self.bgpvpn_export_rt_list = set()
         self.update_vnc_obj()
-        proj_obj = self.read_vnc_obj(self.obj.parent_uuid,
-                                     obj_type='project',
-                                     fields=['vxlan_routing'])
-        self.vxlan_routing = proj_obj.get_vxlan_routing()
+        self.logical_router_type = self.obj.get_logical_router_type()
 
         rt_ref = self.obj.get_route_target_refs()
         old_rt_key = None
@@ -4233,7 +4230,7 @@ class LogicalRouterST(DBBaseST):
     def set_virtual_networks(self, vn_set):
         # do not add RT assigned to LR to the VN
         # when vxlan_routing is enabled
-        if self.vxlan_routing:
+        if self.logical_router_type == 'vxlan-routing':
             self.virtual_networks = vn_set
             return
         for vn in self.virtual_networks - vn_set:
@@ -4328,7 +4325,7 @@ class LogicalRouterST(DBBaseST):
         if not (rt_add or rt_add_import or rt_add_export or rt_del):
             return
 
-        if self.vxlan_routing:
+        if self.logical_router_type == 'vxlan-routing':
             vn = ':'.join((self.obj.fq_name[:-1] +
                              [common.get_lr_internal_vn_name(self.obj.uuid)]))
             vn_obj = VirtualNetworkST.get(vn)

@@ -155,10 +155,9 @@ class TestVxLan(STTestCase, VerifyBgp):
     def test_vn_internal_lr(self):
         proj_obj = self._vnc_lib.project_read(
                 fq_name=['default-domain', 'default-project'])
-        proj_obj.set_vxlan_routing(True)
-        self._vnc_lib.project_update(proj_obj)
         lr_name = self.id() + '_logicalrouter'
         lr = LogicalRouter(lr_name)
+        lr.set_logical_router_type('vxlan-routing')
         rtgt_list = RouteTargetList(route_target=['target:3:1'])
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_create(lr)
@@ -186,8 +185,6 @@ class TestVxLan(STTestCase, VerifyBgp):
 class TestBgp(STTestCase, VerifyBgp):
 
     def test_vxlan_routing(self):
-        proj_obj = self._vnc_lib.project_read(
-                fq_name=['default-domain', 'default-project'])
         # create  vn1
         vn1_name = self.id() + '_vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
@@ -202,10 +199,8 @@ class TestBgp(STTestCase, VerifyBgp):
         vmi.add_virtual_network(vn1_obj)
         self._vnc_lib.virtual_machine_interface_create(vmi)
 
-        # Enable vxlan_routing in the project
+        # Enable vxlan_routing
         # and verify RT not attached to LR
-        proj_obj.set_vxlan_routing(True)
-        self._vnc_lib.project_update(proj_obj)
         ri_name = self.get_ri_name(vn1_obj)
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         vn_rt_refs = set([ref['to'][0]
@@ -214,6 +209,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # create logical router with RT
         lr_name = self.id() + '_lr1'
         lr = LogicalRouter(lr_name)
+        lr.set_logical_router_type('vxlan-routing')
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
@@ -300,10 +296,6 @@ class TestBgp(STTestCase, VerifyBgp):
     # internalVN deletion
     def test_logical_router_delete(self):
         # configure vxlan routing
-        proj_obj = self._vnc_lib.project_read(
-                fq_name=['default-domain', 'default-project'])
-        proj_obj.set_vxlan_routing(True)
-        self._vnc_lib.project_update(proj_obj)
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
@@ -319,6 +311,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # create logical router
         lr_name = self.id() + 'lr1'
         lr = LogicalRouter(lr_name)
+        lr.set_logical_router_type('vxlan-routing')
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
