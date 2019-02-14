@@ -1170,6 +1170,10 @@ class VncDbClient(object):
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._object_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
+
+        if obj_type == 'project':
+            obj_fields.append('logical_routers')
+
         uve_trace_list = []
         for obj_dict in obj_dicts:
             try:
@@ -1223,6 +1227,25 @@ class VncDbClient(object):
                         ApplicationPolicySet(parent_obj=Project(**obj_dict),
                                              all_applications=True),
                     )
+
+                    vxlan_routing = obj_dict.get('vxlan_routing', None)
+
+                    logical_routers = obj_dict.get('logical_routers', [])
+                    for logical_router in logical_routers:
+                        lr_uuid = logical_router['uuid']
+                        (ok, lr_dict) = self._object_db.object_read('logical_router',
+                                                                    [lr_uuid])
+                        if vxlan_routing:
+                            lr_dict[0]['logical_router_type'] = 'vxlan-routing'
+                        else:
+                            lr_dict[0]['logical_router_type'] = 'snat-routing'
+
+                        self._object_db.object_update('logical_router',
+                                                      lr_uuid, lr_dict[0])
+                    obj_dict['vxlan_routing'] = False
+                    self._object_db.object_update('project',
+                                                  obj_uuid, obj_dict)
+
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
                 update_obj = False
