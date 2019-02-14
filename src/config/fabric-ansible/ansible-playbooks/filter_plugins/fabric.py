@@ -267,7 +267,7 @@ class FilterModule(object):
             if str(namespace_obj.fabric_namespace_type) == 'IPV4-CIDR':
                 ipv4_cidr = namespace_obj.fabric_namespace_value.ipv4_cidr
                 for sn in ipv4_cidr.subnet:
-                    network = IPNetwork(sn.ip_prefix + '/' + sn.ip_prefix_len)
+                    network = IPNetwork(str(sn.ip_prefix) + '/' + str(sn.ip_prefix_len))
                     for mgmt_network in mgmt_networks:
                         if network in mgmt_network or mgmt_network in network:
                             _task_done(
