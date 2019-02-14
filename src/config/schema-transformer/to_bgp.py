@@ -842,7 +842,7 @@ def run_schema_transformer(args):
     def connection_state_update(status, message=None):
         ConnectionState.update(
             conn_type=ConnType.APISERVER, name='ApiServer',
-            status=status, message=message or '',
+            status=status, message=message or 'Aadarsh_ApiServer',
             server_addrs=['%s:%s' % (args.api_server_ip,
                                      args.api_server_port)])
     # end connection_state_update

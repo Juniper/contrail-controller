@@ -101,7 +101,7 @@ class ConsistentScheduler(object):
     def _zk_lstnr(self, state):
         if state == KazooState.CONNECTED:
             # Update connection info
-            self._sandesh_connection_info_update(status='UP', message='')
+            self._sandesh_connection_info_update(status='UP', message='Connection to Zookeeper established')
         elif state == KazooState.LOST:
             # Lost the session with ZooKeeper Server
             # Best of option we have is to exit the process and restart all 

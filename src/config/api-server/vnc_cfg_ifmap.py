@@ -138,7 +138,7 @@ class VncIfmapClient(object):
         self._sandesh = db_client_mgr._sandesh
 
         ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.INIT, message = '',
+            name = 'IfMap', status = ConnectionStatus.INIT, message = 'Aadarsh_IfMap Server initialzing',
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
         self._is_ifmap_up = False
@@ -406,7 +406,7 @@ class VncIfmapClient(object):
                 time.sleep(3)
 
         ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.UP, message = '',
+            name = 'IfMap', status = ConnectionStatus.UP, message = 'Aadarsh_IFMAP connection ESTABLISHED',
             server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                        self._ifmap_srv_port)])
         self._conn_state = ConnectionStatus.UP
@@ -586,7 +586,7 @@ class VncIfmapClient(object):
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 ConnectionState.update(
                     conn_type=ConnType.IFMAP,
-                    name='IfMap', status=ConnectionStatus.DOWN, message='',
+                    name='IfMap', status=ConnectionStatus.DOWN, message='Aadarsh_Connection to IFMAP down',
                     server_addrs=["%s:%s" % (self._ifmap_srv_ip,
                                              self._ifmap_srv_port)])
 
@@ -805,7 +805,7 @@ class VncIfmapClient(object):
                     ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',
                                            status = ConnectionStatus.UP,
-                                           message = '',
+                                           message = 'Aadarsh_IFMAP server published',
                                            server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                                                       self._ifmap_srv_port)])
             except Exception as e:
@@ -1269,16 +1269,10 @@ class VncZkClient(object):
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
-        if subnet in self._subnet_allocators:
-            self._subnet_allocators.pop(subnet, None)
-            # ZK store subnet lock under 2 step depth folder
-            # <vn fq_name string>:<subnet prefix>/<subnet prefix len>
-            # As we prevent subnet overlaping on a same network, the first
-            # folder can contains only one prefix len folder. So we can safely
-            # remove first folder recursively.
-            prefix, _, _ = subnet.rpartition('/')
-            prefix_path = "%s/%s/" % (self._subnet_path, prefix)
-            IndexAllocator.delete_all(self._zk_client, prefix_path)
+        self._subnet_allocators.pop(subnet, None)
+        IndexAllocator.delete_all(self._zk_client,
+                                  self._subnet_path+'/'+subnet+'/')
+    # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
         return self._subnet_allocators.get(subnet)

@@ -546,11 +546,15 @@ class OpServer(object):
         self.agp = {}
         if self._usecache:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
-                name = 'UVE-Aggregation', status = ConnectionStatus.INIT)
+                name = 'UVE-Aggregation', status = ConnectionStatus.INIT,
+                server_addrs = None,
+                message = "Initialize Kafka Use for UVE aggregation")
             self._uvepartitions_state = ConnectionStatus.INIT
         else:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
-                name = 'UVE-Aggregation', status = ConnectionStatus.UP)
+                name = 'UVE-Aggregation', status = ConnectionStatus.UP,
+                server_addrs = self._args.redis_uve_list,
+                message = "Not using Kafka for UVE Aggregation")
             self._uvepartitions_state = ConnectionStatus.UP
 
         if self._args.disc_server_ip:
@@ -987,12 +991,14 @@ class OpServer(object):
     # end get_uve_server
 
     def homepage_http_get(self):
+	return
         json_body = {}
         json_links = []
 
         base_url = bottle.request.urlparts.scheme + \
             '://' + bottle.request.urlparts.netloc
 
+	print "coming in homepage_http_get"
         for link in self._homepage_links:
             json_links.append(
                 {'link': obj_to_dict(
@@ -2317,10 +2323,12 @@ class OpServer(object):
 
     def disc_agp(self, clist):
         new_agp = {}
+        server_list = []
         for elem in clist:
             instance_id = elem['instance-id']
             port = int(elem['redis-port']) 
             ip_address = elem['ip-address']
+            server_list.append(str(ip_address)+':'+str(port))
             parts = json.loads(elem['partitions'])
             for partstr,acq_time in parts.iteritems():
                 partno = int(partstr)
@@ -2337,11 +2345,13 @@ class OpServer(object):
                 len(self.agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP,
+                server_addrs = None,
                 message = 'Partitions:%d' % len(new_agp))
             self._uvepartitions_state = ConnectionStatus.UP
         if self._usecache and len(new_agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.DOWN,
+                server_addrs = server_list,
                 message = 'Partitions:%d' % len(new_agp))
             self._uvepartitions_state = ConnectionStatus.DOWN
         self.agp = new_agp        
