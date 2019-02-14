@@ -759,8 +759,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 msg = 'Physical interfaces in the same lag should belong to '\
                       'the same fabric'
                 return (False, (400, msg))
-            else:
+            elif link.get('fabric'):
                 fabric_name = link['fabric']
+            else: # it's a LCM case so use default fabric
+                fabric_name = 'default-fabric'
+                break
 
             phy_interface_name = link['port_id']
             prouter_name = link['switch_info']
