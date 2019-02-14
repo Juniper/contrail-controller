@@ -21,8 +21,9 @@ class VncCfgApiClient(object):
     def _update_connection_state(self, status, message = ''):
         server_addrs = ['%s:%d' % (self._conf_info['api_server_ip'], \
             self._conf_info['api_server_port'])]
-        ConnectionState.update(conn_type=ConnectionType.APISERVER, name='',
-            status=status, message=message, server_addrs=server_addrs)
+        ConnectionState.update(conn_type=ConnectionType.APISERVER,
+            name='ApiServer', status=status, message=message, 
+            server_addrs=server_addrs)
     # end _update_connection_state
 
     def _get_user_token_info(self, user_token):
@@ -36,7 +37,8 @@ class VncCfgApiClient(object):
     def connect(self):
         # Retry till API server is up
         connected = False
-        self._update_connection_state(ConnectionStatus.INIT)
+        self._update_connection_state(ConnectionStatus.INIT,
+                "Connection to API Server initialized")
         while not connected:
             try:
                 self._vnc_api_client = vnc_api.VncApi(
@@ -50,7 +52,8 @@ class VncCfgApiClient(object):
                     auth_port=self._conf_info['auth_port'],
                     auth_protocol=self._conf_info['auth_protocol'])
                 connected = True
-                self._update_connection_state(ConnectionStatus.UP)
+                self._update_connection_state(ConnectionStatus.UP,
+                        "Connection to API Server established")
             except Exception as e:
                 # Update connection info
                 self._update_connection_state(ConnectionStatus.DOWN, str(e))
