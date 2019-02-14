@@ -1918,6 +1918,8 @@ class DBInterface(object):
         else:  # READ/UPDATE/DELETE
             rtr_obj = self._logical_router_read(rtr_id=router_q['id'])
 
+        rtr_obj.logical_router_type = 'snat-routing'
+
         id_perms = rtr_obj.get_id_perms()
         if 'admin_state_up' in router_q:
             id_perms.enable = router_q['admin_state_up']
