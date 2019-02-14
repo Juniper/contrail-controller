@@ -23,6 +23,7 @@ from vnc_api.gen.resource_client import VirtualNetwork
 from vnc_api.gen.resource_xsd import IdPermsType
 from vnc_api.gen.resource_xsd import IpamSubnetType
 from vnc_api.gen.resource_xsd import IpamType
+from vnc_api.gen.resource_xsd import LogicalRouterVirtualNetworkType
 from vnc_api.gen.resource_xsd import RouteTableType
 from vnc_api.gen.resource_xsd import RouteType
 from vnc_api.gen.resource_xsd import SubnetType
@@ -437,6 +438,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
+        lr.set_logical_router_type('snat-routing')
         self._vnc_lib.logical_router_create(lr)
 
         # Add Router Interface
@@ -472,6 +474,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
 
@@ -487,29 +490,6 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             # the presence of the object. Hack!
             if "This object is not visible" not in str(e):
                 assert(False)
-
-        # Check to see if we are not able to attach Ext Gateway when
-        # VxLAN Routing is enabled.
-        ext_vn = VirtualNetwork(name=self.id() + '_ext_lr')
-        ext_vn_uuid = self._vnc_lib.virtual_network_create(ext_vn)
-        ext_vn = self._vnc_lib.virtual_network_read(id=ext_vn_uuid)
-        lr.add_virtual_network(ext_vn)
-        try:
-            self._vnc_lib.logical_router_update(lr)
-            self.fail("API allow to add an external gateway to the logical "
-                      "router while the VxLAN routing is enabled")
-        except BadRequest:
-            pass
-
-        # Check to see if we are not able to disable VxLAN routing in the
-        # project when there is one LR in the project.
-        project.set_vxlan_routing(False)
-        try:
-            self._vnc_lib.project_update(project)
-            self.fail("API allows to disable VxLAN routhing while there is a "
-                      "logical router in the project")
-        except BadRequest:
-            pass
 
         # Check to see if deleting the VN deletes the internal VN
         # that was created.
@@ -536,6 +516,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_vxlan_network_identifier('5000')
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
         vxlan_id = lr.get_vxlan_network_identifier()
@@ -558,6 +539,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_vxlan_network_identifier('5001')
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr_read = self._vnc_lib.logical_router_read(id=lr_uuid)
         vxlan_id = lr_read.get_vxlan_network_identifier()
@@ -587,6 +569,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr1 = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr1.set_vxlan_network_identifier('5003')
+        lr1.set_logical_router_type('vxlan-routing')
         lr1_uuid = self._vnc_lib.logical_router_create(lr1)
         lr1_read = self._vnc_lib.logical_router_read(id=lr1_uuid)
         vxlan_id1 = lr1_read.get_vxlan_network_identifier()
@@ -594,6 +577,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
 
         lr2 = LogicalRouter('router-test-v4-%s-2' % self.id(), project)
         lr2.set_vxlan_network_identifier('5004')
+        lr2.set_logical_router_type('vxlan-routing')
         lr2_uuid = self._vnc_lib.logical_router_create(lr2)
         lr2_read = self._vnc_lib.logical_router_read(id=lr2_uuid)
         vxlan_id2 = lr2_read.get_vxlan_network_identifier()
@@ -627,6 +611,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Logical Router
         lr = LogicalRouter('router-test-v4-%s' % self.id(), project)
         lr.set_vxlan_network_identifier('5005')
+        lr.set_logical_router_type('vxlan-routing')
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
         vxlan_id = lr.get_vxlan_network_identifier()
@@ -638,3 +623,84 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.logical_router_delete(id=lr_uuid)
         self.assertNotEqual(':'.join(int_vn_fqname) + "_vxlan",
                             mock_zk.get_vn_from_id(int(vxlan_id)))
+
+    def test_change_from_vxlan_to_snat(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+
+        # Create Logical Router enabled for VxLAN.
+        lr = LogicalRouter('router-test-vxlan-to-snat-%s' %
+                           (self.id()), project)
+
+        lr.set_logical_router_type('vxlan-routing')
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        # Create External VN
+        vn = VirtualNetwork('%s-vn' % self.id(), project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object for my-vn: %s', vn.uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
+
+        lr_vn_ref_data = LogicalRouterVirtualNetworkType(
+            logical_router_virtual_network_type='ExternalGateway')
+
+        lr.add_virtual_network(net_obj, lr_vn_ref_data)
+        lr.set_logical_router_type('snat-routing')
+        self._vnc_lib.logical_router_update(lr)
+
+        logger.debug('PASS - Updated LR from VXLAN to SNAT')
+
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self._vnc_lib.virtual_network_delete(id=net_obj.uuid)
+
+    def test_change_from_snat_to_vxlan(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+
+        # Create External VN
+        vn = VirtualNetwork('%s-vn' % self.id(), project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object for my-vn: %s', vn.uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
+
+        # Create Logical Router enabled for SNAT.
+        lr = LogicalRouter(
+            'router-test-snat-to-vxlan-%s'
+            % (self.id()), project)
+
+        lr.set_logical_router_type('snat-routing')
+        lr.add_virtual_network(net_obj)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        lr.set_logical_router_type('vxlan-routing')
+        lr.del_virtual_network(net_obj)
+        self._vnc_lib.logical_router_update(lr)
+
+        int_vn_name = get_lr_internal_vn_name(lr_uuid)
+        int_vn_fqname = ['default-domain', 'default-project', int_vn_name]
+
+        try:
+            self._vnc_lib.virtual_network_read(fq_name=int_vn_fqname)
+        except NoIdError as e:
+            # Invisible objects do not come up in read
+            # calls but throws up a exception saying the
+            # object is invisible but cannot be read, confirming
+            # the presence of the object. Hack!
+            if "This object is not visible" not in str(e):
+                logger.debug('FAIL-Internal VN not created for Logical Router')
+                assert(False)
+
+        logger.debug('PASS: Updated LR from SNAT to VXLAN')
+
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+        self._vnc_lib.virtual_network_delete(id=net_obj.uuid)
