@@ -290,7 +290,8 @@ class DeviceManager(object):
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
             conn_type=ConnType.APISERVER, name='ApiServer',
-            status=status, message=message or '',
+            status=status,
+            message=message or 'ApiServer Connection State updated',
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])
     # end connection_state_update
