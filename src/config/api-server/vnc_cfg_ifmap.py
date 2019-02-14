@@ -138,7 +138,8 @@ class VncIfmapClient(object):
         self._sandesh = db_client_mgr._sandesh
 
         ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.INIT, message = '',
+            name = 'IfMap', status = ConnectionStatus.INIT,
+            message = 'IfMap Server initialzing',
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
         self._is_ifmap_up = False
@@ -406,7 +407,8 @@ class VncIfmapClient(object):
                 time.sleep(3)
 
         ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.UP, message = '',
+            name = 'IfMap', status = ConnectionStatus.UP,
+            message = 'IFMAP connection ESTABLISHED',
             server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                        self._ifmap_srv_port)])
         self._conn_state = ConnectionStatus.UP
@@ -586,7 +588,8 @@ class VncIfmapClient(object):
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 ConnectionState.update(
                     conn_type=ConnType.IFMAP,
-                    name='IfMap', status=ConnectionStatus.DOWN, message='',
+                    name='IfMap', status=ConnectionStatus.DOWN,
+                    message='Connection to IFMAP down',
                     server_addrs=["%s:%s" % (self._ifmap_srv_ip,
                                              self._ifmap_srv_port)])
 
@@ -805,7 +808,7 @@ class VncIfmapClient(object):
                     ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',
                                            status = ConnectionStatus.UP,
-                                           message = '',
+                                           message = 'IFMAP server published',
                                            server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                                                       self._ifmap_srv_port)])
             except Exception as e:
@@ -1279,6 +1282,7 @@ class VncZkClient(object):
             prefix, _, _ = subnet.rpartition('/')
             prefix_path = "%s/%s/" % (self._subnet_path, prefix)
             IndexAllocator.delete_all(self._zk_client, prefix_path)
+    # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
         return self._subnet_allocators.get(subnet)
