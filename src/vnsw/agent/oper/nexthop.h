@@ -1812,6 +1812,9 @@ public:
    bool layer2_control_word() const {
        return layer2_control_word_;
    }
+
+   const Interface *GetFirstLocalEcmpMemberInterface() const;
+
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,

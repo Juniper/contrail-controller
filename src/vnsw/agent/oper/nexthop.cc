@@ -1654,6 +1654,27 @@ bool CompositeNH::HasVmInterface(const VmInterface *vmi) const {
     return false;
 }
 
+const Interface *CompositeNH::GetFirstLocalEcmpMemberInterface() const {
+    if (composite_nh_type_ != Composite::LOCAL_ECMP) {
+        return NULL;
+    }
+    ComponentNHList::const_iterator comp_nh_it =
+        component_nh_list_.begin();
+    if (comp_nh_it != component_nh_list_.end()) {
+        if ((*comp_nh_it)->nh()->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>
+                ((*comp_nh_it)->nh());
+            return (intf_nh->GetInterface());
+        }
+        if ((*comp_nh_it)->nh()->GetType() == NextHop::VLAN) {
+            const VlanNH *vlan_nh = dynamic_cast<const VlanNH *>
+                ((*comp_nh_it)->nh());
+            return (vlan_nh->GetInterface());
+        }
+    }
+    return NULL;
+}
+
 uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index,
                                  bool ingress) const {
     uint32_t idx = kInvalidComponentNHIdx;
