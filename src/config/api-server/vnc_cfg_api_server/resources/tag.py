@@ -96,15 +96,15 @@ class TagServer(ResourceMixin, Tag):
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
-        # Don't de-allocate ID and remove pre-defined tag types
-        if obj_dict['tag_type_name'] in TagTypeNameToId:
-            return True, ''
-
         # Deallocate ID for tag value
         value_id = int(obj_dict['tag_id'], 0) & 0x0000ffff
         cls.vnc_zk_client.free_tag_value_id(obj_dict['tag_type_name'],
                                             value_id,
                                             ':'.join(obj_dict['fq_name']))
+
+        # Don't remove pre-defined tag types
+        if obj_dict['tag_type_name'] in TagTypeNameToId:
+            return True, ''
 
         # Try to delete referenced tag-type and ignore RefExistError which
         # means it's still in use by other Tag resource
