@@ -55,8 +55,8 @@ class UVEServer(object):
                 r_port = test_elem[1]
                 del self._redis_uve_map[test_elem]
                 ConnectionState.delete(ConnectionType.REDIS_UVE,\
-                    r_ip+":"+str(r_port)) 
-        
+                    r_ip+":"+str(r_port))
+
         # new redis instances need to be inserted into the map
         for test_elem in newlist:
             if test_elem not in self._redis_uve_map:
@@ -65,9 +65,11 @@ class UVEServer(object):
                 r_port = test_elem[1]
                 self._redis_uve_map[test_elem] = None
                 ConnectionState.update(ConnectionType.REDIS_UVE,\
-                    r_ip+":"+str(r_port), ConnectionStatus.INIT)
+                    r_ip+":"+str(r_port), ConnectionStatus.INIT,
+                    [r_ip + ":" + str(r_port)],
+                    message = 'Insert New Redis Instance')
         if chg:
-            self._logger.error("updated redis_uve_list %s" % str(self._redis_uve_map)) 
+            self._logger.error("updated redis_uve_list %s" % str(self._redis_uve_map))
 
         # Exercise redis connections to update health
         if len(newlist):
@@ -92,11 +94,13 @@ class UVEServer(object):
 
     def run(self):
 	ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-            name = 'LOCAL', status = ConnectionStatus.INIT)
+            name = 'LOCAL', status = ConnectionStatus.INIT,
+            message = 'Local Redis Instance initialized',
+            server_addrs = ['%s:%s' % (self._local_redis_uve[0],self._local_redis_uve[1])])
         while True:
             if self._redis:
                 redish = self._redis
-            else: 
+            else:
 
                 redish =  redis.StrictRedis(self._local_redis_uve[0],
                                             self._local_redis_uve[1],
@@ -109,7 +113,7 @@ class UVEServer(object):
                 else:
                     k, value = redish.brpop("DELETED")
                     self._logger.debug("%s del received for " % value)
-                    # value is of the format: 
+                    # value is of the format:
                     # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
                     redish.delete(value)
             except gevent.GreenletExit:
@@ -119,7 +123,9 @@ class UVEServer(object):
                 if self._redis:
                     #send redis connection down msg. Coule be bcos of authentication
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                        name = 'LOCAL', status = ConnectionStatus.DOWN)
+                        name = 'LOCAL', status = ConnectionStatus.DOWN,
+                        message = 'Local Redis Instance is down',
+                        server_addrs = ['%s:%s' % (self._local_redis_uve[0],self._local_redis_uve[1])])
                     self._redis = None
                 gevent.sleep(5)
             else:
@@ -127,7 +133,9 @@ class UVEServer(object):
                 if not self._redis:
                     self._redis = redish
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                        name = 'LOCAL', status = ConnectionStatus.UP)
+                        name = 'LOCAL', status = ConnectionStatus.UP,
+                        message = 'Redis Instance updated',
+                        server_addrs = ['%s:%s' % (self._local_redis_uve[0],self._local_redis_uve[1])])
 
     @staticmethod
     def _is_agg_list(attr):
@@ -146,7 +154,7 @@ class UVEServer(object):
             r_port = r_inst[1]
             redish = self._redis_inst_get(r_inst)
             gen_uves = {}
-            for elems in redish.smembers("PART2KEY:" + str(part)): 
+            for elems in redish.smembers("PART2KEY:" + str(part)):
                 info = elems.split(":", 5)
                 gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
                 typ = info[4]
@@ -167,13 +175,13 @@ class UVEServer(object):
     def _redis_inst_get(self, r_inst):
         r_ip = r_inst[0]
         r_port = r_inst[1]
-	if r_inst in self._redis_uve_map and not self._redis_uve_map[r_inst]:
-	    return redis.StrictRedis(
-		    host=r_ip, port=r_port,
-		    password=self._redis_password, db=1, socket_timeout=30)
-	else:
+        if r_inst in self._redis_uve_map and not self._redis_uve_map[r_inst]:
+            return redis.StrictRedis(
+                            host=r_ip, port=r_port,
+                            password=self._redis_password, db=1, socket_timeout=30)
+        else:
             if r_inst in self._redis_uve_map:
-	        return self._redis_uve_map[r_inst]
+                return self._redis_uve_map[r_inst]
             else:
                 self._logger.error("redis instance %s not in _redis_uve_map" % (str(r_inst)))
                 return None
@@ -183,8 +191,9 @@ class UVEServer(object):
             r_ip = r_inst[0]
             r_port = r_inst[1]
 	    self._redis_uve_map[r_inst] = redish
-	    ConnectionState.update(ConnectionType.REDIS_UVE,
-		r_ip + ":" + str(r_port), ConnectionStatus.UP)
+	    ConnectionState.update(ConnectionType.REDIS_UVE,\
+		r_ip + ":" + str(r_port), ConnectionStatus.UP,
+                [r_ip + ":" + str(r_port)], message = 'Redis Instance is up')
 
     def _redis_inst_down(self, r_inst):
 	if r_inst in self._redis_uve_map and self._redis_uve_map[r_inst]:
@@ -192,10 +201,11 @@ class UVEServer(object):
             r_port = r_inst[1]
 	    self._redis_uve_map[r_inst] = None
 	    ConnectionState.update(ConnectionType.REDIS_UVE,
-		r_ip + ":" + str(r_port), ConnectionStatus.DOWN)
- 
+		r_ip + ":" + str(r_port), ConnectionStatus.DOWN,
+                message = 'Redis Instance is down')
+
     def get_tables(self):
-        tables = set() 
+        tables = set()
         for r_inst in self._redis_uve_map.keys():
             try:
                 redish = self._redis_inst_get(r_inst)
@@ -222,7 +232,7 @@ class UVEServer(object):
             return self._uvedbcache.get_uve(key, filters)
 
         is_alarm = False
-        if tfilter == "UVEAlarms": 
+        if tfilter == "UVEAlarms":
             is_alarm = True
 
         state = {}
@@ -231,7 +241,7 @@ class UVEServer(object):
         failures = False
 
         tab = key.split(":",1)[0]
- 
+
         for r_inst in self._redis_uve_map.keys():
             try:
                 redish = self._redis_inst_get(r_inst)
@@ -265,7 +275,7 @@ class UVEServer(object):
                     ppeval.hgetall("VALUES:" + key + ":" + origs)
                 odictlist = ppeval.execute()
 
-                idx = 0    
+                idx = 0
                 for origs in origins:
 
                     odict = odictlist[idx]
@@ -358,33 +368,15 @@ class UVEServer(object):
     # end get_uve_regex
 
     def get_alarms(self, filters):
-        tablesfilt = filters.get('tablefilt')
+        tables = filters.get('tablefilt')
         kfilter = filters.get('kfilt')
         patterns = None
         if kfilter is not None:
             patterns = set()
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
-        if self._usecache:
-            rsp = self._uvedbcache.get_uve_list(tablesfilt, filters, patterns, False)
-        else:
-            tables = self.get_tables()
-            rsp = {}
-            for table in tables:
-                uve_list = {}
-                if tablesfilt is not None:
-                    if table not in tablesfilt:
-                        continue
-                uve_keys = self.get_uve_list(table, filters, False)
-                for uve_key in uve_keys:
-                    _,uve_val = self.get_uve(
-                        table + ':' + uve_key, True, filters)
-                    if uve_val == {}:
-                        continue
-                    else:
-                        uve_list[uve_key] = uve_val
-                if len(uve_list):
-                    rsp[table] = uve_list
+
+        rsp = self._uvedbcache.get_uve_list(tablesfilt, filters, patterns, False)
         return rsp
     # end get_alarms
 
@@ -422,7 +414,7 @@ class UVEServer(object):
         is_alarm = False
         filters = filters or {}
         tfilter = filters.get('cfilt')
-        if tfilter == "UVEAlarms": 
+        if tfilter == "UVEAlarms":
             is_alarm = True
         uve_list = set()
         kfilter = filters.get('kfilt')
@@ -664,7 +656,7 @@ class ParallelAggregator:
                     result['list'][sname].append(elem)
                     siz += 1
         result['list']['@size'] = str(siz)
-        
+
         return result
 
     def _map_union_agg(self, oattr):
@@ -700,16 +692,16 @@ class ParallelAggregator:
                     oattr[source]['map']['element'] = [oattr[source]['map']['element']]
                 if not isinstance(oattr[source]['map'][sname], list):
                     oattr[source]['map'][sname] = [oattr[source]['map'][sname]]
-                
+
                 for idx in range(0,int(oattr[source]['map']['@size'])):
                     result['map']['element'].append(source + ":" + \
                             json.dumps(oattr[source]['map']['element'][idx]))
                     result['map'][sname].append(\
                             oattr[source]['map'][sname][idx])
                     siz += 1
-        
+
         result['map']['@size'] = str(siz)
-             
+
         return result
 
     def _append_agg(self, oattr):
