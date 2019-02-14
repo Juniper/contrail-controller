@@ -1,0 +1,57 @@
+- name: Check to see if the jinja file for the vendor and family exists
+  stat:
+    path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+  register: p
+
+- name: Use vendor and family specific template
+  set_fact:
+    jinja_file_path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+  when: p.stat.exists == True
+
+- name: Use vendor specific template
+  set_fact:
+    jinja_file_path: "../templates/{{prouter_vendor}}.j2"
+  when: p.stat.exists == False
+
+- name: Check to see if the task file for the vendor and family exists
+  stat:
+    path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+  register: p
+
+- name: Use vendor and family specific task
+  set_fact:
+    task_file_path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+  when: p.stat.exists == True
+
+- name: Use vendor specific task
+  set_fact:
+    task_file_path: "{{prouter_vendor}}.yml"
+  when: p.stat.exists == False
+
+- name: Generate vendor specific config
+  set_fact:
+    device_config: "{{lookup('template', jinja_file_path)}}"
+
+- name: Print device_config
+  debug: var=device_config verbosity=1
+
+- name: Commit vendor specific config
+  include_tasks: "{{ task_file_path }}"
+
+- name: Print device response
+  debug: msg="{{ device_push_response }}" verbosity=1
+
+- name: Update physical device with management interface mac
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "update"
+    object_dict: |
+      {
+       "fq_name": "{{ prouter_fqname }}",
+       "physical_router_management_mac": "{{ interface_configuration.get('mac_address') }}"
+      }
+
+- name: Set output
+  set_fact:
+    output: "{{output}}"

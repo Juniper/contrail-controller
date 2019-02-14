@@ -1,0 +1,43 @@
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the jinja file for the vendor and family exists
+      stat:
+        path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+      register: p
+
+    - name: Use vendor and family specific template
+      set_fact:
+        jinja_file_path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+      when: p.stat.exists == True
+
+    # this is assuming device family does not matter
+    - name: Use vendor specific template
+      set_fact:
+        jinja_file_path: "../templates/{{prouter_vendor}}.j2"
+      when: p.stat.exists == False
+
+    - name: Parse interfaces info
+      set_fact:
+        interfaces_payload: "{{lookup('template', jinja_file_path)}}"
+      register: parser_output
+
+    - name: Print interfaces_payload
+      debug: var=interfaces_payload verbosity=1
+
+    - name: Find management interface to be configured
+      set_fact:
+        interface_configuration: "{{interfaces_payload | find_dhcp_assigned_mgmt_interface(host)}}"
+
+    - name: Print interface_configuration
+      debug: var=interface_configuration verbosity=1
+
+  rescue:
+    - name: Perform the necessary error handling when parsing the device_info
+      include_tasks: error_handler.yml
+      when: "'failed' in parser_output and parser_output.failed == true"
+      vars:
+        op_err_message: "Error while parsing the management interfaces information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        jl_err_message: "Error while parsing the management interfaces information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play

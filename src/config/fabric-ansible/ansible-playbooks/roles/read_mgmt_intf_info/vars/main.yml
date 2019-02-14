@@ -1,0 +1,9 @@
+---
+prouter_name: "{{playbook_input.device_fqname[-1]}}"
+prouter_fqname: "{{playbook_input.device_fqname}}"
+prouter_vendor: "{{playbook_input.vendor | lower}}"
+prouter_family: "{{playbook_input.device_family | lower}}"
+host: "{{playbook_input.device_management_ip}}"
+username: "{{playbook_input.device_username}}"
+password: "{{playbook_input.device_password}}"
+timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"

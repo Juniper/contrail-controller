@@ -35,7 +35,7 @@ class KombuAmqpClient(object):
         self._consumer_event = Event()
         self._publisher_queue = Queue()
         self._connection = kombu.Connection(urls, ssl=ssl_params,
-                                            heartbeat=heartbeat)
+            heartbeat=heartbeat, transport_options={'confirm_publish': True})
         self._connected = False
         self._channel = None
         self._producer = None

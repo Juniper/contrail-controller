@@ -320,7 +320,14 @@
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 30
+                "job_completion_weightage": 20
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/assign_static_device_ip.yml",
+                "multi_device_playbook": true,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
