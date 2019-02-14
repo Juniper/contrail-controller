@@ -5,6 +5,8 @@
 from cfgm_common import _obj_serializer_all
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common import jsonutils as json
+from cfgm_common.exceptions import HttpError
+from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
 from vnc_api.gen.resource_common import LogicalRouter
 from vnc_api.gen.resource_common import Project
@@ -126,24 +128,12 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         else:
             return None
 
-    @classmethod
-    def check_for_external_gateway(cls, db_conn, obj_dict):
-        if obj_dict.get('virtual_network_refs'):
-            ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
-            if not ok:
-                return ok, vxlan_routing
-            if not vxlan_routing:
-                return True, ''
-            # When VxLAN Routing is enabled for the LR,
-            # SNAT (external gateway) cannot be configured
-            # on the LR. Only internal VN could be referenced
-            for ref in obj_dict.get('virtual_network_refs', []):
-                attr = ref.get('attr') or {}
-                if (attr.get('logical_router_virtual_network_type') !=
-                        'InternalVirtualNetwork'):
-                    msg = "External Gateway not supported with VxLAN"
-                    return False, (400, msg)
-        return True, ''
+    @staticmethod
+    def check_lr_type(obj_dict):
+        if 'logical_router_type' in obj_dict:
+            return obj_dict['logical_router_type']
+
+        return None
 
     @classmethod
     def _ensure_lr_dci_association(cls, lr):
@@ -175,11 +165,70 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return True, ''
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
-        if not ok:
-            return ok, result
+    def _check_type(cls, obj_dict, read_result=None):
+        logical_router_type = cls.check_lr_type(obj_dict)
+        if read_result is None:
+            # create case
+            if logical_router_type is None:
+                # If logical_router_type not specified in obj_dict,
+                # set it to default 'snat-routing'
+                obj_dict['logical_router_type'] = 'snat-routing'
+                return (True, '')
+        else:
+            # update case
+            logical_router_type_in_db = cls.check_lr_type(read_result)
 
+            if (logical_router_type != logical_router_type_in_db and
+                    logical_router_type is not None):
+                if logical_router_type_in_db == 'snat-routing':
+                    if obj_dict.get('virtual_network_refs'):
+                        msg = ('Cannot change LR type from SNAT to VXLAN'
+                               ' if LR still has a gateway attached')
+                        return (False, msg)
+
+                elif logical_router_type_in_db == 'vxlan-routing':
+                    if read_result.get('virtual_network_refs'):
+                        ok, proj_dict = cls.get_parent_project(
+                            read_result, cls.db_conn)
+                        vn_int_fqname = proj_dict.get('fq_name')
+                        vn_int_name = get_lr_internal_vn_name(
+                            read_result.get('uuid'))
+                        vn_int_fqname.append(vn_int_name)
+                        try:
+                            vn_int_uuid = cls.db_conn.fq_name_to_uuid(
+                                'virtual_network',
+                                vn_int_fqname)
+                        except NoIdError:
+                            msg = "VN with FQName %s not found" % vn_int_name
+                            return False, (400, msg)
+
+                        api_server = cls.server
+                        try:
+                            api_server.internal_request_ref_update(
+                                'logical-router',
+                                read_result['uuid'],
+                                'DELETE',
+                                'virtual-network',
+                                vn_int_uuid,
+                                vn_int_fqname)
+                        except HttpError as e:
+                            return False, (e.status_code, e.content)
+
+                        try:
+                            api_server.internal_request_delete(
+                                'virtual-network',
+                                vn_int_uuid)
+                        except HttpError as e:
+                            return False, (e.status_code, e.content)
+
+                        def undo_int_vn_delete():
+                            return cls.create_intvn_and_ref(read_result)
+                        get_context().push_undo(undo_int_vn_delete)
+
+            return (True, '')
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls._ensure_lr_dci_association(obj_dict)
         if not ok:
             return ok, result
@@ -193,42 +242,27 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         if not ok:
             return ok, result
 
-        ok, result = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        ok, result = cls._check_type(obj_dict)
         if not ok:
             return ok, result
-        vxlan_routing = result
 
-        vxlan_id = None
         vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
+        logical_router_type = cls.check_lr_type(obj_dict)
 
-        if vxlan_routing and vxlan_id:
+        if vxlan_id and logical_router_type == 'vxlan-routing':
             # If input vxlan_id is not None, that means we need to reserve it.
-            # First, check if vxlan_id is set for other fq_name
-            existing_fq_name = cls.vnc_zk_client.get_vn_from_id(int(vxlan_id))
-            if existing_fq_name is not None:
-                msg = ("Cannot set VXLAN_ID: %s, it has already been set" %
-                       vxlan_id)
-                return False, (400, msg)
 
-            # Second, if vxlan_id is not None, set it in Zookeeper and set the
+            # First, if vxlan_id is not None, set it in Zookeeper and set the
             # undo function for when any failures happen later.
             # But first, get the internal_vlan name using which the resource
             # in zookeeper space will be reserved.
 
-            ok, proj_dict = db_conn.dbe_read('project',
-                                             obj_dict['parent_uuid'])
-            if not ok:
-                return (ok, proj_dict)
-
-            vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
-            proj_obj = Project(name=proj_dict.get('fq_name')[-1],
-                               parent_type='domain',
-                               fq_name=proj_dict.get('fq_name'))
-
-            vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
+            vxlan_fq_name = '%s:%s_vxlan' % (
+                ':'.join(obj_dict['fq_name'][:-1]),
+                get_lr_internal_vn_name(obj_dict['uuid']),
+            )
 
             try:
-                vxlan_fq_name = ':'.join(vn_obj.fq_name) + '_vxlan'
                 # Now that we have the internal VN name, allocate it in
                 # zookeeper only if the resource hasn't been reserved already
                 cls.vnc_zk_client.alloc_vxlan_id(vxlan_fq_name, int(vxlan_id))
@@ -254,10 +288,6 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
-        if not ok:
-            return ok, result
-
         ok, result = cls._ensure_lr_dci_association(obj_dict)
         if not ok:
             return ok, result
@@ -271,22 +301,28 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         if not ok:
             return ok, result
 
-        ok, result = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        # To get the current vxlan_id, read the LR from the DB
+        ok, result = cls.dbe_read(cls.db_conn,
+                                  'logical_router',
+                                  id,
+                                  obj_fields=['virtual_network_refs',
+                                              'logical_router_type',
+                                              'vxlan_network_identifier'])
         if not ok:
             return ok, result
-        vxlan_routing = result
 
-        if (vxlan_routing and 'vxlan_network_identifier' in obj_dict):
-            new_vxlan_id = None
-            old_vxlan_id = None
+        read_result = result
+
+        ok, result = cls._check_type(obj_dict, read_result)
+        if not ok:
+            return ok, result
+
+        logical_router_type_in_db = cls.check_lr_type(read_result)
+
+        if ('vxlan_network_identifier' in obj_dict and
+                logical_router_type_in_db == 'vxlan-routing'):
 
             new_vxlan_id = cls._check_vxlan_id_in_lr(obj_dict)
-
-            # To get the current vxlan_id, read the LR from the DB
-            ok, read_result = cls.dbe_read(db_conn, 'logical_router', id)
-            if not ok:
-                return ok, read_result
-
             old_vxlan_id = cls._check_vxlan_id_in_lr(read_result)
 
             if new_vxlan_id != old_vxlan_id:
@@ -361,22 +397,54 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
     @classmethod
     def post_dbe_update(cls, uuid, fq_name, obj_dict, db_conn,
                         prop_collection_updates=None):
-        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
-        if not ok:
-            return ok, vxlan_routing
-        ok, lr_orig_dict = db_conn.dbe_read(
-            'logical_router',
-            obj_dict['uuid'],
-            obj_fields=['virtual_network_refs'])
-        if not ok:
-            return ok, lr_orig_dict
+
+        logical_router_type = cls.check_lr_type(obj_dict)
+        if logical_router_type == 'vxlan-routing':
+            # If the obj_dict contains logical_router_type and it's set
+            # to vxlan-routing, it means that an existing LR was upated
+            # to support VXLAN functionality.
+            # We need to create a new Internal VN
+
+            ok, read_result = db_conn.dbe_read(
+                'logical_router',
+                obj_dict['uuid'],
+                obj_fields=['parent_uuid', 'uuid',
+                            'vxlan_network_identifier',
+                            'configured_route_target_list'])
+            if not ok:
+                return ok, read_result
+
+            ok, result = cls.create_intvn_and_ref(read_result)
+            if not ok:
+                return ok, result
+
+        # If the obj_dict didn't contain any configured_route_target_list
+        # or vxlan_network_identifier, we don't need to handle any more
+        # functionality below. Return
         if (obj_dict.get('configured_route_target_list') is None and
                 'vxlan_network_identifier' not in obj_dict):
             return True, ''
-        if vxlan_routing is True:
+
+        # Read the database again for any new internal vns that may
+        # have got created above.
+        ok, result = db_conn.dbe_read(
+            'logical_router',
+            obj_dict['uuid'],
+            obj_fields=['virtual_network_refs', 'logical_router_type'])
+        if not ok:
+            return ok, result
+
+        lr_orig_dict = result
+        logical_router_type_in_db = cls.check_lr_type(lr_orig_dict)
+        if logical_router_type_in_db == 'vxlan-routing':
+            # If logical_router_type was set to vxlan-routing in DB,
+            # it means that an existing LR used for VXLAN
+            # support was updated to either change the
+            # vxlan_network_identifer or configured_route_target_list
+
             vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
             vn_id = None
-            for vn_ref in lr_orig_dict['virtual_network_refs']:
+            for vn_ref in lr_orig_dict.get('virtual_network_refs') or []:
                 if (vn_ref.get('attr', {}).get(
                         'logical_router_virtual_network_type') ==
                         'InternalVirtualNetwork'):
@@ -437,58 +505,50 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return True, ''
 
     @classmethod
-    def create_intvn_and_ref(cls, obj_dict, db_conn):
-        ok, proj_dict = db_conn.dbe_read('project', obj_dict['parent_uuid'])
-        if not ok:
-            return (ok, proj_dict)
-
-        vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
-        proj_obj = Project(name=proj_dict.get('fq_name')[-1],
-                           parent_type='domain',
-                           fq_name=proj_dict.get('fq_name'))
-
-        vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
-        id_perms = IdPermsType(enable=True, user_visible=False)
-        vn_obj.set_id_perms(id_perms)
-
-        int_vn_property = VirtualNetworkType(forwarding_mode='l3')
+    def create_intvn_and_ref(cls, obj_dict):
+        vn_fq_name = (obj_dict['fq_name'][:-1] +
+                      [get_lr_internal_vn_name(obj_dict['uuid'])])
+        kwargs = {'id_perms': IdPermsType(user_visible=False)}
+        vn_property = VirtualNetworkType(forwarding_mode='l3')
         if 'vxlan_network_identifier' in obj_dict:
-            vni_id = obj_dict['vxlan_network_identifier']
-            int_vn_property.set_vxlan_network_identifier(vni_id)
-        vn_obj.set_virtual_network_properties(int_vn_property)
-
-        rt_list = obj_dict.get('configured_route_target_list',
-                               {}).get('route_target')
+            vn_property.set_vxlan_network_identifier(
+                obj_dict['vxlan_network_identifier'])
+        kwargs['virtual_network_properties'] = vn_property
+        rt_list = obj_dict.get(
+            'configured_route_target_list', {}).get('route_target')
         if rt_list:
-            vn_obj.set_route_target_list(RouteTargetList(rt_list))
+            kwargs['route_target_list'] = RouteTargetList(rt_list)
+        ok, result = cls.server.get_resource_class(
+            'virtual_network').locate(vn_fq_name, **kwargs)
+        if not ok:
+            return False, result
 
-        vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
-        api_server = db_conn.get_api_server()
-        status, obj = api_server.internal_request_create(
-            'virtual-network', json.loads(vn_int_dict))
         attr_obj = LogicalRouterVirtualNetworkType('InternalVirtualNetwork')
         attr_dict = attr_obj.__dict__
-        api_server.internal_request_ref_update(
-            'logical-router',
-            obj_dict['uuid'],
-            'ADD',
-            'virtual-network',
-            obj['virtual-network']['uuid'],
-            obj['virtual-network']['fq_name'],
-            attr=attr_dict)
+        api_server = cls.server
+
+        try:
+            api_server.internal_request_ref_update(
+                'logical-router',
+                obj_dict['uuid'],
+                'ADD',
+                'virtual-network',
+                result['uuid'],
+                result['fq_name'],
+                attr=attr_dict)
+        except HttpError as e:
+            return False, (e.status_code, e.content)
         return True, ''
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
-        if not ok:
-            return ok, vxlan_routing
+        logical_router_type = cls.check_lr_type(obj_dict)
 
         # If VxLAN routing is enabled for the Project in which this LR
         # is created, then create an internal VN to export the routes
         # in the private VNs to the VTEPs.
-        if vxlan_routing is True:
-            ok, result = cls.create_intvn_and_ref(obj_dict, db_conn)
+        if logical_router_type == 'vxlan-routing':
+            ok, result = cls.create_intvn_and_ref(obj_dict)
             if not ok:
                 return ok, result
 
@@ -496,11 +556,8 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
-        if not ok:
-            return (ok, vxlan_routing, None)
-
-        if vxlan_routing:
+        logical_router_type = cls.check_lr_type(obj_dict)
+        if logical_router_type == 'vxlan-routing':
             ok, proj_dict = cls.get_parent_project(obj_dict, db_conn)
             vn_int_fqname = proj_dict.get('fq_name')
             vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
@@ -523,7 +580,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             api_server.internal_request_delete('virtual-network', vn_int_uuid)
 
             def undo_int_vn_delete():
-                return cls.create_intvn_and_ref(obj_dict, db_conn)
+                return cls.create_intvn_and_ref(obj_dict)
             get_context().push_undo(undo_int_vn_delete)
 
         return True, '', None
