@@ -128,6 +128,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "virtual-machine-interface-routing-instance",
         "virtual-network",
         "virtual-network-network-ipam",
+        "virtual-port-group",
         "virtual-DNS",
         "global-vrouter-config",
         "virtual-router",
@@ -761,6 +762,13 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                       MakePath("logical-interface-virtual-machine-interface",
                                "logical-interface", false,
                                "physical-interface-logical-interface",
+                               "physical-interface", false,
+                               "physical-router-physical-interface",
+                               "physical-router", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-port-group-virtual-machine-interface",
+                               "virtual-port-group", false,
+                               "physical-interface-virtual-port-group",
                                "physical-interface", false,
                                "physical-router-physical-interface",
                                "physical-router", true));
