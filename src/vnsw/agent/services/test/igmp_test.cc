@@ -893,7 +893,7 @@ TEST_F(IgmpTest, IgmpMode_1) {
     IgmpVnEnable("vn1", 1, false);
 
     vm_itf = VmInterfaceGet(input[idx].intf_id);
-    EXPECT_EQ(vm_itf->igmp_enabled(), false);
+    EXPECT_EQ(vm_itf->igmp_enabled(), true);
 
     IgmpVnEnable("vn1", 1, true);
 
@@ -912,7 +912,7 @@ TEST_F(IgmpTest, IgmpMode_1) {
     IgmpVnEnable("vn1", 1, false);
 
     vm_itf = VmInterfaceGet(input[idx].intf_id);
-    EXPECT_EQ(vm_itf->igmp_enabled(), false);
+    EXPECT_EQ(vm_itf->igmp_enabled(), true);
 
     IgmpGlobalEnable(true);
 
@@ -921,7 +921,7 @@ TEST_F(IgmpTest, IgmpMode_1) {
     IgmpVmiEnable(idx, false);
 
     vm_itf = VmInterfaceGet(input[idx].intf_id);
-    EXPECT_EQ(vm_itf->igmp_enabled(), false);
+    EXPECT_EQ(vm_itf->igmp_enabled(), true);
 
     IgmpGlobalEnable(false);
 
@@ -963,7 +963,7 @@ TEST_F(IgmpTest, IgmpMode_2) {
     IgmpVmiEnable(idx, false);
 
     vm_itf = VmInterfaceGet(input[idx].intf_id);
-    EXPECT_EQ(vm_itf->igmp_enabled(), false);
+    EXPECT_EQ(vm_itf->igmp_enabled(), true);
 
     IgmpGlobalEnable(false);
 
@@ -1003,7 +1003,7 @@ TEST_F(IgmpTest, IgmpMode_3) {
     IgmpVmiEnable(idx, false);
 
     vm_itf = VmInterfaceGet(input[idx].intf_id);
-    EXPECT_EQ(vm_itf->igmp_enabled(), false);
+    EXPECT_EQ(vm_itf->igmp_enabled(), true);
 
     IgmpVnEnable("vn1", 1, false);
 
