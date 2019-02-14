@@ -3316,6 +3316,7 @@ class VncApiServer(object):
         gvc = self.create_singleton_entry(GlobalVrouterConfig(
             parent_obj=gsc))
         self.create_singleton_entry(Domain())
+        self.create_singleton_entry(Fabric())
 
         # Global and default policy resources
         pm = self.create_singleton_entry(PolicyManagement())
