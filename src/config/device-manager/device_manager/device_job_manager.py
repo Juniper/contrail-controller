@@ -206,6 +206,8 @@ class DeviceJobManager(object):
                 # create the UVE
                 if fabric_fq_name is not "__DEFAULT__" and not device_list:
                     self.create_fabric_job_uve(fabric_job_uve_name,
+                                               job_input_params.get(
+                                                   'job_execution_id'),
                                                JobStatus.STARTING.value, 0.0)
                 if device_list:
                     device_fqnames = self.create_physical_router_job_uve(
@@ -285,11 +287,12 @@ class DeviceJobManager(object):
                               job_params=job_input_params)
     # end handle_execute_job_request
 
-    def create_fabric_job_uve(self, fabric_job_uve_name, job_status,
+    def create_fabric_job_uve(self, fabric_job_uve_name,
+                              execution_id, job_status,
                               percentage_completed):
         job_execution_data = FabricJobExecution(
             name=fabric_job_uve_name,
-            execution_id=fabric_job_uve_name,
+            execution_id=execution_id,
             job_start_ts=int(round(time.time() * 1000)),
             job_status=job_status,
             percentage_completed=percentage_completed
@@ -344,6 +347,7 @@ class DeviceJobManager(object):
         if mark_uve:
             if fabric_fq_name is not "__DEFAULT__" and not device_list:
                 self.create_fabric_job_uve(fabric_job_uve_name,
+                                           job_execution_id,
                                            JobStatus.FAILURE.value, 100.0)
             if device_list:
                 self.create_physical_router_job_uve(device_list,
