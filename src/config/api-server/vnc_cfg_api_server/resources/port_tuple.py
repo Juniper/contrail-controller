@@ -5,6 +5,7 @@
 import json
 
 from cfgm_common import _obj_serializer_all
+from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_common import InstanceIp
 from vnc_api.gen.resource_common import LogicalInterface
@@ -49,10 +50,33 @@ class PortTupleServer(ResourceMixin, PortTuple):
                     obj_fields=['service_appliances'])
                 if not ok:
                     return ok, svc_appl_set_result
-                for sa in svc_appl_set_result.get('service_appliances') or []:
-                    sa_uuid = sa.get('uuid')
+                sa = svc_appl_set_result.get('service_appliances')
+                # Only one SA is supported per SAS for PNF support
+                if len(sa) == 1:
+                    sa_uuid = sa[0]['uuid']
+                else:
+                    if len(sa) > 1:
+                        msg = (
+                            "service appliance set (%s) cannot have more "
+                            "than one service appliance" %
+                            (svc_appliance_set_uuid))
+                    else:
+                        msg = (
+                            "No service appliance for service appliance "
+                            "set (%s)" % (svc_appliance_set_uuid))
+                    return False, (400, msg)
 
         return True, sa_uuid
+
+    @staticmethod
+    def _construct_iip_fq_name(dev_name, link, vlan_tag):
+        return "%s.%s.%s" % (dev_name, link, vlan_tag)
+
+    @staticmethod
+    def _construct_li_fq_name(dev_name, link, vlan_tag):
+        li_fq_name = ['default-global-system-config', dev_name, link]
+        li_fq_name = li_fq_name + ['%s.%s' % (link, vlan_tag)]
+        return li_fq_name
 
     @staticmethod
     def _get_svc_vlans(annotations):
@@ -69,57 +93,66 @@ class PortTupleServer(ResourceMixin, PortTuple):
         return left_svc_vlan, right_svc_vlan
 
     @classmethod
-    def _delete_logical_interface(cls, db_conn, dev_name, link, vlan_tag):
+    def _delete_logical_interface(cls, dev_name, link, vlan_tag):
         iip_uuid = None
         li_uuid = None
-        iip_fqname = ["%s.%s.%s" % (dev_name, link, vlan_tag)]
         api_server = cls.server
+        db_conn = cls.db_conn
+
+        iip_fqname = [cls._construct_iip_fq_name(dev_name, link, vlan_tag)]
         try:
             iip_uuid = db_conn.fq_name_to_uuid('instance_ip', iip_fqname)
         except NoIdError:
             pass
         if iip_uuid is not None:
-            api_server.internal_request_delete('instance_ip', iip_uuid)
+            try:
+                api_server.internal_request_delete('instance_ip', iip_uuid)
+            except HttpError as e:
+                return False, (e.status_code, e.content)
 
-        li_fq_name = ['default-global-system-config', dev_name, link]
-        li_fq_name = li_fq_name + ['%s.%s' % (link, vlan_tag)]
+        li_fqname = cls._construct_li_fq_name(dev_name, link, vlan_tag)
         try:
-            li_uuid = db_conn.fq_name_to_uuid('logical_interface', li_fq_name)
+            li_uuid = db_conn.fq_name_to_uuid('logical_interface', li_fqname)
         except NoIdError:
             pass
         if li_uuid is not None:
-            api_server.internal_request_delete('logical_interface', li_uuid)
+            try:
+                api_server.internal_request_delete(
+                    'logical_interface', li_uuid)
+            except HttpError as e:
+                return False, (e.status_code, e.content)
+
         return True, ''
 
     @classmethod
-    def _create_logical_interface(cls, db_conn, dev_name, link,
-                                  vlan_tag, subscriber_tag, network_name):
-        li_fq_name = ['default-global-system-config', dev_name, link]
-        li_fq_name = li_fq_name + ['%s.%s' % (link, vlan_tag)]
-
-        li_display_name = li_fq_name[-1]
-        li_display_name = li_display_name.replace("_", ":")
-
+    def _create_logical_interface(cls, dev_name, link,
+                                  vlan_tag, subscriber_tag,
+                                  network_name):
         api_server = cls.server
+        db_conn = cls.db_conn
+
+        li_fqname = cls._construct_li_fq_name(dev_name, link, vlan_tag)
+        li_display_name = li_fqname[-1]
+        li_display_name = li_display_name.replace("_", ":")
         try:
-            db_conn.fq_name_to_uuid('logical_interface', li_fq_name)
+            db_conn.fq_name_to_uuid('logical_interface', li_fqname)
         except NoIdError:
             li_obj = LogicalInterface(parent_type='physical-interface',
-                                      fq_name=li_fq_name,
+                                      fq_name=li_fqname,
                                       logical_interface_vlan_tag=vlan_tag,
                                       display_name=li_display_name)
 
             id_perms = IdPermsType(enable=True, user_visible=False)
             li_obj.set_id_perms(id_perms)
             li_int_dict = json.dumps(li_obj, default=_obj_serializer_all)
-            ok, li_obj_resp = api_server.internal_request_create(
-                'logical-interface', json.loads(li_int_dict))
-
-            if not ok:
-                return (ok, 400, li_obj_resp)
+            try:
+                api_server.internal_request_create(
+                    'logical-interface', json.loads(li_int_dict))
+            except HttpError as e:
+                return False, (e.status_code, e.content)
 
             # Allocate IP address for this logical interface
-            iip_name = "%s.%s.%s" % (dev_name, link, vlan_tag)
+            iip_name = cls._construct_iip_fq_name(dev_name, link, vlan_tag)
             if subscriber_tag is not None:
                 iip_obj = InstanceIp(
                     name=iip_name,
@@ -132,25 +165,22 @@ class PortTupleServer(ResourceMixin, PortTuple):
                     instance_ip_family='v4'
                 )
             nw_fq_name = ['default-domain', 'default-project', network_name]
-            nw_id = db_conn.fq_name_to_uuid('virtual_network', nw_fq_name)
-            ok, nw_obj_result = cls.dbe_read(db_conn, 'virtual_network',
-                                             nw_id,
-                                             obj_fields=['fq_name'])
+            ok, nw_obj_result = cls.server.get_resource_class(
+                'virtual_network').locate(nw_fq_name, create_it=False)
             if not ok:
-                return ok, nw_obj_result
+                return False, nw_obj_result
 
-            nw_obj = VirtualNetwork(name=nw_obj_result.get('fq_name')[-1])
-            li_obj = LogicalInterface(
-                fq_name=li_fq_name, parent_type='physical-interface')
+            nw_obj = VirtualNetwork(name=network_name)
             iip_obj.set_virtual_network(nw_obj)
             iip_obj.set_logical_interface(li_obj)
             iip_obj.set_id_perms(id_perms)
 
             iip_int_dict = json.dumps(iip_obj, default=_obj_serializer_all)
-            ok, resp = api_server.internal_request_create(
-                'instance-ip', json.loads(iip_int_dict))
-            if not ok:
-                return (ok, 400, resp)
+            try:
+                api_server.internal_request_create(
+                    'instance-ip', json.loads(iip_int_dict))
+            except HttpError as e:
+                return False, (e.status_code, e.content)
 
         return True, ''
 
@@ -268,22 +298,25 @@ class PortTupleServer(ResourceMixin, PortTuple):
                                     svc_inst_name + '-' + 'right'
 
                             # Create logical interfaces for the PNF device
-                            cls._create_logical_interface(
-                                db_conn,
+                            ok, result = cls._create_logical_interface(
                                 dev_name,
                                 phys_intf_name,
                                 vlan_tag,
                                 svc_chain_subscriber_tag,
                                 svc_chain_network_name)
+                            if not ok:
+                                return (False, (400, result))
 
                             loopback_network_type = 'loopback'
                             loopback_network_name = '%s-%s-network' % (
                                 fabric_name, loopback_network_type)
                             # Create one dummy loopback interface for the PNF
                             # device
-                            cls._create_logical_interface(
-                                db_conn, dev_name, 'lo0',
-                                left_svc_vlan, None, loopback_network_name)
+                            ok, result = cls._create_logical_interface(
+                                dev_name, 'lo0', left_svc_vlan,
+                                None, loopback_network_name)
+                            if not ok:
+                                return (False, (400, result))
 
                             for ref in phys_intf_result.get(
                                     'physical_interface_refs') or []:
@@ -295,13 +328,14 @@ class PortTupleServer(ResourceMixin, PortTuple):
                                 phys_intf_name = read_result.get('fq_name')[-1]
                                 dev_name = read_result.get('fq_name')[-2]
                                 # Create logical interfaces for spine
-                                cls._create_logical_interface(
-                                    db_conn,
+                                ok, result = cls._create_logical_interface(
                                     dev_name,
                                     phys_intf_name,
                                     vlan_tag,
                                     svc_chain_subscriber_tag,
                                     svc_chain_network_name)
+                                if not ok:
+                                    return (False, (400, result))
 
         return True, ''
     # end post_dbe_create
@@ -378,12 +412,16 @@ class PortTupleServer(ResourceMixin, PortTuple):
                         vlan_tag = right_svc_vlan
 
                     # Delete logical interfaces for the PNF device
-                    cls._delete_logical_interface(db_conn, dev_name,
-                                                  phys_intf_name, vlan_tag)
+                    ok, result = cls._delete_logical_interface(
+                        dev_name, phys_intf_name, vlan_tag)
+                    if not ok:
+                        return (False, (400, result), None)
 
                     # Delete dummy loopback interface for the PNF device
-                    cls._delete_logical_interface(db_conn, dev_name,
-                                                  'lo0', left_svc_vlan)
+                    ok, result = cls._delete_logical_interface(dev_name, 'lo0',
+                                                               left_svc_vlan)
+                    if not ok:
+                        return (False, (400, result), None)
 
                     for ref in phys_intf_result.get(
                             'physical_interface_refs') or []:
@@ -395,8 +433,10 @@ class PortTupleServer(ResourceMixin, PortTuple):
                         phys_intf_name = read_result.get('fq_name')[-1]
                         dev_name = read_result.get('fq_name')[-2]
                         # Delete logical interfaces for spine
-                        cls._delete_logical_interface(db_conn, dev_name,
-                                                      phys_intf_name, vlan_tag)
+                        ok, result = cls._delete_logical_interface(
+                            dev_name, phys_intf_name, vlan_tag)
+                        if not ok:
+                            return (False, (400, result), None)
 
         return True, '', None
     # end pre_dbe_delete
