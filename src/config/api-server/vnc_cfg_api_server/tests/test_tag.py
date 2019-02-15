@@ -3,12 +3,14 @@
 #
 import gevent.monkey
 gevent.monkey.patch_all()  # noqa
+import json
 import logging
 import mock
 from testtools import ExpectedException
 
 from cfgm_common import exceptions
 from sandesh_common.vns import constants
+from vnc_api.utils import OP_POST
 from vnc_api.vnc_api import PermType2
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import Tag
@@ -798,3 +800,38 @@ class TestTag(TestTagBase):
             mock_db_update.reset_mock()
             self.api.set_tags(vn, tags_dict)
             mock_db_update.assert_called()
+
+    def test_set_tag_api_sanity(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        tag_type = 'fake_type-%s' % self.id()
+        tag_value = 'fake_value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
+        self.api.tag_create(tag)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self.api.virtual_network_create(vn)
+        url = self.api._action_uri['set-tag']
+
+        test_suite = [
+            ({'obj_uuid': vn.uuid}, BadRequest),
+            ({'obj_type': 'virtual_network'}, BadRequest),
+            ({'obj_uuid': 'fake_uuid', 'obj_type': 'virtual_network'},
+             NoIdError),
+            ({'obj_uuid': vn.uuid, 'obj_type': 'wrong_type'}, BadRequest),
+            ({
+                'obj_uuid': vn.uuid, 'obj_type': 'virtual_network',
+                tag_type: {'value': tag_value}
+            }, None),
+            ({
+                'obj_uuid': vn.uuid, 'obj_type': 'virtual-network',
+                tag_type: {'value': tag_value}
+            }, None),
+        ]
+
+        for tags_dict, result in test_suite:
+            if result and issubclass(result, Exception):
+                self.assertRaises(result, self.api._request_server,
+                                  OP_POST, url, json.dumps(tags_dict))
+            else:
+                self.api._request_server(OP_POST, url, json.dumps(tags_dict))
