@@ -37,11 +37,15 @@ class CreateCCResource(object):
         'Content-Type': 'application/json'
     }
 
-    def __init__(self, auth_host, auth_token):
+    def __init__(self, auth_host, cc_username, cc_password, auth_token=None):
         if not auth_host:
             return
         self.auth_args['auth_host'] = auth_host
 
+        if cc_username:
+            self.auth_args['username'] = cc_username
+        if cc_password:
+            self.auth_args['password'] = cc_password
         if not self.auth_args['auth_url']:
             self.auth_url = '%s://%s:%s%s' % (self.auth_args['auth_protocol'],
                                               self.auth_args['auth_host'],
@@ -108,8 +112,11 @@ class CreateCCResource(object):
 
 class CreateCCNode(CreateCCResource):
 
-    def __init__(self, auth_host, auth_token):
-        super(CreateCCNode, self).__init__(auth_host, auth_token)
+    def __init__(self, auth_host, cc_username, cc_password, auth_token = None):
+        super(CreateCCNode, self).__init__(auth_host,
+                                           cc_username,
+                                           cc_password,
+                                           auth_token)
 
     def create_cc_node(self, node_payload):
 
@@ -127,15 +134,18 @@ class CreateCCNode(CreateCCResource):
 
 class CreateCCNodeProfile(CreateCCResource):
 
-    def __init__(self, auth_host, auth_token):
-        super(CreateCCNodeProfile, self).__init__(auth_host, auth_token)
+    def __init__(self, auth_host, cc_username, cc_password, auth_token = None):
+        super(CreateCCNodeProfile, self).__init__(auth_host,
+                                                  cc_username,
+                                                  cc_password,
+                                                  auth_token)
 
     def create_cc_node_profile(self, node_profile_payload):
         response = self.create_cc_resource(node_profile_payload)
         return response
 
     def get_cc_node_profiles(self):
-        cc_url = '%s%s' % (self.auth_uri, '/node_profiles?detail=true')
+        cc_url = '%s%s' % (self.auth_uri, '/node-profiles?detail=true')
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
                                               request_type="get")

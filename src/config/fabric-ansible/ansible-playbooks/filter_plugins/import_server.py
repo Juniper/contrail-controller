@@ -8,6 +8,7 @@ import sys
 import base64
 import uuid
 import collections
+from pprint import pformat
 
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
@@ -156,29 +157,29 @@ class FilterModule(object):
                 "parent_uuid": port_dict['node_uuid'],
                 "name": port_dict['name'],
                 "uuid": port_dict['uuid'],
+                "fq_name": port_dict['fq_name'],
                 "bms_port_info": {
                     "pxe_enabled": port_dict.get('pxe_enabled',False),
                     "address": port_dict['address'],
-                    "node_uuid": port_dict['node_uuid'],
                     "local_link_connection": local_link_dict
                 }
             }
         }
         return cc_port
 
-    def get_cc_node_payload(self, node_dict):
+    def get_cc_node_payload(self, node_dict, node_uuid):
         cc_node = {"resources":
             [{
                 "kind": "node",
                 "data": {
-                    "uuid": node_dict['uuid'],
                     "type": node_dict.get('type', "baremetal"),
                     "name": node_dict['name'],
+                    "uuid": node_dict['uuid'],
                     "display_name": node_dict['name'],
                     "hostname": node_dict['name'],
                     "parent_type": "global-system-config",
                     "fq_name": ["default-global-system-config",
-                                node_dict['uuid']],
+                                node_dict['name']],
                     "bms_info": {
                         "name": node_dict['name'],
                         "network_interface": "neutron",
@@ -193,21 +194,25 @@ class FilterModule(object):
 
         return cc_node
 
-    def convert_port_format(self, port_list, node_dict):
+    def convert_port_format(self, port_list, node_dict, node_ports):
         cc_port_list = []
-        generated_hostname = ""
 
         for port_dict in port_list:
             mac = port_dict['mac_address']
             port_dict['node_uuid'] = node_dict['uuid']
+            port_uuid = None
+            for node_port in node_ports:
+                node_mac = node_port['bms_port_info']['address']
+                if node_mac == mac:
+                    port_uuid = node_port['uuid']
+                    break
 
-            if not port_dict.get('uuid', None):
-                port_dict['uuid'] = str(uuid.uuid4())
+            port_dict['uuid'] = port_uuid
             if not port_dict.get('name', None):
                 port_dict['name'] = "p-" + mac.replace(":", "")[6:]
-            if port_dict.get('pxe_enabled',False) and \
-                    not node_dict.get('name',None):
-                generated_hostname = "auto-" + mac.replace(":", "")[6:]
+            port_dict['fq_name'] = ['default-global-system-config', 
+                                    node_dict['name'],
+                                    port_dict['name'] ]
 
             port_dict = self.translate(port_dict)
 
@@ -216,30 +221,61 @@ class FilterModule(object):
 
             cc_port = self.get_cc_port_payload(port_dict, local_link_dict)
             cc_port_list.append(cc_port)
-        return generated_hostname, cc_port_list
+        return cc_port_list
 
-    def create_cc_node(self, node_dict):
+    def generate_node_name(self, port_list):
+        generated_hostname = ""
+        for port in port_list:
+            mac = port['mac_address']
+            if port.get('pxe_enabled',False):
+                generated_hostname = "auto-" + mac.replace(":", "")[6:]
+                break
+        if generated_hostname == "":
+            # no pxe-enabled=true field
+            if len(port_list) > 0:
+                generated_hostname = "auto-" + port_list[0]['mac_address'].replace(":", "")[6:]
+
+        return generated_hostname
+    
+        
+    def create_cc_node(self, node_dict, cc_node_obj):
         port_list = node_dict.get('ports',[])
 
-        if not node_dict.get('uuid', None):
-            node_dict['uuid'] = str(uuid.uuid4())
+        if not node_dict.get("name", None):
+            if node_dict.get('hostname', None):
+                node_dict['name'] = node_dict['hostname']
+            elif len(port_list) > 0:
+                node_name = self.generate_node_name(port_list)
+                node_dict['name'] = node_name
+            else:
+                # we are out of luck, we need to exit
+                return {}, "", []
 
-        hostname, port_list = self.convert_port_format(port_list, node_dict)
-        if not hostname:
-            hostname = "auto-" + node_dict['uuid'].split('-')[0]
+        node_uuid = None
+        node_ports = []
+        node_fq_name = ['default-global-system-config', node_dict['name']]
+        cc_nodes = cc_node_obj.get_cc_nodes()
+        for node in cc_nodes['nodes']:
+            if node_fq_name == node['node']['fq_name']:
+                node_uuid = node['node']['uuid']
+                node_ports = node['node'].get('ports', [])
+                self._logger.warn("CC NODES:: " + pformat(node))
+                break
 
-        if not node_dict.get('name', None):
-            node_dict['name'] = hostname
+        node_dict['uuid'] = node_uuid
+        port_list = self.convert_port_format(port_list, node_dict, node_ports)
+
+        if not node_dict.get('hostname', None):
+            node_dict['hostname'] = node_dict['name']
 
         for sub_dict in ['properties', 'driver_info']:
             node_sub_dict = node_dict.get(sub_dict, {})
             if node_sub_dict:
                 node_dict[sub_dict] = self.translate(node_sub_dict)
 
-        cc_node_payload = self.get_cc_node_payload(node_dict)
-        cc_node_payload['resources'].extend(port_list)
+        cc_node_payload = self.get_cc_node_payload(node_dict, node_uuid)
 
-        return cc_node_payload, node_dict['name']
+        return cc_node_payload, node_dict['name'], port_list
 
     def convert(self, data):
         if isinstance(data, basestring):
@@ -255,10 +291,25 @@ class FilterModule(object):
         added_nodes = []
         if isinstance(data, dict) and "nodes" in data:
             node_list = data['nodes']
+            #self._logger.warn("Creting Job INPUT:" + pformat(node_list))
+
             for node_dict in node_list:
-                node_payload, node_name = self.create_cc_node(node_dict)
+                node_payload, node_name, port_list = self.create_cc_node(node_dict, cc_node_obj)
+                if node_name == "":
+                    self._logger.warn("IGNORING Creation of : " + pformat(node_dict))
+                    continue
                 added_nodes.append(node_payload)
-                cc_node_obj.create_cc_node(node_payload)
+                self._logger.warn("Creating : " + str(node_name))
+                self._logger.warn("Creating : " + pformat(node_payload))
+                resp = cc_node_obj.create_cc_node(node_payload)
+                node_uuid = json.loads(resp)[0]['data']['uuid']
+                for port in port_list:
+                    if not port['data']['parent_uuid']:
+                        port['data']['parent_uuid'] = node_uuid
+                port_payload = {"resources" : []}
+                port_payload['resources'].extend(port_list)
+                self._logger.warn("port-create: " + pformat(port_payload))
+                cc_node_obj.create_cc_node(port_payload)
         return added_nodes
 
     # ***************** import_nodes_from_file filter *********************************
@@ -296,10 +347,11 @@ class FilterModule(object):
             decoded = base64.decodestring(encoded_file)
 
             cc_host = job_input.get('contrail_command_host')
-            auth_token = job_ctx.get('auth_token')
+            cc_username = job_input.get('cc_username')
+            cc_password = job_input.get('cc_password')
 
-            self._logger.info("Starting Server Import")
-            cc_node_obj = CreateCCNode(cc_host, auth_token)
+            self._logger.warn("Starting Server Import")
+            cc_node_obj = CreateCCNode(cc_host, cc_username, cc_password)
 
             if file_format.lower() == "yaml":
                 data = yaml.load(decoded)

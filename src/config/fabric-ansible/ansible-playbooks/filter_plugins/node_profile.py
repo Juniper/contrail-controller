@@ -8,6 +8,7 @@ import sys
 import base64
 import uuid
 import collections
+from pprint import pformat
 
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
@@ -32,7 +33,7 @@ class NodeProfileLog(object):
         """
         logger = logging.getLogger('ServerFilter')
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        console_handler.setLevel(logging.WARN)
 
         formatter = logging.Formatter(
             '%(asctime)s %(levelname)-8s %(message)s',
@@ -138,13 +139,21 @@ class FilterModule(object):
             }]
         }
         cc_node_profile["resources"][0]["data"].update(node_profile_dict)
-        return cc_node_profile
+        fq_name = ["default-global-system-config", node_profile_dict['name']]
+        return cc_node_profile, fq_name
 
-    def create_cc_node_profile(self, node_profile_dict):
-        if not node_profile_dict.get('uuid', None):
-            node_profile_dict['uuid'] = str(uuid.uuid4())
+    def create_cc_node_profile(self, node_profile_dict, np_object):
 
-        cc_node_profile_payload = self.get_cc_node_profile_payload(
+        np_uuid = None
+        node_profiles = np_object.get_cc_node_profiles()
+        fq_name = ['default-global-system-config', node_profile_dict['name']]
+        for np in node_profiles['node-profiles']:
+            if fq_name == np['node-profile']['fq_name']:
+               np_uuid = np['node-profile']['uuid']
+               break
+
+        node_profile_dict['uuid'] = np_uuid
+        cc_node_profile_payload, fq_name = self.get_cc_node_profile_payload(
             node_profile_dict)
 
         return cc_node_profile_payload, node_profile_dict['name']
@@ -161,12 +170,17 @@ class FilterModule(object):
 
     def import_node_profiles(self, data, node_profile_object):
         added_node_profiles = []
+        self._logger.warn("NP OBJECT" + pformat(data))
+        node_profiles = node_profile_object.get_cc_node_profiles()
+        self._logger.warn("NP CC Data " + pformat(node_profiles))
         if isinstance(data, dict) and "node_profile" in data:
             node_profile_list = data['node_profile']
             for node_profile_dict in node_profile_list:
                 node_profile_payload, node_profile_name = \
-                    self.create_cc_node_profile(node_profile_dict)
+                    self.create_cc_node_profile(node_profile_dict, node_profile_object)
                 added_node_profiles.append(node_profile_name)
+                self._logger.warn("NP OBJECT CREATION " + str(node_profile_name))
+                self._logger.warn("NP OBJECT Data " + pformat(node_profile_payload))
                 node_profile_object.create_cc_node_profile(node_profile_payload)
         return added_node_profiles
 
@@ -198,17 +212,21 @@ class FilterModule(object):
             """
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
-            self._logger.info("Job INPUT:\n" + str(job_input))
+            self._logger.warn("Job INPUT:\n" + str(job_input))
 
             encoded_file = job_input.get("encoded_file")
             file_format = job_input.get("file_format")
             decoded = base64.decodestring(encoded_file)
 
             cc_host = job_input.get('contrail_command_host')
-            auth_token = job_ctx.get('auth_token')
-            cc_node_profile_obj = CreateCCNodeProfile(cc_host, auth_token)
+            #auth_token = job_ctx.get('auth_token')
+            cc_username = job_input.get('cc_username')
+            cc_password = job_input.get('cc_password')
+            cc_node_profile_obj = CreateCCNodeProfile(cc_host,
+                                                      cc_username,
+                                                      cc_password)
 
-            self._logger.info("Starting Node Profile Import")
+            self._logger.warn("Starting Node Profile Import")
 
             if file_format.lower() == "yaml":
                 data = yaml.load(decoded)
