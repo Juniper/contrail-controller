@@ -4548,19 +4548,27 @@ class VncApiServer(object):
         self._post_common(None, {})
 
         req_dict = get_request().json
-        obj_type = req_dict.pop('obj_type')
-        obj_uuid = req_dict.pop('obj_uuid')
+        obj_type = req_dict.pop('obj_type', '')
+        obj_uuid = req_dict.pop('obj_uuid', None)
         need_update = False
 
         if obj_type is None or obj_uuid is None:
             msg = "Object type and UUID must be specified"
             raise cfgm_common.exceptions.HttpError(400, msg)
 
-        ok, result = self._db_conn.dbe_read(
-            obj_type,
-            obj_uuid,
-            obj_fields=['parent_type', 'perms2', 'tag_refs'],
-        )
+        try:
+            r_class = self.get_resource_class(obj_type)
+        except TypeError as e:
+            raise cfgm_common.exceptions.HttpError(400, str(e))
+
+        try:
+            ok, result = self._db_conn.dbe_read(
+                r_class.object_type,
+                obj_uuid,
+                obj_fields=['parent_type', 'perms2', 'tag_refs'],
+            )
+        except NoIdError as e:
+            raise cfgm_common.exceptions.HttpError(404, str(e))
         if not ok:
             raise cfgm_common.exceptions.HttpError(*result)
         obj_dict = result
