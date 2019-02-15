@@ -784,7 +784,10 @@ TEST_P(BgpEvpnTwoControllerTest, Basic) {
     }
 }
 
-TEST_P(BgpEvpnTwoControllerTest, RemoteReceiver) {
+// Need to enable it once sender inside contrail is supported
+// It is disabled since PMSI information is not sent with SMET route anymore
+// and changes need to be made to get the same from correspongin IMET route
+TEST_P(BgpEvpnTwoControllerTest, DISABLED_RemoteReceiver) {
     for (size_t i = 1; i <= instance_count_; i++) {
         ostringstream sg;
         sg << "224." << i << "." << instance_count_ << ".3,192.168.1.1";

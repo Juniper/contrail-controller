@@ -1973,9 +1973,15 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             attrs.push_back(&med);
 
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
-        if (type6)
+        if (type6) {
             flags |= BgpPath::CheckGlobalErmVpnRoute;
-        else {
+            if (item.entry.replicator_address.empty() &&
+                    item.entry.edge_replication_not_supported) {
+                // Only for test to inject remote smet routes
+                flags &= ~BgpPath::CheckGlobalErmVpnRoute;
+                attrs.push_back(&nexthop);
+            }
+        } else {
             attrs.push_back(&nexthop);
         }
 
@@ -2015,7 +2021,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             attrs.push_back(&ext);
 
         PmsiTunnelSpec pmsi_spec;
-        if (mac_addr.IsBroadcast() || type6) {
+        if (mac_addr.IsBroadcast()) {
             if (!item.entry.replicator_address.empty()) {
                 IpAddress replicator_address;
                 if (!XmppDecodeAddress(BgpAf::IPv4,
@@ -2040,10 +2046,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 if (!item.entry.edge_replication_not_supported) {
                     pmsi_spec.tunnel_flags |=
                         PmsiTunnelSpec::EdgeReplicationSupported;
-                } else {
-                    // Only for test to inject remote smet routes
-                    flags &= ~BgpPath::CheckGlobalErmVpnRoute;
-                    attrs.push_back(&nexthop);
                 }
                 pmsi_spec.SetIdentifier(nh_address.to_v4());
             }
