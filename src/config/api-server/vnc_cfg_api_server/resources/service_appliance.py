@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_common import ServiceAppliance
 
@@ -38,7 +39,7 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                     pi_uuid = db_conn.fq_name_to_uuid(
                         'physical_interface', phys_intf_ref.get('to'))
                 except NoIdError as e:
-                    return (False, str(e))
+                    return False, (400, str(e))
             else:
                 pi_uuid = phys_intf_ref['uuid']
 
@@ -55,11 +56,10 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                 if not ok:
                     return ok, phys_router_result
                 if phys_router_result.get('physical_router_role') != 'pnf':
-                    msg = "Referenced physical interface(%s) does not belong"
-                    " to PNF device" %\
-                        (phys_intf_ref['uuid'])
-                    return (False, (400, msg))
-        return (True, '')
+                    msg = ("Referenced physical interface(%s) does not belong "
+                           "to PNF device" % (phys_intf_ref['uuid']))
+                    return False, (400, msg)
+        return True, ''
 
     @classmethod
     def check_sa_has_left_right_attachment_point(cls, obj_dict):
@@ -73,9 +73,9 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                 msg = (
                     "There should be atleast one left/right attachment point"
                     " defined")
-                return (False, (400, msg))
+                return False, (400, msg)
 
-        return (True, '')
+        return True, ''
 
     @classmethod
     def add_delete_physical_interface_refs(cls, obj_dict, op):
@@ -94,22 +94,28 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
                         pi_uuid = db_conn.fq_name_to_uuid(
                             'physical_interface', phys_intf_ref.get('to'))
                     except NoIdError as e:
-                        return (False, str(e))
+                        return False, (400, str(e))
                 else:
                     pi_uuid = phys_intf_ref['uuid']
 
                 if phys_intf_ref['attr'].get('interface_type') == 'left':
                     for intf in left_intf_list:
-                        api_server.internal_request_ref_update(
-                            'physical-interface', pi_uuid, op,
-                            'physical-interface', None, intf.split(':'))
+                        try:
+                            api_server.internal_request_ref_update(
+                                'physical-interface', pi_uuid, op,
+                                'physical-interface', None, intf.split(':'))
+                        except HttpError as e:
+                            return False, (e.status_code, e.content)
                 elif phys_intf_ref['attr'].get('interface_type') == 'right':
                     for intf in right_intf_list:
-                        api_server.internal_request_ref_update(
-                            'physical-interface', pi_uuid, op,
-                            'physical-interface', None, intf.split(':'))
+                        try:
+                            api_server.internal_request_ref_update(
+                                'physical-interface', pi_uuid, op,
+                                'physical-interface', None, intf.split(':'))
+                        except HttpError as e:
+                            return False, (e.status_code, e.content)
 
-        return (True, '')
+        return True, ''
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -121,7 +127,7 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
         if not ok:
             return ok, result
 
-        return True, ""
+        return True, ''
     # end pre_dbe_create
 
     @classmethod
@@ -130,7 +136,7 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
         if not ok:
             return ok, result
 
-        return True, ""
+        return True, ''
     # end post_dbe_create
 
     @classmethod
@@ -139,6 +145,6 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
         if not ok:
             return ok, result
 
-        return True, ""
+        return True, ''
     # end post_dbe_delete
 # end class ServiceApplianceServer
