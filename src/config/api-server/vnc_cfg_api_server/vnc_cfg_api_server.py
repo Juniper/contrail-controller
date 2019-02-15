@@ -1787,9 +1787,11 @@ class VncApiServer(object):
             self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
         else:
             self.aaa_mode = "cloud-admin"
-
-        self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
-                                           self._args.listen_port)
+        
+        api_proto = 'https' if self._args.config_api_ssl_enable else 'http'
+        api_host_name = socket.getfqdn(self._args.listen_ip_addr)
+        self._base_url = "%s://%s:%s" % (api_proto, api_host_name,
+                                        self._args.listen_port)
 
         # Generate LinkObjects for all entities
         links = []
@@ -3070,22 +3072,23 @@ class VncApiServer(object):
     def _load_extensions(self):
         try:
             conf_sections = self._args.config_sections
+            hostname = socket.getfqdn(self._args.listen_ip_addr)
             self._extension_mgrs['resourceApi'] = ExtensionManager(
                 'vnc_cfg_api.resourceApi',
                 propagate_map_exceptions=True,
-                api_server_ip=self._args.listen_ip_addr,
+                api_server_ip=hostname,
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections, sandesh=self._sandesh)
             if self._args.auth != 'no-auth':
                 self._extension_mgrs['resync'] = ExtensionManager(
-                    'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
+                    'vnc_cfg_api.resync', api_server_ip=hostname,
                     api_server_port=self._args.listen_port,
                     conf_sections=conf_sections, sandesh=self._sandesh)
                 self._extension_mgrs['resourceApi'].map_method(
                     'set_resync_extension_manager', self._extension_mgrs['resync'])
             self._extension_mgrs['neutronApi'] = ExtensionManager(
                 'vnc_cfg_api.neutronApi',
-                api_server_ip=self._args.listen_ip_addr,
+                api_server_ip=hostname,
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections, sandesh=self._sandesh,
                 api_server_obj=self)
