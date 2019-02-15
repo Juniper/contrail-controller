@@ -23,6 +23,8 @@ except ImportError:
 from cfgm_common.utils import cgitb_hook
 import pycassa
 import pycassa.connection
+from thrift.transport import TSSLSocket
+import ssl
 import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
@@ -33,12 +35,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.11"
+__version__ = "1.12"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.12
+  - Use TLSv1.2 for cassandra's connection
 * 1.11
   - Make Individual connection timeout and buffer size user configurable
 * 1.10
@@ -373,7 +377,7 @@ class DatabaseManager(object):
             }
         socket_factory = pycassa.connection.default_socket_factory
         if self._api_args.cassandra_use_ssl:
-            socket_factory = pycassa.connection.make_ssl_socket_factory(
+            socket_factory = self._make_ssl_socket_factory(
                 self._api_args.cassandra_ca_certs, validate=False)
         for ks_name, cf_name_list in self._db_info:
             if cluster_id:
@@ -404,6 +408,14 @@ class DatabaseManager(object):
         # Get the system global autonomous system
         self.global_asn = self.get_autonomous_system()
     # end __init__
+
+    def _make_ssl_socket_factory(self, ca_certs, validate=True):
+        # copy method from pycassa library because no other method
+        # to override ssl version
+        def ssl_socket_factory(host, port):
+            TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
+            return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
+        return ssl_socket_factory
 
     def get_autonomous_system(self):
         fq_name_table = self._cf_dict['obj_fq_name_table']
