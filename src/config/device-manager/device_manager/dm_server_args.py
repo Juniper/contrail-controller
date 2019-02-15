@@ -29,7 +29,7 @@ def default_options():
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
-        'api_server_use_ssl': False,
+        'api_server_use_ssl': None,
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
         'analytics_username': None,
