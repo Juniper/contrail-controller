@@ -3214,7 +3214,7 @@ class BgpRouterST(DBBaseST):
         self.router_type = None
         self.source_port = None
         self.sub_cluster = None
-        self.cluster_id = 0
+        self.cluster_id = None
         self.update(obj)
         self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
@@ -3231,15 +3231,25 @@ class BgpRouterST(DBBaseST):
             self._object_db.free_bgpaas_port(self.source_port)
     # end delete_ref
 
+    def is_cluster_id_changed(self, params):
+        if ((self.cluster_id is None and params.cluster_id is not None)
+            or (self.cluster_id is not None and params.cluster_id is None)):
+            return True
+
+        return False
+    # end is_cluster_id_changed
+
     def set_params(self, params):
         self.vendor = (params.vendor or 'contrail').lower()
         self.identifier = params.identifier
         self.router_type = params.router_type
         self.source_port = params.source_port
-        if params.cluster_id != None:
+
+        # to reduce the peerinf from full mesh to RR
+        if self.is_cluster_id_changed(params):
             self.cluster_id = params.cluster_id
-            # to reduce the peerinf from full mesh to RR
             self.update_full_mesh_to_rr_peering()
+
         if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
             if self.vendor == 'contrail':
                 self.update_global_asn(
@@ -3408,12 +3418,6 @@ class BgpRouterST(DBBaseST):
     # end update_bgpaas_client
 
     def _is_route_reflector_supported(self):
-        if self.cluster_id > 0:
-            if self.router_type == 'control-node':
-                return False, True
-            else:
-                return True, False
-
         cluster_rr_supported = False
         control_rr_supported = False
         for router in self._dict.values():
@@ -3426,6 +3430,66 @@ class BgpRouterST(DBBaseST):
                 break
         return cluster_rr_supported, control_rr_supported
     # end _is_route_reflector_supported
+
+    def skip_fabric_bgp_router_peering_add(self, router):
+        if ((self.cluster_id != 0 and router.router_type == 'control-node') or
+            (router.cluster_id != 0 and self.router_type == 'control-node')):
+            return False
+
+        if self.cluster_id or router.cluster_id:
+            pr_obj_refs = self.obj.get_physical_router_back_refs()
+            pr_obj_peer_refs = router.obj.get_physical_router_back_refs()
+
+            fab_id = None
+            fab_peer_id = None
+
+            if pr_obj_refs is not None:
+                pr_obj = self._vnc_lib.physical_router_read(id=pr_obj_refs[0]['uuid'])
+                fab_obj_refs = pr_obj.get_fabric_refs()
+                if fab_obj_refs is not None:
+                    fab_id = fab_obj_refs[0]['uuid']
+
+            if pr_obj_peer_refs is not None:
+                pr_peer_obj = self._vnc_lib.physical_router_read(id=pr_obj_peer_refs[0]['uuid'])
+                fab_obj_peer_refs = pr_peer_obj.get_fabric_refs()
+                if fab_obj_peer_refs is not None:
+                    fab_peer_id = fab_obj_peer_refs[0]['uuid']
+
+            if fab_id is not None and fab_peer_id is not None and fab_id != fab_peer_id:
+                return True
+            else:
+                return False
+
+        return True
+
+        '''
+            if self.cluster_id and router.router_type == 'control-node':
+                return False
+
+            if router.cluster_id and self.router_type == 'control-node':
+                return False
+
+            if pr_obj_refs == None and pr_obj_peer_refs == None:
+                return False
+
+            pr_obj = self._vnc_lib.physical_router_read(id=pr_obj_refs[0]['uuid'])
+            pr_peer_obj = self._vnc_lib.physical_router_read(id=pr_obj_peer_refs[0]['uuid'])
+
+            if pr_obj == None or pr_peer_obj == None:
+                return False
+
+            fab_obj = pr_obj.get_fabric_refs()
+            fab_peer_obj = pr_peer_obj.get_fabric_refs()
+
+            if fab_obj == None or fab_peer_obj == None:
+                return False
+
+            if fab_obj[0]['uuid'] == fab_peer_obj[0]['uuid']:
+                return False
+
+        return True
+        '''
+    #end skip_fabric_bgp_router_peering_add
 
     def skip_bgp_router_peering_add(self, router, cluster_rr_supported,
                                    control_rr_supported):
@@ -3444,21 +3508,8 @@ class BgpRouterST(DBBaseST):
             return self.cluster_id == router.cluster_id
 
         # Always create peering from/to route-reflector (server).
-        if self.cluster_id or router.cluster_id:
-            pr_self_ref = self.obj.get_physical_router_back_refs()
-            pr_router_ref = router.obj.get_physical_router_back_refs()
-
-            if pr_self_ref == None and pr_router_ref == None:
-                return False;
-
-            pr_self = self._vnc_lib.physical_router_read(id=pr_self_ref[0]['uuid'])
-            router_self = self._vnc_lib.physical_router_read(id=pr_router_ref[0]['uuid'])
-
-            fab_self = pr_self.get_fabric_refs()
-            fab_router = router_self.get_fabric_refs()
-
-            if fab_self[0]['uuid'] == fab_router[0]['uuid']:
-                return False
+        if not self.skip_fabric_bgp_router_peering_add(router):
+            return False
 
         # Only in this case can we opt to skip adding bgp-peering.
         return True
