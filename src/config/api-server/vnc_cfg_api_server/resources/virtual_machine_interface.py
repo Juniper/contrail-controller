@@ -638,6 +638,22 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                                "linked to Vrouter or VM.")
                         return False, (409, msg)
 
+            # Manage the bindings for baremetal servers
+            vnic_type = kvp_dict.get('vnic_type')
+            lag_name = kvp_dict.get('lag')
+            if read_result.get('virtual_port_group_back_refs'):
+                lag_name_db = (read_result.get(
+                    'virtual_port_group_back_refs')[0]['to'][-1])
+                obj_dict['virtual_port_group_name'] = lag_name_db
+
+            if vnic_type == 'baremetal':
+                phy_links = json.loads(kvp_dict.get('profile'))
+                if phy_links and phy_links.get('local_link_information'):
+                    links = phy_links['local_link_information']
+                    lag_uuid = cls._manage_lag_association(
+                        id, cls.server, db_conn, links, lag_name)
+                    obj_dict['port_virtual_port_group_id'] = lag_uuid
+
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
 
@@ -956,33 +972,23 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         bindings = obj_dict.get('virtual_machine_interface_bindings', {})
         kvps = bindings.get('key_value_pair', [])
 
+        # ADD a ref from this VMI only if it's getting created
+        # first time
+        lag_uuid = obj_dict.get('port_virtual_port_group_id')
+        lag_name = obj_dict.get('virtual_port_group_name')
+        if not lag_name and lag_uuid:
+            api_server.internal_request_ref_update(
+                'virtual-port-group',
+                lag_uuid,
+                'ADD',
+                'virtual-machine-interface',
+                id,
+                relax_ref_for_delete=True)
+
         for oper_param in prop_collection_updates or []:
             if (oper_param['field'] == 'virtual_machine_interface_bindings' and
                     oper_param['operation'] == 'set'):
                 kvps.append(oper_param['value'])
-
-        # Manage the bindings for baremetal servers
-        if kvps:
-            kvp_dict = cls._kvp_to_dict(kvps)
-            vnic_type = kvp_dict.get('vnic_type')
-            lag_name = kvp_dict.get('lag')
-            if vnic_type == 'baremetal':
-                phy_links = json.loads(kvp_dict.get('profile'))
-                if phy_links and phy_links.get('local_link_information'):
-                    links = phy_links['local_link_information']
-                    lag_uuid = cls._manage_lag_association(
-                        id, api_server, db_conn, links, lag_name)
-
-                    # ADD a ref from this VMI only if it's getting created
-                    # first time
-                    if not lag_name and lag_uuid:
-                        api_server.internal_request_ref_update(
-                            'virtual-port-group',
-                            lag_uuid,
-                            'ADD',
-                            'virtual-machine-interface',
-                            id,
-                            relax_ref_for_delete=True)
 
         return True, ''
 
