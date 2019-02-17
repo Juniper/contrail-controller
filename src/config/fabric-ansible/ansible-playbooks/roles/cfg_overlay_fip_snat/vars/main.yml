@@ -1,5 +1,4 @@
 ---
 # vars input file
 feature: overlay_fip_snat
-add_ztp_suffix: false
 

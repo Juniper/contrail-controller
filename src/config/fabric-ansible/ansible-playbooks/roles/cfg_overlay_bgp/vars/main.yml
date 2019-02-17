@@ -1,4 +1,3 @@
 ---
 # vars input file
 feature: overlay_bgp
-add_ztp_suffix: false

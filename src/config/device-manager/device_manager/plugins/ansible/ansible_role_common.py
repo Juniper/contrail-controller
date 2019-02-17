@@ -1333,7 +1333,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                                        right_vrf_info)
 
     def set_common_config(self):
-        if self.physical_router.is_ztp():
+        if self.physical_router.underlay_managed:
             self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return

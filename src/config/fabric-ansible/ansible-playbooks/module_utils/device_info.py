@@ -345,6 +345,8 @@ class DeviceInfo(object):
                 physical_router_product_name=oid_mapped.get('product'),
                 physical_router_device_family=oid_mapped.get('family'),
                 physical_router_vnc_managed=True,
+                physical_router_underlay_managed=self.job_ctx.get(
+                    'job_input', {}).get('manage_underlay', True),
                 physical_router_user_credentials={
                     'username': oid_mapped.get('username'),
                     'password': oid_mapped.get('password')

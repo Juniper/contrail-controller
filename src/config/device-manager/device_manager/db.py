@@ -183,6 +183,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.product = obj.get('physical_router_product_name') or ''
         self.device_family = obj.get('physical_router_device_family')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
+        self.underlay_managed = obj.get('physical_router_underlay_managed')
         self.physical_router_role = obj.get('physical_router_role')
         routing_bridging_roles = obj.get('routing_bridging_roles')
         if routing_bridging_roles is not None:
@@ -219,13 +220,6 @@ class PhysicalRouterDM(DBBaseDM):
 
     def remove_associated_port_tuples(self, pt_uuid):
         self.port_tuples.remove(pt_uuid)
-
-    def is_ztp(self):
-        if self.fabric:
-            fabric = FabricDM.get(self.fabric)
-            return fabric is not None and fabric.ztp
-        return False
-    # end is_ztp
 
     def get_lr_dci_map(self):
         lrs = self.logical_routers
@@ -307,7 +301,7 @@ class PhysicalRouterDM(DBBaseDM):
     # end verify_allocated_asn
 
     def allocate_asn(self):
-        if not self.is_ztp():
+        if not self.underlay_managed:
             return
         fabric = FabricDM.get(self.fabric)
         if self.verify_allocated_asn(fabric):
@@ -2240,7 +2234,6 @@ class FabricDM(DBBaseDM):
         self.fabric_namespaces = set()
         self.lo0_ipam_subnet = None
         self.ip_fabric_ipam_subnet = None
-        self.ztp = False
         self.update(obj_dict)
     # end __init__
 
@@ -2277,8 +2270,6 @@ class FabricDM(DBBaseDM):
         # Get the 'ip_fabric' type virtual network
         self.ip_fabric_ipam_subnet = \
             self._get_ipam_subnets_for_virtual_network(obj, 'ip_fabric')
-
-        self.ztp = obj.get('fabric_ztp') == True
     # end update
 # end class FabricDM
 

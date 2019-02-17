@@ -1,4 +1,3 @@
 ---
 # vars input file
 feature: overlay_service_chain
-add_ztp_suffix: false
