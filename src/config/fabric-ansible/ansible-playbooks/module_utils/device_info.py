@@ -367,6 +367,11 @@ class DeviceInfo(object):
                         oid_mapped.get('host'), pr_uuid
                     ))
             else:
+                # underlay_managed flag should only be set at physical-router
+                # creation time
+                physicalrouter.set_physical_router_underlay_managed(
+                    self.job_ctx.get('job_input').get('manage_underlay', True)
+                )
                 pr_uuid = self.vncapi.physical_router_create(physicalrouter)
                 msg = "Discovered device details: {} : {} : {}".format(
                     oid_mapped.get('host'), fq_name[1], oid_mapped.get(

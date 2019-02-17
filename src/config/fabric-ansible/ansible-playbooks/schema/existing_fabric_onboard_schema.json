@@ -9,10 +9,10 @@
     ],
     "properties": {
       "fabric_fq_name": {
-         "type": "array",
-         "items": {
-            "type": "string"
-         }
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       },
       "fabric_display_name": {
         "type": "string"
@@ -99,7 +99,9 @@
           "description": "List of node profiles to be used by the fabric.",
           "additionalProperties": false,
           "properties": {
-            "node_profile_name": { "type": "string" },
+            "node_profile_name": {
+              "type": "string"
+            },
             "serial_nums": {
               "type": "array",
               "description": "Optional list of serial numbers of fabric devices that we want to associate with this node profile.",
@@ -111,25 +113,43 @@
           "required": [ "node_profile_name" ]
         }
       },
-      "interface_filters":{
-        "type":"array",
-        "items":{
-          "type":"object",
-          "maxProperties":2,
-          "additionalProperties":false,
+      "interface_filters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "maxProperties": 2,
+          "additionalProperties": false,
           "properties": {
             "op": {
-                    "enum": ["regex", "startwith"]},
-                    "expr": { "type": "string" }
+              "enum": [
+                "regex",
+                "startwith"
+              ]
             },
-            "title":"filter object",
-            "description":"filter object having op and expr fields",
-            "default":{},
-            "examples":[
-                       {"op":"regex", "expr": "^ge-"},
-                       {"op":"regex", "expr": "^xe"}
-            ]
+            "expr": {
+              "type": "string"
+            }
+          },
+          "title": "filter object",
+          "description": "filter object having op and expr fields",
+          "default": {},
+          "examples": [
+            {
+              "op": "regex",
+              "expr": "^ge-"
+            },
+            {
+              "op": "regex",
+              "expr": "^xe"
+            }
+          ]
         }
+      },
+      "manage_underlay": {
+        "title": "Manage underlay networking",
+        "type": "boolean",
+        "description": "Set to true if need to configure underlay networking",
+        "default": false
       },
       "device_count": {
         "title": "Number of fabric devices",
@@ -143,20 +163,26 @@
     "title": "Generic Job Output",
     "type": "object",
     "properties": {
-       "status": {
-          "type": "string",
-          "enum": [ "Success", "Failure", "Timeout" ],
-          "description": "Result status of the job"
-       },
-       "message": {
-          "type": "string",
-          "description": "Should capture a summarized error message in case of Failures."
-       },
-       "results": {
-          "type": "object",
-          "description": "JSON object holding the job specific output details"
-       }
+      "status": {
+        "type": "string",
+        "enum": [
+          "Success",
+          "Failure",
+          "Timeout"
+        ],
+        "description": "Result status of the job"
+      },
+      "message": {
+        "type": "string",
+        "description": "Should capture a summarized error message in case of Failures."
+      },
+      "results": {
+        "type": "object",
+        "description": "JSON object holding the job specific output details"
+      }
     },
-    "required": [ "status" ]
+    "required": [
+      "status"
+    ]
   }
 }
