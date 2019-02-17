@@ -45,13 +45,18 @@ from vnc_api.gen.resource_xsd import (
     KeyValuePairs,
     KeyValuePair
 )
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import (
+    FilterLog,
+    _task_log,
+    _task_done,
+    _task_error_log,
+    _task_debug_log,
+    _task_warn_log,
+    vnc_bulk_get
+)
 
 GSC = 'default-global-system-config'
-
-
-sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog, _task_log, _task_done,\
-    _task_error_log, _task_debug_log, _task_warn_log, vnc_bulk_get
 
 
 def _compare_fq_names(this_fq_name, that_fq_name):
@@ -356,13 +361,15 @@ class FilterModule(object):
             fabric_info, job_template_fqname = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, False
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, True,
-                                              job_template_fqname)
+            fabric_obj = self._onboard_fabric(
+                vnc_api, fabric_info, job_template_fqname
+            )
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
+                'manage_underlay':
+                    job_ctx.get('job_input').get('manage_underlay', True),
                 'onboard_log': FilterLog.instance().dump()
-
             }
         except Exception as ex:
             errmsg = "Unexpected error: %s\n%s" % (
@@ -425,13 +432,15 @@ class FilterModule(object):
             fabric_info, job_template_fqname = FilterModule._validate_job_ctx(
                 vnc_api, job_ctx, True
             )
-            fabric_obj = self._onboard_fabric(vnc_api, fabric_info, False,
-                                              job_template_fqname)
+            fabric_obj = self._onboard_fabric(
+                vnc_api, fabric_info, job_template_fqname
+            )
             return {
                 'status': 'success',
                 'fabric_uuid': fabric_obj.uuid,
+                'manage_underlay':
+                    job_ctx.get('job_input').get('manage_underlay', False),
                 'onboard_log': FilterLog.instance().dump()
-
             }
         except Exception as ex:
             errmsg = "Unexpected error: %s\n%s" % (
@@ -445,15 +454,14 @@ class FilterModule(object):
             }
     # end onboard_existing_fabric
 
-    def _onboard_fabric(self, vnc_api, fabric_info, ztp, job_template_fqname):
+    def _onboard_fabric(self, vnc_api, fabric_info, job_template_fqname):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: Dictionary
-        :param ztp: set to True if fabric is to be ZTPed
         :param job_template_fqname: job template fqname
         :return: <vnc_api.gen.resource_client.Fabric>
         """
-        fabric_obj = self._create_fabric(vnc_api, fabric_info, ztp)
+        fabric_obj = self._create_fabric(vnc_api, fabric_info)
 
         # add fabric annotations
         self._add_fabric_annotations(
@@ -544,7 +552,9 @@ class FilterModule(object):
                 pnf_servicechain_subnets,
                 'label=fabric-pnf-servicechain-ip'
             )
-            pnf_sc_subnets = self._carve_out_subnets(pnf_servicechain_subnets, 29)
+            pnf_sc_subnets = self._carve_out_subnets(
+                pnf_servicechain_subnets, 29
+            )
             self._add_fabric_vn(
                 vnc_api,
                 fabric_obj,
@@ -611,12 +621,11 @@ class FilterModule(object):
     # end _carve_out_subnets
 
     @staticmethod
-    def _create_fabric(vnc_api, fabric_info, ztp):
+    def _create_fabric(vnc_api, fabric_info):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: dynamic object from job input schema via
                             python_jsonschema_objects
-        :param ztp: set to True if fabric is to be ZTPed
         :return: <vnc_api.gen.resource_client.Fabric>
         """
         fq_name = fabric_info.get('fabric_fq_name')
@@ -634,8 +643,7 @@ class FilterModule(object):
                         'credential': device_auth
                     } for device_auth in fabric_info.get('device_auth')
                 ]
-            },
-            fabric_ztp=ztp
+            }
         )
         fab.set_annotations(KeyValuePairs([
             KeyValuePair(key='user_input', value=json.dumps(fabric_info))
@@ -923,8 +931,9 @@ class FilterModule(object):
         return network
     # end _add_fabric_vn
 
-    def _add_fabric_annotations(self, vnc_api, fabric_obj,
-                                onboard_job_template_fqname, job_input):
+    @staticmethod
+    def _add_fabric_annotations(
+            vnc_api, fabric_obj, onboard_job_template_fqname, job_input):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
@@ -1338,7 +1347,8 @@ class FilterModule(object):
         _task_done()
     # end _delete_fabric_device
 
-    def _delete_bgp_router(self, vnc_api, device_obj):
+    @staticmethod
+    def _delete_bgp_router(vnc_api, device_obj):
         """
         delete corresponding bgp-router for a specific device
         :param vnc_api: <vnc_api.VncApi>
@@ -1357,10 +1367,13 @@ class FilterModule(object):
             vnc_api.bgp_router_delete(id=bgp_router_obj.uuid)
             _task_done()
         except NoIdError:
-            _task_debug_log('bgp-router for device %s does not exist' % device_obj.name)
+            _task_debug_log(
+                'bgp-router for device %s does not exist' % device_obj.name
+            )
     # end _delete_bgp_router
 
-    def _delete_logical_router(self, vnc_api, device_obj, fabric_name):
+    @staticmethod
+    def _delete_logical_router(vnc_api, device_obj, fabric_name):
         """
         delete reference from logical-router and logical-router itself if
         this is the last device
@@ -1395,7 +1408,8 @@ class FilterModule(object):
             )
     # end _delete_logical_router
 
-    def _delete_fabric_network(self, vnc_api, fabric_name, network_type):
+    @staticmethod
+    def _delete_fabric_network(vnc_api, fabric_name, network_type):
         """
         :param vnc_api: type=VncApi
         :param fabric_name: type=string
@@ -1480,7 +1494,8 @@ class FilterModule(object):
         devices_to_delete = [[GSC, name] for name in fabric_info.get('devices')]
         try:
             self._validate_fabric_rr_role_assigned(
-                vnc_api, fabric_info.get('fabric_fq_name'), devices_to_delete, True
+                vnc_api, fabric_info.get('fabric_fq_name'),
+                devices_to_delete, True
             )
         except ValueError as ex:
             raise ValueError(

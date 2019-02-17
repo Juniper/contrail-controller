@@ -1,4 +1,3 @@
 ---
 # vars input file
 feature: overlay_evpn_type5
-add_ztp_suffix: false
