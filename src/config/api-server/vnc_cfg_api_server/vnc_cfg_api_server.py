@@ -676,6 +676,10 @@ class VncApiServer(object):
     # end _validate_props_in_request
 
     def _validate_refs_in_request(self, resource_class, obj_dict):
+        if not is_internal_request() and 'tag_refs' in obj_dict:
+            msg = "Tag references can only be set through the '/set-tag' URI'"
+            return False, msg
+
         for ref_name in resource_class.ref_fields:
             ref_fld_types_list = list(resource_class.ref_field_types[ref_name])
             ref_link_type = ref_fld_types_list[1]
