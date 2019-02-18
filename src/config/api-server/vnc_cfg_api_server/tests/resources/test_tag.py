@@ -8,6 +8,7 @@ from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import RefsExistError
 import gevent
 import mock
+import requests
 from sandesh_common.vns import constants
 from vnc_api.vnc_api import PermType2
 from vnc_api.vnc_api import Project
@@ -716,3 +717,41 @@ class TestTag(TestTagBase):
             mock_db_update.reset_mock()
             self.api.set_tags(vn, tags_dict)
             mock_db_update.assert_called()
+
+    def cannot_set_tag_ref_without_dedicated_api_uri(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        tag_type = 'fake_type-%s' % self.id()
+        tag_value = 'fake_value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
+        self.api.tag_create(tag)
+        msg = r".*Tag references can only be set through the '/set-tag' URI'$"
+
+        # create case
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.add_tag(tag)
+        with self.assertRaisesRegexp(BadRequest, msg):
+            self.api.virtual_network_create(vn)
+
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self.api.virtual_network_create(vn)
+
+        # ref-update case
+        vn.add_tag(tag)
+        with self.assertRaisesRegexp(BadRequest, msg):
+            self.api.virtual_network_update(vn)
+
+        # update case
+        url = 'http://%s:%s/%s/%s' % (
+            self._api_server_ip,
+            self._api_server._args.listen_port,
+            vn.resource_type,
+            vn.uuid)
+        response = requests.put(
+            url,
+            headers={'Content-type': 'application/json; charset="UTF-8"'},
+            json={vn.resource_type: {'tag_refs': [{'uuid': project.uuid}]}},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertRegexpMatches(response.content, msg)
