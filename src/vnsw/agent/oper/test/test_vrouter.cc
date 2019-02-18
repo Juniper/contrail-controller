@@ -156,7 +156,7 @@ public:
         sprintf(node_name, "%s,%s", ipam, vr_name);
 
         AddXmlHdr(buff, len);
-        AddLinkString(buff, len, "virtual-router", vr_name,
+        LinkString(buff, len, "virtual-router", vr_name,
                       "virtual-router-network-ipam", node_name);
 
         AddXmlTail(buff, len);

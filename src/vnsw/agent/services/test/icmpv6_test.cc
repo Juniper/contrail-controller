@@ -279,7 +279,7 @@ TEST_F(Icmpv6Test, Icmpv6PingTest) {
     AddXmlHdr(buf, len);
     AddNodeString(buf, len, "virtual-network", "vn1", 1);
     AddNodeString(buf, len, "virtual-network-network-ipam", "default-network-ipam,vn1", ipam_updated_info, 3);
-    AddLinkString(buf, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
+    LinkString(buf, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     AddXmlTail(buf, len);
     ApplyXmlString(buf);
     client->WaitForIdle();
