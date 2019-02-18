@@ -1831,6 +1831,80 @@ bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf,
     return ret;
 }
 
+bool MplsVpnEcmpTunnelAdd(const BgpPeer *peer, const string &vrf,
+                        const Ip4Address &prefix, uint8_t plen,
+                        Ip4Address  &remote_server_1, uint32_t label1,
+                        Ip4Address &remote_server_2, uint32_t label2,
+                        const string &vn) {
+    std::vector<IpAddress>tunnel_list;
+    std::vector<uint32_t>label_list;
+    tunnel_list.push_back(remote_server_1);
+    tunnel_list.push_back(remote_server_2);
+    label_list.push_back(label1);
+    label_list.push_back(label2);
+
+    SecurityGroupList sg;
+    TagList tag;
+    VnListType vn_list;
+    vn_list.insert(vn);
+    ControllerEcmpRoute *data =
+        new ControllerEcmpRoute(peer, vn_list, EcmpLoadBalance(), tag, sg,
+                                PathPreference(), 1 << TunnelType::MPLS_OVER_MPLS,
+                                tunnel_list, label_list, prefix.to_string(),vrf);
+    InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf, prefix, plen, data);
+    client->WaitForIdle();
+    return true;
+}
+bool MplsLabelInetEcmpTunnelAdd(const BgpPeer *peer, const string &vrf,
+                        const Ip4Address &prefix, uint8_t plen,
+                        Ip4Address  &remote_server_1, uint32_t label1,
+                        Ip4Address &remote_server_2, uint32_t label2,
+                        const string &vn) {
+                Agent *agent = Agent::GetInstance();
+                TunnelType::TypeBmap encap = 1 << TunnelType::MPLS_OVER_MPLS;
+    LabelledTunnelNHKey *nh_key1 = new LabelledTunnelNHKey(
+                                agent->fabric_vrf_name(),
+                                agent->router_id(),
+                                remote_server_1,
+                                false,
+                                TunnelType::ComputeType(encap),
+                                MacAddress(),
+                                label1);
+    std::auto_ptr<const NextHopKey> nh_key_ptr1(nh_key1);
+    ComponentNHKeyPtr component_nh_key1(new ComponentNHKey(label1,
+                                                        nh_key_ptr1));
+    LabelledTunnelNHKey *nh_key2 = new LabelledTunnelNHKey(
+                                agent->fabric_vrf_name(),
+                                agent->router_id(),
+                                remote_server_2,
+                                false,
+                                TunnelType::ComputeType(encap),
+                                MacAddress(),
+                                label1);
+    std::auto_ptr<const NextHopKey> nh_key_ptr2(nh_key2);
+    ComponentNHKeyPtr component_nh_key2(new ComponentNHKey(label2,
+                                                        nh_key_ptr2));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(component_nh_key1);
+    comp_nh_list.push_back(component_nh_key2);
+    COMPOSITETYPE type = Composite::LU_ECMP;
+    SecurityGroupList sg;
+    TagList tag;
+    VnListType vn_list;
+    vn_list.insert(vn);
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(type, false,
+                                        comp_nh_list, vrf));
+    nh_req.data.reset(new CompositeNHData());
+
+    ControllerEcmpRoute *data =
+        new ControllerEcmpRoute(peer, vn_list, EcmpLoadBalance(), tag, sg,
+                                PathPreference(), 1 << TunnelType::MPLS_OVER_MPLS,
+                                nh_req, prefix.to_string());
+    InetUnicastAgentRouteTable::AddMplsRouteReq(peer, vrf, prefix, plen, data);
+    client->WaitForIdle();
+    return true;
+}
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,

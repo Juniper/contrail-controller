@@ -206,6 +206,17 @@ public:
                         TunnelType::TypeBmap tunnel_bmap,
                         DBRequest &nh_req,
                         const std::string &prefix_str);
+    ControllerEcmpRoute(const BgpPeer *peer,
+                        const VnListType &vn_list,
+                        const EcmpLoadBalance &ecmp_load_balance,
+                        const TagList &tag_list,
+                        const SecurityGroupList &sg_list,
+                        const PathPreference &path_pref,
+                        TunnelType::TypeBmap tunnel_bmap,
+                        std::vector<IpAddress> &tunnel_dest_list,
+                        std::vector<uint32_t> &label_list,
+                        const std::string &prefix_str,
+                        const std::string &vrf_name);
     virtual ~ControllerEcmpRoute() { }
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
