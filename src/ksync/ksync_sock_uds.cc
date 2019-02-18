@@ -72,7 +72,14 @@ bool KSyncSockUds::Run() {
         int ret_val;
         size_t bytes_transferred = 0;
         bytes_transferred = ret_val = recv(socket_, rx_buff_, 10*kBufLen, 0);
-        if (ret_val <= 0) {
+        if (ret_val == 0) {
+            // connection reset by peer
+            // close socket and exit
+            sock_.close(ec);
+            LOG(INFO, " dpdk vrouter is down, exiting.. errno:" << errno);
+            exit(0);
+        }
+        if (ret_val < 0) {
             if (errno != EAGAIN) {
                 sock_.close(ec);
                 connected_ = false;
