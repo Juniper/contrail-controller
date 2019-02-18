@@ -69,7 +69,7 @@ TEST_F(CfgTest, VmBasic_1) {
     AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddNodeString(buff, len, "virtual-machine", "vm1", 1);
     AddNodeString(buff, len, "virtual-machine-interface", "vnet2", 1);
-    AddLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
+    LinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     CheckVmAdd(1, 1);
@@ -103,7 +103,7 @@ TEST_F(CfgTest, VmBasic_1) {
     vm_list_req->Release();
 
     DelXmlHdr(buff, len);
-    DelLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
+    LinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
     DelNodeString(buff, len, "virtual-machine-interface", "vnet2");
     DelNodeString(buff, len, "virtual-machine", "vm1");
     DelNodeString(buff, len, "virtual-network", "vn1");
