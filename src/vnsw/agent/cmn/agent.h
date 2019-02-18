@@ -351,7 +351,7 @@ public:
     static const uint32_t kDefaultFlowLatencyLimit = 0;
     // Max number of threads
     static const uint32_t kMaxTbbThreads = 8;
-    static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
+    static const uint32_t kDefaultTbbKeepawakeTimeout = (20000); //time-millisecs
     static const uint32_t kDefaultTaskMonitorTimeout = (20000); //time-millisecs
     // Default number of tx-buffers on pkt0 interface
     static const uint32_t kPkt0TxBufferCount = 1000;
