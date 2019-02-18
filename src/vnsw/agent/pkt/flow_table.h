@@ -269,6 +269,8 @@ private:
     void DisableKSyncSend(FlowEntry *flow, uint32_t evict_gen_id);
     bool IsEvictedFlow(const FlowKey &key);
 
+    void DeleteFlowUveInfo(FlowEntry *fe);
+
     void DeleteInternal(FlowEntry *fe, uint64_t t, const RevFlowDepParams &p);
     void DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params);
 
