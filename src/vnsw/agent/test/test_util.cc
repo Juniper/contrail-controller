@@ -227,12 +227,8 @@ static void BuildLinkToMetadata() {
                       "logical-router-virtual-network");
 }
 
-string GetMetadata(const char *node1, const char *node2,
-                   const char *mdata) {
+const char *GetMetadata(const char *node1, const char *node2) {
     BuildLinkToMetadata();
-
-    if (mdata != NULL)
-        return mdata;
 
     LinkToMetadata::iterator it = link_to_metadata_.find(string(node1) + "-" +
                                                          string(node2));
@@ -244,33 +240,15 @@ string GetMetadata(const char *node1, const char *node2,
         assert(0);
     }
 
-    return it->second;
+    return it->second.c_str();
 }
 
-void AddLinkString(char *buff, int &len, const char *node_name1,
-                   const char *name1, const char *node_name2,
-                   const char *name2, const char *mdata) {
-    sprintf(buff + len,
-            "       <link>\n"
-            "           <node type=\"%s\">\n"
-            "               <name>%s</name>\n"
-            "           </node>\n"
-            "           <node type=\"%s\">\n"
-            "               <name>%s</name>\n"
-            "           </node>\n"
-            "           <metadata type=\"%s\"/>\n"
-            "       </link>\n", node_name1, name1, node_name2, name2,
-            GetMetadata(node_name1, node_name2, mdata).c_str());
-
-    len = strlen(buff);
-}
-
-void DelLinkString(char *buff, int &len, const char *node_name1,
+void LinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2, const char* mdata) {
     const char *mdata_value = NULL;
     if (!mdata) {
-        mdata_value = GetMetadata(node_name1, node_name2).c_str();
+        mdata_value = GetMetadata(node_name1, node_name2);
     } else {
         mdata_value = mdata;
     }
@@ -490,7 +468,6 @@ void ApplyXmlString(const char *buff) {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
-    //cout << buff << endl;
     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
@@ -501,7 +478,7 @@ void AddLink(const char *node_name1, const char *name1,
     int len = 0;
 
     AddXmlHdr(buff, len);
-    AddLinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
+    LinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
     AddXmlTail(buff, len);
     //LOG(DEBUG, buff);
     ApplyXmlString(buff);
@@ -514,7 +491,7 @@ void DelLink(const char *node_name1, const char *name1,
     int len = 0;
 
     DelXmlHdr(buff, len);
-    DelLinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
+    LinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
     DelXmlTail(buff, len);
     //LOG(DEBUG, buff);
     ApplyXmlString(buff);
@@ -2786,14 +2763,14 @@ void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_a
     }
     AddNodeString(buff, len, "virtual-network-network-ipam", node_name,
                             ipam, ipam_size, vm_host_routes, add_subnet_tags);
-    AddLinkString(buff, len, "virtual-network", name,
+    LinkString(buff, len, "virtual-network", name,
                   "virtual-network-network-ipam", node_name,
                   "virtual-network-network-ipam");
-    AddLinkString(buff, len, "network-ipam", ipam_name,
+    LinkString(buff, len, "network-ipam", ipam_name,
                   "virtual-network-network-ipam", node_name,
                   "virtual-network-network-ipam");
     if (vdns_name) {
-        AddLinkString(buff, len, "network-ipam", ipam_name,
+        LinkString(buff, len, "network-ipam", ipam_name,
                       "virtual-DNS", vdns_name, "virtual-DNS");
     }
     AddXmlTail(buff, len);
@@ -2809,12 +2786,12 @@ void DelIPAM(const char *name, const char *vdns_name) {
     sprintf(node_name, "default-network-ipam,%s", name);
     sprintf(ipam_name, "default-network-ipam");
     DelXmlHdr(buff, len);
-    DelLinkString(buff, len, "virtual-network", name,
+    LinkString(buff, len, "virtual-network", name,
                  "virtual-network-network-ipam", node_name);
-    DelLinkString(buff, len, "network-ipam", ipam_name,
+    LinkString(buff, len, "network-ipam", ipam_name,
                  "virtual-network-network-ipam", node_name);
     if (vdns_name) {
-        DelLinkString(buff, len, "network-ipam", ipam_name,
+        LinkString(buff, len, "network-ipam", ipam_name,
                       "virtual-DNS", vdns_name);
     }
     DelNodeString(buff, len, "virtual-network-network-ipam", node_name);
