@@ -192,6 +192,7 @@ public:
         return false;
     }
     IpAddress GetGwIpAddr() { return addr_;}
+    uint32_t GetLabel() {return label_;}
     void UpdateDependentRoute(AgentRoute *rt) {
         if (rt) {
             dependent_rt_.reset(rt);

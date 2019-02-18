@@ -54,10 +54,12 @@ bool ControllerEcmpRoute::CopyToPath(AgentPath *path) {
 
 bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                 const AgentRoute *rt) {
+    bool path_unresolved = false;
     path->set_copy_local_path(copy_local_path_);
 
-
-    if (tunnel_bmap_ == (1 << TunnelType::MPLS_OVER_MPLS)) {
+    // check if tunnel type is mpls and vrf is non default
+    if ((tunnel_bmap_ == (1 << TunnelType::MPLS_OVER_MPLS)) &&
+            (vrf_name_ != agent->fabric_vrf_name())) {
 
         // this path depends on inet.3 route table,
         // update dependent_table if it is not set already.
@@ -72,7 +74,6 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
             (InetUnicastAgentRouteTable *)path->GetDependentTable();
         assert(table != NULL);
         AgentPathEcmpComponentPtrList new_list;
-        bool path_unresolved = false;
         ComponentNHKeyList comp_nh_list;
         bool comp_nh_policy = false;
         for (uint32_t i = 0; i < tunnel_dest_list_.size(); i++) {
@@ -83,17 +84,17 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                     addr, label, path->GetParentRoute()));
             InetUnicastRouteEntry *uc_rt = table->FindRoute(addr);
             if (uc_rt == NULL || uc_rt->plen() == 0) {
+                member->SetUnresolved(true);
                 if (!path_unresolved) {
                     path_unresolved  = true;
-                }
-                member->SetUnresolved(true);
-                DBEntryBase::KeyPtr key =
-                    agent->nexthop_table()->discard_nh()->GetDBRequestKey();
-                NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
-                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
-                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                    DBEntryBase::KeyPtr key =
+                     agent->nexthop_table()->discard_nh()->GetDBRequestKey();
+                    NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+                    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                    ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
                                                    nh_key_ptr));
-                comp_nh_list.push_back(component_nh_key);
+                    comp_nh_list.push_back(component_nh_key);
+                }
             } else {
                 DBEntryBase::KeyPtr key =
                     uc_rt->GetActiveNextHop()->GetDBRequestKey();
@@ -115,15 +116,13 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
             new_list.push_back(member);
         }
         DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        nh_req.key.reset(new CompositeNHKey(Composite::LU_ECMP, comp_nh_policy,
+        nh_req.key.reset(new CompositeNHKey(Composite::ECMP, comp_nh_policy,
                                     comp_nh_list, vrf_name_));
         nh_req.data.reset(new CompositeNHData());
         nh_req_.Swap(&nh_req);
         path->ResetEcmpMemberList(new_list);
-        if (path_unresolved) {
-            path->set_unresolved(true);
-        }
     }
+    path->set_vrf_name(vrf_name_);
 
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     bool ret = false;
@@ -143,8 +142,9 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     EcmpData ecmp_data(agent, rt->vrf()->GetName(), rt->ToString(),
                        path, false);
     ret |= ecmp_data.UpdateWithParams(sg_list_, tag_list_, CommunityList(),
-                                      path_preference_, tunnel_bmap_,
-                                      ecmp_load_balance_, vn_list_, nh_req_);
+                                path_preference_, tunnel_bmap_,
+                                ecmp_load_balance_, vn_list_, nh_req_);
+    path->set_unresolved(path_unresolved);
 
     return ret;
 }
@@ -164,7 +164,27 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     copy_local_path_(false) {
         nh_req_.Swap(&nh_req);
     agent_ = peer->agent();
+    vrf_name_ = agent_->fabric_vrf_name();
 }
+
+ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
+                        const VnListType &vn_list,
+                        const EcmpLoadBalance &ecmp_load_balance,
+                        const TagList &tag_list,
+                        const SecurityGroupList &sg_list,
+                        const PathPreference &path_pref,
+                        TunnelType::TypeBmap tunnel_bmap,
+                        std::vector<IpAddress> &tunnel_dest_list,
+                        std::vector<uint32_t> &label_list,
+                        const std::string &prefix_str,
+                        const std::string &vrf_name):
+    ControllerPeerPath(peer), vn_list_(vn_list), sg_list_(sg_list),
+    ecmp_load_balance_(ecmp_load_balance), tag_list_(tag_list),
+    path_preference_(path_pref), tunnel_bmap_(tunnel_bmap),
+    copy_local_path_(false), tunnel_dest_list_(tunnel_dest_list),
+   label_list_(label_list), vrf_name_(vrf_name) {
+    agent_ = peer->agent();
+   }
 
 template <typename TYPE>
 ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
@@ -182,6 +202,7 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     std::string vrf_name = rt_table->vrf_name();
     agent_ = rt_table->agent();
     vrf_name_  = vrf_name;
+    Composite::Type composite_nh_type = Composite::ECMP;
 
     // use LOW PathPreference if local preference attribute is not set
     uint32_t preference = PathPreference::LOW;
@@ -268,6 +289,13 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
         } else {
             encap = agent_->controller()->GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
+            // this is temporary workaround for UI issue due to which
+            // tunnel encap type is not for VPN routes, now setting
+            // tunnel encap to MPLS over MPLS if label inet is enabled
+            // will be removed once UI issue gets fixed
+            if (agent_->get_inet_labeled_flag()) {
+            encap  = 1 << TunnelType::MPLS_OVER_MPLS;
+            }
             if (vrf_name == agent_->fabric_vrf_name()) {
                 if (label != MplsTable::kInvalidLabel) {
                     encap = TunnelType::MplsoMplsType();
@@ -279,6 +307,7 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
                 (item->entry.next_hops.next_hop[i]);
             if (encap == TunnelType::MplsoMplsType() &&
                     vrf_name == agent_->fabric_vrf_name()) {
+                composite_nh_type = Composite::LU_ECMP;
                 LabelledTunnelNHKey *nh_key = new LabelledTunnelNHKey(
                                             agent_->fabric_vrf_name(),
                                             agent_->router_id(),
@@ -312,13 +341,16 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     }
     
     tunnel_bmap_ = encap;
-
-    // Build the NH request and then create route data to be passed
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, comp_nh_policy,
-                                        comp_nh_list, vrf_name));
-    nh_req.data.reset(new CompositeNHData());
-    nh_req_.Swap(&nh_req);
+    if ((encap != TunnelType::MplsoMplsType()) ||
+            ((encap == TunnelType::MplsoMplsType()) &&
+             (vrf_name_ == agent_->fabric_vrf_name())))  {
+        // Build the NH request and then create route data to be passed
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        nh_req.key.reset(new CompositeNHKey(composite_nh_type, comp_nh_policy,
+                                            comp_nh_list, vrf_name));
+        nh_req.data.reset(new CompositeNHData());
+        nh_req_.Swap(&nh_req);
+    }
  }
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          const BgpPeer *bgp_peer,
