@@ -2446,11 +2446,17 @@ bool CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
                   component_nh_key_list_) {
         if (component_nh_key.get() &&
             component_nh_key->nh_key()->GetType() == NextHop::COMPOSITE) {
-            label = component_nh_key->label();
-            //Erase the entry from list, it will be replaced with
-            //individual entries of this local composite NH
-            erase(component_nh_key);
-            break;
+            const CompositeNHKey *composite_nh_key =
+                dynamic_cast<const CompositeNHKey *>(
+                                component_nh_key->nh_key());
+            if (composite_nh_key->composite_nh_type() ==
+                                        Composite::LOCAL_ECMP) {
+                label = component_nh_key->label();
+                //Erase the entry from list, it will be replaced with
+                //individual entries of this local composite NH
+                erase(component_nh_key);
+                break;
+            }
         }
     }
 

@@ -187,6 +187,21 @@ static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
                             info->out_component_nh_idx,
                             info->ingress);
     *nh = comp_nh->GetNH(info->out_component_nh_idx);
+    if ((*nh)->GetType() == NextHop::COMPOSITE) {
+        // this is suboptimal solution to pick component NH in
+        // 2 level ecmp. ideally hashing should be independent for
+        // VPN level ecmp and label inet ecmp. label inet ecmp relies on
+        // underlay node information which is not available in packet
+        // if pkt originates from local VM, so using same ecmp index
+        // to get component nh for both vpn and label inet ecmp
+        // this results in either (0,0) or (1,1)
+        // TODO:find optimum solution to address this
+        const CompositeNH *comp_composite_nh =
+            static_cast<const CompositeNH *>(*nh);
+        if (comp_composite_nh->composite_nh_type()  == Composite::LU_ECMP) {
+            *nh = comp_composite_nh->GetNH(info->out_component_nh_idx);
+        }
+    }
 
     // TODO: Should we re-hash here?
     if (!(*nh) || (*nh)->IsActive() == false) {
