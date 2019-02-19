@@ -439,7 +439,8 @@ class TestCrud(test_case.ApiServerTestCase):
 
         phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_rout.uuid)
         user_cred_read = phy_rout_obj.get_physical_router_user_credentials()
-        self.assertEqual(user_cred_read.password, '**Password Hidden**')
+        self.assertIsNotNone(user_cred_read.password)
+        self.assertEqual(user_cred_read.password, 'P0Sy94TU0CJqMhM2Y/YrEi4YqVqcXs+kpMOZFCM8ldI=')
        # end test_physical_router_credentials
 
     def test_physical_router_w_no_user_credentials(self):
@@ -729,7 +730,10 @@ class TestCrud(test_case.ApiServerTestCase):
                                                            detail=True)
         for rtr in phy_rtr_list:
             user_cred_read = rtr.get_physical_router_user_credentials()
-            self.assertEqual(user_cred_read.password, '**Password Hidden**')
+            if user_cred_read.username == 'test_user':
+                self.assertEqual(user_cred_read.password, 'P0Sy94TU0CJqMhM2Y/YrEi4YqVqcXs+kpMOZFCM8ldI=')
+            if user_cred_read.username == 'test_user_2':
+                self.assertEqual(user_cred_read.password, 'P0Sy94TU0CJqMhM2Y/YrEkCwIo4OyhR0KNpiHncjyos=')
        # end test_physical_router_credentials
 
     def test_allowed_address_pair_prefix_len(self):
