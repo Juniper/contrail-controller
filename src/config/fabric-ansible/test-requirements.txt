@@ -17,3 +17,4 @@ junitxml
 pyOpenSSL
 timeout-decorator
 subprocess32
+pycrypto

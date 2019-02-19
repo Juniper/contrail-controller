@@ -37,6 +37,7 @@ from vnc_cfg_api_server.resources.network_policy import NetworkPolicyServer
 from vnc_cfg_api_server.resources.physical_interface import\
     PhysicalInterfaceServer
 from vnc_cfg_api_server.resources.physical_router import PhysicalRouterServer
+from vnc_cfg_api_server.resources.fabric import FabricServer
 from vnc_cfg_api_server.resources.policy_management import\
     PolicyManagementServer
 from vnc_cfg_api_server.resources.project import ProjectServer
