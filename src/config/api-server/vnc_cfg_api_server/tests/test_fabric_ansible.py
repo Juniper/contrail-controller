@@ -15,6 +15,11 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_case
 
+
+from Crypto.Cipher import AES
+import base64
+import uuid
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -64,7 +69,7 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         # craete test fabric object
         fabric_obj = Fabric(
             name="fab_name",
-            fq_name=["default-global-system-config", "fab_name"],
+            fq_name=["default-global-system-config", "fab01"],
             parent_type='global-system-config'
         )
         fabric_uuid = self._vnc_lib.fabric_create(fabric_obj)
@@ -91,3 +96,45 @@ class TestExecuteJob(test_case.ApiServerTestCase):
 
         (code, msg) = self._http_post('/execute-job', execute_job_body)
         self.assertEquals(code, 200)
+
+
+    def test_get_device_credentials(self):
+        # craete test fabric object
+        fabric_obj = Fabric(
+            name="fab_name",
+            fq_name=["default-global-system-config", "fab02"],
+            parent_type='global-system-config',
+            fabric_credentials={
+                'device_credential': [
+                    {
+                        'credential': {
+                            'username': "root",
+                            'password': "c0ntrail123"
+                        }
+                    }
+                ]
+            },
+        )
+        fabric_uuid = self._vnc_lib.fabric_create(fabric_obj)
+
+        dev_creds = self._vnc_lib.get_device_credentials(uuid=fabric_uuid, obj_type='fabric', admin_password='c0ntrail123')
+        self.assertIsNotNone(dev_creds)
+
+        logger.info("DEV CREDS from fabric %s" % dev_creds)
+
+        # create test device object
+        phy_router_obj = PhysicalRouter(
+            parent_type='global-system-config',
+            fq_name=["default-global-system-config", "test_device"],
+            physical_router_management_ip="1.1.1.1",
+            physical_router_vendor_name="juniper",
+            physical_router_product_name="mx240",
+            physical_router_user_credentials={"username": "username",
+                                              "password": "password"},
+            physical_router_device_family='juniper-mx')
+        pr_uuid = self._vnc_lib.physical_router_create(phy_router_obj)
+
+        dev_creds = self._vnc_lib.get_device_credentials(uuid=pr_uuid, obj_type='physical_router', admin_password='c0ntrail123')
+        self.assertIsNotNone(dev_creds)
+
+        logger.info("DEV CREDS from prouter %s" % dev_creds)
