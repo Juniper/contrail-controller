@@ -33,7 +33,7 @@
 #define CLIENT_REQ_GW "1.2.3.1"
 #define MAX_WAIT_COUNT 3000
 #define BUF_SIZE 8192
-MacAddress src_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
+MacAddress src_mac;
 MacAddress dest_mac(0x00, 0x11, 0x12, 0x13, 0x14, 0x15);
 #define DHCP_RESPONSE_STRING "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Gateway : 1.1.1.200; Host Name : vm1; DNS : 1.1.1.200; Domain Name : test.contrail.juniper.net; "
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 150.25.75.254;192.168.1.128/28 -> 1.1.1.200;"
@@ -224,9 +224,9 @@ public:
     }
 
     void SendDhcp(short ifindex, uint16_t flags, uint8_t msg_type,
-                  uint8_t *options, int num_options, bool error = false,
-                  bool response = false, uint32_t yiaddr = 0,
-                  uint32_t vmifindex = 0,
+                  uint8_t *options, int num_options, char *source_mac,
+                  bool error = false, bool response = false,
+                  uint32_t yiaddr = 0, uint32_t vmifindex = 0,
                   uint16_t server_port = DHCP_SERVER_PORT) {
         int len = 512;
         uint8_t *buf = new uint8_t[len];
@@ -243,8 +243,8 @@ public:
         agent->hdr_cmd = htons(AgentHdr::TRAP_NEXTHOP);
 
         eth = (struct ether_header *) (agent + 1);
+        src_mac = MacAddress(std::string(source_mac));
         dest_mac.ToArray(eth->ether_dhost, sizeof(eth->ether_dhost));
-        src_mac.ToArray(eth->ether_shost, sizeof(eth->ether_shost));
         eth->ether_type = htons(ETHERTYPE_IP);
 
         struct ip *ip = (struct ip *) (eth + 1);
@@ -423,8 +423,9 @@ public:
             EXPECT_TRUE(vn_ipam[i].dhcp_enable == ipam_info[i].dhcp_enable);
         }
 
-        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        MacAddress src_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
         int count = 0;
         DHCP_CHECK (stats.acks < 1);
         EXPECT_EQ(1U, stats.discover);
@@ -444,8 +445,8 @@ public:
         }
 
         // now DHCP should be disabled for 1.1.1.0 subnet
-        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
         client->WaitForIdle();
         count = 0;
         DHCP_CHECK (stats.acks < 1);
@@ -494,8 +495,8 @@ public:
         client->WaitForIdle();
 
         ClearPktTrace();
-        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
         int count = 0;
         DHCP_CHECK (stats.acks < 1);
         EXPECT_EQ(1U, stats.discover);
@@ -546,7 +547,7 @@ public:
         std::set<DhcpLeaseDb::DhcpLease>::const_iterator it =
             leases.find(DhcpLeaseDb::DhcpLease(mac, Ip4Address(), 0, false));
         if (it != leases.end()) {
-            if (it->ip_ == ip && it->released_ == released)
+            if (it->mac_ == mac && it->ip_ == ip && it->released_ == released)
                 return true;
         }
 
@@ -617,26 +618,26 @@ TEST_F(DhcpTest, DhcpReqTest) {
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
     EXPECT_EQ(1U, stats.request);
     EXPECT_EQ(1U, stats.offers);
     EXPECT_EQ(1U, stats.acks);
-    SendDhcp(GetItfId(1), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(1), 0x8000, DHCP_REQUEST, options, 4);
-    SendDhcp(GetItfId(1), 0, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(1), 0, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(1), 0x8000, DHCP_DISCOVER, options, 4, input[1].mac);
+    SendDhcp(GetItfId(1), 0x8000, DHCP_REQUEST, options, 4, input[1].mac);
+    SendDhcp(GetItfId(1), 0, DHCP_DISCOVER, options, 4, input[1].mac);
+    SendDhcp(GetItfId(1), 0, DHCP_REQUEST, options, 4, input[1].mac);
     count = 0;
     DHCP_CHECK (stats.acks < 3);
     EXPECT_EQ(3U, stats.discover);
     EXPECT_EQ(3U, stats.request);
     EXPECT_EQ(3U, stats.offers);
     EXPECT_EQ(3U, stats.acks);
-    SendDhcp(GetItfId(1), 0x8000, DHCP_INFORM, options, 4);
-    SendDhcp(GetItfId(1), 0x8000, DHCP_DECLINE, options, 4);
+    SendDhcp(GetItfId(1), 0x8000, DHCP_INFORM, options, 4, input[1].mac);
+    SendDhcp(GetItfId(1), 0x8000, DHCP_DECLINE, options, 4, input[1].mac);
     count = 0;
     DHCP_CHECK (stats.decline < 1);
     EXPECT_EQ(3U, stats.discover);
@@ -645,7 +646,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
     EXPECT_EQ(1U, stats.decline);
     EXPECT_EQ(3U, stats.offers);
     EXPECT_EQ(4U, stats.acks);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, true);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac, true);
     count = 0;
     DHCP_CHECK (stats.errors < 1);
     EXPECT_EQ(3U, stats.discover);
@@ -699,9 +700,9 @@ TEST_F(DhcpTest, DhcpOtherReqTest) {
     client->WaitForIdle();
     client->Reset();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_RELEASE, options, 2);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_LEASE_QUERY, options, 2);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_ACK, options, 2);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_RELEASE, options, 2, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_LEASE_QUERY, options, 2, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_ACK, options, 2, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.other < 2);
     EXPECT_EQ(2U, stats.other);
@@ -770,8 +771,8 @@ TEST_F(DhcpTest, DhcpOptionTest) {
     AddIPAM("vn1", ipam_info, 1, ipam_attr, "vdns1");
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 9);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 9);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 9, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 9, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -821,8 +822,8 @@ TEST_F(DhcpTest, DhcpNakTest) {
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.nacks < 1);
     EXPECT_EQ(1U, stats.request);
@@ -861,8 +862,8 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
     IntfCfgAdd(input, 0);
     WaitForItfUpdate(1);
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -870,8 +871,8 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
     EXPECT_EQ(1U, stats.offers);
     EXPECT_EQ(1U, stats.acks);
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3, input[0].mac);
     count = 0;
     DHCP_CHECK (stats.acks < 2);
     EXPECT_EQ(2U, stats.discover);
@@ -888,8 +889,8 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3, input[0].mac);
     count = 0;
     DHCP_CHECK (stats.acks < 3);
     EXPECT_EQ(3U, stats.discover);
@@ -958,8 +959,8 @@ TEST_F(DhcpTest, DhcpTenantDnsTest) {
     AddIPAM("vn1", ipam_info, 1, ipam_attr);
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -995,8 +996,8 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
                     Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 3, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -1035,10 +1036,10 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     client->WaitForIdle();
 
     Ip4Address vmaddr(Agent::GetInstance()->router_id().to_ulong() + 1);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, req_options, 3);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, req_options, 3, input[0].mac);
     // SendDhcp(fabric_interface_id(), 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     SendRelayResponse(DHCP_OFFER, resp_options, 4, vmaddr.to_ulong(), GetItfId(0));
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, req_options, 3);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, req_options, 3, input[0].mac);
     // SendDhcp(fabric_interface_id(), 0x8000, DHCP_ACK, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     SendRelayResponse(DHCP_ACK, resp_options, 4, vmaddr.to_ulong(), GetItfId(0));
     client->WaitForIdle();
@@ -1111,8 +1112,8 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
     client->WaitForIdle();
 
     ClearPktTrace();
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -1138,8 +1139,8 @@ TEST_F(DhcpTest, IpamSpecificDhcpOptions) {
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes);
     client->WaitForIdle();
 
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -1249,8 +1250,8 @@ TEST_F(DhcpTest, SubnetSpecificDhcpOptions) {
     client->WaitForIdle();
 
     ClearPktTrace();
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -1364,8 +1365,8 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
     client->WaitForIdle();
 
     ClearPktTrace();
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 5);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 5);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 5, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 5, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -1612,7 +1613,7 @@ TEST_F(DhcpTest, BytesValueOverrideTest) {
         <dhcp-option>\
             <dhcp-option-name>domain-search</dhcp-option-name>\
             <dhcp-option-value>test.com juniper.net</dhcp-option-value>\
-            <dhcp-option-value-bytes>50 20 68 02 </dhcp-option-value-bytes>\
+            <dhcp-option-value-bytes>50 20 68 02</dhcp-option-value-bytes>\
          </dhcp-option>\
      </virtual-machine-interface-dhcp-option-list>";
 
@@ -1893,8 +1894,8 @@ TEST_F(DhcpTest, DnsZeroSubnetOption) {
     client->WaitForIdle();
 
     ClearPktTrace();
-    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 5);
-    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 5);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 5, input[0].mac);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 5, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -2028,9 +2029,9 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
 
     AddPhysicalDevice(Agent::GetInstance()->host_name().c_str(), 1);
     AddPhysicalInterface("physical1", 1, "physical1");
-    AddLogicalInterface("logical1", 1, "logical1", 1);
     AddLink("physical-router", Agent::GetInstance()->host_name().c_str(),
             "physical-interface", "physical1");
+    AddLogicalInterface("logical1", 1, "logical1", 1);
     AddLink("logical-interface", "logical1", "physical-interface", "physical1");
     AddLink("virtual-machine-interface", "vnet1", "logical-interface", "logical1");
 
@@ -2050,8 +2051,8 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
 
     // get one address allocated - 7.8.9.2
     ClearPktTrace();
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_REQUEST, options, 3);
+    SendDhcp(GetGwItfId(), 0x8000, DHCP_DISCOVER, options, 3, input[0].mac);
+    SendDhcp(GetGwItfId(), 0x8000, DHCP_REQUEST, options, 3, input[0].mac);
     int count = 0;
     DHCP_CHECK (stats.acks < 1);
     EXPECT_EQ(1U, stats.discover);
@@ -2072,61 +2073,11 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
     boost::system::error_code ec;
     LoadDhcpLeaseFile(Ip4Address::from_string("7.8.9.0", ec), 24,
                       "./dhcp.00000000-0000-0000-0000-000000000001.leases");
-    EXPECT_TRUE(CheckDhcpLease(src_mac, Ip4Address::from_string("7.8.9.2", ec),
-                               false));
+    EXPECT_TRUE(CheckDhcpLease(MacAddress(std::string(input[0].mac)),
+                               Ip4Address::from_string("7.8.9.2", ec), false));
 
     ClearPktTrace();
-    std::string old_mac = src_mac.ToString();
-    src_mac = MacAddress::FromString("00:0a:0b:0c:0d:0e");
-    // another addres allocated - 7.8.9.4
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_REQUEST, options, 3);
-    count = 0;
-    DHCP_CHECK (stats.acks < 1);
-    EXPECT_EQ(1U, stats.discover);
-    EXPECT_EQ(1U, stats.request);
-    EXPECT_EQ(1U, stats.offers);
-    EXPECT_EQ(1U, stats.acks);
-
-    sand = new DhcpInfo();
-    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
-                                               this, _1, true, "",
-                                               GW_LEASE_OPTIONS_STRING,
-                                               false, "", false, "7.8.9.4"));
-    sand->HandleRequest();
-    client->WaitForIdle();
-    sand->Release();
-
-    LoadDhcpLeaseFile(Ip4Address::from_string("7.8.9.0", ec), 24,
-                      "./dhcp.00000000-0000-0000-0000-000000000001.leases");
-    EXPECT_TRUE(CheckDhcpLease(src_mac, Ip4Address::from_string("7.8.9.4", ec),
-                               false));
-    src_mac = MacAddress::FromString(old_mac);
-    EXPECT_TRUE(CheckDhcpLease(src_mac, Ip4Address::from_string("7.8.9.2", ec),
-                               false));
-
-    ClearPktTrace();
-    // request with old MAC should allocate old address again - 7.8.9.2
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_DISCOVER, options, 3);
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_REQUEST, options, 3);
-    count = 0;
-    DHCP_CHECK (stats.acks < 1);
-    EXPECT_EQ(1U, stats.discover);
-    EXPECT_EQ(1U, stats.request);
-    EXPECT_EQ(1U, stats.offers);
-    EXPECT_EQ(1U, stats.acks);
-
-    sand = new DhcpInfo();
-    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
-                                               this, _1, true, "",
-                                               GW_LEASE_OPTIONS_STRING,
-                                               false, "", false, "7.8.9.2"));
-    sand->HandleRequest();
-    client->WaitForIdle();
-    sand->Release();
-
-    ClearPktTrace();
-    SendDhcp(GetGwItfId(), 0x8000, DHCP_RELEASE, options, 3);
+    SendDhcp(GetGwItfId(), 0x8000, DHCP_RELEASE, options, 3, input[0].mac);
     count = 0;
     client->WaitForIdle();
     DHCP_CHECK (stats.release < 1);
@@ -2134,21 +2085,19 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
 
     LoadDhcpLeaseFile(Ip4Address::from_string("7.8.9.0", ec), 24,
                       "./dhcp.00000000-0000-0000-0000-000000000001.leases");
-    EXPECT_TRUE(CheckDhcpLease(src_mac, Ip4Address::from_string("7.8.9.2", ec),
-                               true));
-    EXPECT_TRUE(CheckDhcpLease(MacAddress::FromString("00:0a:0b:0c:0d:0e"),
-                               Ip4Address::from_string("7.8.9.4", ec), false));
+    EXPECT_TRUE(CheckDhcpLease(MacAddress(std::string(input[0].mac)),
+                               Ip4Address::from_string("7.8.9.2", ec), true));
     CloseDhcpLeaseFile();
 
     client->Reset();
     DelLink("virtual-machine-interface", input[0].name, "subnet", "subnet");
+    DelLink("virtual-machine-interface", "vnet1", "logical-interface", "logical1");
+    DelLink("logical-interface", "logical1", "physical-interface", "physical1");
     DelLink("physical-router", Agent::GetInstance()->host_name().c_str(),
             "physical-interface", "physical1");
-    DelLink("logical-interface", "logical1", "physical-interface", "physical1");
-    DelLink("virtual-machine-interface", "vnet1", "logical-interface", "logical1");
-    DeletePhysicalDevice(Agent::GetInstance()->host_name().c_str());
-    DeletePhysicalInterface("physical1");
     DeleteLogicalInterface("logical1");
+    DeletePhysicalInterface("physical1");
+    DeletePhysicalDevice(Agent::GetInstance()->host_name().c_str());
 
     client->Reset();
     DelIPAM("vn1");
@@ -2169,6 +2118,115 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
     remove("./dhcp.00000000-0000-0000-0000-000000000001.leases");
 }
 
+TEST_F(DhcpTest, GatewayDhcpLeaseBasicVpg) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "7.8.9.3", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.2.3.0", 24, "1.2.3.1", true},
+        {"7.8.9.0", 24, "7.8.9.1", true},
+    };
+
+    client->Reset();
+    CreateVmportWithoutNova(input, 1);
+    client->WaitForIdle();
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+
+    AddPhysicalDevice(Agent::GetInstance()->host_name().c_str(), 1);
+    AddPhysicalInterface("physical1", 1, "physical1");
+    AddLink("physical-router", Agent::GetInstance()->host_name().c_str(),
+            "physical-interface", "physical1");
+    AddVirtualPortGroup("vpg1", 1, "vpg1");
+    AddLink("virtual-port-group", "vpg1", "physical-interface", "physical1");
+    AddLink("virtual-machine-interface", "vnet1", "virtual-port-group", "vpg1");
+
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "7.8.9.0", 24);
+    AddLink("virtual-machine-interface", input[0].name, "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "7.8.9.0", 24));
+
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    // get one address allocated - 7.8.9.2
+    ClearPktTrace();
+    SendDhcp(GetGwItfId(), 0x8000, DHCP_DISCOVER, options, 3, input[0].mac);
+    SendDhcp(GetGwItfId(), 0x8000, DHCP_REQUEST, options, 3, input[0].mac);
+    int count = 0;
+    DHCP_CHECK (stats.acks < 1);
+    EXPECT_EQ(1U, stats.discover);
+    EXPECT_EQ(1U, stats.request);
+    EXPECT_EQ(1U, stats.offers);
+    EXPECT_EQ(1U, stats.acks);
+
+#define GW_LEASE_OPTIONS_STRING "Ack; Server : 7.8.9.1; Lease time : 86400; Subnet mask : 255.255.255.0; Broadcast : 7.8.9.255; Gateway : 7.8.9.1; DNS : 7.8.9.1; "
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, true, "",
+                                               GW_LEASE_OPTIONS_STRING,
+                                               false, "", false, "7.8.9.2"));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
+    boost::system::error_code ec;
+    LoadDhcpLeaseFile(Ip4Address::from_string("7.8.9.0", ec), 24,
+                      "./dhcp.00000000-0000-0000-0000-000000000001.leases");
+    EXPECT_TRUE(CheckDhcpLease(MacAddress(std::string(input[0].mac)),
+                               Ip4Address::from_string("7.8.9.2", ec), false));
+
+    ClearPktTrace();
+    SendDhcp(GetGwItfId(), 0x8000, DHCP_RELEASE, options, 3, input[0].mac);
+    count = 0;
+    client->WaitForIdle();
+    DHCP_CHECK (stats.release < 1);
+    client->WaitForIdle();
+
+    LoadDhcpLeaseFile(Ip4Address::from_string("7.8.9.0", ec), 24,
+                      "./dhcp.00000000-0000-0000-0000-000000000001.leases");
+    EXPECT_TRUE(CheckDhcpLease(MacAddress(std::string(input[0].mac)),
+                               Ip4Address::from_string("7.8.9.2", ec), true));
+    CloseDhcpLeaseFile();
+
+    client->Reset();
+    DelLink("virtual-machine-interface", input[0].name, "subnet", "subnet");
+    DelLink("physical-router", Agent::GetInstance()->host_name().c_str(),
+            "physical-interface", "physical1");
+    DelLink("virtual-port-group", "vpg1", "physical-interface", "physical1");
+    DelLink("virtual-machine-interface", "vnet1", "virtual-port-group", "vpg1");
+    DeletePhysicalDevice(Agent::GetInstance()->host_name().c_str());
+    DeletePhysicalInterface("physical1");
+    DeleteVirtualPortGroup("vpg1");
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", "7.8.9.0", 24));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(1));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+
+    ClearPktTrace();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+    remove("./dhcp.00000000-0000-0000-0000-000000000001.leases");
+}
+
+#if 0
 // Check MAX DHCP lease allocation
 TEST_F(DhcpTest, GatewayDhcpLeaseMax) {
     struct PortInfo input[] = {
@@ -2333,6 +2391,7 @@ TEST_F(DhcpTest, GatewayDhcpLeaseMax) {
     src_mac = MacAddress::FromString(old_mac);
     remove("./dhcp.00000000-0000-0000-0000-000000000001.leases");
 }
+#endif
 
 static void CreateTestLeaseFile() {
     std::ofstream lease_ofstream;
@@ -2465,9 +2524,9 @@ TEST_F(DhcpTest, DhcpReqv6PortTest) {
     client->WaitForIdle();
 
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4,
-             false, false, 0, 0, DHCPV6_SERVER_PORT);
+             input[0].mac, false, false, 0, 0, DHCPV6_SERVER_PORT);
     SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4,
-             false, false, 0, 0, DHCPV6_SERVER_PORT);
+             input[0].mac, false, false, 0, 0, DHCPV6_SERVER_PORT);
     client->WaitForIdle();
     EXPECT_EQ(0U, stats.discover);
     EXPECT_EQ(0U, stats.request);
@@ -2526,8 +2585,8 @@ TEST_F(DhcpTest, QueueLimitTest) {
     queue->set_disable(true);
     EXPECT_EQ(queue->Length(), 0);
     for (int i = 0; i < 2048; i++) {
-        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
-        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4, input[0].mac);
+        SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4, input[0].mac);
     }
     EXPECT_EQ(queue->Length(), 1023);
     queue->set_disable(false);
