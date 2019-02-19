@@ -275,6 +275,7 @@ public:
         PeerStatsData peer_stats_data;
         peer_stats_data.set_name(ToUVEKey());
         peer_stats_data.set_deleted(true);
+        assert(!peer_stats_data.get_name().empty());
         PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
     }
 
@@ -549,6 +550,7 @@ BgpXmppChannel::~BgpXmppChannel() {
 }
 
 void BgpXmppChannel::XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const {
+    assert(!peer_info.get_name().empty());
     XMPPPeerInfo::Send(peer_info);
 }
 
@@ -3189,6 +3191,7 @@ void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
     XmppPeerInfoData peer_info;
     peer_info.set_name(channel->Peer()->ToUVEKey());
     peer_info.set_peer_stats_info(stats);
+    assert(!peer_info.get_name().empty());
     XMPPPeerInfo::Send(peer_info);
 
     PeerStatsData peer_stats_data;
@@ -3196,6 +3199,7 @@ void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
     peer_stats_data.set_encoding("XMPP");
     PeerStats::FillPeerUpdateStats(channel->Peer()->peer_stats(),
                                    &peer_stats_data);
+    assert(!peer_stats_data.get_name().empty());
     PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
 }
 
