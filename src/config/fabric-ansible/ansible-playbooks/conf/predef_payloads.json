@@ -642,6 +642,7 @@
               "juniper-mx2020",
               "juniper-mx10003",
               "juniper-srx5400",
+              "juniper-srx5600",
               "juniper-srx4600",
               "juniper-srx4100",
               "juniper-srx1500",
@@ -876,6 +877,12 @@
             "juniper-srx5400"
           ],
           "name": "juniper-srx5400"
+        },
+        {
+          "fq_name": [
+            "juniper-srx5600"
+          ],
+          "name": "juniper-srx5600"
         },
         {
           "fq_name": [
@@ -1353,6 +1360,12 @@
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx5400" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx5600" ]
     },
     {
       "from_type": "node_profile",
