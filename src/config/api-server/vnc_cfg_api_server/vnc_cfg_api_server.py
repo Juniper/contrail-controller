@@ -167,6 +167,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'dump_cache'},
     {'uri': '/execute-job', 'link_name': 'execute-job',
      'method': 'POST', 'method_name': 'execute_job_http_post'},
+    {'uri': '/get-device-credentials', 'link_name': 'get-device-credentials',
+     'method': 'GET', 'method_name': 'get_device_credentials_http_get'},
     {'uri': '/amqp-publish', 'link_name': 'amqp-publish',
      'method': 'POST', 'method_name': 'amqp_publish_http_post'},
     {'uri': '/amqp-request', 'link_name': 'amqp-request',
@@ -414,6 +416,54 @@ class VncApiServer(object):
                         msg = 'Invalid device uuid type %s.' \
                               ' uuid type required' % device_id
                         raise cfgm_common.exceptions.HttpError(400, msg)
+
+    def get_device_credentials_http_get(self):
+        '''Input for job_status
+            Either obj_fq_name or obj_uuid mandatory
+            obj_fq_name (Mandatory parameter): fqname of the object OR
+            obj_uuid (Mandatory parameter): uuid of the object
+        Returns:
+            device credentials json
+        '''
+        device_credentials = []
+
+        input = get_request().query
+
+        obj_fq_name = input.get('obj_fq_name')
+        obj_uuid = input.get('obj_uuid')
+
+        if obj_fq_name:
+            obj_uuid = self._db_conn.fq_name_to_uuid(obj_fq_name)
+
+        obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
+
+        try:
+            ok = False
+            result = ''
+            if obj_type == 'physical_router':
+                (ok, result) = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                                    obj_fields=['physical_router_user_credentials'])
+                device_credentials.append({'username': result.get('physical_router_user_credentials').get('username'),
+                                           'password': result.get('physical_router_user_credentials').get('password')})
+
+
+
+            if obj_type == 'fabric':
+                (ok, result) = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                                        obj_fields=['fabric_credentials'])
+                for dev_cred in result['fabric_credentials']['device_credential']:
+                    device_credentials.append({'username': dev_cred.get('credential').get('username'), 'password': dev_cred.get('credential').get('password')})
+
+        except NoIdError as e:
+            raise cfgm_common.exceptions.HttpError(404, str(e))
+        except Exception:
+            result = cfgm_common.utils.detailed_traceback()
+
+        if not ok:
+            raise cfgm_common.exceptions.HttpError(500, result)
+
+        return json.dumps(device_credentials)
+
 
     def execute_job_http_post(self):
         ''' Payload of execute_job
