@@ -1316,14 +1316,19 @@ class AnsibleRoleCommon(AnsibleConf):
                                         right_vrf_info['srx_right_interface'] = \
                                             instance_ip.instance_ip_address
 
-                #get srx loopback IPs
-                li_name = "lo0." + left_svc_vlan
-                li = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
-                if li:
-                    instance_ip = InstanceIpDM.get(li.instance_ip)
-                    if instance_ip:
-                        left_vrf_info['loopback_ip'] = \
-                            instance_ip.instance_ip_address
+                if si_obj.rp_ip_addr:
+                    #get rendezvous point IP addr from SI object, passed as
+                    #user input
+                    left_vrf_info['loopback_ip'] = si_obj.rp_ip_addr
+                else:
+                    #get rendezvous point IP address as srx loopback IP
+                    li_name = "lo0." + left_svc_vlan
+                    li = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
+                    if li:
+                        instance_ip = InstanceIpDM.get(li.instance_ip)
+                        if instance_ip:
+                            left_vrf_info['loopback_ip'] = \
+                                instance_ip.instance_ip_address
                 # Make sure all required parameters are present before creating the
                 # abstract config
                 if self.build_service_chain_required_params(left_vrf_info,
