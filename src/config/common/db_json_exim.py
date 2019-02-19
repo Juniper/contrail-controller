@@ -162,7 +162,8 @@ class DatabaseExim(object):
                           'zookeeper', 'controller_epoch',
                           'api-server-election', 'schema-transformer',
                           'device-manager', 'svc-monitor', 'contrail_cs',
-                          'lockpath']
+                          'lockpath', 'analytics-discovery-',
+                          'analytics-discovery-' + self._api_args.cluster_id]
         # seed zookeeper
         for path_value_ts in json.loads(self.import_data['zookeeper'] or "{}"):
             path = path_value_ts[0]
