@@ -389,7 +389,7 @@ class FilterModule(object):
             report += "\n{}:\n".format(batch.get('name'))
             for device_name in batch.get('device_names', []):
                 device_info = devices[device_name]
-                current_version = device_info['current_image_version']
+                current_version = device_info['current_image_version'] or ""
                 new_version = device_info['image_version']
                 hitless_upgrade = device_info['basic']['device_hitless_upgrade']
                 is_hitless = "" if hitless_upgrade else "(not hitless)"
