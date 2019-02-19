@@ -5,3 +5,4 @@ keystonemiddleware!=4.19.0
 mock
 kombu
 python-novaclient
+pycrypto
