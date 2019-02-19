@@ -646,7 +646,9 @@
               "juniper-srx4100",
               "juniper-srx1500",
               "juniper-srx240h-poe",
-              "juniper-vsrx"
+              "juniper-vsrx",
+              "juniper-srx5800",
+              "juniper-srx4200"
             ]
           }
         }
@@ -900,6 +902,18 @@
             "juniper-srx240h-poe"
           ],
           "name": "juniper-srx240h-poe"
+        },
+        {
+          "fq_name": [
+            "juniper-srx5800"
+          ],
+          "name": "juniper-srx5800"
+        },
+        {
+          "fq_name": [
+            "juniper-srx4200"
+          ],
+          "name": "juniper-srx4200"
         },
         {
           "fq_name": [
@@ -1383,6 +1397,18 @@
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vsrx" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx5800" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-srx4200" ]
     },
     {
       "from_type": "role_config",
