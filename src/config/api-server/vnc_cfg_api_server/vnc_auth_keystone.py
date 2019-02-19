@@ -149,7 +149,8 @@ class AuthPostKeystone(object):
                 except NoIdError:
                     start_response('404 Not Found',
                                    [('Content-type', 'text/plain')])
-                    return "Cannot identifying Domain '%s'" % domain_name
+                    msg = "Cannot identifying Domain '%s'" % domain_name
+                    return msg.encode("latin-1")
             env['HTTP_X_DOMAIN_ID'] = domain_id.replace('-', '')
             env['HTTP_X_DOMAIN_NAME'] = domain_name
 
@@ -167,7 +168,7 @@ class AuthPostKeystone(object):
         if not 'admin' in [x.lower() for x in roles]:
             start_response('403 Permission Denied',
                 [('Content-type', 'text/plain')])
-            return ['403 Permission Denied']
+            return '403 Permission Denied'.encode("latin-1")
 
         return self.app(env, start_response)
 
