@@ -63,7 +63,8 @@ FlowTable::FlowTable(Agent *agent, uint16_t table_index) :
     flow_task_id_(0),
     flow_update_task_id_(0),
     flow_delete_task_id_(0),
-    flow_ksync_task_id_(0) {
+    flow_ksync_task_id_(0),
+    flow_logging_task_id_(0) {
 }
 
 FlowTable::~FlowTable() {
@@ -75,6 +76,7 @@ void FlowTable::Init() {
     flow_update_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowUpdate);
     flow_delete_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowDelete);
     flow_ksync_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowKSync);
+    flow_logging_task_id_ = agent_->task_scheduler()->GetTaskId(kTaskFlowLogging);
     FlowEntry::Init();
     return;
 }
@@ -87,7 +89,8 @@ void FlowTable::Shutdown() {
 
 // Concurrency check to ensure all flow-table and free-list manipulations
 // are done from FlowEvent task context only
-bool FlowTable::ConcurrencyCheck(int task_id) {
+//exception: freelist free function can be accessed by flow logging task
+bool FlowTable::ConcurrencyCheck(int task_id, bool check_task_instance) {
     Task *current = Task::Running();
     // test code invokes FlowTable API from main thread. The running task
     // will be NULL in such cases
@@ -97,10 +100,15 @@ bool FlowTable::ConcurrencyCheck(int task_id) {
 
     if (current->GetTaskId() != task_id)
         return false;
-
-    if (current->GetTaskInstance() != table_index_)
-        return false;
+    if (check_task_instance) {
+	if (current->GetTaskInstance() != table_index_)
+	   return false;
+    }
     return true;
+}
+
+bool FlowTable::ConcurrencyCheck(int task_id) {
+	return ConcurrencyCheck(task_id, true);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -944,7 +952,10 @@ FlowEntry *FlowEntryFreeList::Allocate(const FlowKey &key) {
 }
 
 void FlowEntryFreeList::Free(FlowEntry *flow) {
-    assert(table_->ConcurrencyCheck(table_->flow_task_id()) == true);
+   // only flow logging task and flow event task can  free up the flow entry ,
+   assert((table_->ConcurrencyCheck(table_->flow_task_id()) == true) ||
+	(table_->ConcurrencyCheck(
+            table_->flow_logging_task_id(), false) == true));
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);
