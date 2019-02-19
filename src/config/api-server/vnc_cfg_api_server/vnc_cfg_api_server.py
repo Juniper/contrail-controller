@@ -56,6 +56,9 @@ import requests
 import xml.etree.ElementTree as etree
 from functools import partial
 
+from Crypto.Cipher import AES
+import base64
+
 """
 Following is needed to silence warnings on every request when keystone
     auth_token middleware + Sandesh is used. Keystone or Sandesh alone
@@ -414,6 +417,7 @@ class VncApiServer(object):
                         msg = 'Invalid device uuid type %s.' \
                               ' uuid type required' % device_id
                         raise cfgm_common.exceptions.HttpError(400, msg)
+
 
     def execute_job_http_post(self):
         ''' Payload of execute_job

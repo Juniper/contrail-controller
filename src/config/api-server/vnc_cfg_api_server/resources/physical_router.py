@@ -6,14 +6,24 @@ from vnc_api.gen.resource_common import PhysicalRouter
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
+from Crypto.Cipher import AES
+import base64
 
 class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
     @classmethod
     def post_dbe_read(cls, obj_dict, db_conn):
         if obj_dict.get('physical_router_user_credentials', {}).get(
                 'password'):
-            obj_dict['physical_router_user_credentials']['password'] =\
-                "**Password Hidden**"
+            # obj_dict['physical_router_user_credentials']['password'] =\
+            #     "**Password Hidden**"
+            admin_password = cls.server._auth_svc.args.admin_password
+            key = admin_password.rjust(16)
+            cipher = AES.new(key, AES.MODE_ECB)
+            padded_text = (obj_dict.get('physical_router_user_credentials', {}).get(
+                'password')).rjust(32)
+            password = base64.b64encode(cipher.encrypt(padded_text))
+            obj_dict['physical_router_user_credentials']['password'] = password
+
         return True, ''
 
     @classmethod

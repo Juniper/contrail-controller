@@ -15,6 +15,11 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_case
 
+
+from Crypto.Cipher import AES
+import base64
+import uuid
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -64,7 +69,7 @@ class TestExecuteJob(test_case.ApiServerTestCase):
         # craete test fabric object
         fabric_obj = Fabric(
             name="fab_name",
-            fq_name=["default-global-system-config", "fab_name"],
+            fq_name=["default-global-system-config", "fab01"],
             parent_type='global-system-config'
         )
         fabric_uuid = self._vnc_lib.fabric_create(fabric_obj)
