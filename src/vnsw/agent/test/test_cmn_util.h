@@ -666,6 +666,8 @@ void AddPhysicalInterface(const char *name, int id, const char* display_name);
 void DeletePhysicalInterface(const char *name);
 void AddLogicalInterface(const char *name, int id, const char* display_name, int vlan = 0);
 void DeleteLogicalInterface(const char *name);
+void AddVirtualPortGroup(const char *name, int id, const char *display_name);
+void DeleteVirtualPortGroup(const char *name);
 PhysicalDevice *PhysicalDeviceGet(int id);
 PhysicalInterface *PhysicalInterfaceGet(const std::string &name);
 LogicalInterface *LogicalInterfaceGet(int id, const std::string &name);

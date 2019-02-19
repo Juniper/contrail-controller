@@ -172,6 +172,8 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("physical-router", "logical-interface");
     AddLinkToMetadata("physical-interface", "logical-interface");
     AddLinkToMetadata("logical-interface", "virtual-machine-interface");
+    AddLinkToMetadata("virtual-port-group", "physical-interface");
+    AddLinkToMetadata("virtual-port-group", "virtual-machine-interface");
 
     AddLinkToMetadata("floating-ip-pool", "floating-ip");
     AddLinkToMetadata("floating-ip", "virtual-machine-interface");
@@ -2678,6 +2680,16 @@ void AddLogicalInterface(const char *name, int id, const char* display_name, int
 
 void DeleteLogicalInterface(const char *name) {
     DelNode("logical-interface", name);
+}
+
+void AddVirtualPortGroup(const char *name, int id, const char *display_name) {
+    char buf[1024];
+    sprintf(buf, "<display-name>%s</display-name>", display_name);
+    AddNode("virtual-port-group", name, id, buf);
+}
+
+void DeleteVirtualPortGroup(const char *name) {
+    DelNode("virtual-port-group", name);
 }
 
 void AddVmPortVrf(const char *name, const string &ip, uint16_t tag,
