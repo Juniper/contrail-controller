@@ -11,6 +11,9 @@ import traceback
 import collections
 import json
 from jsonschema import Draft4Validator, validators
+from Crypto.Cipher import AES
+import base64
+
 from vnc_api.gen.resource_xsd import (
     KeyValuePairs,
     KeyValuePair
@@ -57,6 +60,20 @@ class JobVncApi(object):
         cls_name = camelize(object_type)
         return getattr(vnc_api.gen.resource_client, cls_name, None)
 
+    @staticmethod
+    def decrypt_password(encrypted_password=None, admin_password=None):
+        if admin_password is None:
+            raise ValueError("Admin Password must be specified")
+
+        if encrypted_password is None:
+            raise ValueError("No password to decrypt")
+
+        key = admin_password.rjust(16)
+        cipher = AES.new(key, AES.MODE_ECB)
+
+        password = cipher.decrypt(base64.b64decode(encrypted_password))
+        return password.strip()
+
 class JobFileWrite(object):
     JOB_PROGRESS = 'JOB_PROGRESS##'
     PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
@@ -99,7 +116,6 @@ class JobUtils(object):
                                        job_template_id=self._job_template_id)
             raise JobException(msg, self._job_execution_id)
         return job_template
-
 
 class JobAnnotations(object):
 
