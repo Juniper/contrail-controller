@@ -640,10 +640,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
 
-        new_vlan = (obj_dict.get('virtual_machine_interface_properties') or
-                    {}).get('sub_interface_vlan_tag') or 0
         old_vlan = (read_result.get('virtual_machine_interface_properties') or
                     {}).get('sub_interface_vlan_tag') or 0
+        new_vlan = (obj_dict.get('virtual_machine_interface_properties') or
+                    {}).get('sub_interface_vlan_tag') or old_vlan
         if new_vlan != old_vlan:
             return False, (400, "Cannot change sub-interface VLAN tag ID")
 
