@@ -175,8 +175,8 @@ class FilterModule(object):
                     "type": node_dict.get('type', "baremetal"),
                     "name": node_dict['name'],
                     "uuid": node_dict['uuid'],
-                    "display_name": node_dict['name'],
-                    "hostname": node_dict['name'],
+                    "display_name": node_dict['display_name'],
+                    "hostname": node_dict['hostname'],
                     "parent_type": "global-system-config",
                     "fq_name": ["default-global-system-config",
                                 node_dict['name']],
@@ -184,9 +184,9 @@ class FilterModule(object):
                         "name": node_dict['name'],
                         "network_interface": "neutron",
                         "type": node_dict.get('type', "baremetal"),
-                        "properties": node_dict['properties'],
+                        "properties": node_dict.get('properties', {}),
                         "driver": node_dict.get('driver', "pxe_ipmitool"),
-                        "driver_info": node_dict["driver_info"]
+                        "driver_info": node_dict.get("driver_info", {})
                     }
                 }
             }]
@@ -267,6 +267,9 @@ class FilterModule(object):
 
         if not node_dict.get('hostname', None):
             node_dict['hostname'] = node_dict['name']
+
+        if not node_dict.get('display_name', None):
+            node_dict['display_name'] = node_dict['name']
 
         for sub_dict in ['properties', 'driver_info']:
             node_sub_dict = node_dict.get(sub_dict, {})
