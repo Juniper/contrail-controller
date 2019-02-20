@@ -318,7 +318,12 @@ class JobHandler(object):
                                   "proceeding to read contents.." % exec_id)
                 current_time = time.time()
                 while current_time - last_read_time < file_read_timeout:
-                    line_read = f_read.readline()
+                    # read line char by char since the built in readLine
+                    # api has bugs when the writer is slow JCB-219211.
+                    # readLine returned before the line is written completely
+                    # in some cases
+                    line_read = self.read_line(f_read, file_read_timeout,
+                                               last_read_time)
                     if line_read:
                         self._logger.info("Line read ..." + line_read)
                         if unique_pb_id in line_read:
@@ -336,9 +341,14 @@ class JobHandler(object):
                                     marked_jsons = self._extract_marked_json(
                                         marked_output
                                     )
+                                    if marked_jsons == {}:
+                                        self._logger.error(
+                                            "Invalid line is read."
+                                            " Skipping it")
                                     if marker == JobFileWrite.JOB_PROGRESS:
                                         self._job_progress =\
-                                            marked_jsons.get(JobFileWrite.JOB_PROGRESS)
+                                            marked_jsons.get(
+                                                JobFileWrite.JOB_PROGRESS)
                                         self.current_percentage += float(
                                             self._job_progress)
                                         self._job_log_utils.\
@@ -398,6 +408,24 @@ class JobHandler(object):
 
         return marked_output
     # end process_file_and_get_marked_output
+
+    def read_line(self, file_ptr, file_read_timeout, last_read_time):
+        str_list = []
+        current_time = time.time()
+        while True:
+            if current_time - last_read_time >= file_read_timeout:
+                self._logger.error(
+                    "Timed out while attempting to read line."
+                    " The line being read is:\n")
+                self._logger.error("%s" % ''.join(str_list))
+                return None
+            single_char = file_ptr.read(1)
+            if single_char == '\n':
+                break
+            str_list.append(single_char)
+            current_time = time.time()
+        return ''.join(str_list)
+    # end read_line
 
     def send_prouter_job_uve(self, job_template_fqname, pr_uve_name, exec_id,
                          job_status, percentage_completed, device_op_results=None):
