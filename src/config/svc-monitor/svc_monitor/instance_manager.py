@@ -429,7 +429,9 @@ class InstanceManager(object):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_id, fields=['instance_ip_back_refs', 'interface_route_table_refs'])
+                    id=vmi_id, fields=['instance_ip_back_refs',
+                                       'interface_route_table_refs',
+                                       'floating_ip_back_refs'])
             except NoIdError:
                 continue
 

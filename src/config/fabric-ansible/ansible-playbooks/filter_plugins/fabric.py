@@ -1276,11 +1276,11 @@ class FilterModule(object):
         try:
             if device_uuid:
                 device_obj = vnc_api.physical_router_read(
-                    id=device_uuid, fields=['physical_interfaces']
+                    id=device_uuid, fields=['physical_interfaces', 'display_name']
                 )
             elif device_fq_name:
                 device_obj = vnc_api.physical_router_read(
-                    fq_name=device_fq_name, fields=['physical_interfaces']
+                    fq_name=device_fq_name, fields=['physical_interfaces', 'display_name']
                 )
         except NoIdError:
             _task_done(
@@ -1560,6 +1560,7 @@ class FilterModule(object):
                         'node_profile_refs',
                         'physical_router_management_ip',
                         'physical_router_underlay_managed'
+                        'display_name'
                     ]
                 )
                 device_roles['device_obj'] = device_obj
