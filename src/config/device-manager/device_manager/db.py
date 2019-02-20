@@ -1779,6 +1779,7 @@ class ServiceInstanceDM(DBBaseDM):
             self.right_svc_asns = kvp_dict.get('right-svc-asns').split(',') or []
             self.left_svc_vlan = kvp_dict.get('left-svc-vlan') or None
             self.right_svc_vlan = kvp_dict.get('right-svc-vlan') or None
+            self.rp_ip_addr = kvp_dict.get('rp-ip-addr') or None
         if bindings:
             kvps = bindings.get('key_value_pair') or []
             kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
