@@ -1061,7 +1061,11 @@ class VncApiServer(object):
         # Generate field list for db layer
         obj_fields = r_class.prop_fields | r_class.ref_fields
         if 'fields' in get_request().query:
-            obj_fields |= set(get_request().query.fields.split(','))
+            obj_fields = set(get_request().query.fields.split(',')) & (
+                obj_fields |
+                r_class.backref_fields |
+                r_class.children_fields
+                ) | set(['id_perms', 'perms2'])
         else: # default props + children + refs + backrefs
             if 'exclude_back_refs' not in get_request().query:
                 obj_fields |= r_class.backref_fields
