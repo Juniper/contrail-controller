@@ -260,7 +260,7 @@ class PhysicalRouterDM(DBBaseDM):
             params["families"] = dci.bgp_address_families
             params["ip"] = self.dci_ip_map.get(self.uuid + ":" + dci_uuid)
             params["name"] = DMUtils.get_pr_dci_bgp_group(self.name, dci_uuid)
-            params["type"] = "external"
+            params["type"] = "internal"
         return params
     # end get_dci_bgp_params
 
@@ -2223,6 +2223,7 @@ class DataCenterInterconnectDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        self._object_db.delete_dci(obj.uuid)
         obj.update_multiple_refs('logical_router', {})
         obj.update_single_ref('virtual_network', None)
         del cls._dict[uuid]
