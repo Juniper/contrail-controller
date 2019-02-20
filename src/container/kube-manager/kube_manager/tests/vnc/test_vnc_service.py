@@ -359,13 +359,15 @@ class VncServiceTest(KMTestCase):
         """
         # loadbalancer
         lb = self._vnc_lib.loadbalancer_read(
-            id=srv_uuid, fields=['loadbalancer_listener_back_refs'])
+            id=srv_uuid, fields=['loadbalancer_listener_back_refs',
+                                 'virtual_machine_interface_refs'])
         # loadbalancer listener -> loadbalancer
         lb_listeners = lb.loadbalancer_listener_back_refs
         #self.assertEqual(1, len(lb_listeners))
         lb_listener_uuid = lb_listeners[0]['uuid']
         lb_listener = self._vnc_lib.loadbalancer_listener_read(
-            id=lb_listener_uuid, fields=['loadbalancer_pool_back_refs'])
+            id=lb_listener_uuid, fields=['loadbalancer_pool_back_refs',
+                                         'loadbalancer_listener_properties'])
         pool_ports = self._assert_loadbalancer_listener(lb_listener, ports)
 
         # loadbalancer pool -> loadbalancer listener

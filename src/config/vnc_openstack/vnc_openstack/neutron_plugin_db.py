@@ -660,12 +660,17 @@ class DBInterface(object):
 
     def _virtual_machine_interface_read(self, port_id=None, fq_name=None,
                                         fields=None):
-        fields = set(['logical_router_back_refs',
-                      'instance_ip_back_refs',
-                      'floating_ip_back_refs']) | set(fields or [])
+        back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
+                           'floating_ip_back_refs']
+        prop_ref_fields = list(VirtualMachineInterface.prop_fields |
+                               VirtualMachineInterface.ref_fields)
+        if fields:
+            n_extra_fields = list(set(fields + back_ref_fields))
+        else:
+            n_extra_fields = list(set(prop_ref_fields + back_ref_fields))
 
         port_obj = self._vnc_lib.virtual_machine_interface_read(
-            id=port_id, fq_name=fq_name, fields=fields)
+            id=port_id, fq_name=fq_name, fields=n_extra_fields)
         return port_obj
     #end _virtual_machine_interface_read
 
