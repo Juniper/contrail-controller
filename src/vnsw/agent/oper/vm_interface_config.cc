@@ -1365,18 +1365,25 @@ static void ReadIgmpConfig(Agent *agent, const IFMapNode *vn_node,
                             VmInterfaceConfigData *data) {
 
     const VirtualNetwork *vn = NULL;
+    bool igmp_enabled = false;
+
     if (vn_node) {
         vn = static_cast<const VirtualNetwork *>(vn_node->GetObject());
     }
 
-    if (cfg->IsPropertySet(VirtualMachineInterface::IGMP_ENABLE)) {
-        data->igmp_enabled_ = data->cfg_igmp_enable_ = cfg->igmp_enable();
-    } else if (vn && vn->IsPropertySet(VirtualNetwork::IGMP_ENABLE)) {
-        data->igmp_enabled_ = vn->igmp_enable();
-    } else {
-        data->igmp_enabled_ =
+    if (cfg) igmp_enabled = cfg->igmp_enable();
+
+    if (vn && !igmp_enabled) igmp_enabled = vn->igmp_enable();
+
+    if (!igmp_enabled) {
+        igmp_enabled =
                     agent->oper_db()->global_system_config()->cfg_igmp_enable();
     }
+
+    data->cfg_igmp_enable_ = cfg->igmp_enable();
+    data->igmp_enabled_ = igmp_enabled;
+
+    return;
 }
 
 // max_flows is read from vmi properties preferentially , else vn properties
