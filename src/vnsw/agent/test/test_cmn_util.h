@@ -274,6 +274,16 @@ bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf_nam
                         const string &remote_server_1, uint32_t label1,
                         const string &remote_server_2, uint32_t label2,
                         const string &vn);
+bool MplsVpnEcmpTunnelAdd(const BgpPeer *peer, const string &vrf,
+                        const Ip4Address &prefix, uint8_t plen,
+                        Ip4Address &remote_server_1, uint32_t label1,
+                        Ip4Address &remote_server_2, uint32_t label2,
+                        const string &vn);
+bool MplsLabelInetEcmpTunnelAdd(const BgpPeer *peer, const string &vrf,
+                        const Ip4Address &prefix, uint8_t plen,
+                        Ip4Address &remote_server_1, uint32_t label1,
+                        Ip4Address &remote_server_2, uint32_t label2,
+                        const string &vn);
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
