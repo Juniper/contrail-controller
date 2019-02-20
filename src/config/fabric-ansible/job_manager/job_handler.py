@@ -336,6 +336,11 @@ class JobHandler(object):
                                     marked_jsons = self._extract_marked_json(
                                         marked_output
                                     )
+                                    if marked_jsons == {}:
+                                        self._logger.error(
+                                            "Skipped processing the output,"
+                                            " since the line read was invalid")
+                                        continue
                                     if marker == JobFileWrite.JOB_PROGRESS:
                                         self._job_progress =\
                                             marked_jsons.get(JobFileWrite.JOB_PROGRESS)
