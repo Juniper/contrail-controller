@@ -7,9 +7,6 @@ import platform
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
-def MapBuildDir(list):
-    return map(lambda x: '#/' + Dir('..').path + '/../' + x, list)
-
 env.Prepend(CPPPATH = env['TOP'] + '/../include/thrift')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
@@ -33,11 +30,15 @@ if platform.system() != 'Darwin':
         env.Append(LIBS=['rt'])
     env.Prepend(LIBS=['ksync', 'ksyncnl'])
 
-libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
-                    'base', 'base/test', 'boost_regex', 'route', 'schema',
-                    'ifmap', 'net', 'net'])
+lib_dirs = ['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
+            'base', 'base/test', 'boost_regex', 'route', 'schema',
+            'ifmap', 'net', 'net']
 
-env.Append(LIBPATH=libs)
+lib_dirs_abs = []
+for lib_dir in lib_dirs:
+    lib_dirs_abs += ['#/' + Dir('../..').path + '/' + lib_dir]
+
+env.Append(LIBPATH=lib_dirs_abs)
 
 ksync_test = env.Program('ksync_test', ['ksync_test.cc'])
 env.Alias('src/ksync:ksync_test', ksync_test)

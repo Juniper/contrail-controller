@@ -25,6 +25,7 @@ SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 # Basic KSync library
 libksync = env.Library('ksync', SandeshGenSrcs + ['ksync_object.cc'])
+env.Alias('src/ksync:ksync', libksync)
 
 # KSync Netlink library
 libksyncnl_src = ['ksync_tx_queue.cc', 'ksync_netlink.cc', 'ksync_sock.cc', 'ksync_sock_user.cc']
