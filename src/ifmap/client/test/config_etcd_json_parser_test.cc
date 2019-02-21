@@ -1835,12 +1835,74 @@ TEST_F(ConfigEtcdJsonParserTest, ServerParser18InParts) {
     FeedEventsJson();
     FeedEventsJson();
     FeedEventsJson();
+    FeedEventsJson();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
     TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+// Verify manipulation of refs with multiple UUIDst
+// In 7 separate messages:
+// 1) create vm1, vm2, vm3, vm4 and link (vr1, vm1)
+// 2) create link (vr1, vm2)
+// 3) update vr1 with no change to links
+// 4) remove link (vr1, vm2) and add link (vr1, vm3)
+// 5) remove link (vr1, vm1) and link (vr1, vm3) and
+//    add link (vr1, vm2) and link (vr1, vm4)
+// 6) remove link (vr1, vm2) and link (vr1, vm4)
+// 7) delete vr1, vm1, vm2, vm3 and vm4
+TEST_F(ConfigEtcdJsonParserTest, ServerParser20) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/etcd_server_parser_test20.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm2"),
+        "virtual-router-virtual-machine") != NULL);
+    FeedEventsJson();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm3"),
+        "virtual-router-virtual-machine") != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm4"),
+        "virtual-router-virtual-machine") != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm2"),
+        "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm3"),
+        "virtual-router-virtual-machine") == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "vr1"),
+        NodeLookup("virtual-machine", "vm4"),
+        "virtual-router-virtual-machine") == NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
 }
 
 // Verify that Draft objects are ignored
