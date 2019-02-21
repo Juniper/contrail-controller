@@ -311,7 +311,11 @@ func (cni *ContrailCni) CmdAdd() error {
 			log.Errorf("Could not retrieve index from result - %+v", result)
 			return err
 		}
-		containerIntfName := cni.buildContainerIntfName(index, cni.MetaPlugin)
+        if result.Annotations.Interface != "" {
+            containerIntfName := result.Annotations.Interface
+        } else {
+		    containerIntfName := cni.buildContainerIntfName(index, cni.MetaPlugin)
+        }
 
 		if cni.MetaPlugin {
 			// When invoked by a delegating plugin, work on the vrouter result that
