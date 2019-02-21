@@ -1161,6 +1161,40 @@ class FakeKazooClient(object):
         self.state = KazooState.CONNECTED
     # end __init__
 
+    class Lock(object):
+        _locks = {}
+
+        def __init__(self, path, identifier):
+            self._path = zk_scrub_path(path)
+            if self._path not in self._locks:
+                self._locks[self._path] = (
+                    gevent.lock.Semaphore(),  # write lock
+                    gevent.lock.Semaphore(),  # read lock
+                    identifier,
+                )
+
+        def acquire(self, blocking=True, timeout=None):
+            w_lock, _, _ = self._locks[self._path]
+            return w_lock.acquire(blocking, timeout)
+
+        def release(self):
+            w_lock, _, _ = self._locks[self._path]
+            w_lock.release()
+
+        def contenders(self):
+            w_lock, _, contender = self._locks[self._path]
+            return [contender] if w_lock.locked() else []
+
+        def destroy(self):
+            self._locks.pop(self._path, None)
+
+        def __enter__(self):
+            self.acquire()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.release()
+            self.destroy()
+
     @classmethod
     def reset(cls):
         cls._values = {}
@@ -1182,6 +1216,14 @@ class FakeKazooClient(object):
                 path, str(self._values[scrubbed_path][0]), 'zookeeper')
         self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
     # end create
+
+    def create_node(self, path, value='', *args, **kwargs):
+        scrubbed_path = zk_scrub_path(path)
+        if scrubbed_path in self._values:
+            raise ResourceExistsError(
+                path, str(self._values[scrubbed_path][0]), 'zookeeper')
+        self._values[scrubbed_path] = (value, ZnodeStat(time.time()*1000))
+    # end create_node
 
     def get(self, path):
         try:
@@ -1234,6 +1276,19 @@ class FakeKazooClient(object):
                     del self._values[path_key]
     # end delete
 
+    def delete_node(self, path, recursive=False):
+        scrubbed_path = zk_scrub_path(path)
+        if not recursive:
+            try:
+                del self._values[scrubbed_path]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError()
+        else:
+            for path_key in self._values.keys():
+                if scrubbed_path in path_key:
+                    del self._values[path_key]
+    # end delete_node
+
     @contextlib.contextmanager
     def patch_path(self, path, new_values=None, recursive=True):
         # if recursive is False, new_values is value at path
@@ -1273,6 +1328,21 @@ class FakeKazooClient(object):
             for node in orig_nodes:
                 self._values[node] = orig_nodes[node]
     #end patch_path
+
+    def lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s' % (os.getpid())
+        return self._zk_client.Lock(path, identifier)
+
+    def read_lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s' % (os.getpid())
+        return self._zk_client.ReadLock(path, identifier)
+
+    def write_lock(self, path, identifier=None):
+        if not identifier:
+            identifier = '%s' % (os.getpid())
+        return self._zk_client.WriteLock(path, identifier)
 # end class FakeKazooClient
 
 def fake_zk_counter_init(self, client, path, default=0, *args, **kwargs):
