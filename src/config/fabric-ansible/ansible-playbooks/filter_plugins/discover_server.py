@@ -9,7 +9,7 @@ import itertools
 import requests
 import gevent
 from gevent import Greenlet, monkey, pool, queue
-#monkey.patch_all()
+from pprint import pformat
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
 from plugin_ironic import ImportIronicNodes
@@ -135,9 +135,13 @@ class FilterModule(object):
             # from CC and ipmi_nodes_details
             final_ipmi_details = []
             job_input = FilterModule._validate_job_ctx(job_ctx)
+            cluster_id = job_ctx.get('contail_cluster_id')
+            cluster_token = job_ctx.get('auth_token')
             cc_host = job_input.get('contrail_command_host')
-            cc_auth_token = job_ctx.get('auth_token')
-            cc_node = CreateCCNode(cc_host, cc_auth_token)
+            cc_username = job_input.get('cc_username')
+            cc_password = job_input.get('cc_password')
+            cc_node = CreateCCNode(cc_host, cluster_id, cluster_token,
+                                   cc_username, cc_password)
             cc_nodes = cc_node.get_cc_nodes()
             cc_node_data = []
             for node in cc_nodes['nodes']:
@@ -464,11 +468,15 @@ class FilterModule(object):
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
             ironic_auth_args = job_input.get('ironic')
+            cluster_id = job_ctx.get('contail_cluster_id')
+            cluster_token = job_ctx.get('auth_token')
             cc_host = job_input.get('contrail_command_host')
-            cc_auth_token = job_ctx.get('auth_token')
+            cc_username = job_input.get('cc_username')
+            cc_password = job_input.get('cc_password')
             ironic_node_object = ImportIronicNodes(auth_args=ironic_auth_args,
-                                                   cc_host=cc_host,
-                                                   cc_auth_token=cc_auth_token)
+                                                   cluster_id=cluster_id,
+                                                   cluster_token=cluster_token,
+                                                   cc_host=cc_host)
 
             registered_nodes = ironic_node_object.register_nodes(
                 ipmi_nodes_detail)
@@ -489,11 +497,15 @@ class FilterModule(object):
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
             ironic_auth_args = job_input.get('ironic')
+            cluster_id = job_ctx.get('contail_cluster_id')
+            cluster_token = job_ctx.get('auth_token')
             cc_host = job_input.get('contrail_command_host')
-            cc_auth_token = job_ctx.get('auth_token')
+            cc_username = job_input.get('cc_username')
+            cc_password = job_input.get('cc_password')
             ironic_node_object = ImportIronicNodes(auth_args=ironic_auth_args,
-                                              cc_host=cc_host,
-                                              cc_auth_token=cc_auth_token)
+                                              cluster_id=cluster_id,
+                                              cluster_token=cluster_token,
+                                              cc_host=cc_host)
             introspected_nodes = ironic_node_object.trigger_introspection(
                 registered_nodes)
         except Exception as e:
@@ -557,12 +569,18 @@ class FilterModule(object):
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
             ironic_auth_args = job_input.get('ironic')
+            cluster_id = job_ctx.get('contail_cluster_id')
+            cluster_token = job_ctx.get('auth_token')
             cc_host = job_input.get('contrail_command_host')
-            cc_auth_token = job_ctx.get('auth_token')
+            cc_username = job_input.get('cc_username')
+            cc_password = job_input.get('cc_password')
 
+            self._logger.warn("ADDED NODE-LIST " +str(type(added_nodes_list)))
+            self._logger.warn("ADDED NODE-LIST " +pformat(added_nodes_list))
             ironic_object = ImportIronicNodes(auth_args=ironic_auth_args,
+                                              cluster_id=cluster_id,
+                                              cluster_token=cluster_token,
                                               cc_host=cc_host,
-                                              cc_auth_token=cc_auth_token,
                                               added_nodes_list=added_nodes_list)
             ironic_object.read_nodes_from_db()
             success_nodes = []

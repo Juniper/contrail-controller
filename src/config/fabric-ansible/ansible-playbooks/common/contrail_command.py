@@ -30,18 +30,29 @@ class CreateCCResource(object):
         'user_domain_name': 'default',
         'project_domain_name': 'default',
         'project_name': 'admin',
-        'auth_path': "/keystone/v3"
+        'auth_path': "/keystone/v3",
+        'cluster_id': None,
+        'cluster_token': None
     }
 
     auth_headers = {
         'Content-Type': 'application/json'
     }
 
-    def __init__(self, auth_host, cc_username, cc_password, auth_token=None):
+    def __init__(self, auth_host,
+        cluster_id=None,
+        cluster_token=None,
+        cc_username=None,
+        cc_password=None,
+        auth_token=None):
         if not auth_host:
             return
         self.auth_args['auth_host'] = auth_host
 
+        if cluster_id:
+            self.auth_args['cluster_id'] = cluster_id
+        if cluster_token:
+            self.auth_args['cluster_token'] = cluster_token
         if cc_username:
             self.auth_args['username'] = cc_username
         if cc_password:
@@ -72,7 +83,37 @@ class CreateCCResource(object):
             self.auth_token = self.keystone_session.get_token()
         elif auth_token:
             self.auth_token = auth_token
+        elif self.auth_args['cluster_token'] and self.auth_args['cluster_id']:
+            self.auth_token = self.get_cc_token_via_cluster()
+
         self.auth_headers['X-Auth-Token'] = self.auth_token
+
+    def get_cc_token_via_cluster(self):
+        cc_token_url = '%s%s' %(self.auth_uri, '/v3/auth/tokens')
+        auth_data = {
+            "auth": {
+                "identity": {
+                    "methods": ["cluster_token"],
+                    "cluster": {
+                        "id": self.auth_args['cluster_id'],
+                        "token": {
+                            "id": self.auth_args['cluster_token']
+                        }
+                    }
+                }
+            }
+        }
+        response = self.get_rest_api_response(cc_token_url,
+                                              headers=self.auth_headers,
+                                              data=json.dumps(auth_data),
+                                              request_type="post")
+
+        if response.headers.get('X-Subject-Token'):
+            cc_token = response.headers.get('X-Subject-Token')
+        else:
+            cc_token = ""
+
+        return cc_token
 
     def set_ks_auth_sess(self):
         self.keystone_auth = v3.Password(
@@ -112,11 +153,16 @@ class CreateCCResource(object):
 
 class CreateCCNode(CreateCCResource):
 
-    def __init__(self, auth_host, cc_username, cc_password, auth_token = None):
+    def __init__(self, auth_host,
+                 cluster_id=None,
+                 cluster_token=None,
+                 cc_username=None,
+                 cc_password=None):
         super(CreateCCNode, self).__init__(auth_host,
+                                           cluster_id,
+                                           cluster_token,
                                            cc_username,
-                                           cc_password,
-                                           auth_token)
+                                           cc_password)
 
     def create_cc_node(self, node_payload):
 
@@ -134,11 +180,16 @@ class CreateCCNode(CreateCCResource):
 
 class CreateCCNodeProfile(CreateCCResource):
 
-    def __init__(self, auth_host, cc_username, cc_password, auth_token = None):
+    def __init__(self, auth_host,
+                 cluster_id=None,
+                 cluster_token=None,
+                 cc_username=None,
+                 cc_password=None):
         super(CreateCCNodeProfile, self).__init__(auth_host,
+                                                  cluster_id,
+                                                  cluster_token,
                                                   cc_username,
-                                                  cc_password,
-                                                  auth_token)
+                                                  cc_password)
 
     def create_cc_node_profile(self, node_profile_payload):
         response = self.create_cc_resource(node_profile_payload)
