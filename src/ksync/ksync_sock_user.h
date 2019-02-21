@@ -92,6 +92,9 @@ public:
     KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
         block_msg_processing_ = false;
         is_incremental_index_ = false;
+        for (int i = 0; i < KSYNC_MAX_ENTRY_TYPE; ++i) {
+            ksync_error_[i] = 0;
+        }
     }
     ~KSyncSockTypeMap() {
         assert(nh_map.size() == 0);
