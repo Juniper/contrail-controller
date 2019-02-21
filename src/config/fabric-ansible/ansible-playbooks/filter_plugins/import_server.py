@@ -346,12 +346,16 @@ class FilterModule(object):
             file_format = job_input.get("file_format")
             decoded = base64.decodestring(encoded_file)
 
+            cluster_id = job_ctx.get('contail_cluster_id')
+            cluster_token = job_ctx.get('auth_token')
+
             cc_host = job_input.get('contrail_command_host')
             cc_username = job_input.get('cc_username')
             cc_password = job_input.get('cc_password')
 
             self._logger.warn("Starting Server Import")
-            cc_node_obj = CreateCCNode(cc_host, cc_username, cc_password)
+            cc_node_obj = CreateCCNode(cc_host, cluster_id, cluster_token,
+                                       cc_username, cc_password)
 
             if file_format.lower() == "yaml":
                 data = yaml.load(decoded)
