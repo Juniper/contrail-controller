@@ -56,7 +56,8 @@ class ImportIronicNodes(object):
         'Content-Type': 'application/json'
     }
 
-    def __init__(self, auth_args, cc_host=None, cc_auth_token=None,
+    def __init__(self, auth_args, cluster_id=None, cluster_token=None,
+                 cc_host=None, cc_username=None,cc_password=None,
                  added_nodes_list=None):
         for key,val in auth_args.iteritems():
             if key in self.auth_args:
@@ -89,7 +90,8 @@ class ImportIronicNodes(object):
         self.set_ironic_clients()
         self.auth_token = self.keystone_session.get_token()
         self.auth_headers['X-Auth-Token'] = self.auth_token
-        self.cc_node = CreateCCNode(cc_host, cc_auth_token)
+        self.cc_node = CreateCCNode(cc_host, cluster_id, cluster_token,
+                                    cc_username, cc_password)
 
     def set_ks_auth_sess(self):
         self.keystone_auth = v3.Password(

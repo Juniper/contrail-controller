@@ -87,7 +87,7 @@ class NodeProfileLog(object):
 class FilterModule(object):
     @staticmethod
     def _init_logging():
-        logger = logging.getLogger('NodeProfileFilter')
+        logger = logging.getLogger('NodeProfileFilter1')
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.WARN)
 
@@ -218,11 +218,15 @@ class FilterModule(object):
             file_format = job_input.get("file_format")
             decoded = base64.decodestring(encoded_file)
 
+            cluster_id = job_ctx.get('contrail_cluster_id')
+            cluster_token = job_ctx.get('auth_token')
+
             cc_host = job_input.get('contrail_command_host')
-            #auth_token = job_ctx.get('auth_token')
             cc_username = job_input.get('cc_username')
             cc_password = job_input.get('cc_password')
-            cc_node_profile_obj = CreateCCNodeProfile(cc_host,
+            cc_node_profile_obj = CreateCCNodeProfile(cc_host, 
+                                                      cluster_id, 
+                                                      cluster_token,
                                                       cc_username,
                                                       cc_password)
 
