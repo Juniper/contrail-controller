@@ -1,8 +1,10 @@
 set groups {{cfg_group}} protocols igmp-snooping vlan all proxy
 set groups {{cfg_group}} protocols evpn multicast-mode ingress-replication
 set groups {{cfg_group}} protocols evpn default-gateway do-not-advertise
-set groups {{cfg_group}} forwarding-options vxlan-routing overlay-ecmp
 set groups {{cfg_group}} forwarding-options multicast-replication evpn irb local-remote
+{%     if device_model.startswith('qfx51') %}
+set groups {{cfg_group}} forwarding-options vxlan-routing overlay-ecmp
+{%     endif %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') == 'irb' %}
 set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
