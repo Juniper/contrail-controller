@@ -245,6 +245,14 @@ class DockerProcessInfoManager(object):
                 res += part
         finally:
             if socket:
+                # There is cyclic reference there
+                # https://github.com/docker/docker-py/blob/master/docker/api/client.py#L321
+                # sock => response => socket
+                # https://github.com/docker/docker-py/issues/2137
+                try:
+                    socket._response = None
+                except AttributeError:
+                    pass
                 socket.close()
         data = self._client.exec_inspect(exec_op["Id"])
         exit_code = data.get("ExitCode", 0)
