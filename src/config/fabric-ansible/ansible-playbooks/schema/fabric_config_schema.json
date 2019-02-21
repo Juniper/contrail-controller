@@ -143,10 +143,10 @@
         "description": "Set to true for config delete operation",
         "default": false
       },
-      "is_ztp": {
+      "manage_underlay": {
         "type": "boolean",
-        "description": "Set to true for greenfield fabric",
-        "default": false
+        "description": "Set to true to manage underlay config",
+        "default": true
       },
       "fabric_fq_name": {
         "type": "array",

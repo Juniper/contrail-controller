@@ -8,7 +8,7 @@
     device_mgmt_ip: "{{ input.device_management_ip }}"
     additional_feature_params: "{{ input.additional_feature_params }}"
     is_delete: "{{ input.is_delete }}"
-    is_ztp: "{{ input.is_ztp }}"
+    manage_underlay: "{{ input.manage_underlay}}"
     output: {"status":"", "message":"", "results":""}
 
   pre_tasks:

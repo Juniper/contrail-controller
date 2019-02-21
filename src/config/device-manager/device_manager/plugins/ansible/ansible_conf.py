@@ -398,7 +398,7 @@ class AnsibleConf(AnsibleBase):
             'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
             'is_delete': is_delete,
-            'is_ztp': self.physical_router.is_ztp()
+            'manage_underlay': self.physical_router.underlay_managed
         }
         return self.device_send(job_template, job_input, is_delete, retry)
     # end send_conf
