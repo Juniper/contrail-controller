@@ -249,7 +249,7 @@ class AnsibleConf(AnsibleBase):
 
             if peers:
                 bgp.set_peers(self.get_values_sorted_by_key(peers))
-                self.bgp_map[bgp_name] = bgp
+            self.bgp_map[bgp_name] = bgp
     # end build_dci_bgp_config
 
     def device_send(self, job_template, job_input, is_delete, retry):
