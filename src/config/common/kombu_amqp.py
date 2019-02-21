@@ -35,7 +35,7 @@ class KombuAmqpClient(object):
         self._consumer_event = Event()
         self._publisher_queue = Queue()
         self._connection = kombu.Connection(urls, ssl=ssl_params,
-                                            heartbeat=heartbeat)
+            heartbeat=heartbeat, transport_options={'confirm_publish': True})
         self._connected = False
         self._channel = None
         self._producer = None
@@ -73,6 +73,8 @@ class KombuAmqpClient(object):
         self._consumers[name] = consumer
         self._consumer_event.set()
         self._consumers_changed = True
+        msg = 'KombuAmqpClient: Added consumer: %s' % name
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         return consumer
     # end add_consumer
 
@@ -83,12 +85,16 @@ class KombuAmqpClient(object):
         self._removed_consumers.append(consumer)
         self._consumer_event.set()
         self._consumers_changed = True
+        msg = 'KombuAmqpClient: Removed consumer: %s' % name
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
     # end remove_consumer
 
     def publish(self, message, exchange, routing_key=None, **kwargs):
         if message is not None and isinstance(message, basestring) and \
                 len(message) == 0:
             message = None
+        msg = 'KombuAmqpClient: Publishing message to exchange %s, routing_key %s' % (exchange, routing_key)
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         self._publisher_queue.put(AttrDict(message=message, exchange=exchange,
             routing_key=routing_key, kwargs=kwargs))
     # end publish
@@ -120,6 +126,8 @@ class KombuAmqpClient(object):
         errors = (self._connection.connection_errors +
                   self._connection.channel_errors)
         removed_consumer = None
+        msg = 'KombuAmqpClient: Starting consumer greenlet'
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         while self._running:
             try:
                 self._ensure_connection()
@@ -137,16 +145,22 @@ class KombuAmqpClient(object):
                     continue
 
                 if len(self._consumers.values()) == 0:
+                    msg = 'KombuAmqpClient: Waiting for consumer'
+                    self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                     self._consumer_event.wait()
                     self._consumer_event.clear()
 
                 if not self._running or not self._connected or \
                         len(self._consumers.values()) == 0:
+                    msg = 'KombuAmqpClient: No consumers found'
+                    self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                     continue
 
                 consumers = [kombu.Consumer(self._channel, queues=c.queue,
                              callbacks=[c.callback] if c.callback else None)
                              for c in self._consumers.values()]
+                msg = 'KombuAmqpClient: Created consumers %s' % str(self._consumers.keys())
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                 self._consumers_changed = False
                 with nested(*consumers):
                     while self._running and not self._consumers_changed and\
@@ -165,12 +179,16 @@ class KombuAmqpClient(object):
                 self._logger(msg, level=SandeshLevel.SYS_ERR)
                 self._connected = False
                 gevent.sleep(0.1)
+        msg = 'KombuAmqpClient: Exited consumer greenlet'
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
     # end _start_consuming
 
     def _start_publishing(self):
         errors = (self._connection.connection_errors +
                   self._connection.channel_errors)
         payload = None
+        msg = 'KombuAmqpClient: Starting publisher greenlet'
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         while self._running:
             try:
                 self._ensure_connection()
@@ -195,6 +213,8 @@ class KombuAmqpClient(object):
                 self._logger(msg, level=SandeshLevel.SYS_ERR)
                 payload = None
                 self._connected = False
+        msg = 'KombuAmqpClient: Exiting publisher greenlet'
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
     # end _start_publishing
 
     def _heartbeat_check(self):
@@ -210,6 +230,8 @@ class KombuAmqpClient(object):
     # end _heartbeat_check
 
     def _ensure_connection(self):
+        msg = 'KombuAmqpClient: Ensuring connection'
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         with self._connection_lock:
             if not self._connected:
                 self._connection.close()
