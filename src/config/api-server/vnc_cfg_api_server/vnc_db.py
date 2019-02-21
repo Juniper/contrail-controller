@@ -876,6 +876,8 @@ class VncDbClient(object):
             "service_instance" : ("ObjectSITable", False),
             "virtual_router" : ("ObjectVRouter", True),
             "analytics_node" : ("ObjectCollectorInfo", True),
+            "analytics_snmp_node" : ("ObjectAnalyticsSNMPInfo", True),
+            "analytics_alarm_node" : ("ObjectAnalyticsAlarmInfo", True),
             "database_node" : ("ObjectDatabaseInfo", True),
             "config_node" : ("ObjectConfigNode", True),
             "service_chain" : ("ServiceChain", False),

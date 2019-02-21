@@ -137,6 +137,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -174,6 +176,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -211,6 +215,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -246,6 +252,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -281,6 +289,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -329,6 +339,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -376,6 +388,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -673,6 +687,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
@@ -740,6 +756,8 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "analytics-node",
+                "analytics-alarm-node",
+                "analytics-snmp-node",
                 "config-node",
                 "control-node",
                 "database-node",
