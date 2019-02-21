@@ -642,10 +642,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         old_vlan = (read_result.get('virtual_machine_interface_properties') or
                     {}).get('sub_interface_vlan_tag') or 0
-        new_vlan = (obj_dict.get('virtual_machine_interface_properties') or
-                    {}).get('sub_interface_vlan_tag') or old_vlan
-        if new_vlan != old_vlan:
-            return False, (400, "Cannot change sub-interface VLAN tag ID")
+        if 'virtual_machine_interface_properties' in obj_dict:
+            new_vlan = (obj_dict['virtual_machine_interface_properties'] or
+                        {}).get('sub_interface_vlan_tag') or 0
+            if new_vlan != old_vlan:
+                return False, (400, "Cannot change sub-interface VLAN tag ID")
 
         if 'virtual_machine_interface_bindings' in obj_dict or vmib:
             bindings_port = read_result.get(
