@@ -30,6 +30,7 @@ job_ctx:
   config_args: "{{ playbook_input.args }}"
   job_input: "{{ playbook_input.input }}"
   auth_token: "{{ playbook_input.auth_token }}"
+  contrail_cluster_id: "{{ playbook_input.contrail_cluster_id }}
   api_server_host: "{{ playbook_input.api_server_host }}"
   playbook_job_percentage: "{{ playbook_input.playbook_job_percentage}}"
   vnc_api_init_params: "{{ playbook_input.vnc_api_init_params }}"
