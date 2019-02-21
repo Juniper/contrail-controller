@@ -187,7 +187,12 @@ static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
                             info->out_component_nh_idx,
                             info->ingress);
     *nh = comp_nh->GetNH(info->out_component_nh_idx);
-    if ((*nh)->GetType() == NextHop::COMPOSITE) {
+    // nh can be NULL if out_component_nh_index is invalid
+    // this index is returned as invalid from the above function
+    // when composite nexthop is having inactive/NULL
+    // component nexthops or no local nexthops if traffic
+    // is coming from fabric
+    if ((*nh) && ((*nh)->GetType() == NextHop::COMPOSITE)) {
         // this is suboptimal solution to pick component NH in
         // 2 level ecmp. ideally hashing should be independent for
         // VPN level ecmp and label inet ecmp. label inet ecmp relies on
