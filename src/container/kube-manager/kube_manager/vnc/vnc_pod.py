@@ -16,6 +16,7 @@ from vnc_api.vnc_api import (
     InstanceIp, FloatingIp, FloatingIpPool, VirtualMachine,
     VirtualMachineInterface, VirtualMachineInterfacePropertiesType,
     SecurityGroup)
+
 from kube_manager.vnc.config_db import (
     DBBaseKM, VirtualNetworkKM, VirtualRouterKM, VirtualMachineKM,
     VirtualMachineInterfaceKM, InstanceIpKM, FloatingIpKM, LoadbalancerKM,
@@ -246,7 +247,7 @@ class VncPod(VncCommon):
         return
 
     def _create_vmi(self, pod_name, pod_namespace, pod_id, vm_obj, vn_obj,
-                    parent_vmi, idx, nw_name=''):
+                    parent_vmi, idx, network=None):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
@@ -273,7 +274,7 @@ class VncPod(VncCommon):
         self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
         vmi_obj.port_security_enabled = True
         VirtualMachineInterfaceKM.add_annotations(self, vmi_obj, pod_namespace,
-                                        pod_name, index=idx, network=nw_name)
+                                        pod_name, index=idx, **network)
 
         try:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
@@ -401,10 +402,10 @@ class VncPod(VncCommon):
                         pod_namespace, beta=False)
 
     def vnc_pod_vmi_create(self, pod_id, pod_name, pod_namespace, pod_node,
-                            node_ip, vm_obj, vn_obj, vm_vmi, idx, nw_name=''):
+                            node_ip, vm_obj, vn_obj, vm_vmi, idx, network=None):
 
         vmi_uuid = self._create_vmi(pod_name, pod_namespace, pod_id, vm_obj,
-                                    vn_obj, vm_vmi, idx, nw_name)
+                                    vn_obj, vm_vmi, idx, network=network)
         vmi = VirtualMachineInterfaceKM.get(vmi_uuid)
 
         if self._is_pod_nested() and vm_vmi:
@@ -497,24 +498,22 @@ class VncPod(VncCommon):
         network_status = {}
         vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
         index = str(0) + "/" + str(total_interface_count)
+        default_network = {'network':'default'}
         vmi_uuid = self.vnc_pod_vmi_create(pod_id, pod_name, pod_namespace,\
                                 pod_node, node_ip, vm_obj, vn_obj, vm_vmi,\
-                                index, nw_name='default')
+                                index, default_network)
         network_status['cluster-wide-default'] = vmi_uuid
 
-        for idx, network_name in enumerate(pod.networks, start=1):
+        for idx, network in enumerate(pod.networks, start=1):
             net_namespace = pod_namespace
-            net_name = network_name
-            # Check if network is in a different namespace than the pod's
-            # namespace (ex: <namespace/<network>)
-            if '/' in network_name:
-                net_namespace, net_name = network_name.split('/')
-
+            net_name = network['network']
+            if 'namespace' in network:
+                net_namespace = network['namespace']
             vn_obj = self._get_user_defined_network(net_name, net_namespace)
             index = str(idx) + "/" + str(total_interface_count)
             vmi_uuid = self.vnc_pod_vmi_create(pod_id, pod_name, net_namespace,\
                                 pod_node, node_ip, vm_obj, vn_obj, vm_vmi,\
-                                index, nw_name=net_name)
+                                index, network)
             network_status[net_name] = vmi_uuid
 
         if not self._is_pod_nested():

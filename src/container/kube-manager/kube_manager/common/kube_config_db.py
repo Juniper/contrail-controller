@@ -147,10 +147,18 @@ class PodKM(KubeDBBase):
                 networks_string_list = json.loads(
                             str(annotations['k8s.v1.cni.cncf.io/networks']))
                 for network in networks_string_list:
-                    self.networks.append(network.get('name'))
+                    network['network'] = network.pop('name')
+                    self.networks.append(network)
             else:
-                self.networks.extend(
-                    str(annotations['k8s.v1.cni.cncf.io/networks']).split(','))
+                networks_list = annotations['k8s.v1.cni.cncf.io/networks'].split(',')
+                for network in networks_list:
+                    if '/' in network:
+                        network_namespace, network_name = network.split('/')
+                        network_dict = {'network':network_name, 'namespace': network_namespace}
+                    else:
+                        network_name = network
+                        network_dict = {'network':network_name}
+                    self.networks.append(network_dict)
 
     def get_vn_fq_name(self):
         """Return virtual-network fq-name annotated on this pod."""
