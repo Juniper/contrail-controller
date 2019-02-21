@@ -89,7 +89,7 @@ public:
         KSYNC_MAX_ENTRY_TYPE
     };
 
-    KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
+    KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios), ksync_error_() {
         block_msg_processing_ = false;
         is_incremental_index_ = false;
     }
