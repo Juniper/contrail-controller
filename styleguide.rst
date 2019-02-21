@@ -13,7 +13,7 @@ The C++ code should follow the `Google C++ Style Guide<http://google-styleguide.
 
 C++ code submissions require a unit-test that tests the class
 interface; more complex code changes require tests that test the
-functionality accross multiple modules.
+functionality across multiple modules.
 
 Bugs should be first reproduced in a unit-test and then resolved.
 
