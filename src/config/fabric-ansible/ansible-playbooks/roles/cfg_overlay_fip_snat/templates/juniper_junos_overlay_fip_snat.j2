@@ -10,7 +10,7 @@
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{name}}
 {%         endfor %}
 {%         set ri_type = ri.get('routing_instance_type') %}
-{%         for intf in ri.get('ingress_interfaces') %}
+{%         for intf in ri.get('ingress_interfaces', []) %}
 {%             set intf_name = intf.get('name') %}
 {%             set phy_intf = intf_name.split(".")[0] %}
 {%             set lo_unit = intf_name.split(".")[1] %}
@@ -33,7 +33,7 @@ set policy-options policy-statement {{nat_ingress_import}} then reject
 set groups {{cfg_group}} policy-options policy-statement {{nat_ingress_export}} term t1 then reject
 set groups {{cfg_group}} interfaces {{phy_intf}} unit {{lo_unit}} service-domain inside
 {%         endfor %}
-{%         for intf in ri.get('egress_interfaces') %}
+{%         for intf in ri.get('egress_interfaces', []) %}
 {%             set intf_name = intf.get('name') %}
 {%             set phy_intf = intf_name.split(".")[0] %}
 {%             set lo_unit = intf_name.split(".")[1] %}
