@@ -142,6 +142,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -181,6 +182,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -220,6 +222,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -257,6 +260,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -294,6 +298,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -344,6 +349,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -393,6 +399,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -692,6 +699,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
@@ -724,6 +732,7 @@ alarm_list = [
         "uve_keys": {
             "uve_key": [
                 "database-node"
+                "config-database-node",
             ]
         }
     },
@@ -761,6 +770,7 @@ alarm_list = [
                 "config-node",
                 "control-node",
                 "database-node",
+                "config-database-node",
                 "vrouter"
             ]
         }
