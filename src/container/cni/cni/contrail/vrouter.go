@@ -109,6 +109,7 @@ type Annotations struct {
 	Owner     string `json:"owner"`
 	Project   string `json:"project"`
 	Index     string `json:"index"`
+	Interface string `json:"interface"`
 }
 
 type Result struct {
