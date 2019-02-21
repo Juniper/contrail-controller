@@ -1,5 +1,5 @@
 {%- if not pb_input.get('interface_filters')                                                                                        %}
-{%-     set x=pb_input.update({"interface_filters": [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp|^xle|^fc|^fte|^reth|^lo0'}] })       %}
+{%-     set x=pb_input.update({"interface_filters": [{'op': 'regex', 'expr': '^xe|^ge|^et|^fxp|^xle|^fc|^fte|^ae|^reth|^lo0'}] })   %}
 {%- endif                                                                                                                           %}
 {%- set regex_list = []                                                                                                             %}
 {%- for filter in pb_input.get('interface_filters', {})                                                                             %}
