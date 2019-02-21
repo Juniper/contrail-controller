@@ -90,6 +90,11 @@ def have_context():
     return (hasattr(gevent.getcurrent(), 'api_context') and
             gevent.getcurrent().api_context is not None)
 
+
+def is_internal_request():
+return isinstance(get_context().request, ApiInternalRequest)
+
+
 def use_context(fn):
     def wrapper(*args, **kwargs):
         if not have_context():
