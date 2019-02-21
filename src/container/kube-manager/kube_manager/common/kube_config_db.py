@@ -144,13 +144,38 @@ class PodKM(KubeDBBase):
         if 'k8s.v1.cni.cncf.io/networks' in annotations:
             self.networks = []
             if str(annotations['k8s.v1.cni.cncf.io/networks'])[:1] == '[':
+                interfaceList = []
                 networks_string_list = json.loads(
                             str(annotations['k8s.v1.cni.cncf.io/networks']))
+                networkAnnotationWhiteList = {"namespace", "name", "interface"}
+                duplicateInterfaces = False
                 for network in networks_string_list:
-                    self.networks.append(network.get('name'))
+                    if "interface" in network:
+                        interfaceList.append(network["interface"])
+                    network_tmp = {}
+                    for element in network:
+                        if element in networkAnnotationWhiteList:
+                            network_tmp[element] = network[element]
+                    network_tmp['network'] = network_tmp.pop('name')
+                    self.networks.append(network_tmp)
+
+                duplicateInterfaceCount = [i for i,
+                    x in enumerate(interfaceList)
+                    if interfaceList.count(x) > 1]
+                if len(duplicateInterfaceCount) > 0:
+                    err_msg = "Interface %s is defined more than once"%\
+                        interfaceList[duplicateInterfaceCount[0]]
+                    raise Exception(err_msg)
             else:
-                self.networks.extend(
-                    str(annotations['k8s.v1.cni.cncf.io/networks']).split(','))
+                networks_list = annotations['k8s.v1.cni.cncf.io/networks'].split(',')
+                for network in networks_list:
+                    if '/' in network:
+                        network_namespace, network_name = network.split('/')
+                        network_dict = {'network':network_name, 'namespace': network_namespace}
+                    else:
+                        network_name = network
+                        network_dict = {'network':network_name}
+                    self.networks.append(network_dict)
 
     def get_vn_fq_name(self):
         """Return virtual-network fq-name annotated on this pod."""
