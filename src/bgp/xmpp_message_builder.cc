@@ -331,6 +331,11 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         integerToString(evpn_prefix.ip_address_length());
     item.entry.nlri.source = evpn_prefix.source().to_string();
     item.entry.nlri.group = evpn_prefix.group().to_string();
+    if (roattr->attr()->ext_community() &&
+                roattr->attr()->ext_community()->ContainsMulticastFlags()) {
+        item.entry.nlri.flags |= EvpnPrefix::SmetCapable;
+    }
+
 
     item.entry.virtual_network = GetVirtualNetwork(route, roattr);
     item.entry.local_preference = roattr->attr()->local_pref();
