@@ -331,8 +331,12 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
                 continue;
 
             const ExtCommunity *extcomm = node->attr()->ext_community();
+            uint32_t flags = 0;
+            if (extcomm && extcomm->ContainsMulticastFlags())
+                flags = EvpnPrefix::SmetCapable;
             BgpOListElem elem(node->address(), node->label(),
-                    extcomm ? extcomm->GetTunnelEncap() : vector<string>());
+                    extcomm ? extcomm->GetTunnelEncap() : vector<string>(),
+                    flags);
             olist_spec.elements.push_back(elem);
         }
     }
@@ -347,8 +351,12 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo(EvpnRoute *route) {
                     continue;
 
                 const ExtCommunity *extcomm = node->attr()->ext_community();
+                uint32_t flags = 0;
+                if (extcomm && extcomm->ContainsMulticastFlags())
+                    flags = EvpnPrefix::SmetCapable;
                 BgpOListElem elem(node->address(), node->label(),
-                        extcomm ? extcomm->GetTunnelEncap() : vector<string>());
+                        extcomm ? extcomm->GetTunnelEncap() : vector<string>(),
+                        flags);
                 leaf_olist_spec.elements.push_back(elem);
             }
         }

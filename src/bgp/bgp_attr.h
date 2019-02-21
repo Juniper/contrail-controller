@@ -627,8 +627,9 @@ struct BgpAttrLabelBlock : public BgpAttribute {
 class BgpOListElem {
 public:
     BgpOListElem(Ip4Address address, uint32_t label,
-        std::vector<std::string> encap = std::vector<std::string>())
-        : address(address), label(label), encap(encap) {
+        std::vector<std::string> encap = std::vector<std::string>(),
+        uint32_t flags = 0)
+        : address(address), label(label), encap(encap), flags(flags) {
     }
 
     bool operator<(const BgpOListElem &rhs) const;
@@ -636,6 +637,7 @@ public:
     Ip4Address address;
     uint32_t label;
     std::vector<std::string> encap;
+    uint32_t flags;
 };
 
 struct BgpOListElemCompare {

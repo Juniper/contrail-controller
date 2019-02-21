@@ -356,6 +356,8 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
             nh.address = elem->address.to_string();
             nh.label = elem->label;
             nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
+            // using previously unused L3-label field to pass mcast flags
+            nh.l3_label = elem->flags;
             item.entry.olist.next_hop.push_back(nh);
         }
     }

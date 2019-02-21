@@ -54,6 +54,13 @@ public:
         SelectiveMulticastRoute = 6
     };
 
+    enum SmetFlags {
+        IgmpV1 = 1 << 0,
+        IgmpV2 = 1 << 1,
+        IgmpV3 = 1 << 2,
+        SmetCapable = 1 << 7
+    };
+
     EvpnPrefix();
     EvpnPrefix(const RouteDistinguisher &rd, const EthernetSegmentId &esi,
         uint32_t tag);
