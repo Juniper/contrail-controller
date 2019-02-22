@@ -23,7 +23,6 @@ from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api import vnc_api
 
 
-
 def etcd_args(args):
     vnc_db = {
         'host': args.etcd_server,
@@ -121,20 +120,29 @@ class VncEtcdWatchHandle(VncAmqpHandle):
 
     def _etcd_callback_wrapper(self, event):
         self.logger.debug(
-            "Got etcd event: {} {}".format(event.key, event.value))
+            "Got etcd event key: '{}', val: '{}', oper: '{}'".format(event.key,
+                                                                     event.value,
+                                                                     self._get_oper(event)))
         common_msg = self._parse_event(event)
         self._vnc_subscribe_callback(common_msg)
 
     def _parse_event(self, event):
+        if event.value:
+            obj_dict = json.loads(event.value)
+        else:
+            obj_dict = None
+
         obj_type, uuid_ = event.key.split("/")[-2:]
-        obj_dict = json.loads(event.value)
         oper = self._get_oper(event)
-        msg = {"type": obj_type, "uuid": uuid_, "oper": oper}
+        msg = {
+            "request_id": _gen_request_id(),
+            "type": obj_type,
+            "uuid": uuid_,
+            "fq_name": obj_dict["fq_name"] if obj_dict else [],
+            "oper": oper,
+        }
         if oper == "CREATE":
             msg["obj_dict"] = obj_dict
-        msg["request_id"] = _gen_request_id()
-        msg["fq_name"] = obj_dict["fq_name"]
-
         return msg
 
     @staticmethod
@@ -438,7 +446,10 @@ class VncEtcd(VncEtcdClient):
         else:
             response = self._client.get_prefix(self._prefix)
             for data, _ in response:
-                obj = json.loads(data)
+                try:
+                    obj = json.loads(data)
+                except ValueError:
+                    continue  # delete event returns empty data
                 if obj['uuid'] == uuid:
                     record = EtcdCache.Record(resource=obj)
                     break
