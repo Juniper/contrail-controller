@@ -138,6 +138,8 @@ def main(args_str=None):
         # Initialize the device job manager
         DeviceJobManager(_object_db, _amqp_client, _zookeeper_client, args,
                          dm_logger)
+        # Allow kombu client to connect consumers
+        gevent.sleep(0.5)
     except Exception as e:
         dm_logger.error("Error while initializing the device job "
                         "manager %s" % repr(e))
@@ -145,6 +147,8 @@ def main(args_str=None):
     try:
         # Initialize the device ztp manager
         DeviceZtpManager(_amqp_client, args, host_ip, dm_logger)
+        # Allow kombu client to connect consumers
+        gevent.sleep(0.5)
     except Exception as e:
         dm_logger.error("Error while initializing the device ztp "
                         "manager %s" % repr(e))
