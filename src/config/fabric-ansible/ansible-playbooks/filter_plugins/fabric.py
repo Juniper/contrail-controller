@@ -1571,7 +1571,7 @@ class FilterModule(object):
             for device_obj, device_roles in device2roles_mappings.iteritems():
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
-                    _task_done(
+                    _task_warn_log(
                         "Capable role info not populated in physical router "
                         "(no node_profiles attached, cannot assign role for "
                         "device : %s" % device_obj.physical_router_management_ip
@@ -1593,18 +1593,23 @@ class FilterModule(object):
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
             for device_roles in role_assignments:
-                device_obj = device_roles.get('device_obj')
-                self._add_loopback_interface(vnc_api, device_obj)
-                self._add_logical_interfaces_for_fabric_links(
-                    vnc_api, device_obj
-                )
-                self._add_bgp_router(vnc_api, device_roles)
+                # this check ensures that roles are assigned
+                # to the device only if node_profile_refs are present
+                # in the device
+                if device_roles.get('supported_roles'):
+                    device_obj = device_roles.get('device_obj')
+                    self._add_loopback_interface(vnc_api, device_obj)
+                    self._add_logical_interfaces_for_fabric_links(
+                        vnc_api, device_obj
+                    )
+                    self._add_bgp_router(vnc_api, device_roles)
 
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
             # the devices
             for device_roles in role_assignments:
-                self._assign_device_roles(vnc_api, device_roles)
+                if device_roles.get('supported_roles'):
+                    self._assign_device_roles(vnc_api, device_roles)
         except Exception as ex:
             errmsg = str(ex)
             _task_error_log('%s\n%s' % (errmsg, traceback.format_exc()))
