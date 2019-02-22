@@ -11,6 +11,7 @@ from vnc_api.gen.resource_xsd import KeyValuePair
 from vnc_api.gen.resource_xsd import KeyValuePairs
 from vnc_api.gen.resource_xsd import MacAddressesType
 from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
+from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
 from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
@@ -526,7 +527,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
-                    lag_uuid = cls._manage_lag_interface(
+                    lag_uuid = cls._manage_lag_association(
                         obj_dict['uuid'], cls.server, db_conn, links, lag_name)
                     obj_dict['port_virtual_port_group_id'] = lag_uuid
 
@@ -751,11 +752,53 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         return True, ""
 
+    # Allocate ae_id:
+    # 1. Get the ae_id from the old PI ref which is already assoc with PR
+    # 2. If not, then check if it got already generated on this api call
+    #    from the other PI that belongs to the same PR.
+    # 3. Else allocate the new ae_id. Id allocation is per PR 0-127 and key
+    #    is the vpg name.
     @classmethod
-    def _manage_lag_interface(cls, vmi_id, api_server, db_conn, phy_links,
-                              lag_name=None):
+    def _check_and_alloc_ae_id(cls, links, prouter_name,
+                               lag_name, old_pi_to_pr_dict):
+        if not len(links) > 1:
+            return None, None
+
+        for pr in old_pi_to_pr_dict.itervalues():
+            if pr.get('prouter_name') == prouter_name:
+                ae_num = pr.get('ae_id')
+                attr_obj = VpgInterfaceParametersType(ae_num)
+                return attr_obj, ae_num
+        ae_num = cls.vnc_zk_client.alloc_ae_id(prouter_name, lag_name)
+        attr_obj = VpgInterfaceParametersType(ae_num)
+        return attr_obj, ae_num
+
+    # Free ae_id:
+    # 1. If the PI ref is getting deleted and there in no other PI left
+    #    that belongs to the same PR.
+    # 2. Or if there is only one physical link to VPG.
+    @classmethod
+    def _check_and_free_ae_id(cls, links, prouter_dict,
+                              lag_name, pi_to_pr_dict):
+        prouter_list = []
+        for pr in pi_to_pr_dict.itervalues():
+            prouter_list.append(pr)
+
+        prouter_name = prouter_dict.get('prouter_name')
+        if prouter_name not in prouter_list or len(links) < 2:
+            cls.vnc_zk_client.free_ae_id(prouter_name,
+                                         prouter_dict.get('ae_id'),
+                                         lag_name)
+            prouter_dict['ae_id'] = None
+
+    @classmethod
+    def _manage_lag_association(cls, vmi_id, api_server, db_conn, phy_links,
+                                lag_name=None):
         fabric_name = None
         phy_interface_uuids = []
+        old_phy_interface_uuids = []
+        new_pi_to_pr_dict = {}
+        old_pi_to_pr_dict = {}
         for link in phy_links:
             if fabric_name is not None and fabric_name != link['fabric']:
                 msg = 'Physical interfaces in the same lag should belong to '\
@@ -768,13 +811,17 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             prouter_name = link['switch_info']
             pi_fq_name = ['default-global-system-config', prouter_name,
                           phy_interface_name]
-            phy_interface_uuids.append(
-                db_conn.fq_name_to_uuid('physical_interface', pi_fq_name))
+            pi_uuid = db_conn.fq_name_to_uuid('physical_interface', pi_fq_name)
+            phy_interface_uuids.append(pi_uuid)
+            new_pi_to_pr_dict[pi_uuid] = prouter_name
 
         # check if new physical interfaces belongs to some other lag
         for uuid in set(phy_interface_uuids):
             ok, phy_interface_dict = db_conn.dbe_read(
-                obj_type='physical-interface', obj_id=uuid)
+                obj_type='physical-interface',
+                obj_id=uuid,
+                obj_fields=['physical_interface_mac_addresses',
+                            'virtual_port_group_back_refs'])
             if not ok:
                 return (ok, 400, phy_interface_dict)
 
@@ -823,21 +870,21 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 fabric_name,
                 phy_interface_uuids[0],
             ]
-            ae_id = cls.vnc_zk_client.alloc_ae_id(':'.join(fabric_fq_name))
+            vpg_id = cls.vnc_zk_client.alloc_vpg_id(':'.join(fabric_fq_name))
 
-            def undo_ae_id():
-                cls.vnc_zk_client.free_ae_id(':'.join(fabric_fq_name))
+            def undo_vpg_id():
+                cls.vnc_zk_client.free_vpg_id(':'.join(fabric_fq_name))
                 return True, ""
-            get_context().push_undo(undo_ae_id)
+            get_context().push_undo(undo_vpg_id)
 
-            lag_name = "lag" + str(ae_id)
+            lag_name = "lag" + str(vpg_id)
             lag_obj = VirtualPortGroup(
                 parent_type='fabric',
-                fq_name=['default-global-system-config',
-                         fabric_name, lag_name],
+                fq_name=['default-global-system-config', fabric_name,
+                         lag_name],
                 virtual_port_group_lacp_enabled=True)
             lag_obj.set_annotations(KeyValuePairs(
-                [KeyValuePair('ae_if_name', str(ae_id)),
+                [KeyValuePair('vpg_if_name', str(vpg_id)),
                  KeyValuePair('esi', esi)]))
             lag_int_dict = json.dumps(lag_obj, default=_obj_serializer_all)
 
@@ -856,29 +903,46 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 return True, ''
             get_context().push_undo(undo_lag_create)
 
-        old_phy_interface_uuids = []
         old_phy_interface_refs = lag_dict.get('physical_interface_refs')
         for ref in old_phy_interface_refs or []:
+            old_pi_to_pr_dict[ref['uuid']] = {
+                'prouter_name': ref['to'][1],
+                'ae_id': ref['attr'].get('ae_num')}
             old_phy_interface_uuids.append(ref['uuid'])
-
-        # add new physical interfaces to the lag
-        for uuid in set(phy_interface_uuids) - set(old_phy_interface_uuids):
-            api_server.internal_request_ref_update(
-                'virtual-port-group',
-                lag_uuid,
-                'ADD',
-                'physical-interface',
-                uuid,
-                relax_ref_for_delete=True)
 
         # delete old physical interfaces to the lag
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
+            prouter_dict = old_pi_to_pr_dict.get(uuid)
+            cls._check_and_free_ae_id(phy_links, prouter_dict,
+                                      lag_name, new_pi_to_pr_dict)
             api_server.internal_request_ref_update(
                 'virtual-port-group',
                 lag_uuid,
                 'DELETE',
                 'physical-interface',
                 uuid)
+
+        # add new physical interfaces to the lag
+        pr_to_ae_id = {}
+        for uuid in phy_interface_uuids:
+            prouter_name = new_pi_to_pr_dict.get(uuid)
+            if not pr_to_ae_id.get(prouter_name):
+                attr_obj, ae_id = cls._check_and_alloc_ae_id(
+                    phy_links, prouter_name,
+                    lag_name, old_pi_to_pr_dict)
+                pr_to_ae_id[prouter_name] = ae_id
+            else:
+                attr_obj = VpgInterfaceParametersType(
+                    ae_num=pr_to_ae_id.get(prouter_name))
+
+            api_server.internal_request_ref_update(
+                'virtual-port-group',
+                lag_uuid,
+                'ADD',
+                'physical-interface',
+                uuid,
+                attr=attr_obj.__dict__ if attr_obj else None,
+                relax_ref_for_delete=True)
 
         return lag_uuid
 
@@ -904,7 +968,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
-                    lag_uuid = cls._manage_lag_interface(
+                    lag_uuid = cls._manage_lag_association(
                         id, api_server, db_conn, links, lag_name)
 
                     # ADD a ref from this VMI only if it's getting created
@@ -956,7 +1020,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 api_server.internal_request_delete('virtual_port_group',
                                                    lag_uuid)
                 uuid = int(fqname[2][2:])
-                ae_fqname = cls.vnc_zk_client.get_ae_from_id(uuid)
-                cls.vnc_zk_client.free_ae_id(uuid, ae_fqname)
+                vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(uuid)
+                cls.vnc_zk_client.free_vpg_id(uuid, vpg_id_fqname)
 
         return True, ""
