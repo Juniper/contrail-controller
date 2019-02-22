@@ -35,11 +35,8 @@ static int db_index = 2;
 
 class EqlIfTest : public EtcdIf {
 public:
-    EqlIfTest(const vector<string> &etcd_hosts,
-              const int port,
-              bool useSsl) : EtcdIf(etcd_hosts,
-                                   port,
-                                   useSsl) {
+    EqlIfTest(etcd::etcdql::ConnectionConfig &connection_config)
+            : EtcdIf(connection_config) {
     }
 
     virtual bool Connect() { return true; }
