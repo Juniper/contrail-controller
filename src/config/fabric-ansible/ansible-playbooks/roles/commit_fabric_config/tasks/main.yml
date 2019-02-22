@@ -1,38 +1,18 @@
-- name: Push config down the device
-  block:
-    - name: Print set_device_mode
-      debug:
-        msg: "{{set_device_mode}}"
-      when: set_device_mode is defined
+- name: Load final config be deployed to device
+  set_fact:
+    final_cfg: "{{ item }}"
+  with_file:
+    - "{{ source_file }}"
+  no_log: True
 
-    - name: create config folder
-      file:
-        path: "{{ conf_dir }}/final_config"
-        state: directory
+- name: print final config
+  debug: var=final_cfg verbosity=1
 
-    - name: Assembling configurations and copying to conf/
-      assemble: src={{ conf_dir }}/build_config dest={{ conf_dir }}/final_config/combined_config.conf
-
-    - name: Load final config be deployed to device
-      set_fact:
-        final_cfg: "{{ item }}"
-      with_file:
-        - "{{ conf_dir }}/final_config/combined_config.conf"
-      no_log: True
-
-    - name: print final config
-      debug: var=final_cfg verbosity=1
-
-    - name: Update job log with percentage
-      include_tasks: percentage_update.yml
-      vars:
-        current_index: 1
-        jl_message: "Deploying following config to device '{{ device_name }}' (it may take a while)\n{{ final_cfg }}"
-
-    - name: Set the source file
-      set_fact:
-        source_file: "{{ conf_dir}}/final_config/combined_config.conf"
-  when: set_device_mode is undefined or set_device_mode == False
+- name: Update job logs with config info
+  job_objectlog:
+    job_ctx: "{{ job_ctx }}"
+    message: "Deploying following config to device '{{ device_name }}' (it may take a while)\n{{ final_cfg }}"
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
 
 - name: finish with vendor-specific commit logic
   include_tasks: "{{ device_vendor }}.yml"
@@ -40,10 +20,8 @@
 - name: print device response
   debug: msg="{{ device_push_response }}" verbosity=1
 
-- name: Update job log with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    current_index: 2
-    jl_message: "{{ device_push_message }}"
-  when: set_device_mode is undefined or set_device_mode == False
-
+- name: Update job logs with device response
+  job_objectlog:
+    job_ctx: "{{ job_ctx }}"
+    message: "{{ device_push_message }}"
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
