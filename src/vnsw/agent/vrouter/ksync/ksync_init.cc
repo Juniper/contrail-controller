@@ -302,12 +302,16 @@ void KSync::SetHugePages() {
     encoder.set_vhp_resp(VR_HPAGE_CFG_RESP_HPAGE_SUCCESS);
 
     uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
-    int len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
+    uint32_t len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
 
     KSyncSock *sock = KSyncSock::Get(0);
-    sock->BlockingSend((char *)msg, len);
-    if (sock->BlockingRecv()) {
+    if(len > sock->BlockingSend((char *)msg, len)) {
         LOG(ERROR, "Error sending Huge Page configuration to VROUTER. Skipping KSync Start");
+        assert(0);
+    }
+    if (sock->BlockingRecv()) {
+        LOG(ERROR, "Error receiving Huge Page configuration to VROUTER. Skipping KSync Start");
+        assert(0);
     }
 }
 
