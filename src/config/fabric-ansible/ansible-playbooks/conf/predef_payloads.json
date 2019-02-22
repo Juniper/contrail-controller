@@ -38,14 +38,14 @@
             "playbook_info": [
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hitless_upgrade_strategy.yml",
-                "multi_device_playbook": true,
+                "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hitless_upgrade.yml",
-                "multi_device_playbook": false,
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 90
