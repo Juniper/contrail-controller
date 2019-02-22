@@ -458,6 +458,10 @@ class VncApiServer(object):
             auth_token = get_request().get_header('X-Auth-Token')
             request_params['auth_token'] = auth_token
 
+            # get cluster id
+            contrail_cluster_id = get_request().get_header('X-Cluster-ID')
+            request_params['contrail_cluster_id'] = contrail_cluster_id
+
             # get the API config node ip list
             if not self._config_node_list:
                 (ok, cfg_node_list, _) = self._db_conn.dbe_list(

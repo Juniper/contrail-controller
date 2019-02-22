@@ -26,8 +26,8 @@ from job_manager.job_messages import MsgBundle
 class JobHandler(object):
 
     def __init__(self, logger, vnc_api, job_template, execution_id, input,
-                 job_utils, device_json, auth_token, api_server_host,
-                 job_log_utils, sandesh_args,fabric_fq_name,
+                 job_utils, device_json, auth_token, contrail_cluster_id,
+                 api_server_host, job_log_utils, sandesh_args,fabric_fq_name,
                  playbook_timeout, playbook_seq, vnc_api_init_params,
                  zk_client):
         self.is_multi_device_playbook = False
@@ -39,6 +39,7 @@ class JobHandler(object):
         self._job_utils = job_utils
         self._device_json = device_json
         self._auth_token = auth_token
+        self._contrail_cluster_id = contrail_cluster_id
         self._api_server_host = api_server_host
         self._job_log_utils = job_log_utils
         self._sandesh_args = sandesh_args
@@ -199,6 +200,7 @@ class JobHandler(object):
                 'job_template_fqname': self._job_template.fq_name,
                 'fabric_fq_name': self._fabric_fq_name,
                 'auth_token': self._auth_token,
+                'contrail_cluster_id': self._contrail_cluster_id,
                 'api_server_host': self._api_server_host,
                 'job_execution_id': self._execution_id,
                 'args': self._sandesh_args,
