@@ -1,0 +1,24 @@
+- name: Generate feature config
+  block:
+    - debug: msg="Generate '{{ feature }}' for {{ device_vendor }} {{ device_family }} {{ device_name }}" verbosity=1
+    - template:
+        src: "{{ device_vendor }}_feature_config.j2"
+        dest: "{{ conf_dir }}/build_config/{{ vf_feature }}.conf"
+      register: cmd_res
+    - name: print command response
+      debug: var=cmd_res verbosity=1
+  rescue:
+    - set_fact:
+        output: {
+          "status": "Failure",
+          "message": "{{cmd_res.msg}}"
+        }
+    - name: print output
+      debug: var=output verbosity=1
+    - name: Appending job log for reading necessary info from database
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        message: "Failed to generate configuration: {{ vf_feature }}\n{{ cmd_res.msg }}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+        device_name: "{{ device_name }}"
+    - meta: end_play
