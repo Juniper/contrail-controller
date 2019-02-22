@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include "kstate.h"
 #include "oper/interface_common.h"
 #include "interface_kstate.h"

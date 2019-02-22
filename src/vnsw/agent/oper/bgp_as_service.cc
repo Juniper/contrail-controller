@@ -4,11 +4,13 @@
 
 #include <string>
 #include <vector>
+#include <boost/uuid/uuid_io.hpp>
+
 #include <vnc_cfg_types.h>
 #include <base/logging.h>
 #include <base/string_util.h>
 #include <base/bgp_as_service_utils.h>
-#include <boost/uuid/uuid_io.hpp>
+#include <base/address_util.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
 #include <ifmap/ifmap_node.h>
@@ -30,7 +32,6 @@
 #ifdef _WIN32
 #include <posix_fcntl.h>
 #endif
-#include "net/address_util.h"
 #include "oper/global_system_config.h"
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>

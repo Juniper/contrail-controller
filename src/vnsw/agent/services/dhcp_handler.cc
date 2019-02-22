@@ -4,9 +4,9 @@
 
 #include <stdint.h>
 #include "base/os.h"
+#include "base/address_util.h"
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"
-#include "net/address_util.h"
 #include "oper/route_common.h"
 #include "oper/vn.h"
 #include "pkt/pkt_init.h"

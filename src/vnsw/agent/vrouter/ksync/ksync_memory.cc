@@ -18,7 +18,7 @@
 
 #include <base/timer.h>
 #include <base/task_trigger.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <cmn/agent_cmn.h>
 #include <services/services_init.h>
 #include <uve/stats_collector.h>

@@ -9,6 +9,7 @@
 #include <base/os.h>
 #include <base/parse_object.h>
 #include <base/util.h>
+#include <base/address_util.h>
 #include <ifmap/ifmap_link.h>
 #include <ifmap/ifmap_table.h>
 #include <vnc_cfg_types.h>
@@ -31,7 +32,6 @@
 #include <oper/agent_route_resync.h>
 #include <oper/qos_config.h>
 #include <filter/acl.h>
-#include "net/address_util.h"
 
 using namespace autogen;
 using namespace std;

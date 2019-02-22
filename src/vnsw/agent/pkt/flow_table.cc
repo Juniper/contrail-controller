@@ -9,7 +9,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/unordered_map.hpp>
 #include <sandesh/sandesh_trace.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <pkt/flow_table.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <vrouter/ksync/ksync_flow_index_manager.h>

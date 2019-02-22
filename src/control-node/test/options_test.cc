@@ -11,11 +11,11 @@
 #include "base/test/task_test_util.h"
 #include "base/util.h"
 #include "base/logging.h"
+#include "base/address_util.h"
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/options.h"
 #include "io/event_manager.h"
-#include "net/address_util.h"
 
 using namespace std;
 using namespace boost::asio::ip;

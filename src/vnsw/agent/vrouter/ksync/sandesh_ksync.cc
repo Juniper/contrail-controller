@@ -6,7 +6,7 @@
 #include <db/db_entry.h>
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <vrouter/ksync/sandesh_ksync.h>
 #include <vrouter/ksync/flowtable_ksync.h>
 #include <vrouter/ksync/interface_ksync.h>

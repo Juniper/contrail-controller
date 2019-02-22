@@ -10,7 +10,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/service_chaining_types.h"
-#include "net/address_util.h"
+#include "base/address_util.h"
 
 using contrail::regex;
 using contrail::regex_match;

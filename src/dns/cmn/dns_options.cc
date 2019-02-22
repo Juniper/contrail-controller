@@ -12,10 +12,10 @@
 #include "base/misc_utils.h"
 #include "base/util.h"
 #include <base/options_util.h>
+#include <base/address_util.h>
 #include "cmn/buildinfo.h"
 #include "cmn/dns_options.h"
 #include "config_client_manager.h"
-#include "net/address_util.h"
 
 using namespace std;
 using namespace boost::asio::ip;

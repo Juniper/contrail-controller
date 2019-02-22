@@ -18,7 +18,7 @@
 
 #include <base/timer.h>
 #include <base/task_trigger.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <cmn/agent_cmn.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>

@@ -4,7 +4,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/vm.h>

@@ -11,7 +11,7 @@
 
 #include "cmn/agent_cmn.h"
 #include "diag/diag.h"
-#include "net/address_util.h"
+#include "base/address_util.h"
 #include "oper/ecmp_load_balance.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
@@ -675,7 +675,7 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
 
     if ((mpls_host & 0x100) == 0) {
         // interpret outer label 0xffffff as no label
-        if (((mpls_host & 0xFFFFF000) >> 12) != 
+        if (((mpls_host & 0xFFFFF000) >> 12) !=
                 MplsTable::kInvalidLabel) {
             pkt_info->tunnel.label = MplsTable::kInvalidLabel;
             PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");

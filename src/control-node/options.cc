@@ -15,7 +15,7 @@
 #include "base/misc_utils.h"
 #include "base/util.h"
 #include "config_client_manager.h"
-#include "net/address_util.h"
+#include <base/address_util.h>
 #include <base/options_util.h>
 
 using namespace std;

@@ -4,7 +4,7 @@
 
 #include <ifmap/ifmap_node.h>
 #include <vnc_cfg_types.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/route_leak.h>

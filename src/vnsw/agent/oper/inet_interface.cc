@@ -6,12 +6,12 @@
 #include <net/ethernet.h>
 #include <boost/uuid/uuid_io.hpp>
 
+#include "base/address_util.h"
 #include "base/logging.h"
 #include "db/db.h"
 #include "db/db_entry.h"
 #include "db/db_table.h"
 #include "ifmap/ifmap_node.h"
-#include "net/address_util.h"
 
 #include <cfg/cfg_init.h>
 #include <cmn/agent.h>
