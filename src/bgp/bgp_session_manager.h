@@ -9,8 +9,8 @@
 #include <boost/dynamic_bitset.hpp>
 
 #include "base/queue_task.h"
+#include "base/address.h"
 #include "io/tcp_server.h"
-#include "net/address.h"
 
 class BgpPeer;
 class BgpServer;

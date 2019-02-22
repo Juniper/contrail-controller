@@ -21,7 +21,7 @@
 #include "db/db.h"
 #include "io/tcp_server.h"
 #include "io/tcp_session.h"
-#include "net/address.h"
+#include "base/address.h"
 
 class AsPathDB;
 class AsPath4ByteDB;

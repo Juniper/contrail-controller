@@ -9,7 +9,7 @@
 
 #include <base/util.h>
 #include <base/logging.h>
-#include <net/address.h>
+#include <base/address.h>
 
 #include <cmn/agent_cmn.h>
 #include <vnc_cfg_types.h>
@@ -431,9 +431,9 @@ bool AddressMatch::TagsMatchAG(const TagList &pkt_tag_list) const {
     TagList::const_iterator it = tags_.begin();
     TagList::const_iterator pkt_it = pkt_tag_list.begin();
 
-    /* We are doing OR operation for address group labels 
+    /* We are doing OR operation for address group labels
     * If any of the tags/labels matches between endpoints,
-    * will allow traffic */ 
+    * will allow traffic */
 
     if(it == tags_.end() || pkt_it == pkt_tag_list.end())
 	return false;

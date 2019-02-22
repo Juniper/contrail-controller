@@ -13,10 +13,10 @@
 #include <boost/system/error_code.hpp>
 
 #include "base/util.h"
+#include "base/address.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_route.h"
-#include "net/address.h"
 #include "net/bgp_af.h"
 #include "net/rd.h"
 

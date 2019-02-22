@@ -7,7 +7,7 @@
 #include <string>
 
 #include "base/parse_object.h"
-#include "net/address.h"
+#include "base/address.h"
 
 using std::string;
 

@@ -4,7 +4,7 @@
 
 #include "kstate.h"
 #include "route_kstate.h"
-#include <net/address.h>
+#include <base/address.h>
 #include "vr_defs.h"
 
 using namespace std;

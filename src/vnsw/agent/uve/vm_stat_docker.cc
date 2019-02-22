@@ -11,7 +11,7 @@
 #include <db/db.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <ifmap/ifmap_agent_parser.h>
 #include <cmn/agent.h>
 #include <uve/vrouter_uve_entry.h>

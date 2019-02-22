@@ -9,7 +9,7 @@
 
 #include "bgp/bgp_table.h"
 #include "bgp/inet/inet_route.h"
-#include "net/address.h"
+#include "base/address.h"
 
 class BgpServer;
 class InetVpnPrefix;

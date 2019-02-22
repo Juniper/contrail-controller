@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "base/util.h"
+#include "base/address.h"
 #include "bgp/bgp_common.h"
 #include "io/tcp_session.h"
-#include "net/address.h"
 #include "schema/vnc_cfg_types.h"
 
 class BgpServer;

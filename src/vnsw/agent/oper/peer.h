@@ -9,7 +9,7 @@
 #include <map>
 #include <tbb/mutex.h>
 #include <db/db_table_walker.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <boost/intrusive_ptr.hpp>
 #include <oper/agent_route_walker.h>
 

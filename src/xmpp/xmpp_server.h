@@ -11,9 +11,9 @@
 
 #include "base/lifetime.h"
 #include "base/queue_task.h"
+#include "base/address.h"
 #include "bgp/bgp_config.h"
 #include "io/ssl_server.h"
-#include "net/address.h"
 #include "xmpp/xmpp_session.h"
 #include "xmpp/xmpp_config.h"
 #include "xmpp/xmpp_connection_manager.h"

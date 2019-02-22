@@ -10,7 +10,7 @@
 
 #include <inttypes.h>
 
-#include "net/address.h"
+#include <base/address.h>
 
 class BgpAf {
 public:

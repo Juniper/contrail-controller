@@ -7,8 +7,8 @@
 
 #include <vector>
 #include <boost/uuid/uuid.hpp>
-#include <net/address.h>
 
+#include <base/address.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <vnc_cfg_types.h>

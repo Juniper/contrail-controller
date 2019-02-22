@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <net/address.h>
+#include <base/address.h>
 
 #if defined(__GNUC__)
 #include "base/compiler.h"

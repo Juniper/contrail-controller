@@ -15,10 +15,10 @@
 
 #include "base/lifetime.h"
 #include "base/task_trigger.h"
+#include "base/address.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_path.h"
 #include "db/db_entry.h"
-#include "net/address.h"
 
 class BgpPath;
 class DBTablePartition;

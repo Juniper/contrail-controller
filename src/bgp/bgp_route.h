@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "bgp/bgp_path.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "route/route.h"
 
 class BgpAttr;

@@ -23,9 +23,9 @@
 #include "base/bitset.h"
 #include "base/index_map.h"
 #include "base/lifetime.h"
+#include "base/address.h"
 #include "bgp/bgp_common.h"
 #include "bgp/rtarget/rtarget_address.h"
-#include "net/address.h"
 #include "sandesh/sandesh_trace.h"
 
 class DBTable;

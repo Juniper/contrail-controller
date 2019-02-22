@@ -12,8 +12,8 @@
 
 #include "base/bitset.h"
 #include "base/util.h"
+#include "base/address.h"
 #include "bgp/rtarget/rtarget_address.h"
-#include "net/address.h"
 
 class BgpPeer;
 class BgpRoute;

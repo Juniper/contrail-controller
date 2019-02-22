@@ -9,7 +9,7 @@
  * Module responsible to manage the VRouter memory mapped to agent
  */
 #include <list>
-#include <net/address.h>
+#include <base/address.h>
 struct nl_client;
 class KSync;
 class KSyncMemory {

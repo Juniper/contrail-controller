@@ -10,7 +10,7 @@
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_route.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "net/bgp_af.h"
 
 class Inet6Prefix {

@@ -8,8 +8,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/ethernet.h>
-#include <net/address.h>
 
+#include <base/address.h>
 #include <base/lifetime.h>
 #include <base/patricia.h>
 #include <base/task_annotations.h>

@@ -4,8 +4,8 @@
 #ifndef vnsw_agent_vgw_cfg_h
 #define vnsw_agent_vgw_cfg_h
 
-#include <net/address.h>
 #include <boost/property_tree/ptree.hpp>
+#include <base/address.h>
 
 class InetInterface;
 

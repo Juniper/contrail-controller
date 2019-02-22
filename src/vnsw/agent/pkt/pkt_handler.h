@@ -16,7 +16,7 @@
 #include <tbb/atomic.h>
 #include <boost/array.hpp>
 
-#include <net/address.h>
+#include <base/address.h>
 #include <net/mac_address.h>
 #include <oper/mirror_table.h>
 #include <oper/nexthop.h>

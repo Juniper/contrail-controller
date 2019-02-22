@@ -6,7 +6,7 @@
 #define SRC_BGP_IPEER_H_
 
 #include "bgp/bgp_proto.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "tbb/atomic.h"
 
 class DBTablePartBase;

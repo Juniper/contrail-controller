@@ -19,6 +19,7 @@
 #include "base/util.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
+#include "base/address.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_debug.h"
 #include "bgp/bgp_peer_key.h"
@@ -28,7 +29,6 @@
 #include "bgp/rtarget/rtarget_address.h"
 #include "bgp/state_machine.h"
 #include "db/db_table.h"
-#include "net/address.h"
 
 class BgpNeighborConfig;
 class BgpPeerClose;

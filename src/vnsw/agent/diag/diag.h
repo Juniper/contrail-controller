@@ -6,7 +6,7 @@
 #define vnsw_agent_diag_diag_hpp
 
 #include <base/logging.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <base/timer.h>
 #include <base/queue_task.h>
 #include "boost/date_time/posix_time/posix_time.hpp"
