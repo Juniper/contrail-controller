@@ -5400,6 +5400,144 @@ TEST_F(IntfTest, FloatingIpFixedIpAddChange_1) {
     client->Reset();
 }
 
+TEST_F(IntfTest, GwIntfAddVpg) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportWithoutNova(input1, 1);
+    client->WaitForIdle();
+
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pi1");
+    AddVirtualPortGroup("vpg1", 1, "vpg1");
+    AddLink("physical-router", agent->host_name().c_str(),
+            "physical-interface", "pi1");
+    AddLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8",
+            "virtual-port-group", "vpg1");
+
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    //Verify that route is pointing to resolve NH
+    //and the route points to table NH
+    Ip4Address addr = Ip4Address::from_string("8.1.1.0");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 24);
+    const VrfEntry *vrf = VrfGet("vrf1", false);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(vrf != NULL);
+    if (rt && vrf) {
+        EXPECT_TRUE(rt->GetActiveLabel() == vrf->table_label());
+        EXPECT_TRUE(rt->GetActiveLabel() != MplsTable::kInvalidLabel);
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
+    }
+
+    DelLink("virtual-machine-interface", input1[0].name,
+             "subnet", "subnet");
+    DelLink("physical-router", agent->host_name().c_str(),
+            "physical-interface", "pi1");
+    DelLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", "vnet8",
+            "virtual-port-group", "vpg1");
+    DeletePhysicalDevice(agent->host_name().c_str());
+    DeletePhysicalInterface("pi1");
+    DeleteLogicalInterface("vpg1");
+
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000,
+        (Agent::GetInstance()->interface_table()->Find(&key, true) == NULL));
+    client->Reset();
+}
+
+TEST_F(IntfTest, GwSubnetChangeVpg) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("vpg1", 1, "vpg1");
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8",
+            "virtual-port-group", "vpg1");
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    //Verify that route is pointing to resolve NH
+    //and the route points to table NH
+    Ip4Address addr = Ip4Address::from_string("8.1.1.0");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 24);
+    const VrfEntry *vrf = VrfGet("vrf1", false);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(vrf != NULL);
+    if (rt && vrf) {
+        EXPECT_TRUE(rt->GetActiveLabel() == vrf->table_label());
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
+    }
+
+    AddSubnetType("subnet", 1, "9.1.1.0", 24);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (RouteFind("vrf1", "8.1.1.0", 24) == false));
+    addr = Ip4Address::from_string("9.1.1.0");
+    rt = RouteGet("vrf1", addr, 24);
+    vrf = VrfGet("vrf1", false);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(vrf != NULL);
+    if (rt && vrf) {
+        EXPECT_TRUE(rt->GetActiveLabel() == vrf->table_label());
+        EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
+    }
+
+    DelLink("virtual-machine-interface", input1[0].name,
+             "subnet", "subnet");
+    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", "vnet8",
+            "virtual-port-group", "vpg1");
+    DeletePhysicalDevice(agent->host_name().c_str());
+    DeletePhysicalInterface("pi1");
+    DeleteLogicalInterface("vpg1");
+    DelLink("virtual-machine-interface", input1[0].name,
+             "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", "9.1.1.0", 24));
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000,
+        (Agent::GetInstance()->interface_table()->Find(&key, true) == NULL));
+    client->Reset();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
