@@ -24,6 +24,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
+from db import DMCassandraDB
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
@@ -33,16 +34,13 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM, VirtualPortGroupDM, \
-    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM 
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM
 
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
 from logger import DeviceManagerLogger
-
-# zookeeper client connection
-_zookeeper_client = None
 
 
 class DeviceManager(object):
@@ -254,12 +252,11 @@ class DeviceManager(object):
 
     _instance = None
 
-    def __init__(self, dm_logger=None, args=None, object_db=None,
+    def __init__(self, dm_logger=None, args=None, zookeeper_client=None,
                  amqp_client=None):
         DeviceManager._instance = self
         self._args = args
         self._amqp_client = amqp_client
-        self._object_db = object_db
 
         PushConfigState.set_push_mode(int(self._args.push_mode))
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
@@ -325,6 +322,8 @@ class DeviceManager(object):
                                       self._args)
         self._vnc_amqp.establish()
 
+        # Initialize cassandra
+        self._object_db = DMCassandraDB.get_instance(zookeeper_client, self._args, self.logger)
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
@@ -508,6 +507,7 @@ class DeviceManager(object):
         for obj_cls in DBBaseDM.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
+        DMCassandraDB.clear_instance()
         cls._instance = None
     # end destroy_instance
 
