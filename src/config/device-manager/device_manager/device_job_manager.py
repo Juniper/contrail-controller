@@ -12,6 +12,7 @@ import traceback
 
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
+from cfgm_common.vnc_object_db import VncObjectDBClient
 from job_manager.job_utils import JobStatus
 from job_manager.job_log_utils import JobLogUtils
 from job_manager.job_exception import JobException
@@ -32,10 +33,8 @@ class DeviceJobManager(object):
 
     _instance = None
 
-    def __init__(self, db_conn, amqp_client, zookeeper_client, args,
-                 dm_logger):
+    def __init__(self, amqp_client, zookeeper_client, args, dm_logger):
         DeviceJobManager._instance = self
-        self._db_conn = db_conn
         self._amqp_client = amqp_client
         self._zookeeper_client = zookeeper_client
         self._args = args
@@ -57,6 +56,19 @@ class DeviceJobManager(object):
             'cluster_id': self._args.cluster_id
         }
         self._job_args = json.dumps(job_args)
+
+        # initialize the db connection
+        credential = None
+        if args.cassandra_user and args.cassandra_password:
+            credential = {
+                'username': args.cassandra_user,
+                'password': args.cassandra_password
+            }
+        self._db_conn = VncObjectDBClient(
+            args.cassandra_server_list, args.cluster_id, None, None,
+            dm_logger.log, credential=credential,
+            ssl_enabled=args.cassandra_use_ssl,
+            ca_certs=args.cassandra_ca_certs)
 
         # initialize the job logger
         self._job_log_utils = JobLogUtils(
