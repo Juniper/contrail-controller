@@ -1,0 +1,4 @@
+---
+# vars input file
+feature: underlay_infra_bms_access
+add_ztp_suffix: false
