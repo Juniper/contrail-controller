@@ -879,6 +879,7 @@ class VncDbClient(object):
             "analytics_snmp_node" : ("ObjectAnalyticsSNMPInfo", True),
             "analytics_alarm_node" : ("ObjectAnalyticsAlarmInfo", True),
             "database_node" : ("ObjectDatabaseInfo", True),
+            "config_database_node" : ("ObjectConfigDatabaseInfo", True),
             "config_node" : ("ObjectConfigNode", True),
             "service_chain" : ("ServiceChain", False),
             "physical_router" : ("ObjectPRouter", True),
