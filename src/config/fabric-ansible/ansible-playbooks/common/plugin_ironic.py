@@ -9,6 +9,7 @@ from keystoneclient.v3 import client
 import ironic_inspector_client
 from contrail_command import CreateCCNode
 import time
+from pprint import pformat
 
 class ImportIronicNodes(object):
 
@@ -46,8 +47,8 @@ class ImportIronicNodes(object):
         'os_username': '',
         'os_password': '',
         'os_project_name': 'admin',
-        'os_user_domain_name': '',
-        'os_project_domain_name': '',
+        'os_user_domain_name': 'default',
+        'os_project_domain_name': 'default',
         'os_endpoint_type': 'internalURL',
         'os_ironic_api_version': "1.19"
     }
@@ -85,6 +86,7 @@ class ImportIronicNodes(object):
             self.added_nodes_dict = {node['uuid']: node for node in
                                      added_nodes_list}
 
+        print (pformat(auth_args))
         # Set authentication and client auth objects
         self.set_ks_auth_sess()
         self.set_ironic_clients()
