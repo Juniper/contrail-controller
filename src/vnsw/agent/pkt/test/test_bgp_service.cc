@@ -175,7 +175,8 @@ TEST_F(BgpServiceTest, Test_ttl_2) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
-    EXPECT_TRUE(fe->data().ttl == 0);
+    // flow ttl is set to pkt ttl
+    EXPECT_TRUE(fe->data().ttl == 64);
     EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl == 0);
 
     client->WaitForIdle();
