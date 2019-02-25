@@ -37,14 +37,11 @@ class KombuAmqpClient(object):
         self._connection = kombu.Connection(urls, ssl=ssl_params,
             heartbeat=heartbeat, transport_options={'confirm_publish': True})
         self._connected = False
-        self._channel = None
-        self._producer = None
         self._exchanges = {}
         self._consumers = {}
         self._removed_consumers = []
         self._running = False
         self._consumers_changed = True
-        self._producer_changed = True
         self._consumer_gl = None
         self._publisher_gl = None
         self._heartbeat_gl = None
@@ -116,9 +113,8 @@ class KombuAmqpClient(object):
         if self._consumer_gl is not None:
             self._consumer_gl.kill()
         for consumer in (self._removed_consumers + self._consumers.values()):
-            bound_queue = consumer.queue(self._channel)
-            if bound_queue is not None:
-                bound_queue.delete()
+            if consumer.queue.is_bound:
+                consumer.queue.delete()
         self._connection.close()
     # end stop
 
@@ -130,19 +126,15 @@ class KombuAmqpClient(object):
         self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         while self._running:
             try:
-                self._ensure_connection()
+                self._ensure_connection(self._connection, "Consumer")
+                self._connected = True
 
-                while self._running and self._connected and \
-                        (len(self._removed_consumers) > 0 or removed_consumer):
+                while len(self._removed_consumers) > 0 or removed_consumer:
                     if removed_consumer is None:
                         removed_consumer = self._removed_consumers.pop(0)
-                    bound_queue = removed_consumer.queue(self._channel)
-                    if bound_queue is not None:
-                        bound_queue.delete()
+                    if removed_consumer.queue.is_bound:
+                        removed_consumer.queue.delete()
                     removed_consumer = None
-
-                if not self._running or not self._connected:
-                    continue
 
                 if len(self._consumers.values()) == 0:
                     msg = 'KombuAmqpClient: Waiting for consumer'
@@ -150,33 +142,31 @@ class KombuAmqpClient(object):
                     self._consumer_event.wait()
                     self._consumer_event.clear()
 
-                if not self._running or not self._connected or \
-                        len(self._consumers.values()) == 0:
+                if not self._running or len(self._consumers.values()) == 0:
                     msg = 'KombuAmqpClient: No consumers found'
                     self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                     continue
 
-                consumers = [kombu.Consumer(self._channel, queues=c.queue,
+                consumers = [kombu.Consumer(self._connection, queues=c.queue,
                              callbacks=[c.callback] if c.callback else None)
                              for c in self._consumers.values()]
                 msg = 'KombuAmqpClient: Created consumers %s' % str(self._consumers.keys())
                 self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                 self._consumers_changed = False
                 with nested(*consumers):
-                    while self._running and not self._consumers_changed and\
-                            self._connected:
+                    while self._running and not self._consumers_changed:
                         try:
                             self._connection.drain_events(timeout=1)
                         except socket.timeout:
                             pass
             except errors as e:
-                msg = 'Connection error in Kombu amqp consumer greenlet: %s' % str(e)
-                self._logger(msg, level=SandeshLevel.SYS_WARN)
+                msg = 'KombuAmqpClient: Connection error in Kombu amqp consumer greenlet: %s' % str(e)
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                 self._connected = False
                 gevent.sleep(0.1)
             except Exception as e:
-                msg = 'Error in Kombu amqp consumer greenlet: %s' % str(e)
-                self._logger(msg, level=SandeshLevel.SYS_ERR)
+                msg = 'KombuAmqpClient: Error in Kombu amqp consumer greenlet: %s' % str(e)
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                 self._connected = False
                 gevent.sleep(0.1)
         msg = 'KombuAmqpClient: Exited consumer greenlet'
@@ -187,32 +177,27 @@ class KombuAmqpClient(object):
         errors = (self._connection.connection_errors +
                   self._connection.channel_errors)
         payload = None
+        connection = self._connection.clone()
         msg = 'KombuAmqpClient: Starting publisher greenlet'
         self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         while self._running:
             try:
-                self._ensure_connection()
-                while self._running and self._connected:
+                self._ensure_connection(connection, "Publisher")
+                producer = kombu.Producer(connection)
+                while self._running:
                     if payload is None:
                         payload = self._publisher_queue.get()
 
-                    if self._producer_changed:
-                        self._producer = kombu.Producer(self._channel)
-                        self._producer_changed = False
-
                     exchange = self.get_exchange(payload.exchange)
-                    self._producer.publish(payload.message, exchange=exchange,
+                    producer.publish(payload.message, exchange=exchange,
                         routing_key=payload.routing_key, **payload.kwargs)
                     payload = None
             except errors as e:
-                msg = 'Connection error in Kombu amqp publisher greenlet: %s' % str(e)
-                self._logger(msg, level=SandeshLevel.SYS_WARN)
-                self._connected = False
+                msg = 'KombuAmqpClient: Connection error in Kombu amqp publisher greenlet: %s' % str(e)
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
             except Exception as e:
-                msg = 'Error in Kombu amqp publisher greenlet: %s' % str(e)
-                self._logger(msg, level=SandeshLevel.SYS_ERR)
-                payload = None
-                self._connected = False
+                msg = 'KombuAmqpClient: Error in Kombu amqp publisher greenlet: %s' % str(e)
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         msg = 'KombuAmqpClient: Exiting publisher greenlet'
         self._logger(msg, level=SandeshLevel.SYS_DEBUG)
     # end _start_publishing
@@ -223,27 +208,21 @@ class KombuAmqpClient(object):
                 if self._connected and len(self._consumers.values()) > 0:
                     self._connection.heartbeat_check()
             except Exception as e:
-                msg = 'Error in Kombu amqp heartbeat greenlet: %s' % str(e)
-                self._logger(msg, level=SandeshLevel.SYS_ERR)
+                msg = 'KombuAmqpClient: Error in Kombu amqp heartbeat greenlet: %s' % str(e)
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
             finally:
                 gevent.sleep(float(self._heartbeat)/2)
     # end _heartbeat_check
 
-    def _ensure_connection(self):
-        msg = 'KombuAmqpClient: Ensuring connection'
+    def _ensure_connection(self, connection, name):
+        msg = 'KombuAmqpClient: Ensuring %s connection' % name
         self._logger(msg, level=SandeshLevel.SYS_DEBUG)
-        with self._connection_lock:
-            if not self._connected:
-                self._connection.close()
-                self._connection.ensure_connection()
-                self._connection.connect()
-                msg = 'Kombu amqp client connection established %s' %\
-                    repr(self._connection)
-                self._logger(msg, level=SandeshLevel.SYS_NOTICE)
-                self._channel = self._connection.channel()
-                self._consumers_changed = True
-                self._producer_changed = True
-                self._connected = True
+        connection.close()
+        connection.ensure_connection()
+        connection.connect()
+        msg = 'KombuAmqpClient: %s connection established %s' %\
+            (name, str(self._connection))
+        self._logger(msg, level=SandeshLevel.SYS_INFO)
     # end _ensure_connection
 
     @staticmethod
