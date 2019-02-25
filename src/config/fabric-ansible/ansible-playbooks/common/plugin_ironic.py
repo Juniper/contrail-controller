@@ -46,8 +46,8 @@ class ImportIronicNodes(object):
         'os_username': '',
         'os_password': '',
         'os_project_name': 'admin',
-        'os_user_domain_name': '',
-        'os_project_domain_name': '',
+        'os_user_domain_name': 'default',
+        'os_project_domain_name': 'default',
         'os_endpoint_type': 'internalURL',
         'os_ironic_api_version': "1.19"
     }
