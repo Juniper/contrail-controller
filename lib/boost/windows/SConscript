@@ -21,31 +21,37 @@ if not os.path.exists(libpath):
     print('%s not present' % libpath)
     sys.exit(1)
 
-def copyboostlib(tofile, fromfile=None):
-    if not os.path.exists(tofile):
-        fromfile = Dir(boost_root).abspath + '/lib64-msvc-14.0/' + 'libboost_' + fromfile + '-vc140-mt' + lib_file_flag + '-1_62.lib'
-        print('copying ' + fromfile + ' to ' + tofile)
-        shutil.copyfile(fromfile, tofile)
+libraries = [
+    'system',
+    'program_options',
+    'regex',
+    'date_time',
+    'thread',
+    'filesystem',
+    'chrono',
+]
 
+def get_destinations_for_library(library):
+    lib_dir = '#build/lib/'
+    return [
+        File(lib_dir + 'boost_{}.lib'.format(library)),
+        File(lib_dir + 'libboost_{}-vc140-mt{}-1_62.lib'.format(library, lib_file_flag))
+    ]
+
+def copy_boost_lib(to_file, library=None):
+    if not os.path.exists(to_file):
+        from_file = '{}/lib64-msvc-14.0/libboost_{}-vc140-mt{}-1_62.lib'.format(
+            Dir(boost_root).abspath, library, lib_file_flag)
+        print('Copying {} to {}'.format(from_file, to_file))
+        shutil.copyfile(from_file, to_file)
 
 def prepare_boost_libs(target, source, env):
-    buildlibdir = Dir('#build/lib').abspath + '/'
-    copyboostlib(buildlibdir + 'boost_program_options.lib', 'program_options')
-    copyboostlib(buildlibdir + 'boost_regex.lib', 'regex')
-    copyboostlib(buildlibdir + 'boost_system.lib', 'system')
-    copyboostlib(buildlibdir + 'boost_thread.lib', 'thread')
-    copyboostlib(buildlibdir + 'boost_filesystem.lib', 'filesystem')
-    copyboostlib(buildlibdir + 'boost_chrono.lib', 'chrono')
-
-    copyboostlib(buildlibdir + 'libboost_system-vc140-mt' + lib_file_flag + '-1_62.lib', 'system')
-    copyboostlib(buildlibdir + 'libboost_date_time-vc140-mt' + lib_file_flag + '-1_62.lib', 'date_time')
-    copyboostlib(buildlibdir + 'libboost_regex-vc140-mt' + lib_file_flag + '-1_62.lib', 'regex')
-    copyboostlib(buildlibdir + 'libboost_program_options-vc140-mt' + lib_file_flag + '-1_62.lib', 'program_options')
-    copyboostlib(buildlibdir + 'libboost_thread-vc140-mt' + lib_file_flag + '-1_62.lib', 'thread')
-    copyboostlib(buildlibdir + 'libboost_filesystem-vc140-mt' + lib_file_flag + '-1_62.lib', 'filesystem')
-    copyboostlib(buildlibdir + 'libboost_chrono-vc140-mt' + lib_file_flag + '-1_62.lib', 'chrono')
+    for library in libraries:
+        destinations = get_destinations_for_library(library)
+        for dest in destinations:
+            copy_boost_lib(dest.abspath, library)
 
 
-products = [File('#build/lib/boost_filesystem.lib')]
+products = [get_destinations_for_library(l) for l in libraries]
 boost_command = env.Command(products, Dir(boost_root), prepare_boost_libs)
-env.Alias('boostbuild', '#build/lib/boost_filesystem.lib')
+env.Alias('boostbuild', boost_command)
