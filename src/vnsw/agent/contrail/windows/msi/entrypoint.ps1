@@ -5,10 +5,13 @@
 $ErrorActionPreference = "Stop"
 
 $ConfPath = 'C:\ProgramData\Contrail\etc\contrail\contrail-vrouter-agent.conf'
-$VhostName = 'vEthernet (HNSTransparent)'
+# This file assumes that there is only one virtual switch created
+# and that physical adapter's name to which it is connected starts
+# with 'Ethernet'.
+$VhostName = 'vEthernet \((HNSTransparent|Ethernet.*?)\)'
 
 $Conf = Get-Content $ConfPath
-$VhostIfname = (Get-NetAdapter -Name $VhostName).ifName
+$VhostIfname = (Get-NetAdapter | Where-Object 'Name' -match $VhostName).ifName
 
 for ($i = 0; $i -lt $Conf.Count; $i++) {
     if ($Conf[$i] -match '^name=') {
