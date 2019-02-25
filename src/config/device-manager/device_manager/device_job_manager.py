@@ -181,6 +181,7 @@ class DeviceJobManager(object):
         job_execution_id = job_input_params.get('job_execution_id')
         job_template_fq_name = job_input_params.get('job_template_fq_name')
         job_template_id = job_input_params.get('job_template_id')
+
         fabric_fq_name = None
         fabric_job_uve_name = ''
 
@@ -192,13 +193,13 @@ class DeviceJobManager(object):
                     job_template_fq_name)
                 job_input_params["job_template_id"] = job_template_id
 
-            if is_delete is None or is_delete is False:
-                # read the device object and pass the necessary data to the job
-                if device_list:
-                    self.read_device_data(device_list, job_input_params,
-                                          job_execution_id)
-                else:
-                    self.read_fabric_data(job_input_params, job_execution_id)
+            # read the device object and pass the necessary data to the job
+            if device_list:
+                self.read_device_data(device_list, job_input_params,
+                                      job_execution_id)
+            else:
+                self.read_fabric_data(job_input_params, job_execution_id,
+                                      is_delete)
 
             # read the job concurrency level from job template
             job_concurrency = self.get_job_concurrency(job_template_id,
@@ -213,7 +214,7 @@ class DeviceJobManager(object):
             device_fqnames = []
             # skip UVE creations and device reads from the database since
             # the device object will be deleted
-            if is_delete is None or not is_delete:
+            if not is_delete:
 
                 # create the UVE
                 if fabric_fq_name is not "__DEFAULT__" and not device_list:
@@ -623,7 +624,8 @@ class DeviceJobManager(object):
             request_params.update({"device_json": device_data})
     # end read_device_data
 
-    def read_fabric_data(self, request_params, job_execution_id):
+    def read_fabric_data(self, request_params, job_execution_id,
+                         is_delete=False):
         if request_params.get('input') is None:
             err_msg = "Missing job input"
             raise JobException(err_msg, job_execution_id)
@@ -641,7 +643,7 @@ class DeviceJobManager(object):
             if "device_deletion_template" in request_params.get(
                    'job_template_fq_name'):
                 fabric_fq_name = "__DEFAULT__"
-            else:
+            elif not is_delete:
                 err_msg = "Missing fabric details in the job input"
                 raise JobException(err_msg, job_execution_id)
         if fabric_fq_name:

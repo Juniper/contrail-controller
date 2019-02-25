@@ -393,7 +393,9 @@ class AnsibleConf(AnsibleBase):
         config = self.prepare_conf(is_delete=is_delete)
         feature_configs, job_template = self.read_node_profile_info()
         job_input = {
-            'fabric_uuid': self.physical_router.fabric,
+            'fabric_uuid':
+                self.physical_router.fabric
+                if self.physical_router.fabric else '',
             'device_management_ip': self.physical_router.management_ip,
             'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
