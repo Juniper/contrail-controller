@@ -64,22 +64,24 @@ class PortServer(ResourceMixin, Port):
         msg = ("PORT-UPDATE : %s", pformat(kwargs))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
 
-        ok, result = db_conn.dbe_read(
-            obj_type='port',
-            obj_id=obj_dict['uuid'],
-            obj_fields=['physical_interface_back_refs'])
-        msg = ("PORT-UPDATE BACK-REFS: %s", str(ok))
-        if ok:
-            msg = ("PORT-UPDATE BACK-REFS: %s", pformat(result))
-            db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
-            if result.get('physical_interface_back_refs'):
-                pi_uuid = result['physical_interface_back_refs'][0]['uuid']
-                port_fq_name = db_conn.uuid_to_fq_name(obj_dict['uuid'])
-                api_server.internal_request_ref_update('physical-interface',
-                                                       pi_uuid, 'DELETE',
-                                                       'port',
-                                                       obj_dict['uuid'],
-                                                       port_fq_name)
+        if obj_dict.get('port_bms_port_info') \
+           and obj_dict.get('port_bms_port_info').get('local_link_connection'):
+            ok, result = db_conn.dbe_read(
+                obj_type='port',
+                obj_id=obj_dict['uuid'],
+                obj_fields=['physical_interface_back_refs'])
+            msg = ("PORT-UPDATE BACK-REFS: %s", str(ok))
+            if ok:
+                msg = ("PORT-UPDATE BACK-REFS: %s", pformat(result))
+                db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+                if result.get('physical_interface_back_refs'):
+                    pi_uuid = result['physical_interface_back_refs'][0]['uuid']
+                    port_fq_name = db_conn.uuid_to_fq_name(obj_dict['uuid'])
+                    api_server.internal_request_ref_update('physical-interface',
+                                                           pi_uuid, 'DELETE',
+                                                           'port',
+                                                           obj_dict['uuid'],
+                                                           port_fq_name)
 
         cls._create_pi_ref(obj_dict, db_conn)
 
