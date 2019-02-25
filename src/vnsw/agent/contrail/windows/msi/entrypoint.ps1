@@ -5,10 +5,10 @@
 $ErrorActionPreference = "Stop"
 
 $ConfPath = 'C:\ProgramData\Contrail\etc\contrail\contrail-vrouter-agent.conf'
-$VhostName = 'vEthernet (HNSTransparent)'
+$VhostName = 'vEthernet \((HNSTransparent|Ethernet.)\)'
 
 $Conf = Get-Content $ConfPath
-$VhostIfname = (Get-NetAdapter -Name $VhostName).ifName
+$VhostIfname = (Get-NetAdapter | Where-Object 'Name' -match $VhostName).ifName
 
 for ($i = 0; $i -lt $Conf.Count; $i++) {
     if ($Conf[$i] -match '^name=') {
