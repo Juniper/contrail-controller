@@ -21,14 +21,26 @@ import test_case
 
 logger = logging.getLogger(__name__)
 
-class NBTestNaming(test_case.NeutronBackendTestCase):
-    def _create_subnet(self, proj_id, name=None):
-        net_q = self.create_resource('network', proj_id)
-        return self.create_resource('subnet', proj_id, extra_res_fields={'name': name, 'network_id': net_q['id'], 'cidr': '1.0.0.0/24', 'ip_version': 4})
 
-    def _create_port(self, proj_id, name=None):
+class NBTestNaming(test_case.NeutronBackendTestCase):
+
+    def _create_subnet(self, proj_id, extra_res_fields=None):
+        if extra_res_fields is None:
+            extra_res_fields = {}
+        net_q = self.create_resource('network', proj_id)
+        extra_res_fields.update({'network_id': net_q['id'], 'cidr': '1.0.0.0/24', 'ip_version': 4})
+        return self.create_resource('subnet', proj_id, extra_res_fields=extra_res_fields)
+
+    def _create_port(self, proj_id, extra_res_fields):
         subnet_q = self._create_subnet(proj_id, )
-        return self.create_resource('port', proj_id, extra_res_fields={'name': name, 'network_id': subnet_q['network_id']})
+        extra_res_fields.update({'network_id': subnet_q['network_id']})
+        return self.create_resource('port', proj_id, extra_res_fields=extra_res_fields)
+
+    def _create_resource_with_fallback(self, res_type, proj_id, extra_res_fields=None):
+        def default_create_resource_func(pid, extra):
+            return self.create_resource(res_type, pid, extra_res_fields=extra)
+
+        return getattr(self, '_create_' + res_type, default_create_resource_func)(proj_id, extra_res_fields)
 
     def _change_resource_name(self, res_type, res_q):
         new_res_name = 'new-%s-%s' %(res_type, str(uuid.uuid4()))
@@ -49,7 +61,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
             res_name = '%s-%s' % (res_type, self.id())
-            res_q = getattr(self, '_create_' + res_type, lambda x, y:self.create_resource(res_type, x, extra_res_fields={'name': y}))(proj_obj.uuid, res_name)
+            res_q = self._create_resource_with_fallback(res_type, proj_obj.uuid, extra_res_fields={'name': res_name})
             self.assertThat(res_q['name'], Equals(res_name))
             if res_type != 'subnet':
                 self.assertThat(res_q['fq_name'], Contains(res_name))
@@ -76,11 +88,11 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
         for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
             # create a resource
             res_name = '%s-%s' % (res_type, self.id())
-            res_q = getattr(self, '_create_' + res_type, lambda x, y:self.create_resource(res_type, x, extra_res_fields={'name': y}))(proj_obj.uuid, res_name)
+            res_q = self._create_resource_with_fallback(res_type, proj_obj.uuid, extra_res_fields={'name': res_name})
             self.assertThat(res_q['name'], Equals(res_name))
 
             # create another resource
-            res_q = getattr(self, '_create_' + res_type, lambda x, y:self.create_resource(res_type, x, extra_res_fields={'name': y}))(proj_obj.uuid, res_name)
+            res_q = self._create_resource_with_fallback(res_type, proj_obj.uuid, extra_res_fields={'name': res_name})
             self.assertThat(res_q['name'], Equals(res_name))
             if res_type != 'subnet':
                 self.assertThat(res_q['fq_name'][-1], Not(Equals(res_q['name'])))
@@ -88,7 +100,47 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
             # list by filter of new name
             res_list = self.list_resource(res_type, proj_uuid=proj_obj.uuid, req_filters={'name': res_name})
             self.assertThat(len(res_list), Equals(2))
+
+    # end test_duplicate_name
+
+    def test_uuid(self):
+        proj_obj = vnc_api.Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj_obj)
+        for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
+            res_uuid = str(uuid.uuid4())
+            res_name = '%s-%s' % (res_type, res_uuid)
+            res_q = self._create_resource_with_fallback(res_type, proj_obj.uuid, extra_res_fields={'name': res_name, 'id': res_uuid})
+            self.assertThat(res_q['id'], Equals(res_uuid))
+
+    # end test_uuid
+
+    def test_uuid_in_duplicate_name(self):
+        proj_obj = vnc_api.Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj_obj)
+        for res_type in ['network', 'subnet', 'security_group', 'port', 'router']:
+            # create a resource
+            res_uuid = str(uuid.uuid4())
+            res_name = '%s-%s' % (res_type, res_uuid)
+            res_q = self._create_resource_with_fallback(res_type, proj_obj.uuid, extra_res_fields={'name': res_name, 'id': res_uuid})
+            self.assertThat(res_q['name'], Equals(res_name))
+            self.assertThat(res_q['id'], Equals(res_uuid))
+
+            # create another resource
+            another_res_uuid = str(uuid.uuid4())
+            another_res_q = self._create_resource_with_fallback(res_type, proj_obj.uuid, extra_res_fields={'name': res_name, 'id': another_res_uuid})
+
+            if res_type != 'subnet':
+                expected_fq_name = "%s-%s" % (res_name, another_res_uuid)
+                self.assertThat(another_res_q['fq_name'][-1], Equals(expected_fq_name))
+            self.assertThat(another_res_q['id'], Equals(another_res_uuid))
+
+            res_list = self.list_resource(res_type, proj_uuid=proj_obj.uuid, req_filters={'name': res_name})
+            self.assertThat(len(res_list), Equals(2))
+
+    # end test_uuid_in_duplicate_name
+
 # end class NBTestNaming
+
 
 class KeystoneSync(test_case.KeystoneSyncTestCase):
     def test_dup_project_new_unique_fqn(self):
