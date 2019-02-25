@@ -183,7 +183,7 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
 
         return {
@@ -237,7 +237,7 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
         return ping_sweep_success_list
 
@@ -282,7 +282,7 @@ class FilterModule(object):
             {
                 'status': 'failure',
                 'error_msg': <string: error message>,
-                'discovery_log': <string: discovery_log>
+                'discover_log': <string: discover_log>
             }
             """
         try:
@@ -304,7 +304,7 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
 
         return list(set(ipmi_addresses))
@@ -407,7 +407,7 @@ class FilterModule(object):
             {
                 'status': 'failure',
                 'error_msg': <string: error message>,
-                'discovery_log': <string: discovery_log>
+                'discover_log': <string: discover_log>
             }
             """
         try:
@@ -459,7 +459,7 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
 
         return valid_ipmi_details
@@ -488,10 +488,14 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
 
-        return registered_nodes
+        return {
+            'status': 'success',
+            'discover_log': DiscoveryLog.instance().dump(),
+            'nodes': registered_nodes
+        }
 
     def trigger_introspect(self, job_ctx, registered_nodes):
         try:
@@ -516,10 +520,14 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
 
-        return introspected_nodes
+        return {
+            'status': 'success',
+            'discover_log': DiscoveryLog.instance().dump(),
+            'nodes': introspected_nodes
+        }
 
     def import_ironic_nodes(self, job_ctx, added_nodes_list):
         """
@@ -557,13 +565,13 @@ class FilterModule(object):
                         'status': 'success',
                         'success_nodes': <list: successful introspected nodes>,
                         'failed_nodes': <list: failed introspected nodes>,
-                        'discovery_log': <list: discovery_log>
+                        'discover_log': <list: discover_log>
                     ]
                     if failure, returns
                     {
                         'status': 'failure',
                         'error_msg': <string: error message>,
-                        'discovery_log': <string: discovery_log>
+                        'discover_log': <string: discover_log>
                     }
                     """
         try:
@@ -602,7 +610,7 @@ class FilterModule(object):
             return {
                 'status': 'failure',
                 'error_msg': errmsg,
-                'discovery_log': DiscoveryLog.instance().dump()
+                'discover_log': DiscoveryLog.instance().dump()
             }
 
         return {
