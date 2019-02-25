@@ -757,12 +757,14 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         fabric_name = None
         phy_interface_uuids = []
         for link in phy_links:
-            if fabric_name is not None and fabric_name != link['fabric']:
-                msg = 'Physical interfaces in the same lag should belong to '\
-                      'the same fabric'
-                return (False, (400, msg))
-            else:
+            if link.get('fabric'):
+                if fabric_name is not None and fabric_name != link['fabric']:
+                    msg = 'Physical interfaces in the same lag '\
+                          'should belong to the same fabric'
+                    return (False, (400, msg))
                 fabric_name = link['fabric']
+            else:  # use default fabric if it's not in link local information
+                fabric_name = 'default-fabric'
 
             phy_interface_name = link['port_id']
             prouter_name = link['switch_info']
