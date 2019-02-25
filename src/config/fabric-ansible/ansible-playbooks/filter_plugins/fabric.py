@@ -2013,7 +2013,7 @@ class FilterModule(object):
     def _get_ibgp_asn(vnc_api, fabric_name):
         try:
             ibgp_asn_namespace_obj = vnc_api.fabric_namespace_read(fq_name=[
-                'defaut-global-system-config', fabric_name, 'overlay_ibgp_asn'
+                'default-global-system-config', fabric_name, 'overlay_ibgp_asn'
             ])
             return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
         except NoIdError:
