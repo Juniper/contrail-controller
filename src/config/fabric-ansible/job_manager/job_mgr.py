@@ -98,8 +98,14 @@ class JobManager(object):
         playbooks = self.job_template.get_job_template_playbooks()
         play_info = playbooks.playbook_info[self.playbook_seq]
         is_multi_device_playbook = play_info.multi_device_playbook
+        ignore_device_json = self.job_data.get('is_delete')
 
-        if is_multi_device_playbook is not None and is_multi_device_playbook:
+        # for fabric config push as part of delete workflow,
+        # device json is not needed. There will be no performance
+        # impact as fabric delete from DM will always have one prouter
+        # uuid in the device_list.
+        if is_multi_device_playbook\
+                and not ignore_device_json:
             if self.device_json is None or not self.device_json:
                 msg = MsgBundle.getMessage(MsgBundle.DEVICE_JSON_NOT_FOUND)
                 raise JobException(msg, self.job_execution_id)
