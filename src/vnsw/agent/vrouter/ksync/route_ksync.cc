@@ -17,6 +17,7 @@
 
 #include "cmn/agent.h"
 #include "oper/interface_common.h"
+#include "oper/tunnel_nh.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
 #include "oper/mirror_table.h"
@@ -267,6 +268,19 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         // We dont want to flood ARP on Gateway Interface
         if (rt->vrf()->GetName() != agent->fabric_vrf_name()) {
             proxy_arp = true;
+        }
+        break;
+
+    case NextHop::TUNNEL:
+        {
+            // set proxy arp flag for MPLS VPN routes
+            // these routes' nexthop is either labelled tunnel or
+            // composite of labelled tunnel nexthops
+            const TunnelNH *tunnel_nh = static_cast<const TunnelNH *>(nh);
+            if (tunnel_nh->GetTunnelType().GetType() ==
+                                    TunnelType::MPLS_OVER_MPLS) {
+                proxy_arp = true;
+            }
         }
         break;
 
