@@ -271,7 +271,7 @@ class PhysicalRouterDM(DBBaseDM):
                 params["families"] = dci.bgp_address_families
                 params["ip"] = pr.dci_ip_map.get(pr.uuid + ":" + dci_uuid)
                 params["name"] = DMUtils.get_pr_dci_bgp_group(pr.name, dci_uuid)
-                params["type"] = "external"
+                params["type"] = "internal"
                 neigh.append(params)
         return neigh
     # end get_dci_bgp_neighbours
@@ -2129,10 +2129,12 @@ class DataCenterInterconnectDM(DBBaseDM):
                 self.virtual_network = vn_obj.uuid
                 vn_obj.data_center_interconnect = self.uuid
         self.name = obj['fq_name'][-1]
-        self.bgp_hold_time = obj.get('data_center_interconnect_bgp_hold_time')
+        self.bgp_hold_time = obj.get('data_center_interconnect_bgp_hold_time', 90)
         self.bgp_address_families = obj.get('data_center_interconnect_bgp_address_families')
         if self.bgp_address_families:
             self.bgp_address_families = self.bgp_address_families.get("family")
+        else:
+            self.bgp_address_families = ['inet-vpn', 'e-vpn']
         self.update_multiple_refs('logical_router', obj)
         self.allocate_asn()
         return obj
