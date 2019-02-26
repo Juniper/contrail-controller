@@ -211,6 +211,31 @@ TEST_F(ClientTest, BasicSendTimerTest1) {
     EXPECT_GE((session_test->Stats().rx_count - old_rx_count), 4);
     EXPECT_GE((session_test->Stats().tx_count - old_tx_count), 9);
 
+    // Bring the remote session down, and check if the
+    // local tx rate set to default value.
+    client_.DeleteSession(client_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+    old_tx_count = session_test->Stats().tx_count;
+    boost::this_thread::sleep(boost::posix_time::seconds(2));
+    // Detection time = 600mSec, test wait time = 2sec.
+    // so the expected Tx packet ~6+2 = 8. And taking some jitter into
+    // account shouldn't exceed 10 pkts.
+    EXPECT_LE((session_test->Stats().tx_count - old_tx_count), 10);
+
+    // Bringing the remote session UP and check
+    // for new negotiated values being set for Tx rate.
+    client_.AddSession(client_key, sc);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
+    old_rx_count = session_test->Stats().rx_count;
+    old_tx_count = session_test->Stats().tx_count;
+    boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+    // Read the Stats and validate with expected
+    EXPECT_GE((session_test->Stats().rx_count - old_rx_count), 4);
+    EXPECT_GE((session_test->Stats().tx_count - old_tx_count), 9);
+    
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 }
