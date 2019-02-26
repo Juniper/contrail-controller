@@ -1,0 +1,33 @@
+---
+- name: Save ZTP DHCP directory
+  set_fact:
+    ztp_dhcp_dir: "{{ ztp_conf_dir }}/dnsmasq"
+
+- name: Create ZTP DHCP directory
+  file:
+    path: "{{ ztp_dhcp_dir }}"
+    state: directory
+
+- name: Get ZTP DHCP config
+  set_fact:
+     ztp_dhcp_config: "{{ job_ctx | ztp_dhcp_config(fabric_uuid) }}"
+
+- name: Print ztp_dhcp_config
+  debug: var=ztp_dhcp_config verbosity=1
+
+- name: Save ZTP DHCP config file name
+  set_fact:
+     ztp_dhcp_config_file: "{{ fabric_name }}.conf"
+
+- block:
+    - name: Generate DHCP config file
+      template:
+        src: dnsmasq.conf.j2
+        dest: "{{ ztp_dhcp_dir }}/{{ ztp_dhcp_config_file }}"
+      register: cmd_res
+  rescue:
+    - name: Perform necessary error handling
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: "{{cmd_res.msg}}"
+        jl_err_message: "Failed to generate DHCP config file"

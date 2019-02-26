@@ -1,8 +1,0 @@
----
-# vars file for ztp_dhcp role
-
-ztp_create: "{{ True if hostvars['localhost'].get('ztp_create') else False }}"
-fabric_name: "{{hostvars['localhost']['fabric_name']}}"
-dhcp_dir: "{{hostvars['localhost']['ztp_dnsmasq_dir']}}"
-config_file: "{{hostvars['localhost']['ztp_dnsmasq_conf_file']}}"
-device_count: "{{hostvars['localhost'].get('device_count', None)}}"
