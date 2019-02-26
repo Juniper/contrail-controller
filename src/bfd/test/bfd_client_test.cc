@@ -213,6 +213,14 @@ TEST_F(ClientTest, BasicSendTimerTest1) {
 
     client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+    old_tx_count = session_test->Stats().tx_count;
+    boost::this_thread::sleep(boost::posix_time::seconds(2));
+    // Detection time = 600mSec, test wait time = 2sec.
+    // so the expected Tx packet ~6+2 = 8. And taking some jitter into
+    // account shouldn't exceed 10 pkts.
+    EXPECT_LE((session_test->Stats().tx_count - old_tx_count), 10);
+    client_test_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_test_, client_test_key));
 }
 
 // Multiple sessions with same IPs (but with different ifindex)
