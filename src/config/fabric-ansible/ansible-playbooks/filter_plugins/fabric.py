@@ -1780,7 +1780,7 @@ class FilterModule(object):
         :return:
         """
         fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
-        fabric_devices = fabric_obj.get_physical_router_back_refs()
+        fabric_devices = fabric_obj.get_physical_router_back_refs() or []
         no_role_assigned = True
         for dev in fabric_devices:
             if dev.get('to') in devices_to_exclude:
