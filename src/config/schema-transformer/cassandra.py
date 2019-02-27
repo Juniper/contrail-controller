@@ -261,3 +261,12 @@ class SchemaTransformerDB(VncObjectDBClient):
 
     def free_bgpaas_port(self, port):
         self._bgpaas_port_allocator.delete(port)
+
+    def bgpaas_port_allocator_reallocate(self, new_range):
+        """Reallocate bgpaas_port allocator setting new start and end values.
+
+        Keyword arguments:
+        :param new_range (dict): A dictionary with at least two keys: 'start'
+                                 and 'end'
+        """
+        self._bgpaas_port_allocator.reallocate([new_range])

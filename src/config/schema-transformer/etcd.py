@@ -269,3 +269,18 @@ class SchemaTransformerEtcd(vnc_object_db.VncObjectEtcdClient):
         :param port (int): Port number to be freed.
         """
         self._vnc_lib.deallocate_int(self._BGPAAS_PORT_ALLOC_POOL, port)
+
+    def bgpaas_port_allocator_reallocate(self, new_range):
+        """Reallocate bgpaas_port allocator setting new start and end values.
+
+        Keyword arguments:
+        :param new_range (dict): A dictionary with at least two keys: 'start'
+                                 and 'end'
+        """
+        try:
+            # FIXME implement reallocate_int method in vnc_api
+            self._vnc_lib.reallocate_int(self._BGPAAS_PORT_ALLOC_POOL,
+                                         new_range)
+        except Exception:
+            self._logger.warning("Silently skipping bgpaas_port_allocator " +
+                                 "reallocate: not yet implemented for etcd.")
