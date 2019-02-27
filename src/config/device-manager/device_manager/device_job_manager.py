@@ -215,7 +215,7 @@ class DeviceJobManager(object):
             # read the device object and pass the necessary data to the job
             if device_list:
                 self.read_device_data(device_list, job_input_params,
-                                      job_execution_id)
+                                      job_execution_id, is_delete)
             else:
                 self.read_fabric_data(job_input_params, job_execution_id,
                                       is_delete)
@@ -591,53 +591,89 @@ class DeviceJobManager(object):
         return result.get('job_template_concurrency_level')
     # end get_job_concurrency
 
-    def read_device_data(self, device_list, request_params, job_exec_id):
+    def read_device_data(self, device_list, request_params,
+                         job_exec_id, is_delete=False):
         device_data = dict()
-        for device_id in device_list:
-            try:
-                (ok, result) = self.db_read(
-                    "physical-router", device_id,
-                    ['physical_router_user_credentials',
-                     'physical_router_management_ip', 'fq_name',
-                     'physical_router_device_family',
-                     'physical_router_vendor_name',
-                     'physical_router_product_name',
-                     'fabric_refs'])
-                if not ok:
-                    msg = "Error while reading the physical router " \
-                          "with id %s : %s" % (device_id, result)
-                    raise JobException(msg, job_exec_id)
-            except Exception as e:
-                msg = "Exception while reading device %s %s " % \
-                      (device_id, str(e))
-                raise JobException(msg, job_exec_id)
 
-            device_json = {"device_management_ip": result.get(
-                'physical_router_management_ip')}
-            device_json.update({"device_fqname": result.get('fq_name')})
-            user_cred = result.get('physical_router_user_credentials')
+        for device_id in device_list:
+            if not is_delete:
+                try:
+                    (ok, result) = self.db_read(
+                        "physical-router", device_id,
+                        ['physical_router_user_credentials',
+                         'physical_router_management_ip', 'fq_name',
+                         'physical_router_device_family',
+                         'physical_router_vendor_name',
+                         'physical_router_product_name',
+                         'fabric_refs'])
+                    if not ok:
+                        msg = "Error while reading the physical router " \
+                              "with id %s : %s" % (device_id, result)
+                        raise JobException(msg, job_exec_id)
+                except Exception as e:
+                    msg = "Exception while reading device %s %s " % \
+                          (device_id, str(e))
+                    raise JobException(msg, job_exec_id)
+
+                device_fq_name = result.get('fq_name')
+                device_mgmt_ip = result.get(
+                    'physical_router_management_ip')
+                user_cred = result.get('physical_router_user_credentials')
+
+                device_family = result.get("physical_router_device_family")
+                device_vendor_name = result.get("physical_router_vendor_name")
+                device_product_name = result.get("physical_router_product_name")
+
+                fabric_refs = result.get('fabric_refs')
+                if fabric_refs and len(fabric_refs) > 0:
+                    fabric_fq_name = result.get('fabric_refs')[0].get('to')
+                    fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
+                    request_params['fabric_fq_name'] = fabric_fq_name_str
+
+
+            else:
+
+                device_mgmt_ip = request_params.get(
+                                       'input', {}).get(
+                                       'device_management_ip')
+                device_abs_cfg = request_params.get(
+                    'input', {}).get('device_abstract_config')
+
+                system = device_abs_cfg.get('system', {})
+                device_name = system.get('name')
+                device_username = system.get('credentials', {}).get('user_name')
+                device_password = system.get('credentials', {}).get('password')
+                user_cred = {
+                    "username": device_username,
+                    "password": device_password
+                }
+                device_family = system.get('device_family')
+                device_vendor_name = system.get('vendor_name')
+                device_product_name = system.get('product_name')
+                device_fq_name = [
+                    "default-global-system-config",
+                    device_name
+                ]
+                self.read_fabric_data(request_params, job_exec_id, is_delete)
+
+            device_json = {"device_management_ip": device_mgmt_ip}
+            device_json.update({"device_fqname": device_fq_name})
+
             if user_cred:
                 device_json.update(
                     {"device_username": user_cred.get('username')})
                 device_json.update({"device_password":
                                     user_cred.get('password')})
-            device_family = result.get("physical_router_device_family")
             if device_family:
                 device_json.update({"device_family": device_family})
-            device_vendor_name = result.get("physical_router_vendor_name")
+
             if device_vendor_name:
                 device_json.update({"device_vendor": device_vendor_name})
-            device_product_name = result.get("physical_router_product_name")
+
             if device_product_name:
                 device_json.update({"device_product": device_product_name})
 
             device_data.update({device_id: device_json})
-
-            fabric_refs = result.get('fabric_refs')
-            if fabric_refs and len(fabric_refs) > 0:
-                fabric_fq_name = result.get('fabric_refs')[0].get('to')
-                fabric_fq_name_str = ':'.join(map(str, fabric_fq_name))
-                request_params['fabric_fq_name'] = fabric_fq_name_str
 
         if len(device_data) > 0:
             request_params.update({"device_json": device_data})
@@ -648,16 +684,16 @@ class DeviceJobManager(object):
         if request_params.get('input') is None:
             err_msg = "Missing job input"
             raise JobException(err_msg, job_execution_id)
-        # get the fabric fq_name from the database if fabric_uuid is provided
         fabric_fq_name = None
-        if request_params.get('input').get('fabric_uuid'):
+        if request_params.get('input').get('fabric_fq_name'):
+            fabric_fq_name = request_params.get('input').get('fabric_fq_name')
+        elif request_params.get('input').get('fabric_uuid'):
+            # get the fabric fq_name from the database if fabric_uuid is provided
             fabric_uuid = request_params.get('input').get('fabric_uuid')
             try:
                 fabric_fq_name = self._db_conn.uuid_to_fq_name(fabric_uuid)
             except NoIdError as e:
                 raise JobException(str(e), job_execution_id)
-        elif request_params.get('input').get('fabric_fq_name'):
-            fabric_fq_name = request_params.get('input').get('fabric_fq_name')
         else:
             if "device_deletion_template" in request_params.get(
                    'job_template_fq_name'):
