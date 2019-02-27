@@ -105,6 +105,7 @@ IpamInfo ipam_info_2[] = {
 #define MGROUP_ADDR_1       "239.1.1.10"
 #define MGROUP_ADDR_2       "239.2.1.10"
 #define MGROUP_ADDR_3       "239.3.1.10"
+#define MGROUP_ADDR_4       "239.4.1.10"
 
 #define MSOURCE_ADDR_0      "0.0.0.0"
 #define MSOURCE_ADDR_11     "100.1.0.10"
@@ -130,6 +131,16 @@ MulticastPolicy policy[] = {
     {MSOURCE_ADDR_12, MGROUP_ADDR_1, false},
     {MSOURCE_ADDR_13, MGROUP_ADDR_1, true},
     {MSOURCE_ADDR_14, MGROUP_ADDR_1, false},
+};
+
+MulticastPolicy policy_01[] = {
+    {MSOURCE_ADDR_0, MGROUP_ADDR_1, true},
+    {MSOURCE_ADDR_0, MGROUP_ADDR_2, false},
+};
+
+MulticastPolicy policy_02[] = {
+    {MSOURCE_ADDR_0, MGROUP_ADDR_3, true},
+    {MSOURCE_ADDR_0, MGROUP_ADDR_4, false},
 };
 
 MulticastPolicy policy_11[] = {

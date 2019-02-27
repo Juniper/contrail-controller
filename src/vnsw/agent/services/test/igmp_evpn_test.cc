@@ -233,6 +233,100 @@ TEST_F(IgmpTest, IgmpV3) {
     return;
 }
 
+TEST_F(IgmpTest, MulticastPolicyWithEvpn_1) {
+
+    bool ret = false;
+    uint32_t idx = 0;
+    boost::system::error_code ec;
+    struct IgmpGroupSource igmp_gs_1[2];
+
+    memset(&igmp_gs_1[0], 0x00, sizeof(igmp_gs_1[2]));
+
+    TestEnvInit(UT_IGMP_VERSION_2, true);
+
+    AddMulticastPolicy("policy-01", 1, policy_01, 2);
+    AddLink("multicast-policy", "policy-01", "virtual-network", "vn1");
+
+    AddMulticastPolicy("policy-02", 2, policy_02, 2);
+    AddLink("multicast-policy", "policy-02", "virtual-network", "vn1");
+
+    AddMulticastPolicy("policy-11", 3, policy_11, 2);
+    AddLink("multicast-policy", "policy-11", "virtual-network", "vn2");
+
+    AddMulticastPolicy("policy-12", 4, policy_12, 2);
+    AddLink("multicast-policy", "policy-12", "virtual-network", "vn2");
+
+    IgmpGlobalEnable(true);
+
+    Agent::GetInstance()->GetIgmpProto()->ClearStats();
+    Agent::GetInstance()->GetIgmpProto()->GetGmpProto()->ClearStats();
+    client->WaitForIdle();
+
+    uint32_t report_count = 0;
+    uint32_t leave_count = 0;
+    uint32_t local_g_add_count = 0;
+    uint32_t local_g_del_count = 0;
+
+    igmp_gs_1[0].group = ntohl(inet_addr(policy_01[0].grp));
+    idx = 0;
+    local_g_add_count++;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, &igmp_gs_1[0], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    Ip4Address group;
+    Ip4Address source;
+
+    Agent *agent = Agent::GetInstance();
+    const NextHop *nh;
+
+    group = Ip4Address::from_string(policy_01[0].grp, ec);
+    source = Ip4Address::from_string(policy_01[0].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(), "vrf1", group, source);
+    if (policy_01[0].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    group = Ip4Address::from_string(policy_01[1].grp, ec);
+    source = Ip4Address::from_string(policy_01[1].src, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(), "vrf1", group, source);
+    if (policy_01[1].action)
+        EXPECT_TRUE((nh != NULL));
+    else
+        EXPECT_TRUE((nh == NULL));
+
+    local_g_del_count++;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, &igmp_gs_1[0], 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
+
+    DelLink("multicast-policy", "policy-12", "virtual-network", "vn2");
+    DelMulticastPolicy("policy-12");
+
+    DelLink("multicast-policy", "policy-11", "virtual-network", "vn2");
+    DelMulticastPolicy("policy-11");
+
+    DelLink("multicast-policy", "policy-02", "virtual-network", "vn1");
+    DelMulticastPolicy("policy-02");
+
+    DelLink("multicast-policy", "policy-01", "virtual-network", "vn1");
+    DelMulticastPolicy("policy-01");
+
+    IgmpGlobalClear();
+
+    TestEnvDeinit();
+    client->WaitForIdle();
+
+    return;
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
