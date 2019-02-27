@@ -71,6 +71,22 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
+    def create_fabric(self, name):
+        fab = Fabric(
+            name=name,
+            fabric_credentials={
+                'device_credential': [{
+                    'credential': {
+                        'username': 'root', 'password': '123'
+                    },
+                    'vendor': 'Juniper',
+                    'device_family': None
+                }]
+            }
+        )
+        fab_uuid = self._vnc_lib.fabric_create(fab)
+        return fab_uuid
+
     def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None, ignore_bgp=False):
         bgp_router, pr = None, None
         if not ignore_bgp:
