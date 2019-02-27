@@ -595,18 +595,23 @@ bool BgpIfmapPeeringConfig::GetRouterPair(DBGraph *db_graph,
             remote_instance = instance_name;
         }
     }
-    if (local == NULL || remote == NULL) {
-        return false;
-    }
-    if (local_router_type == "bgpaas-server" &&
-        remote_router_type != "bgpaas-client") {
-        return false;
-    }
-    if (local_router_type != "bgpaas-server" &&
-        remote_router_type == "bgpaas-client") {
-        return false;
-    }
-    if (local_instance != remote_instance) {
+
+    if ((local == NULL || remote == NULL) ||
+        (local_router_type == "bgpaas-server" &&
+        remote_router_type != "bgpaas-client") ||
+         (local_router_type != "bgpaas-server" &&
+        remote_router_type == "bgpaas-client") ||
+        (local_instance != remote_instance)) {
+        BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                 "localname: " << localname <<
+                 ((local == NULL) ? "Local node not present" :
+                                  "Local node present") <<
+                 ((remote == NULL) ? "Remote node not present" :
+                                  "Remote node present") <<
+                 "local_router_type: " << local_router_type <<
+                 "remote_router_type: " << remote_router_type <<
+                 " local instance: " << local_instance <<
+                 " remote instance: " << remote_instance);
         return false;
     }
 
@@ -1447,6 +1452,8 @@ BgpIfmapPeeringConfig *BgpIfmapConfigData::CreatePeering(
             peerings_.insert(make_pair(peering->node()->name(), peering));
     assert(result.second);
     peering->instance()->AddPeering(peering);
+    BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+         "Creating BgpIfmapPeering " << peering->node()->name());
     return peering;
 }
 
@@ -1458,6 +1465,8 @@ BgpIfmapPeeringConfig *BgpIfmapConfigData::CreatePeering(
 // via the destructor when the IFMapNodeProxy is destroyed.
 //
 void BgpIfmapConfigData::DeletePeering(BgpIfmapPeeringConfig *peering) {
+    BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+         "Deleting BgpIfmapPeering " << peering->node()->name());
     peering->instance()->DeletePeering(peering);
     peerings_.erase(peering->node()->name());
     delete peering;
@@ -2059,16 +2068,7 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
         event = BgpConfigManager::CFG_ADD;
         if (rti == NULL) {
             rti = config_->LocateInstance(instance_name);
-            Notify(rti->instance_config(), BgpConfigManager::CFG_ADD);
-
-            vector<string> import_rt(rti->import_list().begin(),
-                                     rti->import_list().end());
-            vector<string> export_rt(rti->export_list().begin(),
-                                     rti->export_list().end());
-            BGP_CONFIG_LOG_INSTANCE(Create, server(), rti,
-                SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                import_rt, export_rt,
-                rti->virtual_network(), rti->virtual_network_index());
+            UpdateInstanceConfig(rti, event);
         }
         protocol = rti->LocateProtocol();
         protocol->SetNodeProxy(proxy);
@@ -2231,10 +2231,16 @@ void BgpIfmapConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
     if (peering == NULL) {
         IFMapNodeProxy *proxy = delta.node.get();
         if (proxy == NULL) {
+            BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                 "ProcessBgpPeering failed. Cannot find proxy " <<
+                 delta.id_name);
             return;
         }
         IFMapNode *node = proxy->node();
         if (node == NULL || delta.obj.get() == NULL) {
+            BGP_LOG_NOTICE_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                 "ProcessBgpPeering failed. Cannot find node/obj " <<
+                  delta.id_name);
             return;
         }
 
@@ -2244,11 +2250,13 @@ void BgpIfmapConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
             return;
         }
 
-        event = BgpConfigManager::CFG_ADD;
         string instance_name(IdentifierParent(routers.first->name()));
         BgpIfmapInstanceConfig *rti = config_->FindInstance(instance_name);
+        event = BgpConfigManager::CFG_ADD;
+        // Create rti if not present.
         if (rti == NULL) {
-            return;
+            rti = config_->LocateInstance(instance_name);
+            UpdateInstanceConfig(rti, event);
         }
         peering = config_->CreatePeering(rti, proxy);
     } else {
