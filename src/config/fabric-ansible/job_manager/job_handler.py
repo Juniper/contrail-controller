@@ -97,8 +97,8 @@ class JobHandler(object):
             self._logger.debug(msg)
 
             # Always acquire the lock while executing the multi device jobs
-            if device_id is not None:
-                if not self._acquire_device_lock(device_id):
+            if device_name is not None:
+                if not self._acquire_device_lock(device_name):
                         raise JobException(MsgBundle.getMessage(
                             MsgBundle.DEVICE_LOCK_FAILURE))
 
@@ -152,16 +152,16 @@ class JobHandler(object):
                 self.check_and_send_prouter_job_uve_for_multidevice(
                     playbook_info, JobStatus.FAILURE.value)
         finally:
-            if device_id is not None:
-                self._release_device_lock(device_id)
+            if device_name is not None:
+                self._release_device_lock(device_name)
     # end handle_job
 
-    def _acquire_device_lock(self, device_id):
+    def _acquire_device_lock(self, device_name):
         is_lock_acquired = False
 
         # build the zk lock path
         device_lock_path =\
-            '/job-manager/' + self._fabric_fq_name + '/' + device_id
+            '/job-manager/' + self._fabric_fq_name + '/' + device_name
 
         # acquire the lock by creating a node
         try:
@@ -175,20 +175,21 @@ class JobHandler(object):
             # means the lock was acquired by some other job,
             value = self._zk_client.read_node(device_lock_path)
             self._logger.error("Device lock is already acquired by"
-                               " job %s for device %s" % (value, device_id))
+                               " job %s for device %s" % (value,
+                                                          device_name))
         return is_lock_acquired
 
-    def _release_device_lock(self, device_id):
+    def _release_device_lock(self, device_name):
         # build the zk lock path
         device_lock_path =\
-            '/job-manager/' + self._fabric_fq_name + '/' + device_id
+            '/job-manager/' + self._fabric_fq_name + '/' + device_name
         try:
             self._zk_client.delete_node(device_lock_path)
             self._logger.info("Device lock released"
                               " for %s " % device_lock_path)
         except Exception as zk_error:
             self._logger.error("Exception while releasing the zookeeper"
-                               " lock for device %s %s " % (device_id,
+                               " lock for device %s %s " % (device_name,
                                                             repr(zk_error)))
 
     def get_playbook_info(self, job_percent_per_task, device_id=None):
