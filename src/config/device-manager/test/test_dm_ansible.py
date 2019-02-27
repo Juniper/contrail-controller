@@ -32,6 +32,13 @@ class TestAnsibleDM(TestCommonDM):
     def test_dm_ansible_config_push(self):
         _, pr = self.create_router('router' + self.id(), '1.1.1.1',
                                    role='leaf', ignore_bgp=True)
+        #create a fabric and assign it as PR ref
+        fab_uuid = self.create_fabric('test_fabric')
+        pr.set_fabric_list([
+            {
+                "uuid": fab_uuid
+            }
+        ])
         pr.set_physical_router_loopback_ip('10.10.0.1')
         self._vnc_lib.physical_router_update(pr)
         self.check_dm_ansible_config_push()
