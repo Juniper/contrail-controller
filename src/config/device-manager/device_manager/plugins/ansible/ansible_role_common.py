@@ -438,20 +438,22 @@ class AnsibleRoleCommon(AnsibleConf):
             return
 
         sg_list = []
-        for lag_uuid in pr.virtual_port_groups or []:
-            lag_obj = VirtualPortGroupDM.get(lag_uuid)
-            if not lag_obj:
+        for vpg_uuid in pr.virtual_port_groups or []:
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
                 continue
-            if interface.name == 'ae' + str(lag_obj.ae_id) + '.' + \
-                    unit.get_unit():
-                sg_list += lag_obj.get_attached_sgs(unit.get_unit())
 
-                for sg in sg_list or []:
-                    acls = sg.access_control_lists
-                    for acl in acls or []:
-                        acl = AccessControlListDM.get(acl)
-                        if acl and not acl.is_ingress:
-                            self.build_firewall_filters(sg, acl)
+            sg_list_temp = vpg_obj.get_attached_sgs(unit.get_vlan_tag())
+            for sg in sg_list_temp:
+                if sg not in sg_list:
+                    sg_list.append(sg)
+
+        for sg in sg_list or []:
+            acls = sg.access_control_lists
+            for acl in acls or []:
+                acl = AccessControlListDM.get(acl)
+                if acl and not acl.is_ingress:
+                    self.build_firewall_filters(sg, acl)
 
         if interface.li_uuid:
             interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
@@ -532,44 +534,49 @@ class AnsibleRoleCommon(AnsibleConf):
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 
-    def build_lag_config(self):
+    def build_vpg_config(self):
         multi_homed = False
+        ae_link_members = {}
+
         pr = self.physical_router
         if not pr:
             return
-        for lag_uuid in pr.virtual_port_groups or []:
+        for vpg_uuid in pr.virtual_port_groups or []:
             link_members = []
-            lag_obj = VirtualPortGroupDM.get(lag_uuid)
-            if not lag_obj:
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
                 continue
-            ae_id = lag_obj.ae_id
-            if not ae_id:
-                continue
-            esi = lag_obj.esi
-            for pi_uuid in lag_obj.physical_interfaces or []:
+            esi = vpg_obj.esi
+            for pi_uuid in vpg_obj.physical_interfaces or []:
                 if pi_uuid not in pr.physical_interfaces:
                     multi_homed = True
                     continue
-                pi = PhysicalInterfaceDM.get(pi_uuid)
-                if not pi:
-                    continue
-                link_members.append(pi.name)
+                ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
+                if ae_id is not None:
+                    ae_intf_name = 'ae' + str(ae_id)
+                    pi = PhysicalInterfaceDM.get(pi_uuid)
+                    if not pi:
+                        continue
+                    if ae_link_members.has_key(ae_intf_name):
+                        ae_link_members[ae_intf_name].append(pi.name)
+                    else:
+                        ae_link_members[ae_intf_name] = []
+                        ae_link_members[ae_intf_name].append(pi.name)
 
-            ae_intf_name = 'ae' + str(ae_id)
+            for ae_intf_name, link_members in ae_link_members.iteritems():
+                self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
+                                  (vpg_uuid, link_members, ae_intf_name))
+                lag = LinkAggrGroup(lacp_enabled=vpg_obj.lacp_enabled,
+                                    link_members=link_members)
+                intf, _ = self.set_default_pi(ae_intf_name, 'lag')
+                intf.set_link_aggregation_group(lag)
+                intf.set_comment("ae interface")
 
-            self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
-                              (lag_uuid, link_members, ae_intf_name))
-            lag = LinkAggrGroup(lacp_enabled=lag_obj.lacp_enabled,
-                                link_members=link_members)
-            intf, _ = self.set_default_pi(ae_intf_name, 'lag')
-            intf.set_link_aggregation_group(lag)
-            intf.set_comment("ae interface")
-
-            #check if esi needs to be set
-            if multi_homed:
-                intf.set_ethernet_segment_identifier(esi)
-                multi_homed = False
-    # end build_lag_config
+                #check if esi needs to be set
+                if multi_homed:
+                    intf.set_ethernet_segment_identifier(esi)
+                    multi_homed = False
+    # end build_vpg_config
 
     def get_vn_li_map(self):
         pr = self.physical_router
@@ -597,25 +604,32 @@ class AnsibleRoleCommon(AnsibleConf):
                 for pvn in vn_list or []:
                     vn_dict[pvn] = []
 
-        for lag_uuid in pr.virtual_port_groups or []:
-            lag_obj = VirtualPortGroupDM.get(lag_uuid)
-            if not lag_obj:
+        for vpg_uuid in pr.virtual_port_groups or []:
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
                 continue
-            ae_id = lag_obj.ae_id
-            lag_interfaces = lag_obj.physical_interfaces
-            for vmi_uuid in lag_obj.virtual_machine_interfaces:
+            vpg_interfaces = vpg_obj.physical_interfaces
+            for vmi_uuid in vpg_obj.virtual_machine_interfaces:
                 vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
                 if not vmi_obj:
                     continue
                 vn_id = vmi_obj.virtual_network or None
-                vlan_tag = vmi_obj.vlan_tag
                 if vn_id:
-                    for pi_uuid in lag_interfaces:
+                    vn = VirtualNetworkDM.get(vn_id)
+                    vlan_tag = vmi_obj.vlan_tag
+                    for pi_uuid in vpg_interfaces:
                         if pi_uuid in pr.physical_interfaces:
-                            if ae_id and vlan_tag is not None:
+                            ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
+                            if ae_id is not None and vlan_tag is not None:
                                 ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
                                 vn_dict.setdefault(vn_id, []).append(
                                     JunosInterface(ae_name, 'l2', vlan_tag))
+                                break
+                            else:
+                                pi_obj = PhysicalInterfaceDM(pi_uuid)
+                                li_name = pi_obj.name + "." + str(vlan_tag)
+                                vn_dict.setdefault(vn_id, []).append(
+                                    JunosInterface(li_name, 'l2', vlan_tag))
                                 break
         return vn_dict
     # end
@@ -1415,7 +1429,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
         self.build_firewall_config()
-        self.build_lag_config()
+        self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
 
