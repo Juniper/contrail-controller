@@ -354,7 +354,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('logical_router', {})
         self.update_multiple_refs('service_endpoint', {})
         self.update_multiple_refs('e2_service_provider', {})
-        self.update_single_ref('fabric', {})
 
         if self.config_manager:
             if self.use_ansible_plugin():
@@ -373,6 +372,7 @@ class PhysicalRouterDM(DBBaseDM):
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
         self.update_single_ref('node_profile', {})
+        self.update_single_ref('fabric', {})
     # end delete_handler
 
     def delete_obj(self):
