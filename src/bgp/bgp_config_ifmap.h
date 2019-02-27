@@ -489,7 +489,8 @@ public:
     DB *database() { return db_; }
     DBGraph *graph() { return db_graph_; }
     const BgpIfmapConfigData *config() const { return config_.get(); }
-
+    void UpdateInstanceConfig(BgpIfmapInstanceConfig *rti,
+            BgpConfigManager::EventType event);
 private:
     friend class BgpConfigListenerTest;
 
