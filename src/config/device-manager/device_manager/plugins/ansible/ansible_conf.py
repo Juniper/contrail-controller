@@ -271,7 +271,6 @@ class AnsibleConf(AnsibleBase):
                                               sort_keys=True))
                 device_manager = DeviceManager.get_instance()
                 job_handler = JobHandler(job_template, job_input,
-                                         None if is_delete else
                                          [self.physical_router.uuid],
                                          device_manager.get_api_server_config(),
                                          self._logger,
@@ -395,9 +394,7 @@ class AnsibleConf(AnsibleBase):
         config = self.prepare_conf(is_delete=is_delete)
         feature_configs, job_template = self.read_node_profile_info()
         job_input = {
-            'fabric_uuid':
-                self.physical_router.fabric
-                if self.physical_router.fabric else '',
+            'fabric_uuid': self.physical_router.fabric,
             'device_management_ip': self.physical_router.management_ip,
             'additional_feature_params': feature_configs,
             'device_abstract_config': self.export_dict(config),
