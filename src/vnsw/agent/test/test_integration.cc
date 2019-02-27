@@ -144,7 +144,7 @@ public:
     xml_node data_;
     GroupEntry *g_entry;
     bool installed_;
-    Node node_;
+    Patricia::Node node_;
 };
 
 typedef Patricia::Tree<NodeEntry, &NodeEntry::node_, NodeEntry::Key> NodeTree;
