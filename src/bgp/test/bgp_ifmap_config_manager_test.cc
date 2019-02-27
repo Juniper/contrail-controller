@@ -2006,15 +2006,15 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink1) {
     task_util::WaitForIdle();
 
     // Now add a bgp-peering link between the bgp-routers.
-    // Verify that's there's no peering config created as there's no parent
+    // Verify that peering config is created even if there's no parent
     // routing instance.
     string peering = "attr(" + bgp_router_id1 + "," + bgp_router_id2 + ")";
     ifmap_test_util::IFMapMsgLink(&db_,
         "bgp-router", bgp_router_id1, "bgp-router", bgp_router_id2,
         "bgp-peering", 0, new autogen::BgpPeeringAttributes());
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetPeeringCount());
-    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) == NULL);
+    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
 
     // Now add a link between the bgp-routers and the routing-instance.
     // Verify that's the peering config gets created due to notification
@@ -2052,23 +2052,19 @@ TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink2) {
     task_util::WaitForIdle();
 
     // Now add a bgp-peering link between the bgp-routers.
-    // Verify that's there's no peering config created as there's no parent
+    // Verify that peering config is created even if there's no parent
     // routing instance.
     string peering = "attr(" + bgp_router_id1 + "," + bgp_router_id2 + ")";
     ifmap_test_util::IFMapMsgLink(&db_,
         "bgp-router", bgp_router_id1, "bgp-router", bgp_router_id2,
         "bgp-peering", 0, new autogen::BgpPeeringAttributes());
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetPeeringCount());
-    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) == NULL);
+    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
 
     // Now add the parent routing-instance.
-    // Verify that's there's no peering config created sine there's no
-    // notification to re-evaluate the bgp-peering.
     ifmap_test_util::IFMapMsgNodeAdd(&db_, "routing-instance", "test");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(0, GetPeeringCount());
-    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) == NULL);
 
     // Now add a link between the bgp-routers and the routing-instance.
     // Verify that's the peering config gets created due to notification
