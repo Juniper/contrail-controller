@@ -248,24 +248,25 @@ boolean gmp_policy_cb(void *inst_context, gmp_intf_handle *handle,
     gmp_addr_string s;
 
     if (!inst_context) {
-        return TRUE;
+        return FALSE;
     }
 
     gif = gmp_handle_to_gif(handle);
     if (!gif) {
-        return TRUE;
+        return FALSE;
     }
 
     if (static_group) {
-        return TRUE;
+        return FALSE;
     }
 
-    if (!group_addr || !source_addr) {
-        return TRUE;
+    if (!group_addr) {
+        return FALSE;
     }
 
     memcpy(&g, group_addr, IPV4_ADDR_LEN);
-    memcpy(&s, source_addr, IPV4_ADDR_LEN);
+    source_addr ? memcpy(&s, source_addr, IPV4_ADDR_LEN)
+                : memset(&s, 0x00, IPV4_ADDR_LEN);
 
     return gmp_policy_check(gd, gif, s, g);
 }
