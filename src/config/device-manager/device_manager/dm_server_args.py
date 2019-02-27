@@ -70,6 +70,8 @@ def default_options():
         'dhcp_leases_file': None,
         'ztp_timeout': 300,
         'rabbit_health_check_interval': 0,
+        'job_manager_retry_timeout': '10',
+        'job_manager_max_retries': '60',
     }
 # end default_options
 
@@ -170,6 +172,10 @@ def add_parser_arguments(parser):
                         help="Timeout for the DHCP Lease lookup during ZTP")
     parser.add_argument("--rabbit_health_check_interval",
                         help="Interval between rabbitmq heartbeat checks")
+    parser.add_argument("--job_manager_retry_timeout",
+                        help="Timeout between job manager retries")
+    parser.add_argument("--job_manager_max_retries",
+                        help="Max number of job manager retries")
     SandeshConfig.add_parser_arguments(parser)
 # end add_parser_arguments
 

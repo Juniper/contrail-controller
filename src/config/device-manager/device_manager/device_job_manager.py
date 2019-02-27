@@ -9,6 +9,7 @@ import json
 import signal
 import ast
 import traceback
+import gevent
 
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
@@ -57,18 +58,7 @@ class DeviceJobManager(object):
         }
         self._job_args = json.dumps(job_args)
 
-        # initialize the db connection
-        credential = None
-        if args.cassandra_user and args.cassandra_password:
-            credential = {
-                'username': args.cassandra_user,
-                'password': args.cassandra_password
-            }
-        self._db_conn = VncObjectDBClient(
-            args.cassandra_server_list, args.cluster_id, None, None,
-            dm_logger.log, credential=credential,
-            ssl_enabled=args.cassandra_use_ssl,
-            ca_certs=args.cassandra_ca_certs)
+        self._db_conn = self._initialize_db_connection(args, dm_logger)
 
         # initialize the job logger
         self._job_log_utils = JobLogUtils(
@@ -107,6 +97,35 @@ class DeviceJobManager(object):
             return
         cls._instance = None
     # end destroy_instance
+
+    def _initialize_db_connection(self, args, dm_logger):
+        credential = None
+        if args.cassandra_user and args.cassandra_password:
+            credential = {
+                'username': args.cassandra_user,
+                'password': args.cassandra_password
+            }
+
+        timeout = int(args.job_manager_retry_timeout)
+        max_retries = int(args.job_manager_max_retries)
+
+        retry_count = 1
+        while True:
+            try:
+                return VncObjectDBClient(
+                    args.cassandra_server_list, args.cluster_id, None, None,
+                    dm_logger.log, credential=credential,
+                    ssl_enabled=args.cassandra_use_ssl,
+                    ca_certs=args.cassandra_ca_certs)
+            except Exception as e:
+                if retry_count >= max_retries:
+                    raise e
+                self._logger.debug("Error while initializing db connection, "
+                    "retrying: %s" % repr(e))
+                gevent.sleep(timeout)
+            finally:
+                retry_count = retry_count + 1
+    # end _initialize_db_connection
 
     def db_read(self, obj_type, obj_id, obj_fields=None,
                 ret_readonly=False):
