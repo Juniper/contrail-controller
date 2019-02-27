@@ -6,6 +6,7 @@ import bottle
 from cfgm_common import jsonutils as json
 from pprint import pformat
 import ConfigParser
+import sys
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -1031,6 +1032,8 @@ class NeutronPluginInterface(object):
         return json.dumps(sis_info)
 
     def plugin_http_post_svc_instance(self):
+        print("Here we go")
+        sys.exit()
         """
         Bottle callback for Route-table POST
         """
