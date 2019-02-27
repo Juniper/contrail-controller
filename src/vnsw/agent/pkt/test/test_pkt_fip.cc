@@ -261,7 +261,7 @@ static void RemoveMetadataService() {
 }
 
 static void Setup() {
-    int ret = true;
+    bool ret = true;
     hash_id = 1;
 
     boost::system::error_code ec;

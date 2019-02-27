@@ -51,6 +51,7 @@ AgentUtXmlValidationNode *CreateValidateNode(const string &type,
         return new AgentUtXmlL2RouteValidate(name, node);
     if (type == "l3-route")
         return new AgentUtXmlL3RouteValidate(name, node);
+    return NULL;
 }
 
 AgentUtXmlNode *CreateNode(const string &type, const string &name,
@@ -82,6 +83,7 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
         return new AgentUtXmlSg(name, id, node, test_case);
     if (type == "iip" || type == "instance-ip")
         return new AgentUtXmlInstanceIp(name, id, node, test_case);
+    return NULL;
 }
 
 void AgentUtXmlOperInit(AgentUtXmlTest *test) {

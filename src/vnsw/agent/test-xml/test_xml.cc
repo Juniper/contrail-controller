@@ -647,10 +647,11 @@ static void AddUuid(xml_node *parent, const uuid &id) {
     AddXmlNodeWithValue(&n, "uuid-lslong", s1.str());
 }
 
-bool AgentUtXmlConfig::AddIdPerms(xml_node *parent) {
+void AgentUtXmlConfig::AddIdPerms(xml_node *parent) {
 
     if (op_delete())
-        return true;
+        return;
+
     xml_node n = parent->append_child("id-perms");
     AddPermissions(&n);
     AddUuid(&n, id());

@@ -37,6 +37,7 @@ CreatePhysicalDeviceValidateNode(const string &type, const string &name,
         return new AgentUtXmlPhysicalDeviceVnValidate(name, id, node);
     if (type == "multicast-tor")
         return new AgentUtXmlMulticastTorValidate(name, node);
+    return NULL;
 }
 
 AgentUtXmlNode *
@@ -50,6 +51,7 @@ CreatePhysicalDeviceNode(const string &type, const string &name,const uuid &id,
         return new AgentUtXmlRemotePhysicalInterface(name, id, node, test_case);
     if (type == "logical-interface" || type == "logical-port")
         return new AgentUtXmlLogicalInterface(name, id, node, test_case);
+    return NULL;
 }
 
 void AgentUtXmlPhysicalDeviceInit(AgentUtXmlTest *test) {
