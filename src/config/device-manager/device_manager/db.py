@@ -107,7 +107,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
         self.dci_ip_map = {}
-        self.ae_id_map = {}
         self.allocated_asn = None
         self.config_sent = False
         self.ae_index_allocator = DMIndexer(
@@ -2449,8 +2448,8 @@ class VirtualPortGroupDM(DBBaseDM):
         self.name = None
         self.physical_interfaces = set()
         self.virtual_machine_interfaces = set()
-        self.ae_id = None
         self.esi = None
+        self.pi_ae_map = {}
         self.update(obj_dict)
     # end __init__
 
@@ -2464,14 +2463,20 @@ class VirtualPortGroupDM(DBBaseDM):
         self.annotations = obj.get('annotations')
         kvps = self.annotations.get('key_value_pair') or []
         kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
-        self.ae_id = kvp_dict.get('ae_if_name') or None
         self.esi = kvp_dict.get('esi') or 0
 
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.get_ae_for_pi(obj.get('physical_interface_refs'))
         self.build_lag_pr_map()
 
     # end update
+
+    def get_ae_for_pi(self, pi_refs):
+        for pi in pi_refs:
+            if pi.get('attr') is not None:
+                self.pi_ae_map.update({pi.get('uuid'): pi.get('attr').get('ae_num')})
+
     def build_lag_pr_map(self):
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
