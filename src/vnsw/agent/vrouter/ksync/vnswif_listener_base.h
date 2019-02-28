@@ -30,7 +30,11 @@ extern SandeshTraceBufferPtr VnswIfTraceBuf;
         VnswIfInfoTrace::TraceMsg(VnswIfTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (false)
 
-namespace local = boost::asio::local;
+#ifdef _WIN32
+    typedef boost::asio::ip::udp::socket OSSpecificSocket;
+#else
+    typedef boost::asio::local::datagram_protocol::socket OSSpecificSocket;
+#endif
 
 class VnswInterfaceListenerBase {
 public:
@@ -223,7 +227,7 @@ protected:
     uint8_t tx_buf_[kMaxBufferSize];
 
     int sock_fd_;
-    local::datagram_protocol::socket sock_;
+    OSSpecificSocket sock_;
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId fabric_listener_id_;
     DBTableBase::ListenerId vn_listener_id_;
@@ -238,6 +242,9 @@ protected:
     uint32_t ll_add_count_;
     uint32_t ll_del_count_;
     IpamSubnetMap ipam_subnet_;
+
+private:
+    void InitSocket();
 
     DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListenerBase);
 };

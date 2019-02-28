@@ -21,7 +21,7 @@ if platform.system() == 'Linux':
 elif platform.system() == 'FreeBSD':
     except_files = [ 'vnswif_listener_base.cc', 'freebsd/vnswif_listener.cc' ]
 elif platform.system() == 'Windows':
-    except_files = [ 'windows/vnswif_listener.cc' ]
+    except_files = [ 'vnswif_listener_base.cc', 'windows/vnswif_listener.cc' ]
 
 except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 

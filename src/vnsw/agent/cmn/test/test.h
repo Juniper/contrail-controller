@@ -5,6 +5,10 @@
 #ifndef vnsw_agent_cmn_test_hpp
 #define vnsw_agent_cmn_test_hpp
 
+#ifdef _WIN32
+    #define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif // _WIN32
+
 #include <cmn/agent_cmn.h>
 
 using namespace boost::uuids;

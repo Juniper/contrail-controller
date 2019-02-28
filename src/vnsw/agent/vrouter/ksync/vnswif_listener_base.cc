@@ -15,6 +15,7 @@
 #include <ksync/ksync_index.h>
 #include <vrouter/ksync/interface_ksync.h>
 #include "vrouter/ksync/vnswif_listener_base.h"
+#include "net/if.h"
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -67,16 +68,22 @@ void VnswInterfaceListenerBase::Init() {
     if (agent_->test_mode())
         return;
 
-    /* Create socket and listen and handle ip address updates */
-    sock_fd_ = CreateSocket();
+    InitSocket();
+}
 
-    /* Assign native socket to boost asio */
-    boost::asio::local::datagram_protocol protocol;
-    sock_.assign(protocol, sock_fd_);
+void VnswInterfaceListenerBase::InitSocket() {
+    #ifndef _WIN32
+        /* Create socket and listen and handle ip address updates */
+        sock_fd_ = CreateSocket();
 
-    SyncCurrentState();
+        /* Assign native socket to boost asio */
+        boost::asio::local::datagram_protocol protocol;
+        sock_.assign(protocol, sock_fd_);
 
-    RegisterAsyncReadHandler();
+        SyncCurrentState();
+
+        RegisterAsyncReadHandler();
+    #endif
 }
 
 void VnswInterfaceListenerBase::Shutdown() {
