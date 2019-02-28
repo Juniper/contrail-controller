@@ -21,7 +21,7 @@
 #include "vnswif_listener.h"
 
 VnswInterfaceListenerLinux::VnswInterfaceListenerLinux(Agent *agent) :
-    VnswInterfaceListenerBase(agent) {
+    VnswInterfaceListenerBaseNix(agent) {
 }
 
 VnswInterfaceListenerLinux::~VnswInterfaceListenerLinux() {
