@@ -9,9 +9,9 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
-#include "ksync/vnswif_listener_base.h"
+#include "ksync/vnswif_listener_base_nix.h"
 
-class VnswInterfaceListenerFreeBSD : public VnswInterfaceListenerBase {
+class VnswInterfaceListenerFreeBSD : public VnswInterfaceListenerBaseNix {
 public:
     VnswInterfaceListenerFreeBSD(Agent *agent);
     virtual ~VnswInterfaceListenerFreeBSD();
