@@ -6,6 +6,7 @@
 #define vnsw_agent_cmn_test_hpp
 
 #include <cmn/agent_cmn.h>
+#include <base/os.h>
 
 using namespace boost::uuids;
 using namespace std;
