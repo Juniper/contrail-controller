@@ -1279,6 +1279,8 @@ class VncCassandraClient(object):
                            columns=['fq_name', 'type'])
             if not obj:
                 raise NoIdError(id)
+            if 'type' not in obj or 'fq_name' not in obj:
+                raise NoIdError(id)
             fq_name = obj['fq_name']
             obj_type = obj['type']
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
@@ -1292,6 +1294,8 @@ class VncCassandraClient(object):
             obj = self.get(self._OBJ_UUID_CF_NAME, id,
                            columns=['fq_name', 'type'])
             if not obj:
+                raise NoIdError(id)
+            if 'type' not in obj or 'fq_name' not in obj:
                 raise NoIdError(id)
             fq_name = obj['fq_name']
             obj_type = obj['type']
@@ -1441,9 +1445,7 @@ class VncCassandraClient(object):
                     try:
                         self._read_child(result, obj_uuid, child_type,
                                          child_uuid, child_tstamp)
-                    except (NoIdError, KeyError) as e:
-                        self._logger('%s' %(utils.detailed_traceback()),
-                             level=SandeshLevel.SYS_ERR)
+                    except NoIdError:
                         continue
                     continue
 
@@ -1455,9 +1457,7 @@ class VncCassandraClient(object):
                     try:
                         self._read_ref(result, obj_uuid, ref_type, ref_uuid,
                                    obj_cols[col_name][0])
-                    except (NoIdError, KeyError) as e:
-                        self._logger('%s' %(utils.detailed_traceback()),
-                             level=SandeshLevel.SYS_ERR)
+                    except NoIdError:
                         continue
                     continue
 
@@ -1472,9 +1472,7 @@ class VncCassandraClient(object):
                     try:
                         self._read_back_ref(result, obj_uuid, back_ref_type,
                                             back_ref_uuid, obj_cols[col_name][0])
-                    except (NoIdError, KeyError) as e:
-                        self._logger('%s' %(utils.detailed_traceback()),
-                             level=SandeshLevel.SYS_ERR)
+                    except NoIdError:
                         continue
                     continue
 
