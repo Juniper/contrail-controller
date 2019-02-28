@@ -58,6 +58,7 @@ public:
     }
     uint8_t SetEcmpFieldsToUse();
     bool KSyncEntrySandesh(Sandesh *resp);
+    COMPOSITETYPE CompositeType() const { return comp_type_;}
 private:
     void SetKSyncNhListSandeshData(KSyncNhListSandeshData *data) const;
     class KSyncComponentNH {

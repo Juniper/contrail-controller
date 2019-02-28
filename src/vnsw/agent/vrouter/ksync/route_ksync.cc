@@ -560,7 +560,12 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     int label = 0;
     int flags = 0;
     if (rt_type_ != Agent::INET4_MULTICAST) {
-        if (nexthop != NULL && nexthop->type() == NextHop::TUNNEL) {
+        // if next hop is tunnel
+        // or nexthop is composite and composite type is LU_ECMP, then
+        // label is valid
+        if (nexthop != NULL && ((nexthop->type() == NextHop::TUNNEL) ||
+                    ((nexthop->type() == NextHop::COMPOSITE) &&
+                    (nexthop->CompositeType() == Composite::LU_ECMP)))) {
             label = label_;
             flags |= VR_RT_LABEL_VALID_FLAG;
         }
