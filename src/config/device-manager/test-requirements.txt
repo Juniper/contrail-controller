@@ -19,3 +19,4 @@ xmltodict
 pyOpenSSL
 mock
 fabric-ansible
+pyhash
