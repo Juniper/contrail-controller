@@ -328,17 +328,13 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_baremetal_logical_interface_bindings
 
-    def test_baremetal_bindings_with_lag_and_multi_vlan(self):
-        """ This test tests the Logical to LAG interface binding.
+    def test_baremetal_bindings_with_vpg_and_multi_vlan(self):
+        """ This test tests the VPG->PI and VPG->VMI association.
 
         Multiple physical interfaces are created to represent
-        members of a Lag group. A Baremetal Server
+        members of a vpg group. A Baremetal Server
         is launched on a virtual network. As a part of this operation,
-        a LAG interface and an "ae" physical interface is created. This
-        auto generated physical inteface, along with the lag member
-        physical interfaces become the members of the lag interface.
-         A logical interface is created and bound to this auto generated
-        physical interface.
+        a VPG is created and gets binded with VMIs ad PIs.
         This test verifies the binidng and unbinding of these objects
         takes place correctly.
         """
@@ -422,62 +418,62 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.assertTrue(match)
 
         # CREATE:  Make sure LAG is created
-        lag_found = False
-        lag_dict = self._vnc_lib.virtual_port_groups_list()
-        lags = lag_dict['virtual-port-groups']
-        lag_obj = None
-        for l in lags:
-            lag_obj = self._vnc_lib.virtual_port_group_read(id=l['uuid'])
-            if lag_obj.parent_uuid == fabric_uuid:
-                lag_found = True
+        vpg_found = False
+        vpg_dict = self._vnc_lib.virtual_port_groups_list()
+        vpgs = vpg_dict['virtual-port-groups']
+        vpg_obj = None
+        for l in vpgs:
+            vpg_obj = self._vnc_lib.virtual_port_group_read(id=l['uuid'])
+            if vpg_obj.parent_uuid == fabric_uuid:
+                vpg_found = True
                 break
-        self.assertTrue(lag_found)
+        self.assertTrue(vpg_found)
 
         data2 = {'resource':{'network_id': vn2_obj.uuid,
                             'tenant_id': proj_uuid,
                             'binding:profile': binding_profile,
                             'binding:vnic_type': vnic_type,
                             'binding:host_id': 'myhost',
-                            'binding:lag': lag_obj.name}}
+                            'binding:vpg': vpg_obj.name}}
         body2 = {'context': context, 'data': data2}
         resp = self._api_svr_app.post_json('/neutron/port', body2)
         port_dict2 = json.loads(resp.text)
 
-        # Make sure LAG has two VMIs associated
-        lag_obj = self._vnc_lib.virtual_port_group_read(id=lag_obj.uuid)
-        vmi_refs = lag_obj.get_virtual_machine_interface_refs()
+        # Make sure VPG has two VMIs associated
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
+        vmi_refs = vpg_obj.get_virtual_machine_interface_refs()
         self.assertEqual(len(vmi_refs), 2)
 
         self.delete_resource('port', proj_uuid, port_dict2['id'])
-        # Ensure that LAG interface is not deleted
+        # Ensure that VPG interface is not deleted
         # since it still has reference to other VMI
-        lag_dict = self._vnc_lib.virtual_port_groups_list()
-        lags = lag_dict['virtual-port-groups']
-        if len(lags) == 0:
+        vpg_dict = self._vnc_lib.virtual_port_groups_list()
+        vpgs = vpg_dict['virtual-port-groups']
+        if len(vpgs) == 0:
             self.assertFalse(True)
 
-        # UPDATE: Make sure LAG has ref to only 3rd physical interface
+        # UPDATE: Make sure VPG has ref to only 3rd physical interface
         # after port update
         vnic_type = 'baremetal'
         data = {            'binding:profile': binding_profile_update,
                             'binding:vnic_type': vnic_type,
-                            'binding:lag': lag_obj.name,
+                            'binding:vpg': vpg_obj.name,
                             'binding:host_id': 'myhost'}
         self.update_resource('port', port_dict['id'], proj_uuid, extra_res_fields=data)
-        lag_obj = self._vnc_lib.virtual_port_group_read(id=lag_obj.uuid)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
 
         llc = binding_profile_update['local_link_information']
-        ref = lag_obj.get_physical_interface_refs()[0]
+        ref = vpg_obj.get_physical_interface_refs()[0]
         self.assertEqual(llc[0]['port_id'], ref['to'][-1])
 
-        # DELETE: Make sure LAG obj. gets deleted after port delete
+        # DELETE: Make sure VPG obj. gets deleted after port delete
 
         self.delete_resource('port', proj_uuid, port_dict['id'])
 
-        # Ensure that LAG interface is deleted
-        lag_dict = self._vnc_lib.virtual_port_groups_list()
-        lags = lag_dict['virtual-port-groups']
-        if len(lags) > 0:
+        # Ensure that VPG interface is deleted
+        vpg_dict = self._vnc_lib.virtual_port_groups_list()
+        vpgs = vpg_dict['virtual-port-groups']
+        if len(vpgs) > 0:
             self.assertFalse(True)
 
         # Clean up the resources
@@ -489,7 +485,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
 
-    # end test_baremetal_bindings_with_lag_and_multi_vlan
+    # end test_baremetal_bindings_with_vpg_and_multi_vlan
 
     @unittest.skip("Flaky test in CI")
     def test_baremetal_logical_interface_bindings_with_multi_homing(self):
