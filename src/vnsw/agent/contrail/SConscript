@@ -8,6 +8,8 @@ Import('AgentEnv')
 env = AgentEnv.Clone()
 
 if platform.system() != 'Windows':
+    #Add -Wno-return-type to ignore errors from thrift generated code in
+    #InstanceService.h
     env.Append(CCFLAGS = ['-Wno-return-type', '-fexceptions', '-Wno-unused-variable'])
 
 
@@ -94,8 +96,6 @@ if platform.system() != 'Windows':
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate', '-ldiag',
                              '-Wl,--no-whole-archive'])
 
-#Add -Wno-return-type to ignore errors from thrift generated code in
-#InstanceService.h
 if platform.system() == 'FreeBSD':
     platform_dependent = 'freebsd/pkt0_interface.cc'
 elif platform.system() == 'Linux':
@@ -117,8 +117,11 @@ env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
 if platform.system() == 'Windows':
-    #Use WiX for MSI generation
-    agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
+    if '/DBOOST_ALL_DYN_LINK' in env['CCFLAGS']:
+        agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
+    else:
+        # to be removed after dynamic linking is enabled in contrail-build
+        agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi_static.wxs'])
     env.Append(WIXCANDLEFLAGS = ['-doptimization=' + env['OPT']])
     if env['OPT'] == 'debug':
         env.Append(WIXCANDLEFLAGS = ['-dTbbDll=tbb_debug.dll'])

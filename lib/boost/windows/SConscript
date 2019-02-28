@@ -1,5 +1,9 @@
-# -*- mode: python; -*-
+#
+# Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
+#
+
 # windows reference: http://www.boost.org/doc/libs/1_62_0/more/getting_started/windows.html
+
 import os
 import sys
 import shutil
@@ -31,27 +35,36 @@ libraries = [
     'chrono',
 ]
 
-def get_destinations_for_library(library):
-    lib_dir = '#build/lib/'
-    return [
-        File(lib_dir + 'boost_{}.lib'.format(library)),
-        File(lib_dir + 'libboost_{}-vc140-mt{}-1_62.lib'.format(library, lib_file_flag))
-    ]
+lib_dir = '#build/lib/'
+bin_dir = '#build/bin/'
 
-def copy_boost_lib(to_file, library=None):
-    if not os.path.exists(to_file):
-        from_file = '{}/lib64-msvc-14.0/libboost_{}-vc140-mt{}-1_62.lib'.format(
-            Dir(boost_root).abspath, library, lib_file_flag)
-        print('Copying {} to {}'.format(from_file, to_file))
-        shutil.copyfile(from_file, to_file)
+from_arr = []
+to_arr = []
+for library in libraries:
+    if '/DBOOST_ALL_DYN_LINK' in env['CCFLAGS']:
+        long_library_name = 'boost_{}-vc140-mt{}-1_62'.format(library, lib_file_flag)
+
+        from_arr.append(boost_root + '/lib64-msvc-14.0/' + long_library_name + '.lib')
+        to_arr.append(File(lib_dir + 'boost_' + library + '.lib'))
+
+        from_arr.append(from_arr[-1])
+        to_arr.append(File(lib_dir + long_library_name + '.lib'))
+
+        from_arr.append(boost_root + '/lib64-msvc-14.0/' + long_library_name + '.dll')
+        to_arr.append(File(bin_dir + long_library_name + '.dll'))
+    else:
+        # to be removed after dynamic linking is enabled in contrail-build
+        long_library_name = 'libboost_{}-vc140-mt{}-1_62'.format(library, lib_file_flag)
+
+        from_arr.append(boost_root + '/lib64-msvc-14.0/' + long_library_name + '.lib')
+        to_arr.append(File(lib_dir + 'boost_' + library + '.lib'))
+
+        from_arr.append(from_arr[-1])
+        to_arr.append(File(lib_dir + long_library_name + '.lib'))
 
 def prepare_boost_libs(target, source, env):
-    for library in libraries:
-        destinations = get_destinations_for_library(library)
-        for dest in destinations:
-            copy_boost_lib(dest.abspath, library)
+    for i in range(len(from_arr)):
+        shutil.copyfile(from_arr[i], to_arr[i].abspath)
 
-
-products = [get_destinations_for_library(l) for l in libraries]
-boost_command = env.Command(products, Dir(boost_root), prepare_boost_libs)
-env.Alias('boostbuild', boost_command)
+boost_command = env.Command(to_arr, Dir(boost_root), prepare_boost_libs)
+env.Alias('boost', boost_command)
