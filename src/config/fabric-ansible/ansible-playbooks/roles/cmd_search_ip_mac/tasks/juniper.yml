@@ -1,0 +1,70 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get interfaces
+  juniper_junos_command:
+    commands:
+      - show evpn database
+    display: xml
+    provider:
+      host: "{{device_management_ip}}"
+      username: "{{device_username}}"
+      password: "{{device_password}}"
+      port: 22
+      timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+  register: command_resp
+
+- name: settings facts
+  set_fact:
+    mgmt_ip: ''
+    command_resp: "{{command_resp|json_query('parsed_output.\"evpn-database-information\".\"evpn-database-instance\"')}}"
+
+- name: set the source_details from template
+  set_fact:
+    source_details: "{{lookup('template', '../templates/juniper_source_details.j2')}}"
+
+
+- block:
+    - name: set the source lo0 ip and the mac address
+      set_fact:
+        source_lo0_ip: "{{source_details.active_source[-2]}}"
+        mac_address: "{{source_details.active_source[-1]}}"
+
+    - name: Todo get the loopback to management ip
+      set_fact:
+        mgmt_ip_resp: "{{job_ctx | get_mgmt_ip_frm_lo_ip(source_lo0_ip, device_name)}}"
+
+    - name: Warning message in case mgmt ip is not found
+      debug:
+        msg: " Warning: Management IP could not be found"
+      when: mgmt_ip_resp.get_mgmt_ip == ''
+
+    - name: Warning message with traceback in case of any other exception
+      debug:
+        msg: "Here is the error: {{mgmt_ip_resp.error_msg}} and trace of events: {{mgmt_ip_resp.get_mgmt_ip_log}}"
+      when: mgmt_ip_resp.status == 'failure'
+
+    - name: Set the management ip
+      set_fact:
+        mgmt_ip: "{{mgmt_ip_resp.get_mgmt_ip}}"
+
+    - name: SSH into this device to locate the interface
+      juniper_junos_command:
+        commands:
+          - show ethernet-switching table
+        display: xml
+        provider:
+          host: "{{mgmt_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: command_resp
+      when: mgmt_ip != ''
+  when: source_details.active_source != ['']
+
+- name: set command_resp as empty if no source details found
+  set_fact:
+    command_resp: {'parsed_output': {'l2ng-l2ald-rtb-macdb': {'l2ng-l2ald-mac-entry-vlan': []} } }
+  when: source_details.active_source == [''] or mgmt_ip == ''
+

@@ -1,0 +1,24 @@
+{%- set mac_address = input_params.get('mac_address', '')         %}
+{%- set ip_address = input_params.get('ip_address', '')           %}
+{%- if command_resp is mapping                                    %}
+{%-     set evpn_db_instances = [command_resp]                    %}
+{%- else                                                          %}
+{%-     set evpn_db_instances = command_resp                      %}
+{%- endif                                                         %}
+{%- set active_source = ['']                                      %}
+{%- for evpn_db_instance in evpn_db_instances                     %}
+{%-     set mac_entries = evpn_db_instance.get('mac-entry')       %}
+{%-     if mac_entries is mapping                                 %}
+{%-         set mac_entries = [mac_entries]                       %}
+{%-     endif                                                     %}
+{%-     for mac_entry in mac_entries                              %}
+{%-         if mac_address and mac_entry.get('mac-address') == mac_address        %}
+{%-             set x = active_source.append(mac_entry.get('active-source')) %}
+{%-             set y = active_source.append(mac_entry.get('mac-address'))   %}
+{%-         elif ip_address and mac_entry.get('ip-address') == ip_address        %}
+{%-             set x = active_source.append(mac_entry.get('active-source')) %}
+{%-             set y = active_source.append(mac_entry.get('mac-address'))   %}
+{%-         endif                                                 %}
+{%-     endfor                                                    %}
+{%- endfor                                                        %}
+{"active_source": {{active_source | to_json}} }
