@@ -117,11 +117,7 @@ env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
 if platform.system() == 'Windows':
-    if '/DBOOST_ALL_DYN_LINK' in env['CCFLAGS']:
-        agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
-    else:
-        # to be removed after dynamic linking is enabled in contrail-build
-        agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi_static.wxs'])
+    agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
     env.Append(WIXCANDLEFLAGS = ['-doptimization=' + env['OPT']])
     if env['OPT'] == 'debug':
         env.Append(WIXCANDLEFLAGS = ['-dTbbDll=tbb_debug.dll'])
