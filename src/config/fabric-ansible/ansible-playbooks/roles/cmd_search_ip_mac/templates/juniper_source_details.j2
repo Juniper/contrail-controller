@@ -1,0 +1,52 @@
+{%- set mac_address = input_params.get('mac_address', '')                          %}
+{%- set ip_address = input_params.get('ip_address', '')                            %}
+{%- if evpn_command_resp is mapping                                                %}
+{%-     set evpn_db_instances = [evpn_command_resp]                                %}
+{%- else                                                                           %}
+{%-     set evpn_db_instances = evpn_command_resp                                  %}
+{%- endif                                                                          %}
+{%- set active_source = ['']                                                       %}
+{%- for evpn_db_instance in evpn_db_instances                                      %}
+{%-     set mac_entries = evpn_db_instance.get('mac-entry')                        %}
+{%-     if mac_entries is mapping                                                  %}
+{%-         set mac_entries = [mac_entries]                                        %}
+{%-     endif                                                                      %}
+{%-     for mac_entry in mac_entries                                               %}
+{%-         set source_lo_ip_list = []                                             %}
+{%-         if mac_address and mac_entry.get('mac-address') == mac_address         %}
+{%-             set mac_source = mac_entry.get('mac-source', {})                   %}
+{%-             set mac_ip_info = mac_source.get('mac-ip-information', {})         %}
+{%-             set mac_ip_origin = mac_ip_info.get('mac-ip-origin', [])           %}
+{%-             if mac_ip_origin and mac_ip_origin is mapping                      %}
+{%-                 set mac_ip_origin = [mac_ip_origin]                            %}
+{%-             elif not mac_ip_origin                                             %}
+{%-                 set mac_ip_origin = [{'ip-remote-origin': mac_source.get('source-name')}]    %}
+{%-             endif                                                              %}
+{%-             for mac_ip_org in mac_ip_origin                                    %}
+{%-                 set z = source_lo_ip_list.append(mac_ip_org.get('ip-remote-origin'))         %}
+{%-             endfor                                                             %}
+{%-             set x = active_source.append(source_lo_ip_list)                    %}
+{%-             set y = active_source.append(mac_entry.get('mac-address'))         %}
+{%-             set mac_entries = []                                               %}
+{%-         elif ip_address                                                        %}
+{%-             set mac_source = mac_entry.get('mac-source', {})                   %}
+{%-             set mac_ip_info = mac_source.get('mac-ip-information', {})         %}
+{%-             set ip_addr = mac_ip_info.get('address')                           %}
+{%-             if ip_address == ip_addr                                           %}
+{%-                 set mac_ip_origin = mac_ip_info.get('mac-ip-origin', [])       %}
+{%-                 if mac_ip_origin and mac_ip_origin is mapping                  %}
+{%-                     set mac_ip_origin = [mac_ip_origin]                        %}
+{%-                 elif not mac_ip_origin                                         %}
+{%-                     set mac_ip_origin = [{'ip-remote-origin': mac_source.get('source-name')}]%}
+{%-                 endif                                                          %}
+{%-                 for mac_ip_org in mac_ip_origin                                %}
+{%-                     set z = source_lo_ip_list.append(mac_ip_org.get('ip-remote-origin'))     %}
+{%-                 endfor                                                         %}
+{%-                 set x = active_source.append(source_lo_ip_list)                %}
+{%-                 set y = active_source.append(mac_entry.get('mac-address'))     %}
+{%-                 set mac_entries = []                                           %}
+{%-             endif                                                              %}
+{%-         endif                                                                  %}
+{%-     endfor                                                                     %}
+{%- endfor                                                                         %}
+{"active_source": {{active_source | to_json}} }
