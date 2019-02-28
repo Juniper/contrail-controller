@@ -489,7 +489,7 @@ int VnswInterfaceListenerFreeBSD::RTInitIfAndAddr() {
 }
 
 VnswInterfaceListenerFreeBSD::VnswInterfaceListenerFreeBSD(Agent *agent) :
-    VnswInterfaceListenerBase(agent), fib_(-1) {
+    VnswInterfaceListenerBaseNix(agent), fib_(-1) {
 }
 
 VnswInterfaceListenerFreeBSD::~VnswInterfaceListenerFreeBSD() {

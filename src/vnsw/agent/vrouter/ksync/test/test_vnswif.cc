@@ -523,7 +523,7 @@ class SetupTask : public Task {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    strcpy(init_file, "controller/src/vnsw/agent/test/vnswa_no_ip_cfg.ini");
+    //strcpy(init_file, "controller/src/vnsw/agent/test/vnswa_no_ip_cfg.ini");
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->ksync()->VnswInterfaceListenerInit();
     Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
