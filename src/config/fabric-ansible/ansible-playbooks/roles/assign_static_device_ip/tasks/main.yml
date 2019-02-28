@@ -35,12 +35,6 @@
 - name: Print device_config
   debug: var=device_config verbosity=1
 
-- name: Commit vendor specific config
-  include_tasks: "{{ task_file_path }}"
-
-- name: Print device response
-  debug: msg="{{ device_push_response }}" verbosity=1
-
 - name: Update physical device with management interface mac
   vnc_db_mod:
     job_ctx: "{{ job_ctx }}"
@@ -51,3 +45,9 @@
         "uuid": "{{ prouter_uuid }}",
         "physical_router_management_mac": "{{ interface_configuration.get('mac_address') }}"
       }
+
+- name: Commit vendor specific config
+  include_tasks: "{{ task_file_path }}"
+
+- name: Print device response
+  debug: msg="{{ device_push_response }}" verbosity=1
