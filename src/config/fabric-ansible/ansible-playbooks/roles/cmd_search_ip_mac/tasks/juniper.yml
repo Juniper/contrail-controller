@@ -1,0 +1,54 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get interfaces
+  juniper_junos_command:
+    commands:
+      - show evpn database
+    display: xml
+    provider:
+      host: "{{device_management_ip}}"
+      username: "{{device_username}}"
+      password: "{{device_password}}"
+      port: 22
+      timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+  register: command_resp
+
+- name: settings facts
+  set_fact:
+    command_resp: "{{command_resp|json_query('parsed_output.\"evpn-database-information\".\"evpn-database-instance\"')}}"
+
+- name: set the source_details from template
+  set_fact:
+    source_details: "{{lookup('template', '../templates/juniper_source_details.j2')}}"
+
+
+- block:
+    - name: set the source lo0 ip and the mac address
+      set_fact:
+        source_lo0_ip: "{{source_details.active_source[-2]}}"
+        mac_address: "{{source_details.active_source[-1]}}"
+
+    - name: Todo get the loopback to management ip
+      set_fact:
+        mgmt_ip: 172.19.65.183
+
+    - name: SSH into this device to locate the interface
+      juniper_junos_command:
+        commands:
+          - show ethernet-switching table
+        display: xml
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: command_resp
+  when: source_details.active_source != ['']
+
+- name: set command_resp as empty if no source details found
+  set_fact:
+    command_resp: {'parsed_output': {'l2ng-l2ald-rtb-macdb': {'l2ng-l2ald-mac-entry-vlan': []} } }
+  when: source_details.active_source == ['']
+
