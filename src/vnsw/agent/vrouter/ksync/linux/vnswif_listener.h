@@ -9,11 +9,11 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
-#include "vrouter/ksync/vnswif_listener_base.h"
+#include "vrouter/ksync/vnswif_listener_base_nix.h"
 
 namespace local = boost::asio::local;
 
-class VnswInterfaceListenerLinux : public VnswInterfaceListenerBase {
+class VnswInterfaceListenerLinux : public VnswInterfaceListenerBaseNix {
 
 public:
     VnswInterfaceListenerLinux(Agent *agent);
