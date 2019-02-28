@@ -15,6 +15,7 @@
 #include <ksync/ksync_index.h>
 #include <vrouter/ksync/interface_ksync.h>
 #include "vrouter/ksync/vnswif_listener_base.h"
+#include "net/if.h"
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -22,8 +23,7 @@ SandeshTraceBufferPtr VnswIfTraceBuf(SandeshTraceBufferCreate(
                                      VNSWIF_TRACE_BUF, 2000));
 
 VnswInterfaceListenerBase::VnswInterfaceListenerBase(Agent *agent) :
-    agent_(agent), read_buf_(NULL), sock_fd_(-1),
-    sock_(*(agent->event_manager())->io_service()),
+    agent_(agent), read_buf_(NULL),
     intf_listener_id_(DBTableBase::kInvalidId),
     fabric_listener_id_(DBTableBase::kInvalidId), seqno_(0),
     vhost_intf_up_(false), ll_addr_table_(), revent_queue_(NULL),
@@ -63,20 +63,6 @@ void VnswInterfaceListenerBase::Init() {
                      boost::bind(&VnswInterfaceListenerBase::ProcessEvent,
                      this, _1));
     revent_queue_->set_name("Netlink interface listener");
-
-    if (agent_->test_mode())
-        return;
-
-    /* Create socket and listen and handle ip address updates */
-    sock_fd_ = CreateSocket();
-
-    /* Assign native socket to boost asio */
-    boost::asio::local::datagram_protocol protocol;
-    sock_.assign(protocol, sock_fd_);
-
-    SyncCurrentState();
-
-    RegisterAsyncReadHandler();
 }
 
 void VnswInterfaceListenerBase::Shutdown() {
@@ -85,12 +71,6 @@ void VnswInterfaceListenerBase::Shutdown() {
     agent_->vn_table()->Unregister(vn_listener_id_);
     // Expect only one entry for vhost0 during shutdown
     assert(host_interface_table_.size() == 0);
-    if (agent_->test_mode()) {
-        return;
-    }
-
-    boost::system::error_code ec;
-    sock_.close(ec);
 }
 
 
