@@ -1,0 +1,27 @@
+{%- set interface_details = []                                                                              %}
+{%- set results = command_resp.get('results', [])                                                           %}
+{%- for result in results                                                                                   %}
+{%-     set other_info = result.item.values()[0] %}
+{%-     set mac_entry_vlans = result.parsed_output.get('l2ng-l2ald-rtb-macdb', {}).get('l2ng-l2ald-mac-entry-vlan')  %}
+{%-     if mac_entry_vlans is mapping                                                                       %}
+{%-         set mac_entry_vlans = [mac_entry_vlans]                                                         %}
+{%-     endif                                                                                               %}
+{%-     for mac_entry_vlan in mac_entry_vlans or []                                                         %}
+{%-         set mac_entries = mac_entry_vlan.get('l2ng-mac-entry')                                          %}
+{%-         if mac_entries is mapping                                                                       %}
+{%-             set mac_entries = [mac_entries]                                                             %}
+{%-         endif                                                                                           %}
+{%-         for mac_entry in mac_entries or []                                                              %}
+{%-             if mac_entry.get('l2ng-l2-mac-address') == mac_address                                      %}
+{%-                 set x = interface_details.append(
+                                {
+                                  "name": mac_entry.get('l2ng-l2-mac-logical-interface'),
+                                  "device_name": other_info[0],
+                                  "loopback_ip": other_info[1]
+                                }
+                                )        %}
+{%-             endif                                                                                       %}
+{%-         endfor                                                                                          %}
+{%-     endfor                                                                                              %}
+{%- endfor                                                                                                  %}
+{"interface_names": {{interface_details | to_json}} }
