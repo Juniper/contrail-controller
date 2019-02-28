@@ -29,7 +29,7 @@ from cfgm_common.uve.physical_router_config.ttypes import *
 from cfgm_common.uve.service_status.ttypes import *
 import re
 import json
-
+import pyhash
 
 class DBBaseDM(DBBase):
     obj_type = __name__
@@ -2455,6 +2455,7 @@ class VirtualPortGroupDM(DBBaseDM):
         self.esi = None
         self.pi_ae_map = {}
         self.update(obj_dict)
+        self.get_esi()
     # end __init__
 
     def update(self, obj=None):
@@ -2462,13 +2463,6 @@ class VirtualPortGroupDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.add_to_parent(obj)
-        self.lacp_enabled = obj.get('virtual_port_group_lacp_enabled')
-
-        self.annotations = obj.get('annotations')
-        kvps = self.annotations.get('key_value_pair') or []
-        kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
-        self.esi = kvp_dict.get('esi') or 0
-
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.get_ae_for_pi(obj.get('physical_interface_refs'))
@@ -2483,6 +2477,13 @@ class VirtualPortGroupDM(DBBaseDM):
         for pi in pi_refs:
             if pi.get('attr') is not None:
                 self.pi_ae_map.update({pi.get('uuid'): pi.get('attr').get('ae_num')})
+
+    def get_esi(self):
+        hash_obj = pyhash.city_64()
+        ten_byte_value = hash_obj(self.name) << 8
+        esi_hex = hex(ten_byte_value).replace('x', '0')[:-1]
+        esi_byte_array = re.sub('(..)', r'x\1', esi_hex)
+        self.esi = esi_byte_array[1:].replace('x', ':')
 
     def build_lag_pr_map(self):
         for pi in self.physical_interfaces or []:
