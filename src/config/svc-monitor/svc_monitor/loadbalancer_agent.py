@@ -491,7 +491,7 @@ class LoadbalancerAgent(Agent):
                'tenant_id': lb.parent_uuid.replace('-', ''),
                'name': lb.display_name,
                'description': self._get_object_description(lb),
-               'subnet_id': props['vip_subnet_id'],
+               'subnet_id': props.get('vip_subnet_id', ''),
                'address': props['vip_address'],
                'port_id': lb.virtual_machine_interface,
                'provider': lb.provider,
@@ -589,10 +589,10 @@ class LoadbalancerAgent(Agent):
     }
 
     def _get_object_description(self, obj):
-        id_perms = obj.id_perms
-        if id_perms is None:
+        try:
+            return obj.id_perms['description']
+        except (AttributeError, KeyError):
             return None
-        return id_perms['description']
     # end _get_object_description
 
     def _get_object_status(self, obj):
