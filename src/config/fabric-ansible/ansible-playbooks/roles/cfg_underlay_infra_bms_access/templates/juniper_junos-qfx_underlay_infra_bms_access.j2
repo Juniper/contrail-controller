@@ -6,6 +6,7 @@
 {%                 set ip_address_list = li_item.get('ip_addresses',[]) %}
 {%                 for ip_item in ip_address_list %}
 set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family {{ip_item.family}} address {{ip_item.address}}
+set groups {{cfg_group}} interfaces {{pi_interface_name}} flexible-vlan-tagging
 {%                 endfor %}
 {%             endif %}
 {%             if li_item.get('family') is defined %}
@@ -14,6 +15,7 @@ set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} 
 {%                 endif %}
 {%             else %}
 set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} vlan-id {{li_item.unit}}
+set groups {{cfg_group}} interfaces {{pi_interface_name}} native-vlan-id {{li_item.unit}}
 {%             endif %}
 {%         endfor %}
 {%     endif %}
