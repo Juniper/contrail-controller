@@ -1360,7 +1360,10 @@ class AnsibleRoleCommon(AnsibleConf):
                     if server_info.get('dhcp_relay_server'):
                         dhcp_relay_server = server_info.get(
                             'dhcp_relay_server')[0]
-                    vlan_tag = server_info.get('vlan_tag')
+                    if server_info.get('vlan_tag'):
+                        vlan_tag = server_info.get('vlan_tag')
+                    else:
+                        vlan_tag = 4094
                     default_gateway = server_info.get('default_gateway')
 
                     #create irb interface
