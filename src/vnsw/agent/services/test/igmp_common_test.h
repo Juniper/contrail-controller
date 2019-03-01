@@ -371,18 +371,21 @@ public:
     void DeleteVns() {
 
         char vn_name[MAX_TESTNAME_LEN];
+        char vrf_name[MAX_TESTNAME_LEN];
 
         struct PortInfo *port;
         uint32_t size = 0;
         for (uint32_t i = 0; i < NUM_VNS; i++) {
             GetVnPortInfo(i, &port, &size, NULL);
 
+            sprintf(vn_name, "vn%d", port->vn_id);
+            sprintf(vrf_name, "vrf%d", port->vn_id);
             client->Reset();
             DelIPAM(vn_name);
             client->WaitForIdle();
 
             client->Reset();
-            DeleteVmportEnv(port, size, 1, 0);
+            DeleteVmportEnv(port, size, 1, 0, vn_name, vrf_name);
             client->WaitForIdle();
         }
     }
