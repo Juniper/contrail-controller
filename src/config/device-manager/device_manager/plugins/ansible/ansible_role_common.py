@@ -1375,7 +1375,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     if server_info.get('dhcp_relay_server'):
                         dhcp_relay_server = server_info.get(
                             'dhcp_relay_server')[0]
-                    vlan_tag = server_info.get('vlan_tag')
+                    vlan_tag = server_info.get('vlan_tag') or 4094
                     default_gateway = server_info.get('default_gateway')
 
                     #create irb interface
@@ -1395,6 +1395,10 @@ class AnsibleRoleCommon(AnsibleConf):
                                                   pi_obj.fq_name[-1] + '.' + str(vlan_tag),
                                                   vlan_tag)
                     access_intf_unit.set_family("ethernet-switching")
+                    if vlan_tag == 4094:
+                        access_intf_unit.set_is_tagged(False)
+                    else:
+                        access_intf_unit.set_is_tagged(True)
 
                     #create Vlan
                     vlan = Vlan(name=pi_info.get('tag')+"_vlan")
