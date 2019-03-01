@@ -281,6 +281,12 @@ class VncNetwork(VncCommon):
                         name=ipam['to'][-1], parent_obj=proj_obj)
                     vn_obj.del_network_ipam(ipam_obj)
                     self._vnc_lib.virtual_network_update(vn_obj)
+        except RefsExistError as e:
+            # Delete of custom network when it is still in use is not
+            # supported yet. Log deletion attempt and return without deleting VN
+            self._logger.error("%s: Cannot delete Network %s . %s"
+                                                %(self._name, vn_name, str(e)))
+            return
         except NoIdError:
             pass
 
