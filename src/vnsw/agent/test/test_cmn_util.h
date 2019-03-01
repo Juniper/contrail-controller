@@ -82,10 +82,7 @@ void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
 void AddXmlHdr(char *buff, int &len);
 void AddXmlTail(char *buff, int &len);
-void AddLinkString(char *buff, int &len, const char *node_name1,
-                   const char *name1, const char *node_name2, const char *name2,
-                   const char *metadata = NULL);
-void DelLinkString(char *buff, int &len, const char *node_name1,
+void LinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2, const char *name2,
                    const char* mdata = NULL);
 void AddNodeString(char *buff, int &len, const char *node_name, const char *name,
@@ -99,8 +96,7 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
 void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id);
 void DelNodeString(char *buff, int &len, const char *node_name, const char *name);
 void ApplyXmlString(const char *buff);
-string GetMetadata(const char *node1, const char *node2,
-                   const char *mdata = NULL);
+const char *GetMetadata(const char *node1, const char *node2);
 void AddLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char *mdata = NULL);
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,

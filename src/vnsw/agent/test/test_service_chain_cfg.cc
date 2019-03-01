@@ -165,9 +165,9 @@ TEST_F(ServiceVlanTest, FloatingIp_2) {
     int len = 0;
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, "routing-instance", "vrf2", 2);
-    AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
+    LinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "virtual-machine-interface", "vnet1");
-    AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
+    LinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "routing-instance", "vrf2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
@@ -208,10 +208,10 @@ TEST_F(ServiceVlanTest, FloatingIp_3) {
     char buff[2048];
     int len = 0;
     AddXmlHdr(buff, len);
-    AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
+    LinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "virtual-machine-interface", "vnet1");
     AddNodeString(buff, len, "routing-instance", "vrf2", 2);
-    AddLinkString(buff, len, "virtual-machine-interface-routing-instance",
+    LinkString(buff, len, "virtual-machine-interface-routing-instance",
                   "ser1", "routing-instance", "vrf2");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);

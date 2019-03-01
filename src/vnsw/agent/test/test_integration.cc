@@ -230,8 +230,7 @@ xml_node FormLink (xml_node &input, xml_node &output) {
     }
 
     xml_node n1 = node.append_child("metadata");
-    string mdata = GetMetadata(left.c_str(), right.c_str(), NULL);
-    n1.append_attribute("type").set_value(mdata.c_str());
+    n1.append_attribute("type").set_value(GetMetadata(left.c_str(), right.c_str()));
     node.append_copy(n1);
     return node;
 }

@@ -105,11 +105,11 @@ TEST_F(CfgTest, VnBasic_1) {
     AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddNodeString(buff, len, "virtual-machine", "vm1", 1);
     AddNodeString(buff, len, "virtual-machine-interface", "vnet2", 1);
-    AddLinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet3");
-    AddLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
-    AddLinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet2");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet3");
+    LinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet2");
     AddNodeString(buff, len, "virtual-network-network-ipam", "default-network-ipam,vn1", ipam_info, 3);
-    AddLinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
 
@@ -136,7 +136,7 @@ TEST_F(CfgTest, VnBasic_1) {
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, "virtual-network", "vn1", 1);
     AddNodeString(buff, len, "virtual-network-network-ipam", "default-network-ipam,vn1", ipam_updated_info, 3);
-    AddLinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
 
@@ -154,10 +154,10 @@ TEST_F(CfgTest, VnBasic_1) {
 
     memset(buff, 0, 4096);
     DelXmlHdr(buff, len);
-    DelLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
-    DelLinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet2");
-    DelLinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet3");
-    DelLinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
+    LinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet2");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-machine-interface", "vnet3");
+    LinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     DelNodeString(buff, len, "virtual-machine-interface", "vnet2");
     DelNodeString(buff, len, "virtual-machine", "vm1");
     DelNodeString(buff, len, "virtual-network-network-ipam", "default-network-ipam,vn1");
@@ -185,8 +185,8 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     AddNodeString(buff, len, "virtual-network", "vn2", 2);
     AddNodeString(buff, len, "routing-instance", "vrf6", 1);
     AddNodeString(buff, len, "access-control-list", "acl1", 1);
-    AddLinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf6");
-    AddLinkString(buff, len, "access-control-list", "acl1", "virtual-network",
+    LinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf6");
+    LinkString(buff, len, "access-control-list", "acl1", "virtual-network",
                   "vn1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
@@ -227,7 +227,7 @@ TEST_F(CfgTest, VrfChangeVxlanTest) {
     AddVn("vn1", 1);
     AddVrf("vrf1", 1);
     AddXmlHdr(buff, len);
-    AddLinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf1");
+    LinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
 
