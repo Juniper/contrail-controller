@@ -86,11 +86,19 @@ class DeviceInfo(object):
                 % str(ex)
             self.module.exit_json(**self.module.results)
 
+        fabric = self.vncapi.fabric_read(id=self.fabric_uuid)
+        fabric_object = self.vncapi.obj_to_dict(fabric)
+
+        # get device host name list
+        kvps = fabric_object.get('annotations').get('key_value_pair') or []
+        kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+
+        self.device_host_names = kvp_dict.get('ztp_devices')
+
         # get credentials and serial number if greenfield
         if self.total_retry_timeout:
             # get device credentials
-            fabric = self.vncapi.fabric_read(id=self.fabric_uuid)
-            fabric_object = self.vncapi.obj_to_dict(fabric)
+
             self.credentials = fabric_object.get('fabric_credentials').get(
                 'device_credential')
 
@@ -110,9 +118,10 @@ class DeviceInfo(object):
                 for outer_list in serial_num:
                     for sn in outer_list:
                         self.all_serial_num.append(sn)
-
         else:
             self.credentials = self.module.params['credentials']
+
+
 
     def ping_sweep(self, host):
         try:
@@ -337,6 +346,7 @@ class DeviceInfo(object):
         try:
             os_version = oid_mapped.get('os-version', None)
             serial_num = oid_mapped.get('serial-number', None)
+
             physicalrouter = PhysicalRouter(
                 parent_type='global-system-config',
                 fq_name=fq_name,
@@ -433,7 +443,7 @@ class DeviceInfo(object):
 
             fq_name = [
                 'default-global-system-config',
-                oid_mapped.get('hostname')]
+                self.device_host_names.get(oid_mapped.get('serial-number'), oid_mapped.get('hostname'))]
             return_code, pr_uuid = self._pr_object_create_update(
                 oid_mapped, fq_name, False)
             if return_code == REF_EXISTS_ERROR:
@@ -450,7 +460,7 @@ class DeviceInfo(object):
                 else:
                     fq_name = [
                         'default-global-system-config',
-                        oid_mapped.get('hostname') +
+                        self.device_host_names.get(oid_mapped.get('serial-number'), oid_mapped.get('hostname')) +
                         '_' +
                         oid_mapped.get('host')]
                     return_code, pr_uuid = self._pr_object_create_update(
