@@ -351,7 +351,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.vlan_map[vlan.get_name()] = vlan
                 for interface in interfaces:
                     self.add_ref_to_list(vlan.get_interfaces(), interface.name)
-                if is_l2_l3:
+                if is_l2_l3 and self.is_gateway():
                     # network_id is unique, hence irb
                     irb_intf = "irb." + str(network_id)
                     self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
@@ -519,7 +519,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def add_vlan_config(self, vrf_name, vni, is_l2_l3=False, irb_intf=None):
         vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
-        if is_l2_l3:
+        if is_l2_l3 and self.is_gateway():
             if not irb_intf:
                 self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
             else:
@@ -950,7 +950,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                            global_encapsulation_priorities}
                         self.add_routing_instance(ri_conf)
 
-                    if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
+                    if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3'] and self.is_gateway():
                         interfaces = []
                         lo0_ips = None
                         if vn_obj.get_forwarding_mode() == 'l2_l3':
@@ -958,7 +958,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                  JunosInterface(
                                 'irb.' + str(vn_obj.vn_network_id),
                                 'l3', 0)]
-                        elif self.is_gateway():
+                        else:
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
                         is_dci_vn = True if '_contrail_dci_internal_vn_' in vn_obj.name else False
