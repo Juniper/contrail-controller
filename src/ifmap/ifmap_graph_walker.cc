@@ -418,10 +418,13 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("customer-attachment", std::set<std::string>())
         ("virtual-machine-interface-routing-instance",
          list_of("virtual-machine-interface-routing-instance"))
-        ("virtual-port-group",
-         list_of("virtual-port-group-virtual-machine-interface"))
         ("physical-interface", list_of("physical-interface-logical-interface")
                                       ("virtual-port-group-physical-interface"))
+        ("virtual-port-group-physical-interface",
+         list_of("virtual-port-group-physical-interface"))
+        ("virtual-port-group",
+         list_of("virtual-port-group-virtual-machine-interface")
+                ("virtual-port-group-physical-interface"))
         ("domain", list_of("domain-namespace")("domain-virtual-DNS"))
         ("floating-ip-pool", list_of("virtual-network-floating-ip-pool"))
         ("alias-ip-pool", list_of("virtual-network-alias-ip-pool"))

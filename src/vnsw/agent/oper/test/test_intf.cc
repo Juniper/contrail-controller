@@ -5412,16 +5412,20 @@ TEST_F(IntfTest, GwIntfAddVpg) {
     AddPhysicalDevice(agent->host_name().c_str(), 1);
     AddPhysicalInterface("pi1", 1, "pi1");
     AddVirtualPortGroup("vpg1", 1, "vpg1");
+    AddLinkNode("virtual-port-group-physical-interface", "vpg1_pi1", "ae1");
     AddLink("physical-router", agent->host_name().c_str(),
             "physical-interface", "pi1");
-    AddLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    AddLink("virtual-port-group-physical-interface", "vpg1_pi1",
+            "physical-interface", "pi1",
+            "virtual-port-group-physical-interface");
+    AddLink("virtual-port-group-physical-interface", "vpg1_pi1",
+            "virtual-port-group", "vpg1",
+            "virtual-port-group-physical-interface");
     AddLink("virtual-machine-interface", "vnet8",
             "virtual-port-group", "vpg1");
-
     //Add a link to interface subnet and ensure resolve route is added
     AddSubnetType("subnet", 1, "8.1.1.0", 24);
-    AddLink("virtual-machine-interface", input1[0].name,
-            "subnet", "subnet");
+    AddLink("virtual-machine-interface", input1[0].name, "subnet", "subnet");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
@@ -5441,14 +5445,14 @@ TEST_F(IntfTest, GwIntfAddVpg) {
 
     DelLink("virtual-machine-interface", input1[0].name,
              "subnet", "subnet");
-    DelLink("physical-router", agent->host_name().c_str(),
-            "physical-interface", "pi1");
-    DelLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
     DelLink("virtual-machine-interface", "vnet8",
             "virtual-port-group", "vpg1");
-    DeletePhysicalDevice(agent->host_name().c_str());
+    DelLink("physical-router", agent->host_name().c_str(),
+            "physical-interface", "pi1");
+    DelNode("virtual-port-group-physical-interface", "vpg1_pi1");
+    DeleteVirtualPortGroup("vpg1");
     DeletePhysicalInterface("pi1");
-    DeleteLogicalInterface("vpg1");
+    DeletePhysicalDevice(agent->host_name().c_str());
 
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", "8.1.1.0", 24));
@@ -5476,16 +5480,21 @@ TEST_F(IntfTest, GwSubnetChangeVpg) {
     client->Reset();
 
     AddPhysicalDevice(agent->host_name().c_str(), 1);
-    AddPhysicalInterface("pi1", 1, "pid1");
-    AddLogicalInterface("vpg1", 1, "vpg1");
+    AddPhysicalInterface("pi1", 1, "pi1");
+    AddVirtualPortGroup("vpg1", 1, "vpg1");
+    AddLinkNode("virtual-port-group-physical-interface", "vpg1_pi1", "ae1");
     AddLink("physical-router", "prouter1", "physical-interface", "pi1");
-    AddLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    AddLink("virtual-port-group-physical-interface", "vpg1_pi1",
+            "physical-interface", "pi1",
+            "virtual-port-group-physical-interface");
+    AddLink("virtual-port-group-physical-interface", "vpg1_pi1",
+            "virtual-port-group", "vpg1",
+            "virtual-port-group-physical-interface");
     AddLink("virtual-machine-interface", "vnet8",
             "virtual-port-group", "vpg1");
     //Add a link to interface subnet and ensure resolve route is added
     AddSubnetType("subnet", 1, "8.1.1.0", 24);
-    AddLink("virtual-machine-interface", input1[0].name,
-            "subnet", "subnet");
+    AddLink("virtual-machine-interface", input1[0].name, "subnet", "subnet");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
@@ -5515,17 +5524,14 @@ TEST_F(IntfTest, GwSubnetChangeVpg) {
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
     }
 
-    DelLink("virtual-machine-interface", input1[0].name,
-             "subnet", "subnet");
-    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
-    DelLink("virtual-port-group", "vpg1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", input1[0].name, "subnet", "subnet");
     DelLink("virtual-machine-interface", "vnet8",
             "virtual-port-group", "vpg1");
-    DeletePhysicalDevice(agent->host_name().c_str());
+    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelNode("virtual-port-group-physical-interface", "vpg1_pi1");
+    DeleteVirtualPortGroup("vpg1");
     DeletePhysicalInterface("pi1");
-    DeleteLogicalInterface("vpg1");
-    DelLink("virtual-machine-interface", input1[0].name,
-             "subnet", "subnet");
+    DeletePhysicalDevice(agent->host_name().c_str());
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", "9.1.1.0", 24));
     DeleteVmportEnv(input1, 1, true);

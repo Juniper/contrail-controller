@@ -129,6 +129,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "virtual-network",
         "virtual-network-network-ipam",
         "virtual-port-group",
+        "virtual-port-group-physical-interface",
         "virtual-DNS",
         "global-vrouter-config",
         "virtual-router",
@@ -768,7 +769,7 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-port-group-virtual-machine-interface",
                                "virtual-port-group", false,
-                               "physical-interface-virtual-port-group",
+                               "virtual-port-group-physical-interface",
                                "physical-interface", false,
                                "physical-router-physical-interface",
                                "physical-router", true));
@@ -891,6 +892,14 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("physical-interface",
                       MakePath("physical-router-physical-interface",
                                "physical-router", true));
+    ////////////////////////////////////////////////////////////////////////
+    // physical-interface <----> virtual-port-group
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("physical-interface",
+                    MakePath("virtual-port-group-physical-interface",
+                             "virtual-port-group-physical-interface", true,
+                             "virtual-port-group-physical-interface",
+                             "virtual-port-group", true));
     RegisterConfigHandler(this, "physical-interface",
                           agent ? agent->interface_table() : NULL);
 
