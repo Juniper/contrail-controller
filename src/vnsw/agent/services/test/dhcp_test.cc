@@ -2137,12 +2137,19 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasicVpg) {
 
     AddPhysicalDevice(Agent::GetInstance()->host_name().c_str(), 1);
     AddPhysicalInterface("physical1", 1, "physical1");
+    AddVirtualPortGroup("vpg1", 1, "vpg1");
+    AddLinkNode("virtual-port-group-physical-interface",
+                "vpg1_physical1", "ae1");
     AddLink("physical-router", Agent::GetInstance()->host_name().c_str(),
             "physical-interface", "physical1");
-    AddVirtualPortGroup("vpg1", 1, "vpg1");
-    AddLink("virtual-port-group", "vpg1", "physical-interface", "physical1");
-    AddLink("virtual-machine-interface", "vnet1", "virtual-port-group", "vpg1");
-
+    AddLink("virtual-port-group-physical-interface", "vpg1_physical1",
+            "physical-interface", "physical1",
+            "virtual-port-group-physical-interface");
+    AddLink("virtual-port-group-physical-interface", "vpg1_physical1",
+            "virtual-port-group", "vpg1",
+            "virtual-port-group-physical-interface");
+    AddLink("virtual-machine-interface", "vnet1",
+            "virtual-port-group", "vpg1");
     //Add a link to interface subnet and ensure resolve route is added
     AddSubnetType("subnet", 1, "7.8.9.0", 24);
     AddLink("virtual-machine-interface", input[0].name, "subnet", "subnet");
@@ -2199,13 +2206,14 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasicVpg) {
 
     client->Reset();
     DelLink("virtual-machine-interface", input[0].name, "subnet", "subnet");
+    DelLink("virtual-machine-interface", "vnet1",
+            "virtual-port-group", "vpg1");
     DelLink("physical-router", Agent::GetInstance()->host_name().c_str(),
             "physical-interface", "physical1");
-    DelLink("virtual-port-group", "vpg1", "physical-interface", "physical1");
-    DelLink("virtual-machine-interface", "vnet1", "virtual-port-group", "vpg1");
+    DelNode("virtual-port-group-physical-interface", "vpg1_physical1");
+    DeleteVirtualPortGroup("vpg1");
     DeletePhysicalDevice(Agent::GetInstance()->host_name().c_str());
     DeletePhysicalInterface("physical1");
-    DeleteVirtualPortGroup("vpg1");
 
     client->Reset();
     DelIPAM("vn1");
@@ -2217,8 +2225,8 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasicVpg) {
 
     EXPECT_FALSE(VmPortFind(1));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
-                == NULL));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->
+                            interface_table()->Find(&key, true) == NULL));
     client->Reset();
 
     ClearPktTrace();

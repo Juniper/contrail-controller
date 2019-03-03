@@ -413,9 +413,15 @@ static void BuildInterfaceConfigurationDataFromVpg(Agent *agent,
         *vpg_node = node;
     }
 
+    IFMapNode *vpg_pi_node = agent->config_manager()->
+        FindAdjacentIFMapNode(node, "virtual-port-group-physical-interface");
+    if (vpg_pi_node == NULL) {
+        return;
+    }
+
     if (*phy_interface == NULL) {
         *phy_interface = agent->config_manager()->
-            FindAdjacentIFMapNode(node, "physical-interface");
+            FindAdjacentIFMapNode(vpg_pi_node, "physical-interface");
         // Update vpg_node if phy_interface is present
         if (*phy_interface) {
             *vpg_node = node;
