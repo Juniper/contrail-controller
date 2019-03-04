@@ -8,13 +8,8 @@
 set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family {{ip_item.family}} address {{ip_item.address}}
 {%                 endfor %}
 {%             endif %}
-{%             if li_item.get('family') is defined %}
-{%                 if li_item.get('family') == 'ethernet-switching' %}
-set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching vlan-id {{li_item.unit}}
-{%                 endif %}
-{%             else %}
-set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} vlan-id {{li_item.unit}}
-{%             endif %}
+set groups {{cfg_group}} interfaces {{pi_interface_name}} unit 0 family ethernet-switching interface-mode trunk
+set groups {{cfg_group}} interfaces {{pi_interface_name}} unit 0 family ethernet-switching vlan members {{li_item.unit}}
 {%         endfor %}
 {%     endif %}
 {% endfor %}

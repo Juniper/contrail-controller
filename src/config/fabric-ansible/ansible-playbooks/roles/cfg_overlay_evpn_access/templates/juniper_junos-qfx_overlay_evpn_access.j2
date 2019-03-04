@@ -6,9 +6,8 @@
 {%                     set unit = li.get('unit') %}
 {%                     set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
-set groups {{cfg_group}} interfaces {{name}} flexible-vlan-tagging
-set groups {{cfg_group}} interfaces {{name}} encapsulation extended-vlan-bridge
-set groups {{cfg_group}} interfaces {{name}} unit {{unit}} vlan-id {{vlan_id}}
+set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode trunk
+set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching vlan members {{vlan_id}}
 {%                     if li.get('is_tagged', false) == false %}
 set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
 {%                     endif %}
@@ -33,7 +32,6 @@ set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
 {%                         if li.get('is_tagged', false) != false %}
 set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
 {%                         endif %}
-set groups {{cfg_group}} vlans {{vlan_name}} interface {{int_name}}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%                     endif %}
 {%                 endfor %}
