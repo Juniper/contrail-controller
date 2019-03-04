@@ -121,7 +121,7 @@ class DeviceJobManager(object):
                 if retry_count >= max_retries:
                     raise e
                 self._logger.warning("Error while initializing db connection, "
-                    "retrying: %s" % repr(e))
+                    "retrying: %s" % str(e))
                 gevent.sleep(timeout)
             finally:
                 retry_count = retry_count + 1
