@@ -48,7 +48,7 @@ IFMapNode* IFMapAgentTable::TableEntryLookup(DB *db, RequestKey *key) {
 
 IFMapAgentTable* IFMapAgentTable::TableFind(const string &node_name) {
     string name = node_name;
-    boost::replace_all(name, "-", "_");
+    ReplaceElem(name.c_str(), '-', '_');
     name = "__ifmap__." + name + ".0";
     IFMapAgentTable *table =
             static_cast<IFMapAgentTable *>(database()->FindTable(name));

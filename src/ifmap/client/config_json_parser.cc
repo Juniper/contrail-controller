@@ -36,9 +36,6 @@ using std::string;
                        adapter.uuid());                                        \
         IFMAP_TRACE(ConfigurationMalformed ## t ## Warning ## Trace,           \
                     key, value, adapter.type(), adapter.uuid());               \
-        cout << "CONFIG_PARSE_ERROR " << __FILE__ << ":" << __LINE__ << " ";   \
-        cout << adapter.type() << " " << key << " " << value << " ";           \
-        cout << adapter.uuid() << endl;                                        \
         if (ConfigCass2JsonAdapter::assert_on_parse_error())                   \
             assert(false);                                                     \
         return false;                                                          \
