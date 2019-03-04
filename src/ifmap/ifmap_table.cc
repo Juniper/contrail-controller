@@ -38,7 +38,7 @@ IFMapNode *IFMapTable::FindNextNode(const std::string &name) {
 
 IFMapTable *IFMapTable::FindTable(DB *db, const std::string &element_type) {
     string idtype = element_type;
-    boost::replace_all(idtype, "-", "_");
+    std::replace(idtype.begin(), idtype.end(), '-', '_');
     string name = "__ifmap__." + idtype + ".0";
     return static_cast<IFMapTable *>(db->FindTable(name));
 }
@@ -63,11 +63,13 @@ void IFMapTable::FillNodeTableList(DB *db,
             // Ignore the link-table in this api
             continue;
         }
+        if (!table->Size())
+            continue;
         // Create a name that can be passed to IFMapTable::FindTable()
         size_t first = table->name().find_first_of(".");
         size_t second = table->name().find_first_of(".", first + 1);
         std::string name = table->name().substr(first + 1, second - first - 1);
-        boost::replace_all(name, "_", "-");
+        std::replace(name.begin(), name.end(), '_', '-');
 
         IFMapNodeTableListShowEntry entry;
         entry.table_name = name;

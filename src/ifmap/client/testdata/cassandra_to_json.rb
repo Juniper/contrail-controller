@@ -103,7 +103,7 @@ end
 def main
     get_cassandra_data if ENV["CONFIG_JSON_PARSER_TEST_DATA_FILE"].nil?
     ENV["CONFIG_JSON_PARSER_TEST_INTROSPECT"] ||= "0"
-    cmd = "build/debug/ifmap/client/test/config_json_parser_test --gtest_filter=ConfigJsonParserTest.BulkSync"
+    cmd = "build/production/ifmap/client/test/config_json_parser_test --gtest_filter=ConfigJsonParserTest.BulkSync"
     puts "CONFIG_JSON_PARSER_TEST_INTROSPECT=#{ENV["CONFIG_JSON_PARSER_TEST_INTROSPECT"]} CONFIG_JSON_PARSER_TEST_DATA_FILE=#{ENV["CONFIG_JSON_PARSER_TEST_DATA_FILE"]} #{cmd}"
     exec(ENV, cmd)
 end
