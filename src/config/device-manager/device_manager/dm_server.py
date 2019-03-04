@@ -136,7 +136,8 @@ def main(args_str=None):
         gevent.sleep(0.5)
     except Exception as e:
         dm_logger.error("Error while initializing the device job "
-                        "manager %s" % repr(e))
+                        "manager %s" % str(e))
+        raise e
 
     try:
         # Initialize the device ztp manager
@@ -145,7 +146,8 @@ def main(args_str=None):
         gevent.sleep(0.5)
     except Exception as e:
         dm_logger.error("Error while initializing the device ztp "
-                        "manager %s" % repr(e))
+                        "manager %s" % str(e))
+        raise e
 
     gevent.signal(signal.SIGHUP, sighup_handler)
     gevent.signal(signal.SIGTERM, sigterm_handler)
