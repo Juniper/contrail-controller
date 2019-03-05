@@ -155,7 +155,8 @@ class VncAmqpHandle(object):
 
     def handle_update(self):
         obj_id = self.oper_info['uuid']
-        self.obj = self.obj_class.get_by_uuid(obj_id)
+        obj_key = self._get_key_from_oper_info()
+        self.obj = self.obj_class.get(obj_key)
         old_dt = None
         if self.obj is not None:
             old_dt = DependencyTracker(
@@ -195,14 +196,14 @@ class VncAmqpHandle(object):
 
     def handle_delete(self):
         obj_id = self.oper_info['uuid']
-        self.obj = self.obj_class.get_by_uuid(obj_id)
+        obj_key = self._get_key_from_oper_info()
+        self.obj = self.obj_class.get(obj_key)
         self.db_cls._object_db.cache_uuid_to_fq_name_del(obj_id)
         if self.obj is None:
             return
         self.dependency_tracker = DependencyTracker(
             self.db_cls.get_obj_type_map(), self.reaction_map)
         self.dependency_tracker.evaluate(self.obj_type, self.obj)
-        obj_key = self._get_key_from_oper_info()
         self.obj_class.delete(obj_key)
 
     def handle_unknown(self):

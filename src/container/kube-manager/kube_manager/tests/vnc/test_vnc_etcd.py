@@ -20,6 +20,11 @@ def _vnc_etcd_factory(host='etcd-host-01', port=2379, prefix='/contrail',
                    log_response_time=log_response_time, credentials=credentials)
 
 
+class MockedMeta:
+    def __init__(self, key):
+        self.key = key
+
+
 class VncEtcdTest(unittest.TestCase):
     def test_create_etcd_client_instance(self):
         vnc_etcd = _vnc_etcd_factory(obj_cache_exclude_types=['tag_type'])
@@ -455,8 +460,10 @@ class VncEtcdTest(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_uuid_to_fq_name_should_return_fq_name_array(self, etcd_client):
         example_resource = [
-            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}', None),
-            ('{"uuid":"bbb", "fq_name":["domain","project","network"]}', None),
+            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}',
+             MockedMeta('/contrail/router/aaa')),
+            ('{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+             MockedMeta('/contrail/network/bbb')),
         ]
         vnc_etcd = _vnc_etcd_factory()
         vnc_etcd._client.get_prefix = mock.MagicMock()
@@ -468,8 +475,10 @@ class VncEtcdTest(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_uuid_to_fq_name_no_match_should_raise_error(self, etcd_client):
         example_resource = [
-            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}', None),
-            ('{"uuid":"bbb", "fq_name":["domain","project","network"]}', None),
+            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}',
+             MockedMeta('/contrail/router/aaa')),
+            ('{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+             MockedMeta('/contrail/network/bbb')),
         ]
         vnc_etcd = _vnc_etcd_factory()
         vnc_etcd._client.get_prefix = mock.MagicMock()
@@ -480,8 +489,10 @@ class VncEtcdTest(unittest.TestCase):
     @mock.patch('etcd3.client')
     def test_uuid_to_fq_name_should_return_from_cache(self, etcd_client):
         example_resource = [
-            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}', None),
-            ('{"uuid":"bbb", "fq_name":["domain","project","network"]}', None),
+            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}',
+             MockedMeta('/contrail/router/aaa')),
+            ('{"uuid":"bbb", "fq_name":["domain","project","network"]}',
+             MockedMeta('/contrail/network/bbb')),
         ]
         vnc_etcd = _vnc_etcd_factory()
         vnc_etcd._client.get_prefix = mock.MagicMock()
@@ -490,6 +501,32 @@ class VncEtcdTest(unittest.TestCase):
         vnc_etcd.uuid_to_fq_name('bbb')
         vnc_etcd.uuid_to_fq_name('bbb')
         vnc_etcd._client.get_prefix.assert_called_once()
+
+    @mock.patch('etcd3.client')
+    def test_cache_uuid_to_fq_name_del_should_clear_cache(self, etcd_client):
+        example_resource = [
+            ('{"uuid":"aaa", "fq_name":["domain","project","router"]}',
+             MockedMeta('/contrail/router/aaa')),
+        ]
+        vnc_etcd = _vnc_etcd_factory()
+        vnc_etcd._client.get_prefix = mock.MagicMock()
+        vnc_etcd._client.get_prefix.return_value = example_resource
+
+        self.assertEqual(vnc_etcd.fq_name_to_uuid(
+            'network', ["domain", "project", "router"]), 'aaa')
+        self.assertEqual(vnc_etcd.uuid_to_fq_name('aaa'),
+                         ["domain", "project", "router"])
+        vnc_etcd._client.get_prefix.assert_called_once()
+        vnc_etcd._client.get_prefix.return_value = []
+        self.assertEqual(vnc_etcd.fq_name_to_uuid(
+            'network', ["domain", "project", "router"]), 'aaa')
+        self.assertEqual(vnc_etcd.uuid_to_fq_name('aaa'),
+                         ["domain", "project", "router"])
+        vnc_etcd.cache_uuid_to_fq_name_del('aaa')
+        self.assertRaises(NoIdError, vnc_etcd.uuid_to_fq_name, 'aaa')
+        self.assertRaises(NoIdError, vnc_etcd.fq_name_to_uuid,
+                          'network', ["domain", "project", "router"])
+
 
     @mock.patch('etcd3.client')
     def test_patch_resource_refs_to_should_add_missing_key(self, etcd_client):
