@@ -16,10 +16,17 @@ class VirtualMachineManagerTest(unittest.TestCase):
         InterfaceRouteTableSM._object_db = mock.MagicMock()
         InterfaceRouteTableSM._object_db.object_read = test_utils.irt_db_read
         self.mocked_vnc = mock.MagicMock()
+        self.mocked_vnc.obj_to_dict = test_utils.vnc_obj_to_dict
         self.mocked_vnc.fq_name_to_id = test_utils.get_vn_id_for_fq_name
         self.mocked_vnc.virtual_network_create = test_utils.vn_create
         self.mocked_vnc.virtual_machine_interface_create = test_utils.vmi_create
         self.mocked_vnc.instance_ip_create = test_utils.iip_create
+
+        self.mocked_vnc.instance_ip_read = test_utils.iip_vnc_read
+        self.mocked_vnc.interface_route_table_read = test_utils.irt_vnc_read
+        self.mocked_vnc.virtual_machine_read = test_utils.vm_vnc_read
+        self.mocked_vnc.virtual_machine_interface_read = test_utils.vmi_vnc_read
+        self.mocked_vnc.virtual_network_read = test_utils.vn_vnc_read
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()

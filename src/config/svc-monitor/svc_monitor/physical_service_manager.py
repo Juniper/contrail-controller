@@ -127,7 +127,8 @@ class PhysicalServiceManager(InstanceManager):
                                          vmi.physical_interface,
                                          None,
                                          'DELETE')
-                PhysicalInterfaceSM.locate(vmi.physical_interface)
+                pi_obj = self._vnc_lib.physical_interface_read(id=vmi.physical_interface)
+                PhysicalInterfaceSM.locate(vmi.physical_interface, self._vnc_lib.obj_to_dict(pi_obj))
             except:
                 pass
 
