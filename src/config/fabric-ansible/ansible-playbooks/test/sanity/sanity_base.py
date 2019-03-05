@@ -732,6 +732,17 @@ class SanityBase(object):
 
     # end ztp
 
+    def workflow_abort(self, job_execution_id, abort_mode, sleep_time):
+        time.sleep(sleep_time)
+        status = self._api.abort_job(
+            job_input={
+                'job_execution_id': job_execution_id,
+                'abort_mode': abort_mode
+            }
+        )
+        return status
+    # end workflow_abort
+    
     def _exit_with_error(self, errmsg):
         self._logger.error(errmsg)
         sys.exit(1)

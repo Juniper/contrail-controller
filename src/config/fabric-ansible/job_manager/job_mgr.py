@@ -7,10 +7,10 @@
 import argparse
 import json
 import socket
+import signal
 import sys
 import time
 import traceback
-
 
 from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
@@ -55,6 +55,7 @@ class JobManager(object):
         self.result_handler = result_handler
         self.job_percent = job_percent
         self._zk_client = zk_client
+        self.job_handler = None
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -94,6 +95,7 @@ class JobManager(object):
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq, self.vnc_api_init_params,
                                  self._zk_client)
+        self.job_handler = job_handler
 
         # check if its a multi device playbook
         playbooks = self.job_template.get_job_template_playbooks()
@@ -176,6 +178,11 @@ class WFManager(object):
                                   self.job_template_id,
                                   self._logger, self._vnc_api)
         self._zk_client = zk_client
+        self.job_mgr = None
+        self.job_template = None
+        self.abort_flag = False
+        signal.signal(signal.SIGABRT,  self.job_mgr_abort_signal_handler)
+        signal.signal(signal.SIGUSR1,  self.job_mgr_abort_signal_handler)
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -226,6 +233,7 @@ class WFManager(object):
                                                    self.job_log_utils)
 
             job_template = self.job_utils.read_job_template()
+            self.job_template = job_template
 
             msg = MsgBundle.getMessage(
                 MsgBundle.START_JOB_MESSAGE,
@@ -284,13 +292,15 @@ class WFManager(object):
                                          job_template,
                                          self.result_handler, self.job_utils,
                                          i, job_percent, self._zk_client)
+                    self.job_mgr = job_mgr
                     job_mgr.start_job()
 
                     # retry the playbook execution if retry_devices is added to
                     # the playbook output
                     job_status = self.result_handler.job_result_status
                     retry_devices = self.result_handler.get_retry_devices()
-                    if job_status == JobStatus.FAILURE or not retry_devices:
+                    if job_status == JobStatus.FAILURE or not retry_devices \
+                            or self.abort_flag:
                         break
                     self.job_input['device_json'] = retry_devices
 
@@ -325,6 +335,15 @@ class WFManager(object):
 
                         self.result_handler.job_result_status =\
                             JobStatus.SUCCESS
+
+                if self.abort_flag:
+                    err_msg = "ABORTING NOW..."
+                    self._logger.info(err_msg)
+                    self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+                    break
+
+                # update the job input with marked playbook output json
+                pb_output = self.result_handler.playbook_output or {}
 
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next
@@ -370,6 +389,22 @@ class WFManager(object):
             if job_error_msg is not None:
                 sys.exit(job_error_msg)
 
+    def job_mgr_abort_signal_handler(self, signalnum, frame):
+        if signalnum == signal.SIGABRT:
+            # Force abort; kill all playbooks, then exit
+            err_msg = "Job aborting..."
+            self._logger.info(err_msg)
+            try:
+                self.job_mgr.job_handler.playbook_abort()
+                self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+                self.result_handler.create_job_summary_log(self.job_template.fq_name)
+                sys.exit()
+            except Exception as ex:
+                self._logger.error("Failed to force abort")
+        elif signalnum == signal.SIGUSR1:
+            # Graceful abort; Exit after current playbook
+            self._logger.info("Job will abort upon playbook completion...")
+            self.abort_flag = True
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Job manager parameters')
