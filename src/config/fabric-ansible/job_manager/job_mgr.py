@@ -12,6 +12,7 @@ import jsonschema
 import argparse
 import traceback
 import socket
+import signal
 
 from cfgm_common.zkclient import ZookeeperClient
 from job_manager.job_handler import JobHandler
@@ -54,6 +55,7 @@ class JobManager(object):
         self.result_handler = result_handler
         self.job_percent = job_percent
         self._zk_client = zk_client
+        self.job_handler = None
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -93,6 +95,7 @@ class JobManager(object):
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq, self.vnc_api_init_params,
                                  self._zk_client)
+        self.job_handler = job_handler
 
         # check if its a multi device playbook
         playbooks = self.job_template.get_job_template_playbooks()
@@ -175,6 +178,11 @@ class WFManager(object):
                                   self.job_template_id,
                                   self._logger, self._vnc_api)
         self._zk_client = zk_client
+        self.job_mgr = None
+        self.job_template = None
+        self.abort_flag = False
+        signal.signal(signal.SIGABRT,  self.job_mgr_abort_signal_handler)
+        signal.signal(signal.SIGUSR1,  self.job_mgr_abort_signal_handler)
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -225,6 +233,7 @@ class WFManager(object):
                                                    self.job_log_utils)
 
             job_template = self.job_utils.read_job_template()
+            self.job_template = job_template
 
             msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
                                        job_execution_id=self.job_execution_id,
@@ -283,13 +292,15 @@ class WFManager(object):
                                          job_template,
                                          self.result_handler, self.job_utils, i,
                                          job_percent, self._zk_client)
+                    self.job_mgr = job_mgr
                     job_mgr.start_job()
 
                     # retry the playbook execution if retry_devices is added to
                     # the playbook output
                     job_status = self.result_handler.job_result_status
                     retry_devices = self.result_handler.get_retry_devices()
-                    if job_status == JobStatus.FAILURE or not retry_devices:
+                    if job_status == JobStatus.FAILURE or not retry_devices \
+                            or self.abort_flag:
                         break
                     self.job_input['device_json'] = retry_devices
 
@@ -316,6 +327,12 @@ class WFManager(object):
                         # success even if one of the devices has succeeded the job
 
                         self.result_handler.job_result_status = JobStatus.SUCCESS
+
+                if self.abort_flag:
+                    err_msg = "ABORTING NOW..."
+                    self._logger.info(err_msg)
+                    self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+                    break
 
                 # update the job input with marked playbook output json
                 pb_output = self.result_handler.playbook_output or {}
@@ -364,6 +381,17 @@ class WFManager(object):
             if job_error_msg is not None:
                 sys.exit(job_error_msg)
 
+    def job_mgr_abort_signal_handler(self, signalnum, frame):
+        if signalnum == signal.SIGABRT:
+            err_msg = "Job aborting..."
+            self._logger.info(err_msg)
+            self.job_mgr.job_handler.playbook_abort()
+            self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+            self.result_handler.create_job_summary_log(self.job_template.fq_name)
+            sys.exit()
+        elif signalnum == signal.SIGUSR1:
+            self._logger.info("Job will abort upon playbook completion...")
+            self.abort_flag = True
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Job manager parameters')

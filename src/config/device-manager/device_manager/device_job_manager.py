@@ -26,6 +26,9 @@ class DeviceJobManager(object):
     JOB_REQUEST_EXCHANGE = "job_request_exchange"
     JOB_REQUEST_CONSUMER = "job_request_consumer"
     JOB_REQUEST_ROUTING_KEY = "job.request"
+    JOB_ABORT_EXCHANGE = "job_abort_exchange"
+    JOB_ABORT_CONSUMER = "job_abort_consumer"
+    JOB_ABORT_ROUTING_KEY = "job.abort"
     JOB_STATUS_EXCHANGE = "job_status_exchange"
     JOB_STATUS_CONSUMER = "job_status_consumer."
     JOB_STATUS_ROUTING_KEY = "job.status."
@@ -83,6 +86,14 @@ class DeviceJobManager(object):
             self.JOB_REQUEST_EXCHANGE,
             routing_key=self.JOB_REQUEST_ROUTING_KEY,
             callback=self.handle_execute_job_request)
+
+        self._amqp_client.add_exchange(self.JOB_ABORT_EXCHANGE,
+                                       type='direct')
+        self._amqp_client.add_consumer(
+            self.JOB_ABORT_CONSUMER,
+            self.JOB_ABORT_EXCHANGE,
+            routing_key=self.JOB_ABORT_ROUTING_KEY,
+            callback=self.handle_abort_job_request)
     # end __init__
 
     @classmethod
@@ -318,6 +329,24 @@ class DeviceJobManager(object):
                               fabric_job_uve_name=fabric_job_uve_name,
                               job_params=job_input_params)
     # end handle_execute_job_request
+
+    def handle_abort_job_request(self, body, message):
+        input = body.get('input')
+        job_execution_id = input.get('job_execution_id')
+        abort_mode = input.get('abort_mode')
+        self._logger.info("Abort job request: job_id={}, mode={}".\
+                          format(job_execution_id, abort_mode))
+
+        # Search through running job instances to find this job
+        for pid, job_instance in self._job_mgr_running_instances.iteritems():
+            if job_instance.get('exec_id') == job_execution_id:
+                self._logger.info("ABORT: pid={}, job_instance={}, mode={}".\
+                                   format(pid, job_instance, abort_mode))
+
+                os.kill(int(pid), signal.SIGABRT if abort_mode == "force" \
+                    else signal.SIGUSR1)
+                break
+    # end handle_abort_job_request
 
     def create_fabric_job_uve(self, fabric_job_uve_name,
                               execution_id, job_status,
