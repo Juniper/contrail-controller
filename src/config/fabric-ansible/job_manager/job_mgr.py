@@ -12,6 +12,7 @@ import jsonschema
 import argparse
 import traceback
 import socket
+import signal
 
 from cfgm_common.zkclient import ZookeeperClient
 from job_manager.job_handler import JobHandler
@@ -54,6 +55,7 @@ class JobManager(object):
         self.result_handler = result_handler
         self.job_percent = job_percent
         self._zk_client = zk_client
+        self.job_handler = None
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -93,6 +95,7 @@ class JobManager(object):
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq, self.vnc_api_init_params,
                                  self._zk_client)
+        self.job_handler = job_handler
 
         # check if its a multi device playbook
         playbooks = self.job_template.get_job_template_playbooks()
@@ -175,6 +178,9 @@ class WFManager(object):
                                   self.job_template_id,
                                   self._logger, self._vnc_api)
         self._zk_client = zk_client
+        self.job_mgr = None
+        self.job_template = None
+        signal.signal(signal.SIGABRT,  self.job_mgr_abort_signal_handler)
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -225,6 +231,7 @@ class WFManager(object):
                                                    self.job_log_utils)
 
             job_template = self.job_utils.read_job_template()
+            self.job_template = job_template
 
             msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
                                        job_execution_id=self.job_execution_id,
@@ -283,6 +290,7 @@ class WFManager(object):
                                          job_template,
                                          self.result_handler, self.job_utils, i,
                                          job_percent, self._zk_client)
+                    self.job_mgr = job_mgr
                     job_mgr.start_job()
 
                     # retry the playbook execution if retry_devices is added to
@@ -364,6 +372,13 @@ class WFManager(object):
             if job_error_msg is not None:
                 sys.exit(job_error_msg)
 
+    def job_mgr_abort_signal_handler(self, signalnum, frame):
+        self.job_mgr.job_handler.playbook_abort()
+        err_msg = "Job aborted"
+        self._logger.error(err_msg)
+        self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+        self.result_handler.create_job_summary_log(self.job_template.fq_name)
+        sys.exit()
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Job manager parameters')

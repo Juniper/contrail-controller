@@ -14,6 +14,7 @@ import traceback
 import ast
 import time
 import gevent
+import signal
 
 from cfgm_common.exceptions import ResourceExistsError
 from job_manager.job_exception import JobException
@@ -49,6 +50,7 @@ class JobHandler(object):
         self._vnc_api_init_params = vnc_api_init_params
         self._prouter_info = {}
         self._zk_client = zk_client
+        self._pb_pid = []
     # end __init__
 
 
@@ -90,6 +92,7 @@ class JobHandler(object):
                    device_id=None, device_name=None):
         playbook_output = None
         playbook_info = None
+        self.result_handler = result_handler
         try:
             msg = "Starting playbook execution for job template %s with " \
                   "execution id %s" % (self._job_template.get_uuid(),
@@ -471,6 +474,11 @@ class JobHandler(object):
                 self._logger.error("Failed to send prouter log: %s" % str(ex))
     # end send_prouter_uve
 
+    def playbook_abort(self):
+        self._logger.error("JOB_MGR ABORT SIGNAL, PB_PID={} MINE={}".format(self._pb_pid, os.getpid()))
+        for pid in self._pb_pid:
+            os.kill(pid, signal.SIGABRT)
+
     def run_playbook_process(self, playbook_info, percentage_completed):
         playbook_process = None
 
@@ -493,6 +501,8 @@ class JobHandler(object):
                                                   close_fds=True, cwd='/')
             # this is to yield the context to the playbooks so that
             # they start running concurrently
+            self._pb_pid.append(playbook_process.pid)
+            self._logger.error("STORE PID={}, MINE={}".format(self._pb_pid, os.getpid()))
             gevent.sleep(0)
             marked_output = self.process_file_and_get_marked_output(
                 unique_pb_id, exec_id, playbook_process, pr_uve_name)
