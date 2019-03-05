@@ -504,29 +504,8 @@ class VncEtcd(VncEtcdClient):
 
     def _read_object(self, key, timeout=0):
         """Try to read object from etcd.
-        If it is not present there, wait for it for some time.
         """
-        if timeout is 0:
-            resource, _ = self._client.get(key)
-            return resource
-
-        event_queue = queue.Queue()
-
-        def callback(event):
-            event_queue.put(event)
-
-        watch_id = self._client.add_watch_callback(key, callback, None)
-        resource = None
-        try:
-            resource, _ = self._client.get(key)
-            if resource is None:
-                ev = event_queue.get(timeout)
-                resource = ev.value
-        except queue.Empty:
-            pass
-        finally:
-            self._client.cancel_watch(watch_id)
-
+        resource, _ = self._client.get(key)
         return resource
 
     def _patch_resource(self, obj):
