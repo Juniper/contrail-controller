@@ -521,7 +521,8 @@ class VncEtcd(VncEtcdClient):
             resource, _ = self._client.get(key)
             if resource is None:
                 ev = event_queue.get(timeout)
-                resource = ev.value
+                if not isinstance(ev, etcd3.events.DeleteEvent):
+                    resource = ev.value
         except queue.Empty:
             pass
         finally:
