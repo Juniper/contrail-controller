@@ -82,6 +82,10 @@ public:
         return prefix_;
     }
 
+    const IpAddress &nexthop() const {
+        return nexthop_;
+    }
+
     RoutingInstance *routing_instance() const {
         return routing_instance_;
     }
@@ -695,7 +699,7 @@ bool StaticRouteMgr<T>::ProcessUnregisterList() {
          it != unregister_static_route_list_.end(); ++it) {
         StaticRouteT *info = static_cast<StaticRouteT *>(it->get());
         listener_->UnregisterMatchCondition(info->bgp_table(), info);
-        static_route_map_.erase(info->prefix());
+        static_route_map_.erase(RouteKey(info->prefix(), info->nexthop()));
     }
 
     unregister_static_route_list_.clear();
@@ -724,9 +728,10 @@ void StaticRouteMgr<T>::LocateStaticRoutePrefix(
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     AddressT address = this->GetAddress(config.address);
     PrefixT prefix(address, config.prefix_length);
+    RouteKey route_key(prefix, config.nexthop);
 
     // Verify whether the entry already exists
-    typename StaticRouteMap::iterator it = static_route_map_.find(prefix);
+    typename StaticRouteMap::iterator it = static_route_map_.find(route_key);
     if (it != static_route_map_.end()) {
         // Wait for the delete complete cb
         if (it->second->deleted()) return;
@@ -766,7 +771,7 @@ void StaticRouteMgr<T>::LocateStaticRoutePrefix(
 
     if (static_route_map_.empty())
         rtinstance_->server()->InsertStaticRouteMgr(this);
-    static_route_map_.insert(make_pair(prefix, static_route_match));
+    static_route_map_.insert(make_pair(route_key, static_route_match));
 
     listener_->AddMatchCondition(match->bgp_table(), static_route_match.get(),
                                 BgpConditionListener::RequestDoneCb());
@@ -785,7 +790,7 @@ void StaticRouteMgr<T>::StopStaticRouteDone(BgpTable *table,
 }
 
 template <typename T>
-void StaticRouteMgr<T>::RemoveStaticRoutePrefix(const PrefixT &static_route) {
+void StaticRouteMgr<T>::RemoveStaticRoutePrefix(const RouteKey &static_route) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     typename StaticRouteMap::iterator it = static_route_map_.find(static_route);
     if (it == static_route_map_.end()) return;
@@ -846,7 +851,8 @@ int StaticRouteMgr<T>::CompareStaticRoute(
     StaticRouteConfigList::iterator it) {
     AddressT address = this->GetAddress(it->address);
     PrefixT prefix(address, it->prefix_length);
-    KEY_COMPARE(loc->first, prefix);
+    RouteKey route_key(prefix, it->nexthop);
+    KEY_COMPARE(loc->first, route_key);
     return 0;
 }
 
