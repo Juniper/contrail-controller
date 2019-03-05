@@ -402,6 +402,7 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
 }
 
 void BgpPeer::BGPPeerInfoSend(const BgpPeerInfoData &peer_info) const {
+    assert(!peer_info.get_name().empty());
     BGPPeerInfo::Send(peer_info);
 }
 
@@ -614,11 +615,13 @@ BgpPeer::~BgpPeer() {
     PeerStatsData peer_stats_data;
     peer_stats_data.set_name(ToUVEKey());
     peer_stats_data.set_deleted(true);
+    assert(!peer_stats_data.get_name().empty());
     PeerStatsUve::Send(peer_stats_data, "ObjectBgpPeer");
 
     PeerFlapData peer_flap_data;
     peer_flap_data.set_name(ToUVEKey());
     peer_flap_data.set_deleted(true);
+    assert(!peer_flap_data.get_name().empty());
     PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
 
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
@@ -2565,6 +2568,7 @@ void BgpPeer::increment_flap_count() {
     PeerFlapData peer_flap_data;
     peer_flap_data.set_name(ToUVEKey());
     peer_flap_data.set_flap_info(flap_info);
+    assert(!peer_flap_data.get_name().empty());
     PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
 }
 
@@ -2581,6 +2585,7 @@ void BgpPeer::reset_flap_count() {
     PeerFlapData peer_flap_data;
     peer_flap_data.set_name(ToUVEKey());
     peer_flap_data.set_flap_info(flap_info);
+    assert(!peer_flap_data.get_name().empty());
     PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
 }
 

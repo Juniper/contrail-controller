@@ -56,6 +56,7 @@ bool ControlNode::ControlNodeInfoLogger(const BgpServer *server,
     change |= ifmap_server->CollectStats(&state, first);
 
     if (change) {
+        assert(!state.get_name().empty());
         BGPRouterInfo::Send(state);
 
         // Reset changed flags in the uve structure.

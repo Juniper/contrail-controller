@@ -12,3 +12,4 @@ dist
 .pydevproject
 .idea
 .DS_Store
+Doxygen

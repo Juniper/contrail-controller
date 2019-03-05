@@ -35,6 +35,7 @@ void DnsUveClient::SendDnsUve(uint64_t start_time) {
         state.set_build_info(build_info_str);
     }
     if (changed) {
+        assert(!state.get_name().empty());
         UveDnsInfo::Send(state);
     }
 }
