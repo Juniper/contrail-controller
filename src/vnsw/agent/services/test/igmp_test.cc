@@ -403,7 +403,6 @@ TEST_F(IgmpTest, SendV3ReportsNonSequential) {
     boost::system::error_code ec;
 
     uint32_t idx = 0;
-    struct IgmpGroupSource igmp_gs[2];
 
     uint32_t local_sg_add_count = 0;
     uint32_t local_sg_del_count = 0;

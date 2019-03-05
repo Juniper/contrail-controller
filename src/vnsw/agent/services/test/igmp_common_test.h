@@ -249,7 +249,7 @@ public:
 
         lmqt = ((lmqi * 1)+ lmqi/2 + 5) * 1000;
 
-        def_lmqt = ((1000 * 2) + 1000/2 + 5) * 1000;
+        def_lmqt = ((def_lmqi * 2) + def_lmqi/2 + 5) * 1000;
 
         TestPkt0Interface *tap = (TestPkt0Interface *)
                     (Agent::GetInstance()->pkt()->control_interface());
@@ -781,6 +781,7 @@ public:
     uint32_t qivl;
     uint32_t qrivl;
     uint32_t lmqi;
+    static const uint32_t def_lmqi = 1000;
     uint32_t lmqt;
     uint32_t def_lmqt;
 
