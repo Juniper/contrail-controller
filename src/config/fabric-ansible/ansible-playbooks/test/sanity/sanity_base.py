@@ -638,6 +638,7 @@ class SanityBase(object):
             device_list=device_list
         )
         job_execution_id = job_execution_info.get('job_execution_id')
+#        self.workflow_abort(job_execution_id, fabric)
         self._logger.info(
             "Maintenance mode upgrade job started with execution id: %s",
             job_execution_id)
@@ -661,6 +662,17 @@ class SanityBase(object):
         self._wait_for_job_to_finish('ZTP', job_execution_id)
 
     # end ztp
+
+    def workflow_abort(self, job_execution_id, fabric):
+        job_template_fq_name = [
+            'default-global-system-config', 'workflow_abort_template']
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=job_template_fq_name,
+            job_input={
+                'fabric_fq_name': fabric.fq_name,
+                'job_uuid': job_execution_id
+            }
+        )
 
     def _exit_with_error(self, errmsg):
         self._logger.error(errmsg)

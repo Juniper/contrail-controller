@@ -6,6 +6,28 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "workflow_abort_template"
+          ],
+          "name": "workflow_abort_template",
+          "parent_type": "global-system-config",
+          "job_template_concurrency_level": "abort",
+          "job_template_type": "workflow",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "multi_device_playbook": false,
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/workflow_abort.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "image_upgrade_template"
           ],
           "name": "image_upgrade_template",

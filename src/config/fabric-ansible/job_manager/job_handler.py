@@ -134,6 +134,12 @@ class JobHandler(object):
             if self.current_percentage:
                 result_handler.percentage_completed = self.current_percentage
 
+            # TEST ABORT
+            if self._get_abort_flag():
+                raise JobException("ABORT FLAG SET", self._execution_id)
+            if isinstance(playbook_output_results, dict) and playbook_output_results.get('abort'):
+                self._set_abort_flag(playbook_output_results.get('abort'))
+
         except JobException as job_exp:
             self._logger.error("%s" % job_exp.msg)
             self._logger.error("%s" % traceback.format_exc())
@@ -154,7 +160,63 @@ class JobHandler(object):
         finally:
             if device_id is not None:
                 self._release_device_lock(device_id)
+            self._delete_abort_flag()
     # end handle_job
+
+    def _get_abort_flag(self):
+        is_abort_set = False
+
+        # build the zk abort flag path
+        abort_flag_path =\
+            '/job-manager/' + self._fabric_fq_name + '/' + \
+            self._execution_id + '/abort'
+
+        # check if the abort flag is set
+        try:
+            value = self._zk_client.read_node(abort_flag_path)
+            if value:
+                is_abort_set = True
+                self._logger.info("Abort flag for job %s" % abort_flag_path)
+        except Exception as ex:
+            self._logger.error("Error reading abort flag for job %s" %
+                               abort_flag_path)
+        return is_abort_set
+
+    def _set_abort_flag(self, job_uuid):
+        is_abort_set = False
+
+        # build the zk abort flag path
+        abort_flag_path =\
+            '/job-manager/' + self._fabric_fq_name + '/' + \
+            job_uuid + '/abort'
+
+        # set the abort flag by creating a node
+        try:
+            self._zk_client.create_node(abort_flag_path,
+                                        value=job_uuid,
+                                        ephemeral=False)
+            is_abort_set = True
+            self._logger.info("Abort flag set for %s" % abort_flag_path)
+        except ResourceExistsError:
+            # means the abort flag was already set, which is ok
+            value = self._zk_client.read_node(abort_flag_path)
+            self._logger.info("Abort flag is already set for job %s" % value)
+        return is_abort_set
+
+    def _delete_abort_flag(self):
+        # build the zk abort flag path
+        abort_flag_path =\
+            '/job-manager/' + self._fabric_fq_name + '/' + \
+            self._execution_id + '/abort'
+
+        try:
+            self._zk_client.delete_node(abort_flag_path)
+            self._logger.info("Abort flag cleared"
+                              " for %s " % abort_flag_path)
+        except Exception as zk_error:
+            self._logger.error("Exception while removing the zookeeper"
+                               " abort flag for job %s %s " % (self._execution_id,
+                                                            repr(zk_error)))
 
     def _acquire_device_lock(self, device_id):
         is_lock_acquired = False

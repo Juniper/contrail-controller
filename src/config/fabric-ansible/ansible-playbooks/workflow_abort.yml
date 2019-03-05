@@ -1,0 +1,21 @@
+---
+- name: TEST ABORT
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "",
+              "results":
+                  {
+                    "abort": "{{ playbook_input.input.job_uuid }}"
+                  }
+          }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1
