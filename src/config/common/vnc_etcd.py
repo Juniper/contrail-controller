@@ -174,6 +174,9 @@ class VncEtcdWatchHandle(VncAmqpHandle):
         }
         if oper == "CREATE":
             msg["obj_dict"] = obj_dict
+        if oper == "DELETE":
+            obj_dict = json.loads(event.prev_value)
+            msg["fq_name"] = obj_dict["fq_name"]
         return msg
 
     @staticmethod
@@ -223,7 +226,7 @@ class VncEtcdWatchClient(VncEtcdClient):
         msg = 'etcd connection ESTABLISHED %s' % repr(self._client)
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
-        self._consumer, self._cancel = self._client.watch_prefix(self._prefix)
+        self._consumer, self._cancel = self._client.watch_prefix(self._prefix, prev_kv=True)
 
     def _connection_watch(self, connected):
         if not connected:
@@ -265,6 +268,7 @@ class VncEtcdWatchClient(VncEtcdClient):
 
 
 class VncEtcd(VncEtcdClient):
+    MANDATORY_FIELD_NAMES = ('parent_type', 'parent_uuid', 'uuid', 'fq_name')
     """Database interface for etcd client."""
     def __init__(self, host, port, prefix, kv_store, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
@@ -345,7 +349,8 @@ class VncEtcd(VncEtcdClient):
                 results.append(resource)
             else:
                 results.append({k: v for k, v in resource.items()
-                                if k in field_names})
+                                if k in field_names
+                                or k in self.MANDATORY_FIELD_NAMES})
 
         if not results:
             raise NoIdError(obj_uuids[0])
@@ -504,29 +509,8 @@ class VncEtcd(VncEtcdClient):
 
     def _read_object(self, key, timeout=0):
         """Try to read object from etcd.
-        If it is not present there, wait for it for some time.
         """
-        if timeout is 0:
-            resource, _ = self._client.get(key)
-            return resource
-
-        event_queue = queue.Queue()
-
-        def callback(event):
-            event_queue.put(event)
-
-        watch_id = self._client.add_watch_callback(key, callback, None)
-        resource = None
-        try:
-            resource, _ = self._client.get(key)
-            if resource is None:
-                ev = event_queue.get(timeout)
-                resource = ev.value
-        except queue.Empty:
-            pass
-        finally:
-            self._client.cancel_watch(watch_id)
-
+        resource, _ = self._client.get(key)
         return resource
 
     def _patch_resource(self, obj):
