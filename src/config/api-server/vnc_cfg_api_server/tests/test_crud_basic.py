@@ -816,6 +816,38 @@ class TestCrud(test_case.ApiServerTestCase):
             self._vnc_lib.routing_policy_create(rp)
         # end test_routing_policy_create_w_asn_of_cluster_asn_negative
 
+    def test_virtual_port_group_crud_and_vmi_association(self):
+        vn = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+
+        vpg_name_err = "vpg-internal-" + self.id()
+        vpg_obj_err = VirtualPortGroup(vpg_name_err)
+
+       # Make sure that api server throws an error if
+       # VPG is created externally with prefix vpg-internal in the name.
+        with ExpectedException(BadRequest):
+            self._vnc_lib.virtual_port_group_create(vpg_obj_err)
+
+        vpg_name = "vpg-" + self.id()
+        vpg_obj = VirtualPortGroup(vpg_name)
+        self._vnc_lib.virtual_port_group_create(vpg_obj)
+
+        for i in range(2):
+            vmi_obj = VirtualMachineInterface(self.id() + str(i),
+                parent_obj=Project())
+            vmi_obj.set_virtual_network(vn)
+            vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            vpg_obj.add_virtual_machine_interface(vmi_obj)
+            self._vnc_lib.virtual_port_group_update(vpg_obj)
+            self._vnc_lib.ref_relax_for_delete(vpg_obj.uuid, vmi_id)
+
+        self._vnc_lib.virtual_port_group_delete(id=vpg_obj.uuid)
+        vmi_list = self._vnc_lib.virtual_machine_interfaces_list()
+        # Make sure when VPG gets deleted, all associated VMIs gets
+        # deleted as well
+        self.assertEqual(vmi_list.get('virtual-machine-interfaces'), [])
+    # end test_virtual_port_group_crud_and_vmi_association
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
