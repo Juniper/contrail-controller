@@ -140,6 +140,10 @@ class SchemaTransformer(object):
         'bgp_router': {
             'self': [],
             'bgp_as_a_service': [],
+            'physical_router': []
+        },
+        'physical_router': {
+            'self': ['bgp_router'],
         },
         'global_system_config': {
             'self': [],
