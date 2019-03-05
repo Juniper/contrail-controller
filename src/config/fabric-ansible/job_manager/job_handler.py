@@ -7,6 +7,7 @@
 import ast
 import json
 import os
+import signal
 import time
 import traceback
 import uuid
@@ -51,6 +52,7 @@ class JobHandler(object):
         self._zk_client = zk_client
         self._job_progress = None
         self.current_percentage = None
+        self._pb_pids = []
     # end __init__
 
     def get_pr_uve_name_from_device_name(self, playbook_info):
@@ -512,6 +514,8 @@ class JobHandler(object):
                                                    "-i",
                                                    json.dumps(playbook_info)],
                                                   close_fds=True, cwd='/')
+            # Save process ID in case of abort
+            self._pb_pids.append(playbook_process.pid)
             # this is to yield the context to the playbooks so that
             # they start running concurrently
             gevent.sleep(0)
@@ -611,3 +615,9 @@ class JobHandler(object):
 
         return retval
     # end _extract_marked_json
+
+    def playbook_abort(self):
+        for pid in self._pb_pids:
+            self._logger.info("Aborting pid={}".format(pid))
+            os.kill(pid, signal.SIGABRT)
+    # end playbook_abort
