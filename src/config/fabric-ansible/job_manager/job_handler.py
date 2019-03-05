@@ -14,6 +14,7 @@ import traceback
 import ast
 import time
 import gevent
+import signal
 
 from cfgm_common.exceptions import ResourceExistsError
 from job_manager.job_exception import JobException
@@ -49,6 +50,7 @@ class JobHandler(object):
         self._vnc_api_init_params = vnc_api_init_params
         self._prouter_info = {}
         self._zk_client = zk_client
+        self._pb_pids = []
     # end __init__
 
 
@@ -491,6 +493,8 @@ class JobHandler(object):
                                                    "-i",
                                                    json.dumps(playbook_info)],
                                                   close_fds=True, cwd='/')
+            # Save process ID in case of abort
+            self._pb_pids.append(playbook_process.pid)
             # this is to yield the context to the playbooks so that
             # they start running concurrently
             gevent.sleep(0)
@@ -591,3 +595,8 @@ class JobHandler(object):
         return retval
     # end _extract_marked_json
 
+    def playbook_abort(self):
+        for pid in self._pb_pids:
+            self._logger.info("Aborting pid={}".format(pid))
+            os.kill(pid, signal.SIGABRT)
+    # end playbook_abort
