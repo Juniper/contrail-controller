@@ -947,6 +947,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.esi = None
         self.interface_type = None
         self.port = None
+        self.physical_interface_mac_address = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -964,6 +965,9 @@ class PhysicalInterfaceDM(DBBaseDM):
             self.name = self.name.replace("_", ":")
         self.esi = obj.get('ethernet_segment_identifier')
         self.interface_type = obj.get('physical_interface_type')
+        address = obj.get('physical_interface_mac_addresses')
+        if address:
+            self.physical_interface_mac_address = address.get('mac_address')[0]
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
         self.update_single_ref('port', obj)
@@ -2452,6 +2456,7 @@ class VirtualPortGroupDM(DBBaseDM):
         self.name = None
         self.physical_interfaces = set()
         self.virtual_machine_interfaces = set()
+        self.physical_interface_mac_addresses = set()
         self.esi = None
         self.pi_ae_map = {}
         self.update(obj_dict)
@@ -2464,14 +2469,10 @@ class VirtualPortGroupDM(DBBaseDM):
         self.add_to_parent(obj)
         self.lacp_enabled = obj.get('virtual_port_group_lacp_enabled')
 
-        self.annotations = obj.get('annotations')
-        kvps = self.annotations.get('key_value_pair') or []
-        kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
-        self.esi = kvp_dict.get('esi') or 0
-
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.get_ae_for_pi(obj.get('physical_interface_refs'))
+        self.get_esi()
         self.build_lag_pr_map()
 
     # end update
@@ -2483,6 +2484,12 @@ class VirtualPortGroupDM(DBBaseDM):
         for pi in pi_refs:
             if pi.get('attr') is not None:
                 self.pi_ae_map.update({pi.get('uuid'): pi.get('attr').get('ae_num')})
+
+    def get_esi(self):
+        for pi in self.physical_interfaces or []:
+            pi_obj = PhysicalInterfaceDM.get(pi)
+            self.physical_interface_mac_addresses.add(pi_obj.physical_interface_mac_address)
+        self.esi = '00:00:00:00:' + sorted(self.physical_interface_mac_addresses)[0]
 
     def build_lag_pr_map(self):
         for pi in self.physical_interfaces or []:
