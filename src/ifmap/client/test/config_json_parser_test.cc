@@ -95,7 +95,7 @@ public:
     bool ReadObjUUIDTable(const std::set<std::string> &uuid_list) {
         ConfigCassandraClientTest *test_client =
             dynamic_cast<ConfigCassandraClientTest *>(client());
-        BOOST_FOREACH(std::string uuid_key, uuid_list) {
+        BOOST_FOREACH(const std::string &uuid_key, uuid_list) {
             vector<string> tokens;
             boost::split(tokens, uuid_key, boost::is_any_of(":"));
             int index = atoi(tokens[0].c_str());
@@ -122,15 +122,17 @@ public:
         int index = it->second;
 
         contrail_rapidjson::Document *events = test_client->events();
-        if (!(*events)[contrail_rapidjson::SizeType(index)]["db"].HasMember(
-            uuid.c_str()))
+        if (!(*events)[contrail_rapidjson::SizeType(index)]["db"]
+                .HasMember(uuid.c_str())) {
             return;
+        }
+
+        contrail_rapidjson::Value::ConstMemberIterator end =
+            (*events)[contrail_rapidjson::SizeType(index)]["db"][uuid.c_str()]
+                .MemberEnd();
         for (contrail_rapidjson::Value::ConstMemberIterator k =
              (*events)[contrail_rapidjson::SizeType(index)]["db"][
-             uuid.c_str()].MemberBegin();
-             k != (*events)[contrail_rapidjson::SizeType(index)]["db"][
-             uuid.c_str()].MemberEnd();
-             ++k) {
+                uuid.c_str()].MemberBegin(); k != end; ++k) {
             const char *k1 = k->name.GetString();
             const char *v1;
             uint64_t  ts = 0;

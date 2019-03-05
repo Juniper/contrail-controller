@@ -57,7 +57,7 @@ auto_ptr<DBEntry> IFMapServerTable::AllocEntry(const DBRequestKey *key) const {
 
 static IFMapServerTable *TableFind(DB *db, const string &metadata) {
     string name = metadata;
-    boost::replace_all(name, "-", "_");
+    std::replace(name.begin(), name.end(), '-', '_');
     name = "__ifmap__." + name + ".0";
     IFMapServerTable *table =
             static_cast<IFMapServerTable *>(db->FindTable(name));
