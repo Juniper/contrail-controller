@@ -476,6 +476,63 @@ class TestBgp(STTestCase, VerifyBgp):
         gevent.sleep(1)
     # end test_ibgp_auto_mesh_sub
 
+    def test_ibgp_auto_mesh_fab2(self):
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+                         True, "ibgp_auto_mesh_toggle_test")
+
+        # Fabric 1 has 1 RR,spine + 1 leafs
+        fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
+        fab1 = self._vnc_lib.fabric_read(id=fab1)
+
+        bgp_router1_fab1, pr1_fab1 = self.create_router('router1_fab1' + self.id(), '1.1.1.1',
+                                                        product="qfx1000", role="spine", cluster_id=1000, fabric=fab1)
+        bgp_router2_fab1, ignore = self.create_router('router2_fab1' + self.id(), '1.1.1.2',
+                                               product="qfx1000", ignore_pr=True, role="leaf", fabric=fab1)
+        ignore , pr2_fab1 = self.create_router('router2_fab1' + self.id(), '1.1.1.2',
+                                      product="qfx1000", ignore_bgp=True, role="leaf", fabric=fab1)
+
+        # Fabric 2 has 1 RR, spine + 2 leafs
+        fab2 = self._vnc_lib.fabric_create(Fabric('fab2'))
+        fab2 = self._vnc_lib.fabric_read(id=fab2)
+
+        bgp_router1_fab2, pr1_fab2 = self.create_router('router1_fab2' + self.id(), '2.1.1.1',
+                                                        product="qfx1000", role="spine", cluster_id=2000, fabric=fab2)
+
+        bgp_router2_fab2, ignore = self.create_router('router2_fab2' + self.id(), '2.1.1.2',
+                                                        product="qfx1000", ignore_pr=True,role="leaf", fabric=fab2)
+        ignore, pr2_fab2 = self.create_router('router2_fab2' + self.id(), '1.1.1.2',
+                                      product="qfx1000", ignore_bgp=True, role="leaf", fabric=fab2)
+
+        pr2_fab1.set_bgp_router(bgp_router2_fab1)
+        self._vnc_lib.physical_router_update(pr2_fab1)
+        gevent.sleep(1)
+        pr2_fab2.set_bgp_router(bgp_router2_fab2)
+        self._vnc_lib.physical_router_update(pr2_fab2)
+        gevent.sleep(1)
+
+        bgp_router1_fab1 = self._vnc_lib.bgp_router_read(fq_name=bgp_router1_fab1.fq_name)
+        bgp_router2_fab1 = self._vnc_lib.bgp_router_read(fq_name=bgp_router2_fab1.fq_name)
+        bgp_router1_fab2 = self._vnc_lib.bgp_router_read(fq_name=bgp_router1_fab2.fq_name)
+        bgp_router2_fab2 = self._vnc_lib.bgp_router_read(fq_name=bgp_router2_fab2.fq_name)
+
+        self.check_bgp_peering(bgp_router2_fab1, bgp_router1_fab1, 1)
+        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 2)
+
+        self.check_bgp_peering(bgp_router2_fab2, bgp_router1_fab2, 1)
+        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 2)
+
+        self.delete_routers(bgp_router1_fab1, pr1_fab1)
+        self.delete_routers(bgp_router2_fab1, pr2_fab1)
+        self.delete_routers(bgp_router1_fab2, pr1_fab2)
+        self.delete_routers(bgp_router2_fab2, pr2_fab2)
+        self.delete_fabric(fab1)
+        self.delete_fabric(fab2)
+
+        gevent.sleep(1)
+    #end test_ibgp_auto_mesh_fab
+
+
     def test_ibgp_auto_mesh_fab(self):
         config_db.GlobalSystemConfigST.ibgp_auto_mesh = False
         self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
