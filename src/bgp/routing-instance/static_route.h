@@ -69,8 +69,23 @@ public:
     typedef typename T::AddressT AddressT;
     typedef StaticRoute<T> StaticRouteT;
 
+    struct RouteKey {
+        RouteKey (const PrefixT &prefix, const IpAddress &nexthop) :
+                prefix(prefix), nexthop(nexthop) {
+        }
+
+        bool operator<(const RouteKey &rhs) const {
+            BOOL_KEY_COMPARE(prefix, rhs.prefix);
+            BOOL_KEY_COMPARE(nexthop, rhs.nexthop);
+            return false;
+        }
+
+        PrefixT prefix;
+        IpAddress nexthop;
+    };
+
     // Map of Static Route prefix to the StaticRoute match object
-    typedef std::map<PrefixT, StaticRoutePtr> StaticRouteMap;
+    typedef std::map<RouteKey, StaticRoutePtr> StaticRouteMap;
 
     explicit StaticRouteMgr(RoutingInstance *instance);
     ~StaticRouteMgr();
@@ -110,7 +125,7 @@ private:
         StaticRouteConfigList::iterator it);
 
     void LocateStaticRoutePrefix(const StaticRouteConfig &config);
-    void RemoveStaticRoutePrefix(const PrefixT &static_route);
+    void RemoveStaticRoutePrefix(const RouteKey &static_route);
     void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
     void UnregisterAndResolveStaticRoute(StaticRoutePtr entry);
     bool StaticRouteEventCallback(StaticRouteRequest *req);
