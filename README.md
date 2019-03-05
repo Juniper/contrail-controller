@@ -25,7 +25,7 @@ The configuration schema used by the contrail controller is defined under src/sc
 
 The control-node daemon code is located under (src/{bgp,control-node,ifmap,xmpp}). It implements the operational state database and iteroperates with networking equipment as well as the compute-node agents. The protocol used between the control-node and the compute-node agents is documented as an [IETF draft](http://tools.ietf.org/html/draft-ietf-l3vpn-end-system-01). This component contains the network reachability (a.k.a. routing) information in the system which is transient and can potentially have a higher rate of change than the configuration state.
 
-The compute-node agent (src/vnsw) is a deamon than runs on every
+The compute-node agent (src/vnsw) is a daemon than runs on every
 compute node and programs the data-plane in the host operating system.
 
 Data gathered from all these components is collected into a logically centralized database (src/{analytics,opserver}).
