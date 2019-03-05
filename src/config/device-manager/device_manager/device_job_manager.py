@@ -26,6 +26,9 @@ class DeviceJobManager(object):
     JOB_REQUEST_EXCHANGE = "job_request_exchange"
     JOB_REQUEST_CONSUMER = "job_request_consumer"
     JOB_REQUEST_ROUTING_KEY = "job.request"
+    JOB_ABORT_EXCHANGE = "job_abort_exchange"
+    JOB_ABORT_CONSUMER = "job_abort_consumer"
+    JOB_ABORT_ROUTING_KEY = "job.abort"
     JOB_STATUS_EXCHANGE = "job_status_exchange"
     JOB_STATUS_CONSUMER = "job_status_consumer."
     JOB_STATUS_ROUTING_KEY = "job.status."
@@ -83,6 +86,14 @@ class DeviceJobManager(object):
             self.JOB_REQUEST_EXCHANGE,
             routing_key=self.JOB_REQUEST_ROUTING_KEY,
             callback=self.handle_execute_job_request)
+
+        self._amqp_client.add_exchange(self.JOB_ABORT_EXCHANGE,
+                                       type='direct')
+        self._amqp_client.add_consumer(
+            self.JOB_ABORT_CONSUMER,
+            self.JOB_ABORT_EXCHANGE,
+            routing_key=self.JOB_ABORT_ROUTING_KEY,
+            callback=self.handle_abort_job_request)
     # end __init__
 
     @classmethod
@@ -284,6 +295,9 @@ class DeviceJobManager(object):
             # handle process exit signal
             signal.signal(signal.SIGCHLD,  self.job_mgr_signal_handler)
 
+            # handle process exit signal
+            signal.signal(signal.SIGABRT,  self.job_mgr_abort_signal_handler)
+
             # write the abstract config to file if needed
             self.save_abstract_config(job_input_params)
 
@@ -318,6 +332,11 @@ class DeviceJobManager(object):
                               fabric_job_uve_name=fabric_job_uve_name,
                               job_params=job_input_params)
     # end handle_execute_job_request
+
+    def handle_abort_job_request(self, body, message):
+        job_execution_id = body.get('input').get('job_execution_id')
+        self._logger.error("ABORT: job_id={}".format(job_execution_id))
+
 
     def create_fabric_job_uve(self, fabric_job_uve_name,
                               execution_id, job_status,
@@ -506,6 +525,9 @@ class DeviceJobManager(object):
             self._logger.error("Failed in job signal handler %s" %
                                str(unknown_exception))
     # end job_mgr_signal_handler
+
+    def job_mgr_abort_signal_handler(self, signalnum, frame):
+        self._logger.error("ABORT SIGNAL {}".format(signalnum))
 
     def _clean_up_job_data(self, signal_var, pid):
         # remove the pid entry of the processed job_mgr process
