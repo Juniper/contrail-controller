@@ -174,6 +174,9 @@ class VncEtcdWatchHandle(VncAmqpHandle):
         }
         if oper == "CREATE":
             msg["obj_dict"] = obj_dict
+        elif oper == "DELETE":
+            obj_dict = json.loads(event.prev_value)
+            msg["fq_name"] = obj_dict["fq_name"]
         return msg
 
     @staticmethod
@@ -223,7 +226,8 @@ class VncEtcdWatchClient(VncEtcdClient):
         msg = 'etcd connection ESTABLISHED %s' % repr(self._client)
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
-        self._consumer, self._cancel = self._client.watch_prefix(self._prefix)
+        #TODO: Previous key shouldn't be send in update events
+        self._consumer, self._cancel = self._client.watch_prefix(self._prefix, prev_kv=True)
 
     def _connection_watch(self, connected):
         if not connected:
@@ -443,15 +447,14 @@ class VncEtcd(VncEtcdClient):
         :param (List[str]) fq_name:
         :return: (str) uuid
         """
-        fq_name_str = utils.encode_string(':'.join(fq_name))
-        prefix = self._key_prefix(obj_type)
-
-        key = "{}{}".format(prefix, fq_name_str)
+        key = self._cache_get_fq_name_key(obj_type, fq_name)
         if key in self._cache:
             record = self._cache[key]
         else:
+            prefix = self._key_prefix(obj_type)
             response = self._client.get_prefix(prefix)
             record = None
+            fq_name_str = utils.encode_string(':'.join(fq_name))
             for data, _ in response:
                 obj = json.loads(data)
                 obj_fq_name = utils.encode_string(':'.join(obj['fq_name']))
@@ -459,11 +462,11 @@ class VncEtcd(VncEtcdClient):
                     if record is not None:
                         msg = 'Multi match {} for {}'
                         raise VncError(msg.format(fq_name_str, obj_type))
-                    record = EtcdCache.Record(resource=obj)
+                    record = EtcdCache.Record(resource=obj, obj_type=obj_type)
             if record is None:
                 raise NoIdError('{} {}'.format(obj_type, fq_name_str))
             self._cache[key] = record
-
+            self._cache[record.resource['uuid']] = record
         return record.resource['uuid']
 
     def uuid_to_fq_name(self, uuid):
@@ -476,13 +479,14 @@ class VncEtcd(VncEtcdClient):
             record = self._cache[uuid]
         else:
             response = self._client.get_prefix(self._prefix)
-            for data, _ in response:
+            for data, metadata in response:
+                obj_type, _ = metadata.key.split("/")[-2:]
                 try:
                     obj = json.loads(data)
                 except ValueError:
                     continue  # delete event returns empty data
                 if obj['uuid'] == uuid:
-                    record = EtcdCache.Record(resource=obj)
+                    record = EtcdCache.Record(resource=obj, obj_type=obj_type)
                     break
             else:
                 raise NoIdError(uuid)
@@ -496,37 +500,35 @@ class VncEtcd(VncEtcdClient):
         """
         pass
 
-    def cache_uuid_to_fq_name_del(self, id):
-        """vnc_etcd handle Cache in different way than vnc_cassandra.
-        This method is just for compatibility.
+    def cache_uuid_to_fq_name_del(self, uuid):
+        """Purge map naming cache
+
+        :param (str) uuid: resource uuid
         """
-        pass
+        if uuid not in self._cache:
+            return
+        record = self._cache[uuid]
+        obj_type = record.obj_type
+        fq_name = record.resource['fq_name']
+        fq_name_key = self._cache_get_fq_name_key(obj_type, fq_name)
+        self._obj_cache_del(obj_type, uuid)
+        del self._cache[fq_name_key]
+        del self._cache[uuid]
+
+    def _cache_get_fq_name_key(self, obj_type, fq_name):
+        fq_name_str = utils.encode_string(':'.join(fq_name))
+        prefix = self._key_prefix(obj_type)
+        key = "{}{}".format(prefix, fq_name_str)
+        return key
+
+    def _obj_cache_del(self, obj_type, obj_uuid):
+        key = self._key_obj(obj_type, obj_uuid)
+        del self._obj_cache[key]
 
     def _read_object(self, key, timeout=0):
         """Try to read object from etcd.
-        If it is not present there, wait for it for some time.
         """
-        if timeout is 0:
-            resource, _ = self._client.get(key)
-            return resource
-
-        event_queue = queue.Queue()
-
-        def callback(event):
-            event_queue.put(event)
-
-        watch_id = self._client.add_watch_callback(key, callback, None)
-        resource = None
-        try:
-            resource, _ = self._client.get(key)
-            if resource is None:
-                ev = event_queue.get(timeout)
-                resource = ev.value
-        except queue.Empty:
-            pass
-        finally:
-            self._client.cancel_watch(watch_id)
-
+        resource, _ = self._client.get(key)
         return resource
 
     def _patch_resource(self, obj):
@@ -755,9 +757,10 @@ class EtcdCache(object):
         :param (Any) resource: data to store, typically a dictionary
         """
 
-        def __init__(self, ttl=None, resource=None):
+        def __init__(self, ttl=None, resource=None, obj_type=None):
             self.ttl = ttl
             self.resource = resource
+            self.obj_type = obj_type
 
         def set_ttl(self, sec):
             """Set Time To Live in record.
