@@ -288,6 +288,7 @@ vector<string> BgpNeighborConfig::AuthKeysToString() const {
 bool StaticRouteConfig::operator<(const StaticRouteConfig &rhs) const {
     BOOL_KEY_COMPARE(address, rhs.address);
     BOOL_KEY_COMPARE(prefix_length, rhs.prefix_length);
+    BOOL_KEY_COMPARE(nexthop, rhs.nexthop);
     return false;
 }
 
