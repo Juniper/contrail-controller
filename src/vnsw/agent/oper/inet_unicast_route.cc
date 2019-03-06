@@ -1107,12 +1107,16 @@ InetUnicastAgentRouteTable::AddArpReq(const string &route_vrf_name,
                                       const SecurityGroupList &sg_list,
                                       const TagList &tag_list) {
     Agent *agent = Agent::GetInstance();
-    DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new ArpNHKey(route_vrf_name, ip, policy));
-    nh_req.data.reset(new ArpNHData(
-                static_cast<InterfaceKey *>(intf->GetDBRequestKey().release())));
-    agent->nexthop_table()->Enqueue(&nh_req);
-
+    ArpNHKey key(route_vrf_name, ip, policy);
+    NextHop *nh =
+        static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+    if (!nh) {
+        DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        nh_req.key.reset(new ArpNHKey(route_vrf_name, ip, policy));
+        nh_req.data.reset(new ArpNHData(
+                    static_cast<InterfaceKey *>(intf->GetDBRequestKey().release())));
+        agent->nexthop_table()->Enqueue(&nh_req);
+    }
     DBRequest  rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     rt_req.key.reset(new InetUnicastRouteKey(agent->local_peer(),
                                               route_vrf_name, ip, 32));
