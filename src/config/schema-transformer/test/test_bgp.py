@@ -530,13 +530,13 @@ class TestBgp(STTestCase, VerifyBgp):
         self.delete_fabric(fab2)
 
         gevent.sleep(1)
-    #end test_ibgp_auto_mesh_fab
+    #end test_ibgp_auto_mesh_fab2
 
 
     def test_ibgp_auto_mesh_fab(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = False
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
         self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
-                         False, "ibgp_auto_mesh_toggle_test")
+                         True, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 2 leafs
         fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
@@ -561,17 +561,6 @@ class TestBgp(STTestCase, VerifyBgp):
                                                         product="qfx1000", role="leaf", fabric=fab2)
         bgp_router3_fab2, pr3_fab2 = self.create_router('router3_fab2' + self.id(), '2.1.1.3',
                                                         product="qfx1000", role="leaf", fabric=fab2)
-
-        # Enable auto-mesh and then trigger update peering
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
-                         True, "ibgp_auto_mesh_toggle_test")
-
-        for router in config_db.BgpRouterST._dict.values():
-            router.update()
-
-        for router in config_db.BgpRouterST._dict.values():
-            router.update_peering()
 
         # router1 and router2 should not be connected, both of them should be
         # connected to router3
@@ -598,9 +587,9 @@ class TestBgp(STTestCase, VerifyBgp):
     #end test_ibgp_auto_mesh_fab
 
     def test_ibgp_auto_mesh_fab_with_control_node(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = False
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
         self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
-                         False, "ibgp_auto_mesh_toggle_test")
+                         True, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 2 leafs
         fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
@@ -631,17 +620,6 @@ class TestBgp(STTestCase, VerifyBgp):
                                                         product="qfx1000", role="leaf", fabric=fab2)
         bgp_router3_fab2, pr3_fab2 = self.create_router('router3_fab2' + self.id(), '2.1.1.3',
                                                         product="qfx1000", role="leaf", fabric=fab2)
-
-        # Enable auto-mesh and then trigger update peering
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
-                         True, "ibgp_auto_mesh_toggle_test")
-
-        for router in config_db.BgpRouterST._dict.values():
-            router.update()
-
-        for router in config_db.BgpRouterST._dict.values():
-            router.update_peering()
 
         # router1 and router2 should not be connected, both of them should be
         # connected to router3
