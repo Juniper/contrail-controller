@@ -1864,6 +1864,25 @@ class RouteTableST(DBBaseST):
     # end handle_st_object_req
 # end RouteTableST
 
+
+class PhysicalRouterST(DBBaseST):
+    _dict = {}
+    obj_type = 'physical_router'
+    ref_fields = ["bgp_router", 'fabric']
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.bgp_router = None
+        self.fabric = None
+        self.update(obj)
+    # end __init__
+
+    def update(self, obj=None):
+        return self.update_vnc_obj(obj)
+    # end update
+
+# end class PhysicalRouterST
+
 # a struct to store attributes related to Security Group needed by schema
 # transformer
 
