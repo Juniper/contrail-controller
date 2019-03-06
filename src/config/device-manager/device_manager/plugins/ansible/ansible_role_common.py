@@ -1049,7 +1049,7 @@ class AnsibleRoleCommon(AnsibleConf):
             left_ri.set_protocols(protocols)
 
         #create new service chain ri for vni targets
-        for vn in left_vrf_info.get('tenant_vn'):
+        for vn in left_vrf_info.get('tenant_vn') or []:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
                 vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1106,7 +1106,7 @@ class AnsibleRoleCommon(AnsibleConf):
             right_ri.set_protocols(protocols)
 
         #create new service chain ri for vni targets
-        for vn in right_vrf_info.get('tenant_vn'):
+        for vn in right_vrf_info.get('tenant_vn') or []:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
                 vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1239,6 +1239,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 #get left LR and right LR
                 for lr_uuid in pt_obj.logical_routers:
                     lr_obj = LogicalRouterDM.get(lr_uuid)
+                    if pr.uuid not in lr_obj.physical_routers:
+                        continue
                     if 'left' in lr_obj.name:
                         left_vrf_info['vn_id'] = lr_obj.virtual_network
                         left_vrf_info['tenant_vn'] = lr_obj.get_connected_networks(
