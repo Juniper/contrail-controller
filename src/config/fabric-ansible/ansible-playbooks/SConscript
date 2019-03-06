@@ -51,7 +51,6 @@ local_sources = [
     'postscript.yml',
     'ztp.yml',
     'fabric_config.yml',
-    'feature_config.yml',
     'role_assignment.yml',
     'percentage_update.yml',
     'operational_command.yml',
