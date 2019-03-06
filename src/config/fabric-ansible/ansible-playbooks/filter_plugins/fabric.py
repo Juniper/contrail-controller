@@ -1558,7 +1558,8 @@ class FilterModule(object):
                         'physical_interfaces',
                         'fabric_refs',
                         'node_profile_refs',
-                        'physical_router_management_ip'
+                        'physical_router_management_ip',
+                        'physical_router_underlay_managed'
                     ]
                 )
                 device_roles['device_obj'] = device_obj
@@ -1598,10 +1599,11 @@ class FilterModule(object):
                 # in the device
                 if device_roles.get('supported_roles'):
                     device_obj = device_roles.get('device_obj')
-                    self._add_loopback_interface(vnc_api, device_obj)
-                    self._add_logical_interfaces_for_fabric_links(
-                        vnc_api, device_obj
-                    )
+                    if device_obj.get_physical_router_underlay_managed():
+                        self._add_loopback_interface(vnc_api, device_obj)
+                        self._add_logical_interfaces_for_fabric_links(
+                            vnc_api, device_obj
+                        )
                     self._add_bgp_router(vnc_api, device_roles)
 
             # now we are ready to assign the roles to trigger DM to invoke
