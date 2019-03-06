@@ -3250,9 +3250,9 @@ class BgpRouterST(DBBaseST):
             self._object_db.free_bgpaas_port(self.source_port)
     # end delete_ref
 
-    def is_cluster_id_changed(self, params):
-        if ((self.cluster_id is None and params.cluster_id is not None)
-            or (self.cluster_id is not None and params.cluster_id is None)):
+    def is_cluster_id_changed(self, params, old_cluster_id):
+        if ((old_cluster_id is None and params.cluster_id is not None)
+            or (old_cluster_id is not None and params.cluster_id is None)):
             return True
 
         return False
@@ -3264,9 +3264,11 @@ class BgpRouterST(DBBaseST):
         self.router_type = params.router_type
         self.source_port = params.source_port
 
+        old_cluster_id = self.cluster_id
+        self.cluster_id = params.cluster_id
+
         # to reduce the peerinf from full mesh to RR
-        if self.is_cluster_id_changed(params):
-            self.cluster_id = params.cluster_id
+        if self.is_cluster_id_changed(params, old_cluster_id):
             self.update_full_mesh_to_rr_peering()
 
         if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
@@ -3464,7 +3466,8 @@ class BgpRouterST(DBBaseST):
             fab_obj_peer_refs = pr_peer_obj.get_fabric_refs()
 
             # Ignore peering if fabric-id of self-bgp-router and peer-bgp-router are not same
-            if fab_obj_refs != fab_obj_peer_refs:
+            if fab_obj_refs is not None and fab_obj_peer_refs is not None \
+               and fab_obj_refs != fab_obj_peer_refs:
                 return True
 
         return False
