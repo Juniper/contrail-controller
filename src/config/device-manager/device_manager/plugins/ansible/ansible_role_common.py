@@ -1049,7 +1049,7 @@ class AnsibleRoleCommon(AnsibleConf):
             left_ri.set_protocols(protocols)
 
         #create new service chain ri for vni targets
-        for vn in left_vrf_info.get('tenant_vn'):
+        for vn in left_vrf_info.get('tenant_vn') or []:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
                 vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1106,7 +1106,7 @@ class AnsibleRoleCommon(AnsibleConf):
             right_ri.set_protocols(protocols)
 
         #create new service chain ri for vni targets
-        for vn in right_vrf_info.get('tenant_vn'):
+        for vn in right_vrf_info.get('tenant_vn') or []:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
                 vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1136,6 +1136,8 @@ class AnsibleRoleCommon(AnsibleConf):
         for pnf_pi, intf_type in svc_app_obj.physical_interfaces.iteritems():
             pnf_pi_obj = PhysicalInterfaceDM.get(pnf_pi)
             for spine_pi in pnf_pi_obj.physical_interfaces:
+                if spine_pi not in self.physical_router.physical_interfaces:
+                    continue
                 spine_pi_obj = PhysicalInterfaceDM.get(spine_pi)
                 if spine_pi_obj.fq_name == left_fq_name:
                     li_name = spine_pi_obj.name + '.' + left_svc_vlan
@@ -1151,7 +1153,7 @@ class AnsibleRoleCommon(AnsibleConf):
                             intf_unit = self.set_default_li(li_map,
                                 'irb.' + str(irb_unit),
                                 irb_unit)
-                            self.add_ip_address(intf_unit, irb_addr)
+                            self.add_ip_address(intf_unit, irb_addr+'/29')
                             #build BD config
                             left_bd_vlan = Vlan(name=DMUtils.make_bridge_name(left_svc_unit),
                                         vxlan_id=left_svc_unit)
@@ -1184,7 +1186,7 @@ class AnsibleRoleCommon(AnsibleConf):
                             intf_unit = self.set_default_li(li_map,
                                 'irb.' + str(irb_unit),
                                 irb_unit)
-                            self.add_ip_address(intf_unit, irb_addr)
+                            self.add_ip_address(intf_unit, irb_addr+'/29')
                             #build BD config
                             right_bd_vlan = Vlan(
                                 name=DMUtils.make_bridge_name(right_svc_unit),
@@ -1239,6 +1241,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 #get left LR and right LR
                 for lr_uuid in pt_obj.logical_routers:
                     lr_obj = LogicalRouterDM.get(lr_uuid)
+                    if pr.uuid not in lr_obj.physical_routers:
+                        continue
                     if 'left' in lr_obj.name:
                         left_vrf_info['vn_id'] = lr_obj.virtual_network
                         left_vrf_info['tenant_vn'] = lr_obj.get_connected_networks(

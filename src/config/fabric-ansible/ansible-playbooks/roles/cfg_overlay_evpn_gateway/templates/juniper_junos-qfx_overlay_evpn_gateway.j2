@@ -24,7 +24,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:
 {%         set vlan_id = vlan.get('vlan_id','') %}
 {%         set vni = vlan.get('vxlan_id', '') %}
 {%         if vlan_id == '' %}
-{%             set vlan_id = vni %}
+{%             set vlan_id = 'none' %}
 {%         endif %}
 {%         for irb_int in vlan.get('interfaces', []) %}
 {%             set int_name = irb_int.get('name') %}
@@ -33,7 +33,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:
 {%             endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
 {%         endfor %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
 {%         if vni != '' %}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%         endif %}
