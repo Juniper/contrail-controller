@@ -1151,74 +1151,77 @@ class AnsibleRoleCommon(AnsibleConf):
         for pnf_pi, intf_type in svc_app_obj.physical_interfaces.iteritems():
             pnf_pi_obj = PhysicalInterfaceDM.get(pnf_pi)
             for spine_pi in pnf_pi_obj.physical_interfaces:
-                spine_pi_obj = PhysicalInterfaceDM.get(spine_pi)
-                if spine_pi_obj.fq_name == left_fq_name:
-                    li_name = spine_pi_obj.name + '.' + left_svc_vlan
-                    li_obj = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
-                    if li_obj:
-                        #irb creation
-                        iip_obj = InstanceIpDM.get(li_obj.instance_ip)
-                        if iip_obj:
-                            irb_addr = iip_obj.instance_ip_address
-                            irb_unit = left_svc_unit
-                            left_irb_intf, li_map = self.set_default_pi('irb',
-                                                                    'irb')
-                            intf_unit = self.set_default_li(li_map,
-                                'irb.' + str(irb_unit),
-                                irb_unit)
-                            self.add_ip_address(intf_unit, irb_addr)
-                            #build BD config
-                            left_bd_vlan = Vlan(name=DMUtils.make_bridge_name(left_svc_unit),
-                                        vxlan_id=left_svc_unit)
-                            left_bd_vlan.set_vlan_id(left_svc_vlan)
-                            self.add_ref_to_list(
-                                left_bd_vlan.get_interfaces(), 'irb.' + str(irb_unit))
-                            self.vlan_map[left_bd_vlan.get_name()] = left_bd_vlan
-                            #create logical interfaces for the aggregated interfaces
-                            left_svc_intf, li_map = self.set_default_pi(
-                                spine_pi_obj.name, 'service')
-                            left_svc_intf_unit = self.set_default_li(li_map,
-                                                          left_fq_name[-1] + '.0',
-                                                          "0")
-                            left_svc_intf_unit.set_comment("PNF-Service-Chaining")
-                            left_svc_intf_unit.set_family("ethernet-switching")
-                            vlan_left = Vlan(name="bd-"+left_svc_unit)
-                            left_svc_intf_unit.add_vlans(vlan_left)
+                if spine_pi in self.physical_router.physical_interfaces:
+                    spine_pi_obj = PhysicalInterfaceDM.get(spine_pi)
+                    if spine_pi_obj.fq_name == left_fq_name:
+                        li_name = spine_pi_obj.name + '.' + left_svc_vlan
+                        li_obj = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
+                        if li_obj:
+                            #irb creation
+                            iip_obj = InstanceIpDM.get(li_obj.instance_ip)
+                            if iip_obj:
+                                irb_addr = iip_obj.instance_ip_address
+                                irb_unit = left_svc_unit
+                                left_irb_intf, li_map = self.set_default_pi('irb',
+                                                                        'irb')
+                                intf_unit = self.set_default_li(li_map,
+                                    'irb.' + str(irb_unit),
+                                    irb_unit)
+                                self.add_ip_address(intf_unit, irb_addr)
+                                #build BD config
+                                left_bd_vlan = Vlan(name=DMUtils.make_bridge_name(left_svc_unit),
+                                            vxlan_id=left_svc_unit)
+                                left_bd_vlan.set_vlan_id(left_svc_vlan)
+                                left_bd_vlan.set_comment("PNF-Service-Chaining")
+                                self.add_ref_to_list(
+                                    left_bd_vlan.get_interfaces(), 'irb.' + str(irb_unit))
+                                self.vlan_map[left_bd_vlan.get_name()] = left_bd_vlan
+                                #create logical interfaces for the aggregated interfaces
+                                left_svc_intf, li_map = self.set_default_pi(
+                                    spine_pi_obj.name, 'service')
+                                left_svc_intf_unit = self.set_default_li(li_map,
+                                                              left_fq_name[-1] + '.0',
+                                                              "0")
+                                left_svc_intf_unit.set_comment("PNF-Service-Chaining")
+                                left_svc_intf_unit.set_family("ethernet-switching")
+                                vlan_left = Vlan(name="bd-"+left_svc_unit)
+                                left_svc_intf_unit.add_vlans(vlan_left)
 
-                if spine_pi_obj.fq_name == right_fq_name:
-                    li_name = spine_pi_obj.name + '.' + right_svc_vlan
-                    li_obj = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
-                    if li_obj:
-                        #irb creation
-                        iip_obj = InstanceIpDM.get(li_obj.instance_ip)
-                        if iip_obj:
-                            irb_addr = iip_obj.instance_ip_address
-                            irb_unit = right_svc_unit
-                            right_irb_intf, li_map = self.set_default_pi(
-                                'irb', 'irb')
-                            intf_unit = self.set_default_li(li_map,
-                                'irb.' + str(irb_unit),
-                                irb_unit)
-                            self.add_ip_address(intf_unit, irb_addr)
-                            #build BD config
-                            right_bd_vlan = Vlan(
-                                name=DMUtils.make_bridge_name(right_svc_unit),
-                                vxlan_id=right_svc_unit)
-                            right_bd_vlan.set_vlan_id(right_svc_vlan)
-                            self.add_ref_to_list(
-                                right_bd_vlan.get_interfaces(), 'irb.' + str(irb_unit))
-                            self.vlan_map[right_bd_vlan.get_name()] = right_bd_vlan
-                            #create logical interfaces for the aggregated interfaces
-                            right_svc_intf, li_map = self.set_default_pi(
-                                spine_pi_obj.name, 'service')
-                            right_svc_intf_unit = self.set_default_li(li_map,
-                                                          right_fq_name[-1] + '.0',
-                                                          "0")
-                            right_svc_intf_unit.set_comment("PNF-Service-Chaining")
-                            right_svc_intf_unit.set_family(
-                                "ethernet-switching")
-                            vlan_right = Vlan(name="bd-"+right_svc_unit)
-                            right_svc_intf_unit.add_vlans(vlan_right)
+                    if spine_pi_obj.fq_name == right_fq_name:
+                        li_name = spine_pi_obj.name + '.' + right_svc_vlan
+                        li_obj = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
+                        if li_obj:
+                            #irb creation
+                            iip_obj = InstanceIpDM.get(li_obj.instance_ip)
+                            if iip_obj:
+                                irb_addr = iip_obj.instance_ip_address
+                                irb_unit = right_svc_unit
+                                right_irb_intf, li_map = self.set_default_pi(
+                                    'irb', 'irb')
+                                intf_unit = self.set_default_li(li_map,
+                                    'irb.' + str(irb_unit),
+                                    irb_unit)
+                                self.add_ip_address(intf_unit, irb_addr)
+                                #build BD config
+                                right_bd_vlan = Vlan(
+                                    name=DMUtils.make_bridge_name(right_svc_unit),
+                                    vxlan_id=right_svc_unit)
+                                right_bd_vlan.set_vlan_id(right_svc_vlan)
+                                right_bd_vlan.set_comment("PNF-Service-Chaining")
+                                self.add_ref_to_list(
+                                    right_bd_vlan.get_interfaces(), 'irb.' + str(irb_unit))
+                                self.vlan_map[right_bd_vlan.get_name()] = right_bd_vlan
+                                #create logical interfaces for the aggregated interfaces
+                                right_svc_intf, li_map = self.set_default_pi(
+                                    spine_pi_obj.name, 'service')
+                                right_svc_intf_unit = self.set_default_li(li_map,
+                                                              right_fq_name[-1] + '.0',
+                                                              "0")
+                                right_svc_intf_unit.set_comment("PNF-Service-Chaining")
+                                right_svc_intf_unit.set_family(
+                                    "ethernet-switching")
+                                vlan_right = Vlan(name="bd-"+right_svc_unit)
+                                right_svc_intf_unit.add_vlans(vlan_right)
 
     def build_service_chain_required_params(self, left_vrf_info, right_vrf_info):
         if left_vrf_info.get('left_svc_unit') and \
