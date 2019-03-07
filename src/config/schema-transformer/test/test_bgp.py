@@ -101,13 +101,25 @@ class VerifyBgp(VerifyRouteTarget):
         self.assertEqual(len(ref_names), length)
         self.assertThat(ref_names, Contains(router2.get_fq_name()))
 
+    @retries(5)
+    def check_no_bgp_peering(self, router1, router2):
+        r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
+        ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
+        if ref_names:
+            self.assertNotEqual(ref_names, router2.get_fq_name())
+        else:
+            self.assertTrue(True)
+
     def create_bgp_router(self, name, vendor, asn=None, cluster_id=None,
                           router_type=None):
         ip_fabric_ri = self._vnc_lib.routing_instance_read(
             fq_name=['default-domain', 'default-project', 'ip-fabric', '__default__'])
         router = BgpRouter(name, parent_obj=ip_fabric_ri)
         params = BgpRouterParams()
-        params.vendor = 'contrail'
+        if vendor:
+            params.vendor = vendor
+        else:
+            params.vendor = 'contrail'
         params.autonomous_system = asn
         if cluster_id:
             params.cluster_id = cluster_id
@@ -887,6 +899,28 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.bgp_router_delete(id=router3.uuid)
         gevent.sleep(1)
     # end test_ibgp_full_mesh_with_route_reflector_change
+
+    def test_ebgp_peering_negative(self):
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router(r1_name, 'contrail')
+        self.check_bgp_asn(router1.get_fq_name(), 64512)
+        # create router2
+        r2_name = self.id() + 'router2'
+        router2 = self.create_bgp_router(r2_name, 'contrail')
+        # create ebgp router3
+        r3_name = self.id() + 'router3'
+        router3 = self.create_bgp_router(r3_name, 'contrailator', 65532)
+        gevent.sleep(1)
+
+        # verify full mesh created
+        self.check_bgp_peering(router1, router2, 1)
+        self.check_no_bgp_peering(router1, router3)
+        self.check_bgp_peering(router2, router1, 1)
+        self.check_no_bgp_peering(router2, router3)
+        self.check_no_bgp_peering(router3, router1)
+        self.check_no_bgp_peering(router3, router2)
+
 
     def test_asn(self):
         # create  vn1
