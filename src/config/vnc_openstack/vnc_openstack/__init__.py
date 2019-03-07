@@ -25,6 +25,7 @@ from cfgm_common import vnc_plugin_base
 from cfgm_common import utils as cfgmutils
 from cfgm_common import exceptions as vnc_exc
 from cfgm_common.utils import cgitb_hook
+from cfgm_common.exceptions import HttpError
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.connection_info import ConnectionState
@@ -338,23 +339,19 @@ def ensure_default_firewall_group(vnc_lib, project_id):
 
 
 class OpenstackDriver(vnc_plugin_base.Resync):
-    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
-        if api_server_ip == '0.0.0.0':
-            self._vnc_api_ip = '127.0.0.1'
-        else:
-            self._vnc_api_ip = api_server_ip
+    def __init__(self, api_server_obj):
+        self._api_server_obj = api_server_obj
+        self._config_sections = api_server_obj._args.config_sections
+        self._sandesh_logger = api_server_obj._sandesh.logger()
 
-        self._vnc_api_port = api_server_port
-
-        self._config_sections = conf_sections
-        fill_keystone_opts(self, conf_sections)
-
+        fill_keystone_opts(self, self._config_sections)
         self._ks = None
+        self._admin_domain_project_synced = False
+
         ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
                                status=ConnectionStatus.INIT, message='',
                                server_addrs=[self._auth_url])
 
-        self._vnc_lib = None
         self._vnc_default_domain_id = None
 
         # resync failures, don't retry forever
@@ -366,7 +363,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._vnc_project_ids = set()
 
         # logging
-        self._sandesh_logger = sandesh.logger()
         self._vnc_os_logger = logging.getLogger(__name__)
         self._vnc_os_logger.setLevel(logging.ERROR)
         # Add the log message handler to the logger
@@ -379,6 +375,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             self._sandesh_logger.error("Failed to open trace file %s" %
                                        self._err_file)
         self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
+        self._init_vnc_caches()
     #end __init__
 
     def _cgitb_error_log(self):
@@ -391,28 +388,16 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         pass
     #end __call__
 
-    def _get_vnc_conn(self):
-        if self._vnc_lib:
-            return
-
-        self._vnc_lib = vnc_api.VncApi(
-            api_server_host=self._vnc_api_ip,
-            api_server_port=self._vnc_api_port,
-            username=self._auth_user,
-            password=self._auth_passwd,
-            tenant_name=self._admin_tenant)
-
-        self._init_vnc_caches()
-    # end _get_vnc_conn
-
     def _init_vnc_caches(self):
         self._vnc_domain_ids = set()
-        for dom in self._vnc_lib.domains_list()['domains']:
+        for dom in self._api_server_obj.internal_request_list(
+                'domain')[1]['domains']:
             self._vnc_domain_ids.add(dom['uuid'])
             if dom['fq_name'] == ['default-domain']:
                 self._vnc_default_domain_id = dom['uuid']
 
-        vnc_all_projects = self._vnc_lib.projects_list()['projects']
+        vnc_all_projects = self._api_server_obj.internal_request_list(
+            'project')[1]['projects']
         # remove default-domain:default-project from audit list
         default_proj_fq_name = ['default-domain', 'default-project']
         vnc_project_ids = set([proj['uuid'] for proj in vnc_all_projects
@@ -482,6 +467,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                status=ConnectionStatus.UP, message='',
                                server_addrs=[self._auth_url])
 
+        if not self._admin_domain_project_synced:
+            # sync domain/project of the keystone admin client connection
+            project_id = sess.get_project_id()
+            self.sync_project_to_vnc(str(uuid.UUID(project_id)))
+            self._admin_domain_project_synced = True
+
     def _reset_keystone_connection(self, exc):
         if self._ks is not None:
             self._ks = None
@@ -534,8 +525,17 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def _ksv2_sync_project_to_vnc(self, id=None):
         self._get_keystone_conn()
-        self._get_vnc_conn()
-        ks_project = self._ks_project_get(id=id.replace('-', ''))
+        try:
+            ks_project = self._ks_project_get(id=id.replace('-', ''))
+        except kexceptions.NotFound:
+            # Project does not exists anymore in Keystone, delete it in
+            # Contrail and return
+            try:
+                self._api_server_obj.internal_request_delete('project', id)
+            except HttpError as e:
+                if e.status_code == 404:
+                    pass
+            return
         display_name = ks_project['name']
         proj_name = display_name
 
@@ -543,7 +543,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # create with uniqified fq_name
         fq_name = ['default-domain', display_name]
         try:
-            old_id = self._vnc_lib.fq_name_to_id('project', fq_name)
+            old_id = self._api_server_obj.internal_request_fq_name_to_uuid(
+                'project', fq_name)[1]['uuid']
             if old_id == id:
                 self._vnc_project_ids.add(id)
                 return
@@ -553,34 +554,36 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             # to resources being present in project, proceed/fail
             # based on configuration
             try:
-                self._vnc_lib.project_delete(fq_name=fq_name)
-            except vnc_api.NoIdError:
+                self._api_server_obj.internal_request_delete('project', old_id)
+            except HttpError as e:
+                if e.status_code == 409:
+                    if self._resync_stale_mode == 'new_unique_fqn':
+                        proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                    else:
+                        errmsg = "Old project %s fqn %s exists and not empty" %(
+                            old_id, fq_name)
+                        self._sandesh_logger.error(errmsg)
+                        raise Exception(errmsg)
+        except HttpError as e:
+            if e.status_code == 404:
                 pass
-            except vnc_api.RefsExistError:
-                if self._resync_stale_mode == 'new_unique_fqn':
-                    proj_name = '%s-%s' %(display_name, str(uuid.uuid4()))
-                else:
-                    errmsg = "Old project %s fqn %s exists and not empty" %(
-                        old_id, fq_name)
-                    self._sandesh_logger.error(errmsg)
-                    raise Exception(errmsg)
-        except vnc_api.NoIdError:
-            pass
 
         proj_obj = vnc_api.Project(proj_name)
         proj_obj.display_name = display_name
         proj_obj.uuid = id
-        self._vnc_lib.project_create(proj_obj)
+        proj_dict = proj_obj.serialize_to_json()
+        self._api_server_obj.internal_request_create('project', proj_dict)
         self._vnc_project_ids.add(id)
     # end _ksv2_sync_project_to_vnc
 
     def _ksv2_add_project_to_vnc(self, project_id):
         try:
-            self._vnc_lib.project_read(id=project_id)
+            self._api_server_obj.internal_request_read('project', project_id)
             # project exists, no-op for now,
             # sync any attr changes in future
-        except vnc_api.NoIdError:
-            self._ksv2_sync_project_to_vnc(project_id)
+        except HttpError as e:
+            if e.status_code == 404:
+                self._ksv2_sync_project_to_vnc(project_id)
     # _ksv2_add_project_to_vnc
 
     def _ksv2_del_project_from_vnc(self, project_id):
@@ -588,10 +591,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             return
 
         try:
-            self._vnc_lib.project_delete(id=project_id)
-        except vnc_api.NoIdError:
-            pass
-        except Exception as e:
+            self._api_server_obj.internal_request_delete('project', project_id)
+        except HttpError as e:
+            if e.status_code == 404:
+                pass
             self._cgitb_error_log()
             self._sandesh_logger.error("Failed to delete project %s: %s" %
                                        (project_id, e))
@@ -642,20 +645,32 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def _ksv3_sync_project_to_vnc(self, id=None):
         self._get_keystone_conn()
-        self._get_vnc_conn()
-        ks_project = self._ks_project_get(id=id.replace('-', ''))
+        try:
+            ks_project = self._ks_project_get(id=id.replace('-', ''))
+        except kexceptions.NotFound:
+            # Project does not exists anymore in Keystone, delete it in
+            # Contrail and return
+            try:
+                self._api_server_obj.internal_request_delete('project', id)
+            except HttpError as e:
+                if e.status_code == 404:
+                    pass
+            return
         display_name = ks_project['name']
         project_id = id
 
         domain_uuid = self._ksv3_domain_id_to_uuid(ks_project['domain_id'])
-        dom_obj = self._vnc_lib.domain_read(id=domain_uuid)
+        dom_obj_dict = self._api_server_obj.internal_request_read(
+            'domain', domain_uuid)[1]['domain']
+        dom_obj = vnc_api.Domain.from_dict(**dom_obj_dict)
 
         # if earlier project exists with same name but diff id,
         # create with uniqified fq_name
         fq_name = dom_obj.get_fq_name() + [display_name]
         project_name = display_name
         try:
-            old_id = self._vnc_lib.fq_name_to_id('project', fq_name)
+            old_id = self._api_server_obj.internal_request_fq_name_to_uuid(
+                'project', fq_name)[1]['uuid']
             if old_id == project_id:
                 self._vnc_project_ids.add(project_id)
                 return
@@ -665,35 +680,37 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             # to resources being present in project, proceed/fail
             # based on configuration
             try:
-                self._vnc_lib.project_delete(fq_name=fq_name)
-            except vnc_api.NoIdError:
+                self._api_server_obj.internal_request_delete('project', old_id)
+            except HttpError as e:
+                if e.status_code == 409:
+                    if self._resync_stale_mode == 'new_unique_fqn':
+                        project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                    else:
+                        errmsg = "Old project %s fqn %s exists and not empty" %(
+                            old_id, fq_name)
+                        self._sandesh_logger.error(errmsg)
+                        raise Exception(errmsg)
+        except HttpError as e:
+            if e.status_code == 404:
                 pass
-            except vnc_api.RefsExistError:
-                if self._resync_stale_mode == 'new_unique_fqn':
-                    project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
-                else:
-                    errmsg = "Old project %s fqn %s exists and not empty" %(
-                        old_id, fq_name)
-                    self._sandesh_logger.error(errmsg)
-                    raise Exception(errmsg)
-        except vnc_api.NoIdError:
-            pass
 
         proj_obj = vnc_api.Project(project_name, parent_obj=dom_obj)
         proj_obj.display_name = display_name
         proj_obj.uuid = project_id
-        self._vnc_lib.project_create(proj_obj)
+        proj_dict = proj_obj.serialize_to_json()
+        self._api_server_obj.internal_request_create('project', proj_dict)
         self._vnc_domain_ids.add(domain_uuid)
         self._vnc_project_ids.add(project_id)
     # end _ksv3_sync_project_to_vnc
 
     def _ksv3_add_project_to_vnc(self, project_id):
         try:
-            self._vnc_lib.project_read(id=project_id)
+            self._api_server_obj.internal_request_read('project', project_id)
             # project exists, no-op for now,
             # sync any attr changes in future
-        except vnc_api.NoIdError:
-            self._ksv3_sync_project_to_vnc(id=project_id)
+        except HttpError as e:
+            if e.status_code == 404:
+                self._ksv3_sync_project_to_vnc(id=project_id)
     # _ksv3_add_project_to_vnc
 
     def _ksv3_del_project_from_vnc(self, project_id):
@@ -701,9 +718,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             return
 
         try:
-            self._vnc_lib.project_delete(id=project_id)
-        except vnc_api.NoIdError:
-            pass
+            self._api_server_obj.internal_request_delete('project', project_id)
+        except HttpError as e:
+            if e.status_code == 404:
+                pass
         except Exception as e:
             self._cgitb_error_log()
             self._sandesh_logger.error("Failed to delete project %s "
@@ -713,7 +731,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
     def sync_domain_to_vnc(self, domain_id):
         self._get_keystone_conn()
-        self._get_vnc_conn()
         ks_domain = \
             self._ks_domain_get(domain_id.replace('-', ''))
         display_name = ks_domain['name']
@@ -723,7 +740,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         # create with uniqified fq_name
         fq_name = [display_name]
         try:
-            old_id = self._vnc_lib.fq_name_to_id('domain', fq_name)
+            old_id = self._api_server_obj.internal_request_fq_name_to_uuid('domain', fq_name)[1]['uuid']
             if domain_id == old_id:
                 self._vnc_domain_ids.add(domain_id)
                 return
@@ -734,34 +751,36 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             # to resources being present in domain, proceed/fail
             # based on configuration
             try:
-                self._vnc_lib.domain_delete(fq_name=fq_name)
-            except vnc_api.NoIdError:
+                self._api_server_obj.internal_request_delete('domain', old_id)
+            except HttpError as e:
+                if e.status_code == 409:
+                    if self._resync_stale_mode == 'new_unique_fqn':
+                        domain_name = '%s-%s' %(display_name, str(uuid.uuid4()))
+                    else:
+                        errmsg = "Old domain %s fqn %s exists and not empty" %(
+                            old_id, fq_name)
+                        self._sandesh_logger.error(errmsg)
+                        raise Exception(errmsg)
+        except HttpError as e:
+            if e.status_code == 404:
                 pass
-            except vnc_api.RefsExistError:
-                if self._resync_stale_mode == 'new_unique_fqn':
-                    domain_name = '%s-%s' %(display_name, str(uuid.uuid4()))
-                else:
-                    errmsg = "Old domain %s fqn %s exists and not empty" %(
-                        old_id, fq_name)
-                    self._sandesh_logger.error(errmsg)
-                    raise Exception(errmsg)
-        except vnc_api.NoIdError:
-            pass
 
         dom_obj = vnc_api.Domain(domain_name)
         dom_obj.display_name = display_name
         dom_obj.uuid = domain_id
-        self._vnc_lib.domain_create(dom_obj)
+        dom_dict = dom_obj.serialize_to_json()
+        self._api_server_obj.internal_request_create('domain', dom_dict)
         self._vnc_domain_ids.add(domain_id)
     # sync_domain_to_vnc
 
     def _add_domain_to_vnc(self, domain_id):
         try:
-            self._vnc_lib.domain_read(id=domain_id)
+            self._api_server_obj.internal_request_read('domain', domain_id)
             # domain exists, no-op for now,
             # sync any attr changes in future
-        except vnc_api.NoIdError:
-            self.sync_domain_to_vnc(domain_id)
+        except HttpError as e:
+            if e.status_code == 404:
+                self.sync_domain_to_vnc(domain_id)
     # _add_domain_to_vnc
 
     def _del_domain_from_vnc(self, domain_id):
@@ -769,9 +788,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             return
 
         try:
-            self._vnc_lib.domain_delete(id=domain_id)
-        except vnc_api.NoIdError:
-            pass
+            self._api_server_obj.internal_request_delete('domain', domain_id)
+        except HttpError as e:
+            if e.status_code == 404:
+                pass
         except Exception as e:
             self._sandesh_logger.error("Failed to delete domain %s "
                                        "from vnc: %s" % (domain_id, e))
@@ -844,21 +864,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _resync_all_projects
 
     def _resync_domains_projects_forever(self):
-        # get connection to vnc and init caches
-        while True:
-            try:
-                # get connection to api-server REST interface
-                self._get_vnc_conn()
-                break
-            except requests.ConnectionError:
-                gevent.sleep(1)
-            except Exception as e:
-                self._cgitb_error_log()
-                self._sandesh_logger.error(
-                    "Connection to API server failed: {}".format(e))
-                gevent.sleep(self._resync_interval_secs)
-        #end while True
-
         # Get domains/projects from Keystone and audit with api-server
         while True:
             try:
@@ -872,9 +877,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 self._reset_keystone_connection(e)
 
             gevent.sleep(self._resync_interval_secs)
-        #end while True
-
-    #end _resync_domains_projects_forever
 
     def resync_domains_projects(self):
         # add asynchronously
@@ -915,7 +917,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _resync_worker
 
 #end class OpenstackResync
-
 
 class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh,
