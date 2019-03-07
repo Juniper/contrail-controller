@@ -106,11 +106,17 @@ class ApiContext(object):
 
 
 def get_request():
-    return gevent.getcurrent().api_context.request
+    try:
+        return gevent.getcurrent().api_context.request
+    except AttributeError:
+        pass  # If no request return none
 
 
 def get_context():
-    return gevent.getcurrent().api_context
+    try:
+        return gevent.getcurrent().api_context
+    except AttributeError:
+        pass  # If no request return none
 
 
 def set_context(api_ctx):

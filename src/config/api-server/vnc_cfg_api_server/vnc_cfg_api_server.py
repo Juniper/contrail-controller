@@ -1508,10 +1508,10 @@ class VncApiServer(object):
             include_shared = False
 
         try:
-            filters = utils.get_filters(get_request().query.filters)
+            filters = utils.get_filters(get_request().query.get('filters', ''))
         except Exception as e:
             raise cfgm_common.exceptions.HttpError(
-                400, 'Invalid filter ' + get_request().query.filters)
+                400, 'Invalid filter ' + get_request().query.get('filters', ''))
 
         if 'exclude_hrefs' in get_request().query:
             exclude_hrefs = True
@@ -1546,6 +1546,48 @@ class VncApiServer(object):
         finally:
             set_context(orig_context)
     # end internal_request_create
+
+    def internal_request_read(self, resource_type, obj_uuid, query=None):
+        object_type = self.get_resource_class(resource_type).object_type
+        if not query:
+            query = {}
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/%ss' %(resource_type),
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': self.cloud_admin_role})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                None, query)
+            set_context(context.ApiContext(internal_req=i_req))
+            resp = self.http_resource_read(object_type, obj_uuid)
+            return True, resp
+        finally:
+            set_context(orig_context)
+
+    def internal_request_list(self, resource_type, query=None):
+        object_type = self.get_resource_class(resource_type).object_type
+        if not query:
+            query = {}
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/%ss' %(resource_type),
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': self.cloud_admin_role})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                None, query)
+            set_context(context.ApiContext(internal_req=i_req))
+            resp = self.http_resource_list(object_type)
+            return True, resp
+        finally:
+            set_context(orig_context)
 
     def internal_request_update(self, resource_type, obj_uuid, obj_json):
         object_type = self.get_resource_class(resource_type).object_type
@@ -1639,6 +1681,29 @@ class VncApiServer(object):
             return True, ''
         finally:
             set_context(orig_context)
+
+    def internal_request_fq_name_to_uuid(self, obj_type, fq_name):
+        req_dict = {
+            'type': obj_type,
+            'fq_name': fq_name,
+        }
+        try:
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                {'PATH_INFO': '/ref-update',
+                 'bottle.app': orig_request.environ['bottle.app'],
+                 'HTTP_X_USER': 'contrail-api',
+                 'HTTP_X_ROLE': self.cloud_admin_role})
+            i_req = context.ApiInternalRequest(
+                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
+                req_dict, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            resp = self.fq_name_to_id_http_post()
+            return True, resp
+        finally:
+            set_context(orig_context)
+
 
     def alloc_vn_id(self, fq_name_str):
         return self._db_conn._zk_db.alloc_vn_id(fq_name_str)
@@ -3085,9 +3150,8 @@ class VncApiServer(object):
                 conf_sections=conf_sections, sandesh=self._sandesh)
             if self._args.auth != 'no-auth':
                 self._extension_mgrs['resync'] = ExtensionManager(
-                    'vnc_cfg_api.resync', api_server_ip=hostname,
-                    api_server_port=self._args.listen_port,
-                    conf_sections=conf_sections, sandesh=self._sandesh)
+                    'vnc_cfg_api.resync',
+                    self)
                 self._extension_mgrs['resourceApi'].map_method(
                     'set_resync_extension_manager', self._extension_mgrs['resync'])
             self._extension_mgrs['neutronApi'] = ExtensionManager(
@@ -4995,4 +5059,5 @@ def server_main(args_str=None):
 
 if __name__ == "__main__":
     server_main()
+
 
