@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "df6247ed_184c5fc6",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-03-07T21:53:07Z",
+      "side": 1,
+      "message": "this is not used",
+      "range": {
+        "startLine": 30,
+        "startChar": 4,
+        "endLine": 30,
+        "endChar": 45
+      },
+      "revId": "64fe259e7b80a1c9f64a284a4dede8ec3b481bec",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
