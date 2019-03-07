@@ -699,6 +699,33 @@ class VncApiServer(object):
         return True, ''
     # end _validate_refs_in_request
 
+    @staticmethod
+    def _validate_tag_refs(obj_type, obj_dict):
+        if not obj_dict:
+            return
+
+        refs_per_type = {}
+        for ref in obj_dict.get('tag_refs', []):
+            ref_type = ref['to'][-1].partition('=')[0]
+            refs_per_type.setdefault(ref_type, []).append(ref)
+
+        for tag_type, refs in refs_per_type.items():
+            # Tag type is unique per object, unless
+            # TAG_TYPE_NOT_UNIQUE_PER_OBJECT type
+            if (tag_type not in TAG_TYPE_NOT_UNIQUE_PER_OBJECT and
+                    len(refs) > 1):
+                msg = ("Tag type '%s' cannot be set multiple times on the same "
+                       "%s resource type" % (
+                           tag_type, obj_type.replace('_', ' ').title()))
+                raise cfgm_common.exceptions.HttpError(400, msg)
+
+            # address-group resource can only be associated with label tag type
+            if (obj_type == 'address_group' and
+                    tag_type not in TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP):
+                msg = ("Invalid tag type %s for object type %s" %
+                       (tag_type, obj_type))
+                raise cfgm_common.exceptions.HttpError(400, msg)
+
     def _validate_perms_in_request(self, resource_class, obj_type, obj_dict):
         for ref_name in resource_class.ref_fields:
             for ref in obj_dict.get(ref_name) or []:
@@ -795,6 +822,9 @@ class VncApiServer(object):
         if not ok:
             result = 'Bad reference in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
+
+        # All resource type can have tag refs but there is some constraints
+        self._validate_tag_refs(obj_type, obj_dict)
 
         get_context().set_state('PRE_DBE_ALLOC')
         # type-specific hook
@@ -1552,21 +1582,21 @@ class VncApiServer(object):
     # end internal_request_create
 
     def internal_request_update(self, resource_type, obj_uuid, obj_json):
-        object_type = self.get_resource_class(resource_type).object_type
+        r_class = self.get_resource_class(resource_type)
         try:
             orig_context = get_context()
             orig_request = get_request()
             b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%ss' %(resource_type),
+                {'PATH_INFO': '/%ss' %(r_class.resource_type),
                  'bottle.app': orig_request.environ['bottle.app'],
                  'HTTP_X_USER': 'contrail-api',
                  'HTTP_X_ROLE': self.cloud_admin_role})
-            json_as_dict = {'%s' %(resource_type): obj_json}
+            json_as_dict = {'%s' %(r_class.resource_type): obj_json}
             i_req = context.ApiInternalRequest(
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 json_as_dict, None)
             set_context(context.ApiContext(internal_req=i_req))
-            self.http_resource_update(object_type, obj_uuid)
+            self.http_resource_update(r_class.object_type, obj_uuid)
             return True, ""
         finally:
             set_context(orig_context)
@@ -4085,6 +4115,9 @@ class VncApiServer(object):
                 result = 'Bad reference in %s: %s' %(api_name, result)
                 raise cfgm_common.exceptions.HttpError(400, result)
 
+        # All resource type can have tag refs but there is some constraints
+        self._validate_tag_refs(obj_type, req_obj_dict)
+
         # common handling for all resource put
         request = get_request()
         fq_name_str = ":".join(obj_fq_name or [])
@@ -4709,7 +4742,7 @@ class VncApiServer(object):
                     obj_dict['tag_refs'].remove(refs_per_values[del_value])
 
         if need_update:
-            self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
+            self.internal_request_update(obj_type, obj_uuid, obj_dict)
 
         return {}
 
