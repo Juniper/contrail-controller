@@ -9,6 +9,7 @@ from cfgm_common.exceptions import RefsExistError
 import gevent
 import mock
 from sandesh_common.vns import constants
+from vnc_api.vnc_api import AddressGroup
 from vnc_api.vnc_api import PermType2
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import Tag
@@ -518,9 +519,62 @@ class TestTag(TestTagBase):
         }
         self.api.set_tags(vn, tags_dict)
 
+        # Scoped tag which is the same type as the global tag but with a
+        # different value, replaced the global tag ref of the VN. One at a time
         vn = self._vnc_lib.virtual_network_read(id=vn_uuid)
         self.assertEqual(len(vn.get_tag_refs()), 1)
         self.assertEqual(vn.get_tag_refs()[0]['uuid'], scoped_tag.uuid)
+
+    def test_only_one_value_for_a_type_can_be_associate_to_a_resource2(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        tag_type = 'fake_type-%s' % self.id()
+        global_tag = Tag(tag_type_name=tag_type,
+                         tag_value='global_fake_value-%s' % self.id())
+        self.api.tag_create(global_tag)
+        scoped_tag = Tag(tag_type_name=tag_type,
+                         tag_value='scoped_fake_value-%s' % self.id(),
+                         parent_obj=project)
+        self.api.tag_create(scoped_tag)
+
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.add_tag(global_tag)
+        vn.add_tag(scoped_tag)
+        self.assertRaises(BadRequest, self.api.virtual_network_create, vn)
+
+        vn.set_tag(global_tag)
+        self.api.virtual_network_create(vn)
+        vn = self._vnc_lib.virtual_network_read(id=vn.uuid)
+        self.assertEqual(len(vn.get_tag_refs()), 1)
+        self.assertEqual(vn.get_tag_refs()[0]['uuid'], global_tag.uuid)
+
+        vn.add_tag(scoped_tag)
+        self.assertRaises(BadRequest, self.api.virtual_network_update, vn)
+
+    def test_address_group_can_only_have_label_tag_type_ref(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        tag_type = 'fake_type-%s' % self.id()
+        tag_value = 'fake_value-%s' % self.id()
+        tag = Tag(tag_type_name=tag_type, tag_value=tag_value,
+                  parent_obj=project)
+        self.api.tag_create(tag)
+
+        # Cannot create AG with ref to a non label tag
+        ag = AddressGroup('ag-%s' % self.id(), parent_obj=project)
+        ag.add_tag(tag)
+        self.assertRaises(BadRequest, self.api.address_group_create, ag)
+
+        ag.set_tag_list([])
+        self.api.address_group_create(ag)
+
+        # Cannot set non lable tag to an AG with /set-tag API
+        self.assertRaises(BadRequest, self.api.set_tag, ag, tag_type,
+                          tag_value)
+
+        # Cannot add ref to a non label tag to AG
+        ag.add_tag(tag)
+        self.assertRaises(BadRequest, self.api.address_group_update, ag)
 
     def test_unset_tag_from_a_resource(self):
         project = Project('project-%s' % self.id())
@@ -612,6 +666,49 @@ class TestTag(TestTagBase):
         vn = self._vnc_lib.virtual_network_read(id=vn_uuid)
         self.assertIsNone(vn.get_tag_refs())
 
+    def test_add_remove_multi_value_of_authorized_type_on_same_resource(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        # Label tag type is the only one type authorized to be set multiple
+        # time on a same resource
+        tag_type = 'label'
+        tag_value1 = '%s-label1' % self.id()
+        label_tag1 = Tag(tag_type_name=tag_type, tag_value=tag_value1,
+                         parent_obj=project)
+        self.api.tag_create(label_tag1)
+        tag_value2 = '%s-label2' % self.id()
+        label_tag2 = Tag(tag_type_name=tag_type, tag_value=tag_value2,
+                         parent_obj=project)
+        self.api.tag_create(label_tag2)
+        tag_value3 = '%s-label3' % self.id()
+        label_tag3 = Tag(tag_type_name=tag_type, tag_value=tag_value3,
+                         parent_obj=project)
+        self.api.tag_create(label_tag3)
+
+        vn.add_tag(label_tag1)
+        vn.add_tag(label_tag2)
+        self.api.virtual_network_create(vn)
+        vn = self._vnc_lib.virtual_network_read(id=vn.uuid)
+        self.assertEqual(len(vn.get_tag_refs()), 2)
+        self.assertEqual({ref['uuid'] for ref in vn.get_tag_refs()},
+                         set([label_tag1.uuid, label_tag2.uuid]))
+
+        vn.add_tag(label_tag3)
+        self.api.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id=vn.uuid)
+        self.assertEqual(len(vn.get_tag_refs()), 3)
+        self.assertEqual({ref['uuid'] for ref in vn.get_tag_refs()},
+                         set([label_tag1.uuid, label_tag2.uuid,
+                              label_tag3.uuid]))
+
+        vn.del_tag(label_tag2)
+        self.api.virtual_network_update(vn)
+        vn = self._vnc_lib.virtual_network_read(id=vn.uuid)
+        self.assertEqual(len(vn.get_tag_refs()), 2)
+        self.assertEqual({ref['uuid'] for ref in vn.get_tag_refs()},
+                         set([label_tag1.uuid, label_tag3.uuid]))
+
     def test_associate_scoped_tag_to_project(self):
         project = Project('project-%s' % self.id())
         self.api.project_create(project)
@@ -656,7 +753,7 @@ class TestTag(TestTagBase):
         original_resource_update = self._api_server._db_conn.dbe_update
 
         def update_resource(*args, **kwargs):
-            original_resource_update(*args, **kwargs)
+            return original_resource_update(*args, **kwargs)
 
         with mock.patch.object(self._api_server._db_conn, 'dbe_update',
                                side_effect=update_resource) as mock_db_update:
