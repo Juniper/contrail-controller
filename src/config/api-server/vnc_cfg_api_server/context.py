@@ -6,7 +6,8 @@ from datetime import datetime
 
 
 class ApiInternalRequest(object):
-    def __init__(self, url, urlparts, environ, headers, json_as_dict, query):
+    def __init__(self, url, urlparts, environ, headers, json_as_dict=None,
+                 query=None):
         self.url = url
         self.urlparts = urlparts
         self.environ = environ
@@ -106,11 +107,17 @@ class ApiContext(object):
 
 
 def get_request():
-    return gevent.getcurrent().api_context.request
+    try:
+        return gevent.getcurrent().api_context.request
+    except AttributeError:
+        pass  # If no request return none
 
 
 def get_context():
-    return gevent.getcurrent().api_context
+    try:
+        return gevent.getcurrent().api_context
+    except AttributeError:
+        pass  # If no request return none
 
 
 def set_context(api_ctx):
