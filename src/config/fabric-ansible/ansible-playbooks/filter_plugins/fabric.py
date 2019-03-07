@@ -1748,9 +1748,8 @@ class FilterModule(object):
                 )
 
             # validate the RR roles is assigned
-            phys_role = device_roles.get('physical_role')
             rb_roles = device_roles.get('routing_bridging_roles') or []
-            if phys_role == 'spine' and 'Route-Reflector' in rb_roles:
+            if 'Route-Reflector' in rb_roles:
                 return
 
         # check if RR role is assigned to other devices that are not in the
@@ -1793,8 +1792,7 @@ class FilterModule(object):
             rb_roles = device_obj.get_routing_bridging_roles()
             if phys_role or (rb_roles and rb_roles.get_rb_roles()):
                 no_role_assigned = False
-            if phys_role == 'spine'\
-                    and 'Route-Reflector' in (rb_roles.get_rb_roles() or []):
+            if 'Route-Reflector' in (rb_roles.get_rb_roles() or []):
                 return
 
         if ok_with_no_role_assigned and no_role_assigned:
