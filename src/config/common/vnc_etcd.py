@@ -265,6 +265,8 @@ class VncEtcdWatchClient(VncEtcdClient):
 
 
 class VncEtcd(VncEtcdClient):
+    DEFAULT_FIELD_NAMES = ('parent_type', 'parent_uuid', 'uuid', 'fq_name')
+
     """Database interface for etcd client."""
     def __init__(self, host, port, prefix, kv_store, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
@@ -345,7 +347,8 @@ class VncEtcd(VncEtcdClient):
                 results.append(resource)
             else:
                 results.append({k: v for k, v in resource.items()
-                                if k in field_names})
+                                if k in field_names
+                                or k in self.DEFAULT_FIELD_NAMES})
 
         if not results:
             raise NoIdError(obj_uuids[0])
