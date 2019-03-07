@@ -69,6 +69,7 @@ class VncEtcdTest(unittest.TestCase):
     def test_object_read_field_filtered(self, etcd_client):
         example_resource = str('{"uuid":"ba3442c8a3ec",'
                                '"parent_uuid":"beefbeef0003",'
+                               '"fq_name":["default","beefbeef0003","obj"],'
                                '"parent_type":"project"}')
 
         vnc_etcd = _vnc_etcd_factory()
@@ -82,6 +83,12 @@ class VncEtcdTest(unittest.TestCase):
                                            field_names=['uuid', 'parent_type'])
         self.assertTrue(ok)
         self.assertDictEqual(results[0], {'uuid': 'ba3442c8a3ec',
+                                          'fq_name': [
+                                              "default",
+                                              "beefbeef0003",
+                                              "obj",
+                                          ],
+                                          'parent_uuid': 'beefbeef0003',
                                           'parent_type': 'project'})
 
     @mock.patch('etcd3.client')

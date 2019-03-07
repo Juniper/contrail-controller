@@ -265,6 +265,8 @@ class VncEtcdWatchClient(VncEtcdClient):
 
 
 class VncEtcd(VncEtcdClient):
+    MANDATORY_FIELD_NAMES = ('parent_type', 'parent_uuid', 'uuid', 'fq_name')
+
     """Database interface for etcd client."""
     def __init__(self, host, port, prefix, kv_store, logger=None,
                  obj_cache_exclude_types=None, log_response_time=None,
@@ -345,7 +347,8 @@ class VncEtcd(VncEtcdClient):
                 results.append(resource)
             else:
                 results.append({k: v for k, v in resource.items()
-                                if k in field_names})
+                                if k in field_names
+                                or k in self.MANDATORY_FIELD_NAMES})
 
         if not results:
             raise NoIdError(obj_uuids[0])
@@ -536,7 +539,6 @@ class VncEtcd(VncEtcdClient):
         :return: (dict) Patched obj
         """
         obj = self._patch_resource_refs_to(obj)
-        obj = self._patch_resource_parent_type(obj)
         return obj
 
     def _patch_resource_refs_to(self, obj):
@@ -551,18 +553,6 @@ class VncEtcd(VncEtcdClient):
                 for ref in obj[key]:
                     if 'to' not in ref:
                         ref['to'] = self.uuid_to_fq_name(ref['uuid'])
-        return obj
-
-    def _patch_resource_parent_type(self, obj):
-        """Add missing "parent_type" key to obj, because missing
-        parent type will cause AmbiguousParentError.
-
-        :param (dict) obj: Vanilla object from etcd
-        :return: (dict) Obj with patched 'parent_type' key
-        """
-        if 'parent_uuid' in obj and 'parent_type' not in obj:
-            parent = self._client.get(obj['parent_uuid'])
-            obj['parent_type'] = parent['type']
         return obj
 
     def _get_backrefs(self, parents, obj_type, field):
