@@ -3457,13 +3457,16 @@ class BgpRouterST(DBBaseST):
         pr_obj_peer_refs = router.obj.get_physical_router_back_refs()
 
         if pr_obj_refs and pr_obj_peer_refs:
-            pr_obj = self._vnc_lib.physical_router_read(id=pr_obj_refs[0]['uuid'])
+            pr_obj = self._vnc_lib.physical_router_read(
+                id=pr_obj_refs[0]['uuid'])
             fab_refs = pr_obj.get_fabric_refs()
 
-            pr_peer_obj = self._vnc_lib.physical_router_read(id=pr_obj_peer_refs[0]['uuid'])
+            pr_peer_obj = self._vnc_lib.physical_router_read(
+                id=pr_obj_peer_refs[0]['uuid'])
             fab_peer_refs = pr_peer_obj.get_fabric_refs()
 
-            # Ignore peering if fabric-id of self-bgp-router and peer-bgp-router are not same
+            # Ignore peering if fabric-id of self-bgp-router and
+            # peer-bgp-router are not same
             if (fab_refs and fab_peer_refs and
                 fab_refs[0]['to'] != fab_peer_refs[0]['to']):
                 return True
@@ -3489,8 +3492,7 @@ class BgpRouterST(DBBaseST):
 
         # Always create peering from/to route-reflector (server).
         if self.cluster_id or router.cluster_id:
-            if not self.skip_fabric_bgp_router_peering_add(router):
-                return False
+            return self.skip_fabric_bgp_router_peering_add(router)
 
         # Only in this case can we opt to skip adding bgp-peering.
         return True
@@ -3527,8 +3529,15 @@ class BgpRouterST(DBBaseST):
         for router in self._dict.values():
             if router.name == self.name:
                 continue
-            if router.sub_cluster != self.sub_cluster:
+            # Don't peer bgp routers in the different sub cluster.
+            if (router.sub_cluster != None and
+                router.sub_cluster != self.sub_cluster):
                 continue
+            # Don't invlove e-bgp router in ibgp auto mesh or RR peering.
+            if (router.sub_cluster == None and
+                router.asn != global_asn:):
+                continue
+            # Don't involve bgp routers created for bgpaas session.
             if router.router_type in ('bgpaas-server', 'bgpaas-client'):
                 continue
 
