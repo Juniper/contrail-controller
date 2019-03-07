@@ -8,6 +8,7 @@ gevent.monkey.patch_all()
 
 from testtools.matchers import Equals, Contains, Not
 from testtools import content, content_type
+import mock
 
 from vnc_api.vnc_api import *
 import fake_neutron
@@ -231,3 +232,27 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
         self._vnc_lib.security_group_delete(id=sg_obj.uuid)
     # end test_post_project_create_default_sg
 # end class DelayedApiServerConnectionTest
+
+
+class SyncAdminDomainProjectTest(test_case.ResourceDriverTestCase):
+    domain_id = '7949de9b-bd91-4cbf-9b57-24653e0c47dc'
+    domain_name = 'domain_admin'
+    project_id = 'ea7a4bad-0c96-4e39-87a0-125c23f26f94'
+    project_name = 'projec_admin'
+
+    @classmethod
+    def setUpClass(cls):
+        kclient = get_keystone_client()
+        kclient.domains.add_domain(cls.domain_id, cls.domain_name)
+        kclient.tenants.add_tenant(cls.project_id, cls.project_name,
+                                   cls.domain_id)
+        FakeKeystoneClient.project_id = property(lambda self: cls.project_id)
+        FakeKeystoneClient.version = property(lambda self: 'v3')
+        super(SyncAdminDomainProjectTest, cls).setUpClass()
+
+    def test_sync_domain_project_of_admin(self):
+        domain = self._vnc_lib.domain_read(id=self.domain_id)
+        self.assertEqual(self.domain_name, domain.fq_name[-1])
+        project = self._vnc_lib.project_read(id=self.project_id)
+        self.assertEqual(self.project_name, project.fq_name[-1])
+        self.assertEqual(self.domain_id, project.parent_uuid)

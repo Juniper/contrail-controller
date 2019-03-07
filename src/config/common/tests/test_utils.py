@@ -1060,9 +1060,10 @@ class FakeKeystoneClient(object):
 
     class Tenants(object):
         _tenants = {}
-        def add_tenant(self, id, name):
+        def add_tenant(self, id, name, domain_id=None):
             self.id = id
             self.name = name
+            self.domain_id = domain_id
             self._tenants[id] = self
 
         def delete_tenant(self, id):
@@ -1116,6 +1117,7 @@ class FakeKeystoneClient(object):
 
     def __init__(self, *args, **kwargs):
         self.tenants = FakeKeystoneClient.Tenants()
+        self.projects = self.tenants
         self.domains = FakeKeystoneClient.Domains()
         self.users = FakeKeystoneClient.Users()
         self.roles = FakeKeystoneClient.Roles()
