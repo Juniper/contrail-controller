@@ -215,6 +215,7 @@ role_to_feature_mapping:
     - overlay_evpn
     - overlay_evpn_gateway
     - overlay_evpn_type5
+    - overlay_evpn_mcast_gateway
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
