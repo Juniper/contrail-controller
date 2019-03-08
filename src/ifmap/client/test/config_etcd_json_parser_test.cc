@@ -184,7 +184,7 @@ protected:
             << std::endl;
     }
 
-    void SandeshTearDown() {
+    void SandeshShutdown() {
         if (!getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
             return;
         Sandesh::Uninit();
@@ -209,16 +209,29 @@ protected:
         task_util::WaitForIdle();
     }
 
-    virtual void TearDown() {
+    void IFMapCleanUp() {
         ifmap_server_->Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
-        ConfigJsonParser *config_json_parser =
-         static_cast<ConfigJsonParser *>
-            (config_client_manager_->config_json_parser());
-        config_json_parser->MetadataClear("vnc_cfg");
+        IFMapLinkTable_Clear(config_db_);
+        IFMapTable::ClearTables(config_db_);
+        task_util::WaitForIdle();
+        config_db_->Clear();
+    }
+
+    void TearDown() {
+        xmpp_server_test_->Shutdown();
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionCount());
+        channel_manager_.reset();
+        task_util::WaitForIdle(d_wait_for_idle_);
+        TcpServerManager::DeleteServer(xmpp_server_test_);
+        xmpp_server_test_ = NULL;
+        bgp_server_->Shutdown();
+        task_util::WaitForIdle();
         SandeshTearDown();
+        task_util::WaitForIdle();
+        IFMapCleanUp();
+        task_util::WaitForIdle();
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
