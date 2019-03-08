@@ -264,7 +264,7 @@ class VncApiServer(object):
             attr_type = attr_type_vals['attr_type']
             restrictions = attr_type_vals['restrictions']
             is_array = attr_type_vals.get('is_array', False)
-            if value is None:
+            if not value:
                 continue
             if is_array:
                 if not isinstance(value, list):

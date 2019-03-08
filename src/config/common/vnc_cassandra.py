@@ -735,8 +735,12 @@ class VncCassandraClient(object):
                 # store list elements in list order
                 # iterate on wrapped element or directly or prop field
                 if obj_class.prop_list_field_has_wrappers[prop_field]:
-                    wrapper_field = field.keys()[0]
-                    list_coll = field[wrapper_field]
+                    wrapper_field_keys = field.keys()
+                    if wrapper_field_keys:
+                        wrapper_field = wrapper_field_keys[0]
+                        list_coll = field[wrapper_field]
+                    else:
+                        list_coll = []
                 else:
                     list_coll = field
 
@@ -746,8 +750,12 @@ class VncCassandraClient(object):
             elif prop_field in obj_class.prop_map_fields:
                 # iterate on wrapped element or directly or prop field
                 if obj_class.prop_map_field_has_wrappers[prop_field]:
-                    wrapper_field = field.keys()[0]
-                    map_coll = field[wrapper_field]
+                    wrapper_field_keys = field.keys()
+                    if wrapper_field_keys:
+                        wrapper_field = wrapper_field_keys[0]
+                        map_coll = field[wrapper_field]
+                    else:
+                        map_coll = []
                 else:
                     map_coll = field
 
