@@ -193,11 +193,8 @@ class DockerProcessInfoManager(object):
             self._process_info_cache.update_cache(info)
         return processes_info_list
 
-    def runforever(self):
-        # TODO: probably use subscription on events..
-        while True:
-            self._poll_containers()
-            gevent.sleep(seconds=5)
+    def run_job(self):
+        self._poll_containers()
 
     def get_mem_cpu_usage_data(self, pid, last_cpu, last_time):
         return DockerMemCpuUsageData(pid, last_cpu, last_time)
