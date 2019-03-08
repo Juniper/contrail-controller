@@ -525,7 +525,12 @@ class EventManager(object):
                     SandeshLevel.SYS_ERR)
 
     def runforever(self):
-        self.process_info_manager.runforever()
+        while True:
+            try:
+                self.process_info_manager.run_job()
+            except Exception as e:
+                self.msg_log('Exception in periodic job: {}'.format(e), SandeshLevel.SYS_WARN)
+            gevent.sleep(seconds=5)
 
     def nodemgr_sighup_handler(self):
         collector_list = list()

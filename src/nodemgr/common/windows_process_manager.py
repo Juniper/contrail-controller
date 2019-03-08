@@ -36,10 +36,8 @@ class WindowsProcessInfoManager(object):
             self._process_info_cache.update_cache(info)
         return processes_infos
 
-    def runforever(self):
-        while True:
-            processes_infos = self._poll_processes()
-            for info in processes_infos:
-                if self._process_info_cache.update_cache(info):
-                    self._event_handlers['PROCESS_STATE'](cpm.convert_to_pi_event(info))
-            time.sleep(5)
+    def run_job(self):
+        processes_infos = self._poll_processes()
+        for info in processes_infos:
+            if self._process_info_cache.update_cache(info):
+                self._event_handlers['PROCESS_STATE'](cpm.convert_to_pi_event(info))
