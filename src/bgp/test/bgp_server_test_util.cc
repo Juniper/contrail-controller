@@ -245,7 +245,10 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
     boost::system::error_code err;
     int local_port = 10000;
     ip::tcp::endpoint local_endpoint;
-    local_endpoint = session->socket()->local_endpoint();
+    local_endpoint = session->socket()->local_endpoint(err);
+
+    if (err)
+        return;
 
 
     if (local_endpoint.address() == Ip4Address(0)) {
