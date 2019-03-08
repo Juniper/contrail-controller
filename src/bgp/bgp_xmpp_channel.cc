@@ -276,7 +276,7 @@ public:
         peer_stats_data.set_name(ToUVEKey());
         peer_stats_data.set_deleted(true);
         assert(!peer_stats_data.get_name().empty());
-        PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
+        BGP_UVE_SEND2(PeerStatsUve, peer_stats_data, "ObjectXmppPeerInfo");
     }
 
     virtual bool MembershipPathCallback(DBTablePartBase *tpart, BgpRoute *rt,
@@ -551,7 +551,7 @@ BgpXmppChannel::~BgpXmppChannel() {
 
 void BgpXmppChannel::XMPPPeerInfoSend(const XmppPeerInfoData &peer_info) const {
     assert(!peer_info.get_name().empty());
-    XMPPPeerInfo::Send(peer_info);
+    BGP_UVE_SEND(XMPPPeerInfo, peer_info);
 }
 
 const XmppSession *BgpXmppChannel::GetSession() const {
@@ -3192,7 +3192,7 @@ void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
     peer_info.set_name(channel->Peer()->ToUVEKey());
     peer_info.set_peer_stats_info(stats);
     assert(!peer_info.get_name().empty());
-    XMPPPeerInfo::Send(peer_info);
+    BGP_UVE_SEND(XMPPPeerInfo, peer_info);
 
     PeerStatsData peer_stats_data;
     peer_stats_data.set_name(channel->Peer()->ToUVEKey());
@@ -3200,7 +3200,7 @@ void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
     PeerStats::FillPeerUpdateStats(channel->Peer()->peer_stats(),
                                    &peer_stats_data);
     assert(!peer_stats_data.get_name().empty());
-    PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
+    BGP_UVE_SEND2(PeerStatsUve, peer_stats_data, "ObjectXmppPeerInfo");
 }
 
 bool BgpXmppChannelManager::CollectStats(BgpRouterState *state, bool first)
