@@ -261,10 +261,20 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     # case, hack for vcenter plugin
                     return True, False
             else:
-                # dropping the NoIdError as its equivalent to
-                # VirtualRouterNotFound its treated as False, non dpdk case,
-                # hack for vcenter plugin
-                return (True, False)
+                ok, vrList, _ = db_conn.dbe_list('virtual_routers')
+                if not ok:
+                    return ok, vrList
+                for vr in vrList:
+                    for fqName in vr['fq_name']:
+                        if '.' in fqName:
+                            if host_id == fqName.split('.')[0]:
+                                try:
+                                    vrouter_fq_name = ['default-global-system-config',
+                                            fqName]
+                                    vrouter_id = db_conn.fq_name_to_uuid('virtual_router',
+                                            vrouter_fq_name)
+                                except NoIdError:
+                                    return True, False
 
         ok, result = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
         if not ok:
