@@ -817,7 +817,7 @@ class PhysicalRouterDM(DBBaseDM):
             pr_trace.last_commit_time = \
                    commit_stats.get('last_commit_time', '')
             pr_trace.last_commit_duration = \
-                   commit_stats.get('last_commit_duration', 0)
+                   commit_stats.get('last_commit_duration', "0")
             pr_trace.commit_status_message = \
                    commit_stats.get('commit_status_message', '')
             pr_trace.total_commits_sent_since_up = \
