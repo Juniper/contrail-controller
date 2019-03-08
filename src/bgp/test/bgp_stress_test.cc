@@ -244,7 +244,7 @@ BgpXmppChannelManagerMock::~BgpXmppChannelManagerMock() {
 }
 
 BgpXmppChannel *BgpXmppChannelManagerMock::CreateChannel(XmppChannel *channel) {
-    channel_ = new BgpXmppChannel(channel, bgp_server_, this);
+    channel_ = new BgpXmppChannel(channel, server_, this);
     return channel_;
 }
 
@@ -550,6 +550,7 @@ void BgpStressTest::SetUp() {
 
     server_->session_manager()->Initialize(0);
     xmpp_server_test_->Initialize(0, false);
+    cout << "XMPP Server started at port " << xmpp_server_test_->port() << endl;
 
     sandesh_context_->bgp_server = server_.get();
     sandesh_context_->xmpp_peer_manager = channel_manager_.get();

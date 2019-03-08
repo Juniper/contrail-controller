@@ -3570,13 +3570,13 @@ TEST_F(BgpConfigTest, RoutePolicy_7) {
 
     policies = rti->routing_policies();
 
-    expect_list = boost::assign::list_of("basic_0")("basic_1");
+    vector<string> expect_list2 = boost::assign::list_of("basic_0")("basic_1");
     current_list.clear();
     BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
-    TASK_UTIL_ASSERT_TRUE(current_list == expect_list);
+    TASK_UTIL_ASSERT_TRUE(current_list == expect_list2);
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
@@ -3636,13 +3636,13 @@ TEST_F(BgpConfigTest, RoutePolicy_8) {
 
     policies = rti->routing_policies();
 
-    expect_list = boost::assign::list_of("basic_1")("basic_0");
+    vector<string> expect_list2 = boost::assign::list_of("basic_1")("basic_0");
     current_list.clear();
     BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
     }
     TASK_UTIL_ASSERT_TRUE(policies->size() == 2);
-    TASK_UTIL_ASSERT_TRUE(current_list == expect_list);
+    TASK_UTIL_ASSERT_TRUE(current_list == expect_list2);
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
