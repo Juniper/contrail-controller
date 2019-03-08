@@ -22,7 +22,7 @@ class DeviceZtpManager(object):
 
     _instance = None
 
-    def __init__(self, amqp_client, args, host_ip, logger):
+    def __init__(self, amqp_client, args, logger):
         DeviceZtpManager._instance = self
         self._client = None
         self._active = False
@@ -31,7 +31,7 @@ class DeviceZtpManager(object):
         self._tftp_dir = args.tftp_dir
         self._dhcp_leases_file = args.dhcp_leases_file
         self._timeout = args.ztp_timeout
-        self._host_ip = host_ip
+        self._host_ip = args.host_ip
         self._logger = logger
         self._lease_pattern = None
         self._initialized = False

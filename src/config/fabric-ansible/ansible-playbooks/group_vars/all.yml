@@ -109,7 +109,7 @@ role_to_feature_mapping:
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
-    - overlay_evpn_access
+    - overlay_evpn_erb_access
     - overlay_evpn_type5
     - overlay_evpn_ucast_gateway
     - overlay_security_group

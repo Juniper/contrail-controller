@@ -119,14 +119,12 @@ def main(args_str=None):
     vnc_amqp.close()
     dm_logger.debug("Removed remaining AMQP queue from previous run")
 
-    if 'host_ip' in args:
-        host_ip = args.host_ip
-    else:
-        host_ip = socket.gethostbyname(socket.getfqdn())
+    if 'host_ip' not in args:
+        args.host_ip = socket.gethostbyname(socket.getfqdn())
 
     _amqp_client = initialize_amqp_client(dm_logger, args)
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
-                                        args.zk_server_ip, host_ip)
+                                        args.zk_server_ip, args.host_ip)
 
     try:
         # Initialize the device job manager
@@ -136,16 +134,18 @@ def main(args_str=None):
         gevent.sleep(0.5)
     except Exception as e:
         dm_logger.error("Error while initializing the device job "
-                        "manager %s" % repr(e))
+                        "manager %s" % str(e))
+        raise e
 
     try:
         # Initialize the device ztp manager
-        DeviceZtpManager(_amqp_client, args, host_ip, dm_logger)
+        DeviceZtpManager(_amqp_client, args, dm_logger)
         # Allow kombu client to connect consumers
         gevent.sleep(0.5)
     except Exception as e:
         dm_logger.error("Error while initializing the device ztp "
-                        "manager %s" % repr(e))
+                        "manager %s" % str(e))
+        raise e
 
     gevent.signal(signal.SIGHUP, sighup_handler)
     gevent.signal(signal.SIGTERM, sigterm_handler)
