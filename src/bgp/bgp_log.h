@@ -43,6 +43,18 @@ extern SandeshTraceBufferPtr BgpPeerObjectTraceBuf;
 #define BGP_LOG_FLAG_TRACE  2
 #define BGP_LOG_FLAG_ALL  (BGP_LOG_FLAG_SYSLOG | BGP_LOG_FLAG_TRACE)
 
+#define BGP_UVE_SEND(type, object)                                             \
+do {                                                                           \
+    if (LoggingDisabled()) break;                                              \
+    type::Send(object);                                                        \
+} while (false)                                                                \
+
+#define BGP_UVE_SEND2(type, object, arg)                                       \
+do {                                                                           \
+    if (LoggingDisabled()) break;                                              \
+    type::Send(object, arg);                                                   \
+} while (false)                                                                \
+
 // Base macro to log and/or trace BGP messages
 #define BGP_LOG(obj, level, flags, ...)                                    \
 do {                                                                       \
