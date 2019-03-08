@@ -290,13 +290,6 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
         } else {
             encap = agent_->controller()->GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
-            // this is temporary workaround for UI issue due to which
-            // tunnel encap type is not for VPN routes, now setting
-            // tunnel encap to MPLS over MPLS if label inet is enabled
-            // will be removed once UI issue gets fixed
-            if (agent_->get_inet_labeled_flag()) {
-            encap  = 1 << TunnelType::MPLS_OVER_MPLS;
-            }
             if (vrf_name == agent_->fabric_vrf_name()) {
                 if (label != MplsTable::kInvalidLabel) {
                     encap = TunnelType::MplsoMplsType();
