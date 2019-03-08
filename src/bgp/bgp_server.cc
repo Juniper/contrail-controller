@@ -216,7 +216,7 @@ public:
             BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_SYSLOG,
                 "Process exit! due to tcp server port " << config->port() <<
                 " bind failure");
-            kill(getpid(), SIGTERM);
+            // kill(getpid(), SIGTERM);
         }
 
         Ip4Address identifier(ntohl(config_identifier));
@@ -972,14 +972,14 @@ void BgpServer::FillPeerStats(const BgpPeer *peer) const {
     peer_info.set_name(peer->ToUVEKey());
     peer_info.set_peer_stats_info(stats);
     assert(!peer_info.get_name().empty());
-    BGPPeerInfo::Send(peer_info);
+    BGP_UVE_SEND(BGPPeerInfo, peer_info);
 
     PeerStatsData peer_stats_data;
     peer_stats_data.set_name(peer->ToUVEKey());
     peer_stats_data.set_encoding("BGP");
     PeerStats::FillPeerUpdateStats(peer->peer_stats(), &peer_stats_data);
     assert(!peer_stats_data.get_name().empty());
-    PeerStatsUve::Send(peer_stats_data, "ObjectBgpPeer");
+    BGP_UVE_SEND2(PeerStatsUve, peer_stats_data, "ObjectBgpPeer");
 
     PeerFlapInfo flap_info;
     flap_info.set_flap_count(peer->flap_count());
@@ -990,7 +990,7 @@ void BgpServer::FillPeerStats(const BgpPeer *peer) const {
     peer_flap_data.set_encoding("BGP");
     peer_flap_data.set_flap_info(flap_info);
     assert(!peer_flap_data.get_name().empty());
-    PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
+    BGP_UVE_SEND2(PeerFlap, peer_flap_data, "ObjectBgpPeer");
 }
 
 bool BgpServer::CollectStats(BgpRouterState *state, bool first) const {
