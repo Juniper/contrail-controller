@@ -124,7 +124,7 @@ public:
     virtual ~StateMachineTest() { }
 
     void StartConnectTimer(int seconds) {
-        connect_timer_->Start(100,
+        connect_timer_->Start(1000000,
             boost::bind(&StateMachine::ConnectTimerExpired, this),
             boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
     }
