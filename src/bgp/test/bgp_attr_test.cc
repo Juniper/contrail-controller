@@ -1893,19 +1893,19 @@ TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelArTypeString) {
 
 TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelFlagsStrings) {
     PmsiTunnelSpec pmsi_spec;
-    vector<string> flags;
-    flags = list_of("None");
+    vector<string> flags = list_of("None");
     EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
-    flags = list_of("LeafInfoRequired");
-    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
+    vector<string> flags2 = list_of("LeafInfoRequired");
+    EXPECT_EQ(flags2, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
-    flags = list_of("EdgeReplicationSupported");
-    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
+    vector<string> flags3 = list_of("EdgeReplicationSupported");
+    EXPECT_EQ(flags3, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
     pmsi_spec.tunnel_flags |= PmsiTunnelSpec::EdgeReplicationSupported;
-    flags = list_of("LeafInfoRequired")("EdgeReplicationSupported");
-    EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
+    vector<string> flags4 =
+        list_of("LeafInfoRequired")("EdgeReplicationSupported");
+    EXPECT_EQ(flags4, pmsi_spec.GetTunnelFlagsStrings());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel2) {
