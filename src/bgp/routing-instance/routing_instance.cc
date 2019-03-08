@@ -475,7 +475,7 @@ bool RoutingInstanceMgr::DeleteVirtualNetworkMapping(
     // Send delete uve.
     instance_info.set_name(virtual_network);
     assert(!instance_info.get_name().empty());
-    RoutingInstanceStats::Send(instance_info);
+    BGP_UVE_SEND(RoutingInstanceStats, instance_info);
 
     return mapping_deleted;
 }
@@ -555,7 +555,7 @@ uint32_t RoutingInstanceMgr::SendTableStatsUve() {
         // Set the primary key and trigger uve send.
         instance_info.set_name(rit->second->GetVirtualNetworkName());
         assert(!instance_info.get_name().empty());
-        RoutingInstanceStats::Send(instance_info);
+        BGP_UVE_SEND(RoutingInstanceStats, instance_info);
     }
 
     return out_q_depth;
