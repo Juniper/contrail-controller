@@ -182,6 +182,7 @@ public:
 private:
     friend class ConfigCassandraPartitionTest;
     friend class ConfigCassandraPartitionTest2;
+    friend class ConfigCassandraClientPartitionTest;
     typedef std::map<std::string, int> UUIDIndexMap;
     std::vector<UUIDIndexMap> db_index_;
     int curr_db_idx_;
