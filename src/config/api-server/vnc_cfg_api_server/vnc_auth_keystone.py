@@ -27,7 +27,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common.exceptions import NoIdError
 from cfgm_common import utils as cfgmutils
-from cfgm_common import UUID_PATTERN
 from cfgm_common import vnc_greenlets
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext, ApiInternalRequest
@@ -38,7 +37,6 @@ from auth_context import set_auth_context, use_auth_context
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 _DEFAULT_KS_VERSION = "v2.0"
-UUID_REGEX = re.compile(UUID_PATTERN)
 
 # Open port for access to API server for trouble shooting
 class LocalAuth(object):
@@ -132,15 +130,14 @@ class AuthPostKeystone(object):
 
     @use_auth_context
     def __call__(self, env, start_response):
-        if ('HTTP_X_DOMAIN_ID' not in env or not env['HTTP_X_DOMAIN_ID'] or
-                not UUID_REGEX.match(env['HTTP_X_DOMAIN_ID'])):
+        if ('HTTP_X_DOMAIN_ID' not in env or not env['HTTP_X_DOMAIN_ID']):
             domain_id = (env.get('HTTP_X_PROJECT_DOMAIN_ID') or
                          env.get('HTTP_X_USER_DOMAIN_ID'))
             domain_name = (env.get('HTTP_X_DOMAIN_NAME') or
                            env.get('HTTP_X_PROJECT_DOMAIN_NAME') or
                            env.get('HTTP_X_USER_DOMAIN_NAME') or
                            'default-domain')
-            if not domain_id or not UUID_REGEX.match(domain_id):
+            if not domain_id:
                 if domain_name in ['default', 'Default']:
                     domain_name = 'default-domain'
                 try:
