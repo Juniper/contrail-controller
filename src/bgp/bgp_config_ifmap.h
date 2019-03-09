@@ -21,6 +21,9 @@
 #include "ifmap/ifmap_config_listener.h"
 #include "ifmap/ifmap_node_proxy.h"
 
+#define BGP_RTGT_MIN_ID_AS2 8000000
+#define BGP_RTGT_MIN_ID_AS4 8000
+
 class BgpConfigListener;
 typedef struct IFMapConfigListener::ConfigDelta BgpConfigDelta;
 class BgpIfmapConfigManager;

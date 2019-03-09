@@ -29,9 +29,6 @@ using std::string;
 using std::vector;
 using boost::iequals;
 
-#define BGP_RTGT_MIN_ID_AS2 8000000
-#define BGP_RTGT_MIN_ID_AS4 8000
-
 const int BgpIfmapConfigManager::kConfigTaskInstanceId = 0;
 
 static BgpNeighborConfig::AddressFamilyList default_addr_family_list;

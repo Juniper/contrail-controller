@@ -172,9 +172,13 @@ bool EvpnTable::ShouldReplicate(const BgpServer *server,
     if (evpn_prefix.type() != EvpnPrefix::AutoDiscoveryRoute)
         return false;
 
+    string es_target = server->autonomous_system() > 0xffFF ?
+        integerToString(EVPN_ES_IMPORT_ROUTE_TARGET_AS4) :
+        integerToString(EVPN_ES_IMPORT_ROUTE_TARGET_AS2);
+
     // Replicate if AD route target is associated with the route.
     RouteTarget rtarget = RouteTarget::FromString("target:" +
-                          integerToString(server->autonomous_system()) + ":1");
+        integerToString(server->autonomous_system()) + ":" + es_target);
     if (community->ContainsRTarget(rtarget.GetExtCommunity()))
         return true;
     return false;
