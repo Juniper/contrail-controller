@@ -498,7 +498,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     // blue.mvpn.0, bgp.ermvpn.0, bgp.mvpn.0, bgp.rtarget.0,
     // default-domain:default-project:ip-fabric:ip-fabric.ermvpn.0,
     // default-domain:default-project:ip-fabric:ip-fabric.mvpn.0
-    std::vector<size_t> result = list_of(2)(2)(2)(5)(4)(1);
+    std::vector<size_t> result = list_of(2)(2)(2)(6)(4)(1);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     ShowRouteReq *show_req = new ShowRouteReq;
