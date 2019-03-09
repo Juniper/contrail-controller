@@ -112,6 +112,11 @@ protected:
         return  rtarget_name;
     }
 
+    string GetESRTargetName() {
+        string rtarget_name("target:64512:7999999");
+        return  rtarget_name;
+    }
+
     string GetRTargetName(int idx) {
         string rtarget_name("target:64496:");
         rtarget_name += integerToString(idx);
@@ -120,6 +125,10 @@ protected:
 
     void AddVitRTargetName(vector<string> *rtarget_names, int idx) {
         rtarget_names->push_back(GetVitRTargetName(idx));
+    }
+
+    void AddESRTargetName(vector<string> *rtarget_names) {
+        rtarget_names->push_back(GetESRTargetName());
     }
 
     void AddRTargetName(vector<string> *rtarget_names, int idx) {
@@ -151,6 +160,7 @@ TEST_P(BgpShowRtGroupParamTest, Request1) {
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    AddESRTargetName(&rtargets);
     for (int idx = 1; idx <= 12; ++idx) {
         AddVitRTargetName(&rtargets, idx);
     }
@@ -171,12 +181,13 @@ TEST_P(BgpShowRtGroupParamTest, Request1) {
 // Should return all rtargets.
 //
 TEST_P(BgpShowRtGroupParamTest, Request2) {
-    sandesh_context_.set_page_limit(24);
+    sandesh_context_.set_page_limit(25);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    AddESRTargetName(&rtargets);
     for (int idx = 1; idx <= 12; ++idx) {
         AddVitRTargetName(&rtargets, idx);
     }
@@ -227,6 +238,7 @@ TEST_P(BgpShowRtGroupParamTest, RequestWithSearch1) {
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    AddESRTargetName(&rtargets);
     for (int idx = 1; idx <= 12; ++idx) {
         AddVitRTargetName(&rtargets, idx);
     }
@@ -274,12 +286,13 @@ TEST_P(BgpShowRtGroupParamTest, RequestWithSearch2) {
 // Should return all rtargets with "target".
 //
 TEST_P(BgpShowRtGroupParamTest, RequestWithSearch3) {
-    sandesh_context_.set_page_limit(24);
+    sandesh_context_.set_page_limit(25);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    AddESRTargetName(&rtargets);
     for (int idx = 1; idx <= 12; ++idx) {
         AddVitRTargetName(&rtargets, idx);
     }
@@ -400,6 +413,7 @@ TEST_P(BgpShowRtGroupParamTest, RequestIterate1) {
     for (int idx = 2; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    AddESRTargetName(&rtargets);
     for (int idx = 1; idx <= 12; ++idx) {
         AddVitRTargetName(&rtargets, idx);
     }
@@ -421,12 +435,13 @@ TEST_P(BgpShowRtGroupParamTest, RequestIterate1) {
 // Should return all rtargets including and after "target:64496:2"
 //
 TEST_P(BgpShowRtGroupParamTest, RequestIterate2) {
-    sandesh_context_.set_page_limit(23);
+    sandesh_context_.set_page_limit(24);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 2; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    AddESRTargetName(&rtargets);
     for (int idx = 1; idx <= 12; ++idx) {
         AddVitRTargetName(&rtargets, idx);
     }

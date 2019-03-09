@@ -45,7 +45,7 @@ static std::string BgpIdentifierToString(uint32_t identifier) {
 }
 
 static int ConfigInstanceCount(BgpConfigManager *manager,
-                           unsigned int import_count = 1) {
+                               unsigned int import_count = 2) {
     typedef std::pair<std::string, const BgpInstanceConfig *> iter_t;
     int count = 0;
     BOOST_FOREACH(iter_t iter, manager->InstanceMapItems()) {
@@ -1120,8 +1120,9 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport1) {
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:2") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(1, ilist.size());
+    TASK_UTIL_EXPECT_EQ(2, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
+    TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1148,8 +1149,9 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport2) {
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:3") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(1, ilist.size());
+    TASK_UTIL_EXPECT_EQ(2, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
+    TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1174,9 +1176,10 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport1) {
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:1") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(2, ilist.size());
+    TASK_UTIL_EXPECT_EQ(3, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:2") != ilist.end());
+    TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1201,10 +1204,11 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetImport2) {
     TASK_UTIL_EXPECT_TRUE(elist.find("target:100:1") != elist.end());
 
     const BgpInstanceConfig::RouteTargetList ilist = red->import_list();
-    TASK_UTIL_EXPECT_EQ(3, ilist.size());
+    TASK_UTIL_EXPECT_EQ(4, ilist.size());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:2") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:3") != ilist.end());
+    TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1705,7 +1709,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowGlobalSystemConfig) {
             "controller/src/bgp/testdata/config_test_gsc.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, ConfigInstanceCount(config_manager_, 2));
+    TASK_UTIL_EXPECT_EQ(1, ConfigInstanceCount(config_manager_, 3));
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = &server_;
@@ -1751,7 +1755,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowNeighbors) {
     string content = FileRead("controller/src/bgp/testdata/config_test_27.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(4, ConfigInstanceCount(config_manager_, 2));
+    TASK_UTIL_EXPECT_EQ(4, ConfigInstanceCount(config_manager_, 3));
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = &server_;

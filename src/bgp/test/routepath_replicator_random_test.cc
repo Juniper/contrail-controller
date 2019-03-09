@@ -598,6 +598,9 @@ protected:
         for (RoutingInstanceMgr::RoutingInstanceIterator it =
              rtinst_mgr->begin(); it != rtinst_mgr->end(); it++) {
             BOOST_FOREACH(RouteTarget tgt, it->second->GetImportList()) {
+                // Skip ES Route targets.
+                if (tgt.ToString() == "target:64512:7999999")
+                    continue;
                 const RoutingInstance *from_rt
                     = rtinst_mgr->GetInstanceByTarget(tgt);
                 assert(from_rt);

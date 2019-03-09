@@ -1910,8 +1910,10 @@ TEST_F(BgpConfigTest, InstanceTargetExport1) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
     rtarget = RouteTarget::FromString("target:100:1");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -1943,8 +1945,10 @@ TEST_F(BgpConfigTest, InstanceTargetExport2) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
     rtarget = RouteTarget::FromString("target:100:1");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -1972,7 +1976,9 @@ TEST_F(BgpConfigTest, InstanceTargetExport3) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(0, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -1999,10 +2005,12 @@ TEST_F(BgpConfigTest, InstanceTargetImport1) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
     rtarget = RouteTarget::FromString("target:100:1");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
     rtarget = RouteTarget::FromString("target:100:2");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -2030,12 +2038,14 @@ TEST_F(BgpConfigTest, InstanceTargetImport2) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(4, red->GetImportList().size());
     rtarget = RouteTarget::FromString("target:100:1");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
     rtarget = RouteTarget::FromString("target:100:2");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
     rtarget = RouteTarget::FromString("target:100:3");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -2062,33 +2072,33 @@ TEST_F(BgpConfigTest, Instances1) {
     task_util::WaitForIdle();
     RoutingInstance *blue = mgr->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
-    TASK_UTIL_EXPECT_EQ(2, blue->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue->GetImportList().size());
 
     RoutingInstance *red = mgr->GetRoutingInstance("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
-    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
 
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                     "routing-instance", "blue",
                                     "routing-instance", "red",
                                     "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, blue->GetImportList().size());
-    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, blue->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
 
     ifmap_test_util::IFMapMsgLink(&config_db_,
                                   "routing-instance", "blue",
                                   "routing-instance", "green",
                                   "connection");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, blue->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue->GetImportList().size());
 
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
                                     "routing-instance", "green",
                                     "route-target", "target:1:3",
                                     "instance-target");
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(1, blue->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, blue->GetImportList().size());
 
     ifmap_test_util::IFMapMsgLink(&config_db_,
                                   "routing-instance", "green",
@@ -2097,8 +2107,8 @@ TEST_F(BgpConfigTest, Instances1) {
 
     task_util::WaitForIdle();
     const RoutingInstance::RouteTargetList &rtlist = blue->GetImportList();
-    TASK_UTIL_EXPECT_EQ(2, rtlist.size());
-    const char *targets[] = {"target:1:1", "target:1:4"};
+    TASK_UTIL_EXPECT_EQ(3, rtlist.size());
+    const char *targets[]= {"target:1:1", "target:1:4", "target:64512:7999999"};
     int index = 0;
     for (RoutingInstance::RouteTargetList::const_iterator iter = rtlist.begin();
          iter != rtlist.end(); ++iter) {
@@ -2141,13 +2151,13 @@ TEST_F(BgpConfigTest, Instances2) {
     RoutingInstance *red = mgr->GetRoutingInstance("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     RoutingInstance *green = mgr->GetRoutingInstance("green");
     TASK_UTIL_ASSERT_TRUE(green != NULL);
     TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
 
     TASK_UTIL_EXPECT_EQ(3, mgr->count());
 
@@ -2160,11 +2170,11 @@ TEST_F(BgpConfigTest, Instances2) {
 
     // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(5, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(5, green->GetImportList().size());
 
     // Change the connection to a unidirectional one from green to red.
     autogen::ConnectionType *connection_type1 = new autogen::ConnectionType;
@@ -2177,11 +2187,11 @@ TEST_F(BgpConfigTest, Instances2) {
 
     // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(5, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
 
     // Change the connection to a unidirectional one from red to green.
     autogen::ConnectionType *connection_type2 = new autogen::ConnectionType;
@@ -2194,11 +2204,11 @@ TEST_F(BgpConfigTest, Instances2) {
 
     // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(2, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(5, green->GetImportList().size());
 
     // Clean up.
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
@@ -2227,13 +2237,13 @@ TEST_F(BgpConfigTest, Instances3) {
     RoutingInstance *red = mgr->GetRoutingInstance("red");
     TASK_UTIL_ASSERT_TRUE(red != NULL);
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     RoutingInstance *green = mgr->GetRoutingInstance("green");
     TASK_UTIL_ASSERT_TRUE(green != NULL);
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
 
     TASK_UTIL_EXPECT_EQ(3, mgr->count());
 
@@ -2246,11 +2256,11 @@ TEST_F(BgpConfigTest, Instances3) {
 
     // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
 
     // Change the connection to a unidirectional one from green to red.
     autogen::ConnectionType *connection_type1 = new autogen::ConnectionType;
@@ -2263,11 +2273,11 @@ TEST_F(BgpConfigTest, Instances3) {
 
     // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
 
     // Change the connection to a unidirectional one from red to green.
     autogen::ConnectionType *connection_type2 = new autogen::ConnectionType;
@@ -2280,11 +2290,11 @@ TEST_F(BgpConfigTest, Instances3) {
 
     // Verify number of export and import targets in red.
     TASK_UTIL_EXPECT_EQ(2, red->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
 
     // Verify number of export and import targets in green.
     TASK_UTIL_EXPECT_EQ(1, green->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(3, green->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(4, green->GetImportList().size());
 
     // Clean up.
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
@@ -2360,8 +2370,10 @@ TEST_F(BgpConfigTest, InstancesDelayDelete) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(1, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(2, red->GetImportList().size());
     rtarget = RouteTarget::FromString("target:100:1");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -2435,7 +2447,7 @@ TEST_F(BgpConfigTest, UpdatePendingDelete) {
     TASK_UTIL_EXPECT_TRUE(elist.find(rtarget) != elist.end());
 
     const RoutingInstance::RouteTargetList ilist = red->GetImportList();
-    TASK_UTIL_EXPECT_EQ(4, red->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(5, red->GetImportList().size());
     rtarget = RouteTarget::FromString("target:100:11");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
     rtarget = RouteTarget::FromString("target:100:12");
@@ -2443,6 +2455,8 @@ TEST_F(BgpConfigTest, UpdatePendingDelete) {
     rtarget = RouteTarget::FromString("target:100:21");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
     rtarget = RouteTarget::FromString("target:100:22");
+    TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
+    rtarget = RouteTarget::FromString("target:64512:7999999");
     TASK_UTIL_EXPECT_TRUE(ilist.find(rtarget) != ilist.end());
 
     ifmap_test_util::IFMapMsgUnlink(&config_db_,
@@ -2835,7 +2849,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate8) {
         TASK_UTIL_EXPECT_TRUE(mgr->GetRoutingInstance(name) != NULL);
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
-        TASK_UTIL_EXPECT_EQ(2, rtinstance->GetImportList().size());
+        TASK_UTIL_EXPECT_EQ(3, rtinstance->GetImportList().size());
     }
 
     boost::replace_all(content, "<config>", "<delete>");
@@ -3099,7 +3113,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate13) {
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_TRUE(rtinstance->always_subscribe());
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
-        TASK_UTIL_EXPECT_EQ(2, rtinstance->GetImportList().size());
+        TASK_UTIL_EXPECT_EQ(3, rtinstance->GetImportList().size());
         TASK_UTIL_EXPECT_EQ(1, rtinstance->GetExportList().size());
     }
 
@@ -3135,7 +3149,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate13) {
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_TRUE(rtinstance->always_subscribe());
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
-        TASK_UTIL_EXPECT_EQ(3, rtinstance->GetImportList().size());
+        TASK_UTIL_EXPECT_EQ(4, rtinstance->GetImportList().size());
         TASK_UTIL_EXPECT_EQ(2, rtinstance->GetExportList().size());
     }
 

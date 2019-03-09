@@ -11,9 +11,6 @@
 #include "bgp/bgp_table.h"
 #include "bgp/evpn/evpn_route.h"
 
-#define EVPN_ES_IMPORT_ROUTE_TARGET_AS2 (BGP_RTGT_MIN_ID_AS2 - 1) // 7999999
-#define EVPN_ES_IMPORT_ROUTE_TARGET_AS4 (BGP_RTGT_MIN_ID_AS4 - 1) // 7999
-
 class EvpnManager;
 
 class EvpnTable : public BgpTable {
