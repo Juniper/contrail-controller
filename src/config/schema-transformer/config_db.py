@@ -3458,13 +3458,14 @@ class BgpRouterST(DBBaseST):
 
         if pr_obj_refs and pr_obj_peer_refs:
             pr_obj = self._vnc_lib.physical_router_read(id=pr_obj_refs[0]['uuid'])
-            fab_obj_refs = pr_obj.get_fabric_refs()
+            fab_refs = pr_obj.get_fabric_refs()
 
             pr_peer_obj = self._vnc_lib.physical_router_read(id=pr_obj_peer_refs[0]['uuid'])
-            fab_obj_peer_refs = pr_peer_obj.get_fabric_refs()
+            fab_peer_refs = pr_peer_obj.get_fabric_refs()
 
             # Ignore peering if fabric-id of self-bgp-router and peer-bgp-router are not same
-            if fab_obj_refs != fab_obj_peer_refs:
+            if (fab_refs and fab_peer_refs and
+                fab_refs[0]['to'] != fab_peer_refs[0]['to']):
                 return True
 
         return False
