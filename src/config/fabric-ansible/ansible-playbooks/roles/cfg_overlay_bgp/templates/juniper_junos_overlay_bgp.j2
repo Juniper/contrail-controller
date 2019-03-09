@@ -13,6 +13,7 @@ set groups {{cfg_group}} routing-options resolution rib bgp.rtarget.0 resolution
 set groups {{cfg_group}} routing-options autonomous-system {{bgp.autonomous_system}}
 {%             set contrail_asn_group = '_contrail_asn-'+(bgp.autonomous_system|string) %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{contrail_asn_group}} source-address {{bgp.get('ip_address')}}
+set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} local-as {{bgp.autonomous_system}}
 {%             set encap_priorities = device_abstract_config.get('system', {}).get('encapsulation_priorities', []) %}
 {%             set mode = [] %}
 {%             for encap_mode in encap_priorities %}
