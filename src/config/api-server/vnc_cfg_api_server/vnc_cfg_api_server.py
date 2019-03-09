@@ -6,6 +6,7 @@ This is the main module in vnc_cfg_api_server package. It manages interaction
 between http/rest, address management, authentication and database interfaces.
 """
 
+from contextlib import contextmanager
 from gevent import monkey
 monkey.patch_all()
 from gevent import hub
@@ -1508,10 +1509,10 @@ class VncApiServer(object):
             include_shared = False
 
         try:
-            filters = utils.get_filters(get_request().query.filters)
+            filters = utils.get_filters(get_request().query.get('filters', ''))
         except Exception as e:
             raise cfgm_common.exceptions.HttpError(
-                400, 'Invalid filter ' + get_request().query.filters)
+                400, 'Invalid filter ' + get_request().query.get('filters', ''))
 
         if 'exclude_hrefs' in get_request().query:
             exclude_hrefs = True
@@ -1525,120 +1526,118 @@ class VncApiServer(object):
     # end http_resource_list
 
     # internal_request_<oper> - handlers of internally generated requests
-    # that save-ctx, generate-ctx and restore-ctx
-    def internal_request_create(self, resource_type, obj_json):
-        object_type = self.get_resource_class(resource_type).object_type
+    # that save contexr, generate admin context and restore context
+    @contextmanager
+    def _internal_request(self, path, req_dict=None, query=None):
         try:
             orig_context = get_context()
             orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%ss' %(resource_type),
-                 'bottle.app': orig_request.environ['bottle.app'],
-                 'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
-            json_as_dict = {'%s' %(resource_type): obj_json}
+            if orig_request:
+                b_req = bottle.BaseRequest(
+                    {'PATH_INFO': path,
+                     'bottle.app': orig_request.environ['bottle.app'] if
+                     orig_request else self.api_bottle,
+                     'HTTP_X_USER': 'contrail-api',
+                     'HTTP_X_ROLE': self.cloud_admin_role})
+            else:
+                b_req = bottle.LocalRequest(
+                    {'PATH_INFO': path,
+                     'bottle.app': self.api_bottle,
+                     'HTTP_X_USER': 'contrail-api',
+                     'HTTP_X_ROLE': self.cloud_admin_role})
             i_req = context.ApiInternalRequest(
-                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
-                json_as_dict, None)
+                b_req.url,
+                b_req.urlparts,
+                b_req.environ,
+                b_req.headers,
+                req_dict,
+                query)
             set_context(context.ApiContext(internal_req=i_req))
-            resp = self.http_resource_create(object_type)
-            return True, resp
+            try:
+                bottle.response.status_code
+            except RuntimeError:
+                # for some internal call bottle response not ready
+                bottle.response = bottle.LocalResponse()
+            yield i_req
         finally:
             set_context(orig_context)
-    # end internal_request_create
 
-    def internal_request_update(self, resource_type, obj_uuid, obj_json):
+    def internal_request_create(self, resource_type, req_dict):
         object_type = self.get_resource_class(resource_type).object_type
-        try:
-            orig_context = get_context()
-            orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%ss' %(resource_type),
-                 'bottle.app': orig_request.environ['bottle.app'],
-                 'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
-            json_as_dict = {'%s' %(resource_type): obj_json}
-            i_req = context.ApiInternalRequest(
-                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
-                json_as_dict, None)
-            set_context(context.ApiContext(internal_req=i_req))
-            self.http_resource_update(object_type, obj_uuid)
-            return True, ""
-        finally:
-            set_context(orig_context)
-    # end internal_request_update
+        req_dict = {resource_type: req_dict}
+        with self._internal_request('/%ss' % resource_type, req_dict=req_dict):
+            # TODO(ethuleau): better error handling
+            return True, self.http_resource_create(object_type)
+
+    def internal_request_read(self, resource_type, obj_uuid, query=None):
+        object_type = self.get_resource_class(resource_type).object_type
+        if not query:
+            query = {}
+        with self._internal_request('/%s/%s' % (resource_type, obj_uuid),
+                                    query=query):
+            # TODO(ethuleau): better error handling
+            return True, self.http_resource_read(object_type, obj_uuid)
+
+    def internal_request_list(self, resource_type, query=None):
+        object_type = self.get_resource_class(resource_type).object_type
+        if not query:
+            query = {}
+        with self._internal_request('/%ss' % resource_type, query=query):
+            # TODO(ethuleau): better error handling
+            return True, self.http_resource_list(object_type)
+
+    def internal_request_update(self, resource_type, obj_uuid, req_dict):
+        object_type = self.get_resource_class(resource_type).object_type
+        req_dict = {resource_type: req_dict}
+        with self._internal_request('/%ss' % resource_type, req_dict=req_dict):
+            # TODO(ethuleau): better error handling
+            return True, self.http_resource_update(object_type, obj_uuid)
 
     def internal_request_delete(self, resource_type, obj_uuid):
         object_type = self.get_resource_class(resource_type).object_type
-        try:
-            orig_context = get_context()
-            orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/%s/%s' %(resource_type, obj_uuid),
-                 'bottle.app': orig_request.environ['bottle.app'],
-                 'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
-            i_req = context.ApiInternalRequest(
-                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
-                None, None)
-            set_context(context.ApiContext(internal_req=i_req))
+        with self._internal_request('/%s/%s' % (resource_type, obj_uuid)):
+            # TODO(ethuleau): better error handling
             self.http_resource_delete(object_type, obj_uuid)
-            return True, ""
-        finally:
-            set_context(orig_context)
-    # end internal_request_delete
+        return True, ''
 
     def internal_request_ref_update(self, res_type, obj_uuid, operation,
                                     ref_res_type, ref_uuid=None,
                                     ref_fq_name=None, attr=None,
                                     relax_ref_for_delete=False):
-        req_dict = {'type': res_type,
-                    'uuid': obj_uuid,
-                    'operation': operation,
-                    'ref-type': ref_res_type,
-                    'ref-uuid': ref_uuid,
-                    'ref-fq-name': ref_fq_name,
-                    'attr': attr,
-                    'relax_ref_for_delete': relax_ref_for_delete}
-        try:
-            orig_context = get_context()
-            orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/ref-update',
-                 'bottle.app': orig_request.environ['bottle.app'],
-                 'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
-            i_req = context.ApiInternalRequest(
-                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
-                req_dict, None)
-            set_context(context.ApiContext(internal_req=i_req))
+        req_dict = {
+            'type': res_type,
+            'uuid': obj_uuid,
+            'operation': operation,
+            'ref-type': ref_res_type,
+            'ref-uuid': ref_uuid,
+            'ref-fq-name': ref_fq_name,
+            'attr': attr,
+            'relax_ref_for_delete': relax_ref_for_delete,
+        }
+        with self._internal_request('/ref-update', req_dict=req_dict):
+            # TODO(ethuleau): better error handling
             self.ref_update_http_post()
-            return True, ""
-        finally:
-            set_context(orig_context)
-    # end internal_request_ref_update
+        return True, ''
 
     def internal_request_prop_collection(self, obj_uuid, updates=None):
         req_dict = {
             'uuid': obj_uuid,
             'updates': updates or [],
         }
-        try:
-            orig_context = get_context()
-            orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                {'PATH_INFO': '/ref-update',
-                 'bottle.app': orig_request.environ['bottle.app'],
-                 'HTTP_X_USER': 'contrail-api',
-                 'HTTP_X_ROLE': self.cloud_admin_role})
-            i_req = context.ApiInternalRequest(
-                b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
-                req_dict, None)
-            set_context(context.ApiContext(internal_req=i_req))
+        with self._internal_request('/prop-collection-update',
+                                    req_dict=req_dict):
+            # TODO(ethuleau): better error handling
             self.prop_collection_http_post()
-            return True, ''
-        finally:
-            set_context(orig_context)
+        return True, ''
+
+    def internal_request_fq_name_to_uuid(self, obj_type, fq_name):
+        req_dict = {
+            'type': obj_type,
+            'fq_name': fq_name,
+        }
+        with self._internal_request('/fq-name-to-id', req_dict=req_dict):
+            # TODO(ethuleau): better error handling
+            return True, self.fq_name_to_id_http_post()
 
     def alloc_vn_id(self, fq_name_str):
         return self._db_conn._zk_db.alloc_vn_id(fq_name_str)
@@ -3086,10 +3085,12 @@ class VncApiServer(object):
             if self._args.auth != 'no-auth':
                 self._extension_mgrs['resync'] = ExtensionManager(
                     'vnc_cfg_api.resync', api_server_ip=hostname,
-                    api_server_port=self._args.listen_port,
-                    conf_sections=conf_sections, sandesh=self._sandesh)
+                     api_server_port=self._args.listen_port,
+                     conf_sections=conf_sections, sandesh=self._sandesh,
+                     api_server_obj=self)
                 self._extension_mgrs['resourceApi'].map_method(
-                    'set_resync_extension_manager', self._extension_mgrs['resync'])
+                    'set_resync_extension_manager',
+                    self._extension_mgrs['resync'])
             self._extension_mgrs['neutronApi'] = ExtensionManager(
                 'vnc_cfg_api.neutronApi',
                 api_server_ip=hostname,
@@ -4995,4 +4996,5 @@ def server_main(args_str=None):
 
 if __name__ == "__main__":
     server_main()
+
 

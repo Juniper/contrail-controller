@@ -37,6 +37,7 @@ from datetime import datetime
 from pycassa.util import *
 from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
+from keystoneclient import exceptions as kexceptions
 
 from cfgm_common.exceptions import ResourceExistsError, OverQuota
 
@@ -1056,17 +1057,21 @@ class FakeKeystoneClient(object):
             return self._domains.values()
 
         def get(self, id):
-            return self._domains[str(uuid.UUID(id))]
+            try:
+                return self._domains[str(uuid.UUID(id))]
+            except KeyError:
+                raise kexceptions.NotFound("Domain '%s' does not exists" % id)
 
     class Tenants(object):
         _tenants = {}
-        def add_tenant(self, id, name):
+        def add_tenant(self, id, name, domain_id=None):
             self.id = id
             self.name = name
+            self.domain_id = domain_id
             self._tenants[id] = self
 
         def delete_tenant(self, id):
-            del self._tenants[id]
+            self._tenants.pop(id, None)
 
         def create(self, name, id=None):
             self.name = name
@@ -1077,7 +1082,10 @@ class FakeKeystoneClient(object):
             return self._tenants.values()
 
         def get(self, id):
-            return self._tenants[str(uuid.UUID(id))]
+            try:
+                return self._tenants[str(uuid.UUID(id))]
+            except KeyError:
+                raise kexceptions.NotFound("Project '%s' does not exists" % id)
 
     class Users(object):
         _users = {}
@@ -1116,6 +1124,7 @@ class FakeKeystoneClient(object):
 
     def __init__(self, *args, **kwargs):
         self.tenants = FakeKeystoneClient.Tenants()
+        self.projects = self.tenants
         self.domains = FakeKeystoneClient.Domains()
         self.users = FakeKeystoneClient.Users()
         self.roles = FakeKeystoneClient.Roles()
@@ -1124,9 +1133,21 @@ class FakeKeystoneClient(object):
         return self.roles.get_user_role(username, tenant_id)
 # end class FakeKeystoneClient
 
+
 fake_keystone_client = FakeKeystoneClient()
 def get_keystone_client(*args, **kwargs):
     return fake_keystone_client
+
+
+class FakeKeystoneClientV3(FakeKeystoneClient):
+    @property
+    def version(self):
+        return 'v3'
+
+
+fake_keystone_client_v3 = FakeKeystoneClientV3()
+def get_keystone_client_v3(*args, **kwargs):
+    return fake_keystone_client_v3
 
 
 #
