@@ -231,3 +231,19 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
         self._vnc_lib.security_group_delete(id=sg_obj.uuid)
     # end test_post_project_create_default_sg
 # end class DelayedApiServerConnectionTest
+
+
+class SyncAdminDomainProjectTest(test_case.ResourceDriverTestCase):
+    @classmethod
+    def setUpClass(cls):
+        from keystoneclient import client as keystone
+        extra_mocks = [(keystone, 'Client', get_keystone_client_v3)]
+        super(SyncAdminDomainProjectTest, cls).setUpClass(
+            extra_mocks=extra_mocks)
+
+    def test_sync_domain_project_of_admin(self):
+        domain = self._vnc_lib.domain_read(id=self.domain_id)
+        self.assertEqual(self.domain_name, domain.fq_name[-1])
+        project = self._vnc_lib.project_read(id=self.project_id)
+        self.assertEqual(self.project_name, project.fq_name[-1])
+        self.assertEqual(self.domain_id, project.parent_uuid)

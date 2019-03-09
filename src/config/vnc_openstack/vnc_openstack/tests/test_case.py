@@ -38,6 +38,11 @@ class VncOpenstackTestCase(TestCase):
             ('KEYSTONE', 'auth_protocol', 'http'),
     ]
     _entry_pt_to_classes = FakeExtensionManager._entry_pt_to_classes
+    domain_id = '7949de9b-bd91-4cbf-9b57-24653e0c47dc'
+    domain_name = 'domain_admin'
+    project_id = 'ea7a4bad-0c96-4e39-87a0-125c23f26f94'
+    project_name = 'projec_admin'
+
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         # below code is needed due to different behaviour
@@ -57,6 +62,23 @@ class VncOpenstackTestCase(TestCase):
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = [vnc_openstack.ResourceApiDriver]
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.neutronApi'] = [vnc_openstack.NeutronApiDriver]
         setup_extra_flexmock([(stevedore.extension.ExtensionManager, '__new__', FakeExtensionManager)])
+        kclient = get_keystone_client()
+        kclientv3 = get_keystone_client_v3()
+        kclientv3.domains.add_domain(cls.domain_id, cls.domain_name)
+        kclientv3.tenants.add_tenant(cls.project_id, cls.project_name,
+                                     cls.domain_id)
+        kclient.tenants.add_tenant(cls.project_id, cls.project_name,
+                                   cls.domain_id)
+        from keystoneclient import session
+
+        class FakeKeystoneSession(object):
+            def __init__(*args, **kwargs):
+                pass
+
+            def get_project_id(self):
+                return cls.project_id
+
+        setup_extra_flexmock([(session, 'Session', FakeKeystoneSession)])
         super(VncOpenstackTestCase, cls).setUpClass(*args, **kwargs)
     # end setUp
 
