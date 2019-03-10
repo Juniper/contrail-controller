@@ -7,3 +7,5 @@ gen
 *.log
 *.db
 dist
+.vscode
+.DS_store
