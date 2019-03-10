@@ -2077,10 +2077,11 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
 
     // Add blue export target to red import target list.
     AddInstanceImportRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(3, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(4, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[2]);
+    TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[3]);
 
     // Make sure the route is in the blue and red tables.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -2090,9 +2091,10 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
 
     // Remove blue export target from red import target list.
     RemoveInstanceRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(3, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
+    TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[2]);
 
     // Make sure the route is in the blue table but not in red table.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -2142,10 +2144,11 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
 
     // Add blue export target to red import target list.
     AddInstanceImportRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(3, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(4, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[2]);
+    TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[3]);
 
     // Make sure the route is in the blue and red tables.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -2155,9 +2158,10 @@ TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
 
     // Remove blue export target from red import target list.
     RemoveInstanceRouteTarget("red", "target:64496:1");
-    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(3, GetInstanceImportRouteTargetList("red").size());
     instance_targets = GetInstanceImportRouteTargetList("red");
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
+    TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[2]);
 
     // Make sure the route is in the blue table but not in red table.
     VERIFY_EQ(1, RouteCount("blue"));
@@ -2193,10 +2197,11 @@ TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
     TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
     AddInstanceImportRouteTarget("red", "target:64496:202");
     instance_targets = GetInstanceImportRouteTargetList("red");
-    TASK_UTIL_EXPECT_EQ(3, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ(4, instance_targets.size());
     TASK_UTIL_EXPECT_EQ("target:192.168.0.100:2", instance_targets[0]);
     TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
     TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[2]);
+    TASK_UTIL_EXPECT_EQ("target:64496:7999999", instance_targets[3]);
 
     // Add route to blue table.
     AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1");
@@ -2599,8 +2604,8 @@ TEST_F(ReplicationTest, TableStateOnVRFWithNoImportExportRT) {
     RemoveInstanceRouteTarget("blue", "target:64496:1");
     RemoveInstanceRouteTarget("red", "target:64496:2");
 
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceImportRouteTargetList("red").size());
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceImportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("blue").size());
     TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("red").size());
     TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("blue").size());
 
@@ -2655,8 +2660,8 @@ TEST_F(ReplicationTest, TableStateOnVRFInBulkSyncList) {
     RemoveInstanceRouteTarget("blue", "target:64496:1");
     RemoveInstanceRouteTarget("red", "target:64496:2");
 
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceImportRouteTargetList("red").size());
-    TASK_UTIL_EXPECT_EQ(1, GetInstanceImportRouteTargetList("blue").size());
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("blue").size());
     TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("red").size());
     TASK_UTIL_EXPECT_EQ(0, GetInstanceExportRouteTargetList("blue").size());
 

@@ -24,6 +24,9 @@
 #define BGP_RTGT_MIN_ID_AS2 8000000
 #define BGP_RTGT_MIN_ID_AS4 8000
 
+#define EVPN_ES_IMPORT_ROUTE_TARGET_AS2 (BGP_RTGT_MIN_ID_AS2 - 1) // 7999999
+#define EVPN_ES_IMPORT_ROUTE_TARGET_AS4 (BGP_RTGT_MIN_ID_AS4 - 1) // 7999
+
 class BgpConfigListener;
 typedef struct IFMapConfigListener::ConfigDelta BgpConfigDelta;
 class BgpIfmapConfigManager;
@@ -144,7 +147,6 @@ public:
     const BgpIfmapInstanceConfig *instance() { return instance_; }
 
     const BgpProtocolConfig *protocol_config() const { return &data_; }
-    void ProcessIdentifierUpdate(uint32_t new_id, uint32_t old_id);
 
 private:
     BgpIfmapInstanceConfig *instance_;
@@ -249,10 +251,12 @@ public:
     void DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
     void set_index(int index) { index_ = index; };
     int index() const { return index_; }
-    std::string GetVitFromId(uint32_t identifier);
-    void InsertVitInImportList(BgpIfmapConfigManager *manager,
+    std::string GetVitFromId(uint32_t identifier) const;
+    std::string GetESRouteTarget(uint32_t as) const;
+    void InsertVitAndESRTargetInImportList(BgpIfmapConfigManager *manager,
             BgpInstanceConfig::RouteTargetList& import_list);
     void ProcessIdentifierUpdate(uint32_t new_id, uint32_t old_id);
+    void ProcessASUpdate(uint32_t new_as, uint32_t old_as);
 
 private:
     friend class BgpConfigManagerTest;
@@ -435,8 +439,8 @@ public:
     const BgpIfmapGlobalQosConfig *global_qos() const {
         return &global_qos_;
     }
-    void ProcessIdentifierUpdate(BgpIfmapConfigManager* manager,
-                    uint32_t new_id, uint32_t old_id);
+    void ProcessIdentifierAndASUpdate(BgpIfmapConfigManager* manager,
+        uint32_t new_id, uint32_t old_id, uint32_t new_as, uint32_t old_as);
 
 private:
     IfmapInstanceMap instances_;

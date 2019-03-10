@@ -1107,10 +1107,33 @@ void BgpIfmapInstanceConfig::ProcessIdentifierUpdate(uint32_t new_id,
     data_.set_import_list(import_list);
 }
 
-string BgpIfmapInstanceConfig::GetVitFromId(uint32_t identifier) {
+void BgpIfmapInstanceConfig::ProcessASUpdate(uint32_t new_as, uint32_t old_as) {
+    BgpInstanceConfig::RouteTargetList import_list = data_.import_list();
+    if (old_as > 0) {
+        string old_es_rtarget = "target:" + GetESRouteTarget(old_as);
+        import_list.erase(old_es_rtarget);
+    }
+    if (new_as > 0) {
+        string new_es_rtarget = "target:" + GetESRouteTarget(new_as);
+        import_list.insert(new_es_rtarget);
+    }
+    data_.set_import_list(import_list);
+}
+
+string BgpIfmapInstanceConfig::GetVitFromId(uint32_t identifier) const {
     if (identifier == 0)
         return "";
     return Ip4Address(identifier).to_string() + ":" + integerToString(index());
+}
+
+string BgpIfmapInstanceConfig::GetESRouteTarget(uint32_t as) const {
+    if (as == 0)
+        return "";
+    if (as > 0xffFF)
+        return integerToString(as) + ":" +
+            integerToString(EVPN_ES_IMPORT_ROUTE_TARGET_AS4);
+    return integerToString(as) + ":" +
+        integerToString(EVPN_ES_IMPORT_ROUTE_TARGET_AS2);
 }
 
 void BgpIfmapInstanceConfig::UpateRouteTargetIndex(
@@ -1123,9 +1146,11 @@ void BgpIfmapInstanceConfig::UpateRouteTargetIndex(
             string rtarget_id = value.substr(value.rfind(":")+1);
             string rtarget_asn = value.substr(value.find(":") + 1,
                                                   value.rfind(":") - 1);
-            if ((rtarget_asn.find(".") == string::npos) &&
-                    (BGP_RTGT_MIN_ID_AS2 <= strtoul(rtarget_id.c_str(),
-                                                    NULL, 0))) {
+            // Accout for EVPN_ES_IMPORT_ROUTE_TARGET_AS2 which should be 1 less
+            // than BGP_RTGT_MIN_ID_AS2.
+            if (rtarget_asn.find(".") == string::npos &&
+                strtoul(rtarget_id.c_str(), NULL, 0) >=
+                    EVPN_ES_IMPORT_ROUTE_TARGET_AS2) {
                 remove_rt_list.insert(value);
             }
         }
@@ -1136,7 +1161,7 @@ void BgpIfmapInstanceConfig::UpateRouteTargetIndex(
         size_t pos = value.rfind(":") + 1;
         string id = value.substr(pos);
         uint32_t new_id = strtoul(id.c_str(), NULL, 0) - BGP_RTGT_MIN_ID_AS2
-                                                          + BGP_RTGT_MIN_ID_AS4;
+                                                       + BGP_RTGT_MIN_ID_AS4;
         string new_id_str = integerToString(new_id);
         value.replace(pos, strlen(value.c_str()) - pos, new_id_str);
         rt_list.insert(value);
@@ -1168,13 +1193,15 @@ void BgpIfmapInstanceConfig::UpateRouteTargetIndex(
     }
 }
 
-// Populate Vit in import list
-void BgpIfmapInstanceConfig::InsertVitInImportList(
+// Populate vrf import route-target (used for MVPN) and ES route target in
+// import list.
+void BgpIfmapInstanceConfig::InsertVitAndESRTargetInImportList(
                          BgpIfmapConfigManager *mgr,
                          BgpInstanceConfig::RouteTargetList& import_list) {
     const BgpIfmapInstanceConfig *master_instance =
         mgr->config()->FindInstance(BgpConfigManager::kMasterInstance);
     uint32_t bgp_identifier = 0;
+    uint32_t as = 0;
     if (master_instance) {
         const BgpIfmapProtocolConfig *master_protocol =
             master_instance->protocol_config();
@@ -1182,12 +1209,14 @@ void BgpIfmapInstanceConfig::InsertVitInImportList(
             if (master_protocol->protocol_config()) {
                 bgp_identifier =
                     master_protocol->protocol_config()->identifier();
+                as = master_protocol->protocol_config()->autonomous_system();
             }
         }
     }
-    if (bgp_identifier > 0) {
+    if (bgp_identifier > 0)
         import_list.insert("target:" + GetVitFromId(ntohl(bgp_identifier)));
-    }
+    if (as > 0)
+        import_list.insert("target:" + GetESRouteTarget(as));
 }
 
 //
@@ -1259,7 +1288,7 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
         }
     }
 
-    InsertVitInImportList(manager, import_list);
+    InsertVitAndESRTargetInImportList(manager, import_list);
     UpateRouteTargetIndex(manager, import_list, export_list);
     data_.set_import_list(import_list);
     data_.set_export_list(export_list);
@@ -1413,17 +1442,21 @@ void BgpIfmapInstanceConfig::DeleteRoutingPolicy(
     routing_policies_.erase(rtp->name());
 }
 
-void BgpIfmapConfigData::ProcessIdentifierUpdate(
+void BgpIfmapConfigData::ProcessIdentifierAndASUpdate(
                             BgpIfmapConfigManager* manager,
-                            uint32_t new_id, uint32_t old_id) {
-    assert(new_id != old_id);
+                            uint32_t new_id, uint32_t old_id,
+                            uint32_t new_as, uint32_t old_as) {
+    assert(new_id != old_id || new_as != old_as);
     for (unsigned int i = 0; i < instances_.size(); i++) {
         BgpIfmapInstanceConfig * ifmap_config = instances_.At(i);
         if (!ifmap_config)
             continue;
-        ifmap_config->ProcessIdentifierUpdate(new_id, old_id);
+        if (new_id != old_id)
+            ifmap_config->ProcessIdentifierUpdate(new_id, old_id);
+        if (new_as != old_as)
+            ifmap_config->ProcessASUpdate(new_as, old_as);
         manager->UpdateInstanceConfig(ifmap_config,
-                BgpConfigManager::CFG_CHANGE);
+                                      BgpConfigManager::CFG_CHANGE);
     }
 }
 
@@ -2272,10 +2305,13 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     autogen::BgpRouter *rt_config =
         static_cast<autogen::BgpRouter *>(delta.obj.get());
     uint32_t old_id = protocol->protocol_config()->identifier();
+    uint32_t old_as = protocol->protocol_config()->autonomous_system();
     protocol->Update(this, rt_config);
     uint32_t new_id = protocol->protocol_config()->identifier();
-    if (new_id != old_id) {
-        config_->ProcessIdentifierUpdate(this, new_id, old_id);
+    uint32_t new_as = protocol->protocol_config()->autonomous_system();
+    if (new_id != old_id || new_as != old_as) {
+        config_->ProcessIdentifierAndASUpdate(this, new_id, old_id, new_as,
+                                              old_as);
     }
     Notify(protocol->protocol_config(), event);
 
