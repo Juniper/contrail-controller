@@ -379,12 +379,18 @@ class VncKubernetes(VncCommon):
                     return
                 time.sleep(3)
                 count+=1
-        snat_port_range = PortType(start_port = 56000, end_port = 57023)
+        port_count = 1024
+        start_port = 56000
+        end_port = start_port + port_count - 1
+        snat_port_range = PortType(start_port = start_port, end_port = end_port)
         port_pool_tcp = PortTranslationPool(
-            protocol="tcp", port_count='1024', port_range=snat_port_range)
-        snat_port_range = PortType(start_port = 57024, end_port = 58047)
+            protocol="tcp", port_range=snat_port_range)
+
+        start_port = end_port + 1
+        end_port = start_port + port_count - 1
+        snat_port_range = PortType(start_port = start_port, end_port = end_port)
         port_pool_udp = PortTranslationPool(
-            protocol="udp", port_count='1024', port_range=snat_port_range)
+            protocol="udp", port_range=snat_port_range)
         port_pools = PortTranslationPools([port_pool_tcp, port_pool_udp])
         global_vrouter_obj.set_port_translation_pools(port_pools)
         try:
