@@ -26,7 +26,7 @@ set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 
 {%             if fam == 'evpn' %}
 {%                 set route_distinguisher = bgp_elem.get('ip_address') %}
 {%                 set as_number = bgp_elem.get('autonomous_system') %}
-{%                 if as_number <= '65535' %}
+{%                 if (as_number|int) <= 65535 %}
 {%                     set target = 7999999 %}
 {%                 else %}
 {%                     set target = 7999 %}
