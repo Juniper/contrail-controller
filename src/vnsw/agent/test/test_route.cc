@@ -2627,6 +2627,26 @@ TEST_F(RouteTest, ArpRouteDelete) {
     EXPECT_FALSE(FindNH(&key));
 }
 
+//Add a arp entry and then call AddArpReq(), it should not mark the arp entry invalid.
+//JCB-218924
+TEST_F(RouteTest, ArpRouteTest) {
+    ArpNHKey key(agent_->fabric_vrf_name(), server1_ip_, false);
+
+    AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&key));
+    EXPECT_TRUE(GetNH(&key)->IsValid() == true);
+
+    //Now trigger a AddArpReq() call. Expected behavior is the nh should stay resolved.
+
+    AddArpReq(server1_ip_.to_string().c_str(), eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&key));
+    EXPECT_TRUE(GetNH(&key)->IsValid() == true);
+    DelArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+}
+
 TEST_F(RouteTest, verify_channel_delete_results_in_path_delete) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},

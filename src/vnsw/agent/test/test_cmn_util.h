@@ -325,6 +325,7 @@ bool Inet4MplsRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn);
 bool AddArp(const char *ip, const char *mac_str, const char *ifname);
+bool AddArpReq(const char *ip, const char *ifname);
 bool DelArp(const string &ip, const char *mac_str, const string &ifname);
 void *asio_poll(void *arg);
 void AsioRun();
