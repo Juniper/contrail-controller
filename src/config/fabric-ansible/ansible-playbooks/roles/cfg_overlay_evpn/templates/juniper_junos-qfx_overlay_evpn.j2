@@ -27,16 +27,16 @@ set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 
 {%                 set route_distinguisher = bgp_elem.get('ip_address') %}
 {%                 set as_number = bgp_elem.get('autonomous_system') %}
 {%                 if (as_number|int) <= 65535 %}
-{%                     set target = 7999999 %}
+{%                     set esi_rt = as_number + ':7999999' %}
 {%                 else %}
-{%                     set target = 7999 %}
+{%                     set esi_rt = as_number + 'L:7999' %}
 {%                 endif %}
 set groups {{cfg_group}} protocols evpn encapsulation vxlan
 set groups {{cfg_group}} protocols evpn extended-vni-list all
 set groups {{cfg_group}} switch-options vtep-source-interface lo0.0
-set groups {{cfg_group}} switch-options route-distinguisher {{route_distinguisher}}:{{target}}
-set groups {{cfg_group}} switch-options vrf-target target:{{as_number}}:{{target}}
-set groups {{cfg_group}} policy-options community community-esi-in members target:{{as_number}}:{{target}}
+set groups {{cfg_group}} switch-options route-distinguisher {{route_distinguisher}}:7999
+set groups {{cfg_group}} switch-options vrf-target target:{{esi_rt}}
+set groups {{cfg_group}} policy-options community community-esi-in members target:{{esi_rt}}
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in from community community-esi-in
 set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
 set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
