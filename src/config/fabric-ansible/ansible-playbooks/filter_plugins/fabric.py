@@ -1662,6 +1662,8 @@ class FilterModule(object):
         self._validate_rr_role_assigned(
             vnc_api, fabric_fq_name, role_assignments
         )
+
+        self._validate_ucast_mcast_role_exclusive(role_assignments)
     # end _validate_role_assignments
 
     @staticmethod
@@ -1765,6 +1767,27 @@ class FilterModule(object):
                 'device and retry the role assignment' % str(ex)
             )
     # end _validate_rr_role_assigned
+
+
+    def _validate_ucast_mcast_role_exclusive(self, role_assignments):
+        """
+        This method validates that both UCAST and MCAST roles are not assigned
+        to the same device
+        """
+        for device_roles in role_assignments:
+            device_obj = device_roles.get('device_obj')
+            rb_roles = device_roles.get('routing_bridging_roles') or []
+            if device_obj.get_routing_bridging_roles():
+                assigned_roles = device_obj.get_routing_bridging_roles().get_rb_roles() or []
+                rb_roles += assigned_roles
+
+            has_ucast_role = any('ucast' in r.lower() for r in rb_roles)
+            has_mcast_role = any('mcast' in r.lower() for r in rb_roles)
+
+            if has_ucast_role and has_mcast_role:
+                raise ValueError('Cannot assign a UCAST role and a MCAST role '
+                    'to the same device: %s' % device_obj.get_fq_name()[-1])
+    # end _validate_ucast_mcast_role_exclusive
 
     def _validate_fabric_rr_role_assigned(
             self, vnc_api, fabric_fq_name,

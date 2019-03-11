@@ -30,28 +30,22 @@ class AnsibleRoleCommon(AnsibleConf):
         super(AnsibleRoleCommon, self).__init__(logger, params)
     # end __init__
 
-    def is_gateway(self):
-        if self.physical_router.routing_bridging_roles:
-            gateway_roles = [r for r in self.physical_router.routing_bridging_roles if 'Gateway' in r]
-            if gateway_roles:
-                return True
+    def _any_rb_role_matches(self, sub_str):
+        if self.physical_router.routing_bridging_roles and sub_str:
+            return any(sub_str.lower() in r.lower() for r in self.physical_router.routing_bridging_roles)
         return False
-    # end is_spine
+    # end _any_rb_role_matches
 
-    def is_service_chainied(self):
-        if self.physical_router.routing_bridging_roles:
-            gateway_roles = [r for r in
-                             self.physical_router.routing_bridging_roles if 'Servicechain' in r]
-            if gateway_roles:
-                return True
-        return False
+    def is_gateway(self):
+        return self._any_rb_role_matches('gateway')
+    # end is_gateway
+
+    def is_service_chained(self):
+        return self._any_rb_role_matches('servicechain')
+    # end is_service_chained
 
     def is_dci_gateway(self):
-        if self.physical_router.routing_bridging_roles:
-            gateway_roles = [r for r in self.physical_router.routing_bridging_roles if 'DCI-Gateway' in r]
-            if gateway_roles:
-                return True
-        return False
+        return self._any_rb_role_matches('DCI-Gateway')
     # end is_dci_gateway
 
     def initialize(self):
@@ -1239,7 +1233,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if not pr:
             return
 
-        if self.is_service_chainied():
+        if self.is_service_chained():
             left_vrf_info = {}
             right_vrf_info = {}
             left_interface = ''
