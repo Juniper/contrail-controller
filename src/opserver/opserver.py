@@ -262,12 +262,12 @@ def redis_query_result(host, port, redis_password, qid):
         yield bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
     else:
         if status is None:
-            yield bottle.HTTPError(_ERRORS[errno.ENOENT], 
+            yield bottle.HTTPError(_ERRORS[errno.ENOENT],
                     'Invalid query id (or) query result purged from DB')
         if status['progress'] == 100:
             for chunk in status['chunks']:
                 chunk_id = int(chunk['href'].rsplit('/', 1)[1])
-                for gen in redis_query_chunk(host, port, redis_password, qid, 
+                for gen in redis_query_chunk(host, port, redis_password, qid,
                                              chunk_id):
                     yield gen
         else:
@@ -330,7 +330,7 @@ class OpStateServer(object):
             % (msg_type, destination, msg_encode)
         # Publish message in the Redis bus
         for redis_server in self._redis_list:
-            redis_inst = redis.StrictRedis(redis_server[0], 
+            redis_inst = redis.StrictRedis(redis_server[0],
                                            redis_server[1], db=0,
                                            password=self._redis_password)
             try:
@@ -511,7 +511,7 @@ class OpServer(object):
         self.trace_buf = [
             {'name':'DiscoveryMsg', 'size':1000}
         ]
-        # Create trace buffers 
+        # Create trace buffers
         for buf in self.trace_buf:
             self._sandesh.trace_buffer_create(name=buf['name'], size=buf['size'])
 
@@ -569,11 +569,15 @@ class OpServer(object):
         self.agp = {}
         if self._usecache:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
-                name = 'UVE-Aggregation', status = ConnectionStatus.INIT)
+                name = 'UVE-Aggregation', status = ConnectionStatus.INIT,
+                server_addrs = self._args.redis_uve_list,
+                message = "Initialize Kafka Use for UVE aggregation")
             self._uvepartitions_state = ConnectionStatus.INIT
         else:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
-                name = 'UVE-Aggregation', status = ConnectionStatus.UP)
+                name = 'UVE-Aggregation', status = ConnectionStatus.UP,
+                server_addrs = self._args.redis_uve_list,
+                message = "Not using Kafka for UVE Aggregation")
             self._uvepartitions_state = ConnectionStatus.UP
 
         if self._args.disc_server_ip:
@@ -663,14 +667,14 @@ class OpServer(object):
             tln = stat_query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
             scols.append(tln)
 
-            tcln = stat_query_column(name="CLASS(" + STAT_TIME_FIELD + ")", 
+            tcln = stat_query_column(name="CLASS(" + STAT_TIME_FIELD + ")",
                      datatype='int', index=False)
             scols.append(tcln)
 
             teln = stat_query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
             scols.append(teln)
 
-            tecln = stat_query_column(name="CLASS(" + STAT_TIMEBIN_FIELD+ ")", 
+            tecln = stat_query_column(name="CLASS(" + STAT_TIMEBIN_FIELD+ ")",
                      datatype='int', index=False)
             scols.append(tecln)
 
@@ -936,10 +940,10 @@ class OpServer(object):
         parser.add_argument("--log_local", action="store_true",
             help="Enable local logging of sandesh messages")
         parser.add_argument(
-            "--log_level",  
+            "--log_level",
             help="Severity level for local logging of sandesh messages")
         parser.add_argument(
-            "--log_category", 
+            "--log_category",
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
             help="Filename for the logs to be written to")
@@ -1155,7 +1159,7 @@ class OpServer(object):
     def _get_redis_query_ip_from_qid(qid):
         try:
             ip = qid.rsplit('-', 1)[1]
-            redis_ip = socket.inet_ntop(socket.AF_INET, 
+            redis_ip = socket.inet_ntop(socket.AF_INET,
                             struct.pack('>I', int(ip, 16)))
         except Exception as err:
             return None
@@ -1166,7 +1170,7 @@ class OpServer(object):
         resp = {}
         redis_query_ip = OpServer._get_redis_query_ip_from_qid(qid)
         if redis_query_ip is None:
-            return bottle.HTTPError(_ERRORS[errno.EINVAL], 
+            return bottle.HTTPError(_ERRORS[errno.EINVAL],
                     'Invalid query id')
         try:
             resp = redis_query_status(host=redis_query_ip,
@@ -1181,7 +1185,7 @@ class OpServer(object):
             return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
         else:
             if resp is None:
-                return bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                return bottle.HTTPError(_ERRORS[errno.ENOENT],
                     'Invalid query id or Abandoned query id')
             resp_header = {'Content-Type': 'application/json'}
             resp_code = 200
@@ -1342,7 +1346,7 @@ class OpServer(object):
                                     if tabn else None)
             if prg is None:
                 self._logger.error('QE Not Responding')
-                yield bottle.HTTPError(_ERRORS[errno.EBUSY], 
+                yield bottle.HTTPError(_ERRORS[errno.EBUSY],
                         'Query Engine is not responding')
                 return
 
@@ -1440,7 +1444,7 @@ class OpServer(object):
                     'Failure in connection to the query DB')
         except Exception as e:
             self._logger.error("Exception: %s" % str(e))
-            yield bottle.HTTPError(_ERRORS[errno.EIO], 
+            yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Error: %s' % e)
         else:
             self._logger.info(
@@ -1674,7 +1678,7 @@ class OpServer(object):
         if not ok:
             (code, msg) = result
             bottle.abort(code, msg)
-        uve_tbl = table 
+        uve_tbl = table
         if table in UVE_MAP:
             uve_tbl = UVE_MAP[table]
 
@@ -1873,7 +1877,7 @@ class OpServer(object):
             self._logger.error('Content-type is not JSON')
             return bottle.HTTPError(_ERRORS[errno.EBADMSG],
                 'Content-Type must be JSON')
-        self._logger.info('Alarm Acknowledge request: %s' % 
+        self._logger.info('Alarm Acknowledge request: %s' %
             (bottle.request.json))
         alarm_ack_fields = set(['table', 'name', 'type', 'token'])
         bottle_req_fields = set(bottle.request.json.keys())
@@ -1931,7 +1935,7 @@ class OpServer(object):
         node_type = Module2NodeType[module_id]
         node_type_name = NodeTypeNames[node_type]
         if self._state_server.redis_publish(msg_type='send-tracebuffer',
-                                            destination=source + ':' + 
+                                            destination=source + ':' +
                                             node_type_name + ':' + module +
                                             ':' + instance_id,
                                             msg=trace_req):
@@ -2337,7 +2341,7 @@ class OpServer(object):
                 if (table == stat_table):
                     objtab = t.obj_table
                     break
-            if (objtab != None) and (objtab != "None"): 
+            if (objtab != None) and (objtab != "None"):
                 return list(self._uve_server.get_uve_list(objtab))
 
         return []
@@ -2416,8 +2420,8 @@ class OpServer(object):
         '''
         Analytics node may be brought up/down any time. For UVE aggregation,
         Opserver needs to know the list of all Analytics nodes (redis-uves).
-        Periodically poll the Collector list [in lieu of 
-        redi-uve nodes] from the discovery. 
+        Periodically poll the Collector list [in lieu of
+        redi-uve nodes] from the discovery.
         '''
         newlist = []
         for elem in clist:
@@ -2431,6 +2435,7 @@ class OpServer(object):
 
     def disc_agp(self, clist):
         new_agp = {}
+        server_list = []
         for elem in clist:
             instance_id = elem['instance-id']
             port = int(elem['redis-port']) 
@@ -2439,6 +2444,7 @@ class OpServer(object):
             # unable to provide service
             if not elem['partitions']:
                 continue
+            server_list.append(str(ip_address)+':'+str(port))
             parts = json.loads(elem['partitions'])
             for partstr,acq_time in parts.iteritems():
                 partno = int(partstr)
@@ -2455,14 +2461,16 @@ class OpServer(object):
                 len(self.agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP,
+                server_addrs = server_list,
                 message = 'Partitions:%d' % len(new_agp))
             self._uvepartitions_state = ConnectionStatus.UP
         if self._usecache and len(new_agp) != self._args.partitions:
             ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
                 name = 'UVE-Aggregation', status = ConnectionStatus.DOWN,
+                server_addrs = server_list,
                 message = 'Partitions:%d' % len(new_agp))
             self._uvepartitions_state = ConnectionStatus.DOWN
-        self.agp = new_agp        
+        self.agp = new_agp
 
     def get_agp(self):
         return self.agp

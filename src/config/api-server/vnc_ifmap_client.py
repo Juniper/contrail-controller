@@ -102,7 +102,8 @@ class VncIfmapClient(object):
         self._sandesh = db_client_mgr._sandesh
 
         ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.INIT, message = '',
+            name = 'IfMap', status = ConnectionStatus.INIT, 
+            message = 'IfMap Server initializing',
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
         self._is_ifmap_up = False
@@ -388,7 +389,8 @@ class VncIfmapClient(object):
                 time.sleep(3)
 
         ConnectionState.update(conn_type = ConnType.IFMAP,
-            name = 'IfMap', status = ConnectionStatus.UP, message = '',
+            name = 'IfMap', status = ConnectionStatus.UP, 
+            message = 'IFMAP connection ESTABLISHED',
             server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                        self._ifmap_srv_port)])
         self._conn_state = ConnectionStatus.UP
@@ -768,7 +770,7 @@ class VncIfmapClient(object):
                     ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',
                                            status = ConnectionStatus.UP,
-                                           message = '',
+                                           message = 'IFMAP server published',
                                            server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                                                       self._ifmap_srv_port)])
             except Exception as e:
