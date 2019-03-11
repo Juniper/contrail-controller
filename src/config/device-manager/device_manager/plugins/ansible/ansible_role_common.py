@@ -566,7 +566,7 @@ class AnsibleRoleCommon(AnsibleConf):
             for ae_intf_name, link_members in ae_link_members.iteritems():
                 self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
                                   (vpg_uuid, link_members, ae_intf_name))
-                lag = LinkAggrGroup(lacp_enabled=vpg_obj.lacp_enabled,
+                lag = LinkAggrGroup(lacp_enabled=True,
                                     link_members=link_members)
                 intf, _ = self.set_default_pi(ae_intf_name, 'lag')
                 intf.set_link_aggregation_group(lag)
