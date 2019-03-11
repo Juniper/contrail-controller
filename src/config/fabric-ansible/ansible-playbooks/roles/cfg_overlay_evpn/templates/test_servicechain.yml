@@ -254,10 +254,10 @@
                 "inet6"
               ],
               "ip_address": "2.2.2.1",
-              "autonomous_system": "64512",
+              "autonomous_system": 64512,
               "peers": [
                 {
-                  "autonomous_system": "64512",
+                  "autonomous_system": 64512,
                   "ip_address": "2.2.2.2"
                 }
               ]
