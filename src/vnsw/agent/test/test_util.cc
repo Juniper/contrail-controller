@@ -1867,6 +1867,21 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
     return true;
 }
 
+bool AddArpReq(const char *ip, const char *ifname) {
+    Interface *intf;
+    PhysicalInterfaceKey key(ifname);
+    intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
+    boost::system::error_code ec;
+    VnListType vn_list;
+    InetUnicastAgentRouteTable::AddArpReq(Agent::GetInstance()->fabric_vrf_name(),
+                              Ip4Address::from_string(ip, ec),
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              intf, false, vn_list, SecurityGroupList(),
+                              TagList());
+
+    return true;
+}
+
 bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
     MacAddress mac(mac_str);
     Interface *intf;
