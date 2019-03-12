@@ -35,7 +35,6 @@ AgentInit::AgentInit() :
 }
 
 AgentInit::~AgentInit() {
-    TaskScheduler *scheduler = agent_->task_scheduler();
     stats_.reset();
     trigger_.reset();
     controller_.reset();
@@ -44,8 +43,6 @@ AgentInit::~AgentInit() {
     resource_manager_.reset();
     agent_->db()->ClearFactoryRegistry();
     agent_.reset();
-
-    scheduler->Terminate();
 }
 
 /****************************************************************************
