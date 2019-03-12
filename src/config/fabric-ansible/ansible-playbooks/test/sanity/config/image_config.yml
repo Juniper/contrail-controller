@@ -61,3 +61,6 @@ advanced_params:
     lacp:
       lacp_down_local_check: True
       lacp_down_peer_check: True
+
+mm_mode: activate
+mm_device: vqfx1
