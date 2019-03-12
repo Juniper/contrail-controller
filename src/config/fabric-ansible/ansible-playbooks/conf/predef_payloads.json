@@ -59,6 +59,28 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "maintenance_mode_activate_template"
+          ],
+          "name": "maintenance_mode_activate_template",
+          "parent_type": "global-system-config",
+          "job_template_concurrency_level": "device",
+          "job_template_type": "workflow",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "multi_device_playbook": false,
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_activate.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "maintenance_mode_deactivate_template"
           ],
           "name": "maintenance_mode_deactivate_template",
@@ -69,7 +91,7 @@
             "playbook_info": [
               {
                 "device_family": "",
-                "multi_device_playbook": true,
+                "multi_device_playbook": false,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/maintenance_mode_deactivate.yml",
                 "vendor": "Juniper"
               }
