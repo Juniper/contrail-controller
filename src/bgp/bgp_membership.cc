@@ -633,7 +633,7 @@ void BgpMembershipManager::ProcessRegisterRibEvent(Event *event) {
     }
 
     prs->RegisterRibOut(event->policy);
-    BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
+    BGP_LOG_PEER_TABLE(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
         table, "Register table requested for action " << prs->action());
 }
 

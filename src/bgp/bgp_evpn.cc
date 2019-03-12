@@ -7,6 +7,7 @@
 #include <boost/foreach.hpp>
 
 #include <algorithm>
+#include <sstream>
 #include <string>
 
 #include "base/set_util.h"
@@ -127,6 +128,12 @@ bool EvpnMcastNode::UpdateAttributes(EvpnRoute *route) {
     }
 
     const PmsiTunnel *pmsi_tunnel = attr_->pmsi_tunnel();
+    if (route->GetPrefix().type() == EvpnPrefix::SelectiveMulticastRoute &&
+            !route->GetPrefix().peer_ip().is_unspecified()) {
+        const EvpnRoute *imet_route = partition_->table()->FindImetRoute(route);
+        if (imet_route)
+            pmsi_tunnel = imet_route->BestPath()->GetAttr()->pmsi_tunnel();
+    }
     uint8_t ar_type = 0;
     bool edge_replication_not_supported = false;
     if (pmsi_tunnel) {
@@ -780,25 +787,37 @@ void EvpnManagerPartition::NotifyIrClientNodeRoutes(
 void EvpnManagerPartition::AddMcastNode(EvpnMcastNode *node, EvpnRoute *rt) {
     EvpnState::SG sg = EvpnState::SG(rt->GetPrefix().source(),
                                      rt->GetPrefix().group());
+    int rltype = EvpnManager::Unknown;
     if (node->type() == EvpnMcastNode::LocalNode) {
+        rltype = rltype | EvpnManager::LocalNode;
         local_mcast_node_list_[sg].insert(node);
-        if (node->assisted_replication_supported())
+        if (node->assisted_replication_supported()) {
             replicator_node_list_[sg].insert(node);
-        if (!node->assisted_replication_leaf())
+            rltype |= EvpnManager::ReplicatorNode;
+        }
+        if (!node->assisted_replication_leaf()) {
             ir_client_node_list_[sg].insert(node);
+            rltype |= EvpnManager::IrClientNode;
+        }
         NotifyNodeRoute(node);
     } else {
         remote_mcast_node_list_[sg].insert(node);
+        rltype |= EvpnManager::RemoteNode;
         if (node->assisted_replication_leaf()) {
             leaf_node_list_[sg].insert(node);
             NotifyReplicatorNodeRoutes();
+            rltype |= EvpnManager::LeafNode;
         } else if (node->edge_replication_not_supported()) {
             regular_node_list_[sg].insert(node);
             NotifyIrClientNodeRoutes(false);
+            rltype |= EvpnManager::RegularNode;
         } else if (!node->assisted_replication_leaf()) {
             NotifyIrClientNodeRoutes(true);
         }
     }
+    std::ostringstream oss;
+    oss << "Route list type is 0x" << std::hex << rltype << std::dec;
+    EVPN_RT_LOG(node->route(), oss.str());
 }
 
 //
@@ -851,29 +870,43 @@ void EvpnManagerPartition::UpdateMcastNode(EvpnMcastNode *node, EvpnRoute *rt) {
     node->TriggerUpdate();
     EvpnState::SG sg = EvpnState::SG(rt->GetPrefix().source(),
                                      rt->GetPrefix().group());
+    int rltype = EvpnManager::Unknown;
     if (node->type() == EvpnMcastNode::LocalNode) {
+        rltype |= EvpnManager::LocalNode;
         RemoveMcastNodeFromList(sg, node, &replicator_node_list_);
-        if (node->assisted_replication_supported())
+        if (node->assisted_replication_supported()) {
             replicator_node_list_[sg].insert(node);
+            rltype |= EvpnManager::LocalNode;
+        }
         RemoveMcastNodeFromList(sg, node, &ir_client_node_list_);
-        if (!node->assisted_replication_leaf())
+        if (!node->assisted_replication_leaf()) {
             ir_client_node_list_[sg].insert(node);
+            rltype |= EvpnManager::IrClientNode;
+        }
         NotifyNodeRoute(node);
     } else {
+        rltype |= EvpnManager::RemoteNode;
         bool was_leaf = RemoveMcastNodeFromList(sg, node, &leaf_node_list_);
-        if (node->assisted_replication_leaf())
+        if (node->assisted_replication_leaf()) {
             leaf_node_list_[sg].insert(node);
+            rltype |= EvpnManager::LeafNode;
+        }
         if (was_leaf || node->assisted_replication_leaf())
             NotifyReplicatorNodeRoutes();
         if (!was_leaf || !node->assisted_replication_leaf())
             NotifyIrClientNodeRoutes(true);
         bool was_regular = RemoveMcastNodeFromList(
                                    sg, node, &regular_node_list_);
-        if (node->edge_replication_not_supported())
+        if (node->edge_replication_not_supported()) {
             regular_node_list_[sg].insert(node);
+            rltype |= EvpnManager::RegularNode;
+        }
         if (was_regular || node->edge_replication_not_supported())
             NotifyIrClientNodeRoutes(false);
     }
+    std::ostringstream oss;
+    oss << "Route list type is 0x" << std::hex << rltype << std::dec;
+    EVPN_RT_LOG(node->route(), oss.str());
 }
 
 //

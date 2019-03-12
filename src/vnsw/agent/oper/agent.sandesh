@@ -2461,6 +2461,18 @@ trace sandesh MulticastLogSG {
 }
 
 /**
+ * @description: log for multicast igmp info
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh MulticastIgmpInfo {
+    /** Message for multicast entry */
+    1: string message;
+    /** Information for multicast entry */
+    2: string info;
+}
+
+/**
  * @description: Trace meassage for oper module
  * @type: Trace
  * @severity: DEBUG

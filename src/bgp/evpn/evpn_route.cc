@@ -203,7 +203,7 @@ EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
 
 EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
     const IpAddress &source, const IpAddress &group,
-    const IpAddress &ip_address)
+    const IpAddress &ip_address, const IpAddress &peer_ip)
     : type_(SelectiveMulticastRoute),
       rd_(rd),
       tag_(tag),
@@ -211,6 +211,7 @@ EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
       ip_address_(ip_address),
       source_(source),
       group_(group),
+      peer_ip_(peer_ip),
       ip_prefixlen_(0), flags_(0x2) {
     if (ip_address_.is_v4() && !ip_address_.is_unspecified()) {
         family_ = Address::INET;

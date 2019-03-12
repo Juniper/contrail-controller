@@ -451,9 +451,7 @@ public:
                                     const Ip4Address &grp_addr);
     void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
                                     const VmInterface *vm_itf,
-                                    const Ip4Address &grp_addr);
-    void DeleteVmInterfaceFromVrfSourceGroup(const std::string &vrf_name,
-                                    const VmInterface *vm_itf);
+                                    const Ip4Address &grp_addr = Ip4Address());
 
     void AddVmInterfaceToSourceGroup(const std::string &mvpn_vrf_name,
                                     const std::string &vn_name,
@@ -525,11 +523,40 @@ private:
     //VM itf to multicast ob
     void AddVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
                                 MulticastGroupObject *obj) {
-        this->vm_to_mcobj_list_[vm_itf_uuid].insert(obj);
+#if 1
+char debug_buffer[1000];
+char *debug_ptr = &debug_buffer[0];
+size_t debug_loc = 0;
+
+debug_loc += snprintf(debug_ptr+debug_loc, 1000, "VM IP: %s ",
+        UuidToString(vm_itf_uuid).c_str());
+debug_loc += snprintf(debug_ptr+debug_loc, 1000, "Obj Ptr: %p ", obj);
+debug_buffer[debug_loc] = '\0';
+
+MCTRACE(Info, "In AddVmToMulticastObjMap: ", debug_buffer);
+#endif
+
+        if (this->vm_to_mcobj_list_[vm_itf_uuid].find(obj) ==
+                      this->vm_to_mcobj_list_[vm_itf_uuid].end()) {
+            this->vm_to_mcobj_list_[vm_itf_uuid].insert(obj);
+        }
     };
 
     bool FindVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
-                                   MulticastGroupObjectList &objList) {
+                                 MulticastGroupObjectList &objList) {
+
+#if 1
+char debug_buffer[1000];
+char *debug_ptr = &debug_buffer[0];
+size_t debug_loc = 0;
+
+debug_loc += snprintf(debug_ptr+debug_loc, 1000, "VM IP: %s ",
+        UuidToString(vm_itf_uuid).c_str());
+debug_buffer[debug_loc] = '\0';
+
+MCTRACE(Info, "In FindVmToMulticastObjMap: ", debug_buffer);
+#endif
+
         VmMulticastGroupObjectList::iterator vmi_it =
             vm_to_mcobj_list_.find(vm_itf_uuid);
         if (vmi_it == vm_to_mcobj_list_.end()) {
@@ -537,31 +564,28 @@ private:
         }
 
         objList = this->vm_to_mcobj_list_[vm_itf_uuid];
+MCTRACE(Info, "In FindVmToMulticastObjMap-1: ", "");
         return true;
-    }
-
-    bool FindInVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
-                                   const MulticastGroupObject *obj) {
-        VmMulticastGroupObjectList::iterator vmi_it =
-            vm_to_mcobj_list_.find(vm_itf_uuid);
-        if (vmi_it == vm_to_mcobj_list_.end()) {
-            return false;
-        }
-
-        MulticastGroupObjectList::iterator mc_it = vmi_it->second.begin();
-        for (;mc_it != vmi_it->second.end(); mc_it++) {
-            if (*mc_it == obj) {
-                return true;
-            }
-        }
-        return false;
     }
 
     void DeleteVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
                                    const MulticastGroupObject *obj) {
+#if 1
+char debug_buffer[1000];
+char *debug_ptr = &debug_buffer[0];
+size_t debug_loc = 0;
+
+debug_loc += snprintf(debug_ptr+debug_loc, 1000, "VM IP: %s ",
+        UuidToString(vm_itf_uuid).c_str());
+debug_loc += snprintf(debug_ptr+debug_loc, 1000, "Obj Ptr: %p ", obj);
+debug_buffer[debug_loc] = '\0';
+
+MCTRACE(Info, "In DeleteVmToMulticastObjMap: ", debug_buffer);
+#endif
         VmMulticastGroupObjectList::iterator vmi_it =
             vm_to_mcobj_list_.find(vm_itf_uuid);
         if (vmi_it == vm_to_mcobj_list_.end()) {
+MCTRACE(Info, "In DeleteVmToMulticastObjMap-1: ", "");
             return;
         }
 
@@ -569,11 +593,17 @@ private:
         for (;mc_it != vmi_it->second.end(); mc_it++) {
             if (*mc_it == obj) {
                 vmi_it->second.erase(mc_it);
+debug_loc = 0;
+debug_loc += snprintf(debug_ptr+debug_loc, 1000, "size : %lu ",
+        vmi_it->second.size());
+debug_buffer[debug_loc] = '\0';
+MCTRACE(Info, "In DeleteVmToMulticastObjMap-2: ", debug_buffer);
                 break;
             }
         }
 
         if (vmi_it->second.size() == 0) {
+MCTRACE(Info, "In DeleteVmToMulticastObjMap-3: ", "");
             vm_to_mcobj_list_.erase(vmi_it);
         }
     };
@@ -581,7 +611,7 @@ private:
     std::set<MulticastGroupObject *> &
         GetVmToMulticastObjMap(const boost::uuids::uuid &uuid)
     {
-        return this->vm_to_mcobj_list_[uuid];
+        return vm_to_mcobj_list_[uuid];
     };
 
     MulticastDBState*

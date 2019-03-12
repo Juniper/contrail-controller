@@ -7,6 +7,8 @@
 #include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_evpn.h"
+#include "bgp/bgp_factory.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
@@ -142,6 +144,17 @@ const EvpnRoute *EvpnTable::FindRoute(const EvpnPrefix &prefix) const {
     const DBTablePartition *rtp = static_cast<const DBTablePartition *>(
         GetTablePartition(&rt_key));
     return dynamic_cast<const EvpnRoute *>(rtp->Find(&rt_key));
+}
+
+const EvpnRoute *EvpnTable::FindImetRoute(EvpnRoute *rt) const {
+    //const RouteDistinguisher rd(rt->GetPrefix().peer_ip().to_v4().to_ulong(),
+    const RouteDistinguisher rd(rt->BestPath()->GetAttr()->nexthop().to_v4().to_ulong(),
+                            rt->GetPrefix().route_distinguisher().GetVrfId());
+    uint32_t tag = rt->GetPrefix().tag();
+    //IpAddress ip_address = rt->GetPrefix().peer_ip();
+    IpAddress ip_address = rt->BestPath()->GetAttr()->nexthop();
+    EvpnPrefix prefix(rd, tag, ip_address);
+    return FindRoute(prefix);
 }
 
 bool EvpnTable::ShouldReplicate(const BgpServer *server,
@@ -298,16 +311,28 @@ bool EvpnTable::Export(RibOut *ribout, Route *route,
         return false;
 
     const IPeer *peer = evpn_route->BestPath()->GetPeer();
-    if (!peer || !ribout->IsRegistered(const_cast<IPeer *>(peer)))
+    if (!peer || !ribout->IsRegistered(const_cast<IPeer *>(peer))) {
+        BGP_LOG_PEER(Membership, peer, SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     name() << " Ribout not registered " << evpn_route->ToString());
         return false;
+    }
 
     size_t peerbit = ribout->GetPeerIndex(const_cast<IPeer *>(peer));
-    if (!peerset.test(peerbit))
+    if (!peerset.test(peerbit)) {
+        BGP_LOG_PEER(Membership, peer, SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     name() << " Peer bit not set " << evpn_route->ToString());
         return false;
+    }
 
     UpdateInfo *uinfo = evpn_manager_->GetUpdateInfo(evpn_route);
-    if (!uinfo)
+    if (!uinfo) {
+        BGP_LOG_PEER(Membership, peer, SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     name() << " uinfo is NULL " << evpn_route->ToString());
         return false;
+    }
 
     uinfo->target.set(peerbit);
     uinfo_slist->push_front(*uinfo);

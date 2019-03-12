@@ -479,6 +479,16 @@ private:
 //
 class EvpnManager {
 public:
+    enum RouteListType {
+        Unknown = 0,
+        LocalNode = 1,
+        RemoteNode = 2,
+        ReplicatorNode = 4,
+        LeafNode = 8,
+        RegularNode = 16,
+        IrClientNode = 32
+    };
+
     explicit EvpnManager(EvpnTable *table);
     virtual ~EvpnManager();
 
@@ -592,7 +602,7 @@ inline void intrusive_ptr_release(EvpnState *evpn_state) {
 
 #define EVPN_RT_LOG(rt, ...) \
     RTINSTANCE_LOG(EvpnRoute, this->table()->routing_instance(), \
-                   SandeshLevel::UT_DEBUG, \
+                   SandeshLevel::SYS_DEBUG, \
                    RTINSTANCE_LOG_FLAG_ALL, \
                    (rt)->GetPrefix().source().to_string(), \
                    (rt)->GetPrefix().group().to_string(), \

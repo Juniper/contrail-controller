@@ -466,43 +466,6 @@ protected:
         TASK_UTIL_EXPECT_TRUE(agent_yc_->IsEstablished());
     }
 
-    const string GetDeleteGreenConfig(size_t i) const {
-        ostringstream os;
-            os <<
-"<?xml version='1.0' encoding='utf-8'?>"
-"<delete>"
-"   <routing-instance name='green" << i << "'>"
-"       <vrf-target>" << getRouteTarget(i, "3") << "</vrf-target>"
-"       <vrf-target>"
-"           <import-export>import</import-export>" << getRouteTarget(i, "1") <<
-"       </vrf-target>"
-"       <vrf-target>"
-"           <import-export>import</import-export>" << getRouteTarget(i, "2") <<
-"       </vrf-target>"
-"   </routing-instance>"
-            ;
-        os << "</delete>";
-        return os.str();
-    }
-
-    const string GetIdentifierChangeConfig() const {
-        ostringstream os;
-            os <<
-"<?xml version='1.0' encoding='utf-8'?>"
-"<config>"
-"   <bgp-router name=\"X\">"
-"       <identifier>192.168.0.201</identifier>"
-"        <port>%d</port>"
-"   </bgp-router>"
-"   <bgp-router name=\"Y\">"
-"       <identifier>192.168.0.202</identifier>"
-"        <port>%d</port>"
-"   </bgp-router>"
-            ;
-        os << "</config>";
-        return os.str();
-    }
-
     const string GetConfig() const {
         ostringstream os;
             os <<
@@ -721,6 +684,10 @@ protected:
         return sg.str();
     }
 
+    string BroadcastMac() {
+        return integerToString(0) + "-" + "ff:ff:ff:ff:ff:ff,0.0.0.0/32";
+    }
+
     int type1_routes_;
     BgpServerTestPtr bs_y_;
     XmppServer *xs_y_;
@@ -787,7 +754,7 @@ TEST_P(BgpEvpnTwoControllerTest, Basic) {
 // Need to enable it once sender inside contrail is supported
 // It is disabled since PMSI information is not sent with SMET route anymore
 // and changes need to be made to get the same from correspongin IMET route
-TEST_P(BgpEvpnTwoControllerTest, DISABLED_RemoteReceiver) {
+TEST_P(BgpEvpnTwoControllerTest, RemoteReceiver) {
     for (size_t i = 1; i <= instance_count_; i++) {
         ostringstream sg;
         sg << "224." << i << "." << instance_count_ << ".3,192.168.1.1";
@@ -815,6 +782,8 @@ TEST_P(BgpEvpnTwoControllerTest, DISABLED_RemoteReceiver) {
         test::RouteParams mx_params;
         mx_params.edge_replication_not_supported = true;
         agent_yb_->AddMcastRoute(red.str(), sg.str(), "10.1.1.5", "300-400");
+        //agent_yb_->AddEnetRoute(red.str(), BroadcastMac(), nexthop_red);
+        //task_util::WaitForIdle();
         agent_yb_->AddEnetRoute(red.str(), MulticastMac(i, instance_count_),
                                 nexthop_red, &mx_params);
         task_util::WaitForIdle();

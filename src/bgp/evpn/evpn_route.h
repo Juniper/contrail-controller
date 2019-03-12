@@ -69,7 +69,7 @@ public:
         const IpAddress &ip_address, uint8_t ip_prefixlen);
     EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
         const IpAddress &source, const IpAddress &group,
-        const IpAddress &originator);
+        const IpAddress &originator, const IpAddress& peer_ip = IpAddress());
 
     void BuildProtoPrefix(BgpProtoPrefix *proto_prefix,
         const BgpAttr *attr, uint32_t label, uint32_t l3_label = 0) const;
@@ -92,6 +92,7 @@ public:
     uint32_t tag() const { return tag_; }
     const MacAddress &mac_addr() const { return mac_addr_; }
     Address::Family family() const { return family_; }
+    IpAddress peer_ip() const { return peer_ip_; }
     IpAddress ip_address() const { return ip_address_; }
     IpAddress group() const { return group_; }
     IpAddress source() const { return source_; }
@@ -115,6 +116,7 @@ private:
     IpAddress ip_address_;
     IpAddress source_;
     IpAddress group_;
+    IpAddress peer_ip_;
     uint8_t ip_prefixlen_;
     uint8_t flags_;
 

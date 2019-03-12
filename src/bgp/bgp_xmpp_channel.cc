@@ -1859,7 +1859,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;
     EvpnPrefix evpn_prefix = type6 ?
         EvpnPrefix(rd, ethernet_tag, source, group,
-                   Ip4Address(bgp_server_->bgp_identifier())) :
+                   Ip4Address(bgp_server_->bgp_identifier()), ip_addr) :
         type2 ? EvpnPrefix(rd, ethernet_tag, mac_addr, ip_addr) :
         EvpnPrefix(rd, ethernet_tag, ip_addr, prefix_len);
 

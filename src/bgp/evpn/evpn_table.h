@@ -48,6 +48,7 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     EvpnRoute *FindRoute(const EvpnPrefix &prefix);
     const EvpnRoute *FindRoute(const EvpnPrefix &prefix) const;
+    const EvpnRoute *FindImetRoute(EvpnRoute *rt) const;
 
     void CreateEvpnManager();
     void DestroyEvpnManager();

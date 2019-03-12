@@ -3,6 +3,7 @@
  */
 
 #include "task_map.h"
+#include "oper/multicast.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -400,6 +401,8 @@ boolean gmp_client_host_notification(mgm_global_data *gd)
     gmp_addr_string h;
     int notif_count = IGMP_MAX_HOST_NOTIF_PER_PASS;
 
+    MCTRACE(Log, "gmp_client_host_notification ", "", "", notif_count);
+
     /*
      *  Do this a limited number of times.
      */
@@ -458,6 +461,8 @@ boolean gmp_client_host_notification(mgm_global_data *gd)
         }
     }
 
+    MCTRACE(Log, "gmp_client_host_notification after", "", "", notif_count);
+
     /*
      * If there's a notification pointer, it means that we bailed out
      * due to hitting the notification count limit.  In that case we
@@ -507,8 +512,19 @@ void mgm_querier_change(void *cli_context UNUSED, gmp_intf_handle *handle,
     return;
 }
 
-void gmpx_trace(void *context, const char *parms, ...)
+void gmpx_trace(void *context, const char *fmt, ...)
 {
+#define MAXSTRINGSIZE_1 1000
+    va_list arglist;
+    char dest[MAXSTRINGSIZE_1];
+    va_start( arglist, fmt );
+    vsprintf(dest, fmt, arglist);
+    va_end( arglist );
+    char buff[MAXSTRINGSIZE_1];
+    snprintf(buff, sizeof(buff), dest, arglist);
+
+    MCTRACE(IgmpInfo, "igmp_trace: ", buff);
+
     return;
 }
 
