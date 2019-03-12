@@ -771,6 +771,9 @@ Agent::~Agent() {
     db_ = NULL;
     singleton_ = NULL;
 
+    task_scheduler_->Terminate();
+    task_scheduler_ = NULL;
+
     delete event_mgr_;
     event_mgr_ = NULL;
 }
