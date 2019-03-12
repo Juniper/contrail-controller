@@ -58,3 +58,6 @@ advanced_params:
     active_route_count_check: True
     l2_total_mac_count_check: True
     storm_control_flag_check: True
+
+mm_mode: activate
+mm_device: vqfx1
