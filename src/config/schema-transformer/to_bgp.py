@@ -214,6 +214,7 @@ class SchemaTransformer(object):
     # Clean up stale objects
     def reinit(self):
         GlobalSystemConfigST.reinit()
+        PhysicalRouterST.reinit()
         BgpRouterST.reinit()
         BgpvpnST.reinit()
         LogicalRouterST.reinit()
