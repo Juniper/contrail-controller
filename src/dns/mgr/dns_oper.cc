@@ -743,6 +743,7 @@ void GlobalQosConfig::OnAdd(IFMapNode *node) {
     const autogen::ControlTrafficDscpType &dscp = qos->control_traffic_dscp();
     if (control_dscp_ != dscp.control) {
         control_dscp_ = dscp.control;
+        Sandesh::SetDscpValue(dscp.control);
         SetDscp();
     }
     if (analytics_dscp_ != dscp.analytics) {
