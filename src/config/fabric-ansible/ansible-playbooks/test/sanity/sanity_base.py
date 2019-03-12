@@ -647,6 +647,56 @@ class SanityBase(object):
                                             prouter_name_list=prouter_name_list)
     #end image_upgrade_maintenance_mode
 
+    def activate_maintenance_mode(self, device_uuid, mode,
+                                  fabric, advanced_parameters,
+                                  prouter_name_list):
+        job_template_fq_name = [
+            'default-global-system-config', 'maintenance_mode_activate_template']
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=job_template_fq_name,
+            job_input={
+                'device_uuid': device_uuid,
+                'fabric_uuid': fabric.uuid,
+                'mode': mode,
+                'advanced_parameters': advanced_parameters
+            },
+            device_list=[device_uuid]
+        )
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "Maintenance mode activation job started with execution id: %s",
+            job_execution_id)
+        self._wait_and_display_job_progress('Maintenance mode activation',
+                                            job_execution_id,
+                                            fabric.fq_name,
+                                            job_template_fq_name,
+                                            prouter_name_list=prouter_name_list)
+    #end activate_maintenance_mode
+
+    def deactivate_maintenance_mode(self, device_uuid, fabric,
+                                    advanced_parameters, prouter_name_list):
+        job_template_fq_name = [
+            'default-global-system-config', 'maintenance_mode_deactivate_template']
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=job_template_fq_name,
+            job_input={
+                'device_uuid': device_uuid,
+                'fabric_uuid': fabric.uuid,
+                'advanced_parameters': advanced_parameters
+            },
+            device_list=[device_uuid]
+        )
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "Maintenance mode deactivation job started with execution id: %s",
+            job_execution_id)
+        self._wait_and_display_job_progress('Maintenance mode deactivation',
+                                            job_execution_id,
+                                            fabric.fq_name,
+                                            job_template_fq_name,
+                                            prouter_name_list=prouter_name_list)
+    #end deactivate_maintenance_mode
+
     def ztp(self, fabric_uuid):
         """run ztp for a fabric"""
         self._logger.info("Running ZTP for fabric...")

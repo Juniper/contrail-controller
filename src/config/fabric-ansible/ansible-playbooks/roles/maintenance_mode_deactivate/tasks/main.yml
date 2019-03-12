@@ -29,18 +29,28 @@
     snap_test_pfx: "{{pr_vendor}}_health_check_1"
     snap_action: "snapcheck"
 
+- name: Write to logs if image upgrade
+  block:
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        jl_message: "Hitless image upgrade workflow completed on device {{prouter_name}}."
+
+    - name: Update prouter logs with maintenance mode status
+      prouter_objectlog:
+        prouter_fqname: "{{pr_fqname}}"
+        onboarding_state: "{{DEVICE_STATE.HITLESS_IMAGE_UPGRADE_SUCCESSFUL}}"
+        job_ctx: "{{job_ctx}}"
+      when: deactivate_due_to_errors is undefined
+
+    - name: Get next batch of devices and return to job manager
+      set_fact:
+        next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
+  when: standalone is undefined
+
 - name: Update job log with percentage
   include_tasks: percentage_update.yml
   vars:
-    jl_message: "Hitless image upgrade workflow completed on device {{prouter_name}}."
+    jl_message: "Maintenance mode deactivation workflow completed on device {{prouter_name}}."
+  when: standalone is defined
 
-- name: Update prouter logs with maintenance mode status
-  prouter_objectlog:
-    prouter_fqname: "{{pr_fqname}}"
-    onboarding_state: "{{DEVICE_STATE.HITLESS_IMAGE_UPGRADE_SUCCESSFUL}}"
-    job_ctx: "{{job_ctx}}"
-  when: deactivate_due_to_errors is not defined
-
-- name: Get next batch of devices and return to job manager
-  set_fact:
-    next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
