@@ -906,7 +906,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         pr_to_ae_id = {}
         for uuid in phy_interface_uuids:
             prouter_name = new_pi_to_pr_dict.get(uuid)
-            if not pr_to_ae_id.get(prouter_name):
+            if pr_to_ae_id.get(prouter_name) is None:
                 attr_obj, ae_id = cls._check_and_alloc_ae_id(
                     phy_links, prouter_name,
                     vpg_name, old_pi_to_pr_dict)
