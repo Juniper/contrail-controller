@@ -1,6 +1,6 @@
 {
    "input_schema":{
-      "title": "Deactivate maintenance mode",
+      "title": "Activate maintenance mode",
     "$schema": "http://json-schema.org/draft-06/schema#",
     "type": "object",
     "additionalProperties": false,
@@ -16,7 +16,11 @@
             "format":"uuid",
             "type":"string",
             "title":"Device UUID",
-            "description":"UUID of the device to exit maintenance mode"
+            "description":"UUID of the device to enter maintenance mode"
+        },
+        "mode": {
+          "enum": ["test_run", "activate"],
+          "description": "Mode in which to run workflow"
         },
         "advanced_parameters": {
           "title": "Advanced parameters",
@@ -178,7 +182,7 @@
    },
    "output_schema":{
       "$schema":"http://json-schema.org/draft-06/schema#",
-      "title":"Deactivate maintenance mode output",
+      "title":"Activate maintenance mode output",
       "type":"object",
       "properties":{
          "status":{
