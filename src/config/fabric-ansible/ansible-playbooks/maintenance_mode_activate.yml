@@ -1,0 +1,72 @@
+---
+
+- name: Maintenance mode activation workflow
+  hosts: localhost
+  connection: local
+  roles:
+    - Juniper.junos
+  vars:
+    mode: "{{playbook_input.input.mode}}"
+    current_index: 0
+    final_task_array:
+      total_task_count: 2
+      task_weightage_array: [50, 50]
+
+  tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine(final_task_array)}}"
+        standalone: true
+        is_hitless_upgrade: true
+        additional_error_handler: "maintenance_mode_errors.yml"
+
+    - set_fact:
+        pr_uuid: "{{item.key}}"
+        pr_user: "{{item.value.device_username}}"
+        pr_host: "{{item.value.device_management_ip}}"
+        pr_fqname: "{{item.value.device_fqname}}"
+        pr_name: "{{item.value.device_fqname[-1]}}"
+        prouter_name: "{{item.value.device_fqname[-1]}}"
+        pr_family: "{{item.value.device_family}}"
+        pr_password: "{{item.value.device_password}}"
+        pr_vendor: "{{item.value.device_vendor|lower}}"
+      with_dict: "{{playbook_input.job_device_json}}"
+
+    - block:
+        - name: Run health check only
+          include_role:
+            name: maintenance_mode_validation
+          vars:
+            mode: "{{mode}}"
+
+        - set_fact:
+            output: {
+                  "status": "Success",
+                  "message": "Device {{pr_name}} has been verified to be healthy for upgrade."
+                    }
+
+        - name: Print the output
+          debug:
+            var: output
+            verbosity: 1
+      when: mode == 'test_run'
+
+    - block:
+        - name: Run health check
+          include_role:
+            name: maintenance_mode_validation
+
+        - name: Push config
+          include_role:
+            name: maintenance_mode_config_push
+
+        - set_fact:
+                output: {
+                      "status": "Success",
+                      "message": "Maintenance mode successfully activated on {{pr_name}}"
+                       }
+
+        - name: Print the output.
+          debug:
+            var: output
+            verbosity: 1
+      when: mode == 'activate'
