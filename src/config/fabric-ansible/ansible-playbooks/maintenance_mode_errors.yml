@@ -1,0 +1,5 @@
+- name: Update prouter logs with failed status
+  prouter_objectlog:
+    prouter_fqname: "{{pr_fqname}}"
+    onboarding_state: "{{ upgrade_error_state if upgrade_error_state is defined else DEVICE_STATE.MAINTENANCE_MODE_FAILURE }}"
+    job_ctx: "{{job_ctx}}"
