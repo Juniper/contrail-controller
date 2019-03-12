@@ -157,6 +157,7 @@ class FilterModule(object):
             is_delete=self.is_delete,
             manage_underlay=self.manage_underlay,
             cfg_group='__contrail_' + feature + model + '__',
+            device_model=self.device_model,
             feature_empty=is_empty
         )
         self.final_config += feature_config
