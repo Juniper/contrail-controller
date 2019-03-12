@@ -762,14 +762,21 @@ Agent::~Agent() {
     uve_ = NULL;
     flow_stats_manager_ = NULL;
 
-    agent_signal_->Terminate();
-    agent_signal_.reset();
+    if (agent_signal_.get()) {
+        agent_signal_->Terminate();
+        agent_signal_.reset();
+    }
 
     ShutdownLifetimeManager();
 
     delete db_;
     db_ = NULL;
     singleton_ = NULL;
+
+    if (task_scheduler_) {
+        task_scheduler_->Terminate();
+        task_scheduler_ = NULL;
+    }
 
     delete event_mgr_;
     event_mgr_ = NULL;
