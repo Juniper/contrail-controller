@@ -34,7 +34,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM, VirtualPortGroupDM, PortDM, TagDM, \
-    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM 
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM, \
+    NetworkIpamDM
 
 
 from dm_amqp import DMAmqpHandle
@@ -191,6 +192,7 @@ class DeviceManager(object):
             'data_center_interconnect': ['physical_router'],
             'virtual_machine_interface': ['physical_router'],
             'floating_ip_pool': ['physical_router'],
+            'network-ipam': ['tag']
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network', 'port_tuple'],
@@ -254,6 +256,10 @@ class DeviceManager(object):
         'tag': {
             'self': ['port'],
             'virtual-network': ['port']
+        },
+        'network-ipam': {
+            'self': ['virtual-network'],
+            'virtual-network': ['tag']
         },
         'port': {
             'self': ['physical_interface'],
@@ -403,6 +409,9 @@ class DeviceManager(object):
         for obj in TagDM.list_obj():
             TagDM.locate(obj['uuid'], obj)
 
+        for obj in NetworkIpamDM.list_obj():
+            NetworkIpamDM.locate(obj['uuid'], obj)
+            
         for obj in VirtualMachineInterfaceDM.list_obj():
             VirtualMachineInterfaceDM.locate(obj['uuid'], obj)
 
