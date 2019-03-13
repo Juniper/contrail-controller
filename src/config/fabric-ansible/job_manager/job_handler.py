@@ -322,7 +322,7 @@ class JobHandler(object):
                 while current_time - last_read_time < file_read_timeout:
                     line_read = f_read.readline()
                     if line_read:
-                        self._logger.info("Line read ..." + line_read)
+                        self._logger.debug("Line read ..." + line_read)
                         if unique_pb_id in line_read:
                             total_output =\
                                 line_read.split(unique_pb_id)[-1].strip()
