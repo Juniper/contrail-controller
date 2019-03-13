@@ -133,7 +133,7 @@ class AuthPostKeystone(object):
 
     @use_auth_context
     def __call__(self, env, start_response):
-        domain_id = (env.get('HTTP_DOMAIN_ID') or
+        domain_id = (env.get('HTTP_X_DOMAIN_ID') or
                      env.get('HTTP_X_PROJECT_DOMAIN_ID') or
                      env.get('HTTP_X_USER_DOMAIN_ID'))
         domain_name = (env.get('HTTP_X_DOMAIN_NAME') or
