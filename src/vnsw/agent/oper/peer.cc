@@ -139,7 +139,7 @@ void BgpPeer::ReleasePeerNotifyWalker() {
         return;
     }
 
-    Agent *agent = channel_->agent();
+    Agent *agent = Agent::GetInstance();
     agent->oper_db()->agent_route_walk_manager()->ReleaseWalker(route_walker());
     route_walker_.reset();
 }
@@ -179,7 +179,7 @@ void BgpPeer::ReleaseDeleteStaleWalker() {
         return;
     }
 
-    Agent *agent = channel_->agent();
+    Agent *agent = Agent::GetInstance();
     agent->oper_db()->agent_route_walk_manager()->
         ReleaseWalker(delete_stale_walker());
     delete_stale_walker_.reset();
