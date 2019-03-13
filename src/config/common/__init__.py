@@ -81,6 +81,9 @@ HEX_ELEM = '[0-9A-Fa-f]'
 UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{4}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{12}'])
+UUID_WIHTOUT_DASH_PATTERN = ''.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
+                                     HEX_ELEM + '{4}', HEX_ELEM + '{4}',
+                                     HEX_ELEM + '{12}'])
 
 
 def _format_uuid_string(string):
