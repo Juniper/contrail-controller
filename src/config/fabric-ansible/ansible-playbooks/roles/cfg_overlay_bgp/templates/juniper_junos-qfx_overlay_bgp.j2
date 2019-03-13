@@ -23,6 +23,9 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} type {{bgp_group
 {%             if cluster_id != None %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} cluster {{cluster_id}}
 {%             endif %}
+{%         if '_dci_' in bgp_group_name %}
+set groups {{cfg_group}} lo0 unit 0 family inet address {{bgp.get('ip_address')}}
+{%         endif %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.autonomous_system}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} hold-time {{hold_time}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multipath
