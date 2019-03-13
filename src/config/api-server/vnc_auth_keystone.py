@@ -15,6 +15,8 @@ import bottle
 import time
 import base64
 import re
+import uuid
+
 try:
     from keystoneclient.middleware import auth_token
 except ImportError:
@@ -27,18 +29,17 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common.exceptions import NoIdError
 from cfgm_common import utils as cfgmutils
-from cfgm_common import UUID_PATTERN
+from cfgm_common import UUID_WIHTOUT_DASH_PATTERN
 from cfgm_common import vnc_greenlets
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext, ApiInternalRequest
 
-import auth_context
 from auth_context import set_auth_context, use_auth_context
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 _DEFAULT_KS_VERSION = "v2.0"
-UUID_REGEX = re.compile(UUID_PATTERN)
+_UUID_WITHOUT_DASH_REGEX = re.compile(UUID_WIHTOUT_DASH_PATTERN)
 
 # Open port for access to API server for trouble shooting
 class LocalAuth(object):
@@ -132,26 +133,28 @@ class AuthPostKeystone(object):
 
     @use_auth_context
     def __call__(self, env, start_response):
-        if ('HTTP_X_DOMAIN_ID' not in env or not env['HTTP_X_DOMAIN_ID'] or
-                not UUID_REGEX.match(env['HTTP_X_DOMAIN_ID'])):
-            domain_id = (env.get('HTTP_X_PROJECT_DOMAIN_ID') or
-                         env.get('HTTP_X_USER_DOMAIN_ID'))
-            domain_name = (env.get('HTTP_X_DOMAIN_NAME') or
-                           env.get('HTTP_X_PROJECT_DOMAIN_NAME') or
-                           env.get('HTTP_X_USER_DOMAIN_NAME') or
-                           'default-domain')
-            if not domain_id or not UUID_REGEX.match(domain_id):
-                if domain_name in ['default', 'Default']:
-                    domain_name = 'default-domain'
-                try:
-                    domain_id = self.server_mgr._db_conn.fq_name_to_uuid(
-                        'domain', [domain_name])
-                except NoIdError:
-                    start_response('404 Not Found',
-                                   [('Content-type', 'text/plain')])
-                    return "Cannot identifying Domain '%s'" % domain_name
-            env['HTTP_X_DOMAIN_ID'] = domain_id.replace('-', '')
-            env['HTTP_X_DOMAIN_NAME'] = domain_name
+        domain_id = (env.get('HTTP_X_DOMAIN_ID') or
+                     env.get('HTTP_X_PROJECT_DOMAIN_ID') or
+                     env.get('HTTP_X_USER_DOMAIN_ID'))
+        domain_name = (env.get('HTTP_X_DOMAIN_NAME') or
+                       env.get('HTTP_X_PROJECT_DOMAIN_NAME') or
+                       env.get('HTTP_X_USER_DOMAIN_NAME') or
+                       'default-domain')
+        if domain_name and (not domain_id or not
+                            _UUID_WITHOUT_DASH_REGEX.match(domain_id)):
+            if domain_name in ['default', 'Default']:
+                domain_name = 'default-domain'
+            try:
+                domain_id = self.server_mgr._db_conn.fq_name_to_uuid(
+                    'domain', [domain_name])
+                domain_id = domain_id.replace('-', '')
+            except NoIdError:
+                # TODO(ethuleau): We allow the request even if the domain is
+                # not synced to Contrail. This can lead some issue for
+                # RBAC/perms validation
+                pass
+        env['HTTP_X_DOMAIN_ID'] = domain_id
+        env['HTTP_X_DOMAIN_NAME'] = domain_name
 
         get_context().set_proc_time('POST_KEYSTONE_REQ')
 
