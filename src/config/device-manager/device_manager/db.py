@@ -1388,6 +1388,44 @@ class LogicalRouterDM(DBBaseDM):
 
 # end LogicalRouterDM
 
+class NetworkIpamDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'network_ipam'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.ipam_subnets = set()
+        self.ipam_method = None
+        self.server_discovery_params = None
+        self.virtual_networks = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+
+        self.ipam_method = obj.get('ipam_subnet_method')
+        self.ipam_subnets = obj.get('ipam_subnets')
+        if self.ipam_subnets:
+            self.server_discovery_params = \
+                DMUtils.get_server_discovery_parameters(self.ipam_subnets.get('subnets', []))
+        self.update_multiple_refs('virtual_network', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_network', {})
+        del cls._dict[uuid]
+    # end delete
+
+# end NetworkIpamDM
 
 class VirtualNetworkDM(DBBaseDM):
     _dict = {}
@@ -1398,12 +1436,12 @@ class VirtualNetworkDM(DBBaseDM):
         self.name = None
         self.physical_routers = set()
         self.tags = set()
+        self.network_ipams = set()
         self.logical_router = None
         self.data_center_interconnect = None
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
-        self.server_discovery_params = None
         self.floating_ip_pools = set()
         self.instance_ip_map = {}
         self.route_targets = None
@@ -1454,6 +1492,7 @@ class VirtualNetworkDM(DBBaseDM):
             DataCenterInterconnectDM.set_dci_network(self)
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('tag', obj)
+        self.update_multiple_refs('network_ipam', obj)
         self.set_children('floating_ip_pool', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
@@ -1470,8 +1509,6 @@ class VirtualNetworkDM(DBBaseDM):
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
         self.gateways = DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
-        self.server_discovery_params = \
-            DMUtils.get_server_discovery_parameters(obj.get('network_ipam_refs', []))
         self.route_targets = None
         route_target_list = obj.get('route_target_list')
         if route_target_list:
