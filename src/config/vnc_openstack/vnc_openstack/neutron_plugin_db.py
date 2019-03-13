@@ -748,12 +748,15 @@ class DBInterface(object):
         else:
             project_uuid = None
 
-        obj_uuids=None
+        obj_uuids = set()
         if filters and 'id' in filters:
-            obj_uuids = filters['id']
-        sg_objs = self._vnc_lib.security_groups_list(parent_id=project_uuid,
-                                                     detail=True,
-                                                     obj_uuids=obj_uuids)
+            obj_uuids.update(filters['id'])
+        if filters and 'security_group_id' in filters:
+            obj_uuids.update(filters['security_group_id'])
+        sg_objs = self._vnc_lib.security_groups_list(
+            parent_id=project_uuid,
+            detail=True,
+            obj_uuids=list(obj_uuids) or None)
         return sg_objs
     #end _security_group_list_project
 
