@@ -833,10 +833,13 @@ TEST_F(PktParseTest, UnicastControlWord) {
                  1, 0, 0));
 }
 
+#include <iostream>
+
 TEST_F(PktParseTest, MulticastControlWord) {
     Agent *agent = Agent::GetInstance();
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    std::cout << "TEST1 " << std::endl;
     agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
             oper_db()->multicast());
@@ -847,9 +850,14 @@ TEST_F(PktParseTest, MulticastControlWord) {
     olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
                 IpAddress::from_string("8.8.8.8").to_v4(),
                 TunnelType::MplsType()));
+    std::cout << "TEST2 " << std::endl;
+    client->WaitForIdle();
+    std::cout << "TEST2.25 " << std::endl;
     mc_handler->ModifyFabricMembers(agent->multicast_tree_builder_peer(),
             "vrf1", broadcast, sip, 4100, olist, 1);
+    std::cout << "TEST2.5 " << std::endl;
     client->WaitForIdle();
+    std::cout << "TEST3 " << std::endl;
 
     std::auto_ptr<PktGen> pkt(new PktGen());
     PhysicalInterface *eth = EthInterfaceGet("vnet0");
@@ -860,14 +868,19 @@ TEST_F(PktParseTest, MulticastControlWord) {
     pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
     pkt->AddGreHdr();
 
+    std::cout << "TEST4 " << std::endl;
+
     pkt->AddMplsHdr(4100, true);
+
+    std::cout << "TEST5 " << std::endl;
+
     pkt->AddVxLanControlWord();
     pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x800);
     pkt->AddIpHdr("10.10.10.10", "10.10.10.11", 1);
 
     PktInfo pkt_info(Agent::GetInstance(), 200,
                      PktHandler::MAC_LEARNING, 0);
-    TestPkt(&pkt_info, pkt.get());
+    std::cout << "MC " << TestPkt(&pkt_info, pkt.get()) << std::endl;
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "10.10.10.11",
                                 1, 0, 0));
