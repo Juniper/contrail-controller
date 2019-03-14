@@ -96,6 +96,14 @@ class ProjectServer(ResourceMixin, Project):
         return True, ""
 
     @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None, ref_update=None):
+        if fq_name == Project().fq_name:
+            cls.server.default_project = None
+            cls.server.default_project
+        return True, ''
+
+    @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         draft_pm_uuid = None
         draft_pm_name = POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
