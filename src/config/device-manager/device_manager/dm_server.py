@@ -41,23 +41,33 @@ _object_db = None
 def initialize_amqp_client(logger, args):
     amqp_client = None
     try:
-        # prepare rabbitMQ params
-        rabbitmq_cfg = AttrDict(
-            servers=args.rabbit_server,
-            port=args.rabbit_port,
-            user=args.rabbit_user,
-            password=args.rabbit_password,
-            vhost=args.rabbit_vhost,
-            ha_mode=args.rabbit_ha_mode,
-            use_ssl=args.rabbit_use_ssl,
+        kombu_cfg = AttrDict(
             ssl_version=args.kombu_ssl_version,
             ssl_keyfile=args.kombu_ssl_keyfile,
             ssl_certfile=args.kombu_ssl_certfile,
             ssl_ca_certs=args.kombu_ssl_ca_certs)
+        if use_etcd(args, 'notification_driver'):
+            # prepare params for etcd
+            kombu_cfg.transport = 'etcd'
+            kombu_cfg.servers = args.etcd_server
+            kombu_cfg.port = args.etcd_port
+            kombu_cfg.user = args.etcd_user
+            kombu_cfg.password = args.etcd_password
+            # 'vhost' is used as etcd prefix
+            kombu_cfg.vhost = args.etcd_kv_store + '/device-manager/amqp'
+            kombu_cfg.use_ssl = args.etcd_use_ssl
+        else:
+            # prepare rabbitMQ params
+            # default `transport` value is set in KombuAmqpClient
+            kombu_cfg.servers = args.rabbit_server
+            kombu_cfg.port = args.rabbit_port
+            kombu_cfg.user = args.rabbit_user
+            kombu_cfg.password = args.rabbit_password
+            kombu_cfg.vhost = args.rabbit_vhost
+            kombu_cfg.ha_mode = args.rabbit_ha_mode
+            kombu_cfg.use_ssl = args.rabbit_use_ssl
         amqp_client = KombuAmqpClient(
-            logger.log,
-            rabbitmq_cfg,
-            heartbeat=args.rabbit_health_check_interval)
+            logger.log, kombu_cfg, heartbeat=args.rabbit_health_check_interval)
         amqp_client.run()
     except Exception as e:
         logger.error("Error while initializing the AMQP"
@@ -90,6 +100,15 @@ def initialize_vnc_lib(logger, args):
             time.sleep(3)
     return vnc_lib
 # end initialize_vnc_lib
+
+
+def use_etcd(args, key):
+    try:
+        driver = getattr(args, key, '')
+        return 'etcd' == driver
+    except AttributeError:
+        return False
+# end use_etcd
 
 
 def run_device_manager(dm_logger, args):
@@ -169,7 +188,7 @@ def main(args_str=None):
     # _amqp_client = dm_amqp_factory(dm_logger, {}, args)
     _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
                                         args.zk_server_ip, host_ip)
-    if hasattr(args, 'db_driver') and args.db_driver == 'etcd':
+    if use_etcd(args, 'db_driver'):
         vnc_lib = initialize_vnc_lib(dm_logger, args)
         _object_db = DMEtcdDB.get_instance(args, vnc_lib, dm_logger)
     else:
