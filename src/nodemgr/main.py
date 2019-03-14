@@ -151,7 +151,6 @@ def main(args_str=' '.join(sys.argv[1:])):
         print_usage_and_exit()
     default = {'rules': '',
                'collectors': [],
-               'hostip': socket.gethostbyname(socket.getfqdn()),
                'db_port': '9042',
                'db_jmx_port': '7199',
                'db_user': None,
@@ -168,6 +167,10 @@ def main(args_str=' '.join(sys.argv[1:])):
                'use_syslog': False,
                'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY
               }
+    try:
+        default['hostip'] = socket.gethostbyname(socket.getfqdn())
+    except:
+        pass
     default.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
     node_type = args.nodetype
