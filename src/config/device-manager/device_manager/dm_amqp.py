@@ -23,7 +23,7 @@ def dm_amqp_factory(logger, reaction_map, args):
     if hasattr(args, 'notification_driver') \
             and args.notification_driver == 'etcd':
         return DMAmqpHandleEtcd(logger, reaction_map, host_ip, args)
-    return DMAmqpHandleKombu(logger, reaction_map, host_ip, args)
+    return DMAmqpHandleRabbit(logger, reaction_map, host_ip, args)
 
 
 class DMAmqpHandleMixin(object):
@@ -59,7 +59,7 @@ class DMAmqpHandleEtcd(DMAmqpHandleMixin, VncEtcdWatchHandle):
             host_ip=host_ip)
 
 
-class DMAmqpHandleKombu(DMAmqpHandleMixin, VncAmqpHandle):
+class DMAmqpHandleRabbit(DMAmqpHandleMixin, VncAmqpHandle):
 
     def __init__(self, logger, reaction_map, host_ip, args):
         q_name_prefix = 'device_manager'
@@ -76,7 +76,7 @@ class DMAmqpHandleKombu(DMAmqpHandleMixin, VncAmqpHandle):
             'ssl_certfile': args.kombu_ssl_certfile,
             'ssl_ca_certs': args.kombu_ssl_ca_certs
         }
-        super(DMAmqpHandleKombu, self).__init__(
+        super(DMAmqpHandleRabbit, self).__init__(
             logger._sandesh,
             logger,
             DBBaseDM,
