@@ -126,8 +126,13 @@ void DBTablePartition::Remove(DBEntryBase *db_entry) {
         table()->RetryDelete();
 }
 
+#include <iostream>
+
 DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) {
     Tree::iterator loc = tree_.find(*entry);
+
+    //std::cout << "SIZE " << tree_.size() << std::endl;
+
     if (loc != tree_.end()) {
         return loc.operator->();
     }

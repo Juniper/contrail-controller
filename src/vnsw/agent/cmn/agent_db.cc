@@ -123,9 +123,13 @@ AgentDBEntry *AgentDBTable::FindActiveEntryNoLock(const DBRequestKey *key) {
     return entry;
 }
 
+#include <iostream>
+
 AgentDBEntry *AgentDBTable::FindActiveEntry(const DBRequestKey *key) {
     AgentDBEntry *entry = static_cast<AgentDBEntry *>(Find(key));
+
     if (entry && (entry->IsActive() == false)) {
+        std::cout << "not NULL AgentDBTable::FindActiveEntry" << std::endl;
         return NULL;
     }
     return entry;

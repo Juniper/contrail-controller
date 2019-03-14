@@ -27,9 +27,21 @@ MplsLabel::MplsLabel(Agent *agent, uint32_t label) :
     agent_(agent), label_(label), free_label_(false) {
 }
 
+#include <iostream>
+
 MplsLabel::~MplsLabel() {
-    if (free_label_)
+    cout << "dest MPLSLABEL " << label_ << " " << free_label_ << endl;
+
+    if (label_ == 4100) {
+        cout << "tutaj1" << endl;
+    }
+
+    if (free_label_) {
+        if (label_ == 4100) {
+            cout << "tutaj2" << endl;
+        }
         agent_->resource_manager()->Release(Resource::MPLS_INDEX, label_);
+    }
 }
 
 bool MplsLabel::IsLess(const DBEntry &rhs) const {

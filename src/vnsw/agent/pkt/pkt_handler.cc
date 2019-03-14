@@ -664,6 +664,8 @@ int PktHandler::ParseControlWord(PktInfo *pkt_info, uint8_t *pkt,
     return ret;
 }
 
+#include <iostream>
+
 int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     MplsHdr *hdr = (MplsHdr *)(pkt);
 
@@ -673,6 +675,8 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
     uint32_t ret = sizeof(MplsHdr);
 
+    std::cout << "MPLS1 " << ret << std::endl;
+
     if ((mpls_host & 0x100) == 0) {
         // interpret outer label 0xffffff as no label
         if (((mpls_host & 0xFFFFF000) >> 12) != 
@@ -681,6 +685,9 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
             PKT_TRACE(Err, "Unexpected MPLS Label Stack. Ignoring");
             return -1;
         }
+
+        std::cout << "MPLS2 " << ret << std::endl;
+
         hdr = (MplsHdr *) (pkt + 4);
         mpls_host = ntohl(hdr->hdr);
         pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
@@ -693,16 +700,22 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
 
     }
 
+    std::cout << "MPLS3 " << ret << std::endl;
+
     uint32_t label = pkt_info->tunnel.label;
     MplsLabelKey mpls_key(label);
 
     const MplsLabel *mpls = static_cast<const MplsLabel *>(
             agent_->mpls_table()->FindActiveEntry(&mpls_key));
     if (mpls == NULL) {
+        std::cout << "LABEL " << label << std::endl;
+
         PKT_TRACE(Err, "Invalid MPLS Label <" << label << ">. Ignoring");
         pkt_info->tunnel.label = MplsTable::kInvalidLabel;
         return -1;
     }
+
+    std::cout << "MPLS4 " << ret << std::endl;
 
     pkt_info->l3_label = true;
     const InterfaceNH *nh = dynamic_cast<const InterfaceNH *>(mpls->nexthop());
@@ -724,23 +737,35 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     return ret;
 }
 
+#include <iostream>
+
 // Parse MPLSoGRE header
 int PktHandler::ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt) {
     GreHdr *gre = (GreHdr *)(pkt);
+
+    std::cout << "GRE1 " << std::endl;
+
     if (gre->protocol != ntohs(VR_GRE_PROTO_MPLS)) {
         PKT_TRACE(Err, "Non-MPLS protocol <" << ntohs(gre->protocol) <<
                   "> in GRE header");
         return -1;
     }
 
+    std::cout << "GRE2 " << std::endl;
+
     int len = sizeof(GreHdr);
 
     int tmp;
     tmp = ParseMplsHdr(pkt_info, (pkt + len));
+
+    std::cout << "GRE3 " << tmp << std::endl;
+
     if (tmp < 0) {
         return tmp;
     }
     len += tmp;
+
+    std::cout << "GRE4 " << len << std::endl;
 
     if (pkt_info->l3_label == false) {
         tmp = ParseEthernetHeader(pkt_info, (pkt + len));
@@ -748,6 +773,8 @@ int PktHandler::ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt) {
             return tmp;
         len += tmp;
     }
+
+    std::cout << "GRE5 " << len << std::endl;
 
     pkt_info->tunnel.type.SetType(TunnelType::MPLS_GRE);
     return (len);
@@ -790,6 +817,8 @@ int PktHandler::ParseUDPTunnels(PktInfo *pkt_info, uint8_t *pkt) {
     return len;
 }
 
+#include <iostream>
+
 int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                              PktType::Type &pkt_type, uint8_t *pkt) {
     int len = 0;
@@ -804,6 +833,8 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         return len;
     }
 
+    std::cout << "LEN1 " << len << std::endl;
+
     // Identify NON-IP Packets
     if (pkt_info->ether_type != ETHERTYPE_IP &&
         pkt_info->ether_type != ETHERTYPE_IPV6) {
@@ -811,6 +842,9 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         pkt_type = PktType::NON_IP;
         return len;
     }
+
+    std::cout << "LEN2 " << len << std::endl;
+
     // Copy IP fields from outer header assuming tunnel is present. If tunnel
     // is not present, the values here will be ignored
     SetOuterMac(pkt_info);
@@ -819,12 +853,17 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
 
+    std::cout << "LEN3 " << len << std::endl;
+
     // For ICMP, IGMP, make sure IP is IPv4, else fail the parsing
     // so that we don't go ahead and access the ip header later
     if (((pkt_info->ip_proto == IPPROTO_ICMP) ||
          (pkt_info->ip_proto == IPPROTO_IGMP)) && (!pkt_info->ip)) {
         return -1;
     }
+
+    std::cout << "LEN4 " << len << std::endl;
+
     // If ip proto is ICMPv6, then make sure IP is IPv6, else fail
     // the parsing so that we don't go ahead and access the ip6 header
     // later
@@ -832,27 +871,37 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         return -1;
     }
 
+    std::cout << "LEN5 " << len << std::endl;
+
     // If packet is an IP fragment and not flow trap, ignore it
     if (IgnoreFragmentedPacket(pkt_info)) {
         agent_->stats()->incr_pkt_fragments_dropped();
         return -1;
     }
 
+    std::cout << "LEN6 " << len << std::endl;
+
     // If it is a packet from TOR that we serve, dont parse any further
     if (IsManagedTORPacket(intf, pkt_info, pkt_type, (pkt + len))) {
         return len;
     }
+
+    std::cout << "LEN7 " << len << std::endl;
 
     if (IsDiagPacket(pkt_info) &&
         (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ROUTER_ALERT)) {
         return len;
     }
 
+    std::cout << "LEN8 " << len << std::endl;
+
     // If tunneling is not enabled on interface or if it is a DHCP packet,
     // dont parse any further
     if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info)) {
         return len;
     }
+
+    std::cout << "LEN9 " << len << std::endl;
 
     int tunnel_len = 0;
     // Do tunnel processing only if IP-DA is ours
@@ -862,6 +911,7 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         switch (pkt_info->ip_proto) {
         case IPPROTO_GRE :
             // Parse MPLSoGRE tunnel
+            std::cout << "GRE " << std::endl;
             tunnel_len = ParseMPLSoGRE(pkt_info, (pkt + len));
             break;
 
@@ -875,17 +925,25 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         }
     }
 
+    std::cout << "LEN10 " << len << std::endl;
+
     if (tunnel_len < 0) {
         // Found tunnel packet, but error in decoding
         pkt_type = PktType::INVALID;
         return tunnel_len;
     }
 
+    std::cout << "LEN11 " << len << std::endl;
+
     if (tunnel_len == 0) {
         return len;
     }
 
+    std::cout << "LEN12 " << len << std::endl;
+
     len += tunnel_len;
+
+    std::cout << "LEN13 " << len << std::endl;
 
     // Find IPv4/IPv6 Packet based on first nibble in payload
     if (((pkt + len)[0] & 0x60) == 0x60) {
@@ -895,6 +953,9 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     }
 
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
+
+    std::cout << "LEN14 " << len << std::endl;
+
     return len;
 }
 

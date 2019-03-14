@@ -162,7 +162,11 @@ void BridgeAgentRouteTable::DeleteMacVmBindingRoute(const Peer *peer,
     BridgeTableProcess(agent(), vrf_name, req);
 }
 
+#include <iostream>
+
 void BridgeAgentRouteTable::DeleteBridgeRoute(const AgentRoute *rt) {
+    std::cout << "DeleteBridgeRoute2 " << std::endl;
+
     const EvpnRouteEntry *evpn_rt =
         static_cast<const EvpnRouteEntry *>(rt);
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
@@ -250,7 +254,7 @@ void BridgeAgentRouteTable::DeleteBridgeRoute(const Peer *peer,
                                             const MacAddress &mac,
                                             uint32_t ethernet_tag,
                                             COMPOSITETYPE type) {
-
+    std::cout << "DeleteBridgeRoute2 " << std::endl;
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
     DBRequest nh_req;
