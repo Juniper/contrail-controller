@@ -158,10 +158,8 @@ public:
     static const MacAddress &ZeroMac() {
         return kZeroMac;
     }
-private:
-    // Delete non-const copy constructor
-    MacAddress(MacAddress &);
 
+private:
     struct ether_addr addr_;
 };
 
