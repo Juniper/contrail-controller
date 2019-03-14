@@ -167,6 +167,9 @@ def fill_keystone_opts(obj, conf_sections):
     except ConfigParser.NoOptionError:
         obj._endpoint_type = None
 
+    self._keystone_default_domain_id == conf_sections.get('KEYSTONE',
+                                                          'default_domain_id')
+
 def _create_default_security_group(vnc_lib, proj_obj):
     def _get_rule(ingress, sg, prefix, ethertype):
         sgr_uuid = str(uuid.uuid4())
@@ -603,7 +606,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv3_domains_list
 
     def _ksv3_domain_id_to_uuid(self, domain_id):
-        if domain_id == 'default':
+        if domain_id == self._keystone_default_domain_id:
             return self._vnc_default_domain_id
 
         return str(uuid.UUID(domain_id))

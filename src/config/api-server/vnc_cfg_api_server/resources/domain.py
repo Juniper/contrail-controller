@@ -18,3 +18,10 @@ class DomainServer(ResourceMixin, Domain):
         }
         obj_dict['perms2']['share'].append(share_item)
         return True, ""
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None, ref_update=None):
+        if fq_name == Domain().fq_name:
+            cls.server.default_domain = None
+            cls.server.default_domain
