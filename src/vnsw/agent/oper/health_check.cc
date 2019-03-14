@@ -421,11 +421,21 @@ DBEntry *HealthCheckTable::OperDBAdd(const DBRequest *req) {
 }
 
 bool HealthCheckTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
+    /*
+     * Ideally db-infra should have removed the delete mark for the db-entry
+     * when Add/Update happens for the db-entry. It has to be root-caused.
+     * For now it is handled here and doing here wont give any side-effects.
+     */
+    bool ret = false;
+    if (entry->IsDeleted()) {
+        entry->ClearDelete();
+        ret = true;
+    }
     HealthCheckService *service = static_cast<HealthCheckService *>(entry);
     HealthCheckServiceData *data =
         dynamic_cast<HealthCheckServiceData *>(req->data.get());
     assert(data);
-    bool ret = service->Copy(this, data);
+    ret |= service->Copy(this, data);
     service->UpdateInstanceServiceReference();
     return ret;
 }
