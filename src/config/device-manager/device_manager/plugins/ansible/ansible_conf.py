@@ -208,7 +208,6 @@ class AnsibleConf(AnsibleBase):
     def build_dci_bgp_config(self):
         if not self.physical_router.has_rb_role("DCI-Gateway"):
             return
-        self.physical_router.evaluate_dci_ip_map()
         dci_list = self.physical_router.get_dci_list()
         for dci_uuid in dci_list or []:
             params = self.physical_router.get_dci_bgp_params(dci_uuid)

@@ -258,7 +258,7 @@ class PhysicalRouterDM(DBBaseDM):
             params["asn"] = dci.allocated_asn
             params["hold_time"] = dci.bgp_hold_time
             params["families"] = dci.bgp_address_families
-            params["ip"] = self.dci_ip_map.get(self.uuid + ":" + dci_uuid)
+            params["ip"] = self.loopback_ip
             params["name"] = DMUtils.get_pr_dci_bgp_group(self.name, dci_uuid)
             params["type"] = "internal"
         return params
@@ -275,7 +275,7 @@ class PhysicalRouterDM(DBBaseDM):
                 params["asn"] = dci.allocated_asn
                 params["hold_time"] = dci.bgp_hold_time
                 params["families"] = dci.bgp_address_families
-                params["ip"] = pr.dci_ip_map.get(pr.uuid + ":" + dci_uuid)
+                params["ip"] = pr.loopback_ip
                 params["name"] = DMUtils.get_pr_dci_bgp_group(pr.name, dci_uuid)
                 params["type"] = "internal"
                 neigh.append(params)
