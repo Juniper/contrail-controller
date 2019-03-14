@@ -73,6 +73,9 @@ def default_options():
         'tftp_dir': None,
         'dhcp_leases_file': None,
         'ztp_timeout': 300,
+        # TODO `rabbit_health_check_interval` parameter ought to be
+        # renamed as it is not RabbitMQ specific.  One might use
+        # `kombu_health_check_interval` for example.
         'rabbit_health_check_interval': 0,
         'job_manager_db_conn_retry_timeout': '10',
         'job_manager_db_conn_max_retries': '6',
