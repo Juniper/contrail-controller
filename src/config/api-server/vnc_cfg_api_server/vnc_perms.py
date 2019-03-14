@@ -103,18 +103,10 @@ class VncPermissions(object):
 
         # Get request scope
         env = request.headers.environ
-        domain_id = env.get('HTTP_X_DOMAIN_ID').replace('-','')
+        domain_id = env.get('HTTP_X_DOMAIN_ID')
         domain_name = env.get('HTTP_X_DOMAIN_NAME')
-        project_id = env.get('HTTP_X_PROJECT_ID').replace('-','')
+        project_id = env.get('HTTP_X_PROJECT_ID')
         project_name = env.get('HTTP_X_PROJECT_NAME')
-        if not domain_id:
-            msg = "RBAC permission mechanism fails to obtain request domain ID"
-            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_WARN)
-            return False, (403, msg)
-        if not project_id:
-            msg = "RBAC permission mechanism fails to obtain project ID"
-            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_WARN)
-            return False, (403, msg)
 
         # retrieve object permissions if missing
         if not perms2:
@@ -167,7 +159,7 @@ class VncPermissions(object):
 
         err_msg = ("Permission Denied for %s to %s operation in domain '%s' "
                    "and project '%s'" %
-                   (roles, mode, domain_name, project_name))
+                   (roles, self.mode_str2[mode], domain_name, project_name))
         if ok:
             return True, self.mode_str[granted]
         else:
