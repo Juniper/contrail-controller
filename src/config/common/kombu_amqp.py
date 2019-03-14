@@ -26,6 +26,7 @@ class KombuAmqpClient(object):
 
     def __init__(self, logger, config, heartbeat=0):
         self._logger = logger
+        config = self._config_defaults(config)
         servers = re.compile(r'[,\s]+').split(config.servers)
         urls = self._parse_servers(servers, config)
         ssl_params = self._fetch_ssl_params(config)
@@ -225,8 +226,14 @@ class KombuAmqpClient(object):
     # end _ensure_connection
 
     @staticmethod
+    def _config_defaults(config):
+        if 'transport' not in config:
+            config['transport'] = 'pyamqp'
+        return config
+
+    @staticmethod
     def _parse_servers(servers, config):
-        required_keys = ['user', 'password', 'port', 'vhost']
+        required_keys = ['user', 'password', 'port', 'vhost', 'transport']
         urls = []
         for server in servers:
             match = re.match(
@@ -237,7 +244,8 @@ class KombuAmqpClient(object):
                 for key in required_keys:
                     if key not in host or host[key] is None:
                         host[key] = config[key]
-                url = "pyamqp://%(user)s:%(password)s@%(host)s:%(port)s/%(vhost)s" % host
+                url = "%(transport)s://%(user)s:%(password)s@%(host)s" + \
+                    ":%(port)s/%(vhost)s" % host
                 urls.append(url)
         return urls
     # end _parse_servers
