@@ -35,6 +35,7 @@ class VncOpenstackTestCase(TestCase):
             ('KEYSTONE', 'auth_host', ''),
             ('KEYSTONE', 'auth_port', ''),
             ('KEYSTONE', 'auth_protocol', 'http'),
+            ('KEYSTONE', 'default_domain_id', 'default'),
     ]
     _entry_pt_to_classes = FakeExtensionManager._entry_pt_to_classes
     @classmethod

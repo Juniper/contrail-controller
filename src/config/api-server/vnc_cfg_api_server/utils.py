@@ -116,6 +116,7 @@ def parse_args(args_str):
         'keyfile': '',
         'auth_type': 'password',
         'auth_url': '',
+        'default_domain_id': 'default',
     }
     # cassandra options
     cassandraopts = {
