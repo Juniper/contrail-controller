@@ -2000,6 +2000,7 @@ bool BgpIfmapGlobalQosConfig::Update(BgpIfmapConfigManager *manager,
 
     if (data_.control_dscp() != dscp.control) {
         data_.set_control_dscp(dscp.control);
+        Sandesh::SetDscpValue(dscp.control);
         changed = true;
     }
     if (data_.analytics_dscp() != dscp.analytics) {
