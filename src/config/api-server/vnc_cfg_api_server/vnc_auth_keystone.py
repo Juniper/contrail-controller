@@ -29,7 +29,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common.exceptions import NoIdError
 from cfgm_common import utils as cfgmutils
-from cfgm_common import UUID_WIHTOUT_DASH_PATTERN
 from cfgm_common import vnc_greenlets
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext, ApiInternalRequest
@@ -39,7 +38,6 @@ from auth_context import set_auth_context, use_auth_context
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 _DEFAULT_KS_VERSION = "v2.0"
-_UUID_WITHOUT_DASH_REGEX = re.compile(UUID_WIHTOUT_DASH_PATTERN)
 
 # Open port for access to API server for trouble shooting
 class LocalAuth(object):
@@ -99,16 +97,14 @@ class AuthPreKeystone(object):
         self.app = app
         self.conf = conf
         self.server_mgr = server_mgr
-
-    def path_in_white_list(self, path):
-        for pattern in self.server_mgr.white_list:
-            if re.search(pattern, path):
-                return True
-        return False
+        self.white_list = [
+            '^/documentation',  # allow all documentation
+            '^/$',              # allow discovery
+        ]
 
     @use_context
     def __call__(self, env, start_response):
-        if self.path_in_white_list(env['PATH_INFO']):
+        if self.server_mgr.path_in_white_list(env['PATH_INFO']):
             # permit access to white list without requiring a token
             env['HTTP_X_ROLE'] = ''
             app = self.server_mgr.api_bottle
@@ -136,25 +132,13 @@ class AuthPostKeystone(object):
         domain_id = (env.get('HTTP_X_DOMAIN_ID') or
                      env.get('HTTP_X_PROJECT_DOMAIN_ID') or
                      env.get('HTTP_X_USER_DOMAIN_ID'))
-        domain_name = (env.get('HTTP_X_DOMAIN_NAME') or
-                       env.get('HTTP_X_PROJECT_DOMAIN_NAME') or
-                       env.get('HTTP_X_USER_DOMAIN_NAME') or
-                       'default-domain')
-        if domain_name and (not domain_id or not
-                            _UUID_WITHOUT_DASH_REGEX.match(domain_id)):
-            if domain_name in ['default', 'Default']:
-                domain_name = 'default-domain'
-            try:
-                domain_id = self.server_mgr._db_conn.fq_name_to_uuid(
-                    'domain', [domain_name])
-                domain_id = domain_id.replace('-', '')
-            except NoIdError:
-                # TODO(ethuleau): We allow the request even if the domain is
-                # not synced to Contrail. This can lead some issue for
-                # RBAC/perms validation
-                pass
-        env['HTTP_X_DOMAIN_ID'] = domain_id
-        env['HTTP_X_DOMAIN_NAME'] = domain_name
+        # if there is not domain ID (aka Keystone v2) or if it equals to
+        # 'default', fallback to the Contrail default-domain ID and name
+        if not domain_id or domain_id == 'default':
+            env['HTTP_X_DOMAIN_ID'] =\
+                self.server_mgr.default_domain['uuid'].replace('-', '')
+            env['HTTP_X_DOMAIN_NAME'] =\
+                self.server_mgr.default_domain['fq_name'][-1]
 
         get_context().set_proc_time('POST_KEYSTONE_REQ')
 
@@ -191,6 +175,7 @@ class AuthServiceKeystone(object):
             'region_name': args.region_name,
             'insecure': args.insecure,
             'signing_dir': args.signing_dir,
+            'default_domain_id': args.default_domain_id,
         }
         if args.auth_url:
             auth_url = args.auth_url

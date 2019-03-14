@@ -348,6 +348,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         self._config_sections = conf_sections
         fill_keystone_opts(self, conf_sections)
+        self._keystone_default_domain_id == conf_sections.get(
+            'KEYSTONE', 'default_domain_id'):
 
         self._ks = None
         ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
@@ -603,7 +605,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv3_domains_list
 
     def _ksv3_domain_id_to_uuid(self, domain_id):
-        if domain_id == 'default':
+        if domain_id == self._keystone_default_domain_id:
             return self._vnc_default_domain_id
 
         return str(uuid.UUID(domain_id))

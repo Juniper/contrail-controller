@@ -17,6 +17,7 @@ from vnc_api.utils import AAA_MODE_VALID_VALUES
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
 _ADMIN_PORT = 8095
+# following allowed without authentication
 
 
 def user_password(s):
@@ -116,6 +117,7 @@ def parse_args(args_str):
         'keyfile': '',
         'auth_type': 'password',
         'auth_url': '',
+        'default_domain_id': 'default',
     }
     # cassandra options
     cassandraopts = {
