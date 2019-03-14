@@ -101,34 +101,14 @@ class VncRbac(object):
     def get_rbac_rules(self, request):
         rule_list = []
         env = request.headers.environ
-        domain_id = env.get('HTTP_X_DOMAIN_ID', None)
-        project_id = env.get('HTTP_X_PROJECT_ID', None)
-
-        if project_id:
-            project_id = str(uuid.UUID(project_id))
-
-        if domain_id is None:
-            ok = False
-            try:
-                (ok, result) = self._db_conn.dbe_read('project', project_id,  ['fq_name'])
-            except Exception as e:
-                ok = False
-                pass
-            # if we don't know about this tenant, try default domain.
-            # This can happen for service requests such as from neutron or projects not synched from keystone
-            domain_name = result['fq_name'][:-1] if ok else ['default-domain']
-            try:
-                domain_id = self._db_conn.fq_name_to_uuid('domain', domain_name)
-            except NoIdError:
-                return rule_list
-        else:
-            x = uuid.UUID(domain_id)
-            domain_id = str(x)
-
-        # print 'project:%s, domain:%s  ' % (project_id, domain_id)
+        domain_id = env.get('HTTP_X_DOMAIN_ID')
+        domain_id = str(uuid.UUID(domain_id))
+        project_id = env.get('HTTP_X_PROJECT_ID')
+        project_id = str(uuid.UUID(project_id))
 
         # get global rbac group
-        config_uuid = self._db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
+        config_uuid = self._db_conn.fq_name_to_uuid(
+            'global_system_config', ['default-global-system-config'])
         rules = self.get_rbac_rules_object('global_system_config', config_uuid)
         rule_list.extend(rules)
 
@@ -137,9 +117,8 @@ class VncRbac(object):
         rule_list.extend(rules)
 
         # get project rbac group
-        if project_id is not None:
-            rules = self.get_rbac_rules_object('project', project_id)
-            rule_list.extend(rules)
+        rules = self.get_rbac_rules_object('project', project_id)
+        rule_list.extend(rules)
 
         # [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]
 
@@ -199,15 +178,15 @@ class VncRbac(object):
 
     # op is one of 'CRUD'
     def validate_request(self, request):
-        domain_id = request.headers.environ.get('HTTP_X_DOMAIN_ID', None)
-        project_id = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
-        project_name = request.headers.environ.get('HTTP_X_PROJECT_NAME', '*')
-
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
         if not self.rbac_enabled():
             return (True, '')
+
+        domain_id = request.headers.environ.get('HTTP_X_DOMAIN_ID')
+        project_id = request.headers.environ.get('HTTP_X_PROJECT_ID')
+        project_name = request.headers.environ.get('HTTP_X_PROJECT_NAME')
 
         user, roles = self.get_user_roles(request)
 

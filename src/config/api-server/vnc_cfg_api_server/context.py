@@ -65,6 +65,10 @@ class ApiContext(object):
         return self.external_req
     # end request
 
+    @property
+    def path(self):
+        return self.request.headers.environ['PATH_INFO']
+
     def set_proc_time(self, state):
         self.proc_times[state] = datetime.utcnow()
 

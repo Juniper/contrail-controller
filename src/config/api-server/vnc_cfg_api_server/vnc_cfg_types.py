@@ -4704,6 +4704,14 @@ class DomainServer(Resource, Domain):
         return (True, "")
     # end pre_dbe_create
 
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None, ref_update=None):
+        if fq_name == Domain().fq_name:
+            cls.server.default_domain = None
+            cls.server.default_domain
+        return True, ''
+
 
 class ServiceTemplateServer(Resource, ServiceTemplate):
     generate_default_instance = False
@@ -5687,6 +5695,14 @@ class ProjectServer(Resource, Project):
                 return False, result
 
         return True, ""
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None, ref_update=None):
+        if fq_name == Project().fq_name:
+            cls.server.default_project = None
+            cls.server.default_project
+        return True, ''
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
