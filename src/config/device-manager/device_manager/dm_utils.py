@@ -147,14 +147,15 @@ class DMUtils(object):
     # end get_network_gateways
 
     @staticmethod
-    def get_server_discovery_parameters(ipam_refs=[]):
+    def get_server_discovery_parameters(subnets=[]):
         server_discovery_params = []
-        for ipam_ref in ipam_refs or []:
-            for subnet in ipam_ref['attr'].get('ipam_subnets', []):
-                server_discovery_params.append(
-                    { "vlan_tag": subnet.get('vlan_tag', ''),
-                      "dhcp_relay_server": subnet.get('dhcp_relay_server', []),
-                      "default_gateway": subnet.get('default_gateway')})
+        for subnet in subnets:
+            server_discovery_params.append(
+                { "vlan_tag": subnet.get('vlan_tag', ''),
+                  "dhcp_relay_server": subnet.get('dhcp_relay_server', []),
+                  "default_gateway": subnet.get('default_gateway'),
+                  "ip_prefix_len": subnet.get('subnet', {}).get(
+                      'ip_prefix_len')})
         return server_discovery_params
     # end get_server_discovery_parameters
 
