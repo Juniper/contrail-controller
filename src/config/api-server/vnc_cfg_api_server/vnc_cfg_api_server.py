@@ -174,6 +174,14 @@ _MANDATORY_PROPS = [
     'loadbalancer_healthmonitor_properties',
 ]
 
+# following allowed without authentication
+_WHITE_LIST_URI = [
+    '^/documentation',  # allow all documentation
+    '^/$',              # allow discovery
+]
+_WHITE_LIST_URI_REGEX = re.compile(r'%s' % '|'.join(_WHITE_LIST_URI))
+
+
 def error_400(err):
     return err.body
 # end error_400
@@ -2150,6 +2158,9 @@ class VncApiServer(object):
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
         self._addr_mgmt = addr_mgmt
 
+        self._default_domain = None
+        self._default_project = None
+
         # DB interface initialization
         if self._args.wipe_config:
             self._db_connect(True)
@@ -2246,12 +2257,6 @@ class VncApiServer(object):
                 err_msg = cfgm_common.utils.detailed_traceback()
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
-        # following allowed without authentication
-        self.white_list = [
-            '^/documentation',  # allow all documentation
-            '^/$',              # allow discovery
-        ]
-
         self._global_asn = None
 
         # map of running job instances. Key is the pid and value is job
@@ -2282,6 +2287,38 @@ class VncApiServer(object):
     @global_autonomous_system.setter
     def global_autonomous_system(self, asn):
         self._global_asn = asn
+
+    @property
+    def default_domain(self):
+        if not self._default_domain:
+            domain_class = self.get_resource_class(Domain.object_type)
+            ok, result = domain_class.locate(
+                fq_name=Domain().fq_name, create_it=False)
+            if not ok:
+                msg = ("Cannot fetch default domain")
+                raise cfgm_common.exceptions.VncError(msg)
+            self._default_domain = result
+        return self._default_domain
+
+    @default_domain.setter
+    def default_domain(self, default_domain):
+        self._default_domain = default_domain
+
+    @property
+    def default_project(self):
+        if not self._default_project:
+            project_class = self.get_resource_class(Project.object_type)
+            ok, result = project_class.locate(
+                fq_name=Project().fq_name, create_it=False)
+            if not ok:
+                msg = ("Cannot fetch default project")
+                raise cfgm_common.exceptions.VncError(msg)
+            self._default_project = result
+        return self._default_project
+
+    @default_project.setter
+    def default_project(self, default_project):
+        self._default_project = default_project
 
     def _extensions_transform_request(self, request):
         extensions = self._extension_mgrs.get('resourceApi')
@@ -2434,6 +2471,12 @@ class VncApiServer(object):
         return float(self._args.rabbit_health_check_interval)
     # end get_rabbit_health_check_interval
 
+    @staticmethod
+    def path_in_white_list(path=None):
+        if not path:
+            path = get_context().path
+        return _WHITE_LIST_URI_REGEX.match(path) is not None
+
     def is_auth_disabled(self):
         return self._args.auth is None or self._args.auth.lower() != 'keystone'
 
@@ -2561,7 +2604,7 @@ class VncApiServer(object):
                     domain = token_info['token']['project']['domain']['id']
                     domain = str(uuid.UUID(domain))
                 except ValueError, TypeError:
-                    if domain == 'default':
+                    if domain == self._args.default_domain_id:
                         domain = 'default-domain'
                     domain = self._db_conn.fq_name_to_uuid('domain', [domain])
                 if domain:
@@ -3544,7 +3587,10 @@ class VncApiServer(object):
         self._gsc_uuid = gsc.uuid
         gvc = self.create_singleton_entry(GlobalVrouterConfig(
             parent_obj=gsc))
-        self.create_singleton_entry(Domain())
+        domain = self.create_singleton_entry(Domain())
+        self._default_domain = domain.serialize_to_json()
+        project = self.create_singleton_entry(Project(parent_obj=domain))
+        self._default_project = project.serialize_to_json()
 
         # Global and default policy resources
         pm = self.create_singleton_entry(PolicyManagement())
@@ -3616,8 +3662,6 @@ class VncApiServer(object):
                             level=SandeshLevel.SYS_NOTICE)
 
         # Create singleton SG __no_rule__ object for openstack
-        domain_obj = Domain(SG_NO_RULE_FQ_NAME[0])
-        proj_obj = Project(SG_NO_RULE_FQ_NAME[1], domain_obj)
         sg_rules = PolicyEntriesType()
         id_perms = IdPermsType(enable=True,
                                description="Security group with no rules",
@@ -3626,7 +3670,7 @@ class VncApiServer(object):
         perms2.set_global_access(PERMS_RX)
         sg_obj = SecurityGroup(
             name=SG_NO_RULE_FQ_NAME[-1],
-            parent_obj=proj_obj,
+            parent_obj=project,
             security_group_entries=sg_rules.exportDict(''),
             id_perms=id_perms.exportDict(''),
             perms2=perms2.exportDict(''),
