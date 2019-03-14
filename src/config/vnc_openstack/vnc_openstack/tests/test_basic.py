@@ -2639,6 +2639,7 @@ class TestRBACPerms(test_case.VncOpenstackTestCase):
             # end __init__
             def __call__(self, env, start_response):
                 #Count number of calls made
+                env['HTTP_X_PROJECT_ID'] = uuid.uuid4().hex
                 if env.get('HTTP_X_AUTH_TOKEN') == 'test123':
                     env['HTTP_X_ROLE'] = 'test'
                 else:
