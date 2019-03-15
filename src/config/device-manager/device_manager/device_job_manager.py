@@ -99,7 +99,7 @@ class DeviceJobManager(object):
     def db_read(self, obj_type, obj_id, obj_fields=None,
                 ret_readonly=False):
         try:
-            (ok, cassandra_result) = self._db_conn.object_read(
+            (ok, db_obj) = self._db_conn.object_read(
                 obj_type, [obj_id], obj_fields, ret_readonly=ret_readonly)
         except NoIdError as e:
             # if NoIdError is for obj itself (as opposed to say for parent
@@ -110,7 +110,7 @@ class DeviceJobManager(object):
 
             return (False, str(e))
 
-        return (ok, cassandra_result[0])
+        return (ok, db_obj[0])
     # end db_read
 
     def is_max_job_threshold_reached(self):
