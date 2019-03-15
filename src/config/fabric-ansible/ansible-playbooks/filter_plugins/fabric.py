@@ -1274,14 +1274,14 @@ class FilterModule(object):
         """
         device_obj = None
         try:
+            device_obj_fields = ['physical_interfaces', 'display_name',
+                                 'bgp_router_refs']
             if device_uuid:
                 device_obj = vnc_api.physical_router_read(
-                    id=device_uuid, fields=['physical_interfaces', 'display_name']
-                )
+                    id=device_uuid, fields=device_obj_fields)
             elif device_fq_name:
                 device_obj = vnc_api.physical_router_read(
-                    fq_name=device_fq_name, fields=['physical_interfaces', 'display_name']
-                )
+                    fq_name=device_fq_name, fields=device_obj_fields)
         except NoIdError:
             _task_done(
                 'Deleting device %s ... device not found'
