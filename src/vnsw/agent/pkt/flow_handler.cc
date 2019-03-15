@@ -120,6 +120,7 @@ bool FlowHandler::Run() {
         pkt_info_->dport = fe->key().dst_port;
         pkt_info_->tcp_ack = fe->is_flags_set(FlowEntry::TcpAckFlow);
         pkt_info_->vrf = fe->data().vrf;
+        pkt_info_->ttl = fe->data().ttl;
         info.l3_flow = fe->l3_flow();
         info.out_component_nh_idx = fe->data().component_nh_idx;
     }

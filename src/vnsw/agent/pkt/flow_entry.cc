@@ -676,7 +676,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     if (ctrl->rt_ != NULL) {
         RpfInit(ctrl->rt_, pkt->ip_saddr);
     }
-
+    data_.ttl = info->ttl;
     if (info->bgp_router_service_flow) {
         if (info->ttl == 1) {
             data_.ttl = BGP_SERVICE_TTL_FWD_FLOW;
@@ -766,7 +766,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
 
     if (info->bgp_router_service_flow) {
-        if (info->ttl == 1) {
+        if ((info->ttl == 1)|| (info->ttl == BGP_SERVICE_TTL_FWD_FLOW)) {
             data_.ttl = BGP_SERVICE_TTL_REV_FLOW;
         }
     }
