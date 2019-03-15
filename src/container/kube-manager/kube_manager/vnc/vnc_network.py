@@ -180,7 +180,7 @@ class VncNetwork(VncCommon):
 
         # Cache ipam info.
         ni_obj = self._vnc_lib.network_ipam_read(id=ipam_uuid)
-        NetworkIpamKM.locate(ipam_uuid, ni_obj.__dict__)
+        NetworkIpamKM.locate(ipam_uuid, ni_obj.list_vnc_obj())
 
         return ipam_update, ipam_obj, ipam_subnets
 
@@ -257,7 +257,7 @@ class VncNetwork(VncCommon):
 
         vn_obj = self._vnc_lib.virtual_network_read(
             fq_name=vn_obj.get_fq_name())
-        VirtualNetworkKM.locate(vn_obj.uuid, vn_obj.__dict__)
+        VirtualNetworkKM.locate(vn_obj.uuid, vn_obj.list_vnc_obj())
 
         return vn_obj
 

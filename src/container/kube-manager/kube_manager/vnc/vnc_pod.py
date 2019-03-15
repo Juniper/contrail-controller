@@ -222,7 +222,7 @@ class VncPod(VncCommon):
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
         iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
-        InstanceIpKM.locate(iip_obj.uuid, iip_obj.__dict__)
+        InstanceIpKM.locate(iip_obj.uuid, iip_obj.list_vnc_obj())
         return iip_obj
 
     def _get_host_vmi(self, pod_name):
@@ -282,7 +282,7 @@ class VncPod(VncCommon):
             vmi_uuid = self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
-        VirtualMachineInterfaceKM.locate(vmi_uuid, vmi_obj.__dict__)
+        VirtualMachineInterfaceKM.locate(vmi_uuid, vmi_obj.list_vnc_obj())
         return vmi_uuid
 
     def _create_vm(self, pod_namespace, pod_id, pod_name, labels):
@@ -300,7 +300,7 @@ class VncPod(VncCommon):
         except RefsExistError:
             pass
         vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
-        VirtualMachineKM.locate(vm_obj.uuid, vm_obj.__dict__)
+        VirtualMachineKM.locate(vm_obj.uuid, vm_obj.list_vnc_obj())
         return vm_obj
 
     def _link_vm_to_node(self, vm_obj, pod_node, node_ip):
@@ -570,7 +570,7 @@ class VncPod(VncCommon):
                 self._vnc_lib.ref_update('floating-ip', fip_id,
                                          'virtual-machine-interface', vmi_id, None,
                                          'DELETE')
-                FloatingIpKM.update(fip_id)
+                FloatingIpKM(fip_id)  # update FloatingIpKM in cache
             except NoIdError:
                 pass
 

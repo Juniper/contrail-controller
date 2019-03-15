@@ -79,7 +79,7 @@ class FWRule(object):
                 pass
             pm_obj = cls.vnc_lib.policy_management_read(
                 fq_name=pm_obj.get_fq_name())
-            PolicyManagementKM.locate(pm_obj.get_uuid(), pm_obj.__dict__)
+            PolicyManagementKM.locate(pm_obj.get_uuid(), pm_obj.list_vnc_obj())
         else:
             pm_obj = parent_obj
 
@@ -99,7 +99,7 @@ class FWRule(object):
 
         # Update application policy set in our cache.
         addr_grp_obj = cls.vnc_lib.address_group_read(id=addr_grp_uuid)
-        AddressGroupKM.locate(addr_grp_uuid, addr_grp_obj.__dict__)
+        AddressGroupKM.locate(addr_grp_uuid, addr_grp_obj.list_vnc_obj())
 
         return addr_grp_obj
 
@@ -467,7 +467,7 @@ class VncSecurityPolicy(VncCommon):
                 pass
             pm_obj = cls.vnc_lib.policy_management_read(
                 fq_name=pm_obj.get_fq_name())
-            PolicyManagementKM.locate(pm_obj.get_uuid(), pm_obj.__dict__)
+            PolicyManagementKM.locate(pm_obj.get_uuid(), pm_obj.list_vnc_obj())
         else:
             pm_obj = parent_obj
 
@@ -480,7 +480,7 @@ class VncSecurityPolicy(VncCommon):
 
         # Update application policy set in our cache.
         aps_obj = cls.vnc_lib.application_policy_set_read(id=aps_uuid)
-        ApplicationPolicySetKM.locate(aps_uuid, aps_obj.__dict__)
+        ApplicationPolicySetKM.locate(aps_uuid, aps_obj.list_vnc_obj())
         cls.cluster_aps_uuid = aps_uuid
         return aps_uuid
 
@@ -597,7 +597,7 @@ class VncSecurityPolicy(VncCommon):
 
 
             rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-            FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+            FirewallRuleKM.locate(rule_uuid, rule_obj.list_vnc_obj())
 
             fw_policy_obj.add_firewall_rule(rule_obj,
                 cls.construct_sequence_number(fw_rules.index(rule)))
@@ -632,7 +632,7 @@ class VncSecurityPolicy(VncCommon):
             fw_policy_uuid = fw_policy_obj.get_uuid()
 
         fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
-        FirewallPolicyKM.locate(fw_policy_uuid, fw_policy_obj.__dict__)
+        FirewallPolicyKM.locate(fw_policy_uuid, fw_policy_obj.list_vnc_obj())
 
         return fw_policy_uuid
 
@@ -738,7 +738,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, rule_obj.list_vnc_obj())
 
         return rule_uuid
 
@@ -783,7 +783,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         fw_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, fw_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, fw_obj.list_vnc_obj())
 
         return rule_uuid
 
@@ -832,7 +832,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, rule_obj.list_vnc_obj())
 
         return rule_uuid
 

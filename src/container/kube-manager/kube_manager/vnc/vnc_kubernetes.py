@@ -264,7 +264,7 @@ class VncKubernetes(VncCommon):
             self.vnc_lib.network_policy_create(policy)
 
         np_obj = self.vnc_lib.network_policy_read(fq_name=policy.get_fq_name())
-        NetworkPolicyKM.locate(np_obj.uuid, np_obj.__dict__)
+        NetworkPolicyKM.locate(np_obj.uuid, np_obj.list_vnc_obj())
         return policy_obj
 
     def _create_np_vn_policy(self, policy_name, proj_obj, dst_vn_obj):
@@ -287,7 +287,7 @@ class VncKubernetes(VncCommon):
             self.vnc_lib.network_policy_create(policy)
 
         np_obj = self.vnc_lib.network_policy_read(fq_name=policy.get_fq_name())
-        NetworkPolicyKM.locate(np_obj.uuid, np_obj.__dict__)
+        NetworkPolicyKM.locate(np_obj.uuid, np_obj.list_vnc_obj())
         return policy_obj
 
     def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj,
@@ -326,7 +326,7 @@ class VncKubernetes(VncCommon):
         except RefsExistError:
             proj_obj = self.vnc_lib.project_read(
                 fq_name=proj_fq_name)
-        ProjectKM.locate(proj_obj.uuid, proj_obj.__dict__)
+        ProjectKM.locate(proj_obj.uuid, proj_obj.list_vnc_obj())
         return proj_obj
 
     def _create_ipam(self, ipam_name, subnets, proj_obj,
@@ -360,7 +360,7 @@ class VncKubernetes(VncCommon):
 
         # Cache ipam info.
         ni_obj = self.vnc_lib.network_ipam_read(id=ipam_uuid)
-        NetworkIpamKM.locate(ipam_uuid, ni_obj.__dict__)
+        NetworkIpamKM.locate(ipam_uuid, ni_obj.list_vnc_obj())
 
         return ipam_update, ipam_obj, ipam_subnets
 

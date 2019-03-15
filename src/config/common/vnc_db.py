@@ -74,9 +74,7 @@ class DBBase(object):
     def locate(cls, key, *args):
         if key not in cls._dict:
             try:
-                obj = cls(key, *args)
-                cls._dict[key] = obj
-                return obj
+                cls._dict[key] = cls(key, *args)
             except NoIdError as e:
                 cls._logger.debug(
                     "Exception %s while creating %s for %s" %

@@ -145,7 +145,7 @@ class VncIngress(VncCommon):
         if fip_pool_fq_name is None:
             ns = self._get_namespace(ns_name)
             fip_pool_fq_name = ns.get_annotated_ns_fip_pool_fq_name()
-        if fip_pool_fq_name is None: 
+        if fip_pool_fq_name is None:
             if not vnc_kube_config.is_public_fip_pool_configured():
                 return None
             try:
@@ -181,7 +181,7 @@ class VncIngress(VncCommon):
         try:
             self._vnc_lib.floating_ip_create(fip_obj)
             fip_obj = self._vnc_lib.floating_ip_read(id=fip_obj.uuid)
-            fip = FloatingIpKM.locate(fip_obj.uuid, fip_obj.__dict__)
+            fip = FloatingIpKM.locate(fip_obj.uuid, fip_obj.list_vnc_obj())
         except Exception as e:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
@@ -224,7 +224,7 @@ class VncIngress(VncCommon):
                 KeyValuePair(key='externalIP', value=external_ip))
             self._vnc_lib.loadbalancer_update(lb_obj)
             lb_obj = self._vnc_lib.loadbalancer_read(id=lb_obj.get_uuid())
-            LoadbalancerKM.locate(lb_obj.get_uuid(), lb_obj.__dict__)
+            LoadbalancerKM.locate(lb_obj.get_uuid(), lb_obj.list_vnc_obj())
         return fip
 
     def _update_kube_api_server(self, name, ns_name, lb_obj, fip):
