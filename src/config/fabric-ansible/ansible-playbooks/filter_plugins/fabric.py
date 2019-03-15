@@ -2042,15 +2042,20 @@ class FilterModule(object):
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
+        gsc_obj = vnc_api.global_system_config_read(
+            fq_name=[GSC]
+        )
+        global_asn = gsc_obj.autonomous_system
         try:
             ibgp_asn_namespace_obj = vnc_api.fabric_namespace_read(fq_name=[
                 'default-global-system-config', fabric_name, 'overlay_ibgp_asn'
             ])
-            return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
+            overlay_ibgp_asn = ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
+            if overlay_ibgp_asn != global_asn:
+                gsc_obj.set_autonomous_system(overlay_ibgp_asn)
+                vnc_api.global_system_config_update(gsc_obj)
+            return overlay_ibgp_asn
         except NoIdError:
-            gsc_obj = vnc_api.global_system_config_read(
-                fq_name=[GSC]
-            )
             return gsc_obj.autonomous_system
     # end _get_ibgp_asn
 
