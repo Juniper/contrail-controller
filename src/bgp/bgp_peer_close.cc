@@ -418,7 +418,7 @@ bool BgpPeerClose::SetGRCapabilities(BgpPeerInfoData *peer_info) {
         peer_info->set_long_lived_graceful_restart_time(
                 GetLongLivedGracefulRestartTime());
         assert(!peer_info->get_name().empty());
-        BGPPeerInfo::Send(*peer_info);
+        BGP_UVE_SEND(BGPPeerInfo, *peer_info);
     }
 
     // If we are not in GR Timer waiting state, then there is no case to abort
