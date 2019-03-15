@@ -832,7 +832,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, rule_obj.list_vnc_obj())
 
         return rule_uuid
 
