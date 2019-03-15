@@ -807,13 +807,13 @@ void EvpnManagerPartition::AddMcastNode(EvpnMcastNode *node, EvpnRoute *rt) {
 bool EvpnManagerPartition::RemoveMcastNodeFromList(EvpnState::SG &sg,
                                                    EvpnMcastNode *node,
                                                    EvpnMcastNodeList *list) {
+    size_t deleted = 0;
     if (list->count(sg)) {
-        if ((*list)[sg].size() == 1)
-            return list->erase(sg);
-        else
-            return (*list)[sg].erase(node);
+        deleted = (*list)[sg].erase(node);
+        if ((*list)[sg].size() == 0)
+            list->erase(sg);
     }
-    return false;
+    return (deleted > 0);
 }
 
 //
