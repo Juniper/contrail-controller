@@ -363,6 +363,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("global-system-config",
          list_of("global-system-config-global-vrouter-config")
                 ("global-system-config-global-qos-config")
+                ("global-system-config-bgp-router")
                 ("qos-config-global-system-config"))
         ("provider-attachment", std::set<std::string>())
         ("service-instance", list_of("service-instance-service-template")
@@ -434,7 +435,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                                   ("logical-router-interface"))
         ("virtual-network-network-ipam", list_of("virtual-network-network-ipam"))
         ("access-control-list", std::set<std::string>())
-        ("routing-instance", list_of("instance-bgp-router"))
+        ("routing-instance", std::set<std::string>())
         ("namespace", std::set<std::string>())
         ("virtual-DNS", list_of("virtual-DNS-virtual-DNS-record"))
         ("network-ipam", list_of("network-ipam-virtual-DNS"))

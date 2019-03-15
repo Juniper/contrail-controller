@@ -132,7 +132,9 @@ class BgpProvisioner(object):
         except RefsExistError as e:
             print ("BGP Router " + pformat(bgp_router_fq_name) +
                    " already exists " + str(e))
-            cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
+            cur_obj = vnc_lib.bgp_router_read(
+                    fq_name=bgp_router_fq_name,
+                    fields=['global_system_config_back_refs'])
             changed = False
             if cur_obj.bgp_router_parameters != router_params:
                 cur_obj.set_bgp_router_parameters(router_params)
@@ -148,6 +150,14 @@ class BgpProvisioner(object):
                 changed = True
             if changed:
                 vnc_lib.bgp_router_update(cur_obj)
+            bgp_router_obj = cur_obj
+
+        if (router_type == 'control-node' and
+                not bgp_router_obj.global_system_config_back_refs):
+            gsc_obj = vnc_lib.global_system_config_read(
+                        fq_name=['default-global-system-config'])
+            gsc_obj.add_bgp_router(bgp_router_obj)
+            vnc_lib.global_system_config_update(gsc_obj)
 
     # end add_bgp_router
 
