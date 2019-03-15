@@ -35,8 +35,8 @@ class KombuAmqpClient(object):
         self._connection_lock = Semaphore()
         self._consumer_event = Event()
         self._publisher_queue = Queue()
-        self._connection = kombu.Connection(urls, ssl=ssl_params,
-                                            heartbeat=heartbeat)
+        self._connection = kombu.Connection(
+            urls, ssl=ssl_params, heartbeat=heartbeat)
         self._connected = False
         self._channel = None
         self._producer = None
@@ -227,9 +227,12 @@ class KombuAmqpClient(object):
 
     @staticmethod
     def _config_defaults(config):
-        if 'transport' not in config:
+        if 'ha_mode' not in config or config['ha_mode'] is None:
+            config['ha_mode'] = False
+        if 'transport' not in config or config['transport'] is None:
             config['transport'] = 'pyamqp'
         return config
+    # end _config_defaults
 
     @staticmethod
     def _parse_servers(servers, config):
@@ -244,8 +247,11 @@ class KombuAmqpClient(object):
                 for key in required_keys:
                     if key not in host or host[key] is None:
                         host[key] = config[key]
-                url = "%(transport)s://%(user)s:%(password)s@%(host)s" + \
-                    ":%(port)s/%(vhost)s" % host
+                if host['user'] is not None and host['password'] is not None:
+                    url = "%(transport)s://%(user)s:%(password)s@%(host)s" + \
+                        ":%(port)s/%(vhost)s" % host
+                else:
+                    url = "%(transport)s://%(host)s:%(port)s/%(vhost)s" % host
                 urls.append(url)
         return urls
     # end _parse_servers

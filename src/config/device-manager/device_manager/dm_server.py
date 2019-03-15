@@ -53,7 +53,7 @@ def initialize_amqp_client(logger, args):
             kombu_cfg.user = args.etcd_user
             kombu_cfg.password = args.etcd_password
             # 'vhost' is used as etcd prefix
-            kombu_cfg.vhost = args.etcd_kv_store + '/device-manager/kombu'
+            kombu_cfg.vhost = (args.etcd_kv_store + '/device-manager/kombu').lstrip('/')
             kombu_cfg.use_ssl = args.etcd_use_ssl
         else:
             kombu_cfg.servers = args.rabbit_server
@@ -182,7 +182,6 @@ def main(args_str=None):
         host_ip = socket.gethostbyname(socket.getfqdn())
 
     _amqp_client = initialize_amqp_client(dm_logger, args)
-    # _amqp_client = dm_amqp_factory(dm_logger, {}, args)
     _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
                                         args.zk_server_ip, host_ip)
     if use_etcd(args, 'db_driver'):
@@ -221,6 +220,7 @@ def server_main():
     vnc_cgitb.enable(format='text')
     main()
 # end server_main
+
 
 if __name__ == '__main__':
     server_main()
