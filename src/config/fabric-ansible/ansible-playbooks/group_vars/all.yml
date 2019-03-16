@@ -207,6 +207,11 @@ role_to_feature_mapping:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
+  Route-Reflector@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_bgp
   CRB-MCAST-Gateway@leaf:
     - basic
     - underlay_ip_clos
