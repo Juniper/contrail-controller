@@ -15,6 +15,7 @@ from cfgm_common.vnc_db import DBBase
 from cfgm_common.uve.physical_router.ttypes import *
 from cfgm_common.exceptions import ResourceExistsError
 from vnc_api.vnc_api import *
+import struct
 import socket
 import gevent
 import traceback
@@ -2518,10 +2519,8 @@ class VirtualPortGroupDM(DBBaseDM):
 
     def get_esi(self):
         hash_obj = pyhash.city_64()
-        ten_byte_value = hash_obj(self.uuid) << 8
-        esi_hex = hex(ten_byte_value).replace('x', '0')[:-1]
-        esi_byte_array = re.sub('(..)', r'x\1', esi_hex)
-        self.esi = esi_byte_array[1:].replace('x', ':')
+        unpacked = struct.unpack('>8B', struct.pack('>Q', hash_obj(self.uuid)))
+        self.esi = '00:%s:00'%(':'.join('%02x' % i for i in unpacked))
 
     def build_lag_pr_map(self):
         for pi in self.physical_interfaces or []:
