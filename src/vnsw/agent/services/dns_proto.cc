@@ -3,7 +3,7 @@
  */
 
 #include <sys/types.h>
-#include "net/address_util.h"
+#include "base/address_util.h"
 #include "init/agent_init.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"

@@ -3,7 +3,7 @@
  */
 
 #include <base/task.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 
 #include <cmn/agent_cmn.h>
 #include <kstate/kstate.h>

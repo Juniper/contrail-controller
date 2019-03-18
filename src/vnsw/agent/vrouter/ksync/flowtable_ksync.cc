@@ -17,7 +17,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <cmn/agent_cmn.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>

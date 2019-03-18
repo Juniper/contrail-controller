@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
-#include "base/os.h"
-#include <net/address_util.h>
+#include <base/os.h>
+#include <base/address_util.h>
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
 #include "pkt/flow_table.h"

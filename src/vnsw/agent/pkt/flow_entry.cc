@@ -13,7 +13,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/unordered_map.hpp>
 #include <sandesh/sandesh_trace.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <pkt/flow_table.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
@@ -2302,7 +2302,7 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
     //     and sp->m_out_acl_l will be populated. Pick the
     //     UUID specified by acl_info for flow's SG rule UUID
     // For TCP-ACK flows
-    //     ALLOW if either ((policy.action && out_action) || 
+    //     ALLOW if either ((policy.action && out_action) ||
     //                      (policy.reverse_action & policy.reverse_out_action))
     //                      ALLOW
     //     For flow's SG rule UUID use the following rules

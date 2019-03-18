@@ -16,7 +16,7 @@
 #include <boost/bind.hpp>
 
 #include <base/logging.h>
-#include <net/address_util.h>
+#include <base/address_util.h>
 #include <db/db.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>
