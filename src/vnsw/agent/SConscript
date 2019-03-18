@@ -159,6 +159,7 @@ if platform.system() == 'Windows':
     env.Prepend(LIBS = [
         'gdi32',
         'iphlpapi',
+        'user32',
     ])
 else:
     env.Prepend(LIBS = 'rt')
