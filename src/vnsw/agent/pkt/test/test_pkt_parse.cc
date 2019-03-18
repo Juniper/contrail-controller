@@ -834,12 +834,9 @@ TEST_F(PktParseTest, UnicastControlWord) {
 }
 
 TEST_F(PktParseTest, MulticastControlWord) {
-    Agent *agent = Agent::GetInstance();
-    //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
-    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
-            oper_db()->multicast());
+    agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(
+        agent_->oper_db()->multicast());
 
     Ip4Address sip(0);
     Ip4Address broadcast(0xFFFFFFFF);
@@ -865,16 +862,11 @@ TEST_F(PktParseTest, MulticastControlWord) {
     pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x800);
     pkt->AddIpHdr("10.10.10.10", "10.10.10.11", 1);
 
-    PktInfo pkt_info(Agent::GetInstance(), 200,
-                     PktHandler::MAC_LEARNING, 0);
+    PktInfo pkt_info(agent_, 200, PktHandler::MAC_LEARNING, 0);
     TestPkt(&pkt_info, pkt.get());
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "10.10.10.11",
                                 1, 0, 0));
-
-    DeleteBgpPeer(bgp_peer_ptr);
-    client->WaitForIdle();
-    client->WaitForIdle();
 }
 
 // Validate that hash changes when vhost-ip changes
