@@ -37,7 +37,7 @@ libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
                     'ifmap', 'net', 'net'])
 
-env.Append(LIBPATH=libs)
+env.Append(LIBPATH=list(libs))
 
 ksync_test = env.Program('ksync_test', ['ksync_test.cc'])
 env.Alias('src/ksync:ksync_test', ksync_test)
