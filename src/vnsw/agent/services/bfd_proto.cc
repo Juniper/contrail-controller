@@ -142,16 +142,31 @@ void BfdProto::NotifyHealthCheckInstanceService(uint32_t interface,
     }
     it->second->OnRead(data);
 
+    // log the BFD up/down event
     std::string str("BFD session ");
     if (data.find("success") != std::string::npos) {
-        str+= "Up";
+        str += "Up,";
     }
     if (data.find("failure") != std::string::npos) {
-        str+= "Down";
+        str += "Down,";
     }
-    str += " interface: " + it->second->interface()->name();
-    str += " vrf: "+ it->second->interface()->vrf()->GetName();
+    if (it->second->service()) {
+        str += " service-health-check: " + it->second->service()->name();
+    } else {
+        str += " service: null";
+    }
+    if (it->second->interface()) {
+        str += " interface: " + it->second->interface()->name();
+        if (it->second->interface()->vrf()) {
+            str += " vrf: " + it->second->interface()->vrf()->GetName();
+        } else {
+            str += " vrf: null";
+        }
+    } else {
+        str += " interface: null";
+    }
     LOG(WARN, "SYS_NOTICE " << str);
+
 }
 
 void BfdProto::BfdCommunicator::SendPacket(
