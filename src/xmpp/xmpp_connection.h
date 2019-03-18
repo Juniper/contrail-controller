@@ -12,7 +12,7 @@
 
 #include "base/timer.h"
 #include "base/lifetime.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "xmpp/xmpp_channel_mux.h"
 #include "xmpp/xmpp_state_machine.h"
 #include "xmpp/xmpp_session.h"

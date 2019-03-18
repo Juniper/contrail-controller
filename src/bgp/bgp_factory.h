@@ -10,7 +10,7 @@
 #include <string>
 
 #include "base/factory.h"
-#include "net/address.h"
+#include "base/address.h"
 
 class BgpConfigListener;
 class BgpConfigManager;

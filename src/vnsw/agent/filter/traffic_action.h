@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 #include <base/util.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/nil_generator.hpp>

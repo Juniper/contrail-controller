@@ -13,7 +13,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <io/event_manager.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <base/task.h>
 #include <base/logging.h>
 #include <base/timer.h>
@@ -272,7 +272,7 @@ private:
                                 reverse_flow_info.set_sampled_bytes(reverse_pkts *
                                     mgen_->dBytesPerPacket(mgen_->rgen_));
                                 sess_agg_info.set_sampled_forward_pkts(
-                                    sess_agg_info.get_sampled_forward_pkts() + 
+                                    sess_agg_info.get_sampled_forward_pkts() +
                                     forward_pkts);
                                 sess_agg_info.set_sampled_forward_bytes(
                                     sess_agg_info.get_sampled_forward_bytes() +

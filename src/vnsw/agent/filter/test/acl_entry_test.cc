@@ -3,6 +3,7 @@
  */
 
 #include "base/logging.h"
+#include "base/address.h"
 #include "testing/gunit.h"
 
 #include "filter/acl_entry.h"
@@ -11,8 +12,6 @@
 #include "filter/traffic_action.h"
 #include "filter/acl.h"
 #include "oper/mirror_table.h"
-
-#include "net/address.h"
 
 void RouterIdDepInit(Agent *agent) {
 }

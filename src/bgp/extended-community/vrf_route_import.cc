@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-#include "net/address.h"
+#include "base/address.h"
 
 using std::copy;
 using std::string;
@@ -120,4 +120,3 @@ VrfRouteImport VrfRouteImport::FromString(const string &str,
     copy(&data[0], &data[VrfRouteImport::kSize], rt_import.data_.begin());
     return rt_import;
 }
-

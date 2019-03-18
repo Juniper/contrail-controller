@@ -17,10 +17,10 @@
 
 #include "base/lifetime.h"
 #include "base/util.h"
+#include "base/address.h"
 #include "bgp/bgp_condition_listener.h"
 #include "db/db_entry.h"
 #include "db/db_table.h"
-#include "net/address.h"
 
 class BgpAttr;
 class BgpPath;

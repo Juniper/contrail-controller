@@ -8,10 +8,10 @@
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
 
-#include "net/address.h"
-
 #include <set>
 #include <string>
+
+#include <base/address.h>
 
 class RouteTarget {
 public:

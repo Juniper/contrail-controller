@@ -12,7 +12,7 @@
 
 #include "base/parse_object.h"
 #include "bgp/extended-community/types.h"
-#include "net/address.h"
+#include "base/address.h"
 
 class VrfRouteImport {
 public:

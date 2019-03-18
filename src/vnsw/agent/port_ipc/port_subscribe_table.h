@@ -12,9 +12,10 @@
 #include <string>
 #include <boost/uuid/uuid.hpp>
 #include <boost/shared_ptr.hpp>
+
 #include <base/util.h>
+#include <base/address.h>
 #include <tbb/mutex.h>
-#include <net/address.h>
 #include <db/db_table.h>
 #include <db/db_entry.h>
 #include <vnc_cfg_types.h>

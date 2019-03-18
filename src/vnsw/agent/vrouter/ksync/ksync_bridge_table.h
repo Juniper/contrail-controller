@@ -12,7 +12,7 @@ class vr_bridge_entry;
  * Module responsible to manage the VRouter memory mapped to agent
  */
 #include <list>
-#include <net/address.h>
+#include <base/address.h>
 #include <vrouter/ksync/ksync_memory.h>
 
 class KSyncBridgeMemory : public KSyncMemory {

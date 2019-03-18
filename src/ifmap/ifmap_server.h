@@ -14,7 +14,7 @@
 
 #include "base/bitset.h"
 #include "base/timer.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "base/queue_task.h"
 #include "config-client-mgr/config_client_manager.h"
 

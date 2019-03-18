@@ -12,7 +12,7 @@
 #include <tbb/mutex.h>
 #include <tbb/recursive_mutex.h>
 #include <base/util.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <db/db_table_walker.h>
 #include <cmn/agent_cmn.h>
 #include <oper/mirror_table.h>

@@ -14,10 +14,10 @@
 #include <boost/scoped_ptr.hpp>
 
 #include "base/lifetime.h"
+#include "base/address.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_table.h"
 #include "db/db_entry.h"
-#include "net/address.h"
 
 class BgpPath;
 class BgpRoute;

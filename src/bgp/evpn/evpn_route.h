@@ -13,7 +13,7 @@
 #include "bgp/bgp_route.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "net/bgp_af.h"
 #include "net/esi.h"
 #include "net/mac_address.h"

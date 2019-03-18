@@ -8,7 +8,7 @@
 #include <string>
 #include <rapidjson/document.h>
 #include <base/timer.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <port_ipc/config_stale_cleaner.h>
 #include <vgw/cfg_vgw.h>
 

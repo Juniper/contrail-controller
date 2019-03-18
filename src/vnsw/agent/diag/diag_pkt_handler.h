@@ -6,7 +6,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <base/logging.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <base/timer.h>
 
 #include <cmn/agent_cmn.h>

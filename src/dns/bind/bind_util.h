@@ -14,7 +14,7 @@
 #include "bind/bind_types.h"
 #include "bind/xmpp_dns_agent.h"
 
-#include "net/address.h"
+#include "base/address.h"
 #include "base/address_util.h"
 
 extern SandeshTraceBufferPtr DnsBindTraceBuf;

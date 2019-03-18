@@ -10,7 +10,7 @@
 
 #include <io/event_manager.h>
 #include <base/logging.h>
-#include <net/address.h>
+#include <base/address.h>
 #include <db/db.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>

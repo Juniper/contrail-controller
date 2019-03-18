@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <net/address.h>
 #include <unistd.h>
 
 #include <boost/intrusive_ptr.hpp>
@@ -27,6 +26,7 @@
 #include <db/db_table_partition.h>
 #include <db/db_table_walker.h>
 
+#include <base/address.h>
 #include <base/logging.h>
 #include <base/task.h>
 #include <base/task_trigger.h>

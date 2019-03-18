@@ -17,7 +17,7 @@
 #include "oper/service_instance.h"
 #include "oper/instance_task.h"
 #include "oper/interface_common.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "base/logging.h"
 
 using pugi::xml_document;

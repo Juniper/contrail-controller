@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-#include "net/address.h"
+#include "base/address.h"
 
 using std::copy;
 using std::string;
@@ -129,4 +129,3 @@ SourceAs SourceAs::FromString(const string &str,
     copy(&data[0], &data[SourceAs::kSize], sas.data_.begin());
     return sas;
 }
-

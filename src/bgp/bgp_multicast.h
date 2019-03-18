@@ -14,9 +14,9 @@
 #include "base/label_block.h"
 #include "base/lifetime.h"
 #include "base/queue_task.h"
+#include "base/address.h"
 #include "bgp/bgp_ribout.h"
 #include "db/db_entry.h"
-#include "net/address.h"
 #include "net/rd.h"
 
 class BgpOListSpec;

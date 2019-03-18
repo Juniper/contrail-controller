@@ -10,11 +10,11 @@
 #include <tbb/mutex.h>
 
 #include "base/logging.h"
+#include "base/address.h"
 #include "db/db.h"
 #include "db/db_entry.h"
 #include "db/db_table.h"
 #include "ifmap/ifmap_node.h"
-#include "net/address.h"
 
 #include <init/agent_param.h>
 #include <cfg/cfg_init.h>

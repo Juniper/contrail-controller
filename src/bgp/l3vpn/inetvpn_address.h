@@ -10,7 +10,7 @@
 #include <string>
 
 #include "bgp/bgp_attr.h"
-#include "net/address.h"
+#include "base/address.h"
 #include "net/rd.h"
 
 class BgpServer;
