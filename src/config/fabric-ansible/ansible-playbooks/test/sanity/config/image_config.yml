@@ -58,3 +58,6 @@ advanced_params:
     active_route_count_check: True
     l2_total_mac_count_check: True
     storm_control_flag_check: True
+    lacp:
+      lacp_down_local_check: True
+      lacp_down_peer_check: True

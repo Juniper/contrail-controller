@@ -13,15 +13,14 @@ import sys
 import traceback
 import argparse
 import copy
-from job_manager.job_utils import JobAnnotations
 from datetime import timedelta
 
-from job_manager.job_utils import JobVncApi
+from job_manager.job_utils import JobAnnotations, JobVncApi
 
-#import sys
 #sys.path.append("..")
-#from test_hitless_filters import VncApi, mock_job_ctx, \
-#    mock_image_upgrade_list,mock_upgrade_plan,JobAnnotations
+#from test_hitless_filters import JobVncApi, mock_job_ctx, \
+#    mock_image_upgrade_list,mock_upgrade_plan,JobAnnotations, \
+#    FilterLog, _task_error_log
 
 ordered_role_groups = [
     ["leaf"],
@@ -122,7 +121,7 @@ class FilterModule(object):
         self.device_table, self.skipped_device_table = \
             self._generate_device_table()
         self.role_device_groups = self._generate_role_device_groups()
-        self.lag_table = self._generate_lag_table()
+        self.vpg_table = self._generate_vpg_table()
         self._generate_buddy_lists()
         self.batches = self._generate_batches()
         self.report = self._generate_report()
@@ -135,7 +134,7 @@ class FilterModule(object):
             'device_count': len(self.device_table),
             'skipped_device_table': self.skipped_device_table,
             'role_device_groups': self.role_device_groups,
-            'lag_table': self.lag_table,
+            'vpg_table': self.vpg_table,
             'batches': self.batches,
             'report': self.report,
             'results': self.results,
@@ -182,7 +181,7 @@ class FilterModule(object):
                     'role': self._determine_role(
                         device_obj.physical_router_role, rb_roles),
                     'err_msgs': [],
-                    'lag_info': {"lag_list": [], "buddies": []},
+                    'vpg_info': {"vpg_list": [], "buddies": []},
                 }
                 skip, reason = self._check_skip_device_upgrade(device_info)
                 if skip:
@@ -206,49 +205,78 @@ class FilterModule(object):
         return role_device_groups
     # end _generate_role_device_groups
 
-    # generate a table keyed by link aggregation group uuid containing member
+    # generate a table keyed by virtual port group uuid containing member
     # devices and their physical interfaces
-    def _generate_lag_table(self):
-        lag_table = {}
-        lag_refs = self.vncapi.link_aggregation_groups_list \
+    def _generate_vpg_table(self):
+        vpg_table = {}
+        vpg_refs = self.vncapi.virtual_port_groups_list \
             (parent_id=self.fabric_uuid).\
-            get('link-aggregation-groups', [])
-        for lag_ref in lag_refs:
-            lag_uuid = lag_ref.get('uuid')
-            lag_table[lag_uuid] = {"device_table": {}}
-            lag_dev_table = lag_table[lag_uuid]['device_table']
-            lag_obj = self.vncapi.link_aggregation_group_read(id=lag_uuid)
-            lag_table[lag_uuid]['name'] = lag_obj.display_name
-            pi_refs = lag_obj.get_physical_interface_refs() or []
+            get('virtual-port-groups', [])
+        for vpg_ref in vpg_refs:
+            vpg_uuid = vpg_ref.get('uuid')
+            vpg_table[vpg_uuid] = {"device_table": {}}
+            vpg_dev_table = vpg_table[vpg_uuid]['device_table']
+            vpg_obj = self.vncapi.virtual_port_group_read(id=vpg_uuid)
+            vpg_table[vpg_uuid]['name'] = vpg_obj.fq_name[2]
+            pi_refs = vpg_obj.get_physical_interface_refs() or []
             for pi_ref in pi_refs:
                 pi_uuid = pi_ref.get('uuid')
                 pi_obj = self.vncapi.physical_interface_read(id=pi_uuid)
                 device_uuid = pi_obj.parent_uuid
-                if device_uuid not in lag_dev_table:
-                    lag_dev_table[device_uuid] = []
+                if device_uuid not in vpg_dev_table:
+                    vpg_dev_table[device_uuid] = []
                     # If this is one of the devices to upgrade, append this
-                    # LAG to the lag_list for use later
+                    # vpg to the vpg_list for use later
                     if device_uuid in self.device_table:
                         device_info = self.device_table[device_uuid]
-                        device_info['lag_info']['lag_list'].append(lag_uuid)
+                        device_info['vpg_info']['vpg_list'].append(vpg_uuid)
                 pi_entry = {"fq_name": pi_obj.fq_name, "uuid": pi_obj.uuid}
-                lag_dev_table[device_uuid].append(pi_entry)
-        return lag_table
-    # end _generate_lag_table
+                vpg_dev_table[device_uuid].append(pi_entry)
+        return vpg_table
+    # end _generate_vpg_table
 
     # For each device, generate a list of devices which cannot be upgraded at
     # the same time because they are multi-homed to the same BMS
     def _generate_buddy_lists(self):
         for device_uuid, device_info in self.device_table.iteritems():
-            lag_info = self.device_table[device_uuid]['lag_info']
-            for lag_uuid in lag_info['lag_list']:
-                lag_entry = self.lag_table[lag_uuid]
-                lag_dev_table = lag_entry['device_table']
-                for lag_dev_uuid, pi_list in lag_dev_table.iteritems():
-                    if lag_dev_uuid not in lag_info['buddies'] and \
-                                    lag_dev_uuid != device_uuid:
-                        lag_info['buddies'].append(lag_dev_uuid)
+            vpg_info = self.device_table[device_uuid]['vpg_info']
+            for vpg_uuid in vpg_info['vpg_list']:
+                vpg_entry = self.vpg_table[vpg_uuid]
+                vpg_dev_table = vpg_entry['device_table']
+                for vpg_dev_uuid, pi_list in vpg_dev_table.iteritems():
+                    if vpg_dev_uuid not in vpg_info['buddies'] and \
+                                    vpg_dev_uuid != device_uuid:
+                        buddy_entry = self._get_buddy_entry(vpg_dev_uuid)
+                        vpg_info['buddies'].append(buddy_entry)
     # end _generate_buddy_lists
+
+    # Create entry for peer, including ip_addr, username, password
+    def _get_buddy_entry(self, device_uuid):
+        if device_uuid in self.device_table or \
+                        device_uuid in self.skipped_device_table:
+            if device_uuid in self.device_table:
+                device_info = self.device_table[device_uuid]
+            else:
+                device_info = self.skipped_device_table[device_uuid]
+            fq_name = device_info['basic']['device_fqname']
+            mgmt_ip = device_info['basic']['device_management_ip']
+            username = device_info['basic']['device_username']
+            password = device_info['basic']['device_password']
+        else:
+            device_obj = self.vncapi.physical_router_read(id=device_uuid)
+            fq_name = device_obj.fq_name
+            mgmt_ip = device_obj.physical_router_management_ip
+            username = device_obj.physical_router_user_credentials.username
+            password = self._get_password(device_obj)
+
+        return {
+            "uuid": device_uuid,
+            "fq_name": fq_name,
+            "mgmt_ip": mgmt_ip,
+            "username": username,
+            "password": password
+        }
+    # end _get_buddy_entry
 
     # Use the ordered list of role groups and the role device groups to
     # generate sets of batches. Also prevent two or more devices from being
@@ -269,12 +297,12 @@ class FilterModule(object):
                     device_name = self.device_table[device_uuid].get('name')
                     # Try to add device into an existing batch
                     for batch in batch_load_list:
-                        buddies = self._get_lag_buddies(device_uuid)
+                        buddies = self._get_vpg_buddies(device_uuid)
                         safe = True
-                        # If this device shares a multi-homed LAG interface
+                        # If this device shares a multi-homed vpg interface
                         # with another device in this batch, try the next batch
                         for buddy in buddies:
-                            if buddy in batch['device_list']:
+                            if buddy['uuid'] in batch['device_list']:
                                 safe = False
                                 break
                         # If safe to do so, add this device to the batch
@@ -316,7 +344,7 @@ class FilterModule(object):
     def _spill_device_details(self, device_name, device_info):
         details = ""
         basic = device_info['basic']
-        lag_info = device_info['lag_info']
+        vpg_info = device_info['vpg_info']
         batch_index = device_info.get('batch_index')
         batch_name = self.batches[batch_index]['name'] \
             if batch_index != None else "N/A"
@@ -336,8 +364,8 @@ class FilterModule(object):
             "    physical role    : {}\n"\
             "    routing bridging roles: {}\n"\
             "    role             : {}\n"\
-            "    lag list         : {}\n"\
-            "    lag peers        : {}\n"\
+            "    vpg list         : {}\n"\
+            "    vpg peers        : {}\n"\
             "    batch            : {}\n"\
             "    is hitless?      : {}\n"\
             .format(
@@ -355,8 +383,8 @@ class FilterModule(object):
                 device_info.get('physical_role'),
                 device_info.get('rb_roles'),
                 device_info.get('role'),
-                lag_info.get('lag_list'),
-                lag_info.get('buddies'),
+                vpg_info.get('vpg_list'),
+                [buddy['uuid'] for buddy in vpg_info.get('buddies')],
                 batch_name,
                 basic.get('device_hitless_upgrade'),
             )
@@ -517,12 +545,12 @@ class FilterModule(object):
         return batch_info
     #end get_all_devices
 
-    # Get a list of all devices that share LAG groups with this device
-    def _get_lag_buddies(self, device_uuid):
+    # Get a list of all devices that share vpg groups with this device
+    def _get_vpg_buddies(self, device_uuid):
         device_info = self.device_table[device_uuid]
-        lag_info = device_info['lag_info']
-        return lag_info.get('buddies', [])
-    # end _get_lag_buddies
+        vpg_info = device_info['vpg_info']
+        return vpg_info.get('buddies', [])
+    # end _get_vpg_buddies
 
     # Get a single role for this device to be used in determining upgrade
     # ordering
@@ -568,7 +596,7 @@ def __main__():
 
     if parser.generate_plan:
         upgrade_plan = hitless_filter.get_hitless_upgrade_plan(mock_job_ctx,
-                        mock_image_upgrade_list)
+                        mock_image_upgrade_list, {})
         print json.dumps(upgrade_plan)
     elif parser.next_batch:
         batch = hitless_filter.get_next_batch(mock_job_ctx,
