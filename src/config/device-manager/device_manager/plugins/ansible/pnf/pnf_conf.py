@@ -280,7 +280,7 @@ class PnfConf(AnsibleRoleCommon):
                                             peer_right_intfs_ip.append(
                                                 peer_li_ip)
                                 svc_params['peer_right_li_ips'] = peer_right_intfs_ip
-                        self._logger.debug("svc params:%s" % (svc_params))
+                        self._logger.debug("PR: %s svc params: %s" %(pr.name, svc_params))
                         # Make sure all required parameters are present before creating the
                         # abstract config
                         if self.build_pnf_required_params(svc_params):
