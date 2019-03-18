@@ -446,12 +446,12 @@ class AnsibleRoleCommon(AnsibleConf):
                     unit.get_unit():
                 sg_list += lag_obj.get_attached_sgs(unit.get_unit())
 
-                for sg in sg_list or []:
-                    acls = sg.access_control_lists
-                    for acl in acls or []:
-                        acl = AccessControlListDM.get(acl)
-                        if acl and not acl.is_ingress:
-                            self.build_firewall_filters(sg, acl)
+        for sg in sg_list or []:
+            acls = sg.access_control_lists
+            for acl in acls or []:
+                acl = AccessControlListDM.get(acl)
+                if acl and not acl.is_ingress:
+                    self.build_firewall_filters(sg, acl)
 
         if interface.li_uuid:
             interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
