@@ -199,7 +199,7 @@ public:
     virtual void ToString(std::string *str);
     const boost::uuids::uuid &id() const { return id_; }
 protected:
-    bool AddIdPerms(pugi::xml_node *parent);
+    void AddIdPerms(pugi::xml_node *parent);
 private:
     boost::uuids::uuid id_;
     DISALLOW_COPY_AND_ASSIGN(AgentUtXmlConfig);

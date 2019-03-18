@@ -84,7 +84,9 @@ uint8_t AgentUtXmlPacketUtils::GetIpProto() const {
 uint8_t AgentUtXmlPacketUtils::GetTrapCode() const {
     if (trap_code_ == "flow")
         return AgentHdr::TRAP_FLOW_MISS;
+
     assert(0);
+    return AgentHdr::INVALID;
 }
 
 PktHandler::PktModuleName AgentUtXmlPacketUtils::GetPacketModule() const {
