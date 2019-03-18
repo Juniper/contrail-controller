@@ -207,4 +207,5 @@ def server_main():
 # end server_main
 
 if __name__ == '__main__':
+    s = "Dummy text"
     server_main()
