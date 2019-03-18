@@ -185,7 +185,7 @@ class DeviceManager(object):
         'virtual_network': {
             'self': ['physical_router', 'data_center_interconnect',
                      'virtual_machine_interface', 'logical_router',
-                     'fabric', 'floating_ip_pool', 'tag', 'network-ipam'],
+                     'fabric', 'floating_ip_pool', 'tag', 'network_ipam'],
             'routing_instance': ['physical_router', 'logical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
@@ -193,7 +193,7 @@ class DeviceManager(object):
             'data_center_interconnect': ['physical_router'],
             'virtual_machine_interface': ['physical_router'],
             'floating_ip_pool': ['physical_router'],
-            'network-ipam': ['tag']
+            'network_ipam': ['tag']
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network', 'port_tuple'],
@@ -256,11 +256,11 @@ class DeviceManager(object):
         },
         'tag': {
             'self': ['port'],
-            'virtual-network': ['port']
+            'virtual_network': ['port']
         },
-        'network-ipam': {
-            'self': ['virtual-network'],
-            'virtual-network': ['tag']
+        'network_ipam': {
+            'self': ['virtual_network'],
+            'virtual_network': ['tag']
         },
         'port': {
             'self': ['physical_interface'],
