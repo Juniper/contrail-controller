@@ -597,7 +597,7 @@ class VncSecurityPolicy(VncCommon):
 
 
             rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-            FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+            FirewallRuleKM.locate(rule_uuid, cls.vnc_lib.obj_to_dict(rule_obj))
 
             fw_policy_obj.add_firewall_rule(rule_obj,
                 cls.construct_sequence_number(fw_rules.index(rule)))
@@ -738,7 +738,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, cls.vnc_lib.obj_to_dict(rule_obj))
 
         return rule_uuid
 
@@ -783,7 +783,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         fw_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, fw_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, cls.vnc_lib.obj_to_dict(fw_obj))
 
         return rule_uuid
 
@@ -832,7 +832,7 @@ class VncSecurityPolicy(VncCommon):
             cls.vnc_lib.firewall_rule_update(rule)
             rule_uuid = rule.get_uuid()
         rule_obj = cls.vnc_lib.firewall_rule_read(id=rule_uuid)
-        FirewallRuleKM.locate(rule_uuid, rule_obj.__dict__)
+        FirewallRuleKM.locate(rule_uuid, cls.vnc_lib.obj_to_dict(rule_obj))
 
         return rule_uuid
 
