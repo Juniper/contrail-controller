@@ -5,7 +5,7 @@ testrepository
 mock
 bitarray
 kombu
-gevent==1.1a2
+gevent==1.1.2
 cfgm_common
 sandesh
 sandesh-common

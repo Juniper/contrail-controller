@@ -2,11 +2,10 @@ cfgm_common
 contrail-api-client
 sandesh
 sandesh-common
-gevent==1.1a2
+gevent==1.1.2
 pycassa>=1.7.2
 psutil>=0.6.0
 lxml>=2.3.3
-gevent==1.1a2
 geventhttpclient==1.0a
 netaddr>=0.7.5
 kombu
