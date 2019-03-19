@@ -20,6 +20,10 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+try:
+    from gevent.hub import ConcurrentObjectUseError
+except:
+    from gevent.exceptions import ConcurrentObjectUseError
 from cfgm_common import vnc_greenlets
 import ssl
 
@@ -143,6 +147,9 @@ class VncKombuClientBase(object):
                 self._conn.drain_events()
             except self._conn.connection_errors + self._conn.channel_errors as e:
                 self._reconnect()
+            except ConcurrentObjectUseError as e:
+                self._logger("Ignoring ConcurrentObjectUseError", level=SandeshLevel.SYS_WARN)
+                pass
     # end _connection_watch
 
     def _connection_watch_forever(self):
@@ -189,6 +196,9 @@ class VncKombuClientBase(object):
                         break
                     except self._conn.connection_errors + self._conn.channel_errors as e:
                         self._reconnect()
+                    except ConcurrentObjectUseError as e:
+                        self._logger("Ignoring ConcurrentObjectUseError", level=SandeshLevel.SYS_WARN)
+                        pass
             except Exception as e:
                 log_str = "Error in rabbitmq publisher greenlet: %s" %(str(e))
                 self._logger(log_str, level=SandeshLevel.SYS_ERR)
