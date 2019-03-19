@@ -4,13 +4,13 @@ from pprint import pformat
 from cfgm_common import _obj_serializer_all
 from cfgm_common.exceptions import NoIdError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from vnc_api.gen.resource_common import EndSystem
+from vnc_api.gen.resource_common import Node
 from vnc_api.gen.resource_common import PortGroup
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
-class EndSystemServer(ResourceMixin, EndSystem):
+class NodeServer(ResourceMixin, Node):
     @staticmethod
     def np_get_portmap(np_uuid, db_conn):
         ok, result = db_conn.dbe_read(obj_type='node-profile',
@@ -44,8 +44,8 @@ class EndSystemServer(ResourceMixin, EndSystem):
         return port_map
 
     @staticmethod
-    def endsystem_get_ports(obj_dict, db_conn):
-        ok, result = db_conn.dbe_read(obj_type='end-system',
+    def node_get_ports(obj_dict, db_conn):
+        ok, result = db_conn.dbe_read(obj_type='node',
                                       obj_id=obj_dict['uuid'],
                                       obj_fields=['ports'])
         if not ok:
@@ -54,7 +54,7 @@ class EndSystemServer(ResourceMixin, EndSystem):
         if not result.get('ports'):
             return {}
 
-        end_system_ports = {}
+        node_ports = {}
         for port in result['ports']:
             msg = ("np-node port: %s", pformat(port['uuid']))
             db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
@@ -63,25 +63,25 @@ class EndSystemServer(ResourceMixin, EndSystem):
             if not ok:
                 return None
 
-            msg = ("endsystem_get_ports: %s", pformat(result))
+            msg = ("node_get_ports: %s", pformat(result))
             db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
             port = {}
             port['uuid'] = result['uuid']
             port['fq_name'] = result['fq_name']
             port['name'] = result['fq_name'][-1]
             port['tag_ref'] = result.get('tag_refs', "")
-            end_system_ports[result['fq_name'][-1]] = port
+            node_ports[result['fq_name'][-1]] = port
 
-        return end_system_ports
+        return node_ports
 
     @staticmethod
-    def remove_tag_refs(id, db_conn, end_system_ports):
+    def remove_tag_refs(id, db_conn, node_ports):
         api_server = db_conn.get_api_server()
-        for port in end_system_ports:
-            for tag_ref in end_system_ports[port]['tag_ref']:
+        for port in node_ports:
+            for tag_ref in node_ports[port]['tag_ref']:
                 api_server.internal_request_ref_update(
                     'port',
-                    end_system_ports[port]['uuid'],
+                    node_ports[port]['uuid'],
                     'DELETE',
                     'tag',
                     tag_ref['uuid'],
@@ -121,11 +121,11 @@ class EndSystemServer(ResourceMixin, EndSystem):
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
         api_server = db_conn.get_api_server()
 
-        end_system_ports = cls.endsystem_get_ports(obj_dict, db_conn)
-        msg = ("ES-PORTS: %s", pformat(end_system_ports))
+        node_ports = cls.node_get_ports(obj_dict, db_conn)
+        msg = ("ES-PORTS: %s", pformat(node_ports))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
-        cls.remove_tag_refs(id, db_conn, end_system_ports)
-        msg = ("ES-PORTS: %s", pformat(end_system_ports))
+        cls.remove_tag_refs(id, db_conn, node_ports)
+        msg = ("ES-PORTS: %s", pformat(node_ports))
 
         if obj_dict.get('node_profile_refs'):
             msg = ("process_node_profile: %s", pformat(obj_dict))
@@ -138,7 +138,7 @@ class EndSystemServer(ResourceMixin, EndSystem):
             for port in port_map:
                 port_labels = port.get('labels')
                 port_name = port.get('name')
-                if not (port_name and end_system_ports.get(port_name)):
+                if not (port_name and node_ports.get(port_name)):
                     continue
                 db_conn.config_log("process NP " + str(port_labels),
                                    level=SandeshLevel.SYS_DEBUG)
@@ -158,16 +158,16 @@ class EndSystemServer(ResourceMixin, EndSystem):
 
                     api_server.internal_request_ref_update(
                         'port',
-                        end_system_ports[port_name]['uuid'],
+                        node_ports[port_name]['uuid'],
                         'ADD',
                         'tag',
                         port_label_uuid,
                         ['label=' + port_label])
 
-            end_system_fq_name = db_conn.uuid_to_fq_name(obj_dict['uuid'])
+            node_fq_name = db_conn.uuid_to_fq_name(obj_dict['uuid'])
             for pg in port_groups:
                 create_port_group = False
-                pg_fq_name = end_system_fq_name + [pg]
+                pg_fq_name = node_fq_name + [pg]
                 db_conn.config_log("process NP port-groups 1 " +
                                    str(pg_fq_name),
                                    level=SandeshLevel.SYS_DEBUG)
@@ -178,7 +178,7 @@ class EndSystemServer(ResourceMixin, EndSystem):
                     create_port_group = True
 
                 if create_port_group:
-                    pg_obj = PortGroup(parent_type='end-system',
+                    pg_obj = PortGroup(parent_type='node',
                                        fq_name=pg_fq_name)
                     pg_dict = json.dumps(pg_obj, default=_obj_serializer_all)
                     ok, port_group_obj = api_server.internal_request_create(
@@ -195,7 +195,7 @@ class EndSystemServer(ResourceMixin, EndSystem):
                                        level=SandeshLevel.SYS_DEBUG)
 
                 for interface in port_groups[pg]:
-                    port_fq_name = end_system_fq_name + [interface]
+                    port_fq_name = node_fq_name + [interface]
                     port_uuid = cls.db_conn.fq_name_to_uuid('port',
                                                             port_fq_name)
                     msg = ("ref_create for %s, UUID %s, fq_name %s", interface,
@@ -212,22 +212,22 @@ class EndSystemServer(ResourceMixin, EndSystem):
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                         prop_collection_updates=None, ref_update=None):
-        db_conn.config_log('EndSystemSever: post_dbe_update hit',
+        db_conn.config_log('NodeSever: post_dbe_update hit',
                            level=SandeshLevel.SYS_DEBUG)
-        msg = ("EndSystem-UPDATE: %s", pformat(obj_dict))
+        msg = ("Node-UPDATE: %s", pformat(obj_dict))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
-        ok, result = db_conn.dbe_read(obj_type='end-system',
+        ok, result = db_conn.dbe_read(obj_type='node',
                                       obj_id=obj_dict['uuid'])
-        msg = ("EndSystem-UPDATE-result: %s", pformat(result))
+        msg = ("Node-UPDATE-result: %s", pformat(result))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
         cls.process_node_profile(cls, id, fq_name, obj_dict, db_conn)
         return True, ''
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        db_conn.config_log('EndSystemSever: post_dbe_create hit',
+        db_conn.config_log('NodeSever: post_dbe_create hit',
                            level=SandeshLevel.SYS_DEBUG)
-        msg = ("EndSystem-Create: %s", pformat(obj_dict))
+        msg = ("Node-Create: %s", pformat(obj_dict))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
         cls.process_node_profile(cls, id, None, obj_dict, db_conn)
         return True, ''

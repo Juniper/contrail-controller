@@ -5,7 +5,7 @@ import logging
 import pprint
 
 from cfgm_common.exceptions import RefsExistError
-from vnc_api.gen.resource_client import EndSystem
+from vnc_api.gen.resource_client import Node
 from vnc_api.gen.resource_client import PhysicalInterface
 from vnc_api.gen.resource_client import PhysicalRouter
 from vnc_api.gen.resource_client import Port
@@ -62,16 +62,16 @@ class TestNodePort(test_case.ApiServerTestCase):
                 # logger.warn(pprint.pformat(pi_pr_obj.__dict__))
 
     def remove_node_and_port(self, node_and_port):
-        logger.warn("Removing EndSystem and Port")
+        logger.warn("Removing Node and Port")
         for node in node_and_port:
-            logger.warn("Removing EndSystem ")
+            logger.warn("Removing Node ")
             for port in node_and_port[node]:
                 logger.warn("Removing Port " + port.get('name'))
                 self.api.port_delete(fq_name=['default-global-system-config',
                                               node, port.get('name')])
                 logger.warn("PORT : " + port.get('name'))
-            self.api.end_system_delete(fq_name=['default-global-system-config',
-                                                node])
+            self.api.node_delete(fq_name=['default-global-system-config',
+                                          node])
             logger.warn("NODE: " + node)
         return
 
@@ -88,8 +88,8 @@ class TestNodePort(test_case.ApiServerTestCase):
 
     def create_node_and_port(self, node_and_port):
         for node in node_and_port:
-            node_obj = EndSystem(node, node_hostname=node)
-            self.api.end_system_create(node_obj)
+            node_obj = Node(node, node_hostname=node)
+            self.api.node_create(node_obj)
             for port in node_and_port[node]:
                 logger.warn(port['name'])
                 ll_obj = None
@@ -100,7 +100,7 @@ class TestNodePort(test_case.ApiServerTestCase):
                 bm_info = BaremetalPortInfo(address=port.get('address'),
                                             local_link_connection=ll_obj)
                 node_port_obj = Port(port.get('name'), node_obj,
-                                     port_bms_port_info=bm_info)
+                                     bms_port_info=bm_info)
                 self.api.port_create(node_port_obj)
                 logger.warn(port['name'])
 
@@ -300,15 +300,15 @@ class TestNodePort(test_case.ApiServerTestCase):
                         'sw_name': qfx1_name, 'port_id': 'xe-0/0/5'}
         node_and_port = {node_name: [port_details]}
         try:
-            node_obj = EndSystem(node_name, node_hostname=node_name)
-            self.api.end_system_create(node_obj)
+            node_obj = Node(node_name, node_hostname=node_name)
+            self.api.node_create(node_obj)
             ll_obj = LocalLinkConnection(
                 switch_info=port_details.get('sw_name'),
                 port_id=port_details.get('port_id'))
             bm_info = BaremetalPortInfo(address=port_details.get('address'),
                                         local_link_connection=ll_obj)
             node_port_obj = Port(port_details.get('name'), node_obj,
-                                 port_bms_port_info=bm_info)
+                                 bms_port_info=bm_info)
             self.api.port_create(node_port_obj)
             self.remove_qfx_and_pi(pr_and_pi)
             self.remove_node_and_port(node_and_port)
@@ -348,7 +348,7 @@ class TestNodePort(test_case.ApiServerTestCase):
                 local_link_connection=ll_obj)
             port_read_obj = self.api.port_read(
                 fq_name=['default-global-system-config', node_name, 'port1'])
-            port_read_obj.set_port_bms_port_info(bm_info)
+            port_read_obj.set_bms_port_info(bm_info)
             logger.warn('BEFORE PORT UPDATED ')
             self.api.port_update(port_read_obj)
             logger.warn('PORT UPDATED ')
@@ -409,7 +409,7 @@ class TestNodePort(test_case.ApiServerTestCase):
                 local_link_connection=ll_obj)
             port_read_obj = self.api.port_read(
                 fq_name=['default-global-system-config', node_name, 'port1'])
-            port_read_obj.set_port_bms_port_info(bm_info)
+            port_read_obj.set_bms_port_info(bm_info)
             logger.warn('BEFORE PORT UPDATED ')
             self.api.port_update(port_read_obj)
             logger.warn('PORT UPDATED ')
