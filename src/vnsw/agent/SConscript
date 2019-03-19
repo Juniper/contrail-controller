@@ -148,8 +148,6 @@ env.Prepend(LIBS = [
     'http',
     'http_parser',
     'base',
-    'thriftasio',
-    'thrift',
     'boost_filesystem',
     'boost_program_options',
     'boost_regex',
