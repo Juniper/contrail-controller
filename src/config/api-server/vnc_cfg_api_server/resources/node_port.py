@@ -17,10 +17,10 @@ class PortServer(ResourceMixin, Port):
         msg = ("OBJ_DICT %s", pformat(obj_dict))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
 
-        if obj_dict.get('port_bms_port_info') \
-           and obj_dict.get('port_bms_port_info').get('local_link_connection'):
+        if obj_dict.get('bms_port_info') \
+           and obj_dict.get('bms_port_info').get('local_link_connection'):
             link_details = \
-                obj_dict.get('port_bms_port_info').get('local_link_connection')
+                obj_dict.get('bms_port_info').get('local_link_connection')
             switch_name = link_details.get('switch_info')
             port_id = link_details.get('port_id')
             if switch_name and port_id:
@@ -64,8 +64,8 @@ class PortServer(ResourceMixin, Port):
         msg = ("PORT-UPDATE : %s", pformat(kwargs))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
 
-        if obj_dict.get('port_bms_port_info') \
-           and obj_dict.get('port_bms_port_info').get('local_link_connection'):
+        if obj_dict.get('bms_port_info') \
+           and obj_dict.get('bms_port_info').get('local_link_connection'):
             ok, result = db_conn.dbe_read(
                 obj_type='port',
                 obj_id=obj_dict['uuid'],

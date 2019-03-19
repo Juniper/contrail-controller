@@ -2,8 +2,8 @@ import logging
 import pprint
 
 from vnc_api.gen.resource_client import Card
-from vnc_api.gen.resource_client import EndSystem
 from vnc_api.gen.resource_client import Hardware
+from vnc_api.gen.resource_client import Node
 from vnc_api.gen.resource_client import NodeProfile
 from vnc_api.gen.resource_client import Port
 from vnc_api.gen.resource_client import Tag
@@ -63,8 +63,8 @@ class TestNodeProfile(test_case.ApiServerTestCase):
 
     def create_node_and_port(self, node_and_port):
         for node in node_and_port:
-            node_obj = EndSystem(node, node_hostname=node)
-            self.api.end_system_create(node_obj)
+            node_obj = Node(node, node_hostname=node)
+            self.api.node_create(node_obj)
             for port in node_and_port[node]:
                 logger.warn(port['name'])
                 ll_obj = None
@@ -80,9 +80,9 @@ class TestNodeProfile(test_case.ApiServerTestCase):
                 self.api.port_create(node_port_obj)
 
     def remove_node_and_port(self, node_and_port):
-        logger.warn("Removing EndSystem and Port")
+        logger.warn("Removing Node and Port")
         for node in node_and_port:
-            logger.warn("Removing EndSystem ")
+            logger.warn("Removing Node ")
             port_groups = self.api.port_groups_list(
                 parent_fq_name=['default-global-system-config', node])
             logger.warn(pprint.pformat(port_groups))
@@ -96,8 +96,8 @@ class TestNodeProfile(test_case.ApiServerTestCase):
                                               node, port.get('name')])
                 logger.warn("PORT : " + port.get('name'))
 
-            self.api.end_system_delete(fq_name=['default-global-system-config',
-                                                node])
+            self.api.node_delete(fq_name=['default-global-system-config',
+                                          node])
             logger.warn("NODE: " + node)
         return
 
@@ -160,16 +160,16 @@ class TestNodeProfile(test_case.ApiServerTestCase):
     def test_create_node_profile(self):
         """Test node-profile association with Node.
 
-        create end-system (node1), and ports.
+        create node (node1), and ports.
         create node-profiles qfx1-np and qfx2-np
         create tags to be used
-        associate end-system with qfx1-np, now end-system-ports should
+        associate node with qfx1-np, now node-ports should
         ref to tags from node-profile.
-        assoicate end-system with qfx2-np, now end-system-ports should
+        assoicate node with qfx2-np, now node-ports should
         ref to new tags from node-profile.
-        remove ref from end-system, tags from end-system-ports should
+        remove ref from node, tags from node-ports should
         be removed.
-        remove ports and end-system, there should not be any error.
+        remove ports and node, there should not be any error.
         """
         node_and_port = {
             'node1':
@@ -253,7 +253,7 @@ class TestNodeProfile(test_case.ApiServerTestCase):
         self.create_node_profile(node_profile_data)
         self.create_node_profile(node_profile_data1)
         self.create_node_and_port(node_and_port)
-        node_object = self.api.end_system_read(
+        node_object = self.api.node_read(
             fq_name=['default-global-system-config', 'node1'])
         np_object = self.api.node_profile_read(
             fq_name=['default-global-system-config', 'qfx1-np'])
@@ -261,12 +261,12 @@ class TestNodeProfile(test_case.ApiServerTestCase):
             fq_name=['default-global-system-config', 'qfx2-np'])
         logger.warn(pprint.pformat(node_object.__dict__))
         node_object.set_node_profile(np_object)
-        self.api.end_system_update(node_object)
+        self.api.node_update(node_object)
         node_object.set_node_profile(np2_object)
-        self.api.end_system_update(node_object)
+        self.api.node_update(node_object)
 
         for node in node_and_port:
-            node_object_update = self.api.end_system_read(
+            node_object_update = self.api.node_read(
                 fq_name=['default-global-system-config', node])
             logger.warn(pprint.pformat(node_object_update.__dict__))
             for port in node_and_port[node]:
@@ -276,7 +276,7 @@ class TestNodeProfile(test_case.ApiServerTestCase):
                              port.get('name')])
                 logger.warn(pprint.pformat(port_obj.__dict__))
 
-        self.api.ref_update('end-system',
+        self.api.ref_update('node',
                             node_object.uuid,
                             'node-profile',
                             np2_object.uuid,
@@ -284,7 +284,7 @@ class TestNodeProfile(test_case.ApiServerTestCase):
                             'DELETE')
 
         for node in node_and_port:
-            node_object_update = self.api.end_system_read(
+            node_object_update = self.api.node_read(
                 fq_name=['default-global-system-config', node])
             logger.warn(pprint.pformat(node_object_update.__dict__))
             for port in node_and_port[node]:
