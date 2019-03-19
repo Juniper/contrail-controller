@@ -32,25 +32,25 @@
                             <File Id="CurlDll" Source="build/bin/libcurl.dll"/>
                         </Component>
                         <Component Id="BoostChronoDll" Guid="AA175B9C-1F30-44E3-9DB4-40F31AE41AFB" Win64="yes">
-                            <File Id="BoostChronoDll" Source="build/bin/boost_chrono-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostChronoDll" Source="build/bin/boost_chrono$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="BoostDateTimeDll" Guid="7B451816-F817-4BFC-8D1C-E938CD0DB32E" Win64="yes">
-                            <File Id="BoostDateTimeDll" Source="build/bin/boost_date_time-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostDateTimeDll" Source="build/bin/boost_date_time$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="BoostFilesystemDll" Guid="E2BC9B9C-C5DE-4406-BAF7-CDB8CC6388C5" Win64="yes">
-                            <File Id="BoostFilesystemDll" Source="build/bin/boost_filesystem-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostFilesystemDll" Source="build/bin/boost_filesystem$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="BoostProgramOptionsDll" Guid="27EF9424-CDD5-48B2-BCCB-7DE357593632" Win64="yes">
-                            <File Id="BoostProgramOptionsDll" Source="build/bin/boost_program_options-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostProgramOptionsDll" Source="build/bin/boost_program_options$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="BoostRegexDll" Guid="6E54161F-09BC-4782-B852-258459ABB7CE" Win64="yes">
-                            <File Id="BoostRegexDll" Source="build/bin/boost_regex-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostRegexDll" Source="build/bin/boost_regex$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="BoostSystemDll" Guid="28F57754-5EE7-4C31-AEFA-5B175D2EE311" Win64="yes">
-                            <File Id="BoostSystemDll" Source="build/bin/boost_system-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostSystemDll" Source="build/bin/boost_system$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="BoostThreadDll" Guid="E98600E3-ABFF-4CEB-A352-3C1245178E35" Win64="yes">
-                            <File Id="BoostThreadDll" Source="build/bin/boost_thread-vc140-mt-gd-1_62.dll"/>
+                            <File Id="BoostThreadDll" Source="build/bin/boost_thread$(var.BoostDllSuffix).dll"/>
                         </Component>
                         <Component Id="Entrypoint" Guid="D2247CAF-617D-40E7-BC60-125B551A73A5" Win64="yes">
                             <File Id="Entrypoint" Source="controller/src/vnsw/agent/contrail/windows/msi/entrypoint.ps1"/>
