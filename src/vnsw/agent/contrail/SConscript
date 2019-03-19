@@ -119,12 +119,19 @@ env.Default(contrail_vrouter_agent)
 if platform.system() == 'Windows':
     agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
     env.Append(WIXCANDLEFLAGS = ['-doptimization=' + env['OPT']])
+
     if env['OPT'] == 'debug':
-        env.Append(WIXCANDLEFLAGS = ['-dTbbDll=tbb_debug.dll'])
-        env.Append(WIXCANDLEFLAGS = ['-dLog4CPlusDll=log4cplusD.dll'])
+        env.Append(WIXCANDLEFLAGS = [
+            '-dTbbDll=tbb_debug.dll',
+            '-dLog4CPlusDll=log4cplusD.dll',
+            '-dBoostDllSuffix=-vc140-mt-gd-1_62',
+        ])
     elif env['OPT'] == 'production':
-        env.Append(WIXCANDLEFLAGS = ['-dTbbDll=tbb.dll'])
-        env.Append(WIXCANDLEFLAGS = ['-dLog4CPlusDll=log4cplus.dll'])
+        env.Append(WIXCANDLEFLAGS = [
+            '-dTbbDll=tbb.dll',
+            '-dLog4CPlusDll=log4cplus.dll',
+            '-dBoostDllSuffix=-vc140-mt-1_62',
+        ])
 
     env.Append(WIXCANDLEFLAGS = ['-ext', 'WixUtilExtension.dll'])
     env.Append(WIXLIGHTFLAGS = ['-ext', 'WixUtilExtension.dll'])
