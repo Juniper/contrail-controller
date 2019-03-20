@@ -56,6 +56,7 @@ void MulticastHandler::Register() {
         boost::bind(&MulticastHandler::ModifyVmInterface, this, _1, _2));
     bridge_domain_id_ = agent_->bridge_domain_table()->Register(
             boost::bind(&MulticastHandler::AddBridgeDomain, this, _1, _2));
+    physical_device_listener_id_ = DBTable::kInvalidId;
     if (agent_->tsn_no_forwarding_enabled()) {
         physical_device_listener_id_ = agent_->physical_device_table()->
             Register(boost::bind(&MulticastHandler::NotifyPhysicalDevice,
@@ -70,6 +71,8 @@ void MulticastHandler::Register() {
 void MulticastHandler::Terminate() {
     agent_->vn_table()->Unregister(vn_listener_id_);
     agent_->interface_table()->Unregister(interface_listener_id_);
+    agent_->vrf_table()->Unregister(vrf_listener_id_);
+    agent_->bridge_domain_table()->Unregister(bridge_domain_id_);
     if (physical_device_listener_id_ != DBTable::kInvalidId) {
         agent_->physical_device_table()->
             Unregister(physical_device_listener_id_);
@@ -181,9 +184,7 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
         if (!state) {
             state = new MulticastDBState(vn->GetVrf()->GetName(),
                                          vn_vxlan_id);
-            vn->SetState(partition->parent(),
-                         vn_listener_id_,
-                         state);
+            vn->SetState(partition->parent(), vn_listener_id_, state);
             //Also create multicast object
             if (all_broadcast == NULL) {
                 all_broadcast = CreateMulticastGroupObject(state->vrf_name_,
@@ -335,6 +336,10 @@ void MulticastHandler::McastTableNotify(DBTablePartBase *partition,
 }
 
 void MulticastHandler::ModifyVRF(DBTablePartBase *partition, DBEntryBase *e) {
+
+    if (!agent_->params()->mvpn_ipv4_enable()) {
+        return;
+    }
 
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     MulticastVrfDBState *state = static_cast<MulticastVrfDBState *>
@@ -491,7 +496,6 @@ MulticastHandler::CreateMulticastGroupObject(const string &vrf_name,
                                              const Ip4Address &src_addr,
                                              const Ip4Address &grp_addr,
                                              uint32_t vxlan_id) {
-
     MulticastGroupObject *obj =
         new MulticastGroupObject(vrf_name, vn_name, grp_addr, src_addr);
     AddToMulticastObjList(obj);
@@ -610,8 +614,7 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
         if (state) {
             DeleteVmInterface(vm_itf, state);
             if (intf->IsDeleted()) {
-                vm_itf->ClearState(partition->parent(),
-                                   interface_listener_id_);
+                vm_itf->ClearState(partition->parent(), interface_listener_id_);
                 delete state;
             }
         }
@@ -674,14 +677,16 @@ void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
  */
 void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
                                          const std::string &vrf_name) {
+
     const VmInterface *vm_itf = static_cast<const VmInterface *>(intf);
     boost::system::error_code ec;
     Ip4Address bcast_addr =
                     IpAddress::from_string("255.255.255.255", ec).to_v4();
-    std::set<MulticastGroupObject *> &obj_list = this->GetVmToMulticastObjMap(
+    std::set<MulticastGroupObject *> &obj_list = GetVmToMulticastObjMap(
                                                           vm_itf->GetUuid());
     for (std::set<MulticastGroupObject *>::iterator it = obj_list.begin();
          it != obj_list.end(); it++) {
+
         if (((*it)->vrf_name() != vrf_name) ||
             ((*it)->GetGroupAddress() != bcast_addr)) {
             continue;
@@ -709,8 +714,7 @@ void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
                             (*it)->vrf_name_, 0, Composite::L2INTERFACE);
             /* delete mcast object */
             // TODO : delete only when all creators are gone
-            DeleteMulticastObject((*it)->vrf_name_, Ip4Address(),
-                            (*it)->grp_address_);
+            DeleteMulticastObject((*it)->vrf_name_, Ip4Address(), bcast_addr);
         }
         DeleteVmToMulticastObjMap(vm_itf->GetUuid(), *it);
         break;
@@ -751,7 +755,7 @@ void MulticastHandler::DeleteMulticastObject(const std::string &vrf_name,
                     grp_addr.to_string(),
                     this->GetMulticastObjList().size());
             delete (*it);
-            this->GetMulticastObjList().erase(it++);
+            this->GetMulticastObjList().erase(it);
             break;
         }
     }
@@ -1643,13 +1647,62 @@ void MulticastHandler::CreateMulticastVrfSourceGroup(
     return;
 }
 
+void MulticastHandler::HandleRouteChangeAndMulticastObject(
+                                MulticastGroupObject *sg_object,
+                                boost::uuids::uuid vm_itf_uuid) {
+
+    if (!sg_object) {
+        return;
+    }
+
+    Composite::Type comp_type = Composite::L3INTERFACE;
+
+    if ((sg_object->DeleteLocalMember(vm_itf_uuid) == true) &&
+        (sg_object->IsDeleted() == false) &&
+        (sg_object->GetLocalListSize() != 0)) {
+
+        TriggerLocalRouteChange(sg_object, agent_->local_vm_peer());
+        MCTRACE(LogSG, "modify route, vm is deleted for <S,G> ",
+                            sg_object->vrf_name(),
+                            sg_object->GetSourceAddress().to_string(),
+                            sg_object->GetGroupAddress().to_string(), 0);
+    }
+
+    if (sg_object->GetLocalListSize() == 0) {
+        if (sg_object->vrf_name() != agent_->fabric_policy_vrf_name()) {
+            MulticastGroupObject *mvpn_sg_object = NULL;
+            mvpn_sg_object = FindGroupObject(
+                                    agent_->fabric_policy_vrf_name(),
+                                    sg_object->GetSourceAddress(),
+                                    sg_object->GetGroupAddress());
+            if (mvpn_sg_object)
+                mvpn_sg_object->decr_vn_count();
+        }
+    }
+
+    if ((sg_object->GetLocalListSize() == 0) &&
+        (sg_object->vn_count() == 0)) {
+
+        //Time to delete route(for mcast address) and mpls
+        DeleteMulticastRoute(agent_->local_vm_peer(),
+                            sg_object->vrf_name(),
+                            sg_object->GetSourceAddress(),
+                            sg_object->GetGroupAddress(), 0, comp_type);
+        DeleteLocalPeerRoute(sg_object);
+        DeleteMulticastObject(sg_object->vrf_name(),
+                            sg_object->GetSourceAddress(),
+                            sg_object->GetGroupAddress());
+    }
+
+    return;
+}
+
 void MulticastHandler::DeleteMulticastVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const Ip4Address &src_addr,
                                     const Ip4Address &grp_addr) {
 
     MulticastGroupObject *sg_object = NULL;
-    Composite::Type comp_type = Composite::L3INTERFACE;
 
     MCTRACE(LogSG, "Delete SG ", vrf_name, src_addr.to_string(),
                             grp_addr.to_string(), 0);
@@ -1659,15 +1712,25 @@ void MulticastHandler::DeleteMulticastVrfSourceGroup(
         return;
     }
 
-    if (sg_object->GetLocalListSize() != 0) {
-        sg_object->ClearLocalListSize();
-    }
+    std::map<uuid, MacAddress>::const_iterator it;
+    it = sg_object->GetLocalList().begin();
+    while (it != sg_object->GetLocalList().end()) {
 
-    //Time to delete route(for mcast address) and mpls
-    DeleteMulticastRoute(agent_->local_vm_peer(), vrf_name,
-                                    src_addr, grp_addr, 0, comp_type);
-    DeleteLocalPeerRoute(sg_object);
-    DeleteMulticastObject(sg_object);
+        boost::uuids::uuid vm_itf_uuid = it->first;
+        HandleRouteChangeAndMulticastObject(sg_object, vm_itf_uuid);
+
+        DeleteVmToMulticastObjMap(vm_itf_uuid, sg_object);
+
+        MCTRACE(LogSG, "VMI delete notify done for <S,G> ", vrf_name,
+                                src_addr.to_string(), grp_addr.to_string(), 0);
+
+        sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
+        if (sg_object) {
+            it = sg_object->GetLocalList().begin();
+        } else  {
+            break;
+        }
+    }
 
     MCTRACE(LogSG, "Delete SG done ", vrf_name, src_addr.to_string(),
                             grp_addr.to_string(), 0);
@@ -1769,7 +1832,6 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                     const Ip4Address &grp_addr) {
 
     MulticastGroupObject *sg_object = NULL;
-    Composite::Type comp_type = Composite::L3INTERFACE;
 
     sg_object = FindGroupObject(vrf_name, src_addr, grp_addr);
     if (!sg_object) {
@@ -1779,37 +1841,8 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
     MCTRACE(LogSG, "VMI delete notify ", vrf_name, src_addr.to_string(),
                             grp_addr.to_string(), 0);
 
-    if ((sg_object->DeleteLocalMember(vm_itf->GetUuid()) == true) &&
-        (sg_object->IsDeleted() == false) &&
-        (sg_object->GetLocalListSize() != 0)) {
-
-        TriggerLocalRouteChange(sg_object, agent_->local_vm_peer());
-        MCTRACE(LogSG, "modify route, vm is deleted ", sg_object->vrf_name(),
-                            sg_object->GetSourceAddress().to_string(),
-                            sg_object->GetGroupAddress().to_string(), 0);
-    }
-
-    if (sg_object->GetLocalListSize() == 0) {
-        if (vrf_name != agent_->fabric_policy_vrf_name()) {
-            MulticastGroupObject *mvpn_sg_object = NULL;
-            mvpn_sg_object = FindGroupObject(agent_->fabric_policy_vrf_name(),
-                                    src_addr, grp_addr);
-            if (mvpn_sg_object)
-                mvpn_sg_object->decr_vn_count();
-        }
-    }
-
-    if ((sg_object->GetLocalListSize() == 0) && (sg_object->vn_count() == 0)) {
-        //Time to delete route(for mcast address) and mpls
-        DeleteMulticastRoute(agent_->local_vm_peer(), sg_object->vrf_name(),
-                            sg_object->GetSourceAddress(),
-                            sg_object->GetGroupAddress(),
-                            0, comp_type);
-        DeleteLocalPeerRoute(sg_object);
-        DeleteMulticastObject(sg_object->vrf_name_,
-                            sg_object->GetSourceAddress(),
-                            sg_object->GetGroupAddress());
-    }
+    boost::uuids::uuid vm_itf_uuid = vm_itf->GetUuid();
+    HandleRouteChangeAndMulticastObject(sg_object, vm_itf_uuid);
 
     DeleteVmToMulticastObjMap(vm_itf->GetUuid(), sg_object);
 
@@ -1837,7 +1870,6 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                     const Ip4Address &grp_addr) {
 
     MulticastGroupObjectList objList;
-    Composite::Type comp_type = Composite::L3INTERFACE;
 
     if (!FindVmToMulticastObjMap(vm_itf->GetUuid(), objList)) {
         return;
@@ -1846,45 +1878,38 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
     MCTRACE(LogSG, "VMI delete notify ", vrf_name, Ip4Address().to_string(),
                             grp_addr.to_string(), 0);
 
+    std::set<MulticastGroupObject *> sg_to_delete;
+    boost::system::error_code ec;
+    Ip4Address bcast_addr =
+                    IpAddress::from_string("255.255.255.255", ec).to_v4();
     for(std::set<MulticastGroupObject *>::iterator sg_it = objList.begin();
         sg_it != objList.end(); sg_it++) {
 
-        if (((*sg_it)->vrf_name() != vrf_name) ||
-            ((*sg_it)->GetGroupAddress() != grp_addr)) {
+        if ((*sg_it)->vrf_name() != vrf_name) {
+
             continue;
         }
 
-        if (((*sg_it)->DeleteLocalMember(vm_itf->GetUuid()) == true) &&
-            ((*sg_it)->IsDeleted() == false) &&
-            ((*sg_it)->GetLocalListSize() != 0)) {
-            TriggerLocalRouteChange(*sg_it, agent_->local_vm_peer());
+        if ((grp_addr.is_unspecified() &&
+            (*sg_it)->GetGroupAddress() == bcast_addr)) {
+
+            continue;
         }
 
-        if ((*sg_it)->GetLocalListSize() == 0) {
-            if (vrf_name != agent_->fabric_policy_vrf_name()) {
-                MulticastGroupObject *mvpn_sg_object = NULL;
-                mvpn_sg_object = FindGroupObject(
-                                        agent_->fabric_policy_vrf_name(),
-                                        (*sg_it)->GetSourceAddress(),
-                                        (*sg_it)->GetGroupAddress());
-                if (mvpn_sg_object)
-                    mvpn_sg_object->decr_vn_count();
-            }
+        if ((!grp_addr.is_unspecified() &&
+            (*sg_it)->GetGroupAddress() != grp_addr)) {
+
+            continue;
         }
 
-        if (((*sg_it)->GetLocalListSize() == 0) &&
-                                    ((*sg_it)->vn_count() == 0)) {
+        boost::uuids::uuid vm_itf_uuid = vm_itf->GetUuid();
+        HandleRouteChangeAndMulticastObject((*sg_it), vm_itf_uuid);
 
-            //Time to delete route(for mcast address) and mpls
-            DeleteMulticastRoute(agent_->local_vm_peer(), (*sg_it)->vrf_name(),
-                            (*sg_it)->GetSourceAddress(),
-                            (*sg_it)->GetGroupAddress(),
-                            0, comp_type);
-            DeleteLocalPeerRoute((*sg_it));
-            DeleteMulticastObject((*sg_it)->vrf_name_,
-                            (*sg_it)->GetSourceAddress(),
-                            (*sg_it)->GetGroupAddress());
-        }
+        sg_to_delete.insert(*sg_it);
+    }
+
+    for(std::set<MulticastGroupObject *>::iterator sg_it = sg_to_delete.begin();
+        sg_it != sg_to_delete.end(); sg_it++) {
         DeleteVmToMulticastObjMap(vm_itf->GetUuid(), *sg_it);
     }
 
@@ -1903,69 +1928,6 @@ void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
     DeleteVmInterfaceFromVrfSourceGroup(vm_itf->vrf()->GetName(), vm_itf,
                                     grp_addr);
     DeleteVmInterfaceFromVrfSourceGroup(mc_vrf_name, vm_itf, grp_addr);
-}
-
-void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
-                                    const std::string &vrf_name,
-                                    const VmInterface *vm_itf) {
-
-    boost::system::error_code ec;
-    Ip4Address bcast_addr =
-                    IpAddress::from_string("255.255.255.255", ec).to_v4();
-    Composite::Type comp_type = Composite::L3INTERFACE;
-
-    MulticastGroupObjectList objList;
-    if (!FindVmToMulticastObjMap(vm_itf->GetUuid(), objList)) {
-        return;
-    }
-
-    MCTRACE(Info, "VMI delete notify ", vrf_name);
-
-    for(std::set<MulticastGroupObject *>::iterator sg_it = objList.begin();
-        sg_it != objList.end(); sg_it++) {
-
-        if (((*sg_it)->vrf_name() != vrf_name) ||
-            ((*sg_it)->GetGroupAddress() == bcast_addr)) {
-            continue;
-        }
-
-        if (((*sg_it)->DeleteLocalMember(vm_itf->GetUuid()) == true) &&
-            ((*sg_it)->IsDeleted() == false) &&
-            ((*sg_it)->GetLocalListSize() != 0)) {
-            TriggerLocalRouteChange(*sg_it, agent_->local_vm_peer());
-        }
-
-        if ((*sg_it)->GetLocalListSize() == 0) {
-            if (vrf_name != agent_->fabric_policy_vrf_name()) {
-                MulticastGroupObject *mvpn_sg_object = NULL;
-                mvpn_sg_object = FindGroupObject(
-                                        agent_->fabric_policy_vrf_name(),
-                                        (*sg_it)->GetSourceAddress(),
-                                        (*sg_it)->GetGroupAddress());
-                if (mvpn_sg_object)
-                    mvpn_sg_object->decr_vn_count();
-            }
-        }
-
-        if (((*sg_it)->GetLocalListSize() == 0) &&
-                                    ((*sg_it)->vn_count() == 0)) {
-
-            //Time to delete route(for mcast address) and mpls
-            DeleteMulticastRoute(agent_->local_vm_peer(), (*sg_it)->vrf_name(),
-                            (*sg_it)->GetSourceAddress(),
-                            (*sg_it)->GetGroupAddress(),
-                            0, comp_type);
-            DeleteLocalPeerRoute((*sg_it));
-            DeleteMulticastObject((*sg_it)->vrf_name_,
-                            (*sg_it)->GetSourceAddress(),
-                            (*sg_it)->GetGroupAddress());
-        }
-        DeleteVmToMulticastObjMap(vm_itf->GetUuid(), *sg_it);
-    }
-
-    MCTRACE(Info, "VMI delete notify done ", vrf_name);
-
-    return;
 }
 
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(

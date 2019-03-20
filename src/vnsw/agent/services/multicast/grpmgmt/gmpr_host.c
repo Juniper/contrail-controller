@@ -197,6 +197,9 @@ gmpr_destroy_host_group (gmpr_host_group *host_group)
     host = host_group->rhgroup_host;
     instance = host->rhost_intf->rintf_instance;
 
+    gmpr_trace_agent("Destroy host group : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     /* If the refcount is nonzero, flag that we're deleted and bail. */
 
     if (host_group->rhgroup_lock_count) {
@@ -294,6 +297,9 @@ gmpr_destroy_host (gmpr_host *host)
 
     /* Delink us from the interface. */
 
+    gmpr_trace_agent("Destroy host : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     gmpx_assert(gmpx_patricia_delete(host->rhost_intf->rintf_host_root,
 				     &host->rhost_node));
 
@@ -336,6 +342,9 @@ gmpr_attempt_host_free (gmpr_host *host)
 {
     /* Bail if there are any groups. */
 
+    gmpr_trace_agent("Attempt host free : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     if (gmpx_patricia_lookup_least(host->rhost_group_root))
 	return;
 
@@ -358,6 +367,9 @@ gmpr_attempt_host_group_free (gmpr_host_group *host_group)
     gmpr_host *host;
 
     host = host_group->rhgroup_host;
+
+    gmpr_trace_agent("Attempt host group free : file : %s, line : %.",
+                            __FILE__, __LINE__);
 
     /* Bail if the entry is active. */
 
@@ -1414,6 +1426,9 @@ gmpr_add_source_cb (void *context, bv_bitnum_t bitnum,
 static void
 gmpr_delink_host_group (gmpr_host_group *host_group)
 {
+    gmpr_trace_agent("Delink host group : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     host_group->rhgroup_group = NULL;
     thread_remove(&host_group->rhgroup_thread);
 }
@@ -1445,6 +1460,10 @@ gmpr_host_process_report (uint8_t *src_addr, gmp_report_rectype rec_type,
     gmpx_assert(group);
     // instance = group->rgroup_intf->rintf_instance;
     intf = group->rgroup_intf;
+
+    gmpr_trace_agent("Host process report : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
 
     /* Don't bother if we're not doing host processing. */
 
