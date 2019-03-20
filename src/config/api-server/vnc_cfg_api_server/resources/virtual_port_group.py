@@ -30,3 +30,33 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
             return (False, (400, msg), None)
 
         return True, '', None
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        if obj_dict.get('virtual_port_group_user_created') is False:
+            fq_name = obj_dict['fq_name']
+            vpg_id = int(fq_name[2].split('-')[2])
+            vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(vpg_id)
+            cls.vnc_zk_client.free_vpg_id(vpg_id, vpg_id_fqname)
+
+        return True, ''
+
+    @classmethod
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        if obj_dict.get('virtual_port_group_user_created') is False:
+            fq_name = obj_dict['fq_name']
+            vpg_id = int(fq_name[2].split('-')[2])
+            vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(vpg_id)
+            cls.vnc_zk_client.alloc_vpg_id(vpg_id_fqname, vpg_id)
+
+        return True, ''
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        fq_name = obj_dict['fq_name']
+        if obj_dict.get('virtual_port_group_user_created') is False:
+            vpg_id = int(fq_name[2].split('-')[2])
+            vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(vpg_id)
+            cls.vnc_zk_client.free_vpg_id(vpg_id, vpg_id_fqname, notify=True)
+
+        return True, ''
