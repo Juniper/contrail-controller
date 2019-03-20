@@ -977,6 +977,8 @@ TunnelType::TypeBmap VNController::GetTypeBitmap
             bmap |= (1 << TunnelType::MPLS_UDP);
         if (encap == TunnelEncapType::NATIVE)
             bmap |= (1 << TunnelType::NATIVE);
+        if (encap == TunnelEncapType::MPLS)
+            bmap |= (1 << TunnelType::MPLS_OVER_MPLS);
     }
     return bmap;
 }
