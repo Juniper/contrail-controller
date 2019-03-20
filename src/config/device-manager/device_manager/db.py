@@ -1449,6 +1449,26 @@ class VirtualNetworkDM(DBBaseDM):
         self.update(obj_dict)
     # end __init__
 
+
+    def get_route_targets(self):
+        export_set, import_set = None, None
+        vn_obj = self
+        if vn_obj.routing_instances:
+            for ri_id in vn_obj.routing_instances:
+                ri_obj = RoutingInstanceDM.get(ri_id)
+                if ri_obj is None:
+                    continue
+                if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
+                    if vn_obj.route_targets:
+                        export_set = vn_obj.route_targets & ri_obj.export_targets
+                        import_set = vn_obj.route_targets & ri_obj.import_targets
+                    else:
+                        export_set = copy.copy(ri_obj.export_targets)
+                        import_set = copy.copy(ri_obj.import_targets)
+                    break
+        return export_set, import_set
+    # end get_route_targets
+
     def set_logical_router(self, name):
         if DMUtils.get_lr_internal_vn_prefix() in name:
             lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(name)
@@ -2179,6 +2199,17 @@ class DataCenterInterconnectDM(DBBaseDM):
         self.allocate_asn()
         return obj
     # end update
+
+    def get_connected_lr_internal_vns(self):
+        vn_list = []
+        for lr_uuid in self.logical_routers or []:
+            lr = LogicalRouterDM.get(lr_uuid)
+            if lr and lr.virtual_network:
+                vn = VirtualNetworkDM.get(lr.virtual_network)
+                if vn:
+                    vn_list.append(vn)
+        return vn_list
+    # end get_connected_lr_internal_vns
 
     def get_connected_physical_routers(self):
         if not self.logical_routers:
