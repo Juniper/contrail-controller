@@ -2268,7 +2268,7 @@ class DataCenterInterconnectDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        self._object_db.delete_dci(obj.uuid)
+        obj._object_db.delete_dci(obj.uuid)
         obj.update_multiple_refs('logical_router', {})
         obj.update_single_ref('virtual_network', None)
         del cls._dict[uuid]
