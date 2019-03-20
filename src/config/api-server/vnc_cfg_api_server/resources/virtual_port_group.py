@@ -30,3 +30,19 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
             return (False, (400, msg), None)
 
         return True, '', None
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        fq_name = obj_dict['fq_name']
+        if obj_dict.get('virtual_port_group_user_created') is False:
+            uuid = int(fqname[2].split('-')[2])
+            vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(uuid)
+            cls.vnc_zk_client.free_vpg_id(uuid, vpg_id_fqname)
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        fq_name = obj_dict['fq_name']
+        if obj_dict.get('virtual_port_group_user_created') is False:
+            uuid = int(fqname[2].split('-')[2])
+            vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(uuid)
+            cls.vnc_zk_client.free_vpg_id(uuid, vpg_id_fqname, notify=True)
