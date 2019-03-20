@@ -3,6 +3,7 @@
  */
 
 #include "task_map.h"
+#include "oper/multicast.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +26,10 @@ extern "C" {
 #include "gmp_private.h"
 #include "gmp_trace.h"
 #include "gmpr_trace.h"
+
+#define MAXSTRINGSIZE_1 1000
+
+extern void gmpx_trace(void *context, const char *fmt, ...);
 
 extern void gmp_set_def_igmp_version(uint32_t version);
 extern void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
@@ -490,6 +495,8 @@ void igmp_notification_ready(void *context)
 {
     mgm_global_data *gd = (mgm_global_data *)context;
 
+    MCTRACE(Info, "Process : ", "IGMP notifications");
+
     gmp_notification_ready(gd);
 }
 
@@ -497,6 +504,8 @@ void igmp_notification_ready(void *context)
 void igmp_host_notification_ready(void *context)
 {
     mgm_global_data *gd = (mgm_global_data *)context;
+
+    MCTRACE(Info, "Process : ", "IGMP host notifications");
 
     gmp_notification_ready(gd);
 }
@@ -507,8 +516,18 @@ void mgm_querier_change(void *cli_context UNUSED, gmp_intf_handle *handle,
     return;
 }
 
-void gmpx_trace(void *context, const char *parms, ...)
+void gmpx_trace(void *context, const char *fmt, ...)
 {
+    va_list arglist;
+    char dest[MAXSTRINGSIZE_1];
+    va_start( arglist, fmt );
+    vsprintf(dest, fmt, arglist);
+    va_end( arglist );
+    char buff[MAXSTRINGSIZE_1];
+    snprintf(buff, sizeof(buff), dest, arglist);
+
+    MCTRACE(Info, "igmp_trace: ", buff);
+
     return;
 }
 

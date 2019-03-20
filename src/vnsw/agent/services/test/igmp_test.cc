@@ -16,9 +16,6 @@ TEST_F(IgmpTest, SendV1Reports) {
 
     IgmpGlobalEnable(true);
     uint32_t idx = 0;
-    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
-        IgmpVmiEnable(idx, true);
-    }
 
     idx = 0;
     local_g_add_count++;
@@ -29,7 +26,7 @@ TEST_F(IgmpTest, SendV1Reports) {
     ret = WaitForGCount(true, local_g_add_count);
     EXPECT_EQ(ret, true);
 
-    usleep(10*USECS_PER_SEC);
+    usleep(15*USECS_PER_SEC);
 
     local_g_del_count++;
     ret = WaitForGCount(false, local_g_del_count);
@@ -38,6 +35,7 @@ TEST_F(IgmpTest, SendV1Reports) {
     for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
         IgmpVmiEnable(idx, false);
     }
+
     IgmpGlobalClear();
 
     TestEnvDeinit();
@@ -63,9 +61,6 @@ TEST_F(IgmpTest, SendV2Reports) {
 
     IgmpGlobalEnable(true);
     uint32_t idx = 0;
-    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
-        IgmpVmiEnable(idx, true);
-    }
 
     idx = 0;
     local_g_add_count++;
@@ -77,6 +72,15 @@ TEST_F(IgmpTest, SendV2Reports) {
     EXPECT_EQ(ret, true);
 
     idx = 1;
+    local_g_add_count++;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 2;
     local_g_add_count++;
     report_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 1);
@@ -109,7 +113,7 @@ TEST_F(IgmpTest, SendV2Reports) {
     cnh1 = cnh->Get(0);
     nh = cnh1->nh();
     cnh = dynamic_cast<const CompositeNH *>(nh);
-    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+    EXPECT_EQ(local_g_add_count, cnh->ActiveComponentNHCount());
 
     idx = 0;
     local_g_del_count++;
@@ -120,21 +124,81 @@ TEST_F(IgmpTest, SendV2Reports) {
     ret = WaitForGCount(false, local_g_del_count);
     EXPECT_EQ(ret, true);
 
+    // 4 second delay to trigger timer as is case with
+    // evpn test-framework script.
+    usleep(4*USECS_PER_SEC);
+
     idx = 1;
     local_g_del_count++;
     leave_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
     ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
-    ret = WaitForGCount(false, local_g_del_count);
+    ret = WaitForGCount(false, local_g_del_count+2);
+
+    // 4 second delay to trigger timer as is case with
+    // evpn test-framework script.
+    usleep(4*USECS_PER_SEC);
+
+    idx = 2;
+    local_g_del_count++;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
+    ret = WaitForGCount(false, local_g_del_count+1);
 
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
     EXPECT_EQ((nh == NULL), true);
 
-    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
-        IgmpVmiEnable(idx, false);
-    }
+    idx = 0;
+    local_g_add_count++;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    local_g_add_count++;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 2;
+    local_g_add_count++;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    source = Ip4Address::from_string(MSOURCE_ADDR_0, ec);
+
+    agent = Agent::GetInstance();
+
+    mc_route = MCRouteGet(agent->local_peer(), vrf_name, group, source);
+    EXPECT_EQ((mc_route != NULL), true);
+
+    path = mc_route->FindPath(agent->local_peer());
+    EXPECT_EQ((path != NULL), true);
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(local_g_add_count/2, cnh->ActiveComponentNHCount());
+
     IgmpGlobalClear();
 
     TestEnvDeinit();
@@ -168,7 +232,7 @@ TEST_F(IgmpTest, SendV2ReportsWithoutLeave) {
     ret = WaitForGCount(true, local_g_add_count);
     EXPECT_EQ(ret, true);
 
-    usleep(10*USECS_PER_SEC);
+    usleep(15*USECS_PER_SEC);
 
     local_g_del_count++;
     ret = WaitForGCount(false, local_g_del_count);
@@ -1038,6 +1102,7 @@ TEST_F(IgmpTest, IgmpQuerySend) {
     uint32_t sleep = 1;
     uint32_t vms = sizeof(input)/sizeof(struct PortInfo);
 
+    //usleep((sleep * qivl * MSECS_PER_SEC) );
     usleep((sleep * qivl * MSECS_PER_SEC) + 3000000);
     client->WaitForIdle();
 

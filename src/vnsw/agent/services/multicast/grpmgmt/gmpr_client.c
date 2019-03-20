@@ -1140,6 +1140,9 @@ gmpr_alert_clients (gmpr_instance *instance)
     gmpr_client_context *cli_ctx;
     thread *thread_ptr;
 
+    gmpr_trace_agent("Alert Client : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     /* Walk all clients. */
 
     FOR_ALL_CIRCULAR_THREAD_ENTRIES(&instance->rinst_client_thread,

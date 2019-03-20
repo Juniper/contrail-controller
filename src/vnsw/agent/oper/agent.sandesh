@@ -2460,6 +2460,17 @@ trace sandesh MulticastLogSG {
     5: i32 label;
 }
 
+trace sandesh MulticastIgmpIntf {
+    /** Message for multicast entry */
+    1: string message;
+    /** vrf for interface */
+    2: string vrf;
+    /** IP address for interface */
+    3: string info;
+    /** igmp mode for interface */
+    4: bool igmp_enabled;
+}
+
 /**
  * @description: Trace meassage for oper module
  * @type: Trace
