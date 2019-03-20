@@ -1291,7 +1291,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         if self.port_tuple:
             pt = PortTupleDM.get(self.port_tuple)
             if pt:
-                self.service_instance = pt.parent_uuid
+                self.service_instance = pt.svc_instance
         self.update_single_ref('service_endpoint', obj)
     # end update
 
@@ -1864,7 +1864,7 @@ class PortTupleDM(DBBaseDM):
         for vmi in self.virtual_machine_interfaces:
             vmi_obj = VirtualMachineInterfaceDM.get(vmi)
             if vmi_obj and not vmi_obj.service_instance:
-                vmi_obj.service_instance = self.parent_uuid
+                vmi_obj.service_instance = self.svc_instance
         return obj
     # end update
 
