@@ -534,9 +534,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
-                    vpg_uuid = cls._manage_vpg_association(
+                    vpg_uuid, ret_dict = cls._manage_vpg_association(
                         obj_dict['uuid'], cls.server, db_conn, links, vpg_name)
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
+                    obj_dict.update(ret_dict)
 
         return True, ""
 
@@ -633,6 +634,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 vmib = True
                 kvps.append(oper_param['value'])
 
+        ret_dict = None
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
@@ -657,7 +659,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
-                    vpg_uuid = cls._manage_vpg_association(
+                    vpg_uuid, ret_dict = cls._manage_vpg_association(
                         id, cls.server, db_conn, links, vpg_name)
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
 
@@ -773,7 +775,28 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if not ok:
             return ok, result
 
-        return True, ""
+        return True, ret_dict
+
+    @classmethod
+    def _notify_ae_id_modified(cls, obj_dict=None, notify=False):
+
+        if (obj_dict.get('deallocated_ae_id') and
+            len(obj_dict.get('deallocated_ae_id'))):
+            dealloc_dict = obj_dict.get('deallocated_ae_id')[0]
+            ae_id = dealloc_dict.get('ae_id')
+            vpg_name = dealloc_dict.get('vpg_name')
+            prouter_name = dealloc_dict.get('prouter_name')
+            cls.vnc_zk_client.free_ae_id(
+                prouter_name, ae_id,
+                vpg_name, notify=notify)
+
+        if (obj_dict.get('allocated_ae_id') and
+            len(obj_dict.get('allocated_ae_id'))):
+            alloc_dict = obj_dict.get('allocated_ae_id')[0]
+            ae_id = alloc_dict.get('ae_id')
+            vpg_name = alloc_dict.get('vpg_name')
+            prouter_name = alloc_dict.get('prouter_name')
+            cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id)
 
     # Allocate ae_id:
     # 1. Get the ae_id from the old PI ref which is already assoc with PR
@@ -792,8 +815,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     pr.get('ae_id') is not None):
                 attr_obj = VpgInterfaceParametersType(pr.get('ae_id'))
                 return attr_obj, pr.get('ae_id')
+
         ae_num = cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name)
         attr_obj = VpgInterfaceParametersType(ae_num)
+
         return attr_obj, ae_num
 
     # Free ae_id:
@@ -804,6 +829,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     def _check_and_free_ae_id(cls, links, prouter_dict,
                               vpg_name, pi_to_pr_dict):
         prouter_list = []
+        dealloc_dict = {}
         for pr in pi_to_pr_dict.itervalues():
             prouter_list.append(pr)
 
@@ -812,7 +838,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             cls.vnc_zk_client.free_ae_id(prouter_name,
                                          prouter_dict.get('ae_id'),
                                          vpg_name)
+            dealloc_dict['ae_id'] = prouter_dict.get('ae_id')
+            dealloc_dict['prouter_name'] = prouter_dict.get('prouter_name')
+            dealloc_dict['vpg_name'] = vpg_name
             prouter_dict['ae_id'] = None
+            return dealloc_dict
+
+        return
 
     @classmethod
     def _manage_vpg_association(cls, vmi_id, api_server, db_conn, phy_links,
@@ -850,7 +882,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 return (ok, 400, phy_interface_dict)
 
             vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
-            if vpg_refs and vpg_refs[0]['to'][-1] != vpg_name:
+            if vpg_refs and vpg_name and vpg_refs[0]['to'][-1] != vpg_name:
                 msg = 'Physical interface %s already belong to the vpg %s' %\
                       (phy_interface_dict.get('name'), vpg_refs[0]['to'][-1])
                 return (False, (400, msg))
@@ -880,7 +912,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             vpg_id = cls.vnc_zk_client.alloc_vpg_id(':'.join(fabric_fq_name))
 
             def undo_vpg_id():
-                cls.vnc_zk_client.free_vpg_id(':'.join(fabric_fq_name))
+                cls.vnc_zk_client.free_vpg_id(vpg_id, ':'.join(fabric_fq_name))
                 return True, ""
             get_context().push_undo(undo_vpg_id)
 
@@ -915,11 +947,17 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'ae_id': ref['attr'].get('ae_num') if ref['attr'] else None}
             old_phy_interface_uuids.append(ref['uuid'])
 
+        ret_dict = {}
+        ret_dict['deallocated_ae_id'] = []
+        ret_dict['allocated_ae_id'] = []
+
         # delete old physical interfaces to the vpg
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
             prouter_dict = old_pi_to_pr_dict.get(uuid)
-            cls._check_and_free_ae_id(phy_links, prouter_dict,
-                                      vpg_name, new_pi_to_pr_dict)
+            dealloc_dict = cls._check_and_free_ae_id(phy_links, prouter_dict,
+                                              vpg_name, new_pi_to_pr_dict)
+            ret_dict['deallocated_ae_id'].append(dealloc_dict)
+
             api_server.internal_request_ref_update(
                 'virtual-port-group',
                 vpg_uuid,
@@ -936,6 +974,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     phy_links, prouter_name,
                     vpg_name, old_pi_to_pr_dict)
                 pr_to_ae_id[prouter_name] = ae_id
+
+                if len(phy_links) > 1 and ae_id is not None:
+                    alloc_dict = {}
+                    alloc_dict['ae_id'] = ae_id
+                    alloc_dict['prouter_name'] = prouter_name
+                    alloc_dict['vpg_name'] = vpg_name
+                    ret_dict['allocated_ae_id'].append(alloc_dict)
             else:
                 attr_obj = VpgInterfaceParametersType(
                     ae_num=pr_to_ae_id.get(prouter_name))
@@ -949,7 +994,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 attr=attr_obj.__dict__ if attr_obj else None,
                 relax_ref_for_delete=True)
 
-        return vpg_uuid
+        return vpg_uuid, ret_dict
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
@@ -995,6 +1040,29 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             delete_dict = {'virtual_machine_refs': []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
+        # Clean ae ids associated with VPG->PIs
+        for vpg_back_ref in obj_dict.get('virtual_port_group_back_refs',
+                                         []):
+            fqname = vpg_back_ref['to']
+            vpg_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
+            ok, vpg_dict = db_conn.dbe_read(
+                obj_type='virtual-port-group',
+                obj_id=vpg_uuid,
+                obj_fields=['physical_interface_refs'])
+            if not ok:
+                return ok, vpg_dict
+
+            notify_dict = {}
+            notify_dict['deallocated_ae_id'] = []
+            for pi_ref in vpg_dict.get('physical_interface_refs') or []:
+                 if pi_ref['attr'] and pi_ref['attr'].get('ae_num') is not None:
+                     dealloc_dict = {}
+                     dealloc_dict['ae_id'] = pi_ref['attr'].get('ae_num')
+                     dealloc_dict['prouter_name'] = pi_ref['to'][1]
+                     dealloc_dict['vpg_name'] =  fqname[2]
+                     notify_dict['deallocated_ae_id'].append(dealloc_dict)
+            obj_dict.update(notify_dict)
+
         return True, "", None
 
     @classmethod
@@ -1022,8 +1090,28 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
                 api_server.internal_request_delete('virtual_port_group',
                                                    vpg_uuid)
-                uuid = int(fqname[2].split('-')[2])
-                vpg_id_fqname = cls.vnc_zk_client.get_vpg_from_id(uuid)
-                cls.vnc_zk_client.free_vpg_id(uuid, vpg_id_fqname)
+
+            # Clean ae ids associated with VPG->PIs
+            cls._notify_ae_id_modified(obj_dict)
 
         return True, ""
+
+    @classmethod
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        cls._notify_ae_id_modified(obj_dict)
+
+        return True, ''
+
+    @classmethod
+    def dbe_update_notification(cls, obj_id, extra_dict=None):
+
+        if extra_dict is not None:
+            cls._notify_ae_id_modified(extra_dict, notify=True)
+
+        return True, ''
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls._notify_ae_id_modified(obj_dict, notify=True)
+
+        return True, ''
