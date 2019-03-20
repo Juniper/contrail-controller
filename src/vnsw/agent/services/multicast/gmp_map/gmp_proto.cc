@@ -155,19 +155,25 @@ void GmpProto::GmpIntfSGClear(VnGmpDBState *state,
     MulticastHandler *m_handler = agent_->oper_db()->multicast();
 
     GmpSourceGroup *gmp_sg = NULL;
+    std::set<GmpSourceGroup *> sg_to_delete;
     VnGmpDBState::VnGmpSGIntfListIter gif_sg_it =
                             gmp_intf_state->gmp_intf_sg_list_.begin();
     for (; gif_sg_it != gmp_intf_state->gmp_intf_sg_list_.end(); ++gif_sg_it) {
         gmp_sg = *gif_sg_it;
         gmp_sg->refcount_--;
-        gmp_intf_state->gmp_intf_sg_list_.erase(gmp_sg);
+        sg_to_delete.insert(gmp_sg);
         if (gmp_sg->refcount_ == 0) {
             state->gmp_sg_list_.erase(gmp_sg);
             m_handler->DeleteMulticastVrfSourceGroup(
                             gmp_intf_state->gmp_intf_->get_vrf_name(),
                             gmp_sg->source_.to_v4(), gmp_sg->group_.to_v4());
-            delete gmp_sg;
         }
+    }
+
+    for(std::set<GmpSourceGroup *>::iterator sg_it = sg_to_delete.begin();
+        sg_it != sg_to_delete.end(); sg_it++) {
+        gmp_intf_state->gmp_intf_sg_list_.erase(gmp_sg);
+        delete gmp_sg;
     }
 
     return;
