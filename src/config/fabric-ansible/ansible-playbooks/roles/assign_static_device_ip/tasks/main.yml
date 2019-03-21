@@ -28,6 +28,10 @@
     task_file_path: "{{prouter_vendor}}.yml"
   when: p.stat.exists == False
 
+- name: Lookup physical router gateway
+  set_fact:
+    gateway: "{{ job_ctx | pr_gateway(fabric_uuid, prouter_fq_name) }}"
+
 - name: Generate vendor specific config
   set_fact:
     device_config: "{{lookup('template', jinja_file_path)}}"
