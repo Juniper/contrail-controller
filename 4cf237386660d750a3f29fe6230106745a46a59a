@@ -214,6 +214,30 @@
     },
     {
       "key": {
+        "uuid": "bf57530f_5dba6dde",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1686,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2019-03-21T05:48:02Z",
+      "side": 1,
+      "message": "There is no subsquent diff. It needs to be fixed now.",
+      "parentUuid": "bf57530f_fd0121b1",
+      "range": {
+        "startLine": 1672,
+        "startChar": 10,
+        "endLine": 1686,
+        "endChar": 13
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bf57530f_1dd99582",
         "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
         "patchSetId": 1
@@ -272,6 +296,30 @@
       "writtenOn": "2019-03-21T05:13:11Z",
       "side": 1,
       "message": "yes, logging every packet may not make sense at high level at least",
+      "parentUuid": "bf57530f_9d0905df",
+      "range": {
+        "startLine": 409,
+        "startChar": 2,
+        "endLine": 411,
+        "endChar": 2
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_3dcfb980",
+        "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2019-03-21T05:48:02Z",
+      "side": 1,
+      "message": "Agree with Nikhil. We cannot log every packet as it will\nlead to performance issues and flood the logs rendering it useless. This needs to be removed.",
       "parentUuid": "bf57530f_9d0905df",
       "range": {
         "startLine": 409,
