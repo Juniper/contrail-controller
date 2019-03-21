@@ -197,6 +197,23 @@
                 "type": "boolean",
                 "description": "Enable/disable storm control flag check",
                 "default": true
+              },
+              "lacp": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "lacp_down_local_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable local interface down check",
+                    "default": true
+                  },
+                  "lacp_down_peer_check": {
+                    "type": "boolean",
+                    "description": "Enable/disable peer interface down check",
+                    "default": true
+                  }
+                }
               }
             }
           }
