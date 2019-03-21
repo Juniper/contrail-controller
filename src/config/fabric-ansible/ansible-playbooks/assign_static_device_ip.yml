@@ -7,8 +7,10 @@
   pre_tasks:
     - set_fact:
         percent_init_dict: { 'total_task_count': 3, 'task_weightage_array': [40, 20, 40] }
+        prouter_fq_name: "{{ playbook_input.device_fqname }}"
         prouter_name: "{{ playbook_input.device_fqname[-1] }}"
         prouter_vendor: "{{ playbook_input.vendor | lower }}"
+        fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
 
   tasks:
     - import_role:
