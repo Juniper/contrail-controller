@@ -294,13 +294,13 @@ class TestJobManager(test_case.JobTestCase):
 
     def mock_play_book_execution(self):
         mock_subprocess32 = flexmock(subprocess32)
+        playbook_id = uuid.uuid4()
         mock_unique_pb_id = flexmock(uuid)
-
         fake_process = flexmock(returncode=0, pid=123)
         fake_process.should_receive('wait')
         mock_subprocess32.should_receive('Popen').and_return(
             fake_process)
-        mock_unique_pb_id.should_receive('uuid4').and_return('12345')
+        mock_unique_pb_id.should_receive('uuid4').and_return(playbook_id)
 
         fake_process.should_receive('poll').and_return(123)
         # mock the call to invoke the playbook process
@@ -308,7 +308,7 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock the call to write an END to the file
         with open("/tmp/"+TestJobManagerUtils.execution_id, "a") as f:
-            f.write('12345' + 'END' + '\n')
+            f.write(str(playbook_id) + 'END' + '\n')
 
         # mock sys exit call
         flexmock(sys).should_receive('exit')
