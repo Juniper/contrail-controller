@@ -1267,7 +1267,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 for idx in range(len(st_obj.port_tuple_order)):
                     # get left LR and right LR
                     order.update({st_obj.port_tuple_order[idx]:
-                                      pt_obj.logical_routers[idx]})
+                                    list(pt_obj.logical_routers)[idx]})
 
                 for key, value in order.items():
                     lr_obj = LogicalRouterDM.get(value)
