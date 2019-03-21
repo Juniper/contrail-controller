@@ -1032,30 +1032,30 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.ri_map[vrf_name] = left_ri
 
             self.add_ref_to_list(left_ri.get_routing_interfaces(), 'irb.'+left_vrf_info.get('left_svc_unit'))
-            protocols = RoutingInstanceProtocols()
 
-            bgp_name = vrf_name + '_left'
-            peer_bgp_name = bgp_name + '_' + left_vrf_info.get(
-                'srx_left_interface')
+            if left_vrf_info.get('srx_left_interface') and left_vrf_info.get('loopback_ip'):
+                protocols = RoutingInstanceProtocols()
+                bgp_name = vrf_name + '_left'
+                peer_bgp_name = bgp_name + '_' + left_vrf_info.get(
+                     'srx_left_interface')
 
-            peer_bgp = Bgp(name=peer_bgp_name,
-                           autonomous_system=left_vrf_info.get('peer'),
-                           ip_address=left_vrf_info.get('srx_left_interface'))
+                peer_bgp = Bgp(name=peer_bgp_name,
+                               autonomous_system=left_vrf_info.get('peer'),
+                               ip_address=left_vrf_info.get('srx_left_interface'))
 
-            bgp = Bgp(name=bgp_name,
-                      type_="external",
-                      autonomous_system=left_vrf_info.get('local'))
-            bgp.add_peers(peer_bgp)
-            bgp.set_comment('PNF-Service-Chaining')
-            protocols.add_bgp(bgp)
+                bgp = Bgp(name=bgp_name,
+                          type_="external",
+                          autonomous_system=left_vrf_info.get('local'))
+                bgp.add_peers(peer_bgp)
+                bgp.set_comment('PNF-Service-Chaining')
+                protocols.add_bgp(bgp)
 
-            pimrp = PimRp(ip_address=left_vrf_info.get('loopback_ip'))
-            pim = Pim(name="srx")
-            pim.set_rp(pimrp)
-            pim.set_comment('PNF-Service-Chaining')
-            protocols.add_pim(pim)
-
-            left_ri.set_protocols(protocols)
+                pimrp = PimRp(ip_address=left_vrf_info.get('loopback_ip'))
+                pim = Pim(name="srx")
+                pim.set_rp(pimrp)
+                pim.set_comment('PNF-Service-Chaining')
+                protocols.add_pim(pim)
+                left_ri.set_protocols(protocols)
 
         #create new service chain ri for vni targets
         for vn in left_vrf_info.get('tenant_vn') or []:
@@ -1089,30 +1089,30 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.ri_map[vrf_name] = right_ri
 
             self.add_ref_to_list(right_ri.get_routing_interfaces(), 'irb.'+right_vrf_info.get('right_svc_unit'))
-            protocols = RoutingInstanceProtocols()
 
-            bgp_name = vrf_name + '_right'
-            peer_bgp_name = bgp_name + '_' + right_vrf_info.get('srx_right_interface')
+            if right_vrf_info.get('srx_right_interface') and left_vrf_info.get('loopback_ip'):
+                protocols = RoutingInstanceProtocols()
+                bgp_name = vrf_name + '_right'
+                peer_bgp_name = bgp_name + '_' + right_vrf_info.get('srx_right_interface')
 
-            peer_bgp = Bgp(name=peer_bgp_name,
-                           autonomous_system=right_vrf_info.get('peer'),
-                           ip_address=right_vrf_info.get(
-                               'srx_right_interface'))
+                peer_bgp = Bgp(name=peer_bgp_name,
+                               autonomous_system=right_vrf_info.get('peer'),
+                               ip_address=right_vrf_info.get(
+                                   'srx_right_interface'))
 
-            bgp = Bgp(name=bgp_name,
-                      type_="external",
-                      autonomous_system=right_vrf_info.get('local'))
-            bgp.add_peers(peer_bgp)
-            bgp.set_comment('PNF-Service-Chaining')
-            protocols.add_bgp(bgp)
+                bgp = Bgp(name=bgp_name,
+                          type_="external",
+                          autonomous_system=right_vrf_info.get('local'))
+                bgp.add_peers(peer_bgp)
+                bgp.set_comment('PNF-Service-Chaining')
+                protocols.add_bgp(bgp)
 
-            pimrp = PimRp(ip_address=left_vrf_info.get('loopback_ip'))
-            pim = Pim(name="srx")
-            pim.set_rp(pimrp)
-            pim.set_comment('PNF-Service-Chaining')
-            protocols.add_pim(pim)
-
-            right_ri.set_protocols(protocols)
+                pimrp = PimRp(ip_address=left_vrf_info.get('loopback_ip'))
+                pim = Pim(name="srx")
+                pim.set_rp(pimrp)
+                pim.set_comment('PNF-Service-Chaining')
+                protocols.add_pim(pim)
+                right_ri.set_protocols(protocols)
 
         #create new service chain ri for vni targets
         for vn in right_vrf_info.get('tenant_vn') or []:
@@ -1220,10 +1220,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def build_service_chain_required_params(self, left_vrf_info, right_vrf_info):
         if left_vrf_info.get('left_svc_unit') and \
-           right_vrf_info.get('right_svc_unit') and \
-           left_vrf_info.get('srx_left_interface') and \
-           left_vrf_info.get('loopback_ip') and \
-           right_vrf_info.get('srx_right_interface'):
+           right_vrf_info.get('right_svc_unit'):
             return True
 
         return False
@@ -1353,6 +1350,9 @@ class AnsibleRoleCommon(AnsibleConf):
                         if instance_ip:
                             left_vrf_info['loopback_ip'] = \
                                 instance_ip.instance_ip_address
+                self._logger.debug("PR: %s left_vrf_info: %s right_vrf_info: %s " % (pr.name,
+                                                                                     left_vrf_info,
+                                                                                     right_vrf_info))
                 # Make sure all required parameters are present before creating the
                 # abstract config
                 if self.build_service_chain_required_params(left_vrf_info,
