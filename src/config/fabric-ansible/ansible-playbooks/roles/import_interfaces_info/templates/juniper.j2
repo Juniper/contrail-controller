@@ -117,8 +117,13 @@
 {%-         endif                                                                                                                   %}
 {%-     endif                                                                                                                       %}
 {%- endfor                                                                                                                          %}
-{%- set phy_interfaces_list = rt_phy_interfaces_payloads|list + cf_phy_interfaces_payloads|list                                     %}
-{%- set log_interfaces_list = rt_log_interfaces_payloads|list + cf_log_interfaces_payloads|list                                     %}
+{%- if pb_input.get('import_configured')                                                                                            %}
+{%-     set phy_interfaces_list = rt_phy_interfaces_payloads|list + cf_phy_interfaces_payloads|list                                 %}
+{%-     set log_interfaces_list = rt_log_interfaces_payloads|list + cf_log_interfaces_payloads|list                                 %}
+{%- else                                                                                                                            %}
+{%-     set phy_interfaces_list = rt_phy_interfaces_payloads|list                                                                   %}
+{%-     set log_interfaces_list = rt_log_interfaces_payloads|list                                                                   %}
+{%- endif                                                                                                                           %}
 {
   "physical_interfaces_list": {{phy_interfaces_list}},
   "logical_interfaces_list": {{log_interfaces_list}},
