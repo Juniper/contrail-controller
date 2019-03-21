@@ -143,6 +143,30 @@
     },
     {
       "key": {
+        "uuid": "bf57530f_9d3225a7",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1674,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T05:13:11Z",
+      "side": 1,
+      "message": "not sure I get it. As per standard, order of execution can not be guaranteed, at least that is what I remember. If that is the case then there is a potential of race condition here so why not avoid it altogether? otherwise, please provide documentation which proves that execution happens left to right.",
+      "parentUuid": "bf57530f_bd04c9c7",
+      "range": {
+        "startLine": 1674,
+        "startChar": 13,
+        "endLine": 1674,
+        "endChar": 41
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bf57530f_5dd02d51",
         "filename": "src/vnsw/agent/oper/multicast.cc",
         "patchSetId": 1
@@ -225,6 +249,30 @@
       "side": 1,
       "message": "will check this. this is agent code for igmp enabled packets. but still will think it over or at least change log level if there is a way.",
       "parentUuid": "bf57530f_1dd99582",
+      "range": {
+        "startLine": 409,
+        "startChar": 2,
+        "endLine": 411,
+        "endChar": 2
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_5d2cad46",
+        "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T05:13:11Z",
+      "side": 1,
+      "message": "yes, logging every packet may not make sense at high level at least",
+      "parentUuid": "bf57530f_9d0905df",
       "range": {
         "startLine": 409,
         "startChar": 2,
@@ -366,6 +414,30 @@
       "side": 1,
       "message": "retaining the original as-is for now. because sequence of VM/VRF/VN delete i would like to maintain.",
       "parentUuid": "bf57530f_bdd1695a",
+      "range": {
+        "startLine": 384,
+        "startChar": 20,
+        "endLine": 385,
+        "endChar": 20
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_3d21f94e",
+        "filename": "src/vnsw/agent/services/test/igmp_common_test.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 385,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T05:13:11Z",
+      "side": 1,
+      "message": "In that case, please add a separate test-case which invokes the aforementioned function so that it is covered here",
+      "parentUuid": "bf57530f_3df8d9c2",
       "range": {
         "startLine": 384,
         "startChar": 20,
