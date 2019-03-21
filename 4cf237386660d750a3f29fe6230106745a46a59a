@@ -1,0 +1,188 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bf57530f_9ded8527",
+        "filename": "src/vnsw/agent/oper/agent.sandesh",
+        "patchSetId": 1
+      },
+      "lineNbr": 2462,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "You need to add description and other things before every trace",
+      "range": {
+        "startLine": 2462,
+        "startChar": 0,
+        "endLine": 2462,
+        "endChar": 0
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_5df70df7",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 754,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "We already have a trace here, is there anything different in the new log you added?",
+      "range": {
+        "startLine": 753,
+        "startChar": 3,
+        "endLine": 754,
+        "endChar": 2
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_3ddc5973",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1674,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "As we discussed, does it make sense to check the size separately because order of execution is not guaranteed?",
+      "range": {
+        "startLine": 1674,
+        "startChar": 13,
+        "endLine": 1674,
+        "endChar": 41
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_5dd02d51",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1686,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "Most of this code is duplicated at various places, can we create a separate function for this?",
+      "range": {
+        "startLine": 1672,
+        "startChar": 10,
+        "endLine": 1686,
+        "endChar": 13
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_1dd99582",
+        "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "we are logging all the packets? It should be done only at lower log level, no? Otherwise there would be too many these messages",
+      "range": {
+        "startLine": 409,
+        "startChar": 2,
+        "endLine": 411,
+        "endChar": 2
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_fde5a139",
+        "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 817,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "again, this should be lower log level.",
+      "range": {
+        "startLine": 817,
+        "startChar": 4,
+        "endLine": 817,
+        "endChar": 11
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_dde2dd2f",
+        "filename": "src/vnsw/agent/services/test/SConscript",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "you can remove this alias if it is not needed",
+      "range": {
+        "startLine": 25,
+        "startChar": 20,
+        "endLine": 25,
+        "endChar": 29
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_bdd1695a",
+        "filename": "src/vnsw/agent/services/test/igmp_common_test.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 385,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-03-21T03:33:15Z",
+      "side": 1,
+      "message": "should we add DelVN function also, so that our function gets called? I think it was DelSgIntf or something in gmp code?",
+      "range": {
+        "startLine": 384,
+        "startChar": 20,
+        "endLine": 385,
+        "endChar": 20
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
