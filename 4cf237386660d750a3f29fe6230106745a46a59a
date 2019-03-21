@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "bf57530f_fd6c819d",
+        "filename": "src/vnsw/agent/oper/agent.sandesh",
+        "patchSetId": 1
+      },
+      "lineNbr": 2462,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "missed the description. will add.",
+      "parentUuid": "bf57530f_9ded8527",
+      "range": {
+        "startLine": 2462,
+        "startChar": 0,
+        "endLine": 2462,
+        "endChar": 0
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bf57530f_5df70df7",
         "filename": "src/vnsw/agent/oper/multicast.cc",
         "patchSetId": 1
@@ -48,6 +72,30 @@
     },
     {
       "key": {
+        "uuid": "bf57530f_dd69bd8b",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 754,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "will edit it out.",
+      "parentUuid": "bf57530f_5df70df7",
+      "range": {
+        "startLine": 753,
+        "startChar": 3,
+        "endLine": 754,
+        "endChar": 2
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bf57530f_3ddc5973",
         "filename": "src/vnsw/agent/oper/multicast.cc",
         "patchSetId": 1
@@ -59,6 +107,30 @@
       "writtenOn": "2019-03-21T03:33:15Z",
       "side": 1,
       "message": "As we discussed, does it make sense to check the size separately because order of execution is not guaranteed?",
+      "range": {
+        "startLine": 1674,
+        "startChar": 13,
+        "endLine": 1674,
+        "endChar": 41
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_bd04c9c7",
+        "filename": "src/vnsw/agent/oper/multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1674,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "i tried in sample code. order of execution is ok. and check sequence is ok too. can discuss further.",
+      "parentUuid": "bf57530f_3ddc5973",
       "range": {
         "startLine": 1674,
         "startChar": 13,
@@ -117,6 +189,30 @@
     },
     {
       "key": {
+        "uuid": "bf57530f_9d0905df",
+        "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "will check this. this is agent code for igmp enabled packets. but still will think it over or at least change log level if there is a way.",
+      "parentUuid": "bf57530f_1dd99582",
+      "range": {
+        "startLine": 409,
+        "startChar": 2,
+        "endLine": 411,
+        "endChar": 2
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bf57530f_fde5a139",
         "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
         "patchSetId": 1
@@ -128,6 +224,30 @@
       "writtenOn": "2019-03-21T03:33:15Z",
       "side": 1,
       "message": "again, this should be lower log level.",
+      "range": {
+        "startLine": 817,
+        "startChar": 4,
+        "endLine": 817,
+        "endChar": 11
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_7d0e51e6",
+        "filename": "src/vnsw/agent/services/multicast/gmp_map/gmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 817,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "same as above. will check this.",
+      "parentUuid": "bf57530f_fde5a139",
       "range": {
         "startLine": 817,
         "startChar": 4,
@@ -163,6 +283,30 @@
     },
     {
       "key": {
+        "uuid": "bf57530f_5d138d0e",
+        "filename": "src/vnsw/agent/services/test/SConscript",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "sure. will check.",
+      "parentUuid": "bf57530f_dde2dd2f",
+      "range": {
+        "startLine": 25,
+        "startChar": 20,
+        "endLine": 25,
+        "endChar": 29
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bf57530f_bdd1695a",
         "filename": "src/vnsw/agent/services/test/igmp_common_test.h",
         "patchSetId": 1
@@ -174,6 +318,30 @@
       "writtenOn": "2019-03-21T03:33:15Z",
       "side": 1,
       "message": "should we add DelVN function also, so that our function gets called? I think it was DelSgIntf or something in gmp code?",
+      "range": {
+        "startLine": 384,
+        "startChar": 20,
+        "endLine": 385,
+        "endChar": 20
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "bf57530f_3df8d9c2",
+        "filename": "src/vnsw/agent/services/test/igmp_common_test.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 385,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-03-21T04:57:03Z",
+      "side": 1,
+      "message": "retaining the original as-is for now. because sequence of VM/VRF/VN delete i would like to maintain.",
+      "parentUuid": "bf57530f_bdd1695a",
       "range": {
         "startLine": 384,
         "startChar": 20,
