@@ -1562,6 +1562,7 @@ class FilterModule(object):
                         'physical_interfaces',
                         'fabric_refs',
                         'node_profile_refs',
+                        'physical_router_role',
                         'physical_router_loopback_ip',
                         'physical_router_management_ip',
                         'physical_router_underlay_managed',
