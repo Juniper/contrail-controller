@@ -515,6 +515,7 @@ class DeviceJobManager(object):
         if signal_var.get('job_concurrency') \
                 is not None and signal_var.get('job_concurrency') == "fabric":
             self._release_fabric_job_lock(signal_var.get('fabric_fq_name'))
+        self._cleanup_job_lock(signal_var.get('fabric_fq_name'))
 
         self._job_mgr_statistics['number_processess_running'] = len(
             self._job_mgr_running_instances)
@@ -554,6 +555,18 @@ class DeviceJobManager(object):
             self._logger.error("Exception while releasing the zookeeper lock"
                                " %s " % repr(zk_error))
     # end _release_fabric_job_lock
+
+    def _cleanup_job_lock(self, fabric_fq_name):
+        fabric_node_path = '/job-manager/' + fabric_fq_name
+        try:
+            if not self._zookeeper_client.get_children(fabric_node_path):
+                self._zookeeper_client.delete_node(fabric_node_path)
+                self._logger.info("Released fabric node"
+                                " for %s " % fabric_node_path)
+        except Exception as zk_error:
+            self._logger.error("Exception while releasing the fabric node for "
+                               "%s: %s " % (fabric_node_path, str(zk_error)))
+    # end _cleanup_job_lock
 
     def save_abstract_config(self, job_params):
         """
