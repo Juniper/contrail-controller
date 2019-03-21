@@ -1,5 +1,6 @@
 #!/bin/sh
 serial_number=$(echo "show system information | display xml" | cli | grep serial-number | awk -F">" '{print $2}' | awk -F"<" '{print $1}')
+mgmt_interface=$(echo "show lldp local-information | display xml" | cli | grep management-address-interface-name | awk -F">" '{print $2}' | awk -F"<" '{print $1}')
 cat <<EOF > /tmp/juniper.config
 system {
     host-name "$serial_number"
@@ -15,15 +16,50 @@ system {
             ssh;
         }
     }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any notice;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+    }
+    processes {
+        dhcp-service {
+            traceoptions {
+                file dhcp_logfile size 10m;
+                level all;
+                flag all;
+            }
+        }
+    }
 }
 protocols {
     lldp {
         interface all;
     }
+    lldp-med {
+        interface all;
+    }
+}
+interfaces {
+    $mgmt_interface {
+        unit 0 {
+            family inet {
+                dhcp {
+                    vendor-id Juniper;
+                }
+            }
+        }
+    }
 }
 EOF
 cli <<EOF
 configure
-load merge /tmp/juniper.config relative
+load override /tmp/juniper.config
 commit and-quit
 EOF
