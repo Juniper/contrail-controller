@@ -971,6 +971,16 @@ class AnsibleRoleCommon(AnsibleConf):
                             ri_conf["prefixes"] = vn_obj.get_prefixes(self.physical_router.uuid)
                             ri_conf['vni'] = vn_obj.get_vxlan_vni(is_dci_vn = is_dci_vn)
                             ri_conf['is_dci_network'] = True
+                            dci_uuid = vn_obj.data_center_interconnect
+                            dci = DataCenterInterconnectDM.get(dci_uuid)
+                            lr_vn_list = dci.get_connected_lr_internal_vns() if dci else []
+                            lr_vn_rts = []
+                            for lr_vn in lr_vn_list:
+                                exports, imports = lr_vn.get_route_targets()
+                                if imports:
+                                    ri_conf['import_targets'] |= imports
+                                if exports:
+                                    ri_conf['export_targets'] |= exports
                         elif is_internal_vn:
                             ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                             lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(vrf_name_l3)
@@ -979,6 +989,16 @@ class AnsibleRoleCommon(AnsibleConf):
                                 ri_conf['router_external'] = lr.logical_router_gateway_external
                             if lr.data_center_interconnect:
                                 ri_conf['connected_dci_network'] = lr.data_center_interconnect
+                                lr_vn_list = lr.get_connected_networks(False) or []
+                                lr_vn_rts = []
+                                for lr_vn in lr_vn_list:
+                                    lr_vn = VirtualNetworkDM.get(lr_vn)
+                                    if lr_vn:
+                                        exports, imports = lr_vn.get_route_targets()
+                                        if imports:
+                                            ri_conf['import_targets'] |= imports
+                                        if exports:
+                                            ri_conf['export_targets'] |= exports
                         self.add_routing_instance(ri_conf)
                     break
 
