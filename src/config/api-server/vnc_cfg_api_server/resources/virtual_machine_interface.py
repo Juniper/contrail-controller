@@ -772,10 +772,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             return None, None
 
         for pr in old_pi_to_pr_dict.itervalues():
-            if pr.get('prouter_name') == prouter_name:
-                ae_num = pr.get('ae_id')
-                attr_obj = VpgInterfaceParametersType(ae_num)
-                return attr_obj, ae_num
+            if pr.get('prouter_name') == prouter_name and pr.get('ae_id'):
+                attr_obj = VpgInterfaceParametersType(pr.get('ae_id'))
+                return attr_obj, pr.get('ae_id')
         ae_num = cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name)
         attr_obj = VpgInterfaceParametersType(ae_num)
         return attr_obj, ae_num
@@ -896,7 +895,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         for ref in old_phy_interface_refs or []:
             old_pi_to_pr_dict[ref['uuid']] = {
                 'prouter_name': ref['to'][1],
-                'ae_id': ref['attr'].get('ae_num')}
+                'ae_id': ref['attr'].get('ae_num') if ref['attr'] else None}
             old_phy_interface_uuids.append(ref['uuid'])
 
         # delete old physical interfaces to the vpg
