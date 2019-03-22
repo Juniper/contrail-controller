@@ -2,7 +2,7 @@
   block:
     - name: check to see if the jinja file for the vendor and family exists
       stat:
-        path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+        path: "{{role_path}}/templates/{{prouter_vendor}}_{{prouter_family}}.j2"
       register: p
 
     - name: Use vendor and family specific template

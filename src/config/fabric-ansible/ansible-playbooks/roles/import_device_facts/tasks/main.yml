@@ -7,7 +7,7 @@
   block:
     - name: check to see if the ansible file for the vendor and family exists
       stat:
-        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+        path: "{{role_path}}/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
       register: p
 
     - name: Execute commands on device
