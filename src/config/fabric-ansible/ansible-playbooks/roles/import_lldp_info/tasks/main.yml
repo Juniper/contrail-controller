@@ -8,7 +8,7 @@
   block:
     - name: check to see if the ansible file for the vendor and family exists
       stat:
-        path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+        path: "/opt/contrail/fabric_ansible_playbooks/roles/import_lldp_info/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
       register: p
 
     - name: Execute commands on device
