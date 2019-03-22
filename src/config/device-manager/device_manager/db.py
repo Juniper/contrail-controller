@@ -114,6 +114,7 @@ class PhysicalRouterDM(DBBaseDM):
             DMUtils.get_max_ae_device_count(), DMIndexer.ALLOC_DECREMENT)
         self.init_cs_state()
         self.fabric = None
+        self.fabric_obj = None
         self.virtual_port_groups = []
         self.port_tuples = []
         self.node_profile = None
@@ -202,6 +203,8 @@ class PhysicalRouterDM(DBBaseDM):
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
         self.update_single_ref('fabric', obj)
+        if self.fabric is not None:
+            self.fabric_obj = FabricDM.get(self.fabric)
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
         self.update_single_ref('node_profile', obj)
@@ -301,15 +304,15 @@ class PhysicalRouterDM(DBBaseDM):
     # end verify_allocated_asn
 
     def allocate_asn(self):
-        if not self.fabric or not self.underlay_managed:
+        if not self.fabric or not self.underlay_managed \
+                or not self.fabric_obj:
             return
-        fabric = FabricDM.get(self.fabric)
-        if self.verify_allocated_asn(fabric):
+        if self.verify_allocated_asn(self.fabric_obj):
             return
 
         # get the configured asn ranges for this fabric
         asn_ranges = []
-        for namespace_uuid in fabric.fabric_namespaces:
+        for namespace_uuid in self.fabric_obj.fabric_namespaces:
             namespace = FabricNamespaceDM.get(namespace_uuid)
             if namespace is None:
                 continue
@@ -355,7 +358,6 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('logical_router', {})
         self.update_multiple_refs('service_endpoint', {})
         self.update_multiple_refs('e2_service_provider', {})
-        self.update_single_ref('fabric', {})
 
         if self.config_manager:
             if self.use_ansible_plugin():
@@ -374,6 +376,8 @@ class PhysicalRouterDM(DBBaseDM):
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
         self.update_single_ref('node_profile', {})
+        self.update_single_ref('fabric', {})
+        self.fabric_obj = None
     # end delete_handler
 
     def delete_obj(self):
@@ -2314,6 +2318,7 @@ class FabricDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.name = None
+        self.fq_name = None
         self.fabric_namespaces = set()
         self.lo0_ipam_subnet = None
         self.ip_fabric_ipam_subnet = None
@@ -2344,7 +2349,8 @@ class FabricDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
 
         # Get the 'loopback' type virtual network
         self.lo0_ipam_subnet =\
