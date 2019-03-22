@@ -2,12 +2,12 @@
   block:
     - name: check to see if the ansible file for the vendor and family exists
       stat:
-        path: "/opt/contrail/fabric_ansible_playbooks/roles/update_physical_router_properties/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
+        path: "{{role_path}}/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
       register: p
 
     - name: check to see if the ansible file for just the vendor exists
       stat:
-        path: "/opt/contrail/fabric_ansible_playbooks/roles/update_physical_router_properties/tasks/{{prouter_vendor}}.yml"
+        path: "{{role_path}}/tasks/{{prouter_vendor}}.yml"
       register: p_default
 
     - name: get additional properties for the device
@@ -22,7 +22,7 @@
     # set as part of the ansible file or left empty by default
     - name: Validate Input Schema -- additional_device_properties
       set_fact:
-        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/update_physical_router_properties_schema.json',additional_device_properties, prouter_name)}}"
+        schema_validation_resp: "{{'input_schema' | validate_schema(schema_file, additional_device_properties, prouter_name)}}"
 
     - name: Perform the necessary error handling when there is a schema validation error
       include_tasks: error_handler.yml
@@ -61,7 +61,7 @@
       include_tasks: percentage_update.yml
       vars:
         current_index: 3
-        jl_message: "Updated {{prouter_vendor}} device with:   {{physical_router_upd_resp.job_log_msg}}"
+        jl_message: "Updated {{prouter_vendor}} device, {{prouter_name}} with: \n   {{physical_router_upd_resp.job_log_msg}}"
         jl_details: {
                       "warning_info": "{{physical_router_upd_resp.warning_info}}"
                     }
