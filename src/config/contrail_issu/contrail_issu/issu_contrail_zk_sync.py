@@ -80,11 +80,13 @@ class ContrailZKIssu():
     def issu_zk_start(self):
         # Connect to old and new ZK servers
         self._zk_old = ZookeeperClient("zk issu client older version",
-                                       self._Old_ZK_Version_Address)
+                                       self._Old_ZK_Version_Address,
+                                       self._New_ZK_Version_Address)
         self._zk_old.set_lost_cb(self.issu_restart)
         self._zk_old.set_suspend_cb(self.issu_restart)
 
         self._zk_new = ZookeeperClient("zk issu client newer version",
+                                       self._New_ZK_Version_Address,
                                        self._New_ZK_Version_Address)
         self._zk_new.set_lost_cb(self.issu_restart)
         self._zk_new.set_suspend_cb(self.issu_restart)
