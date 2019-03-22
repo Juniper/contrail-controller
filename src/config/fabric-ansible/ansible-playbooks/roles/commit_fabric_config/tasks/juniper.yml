@@ -27,6 +27,9 @@
                {% else -%}
                   Junos config push response for device '{{ device_name }}' \n{{ junos_response.msg }} \nDiff: "No config change, nothing to deploy"
                {%- endif %}
+        - set_fact:
+           device_push_message_job_log: >
+                 Junos config push response message for device '{{ device_name }}' \n{{ junos_response.msg }}
       rescue:
         - include_tasks: error_handler.yml
           vars:
