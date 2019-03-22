@@ -26,7 +26,7 @@
 
 - name: Get vendor specific jinja file name
   set_fact:
-    jinja_file: "{{device_vendor}}_{{pr_family}}_maintenance_mode.j2"
+    jinja_file: "{{device_vendor}}_maintenance_mode.j2"
 
 - name: Generate maintenance mode config to be pushed on device {{prouter_name}}
   block:
@@ -73,3 +73,4 @@
   include_tasks: percentage_update.yml
   vars:
     jl_message: "Configuration pushed down to {{device_maintenance_mode}} maintenance mode on the device {{prouter_name}}."
+

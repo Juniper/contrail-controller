@@ -76,7 +76,7 @@ delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
 
 {% macro lag_configurations(interface_list, interface_group_name=None) %}
 {%     for item in interface_list %}
-{%         if item.get('aggregated-ether-options') is defined and item.get('aggregated-ether-options') != None %}
+{%         if item.get('esi') is defined and item.get('esi') != None and item.get('aggregated-ether-options') is defined and item.get('aggregated-ether-options') != None %}
 {%             set aggregated_group = item.get('aggregated-ether-options') %}
 {%             set admin_key = aggregated_group.get('lacp').get('admin-key') | int %}
 {%             set lag_interface_name = item.get('name') %}
