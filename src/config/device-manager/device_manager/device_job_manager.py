@@ -711,7 +711,7 @@ class DeviceJobManager(object):
         else:
             if "device_deletion_template" in request_params.get(
                    'job_template_fq_name'):
-                fabric_fq_name = "__DEFAULT__"
+                fabric_fq_name = ["__DEFAULT__"]
             elif not is_delete:
                 err_msg = "Missing fabric details in the job input"
                 raise JobException(err_msg, job_execution_id)
