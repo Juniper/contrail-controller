@@ -72,31 +72,25 @@ public:
         DelEncapList();
         client->WaitForIdle();
 
-        TestRouteTable table1(1);
-        WAIT_FOR(100, 100, (table1.Size() == 0));
-        EXPECT_EQ(table1.Size(), 0U);
-
-        TestRouteTable table2(2);
-        WAIT_FOR(100, 100, (table2.Size() == 0));
-        EXPECT_EQ(table2.Size(), 0U);
-
-        TestRouteTable table3(3);
-        WAIT_FOR(100, 100, (table3.Size() == 0));
-        EXPECT_EQ(table3.Size(), 0U);
+        TestRouteTable table(2);
+        WAIT_FOR(100, 100, (table.Size() == 0));
+        EXPECT_EQ(table.Size(), 0);
 
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
+
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        InetInterfaceKey vhost_intf_key(
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE,
+                                 boost::uuids::nil_uuid(),
             Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->
             fabric_inet4_unicast_table()->AddResolveRoute(
                 Agent::GetInstance()->local_peer(),
                 Agent::GetInstance()->fabric_vrf_name(), server_ip, plen,
-                vhost_intf_key, 0, false, "", SecurityGroupList());
+                vhost_intf_key, 0, false, "", SecurityGroupList(), TagList());
         client->WaitForIdle();
     }
 
@@ -159,7 +153,7 @@ public:
             DeleteReq(bgp_peer_, vrf_name_, remote_vm_ip_, 32, NULL);
         client->WaitForIdle();
         EvpnAgentRouteTable::DeleteReq(bgp_peer_, vrf_name_, remote_vm_mac_,
-                                       remote_vm_ip_, 0, NULL);
+                                       remote_vm_ip_, 32, 0, NULL);
         client->WaitForIdle();
         agent->fabric_inet4_unicast_table()->
             DeleteReq(agent->local_peer(), vrf_name_,
@@ -342,7 +336,7 @@ TEST_F(TunnelEncapTest, gre_to_udp) {
     client->WaitForIdle();
 }
 
-TEST_F(TunnelEncapTest, gre_to_vxlan_udp) {
+TEST_F(TunnelEncapTest, DISABLED_gre_to_vxlan_udp) {
     client->Reset();
     AddRemoteVmRoute(TunnelType::MplsType(), TunnelType::AllType());
     client->WaitForIdle();

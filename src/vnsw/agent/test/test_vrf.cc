@@ -373,7 +373,7 @@ TEST_F(VrfTest, DelReqonDeletedVrfRouteTable) {
     Ip4Address zero_ip;
     EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
                                    std::string("vrf1"),
-                                   mac, zero_ip, 0, NULL);
+                                   mac, zero_ip, 32, 0, NULL);
     client->WaitForIdle();
 
     // release the VRF reference
@@ -436,9 +436,6 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init, false, true, false);
 
     int ret = RUN_ALL_TESTS();
-    client->WaitForIdle();
-    ShutdownAgentController(Agent::GetInstance());
-    Agent::GetInstance()->event_manager()->Shutdown();
     client->WaitForIdle();
     TestShutdown();
     delete client;
