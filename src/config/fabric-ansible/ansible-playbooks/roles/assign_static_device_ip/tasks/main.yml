@@ -1,6 +1,6 @@
 - name: Check to see if the jinja file for the vendor and family exists
   stat:
-    path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+    path: "/opt/contrail/fabric_ansible_playbooks/roles/assign_static_device_ip/templates/{{prouter_vendor}}_{{prouter_family}}.j2"
   register: p
 
 - name: Use vendor and family specific template
@@ -15,7 +15,7 @@
 
 - name: Check to see if the task file for the vendor and family exists
   stat:
-    path: "{{prouter_vendor}}_{{prouter_family}}.yml"
+    path: "/opt/contrail/fabric_ansible_playbooks/roles/assign_static_device_ip/tasks{{prouter_vendor}}_{{prouter_family}}.yml"
   register: p
 
 - name: Use vendor and family specific task

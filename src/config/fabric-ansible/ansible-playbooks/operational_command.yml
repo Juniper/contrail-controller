@@ -32,7 +32,7 @@
       block:
         - name: check to see if the ansible file for the vendor and family exists
           stat:
-            path: "roles/cmd_{{device_op}}/tasks/{{device_vendor}}_{{device_family}}.yml"
+            path: "/opt/contrail/fabric_ansible_playbooks/roles/cmd_{{device_op}}/tasks/{{device_vendor}}_{{device_family}}.yml"
           register: p
 
         # the following block assumes that if a vendor_family specific playbook is available, then the jinja parsing
