@@ -34,6 +34,8 @@
         - name: Run health check only
           include_role:
             name: maintenance_mode_validation
+          vars:
+            mode: "{{upgrade_mode}}"
 
         - set_fact:
             output: {
