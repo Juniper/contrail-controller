@@ -4,6 +4,11 @@
        "maxProperties":1,
        "additionalProperties":false,
        "properties":{
+           "import_configured": {
+               "type": "boolean",
+               "default": false,
+               "description": "Not importing configured interfaces by default. Set this option to true if configured interfaces need to be imported."
+           },
            "interface_filters":{
                "$id":"/properties/interface_filters",
                "type":"array",
@@ -13,7 +18,7 @@
                    "maxProperties":2,
                    "additionalProperties":false,
                    "properties": {
-                       "op": { "enum": ["regex", "startwith"]},
+                       "op": { "enum": ["regex"]},
                        "expr": { "type": "string" }
                    },
                    "title":"filter object",

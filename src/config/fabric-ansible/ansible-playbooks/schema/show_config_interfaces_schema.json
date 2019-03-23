@@ -23,7 +23,7 @@
                    "additionalProperties":false,
                    "properties": {
                        "op": {
-                           "enum": ["regex", "startwith"],
+                           "enum": ["regex"],
                            "title": "Filter Type"
                        },
                        "expr": {
