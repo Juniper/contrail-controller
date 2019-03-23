@@ -387,7 +387,7 @@ class TestBgp(STTestCase, VerifyBgp):
 
     def create_router(self, name, mgmt_ip, vendor='juniper', product='mx',
                       ignore_pr=False, role=None, cluster_id=None,
-                      ignore_bgp=False, fabric=None):
+                      ignore_bgp=False, fabric=None, asn=64512):
         bgp_router, pr = None, None
 
         if not ignore_bgp:
@@ -399,7 +399,8 @@ class TestBgp(STTestCase, VerifyBgp):
             params.identifier = mgmt_ip
             params.address_families = AddressFamilies(['route-target', 'inet-vpn',
                                                        'e-vpn', 'inet6-vpn'])
-            params.autonomous_system = randint(0, 64512)
+            params.vendor = vendor
+            params.autonomous_system = asn
             params.cluster_id = cluster_id
             bgp_router.set_bgp_router_parameters(params)
             self._vnc_lib.bgp_router_create(bgp_router)
@@ -476,7 +477,7 @@ class TestBgp(STTestCase, VerifyBgp):
         gevent.sleep(1)
     # end test_ibgp_auto_mesh_sub
 
-    def test_ibgp_auto_mesh_fab2(self):
+    def test_ibgp_auto_mesh_fabric_phy_rtr_to_bgp_rtr_dependency(self):
         config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
         self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
@@ -530,48 +531,52 @@ class TestBgp(STTestCase, VerifyBgp):
         self.delete_fabric(fab2)
 
         gevent.sleep(1)
-    #end test_ibgp_auto_mesh_fab
+    # end test_ibgp_auto_mesh_fabric_phy_rtr_to_bgp_rtr_dependency
 
 
-    def test_ibgp_auto_mesh_fab(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = False
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
-                         False, "ibgp_auto_mesh_toggle_test")
-
-        # Fabric 1 has 1 RR,spine + 2 leafs
-        fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
-        fab1 = self._vnc_lib.fabric_read(id=fab1)
-
-        bgp_router1_fab1, pr1_fab1 = self.create_router('router1_fab1' + self.id(), '1.1.1.1',
-                                                        product="qfx1000", role="spine", cluster_id=1000, fabric=fab1)
-
-        bgp_router2_fab1, pr2_fab1 = self.create_router('router2_fab1' + self.id(), '1.1.1.2',
-                                                        product="qfx1000", role="leaf", fabric=fab1)
-        bgp_router3_fab1, pr3_fab1 = self.create_router('router3_fab1' + self.id(), '1.1.1.3',
-                                                        product="qfx1000", role="leaf", fabric=fab1)
-
-        # Fabric 2 has 1 RR, spine + 2 leafs
-        fab2 = self._vnc_lib.fabric_create(Fabric('fab2'))
-        fab2 = self._vnc_lib.fabric_read(id=fab2)
-
-        bgp_router1_fab2, pr1_fab2 = self.create_router('router1_fab2' + self.id(), '2.1.1.1',
-                                                        product="qfx1000", role="spine", cluster_id=2000, fabric=fab2)
-
-        bgp_router2_fab2, pr2_fab2 = self.create_router('router2_fab2' + self.id(), '2.1.1.2',
-                                                        product="qfx1000", role="leaf", fabric=fab2)
-        bgp_router3_fab2, pr3_fab2 = self.create_router('router3_fab2' + self.id(), '2.1.1.3',
-                                                        product="qfx1000", role="leaf", fabric=fab2)
-
-        # Enable auto-mesh and then trigger update peering
+    def test_ibgp_auto_mesh_fabric_with_different_asn(self):
+        # global asn = 64512
         config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
         self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
-        for router in config_db.BgpRouterST._dict.values():
-            router.update()
+        # Fabric 1 has 1 RR,spine + 2 leafs, asn = 64000
+        fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
+        fab1 = self._vnc_lib.fabric_read(id=fab1)
 
-        for router in config_db.BgpRouterST._dict.values():
-            router.update_peering()
+        bgp_router1_fab1, pr1_fab1 = self.create_router(
+            'router1_fab1' + self.id(), '1.1.1.1',
+            product="qfx1000", role="spine", cluster_id=1000,
+            fabric=fab1, asn=64000)
+
+        bgp_router2_fab1, pr2_fab1 = self.create_router(
+            'router2_fab1' + self.id(), '1.1.1.2',
+            product="qfx1000", role="leaf", fabric=fab1,
+            asn=64000)
+
+        bgp_router3_fab1, pr3_fab1 = self.create_router(
+            'router3_fab1' + self.id(), '1.1.1.3',
+            product="qfx1000", role="leaf", fabric=fab1,
+            asn=64000)
+
+        # Fabric 2 has 1 RR, spine + 2 leafs, asn = 64001
+        fab2 = self._vnc_lib.fabric_create(Fabric('fab2'))
+        fab2 = self._vnc_lib.fabric_read(id=fab2)
+
+        bgp_router1_fab2, pr1_fab2 = self.create_router(
+            'router1_fab2' + self.id(), '2.1.1.1',
+            product="qfx1000", role="spine", cluster_id=2000,
+            fabric=fab2, asn=64001)
+
+        bgp_router2_fab2, pr2_fab2 = self.create_router(
+            'router2_fab2' + self.id(), '2.1.1.2',
+            product="qfx1000", role="leaf", fabric=fab2,
+            asn=64001)
+
+        bgp_router3_fab2, pr3_fab2 = self.create_router(
+            'router3_fab2' + self.id(), '2.1.1.3',
+            product="qfx1000", role="leaf", fabric=fab2,
+            asn=64001)
 
         # router1 and router2 should not be connected, both of them should be
         # connected to router3

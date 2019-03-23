@@ -1868,7 +1868,7 @@ class RouteTableST(DBBaseST):
 class PhysicalRouterST(DBBaseST):
     _dict = {}
     obj_type = 'physical_router'
-    ref_fields = ["bgp_router", 'fabric']
+    ref_fields = ['bgp_router', 'fabric']
 
     def __init__(self, name, obj=None):
         self.name = name
@@ -1878,7 +1878,11 @@ class PhysicalRouterST(DBBaseST):
     # end __init__
 
     def update(self, obj=None):
-        return self.update_vnc_obj(obj)
+        changed = self.update_vnc_obj(obj)
+        if 'bgp_router' in changed:
+            bgp_rtr = BgpRouterST.locate(self.bgp_router)
+            bgp_rtr.physical_router = self.name
+        return changed
     # end update
 
 # end class PhysicalRouterST
@@ -3222,7 +3226,7 @@ class BgpRouterST(DBBaseST):
     _dict = {}
     obj_type = 'bgp_router'
     prop_fields = ['bgp_router_parameters']
-    ref_fields = ['bgp_as_a_service', 'sub_cluster']
+    ref_fields = ['bgp_as_a_service', 'sub_cluster', 'physical_router']
 
     def __init__(self, name, obj=None):
         self.name = name
@@ -3234,6 +3238,7 @@ class BgpRouterST(DBBaseST):
         self.source_port = None
         self.sub_cluster = None
         self.cluster_id = None
+        self.physical_router = None
         self.update(obj)
         self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
@@ -3246,6 +3251,7 @@ class BgpRouterST(DBBaseST):
 
     def delete_obj(self):
         self.update_single_ref('bgp_as_a_service', {})
+        self.update_single_ref('physical_router', {})
         if self.router_type == 'bgpaas-client':
             self._object_db.free_bgpaas_port(self.source_port)
     # end delete_ref
@@ -3264,7 +3270,7 @@ class BgpRouterST(DBBaseST):
         self.router_type = params.router_type
         self.source_port = params.source_port
 
-        # to reduce the peerinf from full mesh to RR
+        # to reduce the peering from full mesh to RR
         if self.is_cluster_id_changed(params):
             self.cluster_id = params.cluster_id
             self.update_full_mesh_to_rr_peering()
@@ -3451,21 +3457,20 @@ class BgpRouterST(DBBaseST):
     # end _is_route_reflector_supported
 
     def skip_fabric_bgp_router_peering_add(self, router):
-        self.update_vnc_obj()
 
-        pr_obj_refs = self.obj.get_physical_router_back_refs()
-        pr_obj_peer_refs = router.obj.get_physical_router_back_refs()
+        phy_rtr_name = self.physical_router
+        phy_rtr_peer_name = router.physical_router
 
-        if pr_obj_refs and pr_obj_peer_refs:
-            pr_obj = self._vnc_lib.physical_router_read(id=pr_obj_refs[0]['uuid'])
-            fab_refs = pr_obj.get_fabric_refs()
+        if phy_rtr_name and phy_rtr_peer_name:
+            phy_rtr = PhysicalRouterST.get(phy_rtr_name)
+            fabric = phy_rtr.fabric
 
-            pr_peer_obj = self._vnc_lib.physical_router_read(id=pr_obj_peer_refs[0]['uuid'])
-            fab_peer_refs = pr_peer_obj.get_fabric_refs()
+            phy_rtr_peer = PhysicalRouterST.get(phy_rtr_peer_name)
+            fabric_peer = phy_rtr_peer.fabric
 
-            # Ignore peering if fabric-id of self-bgp-router and peer-bgp-router are not same
-            if (fab_refs and fab_peer_refs and
-                fab_refs[0]['to'] != fab_peer_refs[0]['to']):
+            # Ignore peering if fabric of self-bgp-router and peer-bgp-router
+            # are not the same
+            if (fabric and fabric_peer and fabric != fabric_peer):
                 return True
 
         return False
@@ -3489,8 +3494,7 @@ class BgpRouterST(DBBaseST):
 
         # Always create peering from/to route-reflector (server).
         if self.cluster_id or router.cluster_id:
-            if not self.skip_fabric_bgp_router_peering_add(router):
-                return False
+            return self.skip_fabric_bgp_router_peering_add(router)
 
         # Only in this case can we opt to skip adding bgp-peering.
         return True
@@ -3508,8 +3512,17 @@ class BgpRouterST(DBBaseST):
             return
         if self.router_type in ('bgpaas-server', 'bgpaas-client'):
             return
+
+        fabric = None
+        if self.physical_router:
+            phy_rtr = PhysicalRouterST.get(self.physical_router)
+            fabric = phy_rtr.fabric
+
         global_asn = int(GlobalSystemConfigST.get_autonomous_system())
-        if self.sub_cluster == None and self.asn != global_asn:
+        # if it's a fabric or sub cluster bgp router, ignore
+        # global asn check that we do to determine e-bgp router
+        if (self.sub_cluster is None and fabric is None and
+            self.asn != global_asn):
             return
         try:
             obj = self.read_vnc_obj(fq_name=self.name)
