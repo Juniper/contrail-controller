@@ -1280,31 +1280,24 @@ class AnsibleRoleCommon(AnsibleConf):
                 right_vrf_info['peer'] = si_obj.right_svc_asns[0]
                 right_vrf_info['local'] = si_obj.right_svc_asns[1]
 
-                st_obj = ServiceTemplateDM.get(si_obj.service_template)
-                order = {}
-                #get left and right LR based on service tempalte interface
-                # type order
-                for idx in range(len(st_obj.port_tuple_order)):
-                    # get left LR and right LR
-                    order.update({st_obj.port_tuple_order[idx]:
-                                    list(pt_obj.logical_routers)[idx]})
-
-                for key, value in order.items():
-                    lr_obj = LogicalRouterDM.get(value)
+                #get left LR and right LR
+                for lr_uuid in pt_obj.logical_routers:
+                    lr_obj = LogicalRouterDM.get(lr_uuid)
                     if pr.uuid not in lr_obj.physical_routers:
                         continue
-                    if key == 'left':
+                    if pt_obj.left_lr == lr_uuid:
                         left_vrf_info['vn_id'] = lr_obj.virtual_network
                         left_vrf_info[
                             'tenant_vn'] = lr_obj.get_connected_networks(
                             include_internal=False)
-                    if key == 'right':
+                    if pt_obj.right_lr == lr_uuid:
                         right_vrf_info[
                             'vn_id'] = lr_obj.virtual_network
                         right_vrf_info[
                             'tenant_vn'] = lr_obj.get_connected_networks(
                             include_internal=False)
 
+                st_obj = ServiceTemplateDM.get(si_obj.service_template)
                 sas_obj = ServiceApplianceSetDM.get(st_obj.service_appliance_set)
                 svc_app_obj = ServiceApplianceDM.get(
                     list(sas_obj.service_appliances)[0])
