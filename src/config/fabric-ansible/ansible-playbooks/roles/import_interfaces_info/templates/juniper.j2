@@ -63,7 +63,7 @@
 {%-         endif                                                                                                                   %}
 {%-     endif                                                                                                                       %}
 {%- endfor                                                                                                                          %}
-{%- set lo0_found = False                                                                                                           %}
+{%- set lo0_found = [False]                                                                                                           %}
 {%- set lo0_ip_add = ['']                                                                                                           %}
 {%- set cf_phy_interfaces_payloads = []                                                                                             %}
 {%- set cf_log_interfaces_payloads = []                                                                                             %}
@@ -102,8 +102,10 @@
 {%-                                 set lo0_add_list = log_unit.family.inet.address                                                 %}
 {%-                             endif                                                                                               %}
 {%-                             for lo0_add in lo0_add_list                                                                         %}
-{%-                                 if lo0_add.name != "127.0.0.1/32" and not lo0_found                                             %}
-{%-                                     set lo0_found = True                                                                        %}
+{%-                                 if lo0_add.name != "127.0.0.1/32" and not lo0_found[-1]                                             %}
+{%-                                     if lo0_add.get('primary', None) == ''                                                       %}
+{%-                                         set z = lo0_found.append(True)                                                                    %}
+{%-                                     endif                                                                                       %}
 {%-                                     set x=lo0_ip_add.append(lo0_add.name.split('/')[0])                                         %}
 {%-                                 endif                                                                                           %}
 {%-                             endfor                                                                                              %}
