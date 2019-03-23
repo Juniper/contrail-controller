@@ -58,6 +58,9 @@ set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} vpn-apply-ex
 {%                 endif %}
 set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} family {{family}} {{mode}} 
 {%             endfor %}
+{%             if bgp_group_type == 'external' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
+{%             endif %}
 {%             if bgp.get('type_') == 'internal' %}
 {%                 for family in bgp.get('families', []) %}
 {%                     if family.startswith('inet') or family.startswith('evpn') %}
