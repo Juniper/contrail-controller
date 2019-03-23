@@ -1881,6 +1881,12 @@ class PortTupleDM(DBBaseDM):
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
         self.svc_instance = self.get_parent_uuid(obj)
+        annotations = obj.get('annotations')
+        if annotations:
+            kvps = annotations.get('key_value_pair') or []
+            kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+            self.left_lr = kvp_dict.get('left-lr') or None
+            self.right_lr = kvp_dict.get('right-lr') or None
         self.build_pt_pr_map()
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('logical_router', obj)
