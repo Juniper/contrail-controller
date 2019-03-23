@@ -1822,7 +1822,8 @@ class FilterModule(object):
             rb_roles = device_obj.get_routing_bridging_roles()
             if phys_role or (rb_roles and rb_roles.get_rb_roles()):
                 no_role_assigned = False
-            if 'Route-Reflector' in (rb_roles.get_rb_roles() or []):
+            if rb_roles and 'Route-Reflector' in (
+                        rb_roles.get_rb_roles() or []):
                 return
 
         if ok_with_no_role_assigned and no_role_assigned:
