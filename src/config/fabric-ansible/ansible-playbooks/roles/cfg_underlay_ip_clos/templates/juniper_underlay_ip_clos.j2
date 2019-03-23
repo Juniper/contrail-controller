@@ -5,6 +5,9 @@ set groups {{cfg_group}} interfaces {{ifd.name}} mtu 9192
 delete protocols rstp interface {{ifd.name}}
 {%         endif %}
 {%             for ifl in ifd.get('logical_interfaces', []) %}
+{%                 if feature not in ifl.get('comment', '') %}
+{%                     continue %}
+{%                 endif %}
 delete interfaces {{ifd.name}} unit {{ifl.unit}}
 set interfaces {{ifd.name}} unit {{ifl.unit}} family inet
 {%                 set address = ifl.ip_addresses[0].address %}
