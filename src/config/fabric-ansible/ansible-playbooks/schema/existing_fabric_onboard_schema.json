@@ -111,16 +111,17 @@
           "additionalProperties":false,
           "properties": {
             "op": {
-                    "enum": ["regex", "startwith"]},
-                    "expr": { "type": "string" }
+              "enum": ["regex"]
             },
-            "title":"filter object",
-            "description":"filter object having op and expr fields",
-            "default":{},
-            "examples":[
+            "expr": { "type": "string" }
+          },
+          "title":"filter object",
+          "description":"filter object having op and expr fields",
+          "default":{},
+          "examples":[
                        {"op":"regex", "expr": "^ge-"},
                        {"op":"regex", "expr": "^xe"}
-            ]
+          ]
         }
       },
       "device_count": {

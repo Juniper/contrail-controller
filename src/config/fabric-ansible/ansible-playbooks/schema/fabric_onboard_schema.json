@@ -107,8 +107,9 @@
           "additionalProperties":false,
           "properties": {
             "op": {
-                    "enum": ["regex", "startwith"]},
-                    "expr": { "type": "string" }
+                    "enum": ["regex"]
+            },
+            "expr": { "type": "string" }
             },
             "title":"filter object",
             "description":"filter object having op and expr fields",
