@@ -8,6 +8,7 @@
     - import_device_facts
     - read_interfaces_info
     - import_interfaces_info
+    - update_physical_router_properties
 
   tasks:
 
