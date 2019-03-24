@@ -886,11 +886,9 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def build_ri_config(self):
         vn_dict = self.get_vn_li_map()
-        vn_irb_ip_map = None
-        if self.is_gateway():
-            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
-            self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
-            vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
+        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
+        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
+        vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
         for vn_id, interfaces in self.get_sorted_key_value_pairs(vn_dict):
             vn_obj = VirtualNetworkDM.get(vn_id)
