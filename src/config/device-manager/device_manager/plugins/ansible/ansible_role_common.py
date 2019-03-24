@@ -974,7 +974,6 @@ class AnsibleRoleCommon(AnsibleConf):
                             dci_uuid = vn_obj.data_center_interconnect
                             dci = DataCenterInterconnectDM.get(dci_uuid)
                             lr_vn_list = dci.get_connected_lr_internal_vns() if dci else []
-                            lr_vn_rts = []
                             for lr_vn in lr_vn_list:
                                 exports, imports = lr_vn.get_route_targets()
                                 if imports:
@@ -990,7 +989,6 @@ class AnsibleRoleCommon(AnsibleConf):
                             if lr.data_center_interconnect:
                                 ri_conf['connected_dci_network'] = lr.data_center_interconnect
                                 lr_vn_list = lr.get_connected_networks(False) or []
-                                lr_vn_rts = []
                                 for lr_vn in lr_vn_list:
                                     lr_vn = VirtualNetworkDM.get(lr_vn)
                                     if lr_vn:
@@ -999,6 +997,15 @@ class AnsibleRoleCommon(AnsibleConf):
                                             ri_conf['import_targets'] |= imports
                                         if exports:
                                             ri_conf['export_targets'] |= exports
+                                dci_uuid = lr.data_center_interconnect
+                                dci = DataCenterInterconnectDM.get(dci_uuid)
+                                lr_vn_list = dci.get_connected_lr_internal_vns() if dci else []
+                                for lr_vn in lr_vn_list:
+                                    exports, imports = lr_vn.get_route_targets()
+                                    if imports:
+                                        ri_conf['import_targets'] |= imports
+                                    if exports:
+                                        ri_conf['export_targets'] |= exports
                         self.add_routing_instance(ri_conf)
                     break
 
@@ -1467,7 +1474,6 @@ class AnsibleRoleCommon(AnsibleConf):
             return
         self.build_server_config()
         self.build_bgp_config()
-        self.build_dci_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
         self.set_dci_vn_irb_config()

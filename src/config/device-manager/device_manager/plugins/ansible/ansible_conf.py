@@ -206,52 +206,6 @@ class AnsibleConf(AnsibleBase):
                     self.bgp_map[bgp_name] = bgp
     # end build_underlay_bgp
 
-    def build_dci_bgp_config(self):
-        if not self.physical_router.has_rb_role("DCI-Gateway"):
-            return
-        dci_list = self.physical_router.get_dci_list()
-        for dci_uuid in dci_list or []:
-            params = self.physical_router.get_dci_bgp_params(dci_uuid)
-            if not params:
-                continue
-            asn = params.get("asn")
-            ip = params.get("ip")
-            name = params.get("name")
-            typ = params.get("type")
-            bgp = Bgp(name=name,
-                          ip_address=ip,
-                          autonomous_system=asn,
-                          type_=typ)
-            bgp.set_comment(DMUtils.dci_bgp_group_comment(bgp))
-            bgp.set_hold_time(params.get('hold_time'))
-            for family in params.get("families") or []:
-                if family in ['e-vpn', 'e_vpn']:
-                    family = 'evpn'
-                bgp.add_families(family)
-
-            bgp_name = name
-            neigh_list = self.physical_router.get_dci_bgp_neighbours(dci_uuid)
-            peers = {}
-            for neigh in neigh_list or []:
-                asn = neigh.get("asn")
-                ip = neigh.get("ip")
-                name = neigh.get("name")
-                typ = neigh.get("type")
-                peer = Bgp(name=name,
-                           ip_address=ip,
-                           autonomous_system=asn, type_=typ)
-                peers[name] = peer
-                peer.set_hold_time(neigh.get('hold_time'))
-                for family in neigh.get("families") or []:
-                    if family in ['e-vpn', 'e_vpn']:
-                        family = 'evpn'
-                    peer.add_families(family)
-
-            if peers:
-                bgp.set_peers(self.get_values_sorted_by_key(peers))
-            self.bgp_map[bgp_name] = bgp
-    # end build_dci_bgp_config
-
     def device_send(self, job_template, job_input, is_delete, retry):
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
@@ -558,6 +512,19 @@ class AnsibleConf(AnsibleBase):
                 external = (local_as != peer_as)
                 self.add_bgp_peer(peer.params['address'],
                                   peer.params, attr, external, peer)
+            dci_peers = self.physical_router.get_dci_bgp_neighbours() or []
+            for peer_uuid in dci_peers:
+                peer = BgpRouterDM.get(peer_uuid)
+                if not peer or not peer.params or not peer.params.get(
+                        'address'):
+                    continue
+                local_as = (bgp_router.params.get('local_autonomous_system') or
+                            bgp_router.params.get('autonomous_system'))
+                peer_as = (peer.params.get('local_autonomous_system') or
+                           peer.params.get('autonomous_system'))
+                external = (local_as != peer_as)
+                self.add_bgp_peer(peer.params['address'],
+                                  peer.params, {}, external, peer)
             self.set_bgp_config(bgp_router.params, bgp_router)
             tunnel_ip = self.physical_router.dataplane_ip
             if not tunnel_ip and bgp_router.params:
