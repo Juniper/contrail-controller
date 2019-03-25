@@ -25,6 +25,8 @@ extern "C" {
 #include "task_map.h"
 #include "gmp_proto.h"
 
+extern SandeshTraceBufferPtr MulticastTraceBuf;
+
 GmpIntf::GmpIntf(const GmpProto *gmp_proto) : gmp_proto_(gmp_proto),
                                     vrf_name_(), ip_addr_() {
 
@@ -159,7 +161,14 @@ void GmpProto::GmpIntfSGClear(VnGmpDBState *state,
     VnGmpDBState::VnGmpSGIntfListIter gif_sg_it =
                             gmp_intf_state->gmp_intf_sg_list_.begin();
     for (; gif_sg_it != gmp_intf_state->gmp_intf_sg_list_.end(); ++gif_sg_it) {
+
         gmp_sg = *gif_sg_it;
+
+        MCTRACE(LogSG, "Delete Mcast VRF SG for VN ",
+                            gmp_intf_state->gmp_intf_->get_vrf_name(),
+                            gmp_sg->source_.to_v4().to_string(),
+                            gmp_sg->group_.to_v4().to_string(), 0);
+
         gmp_sg->refcount_--;
         sg_to_delete.insert(gmp_sg);
         if (gmp_sg->refcount_ == 0) {
@@ -323,8 +332,16 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
     if (itf->IsDeleted() || !vm_itf->igmp_enabled()) {
         if (!vmi_state) {
+            MCTRACE(IgmpIntf, "Itf Notify, no VMI state ",
+                            "no-vrf", vm_itf->primary_ip_addr().to_string(),
+                            vm_itf->igmp_enabled());
             return;
         }
+
+        MCTRACE(IgmpIntf, "Itf Notify, VMI delete or IGMP disable ",
+                            vmi_state->vrf_name_,
+                            vm_itf->primary_ip_addr().to_string(),
+                            vm_itf->igmp_enabled());
         if (agent_->oper_db()->multicast()) {
             agent_->oper_db()->multicast()->DeleteVmInterfaceFromVrfSourceGroup(
                                     vmi_state->vrf_name_, vm_itf);
@@ -336,6 +353,10 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         return;
     }
 
+    MCTRACE(IgmpIntf, "Itf Notify, VMI create or IGMP enable",
+                            vm_itf->vrf() ? vm_itf->vrf()->GetName() : "",
+                            vm_itf->primary_ip_addr().to_string(),
+                            vm_itf->igmp_enabled());
     if (vmi_state == NULL) {
         vmi_state = new VmiGmpDBState();
         entry->SetState(part->parent(), itf_listener_id_, vmi_state);
@@ -539,6 +560,8 @@ void GmpProto::GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group,
             gmp_sg->refcount_++;
         }
         if (created) {
+            MCTRACE(LogSG, "Create Mcast VRF SG ", vrf->GetName(),
+                            source.to_string(), group.to_string(), 0);
             m_handler->CreateMulticastVrfSourceGroup(vrf->GetName(),
                             vn->GetName(), source.to_v4(), group.to_v4());
             m_handler->SetEvpnMulticastSGFlags(vrf->GetName(),
@@ -555,6 +578,8 @@ void GmpProto::GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group,
             gmp_intf_state->gmp_intf_sg_list_.erase(gmp_sg);
             if (gmp_sg->refcount_ == 0) {
                 state->gmp_sg_list_.erase(gmp_sg);
+                MCTRACE(LogSG, "Delete Mcast VRF SG ", vrf->GetName(),
+                            source.to_string(), group.to_string(), 0);
                 m_handler->DeleteMulticastVrfSourceGroup(vrf->GetName(),
                             source.to_v4(), group.to_v4());
                 delete gmp_sg;
@@ -657,11 +682,17 @@ void GmpProto::TriggerEvpnNotification(const VmInterface *vm_intf, bool join,
                                     IpAddress source, IpAddress group) {
 
     if (join) {
+        MCTRACE(LogSG, "Add VM Mcast VRF SG ",
+                            vm_intf->primary_ip_addr().to_string(),
+                            source.to_string(), group.to_string(), 0);
         agent_->oper_db()->multicast()->AddVmInterfaceToVrfSourceGroup(
                 vm_intf->vrf()->GetName(),
                 agent_->fabric_vn_name(), vm_intf,
                 source.to_v4(), group.to_v4());
     } else {
+        MCTRACE(LogSG, "Delete VM Mcast VRF SG ",
+                            vm_intf->primary_ip_addr().to_string(),
+                            source.to_string(), group.to_string(), 0);
         agent_->oper_db()->multicast()->DeleteVmInterfaceFromVrfSourceGroup(
                 vm_intf->vrf()->GetName(), vm_intf,
                 source.to_v4(), group.to_v4());

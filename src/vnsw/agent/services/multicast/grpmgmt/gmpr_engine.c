@@ -1363,6 +1363,9 @@ gmpr_process_report_packet(gmpr_intf *intf, gmp_packet *packet)
     rpt_pkt = &packet->gmp_packet_contents.gmp_packet_report;
     gmp_init_addr_vector(&source_vect, &instance->rinst_addr_cat);
 
+    gmpr_trace_agent("Process report packet : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     /* Walk all of the groups in the report. */
 
     FOR_ALL_CIRCULAR_THREAD_ENTRIES(&rpt_pkt->gmp_report_group_head,
@@ -1922,6 +1925,9 @@ gmpr_group_timer_expiry (gmpx_timer *timer, void *context)
     instance = group->rgroup_intf->rintf_instance;
     gmpx_stop_timer(timer);
 
+    gmpr_trace_agent("Group Timer Expiry : file : %s, line : %.",
+                            __FILE__, __LINE__);
+
     /*
      * A group timer expiry means that there are no more active
      * Exclude callers out there.  We flush the stopped-timer list,
@@ -1957,6 +1963,9 @@ gmpr_source_timer_expiry (gmpx_timer *timer, void *context)
     instance = group->rgroup_intf->rintf_instance;
 
     /* Check the filter mode. */
+
+    gmpr_trace_agent("Source Timer Expiry : file : %s, line : %.",
+                            __FILE__, __LINE__);
 
     if (group->rgroup_filter_mode == GMP_FILTER_MODE_INCLUDE) {
 

@@ -22,6 +22,12 @@
     gmpx_trace(instance->rinst_context, __VA_ARGS__)
 
 /*
+ * Tracing in Contrail Agent
+ */
+#define gmpr_trace_agent(...) \
+    gmpx_trace(NULL, __VA_ARGS__)
+
+/*
  * Error event
  */
 #define gmpr_post_event(instance, ev, ...) \
