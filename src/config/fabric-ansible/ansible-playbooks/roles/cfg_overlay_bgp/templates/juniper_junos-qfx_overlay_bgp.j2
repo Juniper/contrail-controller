@@ -36,7 +36,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}} signaling
 {%                 endif %}
 {%                 if bgp_group_type == 'internal' %}
-{%                     if fam.startswith('inet') or fam.startswith('evpn') %}
+{%                     if fam.startswith('inet') %}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} from family {{fam}}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{fam}} then next-hop self
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
