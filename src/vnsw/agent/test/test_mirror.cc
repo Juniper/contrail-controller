@@ -471,7 +471,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_6) {
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
 
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
-                                   remote_vm_ip4_2, 0, NULL);
+                                   remote_vm_ip4_2, 32, 0, NULL);
     MirrorTable::AddMirrorEntry(ana, "vrf3",
                                 vhost_ip, 0x1, remote_server, 0x2);
     client->WaitForIdle();
@@ -525,7 +525,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_7) {
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
 
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
-                                   remote_vm_ip4_2, 0, NULL);
+                                   remote_vm_ip4_2, 32, 0, NULL);
     client->WaitForIdle();
 
     MirrorTable::AddMirrorEntry(ana, "vrf4", vhost_ip, 0x1, remote_server,
@@ -540,7 +540,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_7) {
     mirr_nh = mirr_entry->GetNH();
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf4", remote_vm_mac,
-                                   remote_vm_ip4_2, 0, NULL);
+                                   remote_vm_ip4_2, 32, 0, NULL);
     client->WaitForIdle();
     MirrorTable::DelMirrorEntry(ana);
     client->WaitForIdle();
@@ -580,7 +580,10 @@ static void DeleteTunnelNH(const string &vrf_name, const Ip4Address &sip,
 
 void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
         Agent* agent = Agent::GetInstance();
-        InetInterfaceKey vhost_key(agent->vhost_interface()->name());
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE,
+                                      boost::uuids::nil_uuid(),
+                                      agent->vhost_interface()->name());
+
                 agent->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent->local_peer(),
                 agent->fabric_vrf_name(), server_ip, plen, vhost_key,
@@ -613,7 +616,6 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_8) {
     client->WaitForIdle();
     CreateTunnelNH(agent_->fabric_vrf_name(), vhost_ip, remote_server, false, bmap);
     client->WaitForIdle();
-
     MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
                                       0x2, 0 , 4, remote_vm_mac);
     client->WaitForIdle();
@@ -719,7 +721,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_10) {
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
 
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
-                                   remote_vm_ip4_2, 0, NULL);
+                                   remote_vm_ip4_2, 32, 0, NULL);
     client->WaitForIdle();
     MirrorTable::AddMirrorEntry(ana, "vrf3",
                                 vhost_ip, 0x1, remote_server, 0x2);
@@ -785,7 +787,7 @@ TEST_F(MirrorTableTest, MirrorEntryAdd_nic_assisted_2) {
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
 
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
-                                   remote_vm_ip4_2, 0, NULL);
+                                   remote_vm_ip4_2, 32, 0, NULL);
     client->WaitForIdle();
     MirrorTable::AddMirrorEntry(ana, 15);
 
@@ -843,7 +845,7 @@ TEST_F(MirrorTableTest, MirrorEntryAdd_nic_assisted_3) {
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
 
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf3", remote_vm_mac,
-                                   remote_vm_ip4_2, 0, NULL);
+                                   remote_vm_ip4_2, 32, 0, NULL);
     client->WaitForIdle();
     MirrorTable::DelMirrorEntry(ana);
     client->WaitForIdle();
