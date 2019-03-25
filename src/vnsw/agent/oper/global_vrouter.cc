@@ -263,8 +263,8 @@ public:
             ResolveName(name);
             ResolveMap::iterator it = address_map_.find(name);
             if (it != address_map_.end()) {
-                address_map_.erase(it);
                 new_addr_map.insert(ResolvePair(name, it->second));
+                address_map_.erase(it);
             } else {
                 new_addr_map.insert(ResolvePair(name, empty_addr_list));
             }
@@ -489,7 +489,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
                                         vmi_key,
                                         key.linklocal_service_ip, 32,
                                         vn_entry->GetName(),
-                                        true, false);
+                                        true, false, false);
         }
     } else {
         state->Delete(key.linklocal_service_ip);
@@ -553,7 +553,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                                         key,
                                         it->first.linklocal_service_ip, 32,
                                         vn_entry->GetName(),
-                                        true, false);
+                                        true, false, false);
         }
     }
     return true;
