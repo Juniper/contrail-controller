@@ -101,6 +101,7 @@ class PortTupleServer(ResourceMixin, PortTuple):
         li_display_name = li_display_name.replace("_", ":")
 
         api_server = cls.server
+        id_perms = IdPermsType(enable=True, user_visible=False)
         try:
             db_conn.fq_name_to_uuid('logical_interface', li_fq_name)
         except NoIdError:
@@ -109,7 +110,6 @@ class PortTupleServer(ResourceMixin, PortTuple):
                                       logical_interface_vlan_tag=vlan_tag,
                                       display_name=li_display_name)
 
-            id_perms = IdPermsType(enable=True, user_visible=False)
             li_obj.set_id_perms(id_perms)
             li_int_dict = json.dumps(li_obj, default=_obj_serializer_all)
             ok, li_obj_resp = api_server.internal_request_create(
@@ -118,39 +118,39 @@ class PortTupleServer(ResourceMixin, PortTuple):
             if not ok:
                 return (ok, 400, li_obj_resp)
 
-            # Allocate IP address for this logical interface
-            iip_name = "%s.%s.%s" % (dev_name, link, vlan_tag)
-            if subscriber_tag is not None:
-                iip_obj = InstanceIp(
-                    name=iip_name,
-                    instance_ip_family='v4',
-                    instance_ip_subscriber_tag=subscriber_tag
-                )
-            else:
-                iip_obj = InstanceIp(
-                    name=iip_name,
-                    instance_ip_family='v4'
-                )
-            nw_fq_name = ['default-domain', 'default-project', network_name]
-            nw_id = db_conn.fq_name_to_uuid('virtual_network', nw_fq_name)
-            ok, nw_obj_result = cls.dbe_read(db_conn, 'virtual_network',
-                                             nw_id,
-                                             obj_fields=['fq_name'])
-            if not ok:
-                return ok, nw_obj_result
+        # Allocate IP address for this logical interface
+        iip_name = "%s.%s.%s" % (dev_name, link, vlan_tag)
+        if subscriber_tag is not None:
+            iip_obj = InstanceIp(
+                name=iip_name,
+                instance_ip_family='v4',
+                instance_ip_subscriber_tag=subscriber_tag
+            )
+        else:
+            iip_obj = InstanceIp(
+                name=iip_name,
+                instance_ip_family='v4'
+            )
+        nw_fq_name = ['default-domain', 'default-project', network_name]
+        nw_id = db_conn.fq_name_to_uuid('virtual_network', nw_fq_name)
+        ok, nw_obj_result = cls.dbe_read(db_conn, 'virtual_network',
+                                         nw_id,
+                                         obj_fields=['fq_name'])
+        if not ok:
+            return ok, nw_obj_result
 
-            nw_obj = VirtualNetwork(name=nw_obj_result.get('fq_name')[-1])
-            li_obj = LogicalInterface(
-                fq_name=li_fq_name, parent_type='physical-interface')
-            iip_obj.set_virtual_network(nw_obj)
-            iip_obj.set_logical_interface(li_obj)
-            iip_obj.set_id_perms(id_perms)
+        nw_obj = VirtualNetwork(name=nw_obj_result.get('fq_name')[-1])
+        li_obj = LogicalInterface(
+            fq_name=li_fq_name, parent_type='physical-interface')
+        iip_obj.set_virtual_network(nw_obj)
+        iip_obj.set_logical_interface(li_obj)
+        iip_obj.set_id_perms(id_perms)
 
-            iip_int_dict = json.dumps(iip_obj, default=_obj_serializer_all)
-            ok, resp = api_server.internal_request_create(
-                'instance-ip', json.loads(iip_int_dict))
-            if not ok:
-                return (ok, 400, resp)
+        iip_int_dict = json.dumps(iip_obj, default=_obj_serializer_all)
+        ok, resp = api_server.internal_request_create(
+            'instance-ip', json.loads(iip_int_dict))
+        if not ok:
+            return (ok, 400, resp)
 
         return True, ''
 
