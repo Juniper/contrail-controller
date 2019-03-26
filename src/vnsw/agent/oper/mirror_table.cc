@@ -92,20 +92,25 @@ bool MirrorTable::OnChange(MirrorEntry *mirror_entry) {
         if (rt != NULL) {
             DBRequest nh_req;
             nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            TunnelNHKey *nh_key =
-            new TunnelNHKey(agent()->fabric_vrf_name(),
-                            mirror_entry->sip_.to_v4(),
-                            mirror_entry->dip_.to_v4(),
-                            false, TunnelType::VXLAN);
-            nh_req.key.reset(nh_key);
-            nh_req.data.reset(NULL);
-            agent()->nexthop_table()->Process(nh_req);
-            nh = static_cast<NextHop *>
-                (agent()->nexthop_table()->FindActiveEntry(nh_key));
-            if (nh != NULL) {
-                valid_nh = true;
-                AddResolvedVrfMirrorEntry(mirror_entry);
-            }
+            // Do this only for v4, until we add support for v6
+            // Typecast on v6 would cause an exception and would
+            // assert in task.cc.
+            if (mirror_entry->sip_.is_v4() && mirror_entry->dip_.is_v4()) {
+                TunnelNHKey *nh_key =
+                new TunnelNHKey(agent()->fabric_vrf_name(),
+                                mirror_entry->sip_.to_v4(),
+                                mirror_entry->dip_.to_v4(),
+                                false, TunnelType::VXLAN);
+                nh_req.key.reset(nh_key);
+                nh_req.data.reset(NULL);
+                agent()->nexthop_table()->Process(nh_req);
+                nh = static_cast<NextHop *>
+                    (agent()->nexthop_table()->FindActiveEntry(nh_key));
+                if (nh != NULL) {
+                    valid_nh = true;
+                    AddResolvedVrfMirrorEntry(mirror_entry);
+                }
+           }
         }
     }
 
