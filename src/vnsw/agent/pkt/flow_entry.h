@@ -670,6 +670,15 @@ class FlowEntry {
     void set_flow_mgmt_info(FlowEntryInfo *info) {
         flow_mgmt_info_.reset(info);
     }
+<<<<<<< HEAD   (8a1e5a Changes added to fix DNS security vulnerabilities.)
+=======
+    void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info, bool added) const;
+    void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
+    bool IsClientFlow();
+    bool IsServerFlow();
+    void IncrementTransactionId() { transaction_id_++;}
+    uint32_t GetTransactionId() {return transaction_id_;}
+>>>>>>> CHANGE (8392a8 Ignore stale vrouter responses for flow handle allocation)
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -746,6 +755,19 @@ private:
     // Field used by flow-mgmt module. Its stored here to optimize flow-mgmt
     // and avoid lookups
     FlowMgmtEntryInfoPtr flow_mgmt_info_;
+<<<<<<< HEAD   (8a1e5a Changes added to fix DNS security vulnerabilities.)
+=======
+    const std::string fw_policy_;
+    
+    // Transaction id is used to detect old/stale vrouter add-ack response for
+    // reverse flow handle allocation requests. It can happen if flow are
+    // evicted from vrouter just after add-ack response sent to agent
+    // and same flows are created before add-ack response gets processed
+    // in agent.
+    // transaction id should not be copied, it is incremented when flow entry
+    // is reused.
+    uint32_t transaction_id_;
+>>>>>>> CHANGE (8392a8 Ignore stale vrouter responses for flow handle allocation)
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };

@@ -188,12 +188,14 @@ public:
     FlowEventKSync(const KSyncEntry::KSyncEntryPtr ksync_entry,
                    KSyncEntry::KSyncEvent ksync_event, uint32_t flow_handle,
                    uint32_t gen_id, int ksync_error, uint64_t evict_flow_bytes,
-                   uint64_t evict_flow_packets, uint64_t evict_flow_oflow) :
+                   uint64_t evict_flow_packets, uint64_t evict_flow_oflow,
+                   uint32_t transaction_id) :
         FlowEvent(KSYNC_EVENT, NULL, flow_handle, gen_id),
         ksync_entry_(ksync_entry), ksync_event_(ksync_event),
         ksync_error_(ksync_error), evict_flow_bytes_(evict_flow_bytes),
         evict_flow_packets_(evict_flow_packets),
-        evict_flow_oflow_(evict_flow_oflow) {
+        evict_flow_oflow_(evict_flow_oflow),
+        transaction_id_(transaction_id) {
     }
 
     FlowEventKSync(const FlowEventKSync &rhs) :
@@ -201,7 +203,8 @@ public:
         ksync_event_(rhs.ksync_event_), ksync_error_(rhs.ksync_error_),
         evict_flow_bytes_(rhs.evict_flow_bytes_),
         evict_flow_packets_(rhs.evict_flow_packets_),
-        evict_flow_oflow_(rhs.evict_flow_oflow_) {
+        evict_flow_oflow_(rhs.evict_flow_oflow_),
+        transaction_id_(rhs.transaction_id_)  {
     }
 
     virtual ~FlowEventKSync() { }
@@ -212,6 +215,7 @@ public:
     uint64_t evict_flow_bytes() const { return evict_flow_bytes_; }
     uint64_t evict_flow_packets() const { return evict_flow_packets_; }
     uint64_t evict_flow_oflow() const { return evict_flow_oflow_; }
+    uint32_t transaction_id() const { return transaction_id_; }
 private:
     KSyncEntry::KSyncEntryPtr ksync_entry_;
     KSyncEntry::KSyncEvent ksync_event_;
@@ -219,6 +223,7 @@ private:
     uint64_t evict_flow_bytes_;
     uint64_t evict_flow_packets_;
     uint64_t evict_flow_oflow_;
+    uint32_t transaction_id_;
 };
 
 ////////////////////////////////////////////////////////////////////////////

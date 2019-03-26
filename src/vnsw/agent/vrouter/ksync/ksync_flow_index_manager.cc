@@ -162,6 +162,9 @@ void KSyncFlowIndexManager::UpdateFlowHandle(FlowTableKSyncEntry *kentry,
         kentry->set_gen_id(gen_id);
         kentry->set_evict_gen_id(evict_gen_id);
         if (rflow) {
+	    // forward and reverse flow handle should not be same
+            //assert process to avoid deadlock if both are same
+            assert(flow->flow_handle() != rflow->flow_handle());
             rflow->flow_table()->UpdateKSync(rflow, true);
         }
     } else {
@@ -277,6 +280,7 @@ void KSyncFlowIndexManager::CreateInternal(FlowEntry *flow) {
     // not updated in create
     flow->ksync_entry_->set_gen_id(flow->gen_id());
     flow->ksync_entry_->set_evict_gen_id(evict_gen_id);
+    flow->ksync_entry_->set_transaction_id(flow->GetTransactionId());
     flow->LogFlow(FlowEventLog::FLOW_ADD, flow->ksync_entry_,
                   flow->flow_handle(), flow->gen_id());
 }
