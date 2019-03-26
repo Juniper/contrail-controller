@@ -114,6 +114,10 @@ public:
     uint32_t old_first_mirror_index() {
         return old_first_mirror_index_;
     }
+    void set_transaction_id(uint32_t transaction_id) {
+        transaction_id_ = transaction_id;
+    }
+    uint32_t get_transaction_id() const { return transaction_id_;};
 
 private:
     friend class KSyncFlowEntryFreeList;
@@ -146,6 +150,7 @@ private:
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
     uint32_t qos_config_idx;
+    uint32_t transaction_id_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 
