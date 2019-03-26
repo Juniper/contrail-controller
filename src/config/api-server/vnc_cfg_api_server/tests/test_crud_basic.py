@@ -2554,6 +2554,22 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         with ExpectedException(BadRequest):
             lr.add_virtual_machine_interface(vmi)
             self._vnc_lib.logical_router_update(lr)
+
+    def test_create_singleton_entry_with_zk_alloc_exist(self):
+        api_server = self._server_info['api_server']
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        orig_dbe_alloc = api_server._db_conn.dbe_alloc
+        try:
+            def err_dbe_alloc(*args, **kwargs):
+                return (False, (409, 'Faking zk ResourceExistsError'))
+
+            api_server._db_conn.dbe_alloc = err_dbe_alloc
+            with ExpectedException(HttpError):
+                api_server.create_singleton_entry(vn_obj)
+        finally:
+            api_server._db_conn.dbe_alloc = orig_dbe_alloc
+    # end test_create_singleton_entry_with_zk_alloc_exist
+
 # end class TestVncCfgApiServer
 
 

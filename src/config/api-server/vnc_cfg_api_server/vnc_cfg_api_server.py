@@ -3707,6 +3707,9 @@ class VncApiServer(object):
                 obj_dict['perms2'] = self._get_default_perms2()
 
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
+            if not ok:
+                (code, msg) = result
+                raise cfgm_common.exceptions.HttpError(code, msg)
             obj_id = result
             s_obj.uuid = obj_id
             # For virtual networks, allocate an ID
