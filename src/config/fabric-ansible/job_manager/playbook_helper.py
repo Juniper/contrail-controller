@@ -24,7 +24,9 @@ verbosity = CONST.DEFAULT_VERBOSITY or 0
 # Also note that CONST is from ansible.cfg
 #
 from job_manager.fabric_logger import fabric_ansible_logger
-from job_manager.job_utils import JobFileWrite
+from job_manager.job_utils import (
+    JobFileWrite, PLAYBOOK_EOL_PATTERN
+)
 
 logger = fabric_ansible_logger("ansible")
 
@@ -196,7 +198,7 @@ class PlaybookHelper(object):
                 json.dumps(output)
             )
             with open("/tmp/"+exec_id, "a") as f:
-                f.write(unique_pb_id + 'END' + '\n')
+                f.write(unique_pb_id + 'END' + PLAYBOOK_EOL_PATTERN)
             sys.exit(msg)
 
 
@@ -235,7 +237,8 @@ if __name__ == "__main__":
         'job_execution_id']
     try:
         playbook_helper._job_file_write.write_to_file(
-            exec_id, unique_pb_id, JobFileWrite.PLAYBOOK_OUTPUT, json.dumps(pb_output)
+            exec_id, unique_pb_id, JobFileWrite.PLAYBOOK_OUTPUT,
+            json.dumps(pb_output)
         )
     except Exception, exc:
         ERR_MSG = "Error while trying to parse output"\
@@ -246,4 +249,4 @@ if __name__ == "__main__":
         # no sys.exit therefore
     finally:
         with open("/tmp/"+exec_id, "a") as f:
-            f.write(unique_pb_id + 'END' + '\n')
+            f.write(unique_pb_id + 'END' + PLAYBOOK_EOL_PATTERN)
