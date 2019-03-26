@@ -18,7 +18,7 @@ import gevent
 from cfgm_common.exceptions import ResourceExistsError
 from job_manager.job_exception import JobException
 from job_manager.job_utils import (
-    JobStatus, JobFileWrite
+    JobStatus, JobFileWrite, PLAYBOOK_EOL_PATTERN
 )
 from job_manager.job_messages import MsgBundle
 
@@ -321,7 +321,8 @@ class JobHandler(object):
                                   "proceeding to read contents.." % exec_id)
                 current_time = time.time()
                 while current_time - last_read_time < file_read_timeout:
-                    line_read = f_read.readline()
+                    line_read = self.read_line(f_read, file_read_timeout,
+                                               last_read_time)
                     if line_read:
                         self._logger.debug("Line read ..." + line_read)
                         if unique_pb_id in line_read:
@@ -339,9 +340,14 @@ class JobHandler(object):
                                     marked_jsons = self._extract_marked_json(
                                         marked_output
                                     )
+                                    if marked_jsons == {}:
+                                        self._logger.error(
+                                            "Invalid line is read."
+                                            " Skipping it")
                                     if marker == JobFileWrite.JOB_PROGRESS:
                                         self._job_progress =\
-                                            marked_jsons.get(JobFileWrite.JOB_PROGRESS)
+                                            marked_jsons.get(
+                                                JobFileWrite.JOB_PROGRESS)
                                         self.current_percentage += float(
                                             self._job_progress)
                                         self._job_log_utils.\
@@ -380,7 +386,8 @@ class JobHandler(object):
                     current_time = time.time()
                 break
             except IOError as file_not_found_err:
-                self._logger.debug("File not yet created for exec_id %s !!" % exec_id)
+                self._logger.debug("File not yet created for "
+                                   "exec_id %s !!" % exec_id)
                 # check if the sub-process died but file is not created
                 # if yes, it is old-usecase or there were no markers
                 if playbook_process.poll() is not None:
@@ -402,8 +409,29 @@ class JobHandler(object):
         return marked_output
     # end process_file_and_get_marked_output
 
+    def read_line(self, f_read, file_read_timeout, last_read_time):
+        str_list = []
+        current_time = time.time()
+        while True:
+            if current_time - last_read_time >= file_read_timeout:
+                self._logger.error("Timed while attempting to read line."
+                                   " The line being read is:\n")
+                self._logger.error("%s" % ''.join(str_list))
+                return None
+            line = f_read.readline()
+            if len(line) > 0:
+                str_list.append(line)
+            if line.endswith(PLAYBOOK_EOL_PATTERN):
+                break
+            else:
+                # wait a bit for the complete line to be written
+                time.sleep(1)
+        return ''.join(str_list)[:-len(PLAYBOOK_EOL_PATTERN)]
+    # end read_line
+
     def send_prouter_job_uve(self, job_template_fqname, pr_uve_name, exec_id,
-                         job_status, percentage_completed, device_op_results=None):
+                             job_status, percentage_completed,
+                             device_op_results=None):
         try:
             self._logger.info(
                 "Calling send_prouter_job_uve(%s, %s, %s, %s, %s, %s)" % (
@@ -556,7 +584,8 @@ class JobHandler(object):
 
             # Run playbook in a separate process. This is needed since
             # ansible cannot be used in a greenlet based patched environment
-            playbook_output = self.run_playbook_process(playbook_info, percentage_completed)
+            playbook_output = self.run_playbook_process(playbook_info,
+                                                        percentage_completed)
 
             # create job log to capture completion of the playbook execution
             msg = MsgBundle.getMessage(MsgBundle.STOP_EXE_PB_MSG,
