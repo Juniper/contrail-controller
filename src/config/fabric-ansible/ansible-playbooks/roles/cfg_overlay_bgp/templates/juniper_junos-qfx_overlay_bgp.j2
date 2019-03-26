@@ -37,6 +37,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}} s
 {%                 endif %}
 {%                 if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} cluster
 {%                 endif %}
 {%                 if bgp_group_type == 'internal' %}
 {%                     if fam.startswith('inet') %}
