@@ -731,6 +731,8 @@ class FlowEntry {
     void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
     bool IsClientFlow();
     bool IsServerFlow();
+    void IncrementTransactionId() { transaction_id_++;}
+    uint32_t GetTransactionId() {return transaction_id_;}
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -819,6 +821,7 @@ private:
     const std::string fw_policy_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
+    uint32_t transaction_id_;
 };
  
 void intrusive_ptr_add_ref(FlowEntry *fe);
