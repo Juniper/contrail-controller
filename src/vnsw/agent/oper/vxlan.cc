@@ -90,6 +90,9 @@ bool VxLanTable::DeleteCompositeNH(uint32_t vxlan_id,
     if (it != vxlan_composite_nh_map_.end()) {
         ComponentNHKeyList::iterator list_it = it->second.begin();
         for (; list_it != it->second.end(); list_it++) {
+            if (*list_it == NULL) {
+                continue;
+            }
             if (**list_it == *nh_key) {
                 // release the ComponentNHKeyPtr
                 (*list_it).reset();
@@ -106,6 +109,9 @@ bool VxLanTable::AddCompositeNH(uint32_t vxlan_id, ComponentNHKeyPtr nh_key) {
     if (it != vxlan_composite_nh_map_.end()) {
         ComponentNHKeyList::const_iterator list_it = it->second.begin();
         for (; list_it != it->second.end(); list_it++) {
+            if (*list_it == NULL) {
+                continue;
+            }
             if (**list_it == *nh_key) {
                 // already there no modification
                 return false;
