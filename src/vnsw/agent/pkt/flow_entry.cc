@@ -457,6 +457,7 @@ void FlowEntry::Reset() {
     pending_actions_.Reset();
     assert(flow_mgmt_request_ == NULL);
     assert(flow_mgmt_info_.get() == NULL);
+    transaction_id_ = 0;
 }
 
 void FlowEntry::Reset(const FlowKey &k) {

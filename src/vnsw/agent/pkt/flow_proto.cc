@@ -588,10 +588,12 @@ void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
                                   uint32_t flow_handle, uint8_t gen_id,
                                   int ksync_error, uint64_t evict_flow_bytes,
                                   uint64_t evict_flow_packets,
-                                  int32_t evict_flow_oflow) {
+                                  int32_t evict_flow_oflow,
+                                  uint32_t transaction_id) {
     EnqueueFlowEvent(new FlowEventKSync(ksync_entry, event, flow_handle,
                                         gen_id, ksync_error, evict_flow_bytes,
-                                        evict_flow_packets, evict_flow_oflow));
+                                        evict_flow_packets, evict_flow_oflow,
+                                        transaction_id));
 }
 
 void FlowProto::MessageRequest(FlowEntry *flow) {
