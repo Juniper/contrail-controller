@@ -187,6 +187,7 @@ public:
     // VmVnToVmiTree       : Reverse mapping for VmiToVmVnTree. Will be used
     //                       to find VMI when port-subscription message
     // Both the tree are built from VmInterfaceConfigData
+
     struct VmVnUuidEntry {
         boost::uuids::uuid vm_uuid_;
         boost::uuids::uuid vn_uuid_;
@@ -203,12 +204,15 @@ public:
             vmi_uuid_(boost::uuids::nil_uuid()) {
         }
         virtual ~VmVnUuidEntry() { }
+    };
+
+    struct VmVnUuidEntryCmp {
         bool operator()(const VmVnUuidEntry &lhs,
                         const VmVnUuidEntry &rhs) const {
             if (lhs.vm_uuid_ != rhs.vm_uuid_) {
                 return lhs.vm_uuid_ < rhs.vm_uuid_;
             }
-            if (lhs.vn_uuid_ < rhs.vn_uuid_) {
+            if (lhs.vn_uuid_ != rhs.vn_uuid_) {
                 return lhs.vn_uuid_ < rhs.vn_uuid_;
             }
             return lhs.vmi_uuid_ < rhs.vmi_uuid_;
@@ -233,9 +237,9 @@ public:
     };
 
     typedef std::map<boost::uuids::uuid, VmiEntry> VmiToVmVnTree;
-    typedef std::map<VmVnUuidEntry, boost::uuids::uuid, VmVnUuidEntry>
+    typedef std::map<VmVnUuidEntry, boost::uuids::uuid, VmVnUuidEntryCmp>
         VmVnToVmiTree;
-    typedef std::map<VmVnUuidEntry, PortSubscribeEntryPtr, VmVnUuidEntry>
+    typedef std::map<VmVnUuidEntry, PortSubscribeEntryPtr, VmVnUuidEntryCmp>
         VmVnTree;
 
     void InitDone();
