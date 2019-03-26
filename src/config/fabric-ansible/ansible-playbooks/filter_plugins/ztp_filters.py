@@ -13,6 +13,8 @@ from cfgm_common.exceptions import (
     NoIdError
 )
 from vnc_api.vnc_api import VncApi
+from job_manager.job_utils import JobVncApi
+
 import logging
 
 
@@ -101,7 +103,12 @@ class FilterModule(object):
                 device_creds = fabric_creds.get('device_credential')
                 if device_creds:
                     dev_cred = device_creds[0]
-                    tftp_config['password'] = dev_cred['credential']['password']
+                    password = JobVncApi.decrypt_password(
+                        encrypted_password=dev_cred['credential']['password'],
+                        admin_password=job_ctx.get(
+                            'vnc_api_init_params').get(
+                            'admin_password'))
+                    tftp_config['password'] = password
         except Exception as ex:
             logging.error("Error getting ZTP TFTP configuration: {}".format(ex))
 

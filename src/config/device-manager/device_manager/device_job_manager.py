@@ -203,6 +203,15 @@ class DeviceJobManager(object):
 
         fabric_fq_name = None
         fabric_job_uve_name = ''
+        job_input_params['vnc_api_init_params'] = {
+                "admin_user": self._args.admin_user,
+                "admin_password": self._args.admin_password,
+                "admin_tenant_name":
+                    self._args.admin_tenant_name,
+                "api_server_port": self._args.api_server_port,
+                "api_server_use_ssl":
+                    self._args.api_server_use_ssl
+        }
 
         try:
 

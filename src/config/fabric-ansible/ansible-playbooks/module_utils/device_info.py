@@ -17,7 +17,7 @@ from cfgm_common.exceptions import (
 )
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import PhysicalRouter
-from job_manager.job_utils import JobFileWrite
+from job_manager.job_utils import JobFileWrite, JobVncApi
 
 REF_EXISTS_ERROR = 3
 JOB_IN_PROGRESS = "JOB_IN_PROGRESS"
@@ -113,6 +113,13 @@ class DeviceInfo(object):
 
         else:
             self.credentials = self.module.params['credentials']
+
+        for cred in self.credentials:
+            if cred.get('credential', {}).get('password'):
+                cred['credential']['password'] = JobVncApi.decrypt_password(
+                    encrypted_password=cred.get('credential', {}).get('password'),
+                    admin_password=self.job_ctx.get('vnc_api_init_params').get(
+                        'admin_password'))
 
     def ping_sweep(self, host):
         try:
