@@ -16,7 +16,7 @@ class FilterModule(object):
 
     @classmethod
     def get_pr_gateway(cls, job_ctx, fabric_uuid, device_fq_name):
-        api = VncApi(auth_type=vnc_api._KEYSTONE_AUTHN_STRATEGY,
+        api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                      auth_token=job_ctx.get('auth_token'))
         fabric = api.fabric_read(id=fabric_uuid)
         fabric_dict = api.obj_to_dict(fabric)
