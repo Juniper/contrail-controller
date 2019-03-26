@@ -60,6 +60,7 @@ set groups {{cfg_group}} protocols bgp group {{contrail_asn_group}} family {{fam
 {%             endfor %}
 {%             if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} cluster
 {%             endif %}
 {%             if bgp.get('type_') == 'internal' %}
 {%                 for family in bgp.get('families', []) %}
