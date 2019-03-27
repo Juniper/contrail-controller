@@ -1,6 +1,7 @@
 ---
 - name: Assign physical or overlay roles to the devices in the fabric
   hosts: localhost
+  gather_facts: no
   connection: local
   tasks:
     - set_fact:
