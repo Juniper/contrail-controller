@@ -128,25 +128,30 @@ TEST_F(IgmpTest, SendV2Reports) {
     // evpn test-framework script.
     usleep(4*USECS_PER_SEC);
 
+    // Because of above 4 second delay, IGMP timeout happens for the
+    // <S,G> and all the joins are timed out.
+    // In this case, code path is different where igmp_g_del_count
+    // is not increment but just having a check for local_g_del_count
+    // for completeness sake.
     idx = 1;
-    local_g_del_count++;
     leave_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
     ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
-    ret = WaitForGCount(false, local_g_del_count+2);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
 
     // 4 second delay to trigger timer as is case with
     // evpn test-framework script.
     usleep(4*USECS_PER_SEC);
 
     idx = 2;
-    local_g_del_count++;
     leave_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
     ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
-    ret = WaitForGCount(false, local_g_del_count+1);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
 
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
     EXPECT_EQ((nh == NULL), true);
@@ -292,24 +297,24 @@ TEST_F(IgmpTest, SendV2ReportsWithDelVnFirst) {
     usleep(4*USECS_PER_SEC);
 
     idx = 1;
-    local_g_del_count++;
     leave_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
     ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
-    ret = WaitForGCount(false, local_g_del_count+2);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
 
     // 4 second delay to trigger timer as is case with
     // evpn test-framework script.
     usleep(4*USECS_PER_SEC);
 
     idx = 2;
-    local_g_del_count++;
     leave_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
     ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
-    ret = WaitForGCount(false, local_g_del_count+1);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
 
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
     EXPECT_EQ((nh == NULL), true);

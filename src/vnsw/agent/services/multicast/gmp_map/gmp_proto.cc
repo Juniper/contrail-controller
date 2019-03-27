@@ -123,6 +123,7 @@ bool GmpProto::Start() {
             boost::bind(&GmpProto::GmpVnNotify, this, _1, _2));
     itf_listener_id_ = agent_->interface_table()->Register(
             boost::bind(&GmpProto::GmpItfNotify, this, _1, _2));
+
     return true;
 }
 
@@ -131,6 +132,9 @@ bool GmpProto::Stop() {
     if (!gd_) {
         return true;
     }
+
+    agent_->interface_table()->Unregister(itf_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
 
     gmp_deinit(MCAST_AF_IPV4);
     gd_ = NULL;
@@ -252,6 +256,7 @@ void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
             continue;
         }
         gmp_intf_state = it->second;
+        GmpIntfSGClear(state, gmp_intf_state);
         // Cleanup the GMP database and timers
         gmp_intf_state->gmp_intf_->set_vrf_name(string());
         gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
@@ -363,7 +368,34 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     }
 
     if (vm_itf->vrf()) {
-        vmi_state->vrf_name_ = vm_itf->vrf()->GetName();
+        if (vmi_state->vrf_name_ != vm_itf->vrf()->GetName()) {
+            if (agent_->oper_db()->multicast()) {
+                agent_->oper_db()->multicast()->
+                            DeleteVmInterfaceFromVrfSourceGroup(
+                                    vmi_state->vrf_name_, vm_itf);
+            }
+
+            vmi_state->vrf_name_ = vm_itf->vrf()->GetName();
+        }
+    }
+
+    if (vmi_state->vmi_v4_addr_ != vm_itf->primary_ip_addr()) {
+
+        if (vm_ip_to_vmi_.find(vmi_state->vmi_v4_addr_) !=
+                                    vm_ip_to_vmi_.end()) {
+            if (agent_->oper_db()->multicast()) {
+                agent_->oper_db()->multicast()->
+                            DeleteVmInterfaceFromVrfSourceGroup(
+                                    vmi_state->vrf_name_, vm_itf);
+            }
+
+            vm_ip_to_vmi_.erase(vmi_state->vmi_v4_addr_);
+        }
+
+        vmi_state->vmi_v4_addr_ = vm_itf->primary_ip_addr();
+        vm_ip_to_vmi_.insert(std::pair<IpAddress,boost::uuids::uuid>
+                                        (vmi_state->vmi_v4_addr_,
+                                         vm_itf->GetUuid()));
     }
 
     return;
@@ -612,30 +644,16 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
         join ? stats_.gmp_sg_add_count_++ : stats_.gmp_sg_del_count_++;
     }
 
-    InetUnicastAgentRouteTable *table =
-            agent_->vrf_table()->GetInet4UnicastRouteTable(gif->get_vrf_name());
-    InetUnicastRouteEntry *uc_route = table->FindLPM(host);
-    if (!uc_route) {
+    if (vm_ip_to_vmi_.find(host) == vm_ip_to_vmi_.end()) {
+        MCTRACE(Info, "igmp_trace: ", "No host found");
         return;
     }
 
-    const NextHop *nh = uc_route->GetActiveNextHop();
-    if (!nh) {
-        return;
-    }
-
-    const InterfaceNH *inh = dynamic_cast<const InterfaceNH *>(nh);
-    if (!inh) {
-        return;
-    }
-
-    const Interface *intf = inh->GetInterface();
-    if (!intf) {
-        return;
-    }
-
-    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(intf);
+    boost::uuids::uuid vmi_uuid = vm_ip_to_vmi_[host];
+    InterfaceConstRef intf_ref = agent_->interface_table()->FindVmi(vmi_uuid);
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf_ref.get());
     if (!vm_intf) {
+        MCTRACE(Info, "igmp_trace: ", "No VM Interface for host");
         return;
     }
 
