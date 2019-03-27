@@ -160,7 +160,7 @@ class AuthPostKeystone(object):
 
         set_auth_context(env)
         # if rbac is set, skip old admin based MT
-        if self.conf['auth_svc']._mt_rbac:
+        if self.server_mgr.is_rbac_enabled():
             return self.app(env, start_response)
 
         # only allow admin access when MT is on
@@ -230,7 +230,6 @@ class AuthServiceKeystone(object):
         self._server_mgr = server_mgr
         self._auth_method = args.auth
         self._auth_middleware = None
-        self._mt_rbac = server_mgr.is_rbac_enabled()
         self._auth_needed = server_mgr.is_auth_needed()
         if not self._auth_method:
             return
