@@ -7,3 +7,4 @@ geventhttpclient
 psutil>=0.6.0
 etcd3==0.8.1
 attrdict
+python-etcd>=0.4.5
