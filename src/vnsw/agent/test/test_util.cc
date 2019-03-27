@@ -11,6 +11,7 @@
 #include "oper/mirror_table.h"
 #include "oper/tag.h"
 #include "oper/physical_device_vn.h"
+#include "oper/vxlan_routing_manager.h"
 #include "ksync/ksync_sock_user.h"
 #include "uve/test/vn_uve_table_test.h"
 #include "uve/agent_uve_stats.h"
@@ -1561,6 +1562,19 @@ InetUnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, 
     return route;
 }
 
+InetUnicastRouteEntry* RouteGetLPM(const string &vrf_name, const Ip4Address &addr) {
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL) {
+        return NULL;
+    }
+
+    InetUnicastRouteEntry* route =
+        static_cast<InetUnicastRouteEntry *>
+        (vrf->GetInet4UnicastRouteTable()->FindLPM(addr));
+
+    return route;
+}
+
 InetUnicastRouteEntry* RouteGetMpls(const string &vrf_name, const Ip4Address &addr, int plen) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
@@ -1589,6 +1603,16 @@ InetUnicastRouteEntry* RouteGetV6(const string &vrf_name, const Ip6Address &addr
 const NextHop* RouteToNextHop(const string &vrf_name, const Ip4Address &addr,
                               int plen) {
     InetUnicastRouteEntry* rt = RouteGet(vrf_name, addr, plen);
+    if (rt == NULL)
+        return NULL;
+
+    return rt->GetActiveNextHop();
+}
+
+const NextHop* LPMRouteToNextHop(const string &vrf_name,
+                                    const Ip4Address &addr) {
+
+    InetUnicastRouteEntry* rt = RouteGetLPM(vrf_name, addr);
     if (rt == NULL)
         return NULL;
 
@@ -5591,4 +5615,120 @@ void SetVmiMaxFlows(std::string intf_name, int intf_id, uint32_t max_flows) {
          AddNode("virtual-machine-interface", intf_name.c_str(),
                 intf_id, cbuf);
          client->WaitForIdle();
+}
+
+void CfgVxlanRouting(bool vxlan_routing_enabled) {
+    std::stringstream vxlan_routing_enabled_str;
+    if (vxlan_routing_enabled) {
+        vxlan_routing_enabled_str << "<vxlan-routing>true</vxlan-routing>";
+    } else {
+        vxlan_routing_enabled_str << "<vxlan-routing>false</vxlan-routing>";
+    }
+    AddNode("project", "project-admin", 1,
+            vxlan_routing_enabled_str.str().c_str());
+    AddLrVmiPort("lr-vmi-vn1", 91, "10.2.1.250", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    AddLrVmiPort("lr-vmi-vn2", 92, "10.2.2.250", "vrf2", "vn2",
+            "instance_ip_2", 2);
+    client->WaitForIdle(5);
+}
+
+void DeleteVxlanRouting() {
+    DelLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    DelLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
+            "instance_ip_2", 2);
+    DelNode("project", "project-admin");
+    client->WaitForIdle(5);
+    EXPECT_TRUE(Agent::GetInstance()->oper_db()->vxlan_routing_manager()->
+            vrf_mapper().IsEmpty());
+}
+
+#define L3_VRF_OFFSET 100
+
+void AddRoutingVrf(int lr_id) {
+    std::stringstream name_ss;
+    name_ss << "l3evpn_" << lr_id;
+    AddVrf(name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
+    AddVn(name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
+    AddNode("logical-router", name_ss.str().c_str(), lr_id);
+    std::stringstream node_str;
+    node_str << "<logical-router-virtual-network-type>"
+        << "InternalVirtualNetwork"
+        << "</logical-router-virtual-network-type>";
+    AddLinkNode("logical-router-virtual-network",
+                name_ss.str().c_str(),
+                node_str.str().c_str());
+    AddLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "logical-router",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    AddLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "virtual-network",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    AddLink("virtual-network",
+            name_ss.str().c_str(),
+            "routing-instance",
+            name_ss.str().c_str());
+    client->WaitForIdle();
+}
+
+void DelRoutingVrf(int lr_id) {
+    std::stringstream name_ss;
+    name_ss << "l3evpn_" << lr_id;
+    DelLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "logical-router",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    DelLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "virtual-network",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    DelLink("virtual-network",
+            name_ss.str().c_str(),
+            "routing-instance",
+            name_ss.str().c_str());
+    DelVrf(name_ss.str().c_str());
+    DelVn(name_ss.str().c_str());
+    DelNode("logical-router", name_ss.str().c_str());
+    DelNode("logical-router-virtual-network",
+                name_ss.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet(name_ss.str().c_str()) == NULL);
+}
+
+void AddBridgeVrf(const std::string &vmi_name, int lr_id) {
+    std::stringstream name_ss;
+    std::string metadata = "logical-router-interface";
+    name_ss << "l3evpn_" << lr_id;
+    AddNode("logical-router", name_ss.str().c_str(), lr_id);
+    std::stringstream lr_vmi_name;
+    lr_vmi_name << "lr-vmi-" << vmi_name;
+    AddLink("logical-router",
+            name_ss.str().c_str(),
+            "virtual-machine-interface",
+            lr_vmi_name.str().c_str(),
+            "logical-router-interface");
+    client->WaitForIdle();
+}
+
+void DelBridgeVrf(const std::string &vmi_name,
+                    int lr_id) {
+    std::stringstream name_ss;
+    std::string metadata = "logical-router-interface";
+    name_ss << "l3evpn_" << lr_id;
+    DelNode("logical-router", name_ss.str().c_str());
+    std::stringstream lr_vmi_name;
+    lr_vmi_name << "lr-vmi-" << vmi_name;
+    DelLink("logical-router",
+            name_ss.str().c_str(),
+            "virtual-machine-interface",
+            lr_vmi_name.str().c_str(),
+            "logical-router-interface");
+    client->WaitForIdle();
 }

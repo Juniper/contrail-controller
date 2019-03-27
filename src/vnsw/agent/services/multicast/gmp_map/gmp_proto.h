@@ -81,10 +81,11 @@ public:
 
 class VmiGmpDBState : public DBState {
 public:
-    VmiGmpDBState() : DBState(), vrf_name_() { }
+    VmiGmpDBState() : DBState(), vrf_name_(), vmi_v4_addr_()  { }
     ~VmiGmpDBState() {}
 
     std::string vrf_name_;
+    IpAddress vmi_v4_addr_;
 };
 
 class GmpIntf {
@@ -199,6 +200,9 @@ private:
 
     GmpStats stats_;
     int itf_attach_count_;
+
+    typedef std::map<IpAddress, boost::uuids::uuid> VmIpInterfaceMap;
+    VmIpInterfaceMap vm_ip_to_vmi_;
 
     friend class GmpIntf;
 };
