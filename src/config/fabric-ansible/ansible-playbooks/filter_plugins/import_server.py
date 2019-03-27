@@ -199,10 +199,15 @@ class FilterModule(object):
 
         for port_dict in port_list:
             mac = port_dict['mac_address']
+            name = port_dict.get('name', "")
             port_dict['node_uuid'] = node_dict['uuid']
             port_uuid = None
             for node_port in node_ports:
-                node_mac = node_port['bms_port_info']['address']
+                node_port_name = node_port.get('name', None)
+                if node_port_name and node_port_name == name:
+                    port_uuid = node_port['uuid']
+                    break
+                node_mac = node_port['bms_port_info'].get('address')
                 if node_mac == mac:
                     port_uuid = node_port['uuid']
                     break
