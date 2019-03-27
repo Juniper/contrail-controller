@@ -101,6 +101,7 @@ class PortTupleServer(ResourceMixin, PortTuple):
         li_display_name = li_display_name.replace("_", ":")
 
         api_server = cls.server
+        id_perms = IdPermsType(enable=True, user_visible=False)
         try:
             db_conn.fq_name_to_uuid('logical_interface', li_fq_name)
         except NoIdError:
@@ -109,7 +110,6 @@ class PortTupleServer(ResourceMixin, PortTuple):
                                       logical_interface_vlan_tag=vlan_tag,
                                       display_name=li_display_name)
 
-            id_perms = IdPermsType(enable=True, user_visible=False)
             li_obj.set_id_perms(id_perms)
             li_int_dict = json.dumps(li_obj, default=_obj_serializer_all)
             ok, li_obj_resp = api_server.internal_request_create(
@@ -118,8 +118,11 @@ class PortTupleServer(ResourceMixin, PortTuple):
             if not ok:
                 return (ok, 400, li_obj_resp)
 
-            # Allocate IP address for this logical interface
-            iip_name = "%s.%s.%s" % (dev_name, link, vlan_tag)
+        # Allocate IP address for this logical interface
+        iip_name = "%s.%s.%s" % (dev_name, link, vlan_tag)
+        try:
+            db_conn.fq_name_to_uuid('instance_ip', [iip_name])
+        except NoIdError:
             if subscriber_tag is not None:
                 iip_obj = InstanceIp(
                     name=iip_name,
