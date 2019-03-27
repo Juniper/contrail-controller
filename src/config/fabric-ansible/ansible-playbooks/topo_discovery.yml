@@ -2,6 +2,7 @@
 - name: Get the Topology Information from this device
 
   hosts: localhost
+  gather_facts: no
   connection: local
 
   roles:

@@ -2,6 +2,7 @@
 
 - name: Delete devices in a specific fabric
   hosts: localhost
+  gather_facts: no
   connection: local
   tasks:
 
