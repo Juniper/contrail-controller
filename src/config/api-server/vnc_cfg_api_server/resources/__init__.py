@@ -61,7 +61,10 @@ from vnc_cfg_api_server.resources.virtual_machine_interface import\
     VirtualMachineInterfaceServer
 from vnc_cfg_api_server.resources.virtual_network import VirtualNetworkServer
 from vnc_cfg_api_server.resources.virtual_router import VirtualRouterServer
-from vnc_cfg_api_server.resources.service_appliance import ServiceApplianceServer
+from vnc_cfg_api_server.resources.virtual_port_group import\
+    VirtualPortGroupServer
+from vnc_cfg_api_server.resources.service_appliance import\
+    ServiceApplianceServer
 from vnc_cfg_api_server.resources.service_instance import ServiceInstanceServer
 from vnc_cfg_api_server.resources.port_tuple import PortTupleServer
 from vnc_cfg_api_server.resources.node_port import PortServer
