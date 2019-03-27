@@ -1,6 +1,7 @@
 ---
 - name: Delete all the devices in the fabric
   hosts: localhost
+  gather_facts: no
   connection: local
   tasks:
     - set_fact:

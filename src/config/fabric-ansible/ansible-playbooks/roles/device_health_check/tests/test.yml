@@ -1,6 +1,7 @@
 ---
 - name: Validate device
   hosts: localhost
+  gather_facts: no
   connection: local
 
   roles:

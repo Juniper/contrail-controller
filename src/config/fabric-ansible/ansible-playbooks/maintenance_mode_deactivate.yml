@@ -2,6 +2,7 @@
 
 - name: Maintenance mode deactivation workflow
   hosts: localhost
+  gather_facts: no
   connection: local
   roles:
     - Juniper.junos

@@ -2,6 +2,7 @@
 - name: Get the Device Information by reading the Prouter object
 
   hosts: localhost
+  gather_facts: no
   connection: local
 
   roles:
