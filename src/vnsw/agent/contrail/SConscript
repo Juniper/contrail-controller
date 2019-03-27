@@ -44,7 +44,6 @@ buildinfo_dep_libs += MapBuildCmnLib([
     'route/' + env['LIBPREFIX'] + 'route' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'bgp_schema' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'ifmap_vnc' + env['LIBSUFFIX'],
-    'ifmap/client/' + env['LIBPREFIX'] + 'ifmapio' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'xmpp_unicast' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'xmpp_multicast' + env['LIBSUFFIX'],
     'schema/' + env['LIBPREFIX'] + 'xmpp_mvpn' + env['LIBSUFFIX'],

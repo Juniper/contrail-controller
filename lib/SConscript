@@ -15,8 +15,6 @@ if platform.system() == 'Windows':
         'pugixml',
         'rapidjson',
         'dirent',
-        'rabbitmq-c',
-        'SimpleAmqpClient',
         'gunit',
         'http_parser',
         'cmocka',
