@@ -192,18 +192,9 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
     ProcessState::type &state, std::string &message,
     std::vector<ConnectionTypeName> expected_connections) {
     GetProcessStateCb(cinfos, state, message, expected_connections);
-    if (state == ProcessState::NON_FUNCTIONAL)
-        return;
-    if (!config_client_manager->GetEndOfRibComputed()) {
-        state = ProcessState::NON_FUNCTIONAL;
-        message = "IFMap Server End-Of-RIB not computed";
-    } else if (!bgp_server->HasSelfConfiguration()) {
-        state = ProcessState::NON_FUNCTIONAL;
-        message = "No BGP configuration for self";
-    } else if (bgp_server->admin_down()) {
-        state = ProcessState::NON_FUNCTIONAL;
-        message = "BGP is administratively down";
-    }
+    (void) ControlNode::GetProcessState(bgp_server->HasSelfConfiguration(),
+        bgp_server->admin_down(), config_client_manager->GetEndOfRibComputed(),
+        &state, &message);
 }
 
 void ReConfigSignalHandler(const boost::system::error_code &error, int sig,

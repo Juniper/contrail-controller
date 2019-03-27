@@ -58,7 +58,11 @@ options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                              'options_test.cc'])
 env.Alias('src/control-node:options_test', options_test)
 
-test_suite = [ options_test ]
+control_node_misc_test = env.UnitTest('control_node_misc_test',
+    ['../buildinfo.o', '../control_node.o', 'control_node_misc_test.cc'])
+env.Alias('src/control-node:control_node_misc_test', control_node_misc_test)
+
+test_suite = [ control_node_misc_test, options_test ]
 
 test = env.TestSuite('control-node-test', test_suite)
 env.Alias('controller/src/control-node:test', test)

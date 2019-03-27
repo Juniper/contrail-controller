@@ -8,8 +8,11 @@
 #include <sys/resource.h>
 
 #include "base/task.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
-#include "config_client_manager.h"
+
+using process::ProcessState;
+
 //
 // Default scheduler policy for control-node daemon and test processes.
 //
@@ -248,4 +251,28 @@ void ControlNode::Exit(int status, bool do_assert) {
     if (do_assert)
         assert(false);
     exit(status);
+}
+
+string ControlNode::GetProcessState(bool bgpHasSelfConfiguration,
+        bool bgpIsAdminDown, bool configEndOfRibComputed,
+        ProcessState::type *state, string *message) {
+    if (!configEndOfRibComputed) {
+        *state = ProcessState::NON_FUNCTIONAL;
+        (*message) += (message->empty() ? "" : ", ") +
+            string("IFMap Server End-Of-RIB not computed");
+    }
+
+    if (!bgpHasSelfConfiguration) {
+        *state = ProcessState::NON_FUNCTIONAL;
+        (*message) += (message->empty() ? "" : ", ") +
+            string("No BGP configuration for self");
+    }
+
+    if (bgpIsAdminDown) {
+        *state = ProcessState::NON_FUNCTIONAL;
+        (*message) += (message->empty() ? "" : ", ") +
+            string("BGP is administratively down");
+    }
+
+    return *message;
 }

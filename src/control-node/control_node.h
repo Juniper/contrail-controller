@@ -7,6 +7,7 @@
 #define ctrlplane__ctrl_node_h
 
 #include<string>
+#include "base/sandesh/process_info_types.h"
 #include "sandesh/sandesh_trace.h"
 #include "io/event_manager.h"
 
@@ -32,6 +33,9 @@ public:
         const IFMapServer *ifmap_server, const string &build_info);
     static void Shutdown();
     static void Exit(int status, bool do_assert = false);
+    static std::string GetProcessState(bool bgpHasSelfConfiguration,
+        bool bgpIsAdminDown, bool configEndOfRibComputed,
+        process::ProcessState::type *state, std::string *message);
 
 private:
     static bool ControlNodeInfoLogger(const BgpServer *server,
