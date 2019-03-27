@@ -6,11 +6,10 @@ sys.path.append("../common/tests")
 
 from test_common import retries
 from test_common import retry_exc_handler
-from test_dm_common import TestCommonDM
+from test_dm_ansible_common import TestAnsibleCommonDM
 from test_dm_utils import FakeJobHandler
 
-
-class TestAnsibleDM(TestCommonDM):
+class TestAnsibleDM(TestAnsibleCommonDM):
     @classmethod
     def setUpClass(cls):
         dm_config_knobs = [
