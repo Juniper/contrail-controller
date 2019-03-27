@@ -37,6 +37,30 @@ if etcd_incl:
     env.Prepend(LIBS = [
                     'etcdql', 'protobuf', 'grpc++', 'grpc', 'z'])
 
+env.Append(LIBPATH = [env['TOP'] + '/bgp/inet',
+                      env['TOP'] + '/bgp/ermvpn',
+                      env['TOP'] + '/bgp/mvpn',
+                      env['TOP'] + '/bgp/evpn',
+                      env['TOP'] + '/bgp/inet6',
+                      env['TOP'] + '/bgp/inet6vpn',
+                      env['TOP'] + '/bgp/l3vpn',
+                      env['TOP'] + '/control-node',
+                      env['TOP'] + '/db',
+                      env['TOP'] + '/ifmap',
+                      env['TOP'] + '/net',
+                      env['TOP'] + '/bgp/extended-community',
+                      env['TOP'] + '/bgp/origin-vn',
+                      env['TOP'] + '/bgp/rtarget',
+                      env['TOP'] + '/bgp/routing-instance',
+                      env['TOP'] + '/bgp/routing-policy',
+                      env['TOP'] + '/route',
+                      env['TOP'] + '/bgp/security_group',
+                      env['TOP'] + '/bgp/tunnel_encap',
+                      env['TOP'] + '/xmpp',
+                      env['TOP'] + '/schema',
+                      env['TOP'] + '/xml',
+                     ])
+
 env.Prepend(LIBS = [
                     'config_client_mgr', 'ifmapio', 'bgp_schema', 'ifmap_vnc',
                     'ifmap_server', 'xmpp', 'peer_sandesh',
@@ -48,8 +72,19 @@ env.Prepend(LIBS = [
                     'ifmapio', 'libbgp_schema',
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
                     'cassandra', 'gendb', 'httpc',
-                    'SimpleAmqpClient', 'rabbitmq',
-                    'boost_filesystem', 'boost_program_options', 'boost_chrono'])
+                    'rabbitmq', 'boost_filesystem', 'boost_program_options',
+                    'boost_chrono'])
+
+env.Prepend(LIBS = [
+    'bgp', 'bgp_ermvpn', 'bgp_mvpn', 'bgp_evpn', 'bgp_inet', 'bgp_inet6',
+    'bgp_inet6vpn', 'bgp_l3vpn', 'rtarget', 'control_node_uve', 'io',
+    'cassandra_cql', 'config_client_mgr', 'SimpleAmqpClient', 'rabbitmq',
+    'cassandra_cql', 'cassandra', 'gendb', 'route', 'routing_instance',
+    'routing_policy', 'net', 'extended_community', 'origin_vn',
+    'security_group', 'tunnel_encap', 'xmpp_unicast', 'xmpp_multicast',
+    'xmpp_mvpn', 'xmpp_enet', 'boost_regex', 'boost_filesystem',
+    'boost_program_options', 'boost_chrono'
+])
 
 if platform.system() != 'Darwin':
     env.Append(LIBS = ['rt'])
@@ -58,7 +93,11 @@ options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                              'options_test.cc'])
 env.Alias('src/control-node:options_test', options_test)
 
-test_suite = [ options_test ]
+control_node_misc_test = env.UnitTest('control_node_misc_test',
+    ['../buildinfo.o', '../control_node.o', 'control_node_misc_test.cc'])
+env.Alias('src/control-node:control_node_misc_test', control_node_misc_test)
+
+test_suite = [ control_node_misc_test, options_test ]
 
 test = env.TestSuite('control-node-test', test_suite)
 env.Alias('controller/src/control-node:test', test)
