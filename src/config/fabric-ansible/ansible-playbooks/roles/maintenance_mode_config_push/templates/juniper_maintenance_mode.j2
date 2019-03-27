@@ -25,7 +25,7 @@ delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTE
 {%                 if device_maintenance_mode == "activate" %}
 delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
-{%                     for export_item in bpp_export_policy %}
+{%                     for export_item in bgp_export_policy %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{export_item}}
 {%                     endfor %}
 {%                 else %}
