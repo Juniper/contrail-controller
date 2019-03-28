@@ -102,6 +102,8 @@ void VmEntry::SetInterfacesDropNewFlows(bool drop_new_flows) const {
     std::set<IntrusiveReferrer>::const_iterator it = back_ref_set_.begin();
     for (; it != back_ref_set_.end(); it++) {
         VmInterface *vm_intf = static_cast<VmInterface *>((*it).first);
+        if (vm_intf->max_flows())
+            continue;
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC,
                                          vm_intf->GetUuid(), ""));
         req.data.reset(new VmInterfaceNewFlowDropData(drop_new_flows));

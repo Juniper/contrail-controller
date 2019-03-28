@@ -1876,13 +1876,15 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
     }
 
     bool limit_exceeded = false;
+    bool interface_max_flow = false;
     if (in->intf_ && (in->intf_->type() == Interface::VM_INTERFACE)) {
         const VmInterface *vm_intf =
             dynamic_cast<const VmInterface *>(in->intf_);
         if (vm_intf) {
-            if (vm_intf->max_flows() &&
-                ((vm_intf->flow_count() +2) > vm_intf->max_flows())) {
-                limit_exceeded = true;
+            if (vm_intf->max_flows()) {
+                interface_max_flow = true;
+                if ((vm_intf->flow_count() +2) > vm_intf->max_flows())
+                    limit_exceeded = true;
             }
         }
     }
@@ -1891,19 +1893,20 @@ void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
         const VmInterface *vm_intf =
             dynamic_cast<const VmInterface *>(out->intf_);
         if (vm_intf) {
-            if (vm_intf->max_flows() &&
-                ((vm_intf->flow_count() +2) > vm_intf->max_flows())) {
-                limit_exceeded = true;
+            if (vm_intf->max_flows()) {
+                interface_max_flow = true;
+                if ((vm_intf->flow_count() +2) > vm_intf->max_flows())
+                    limit_exceeded = true;
             }
         }
     }
 
-    if (agent->max_vm_flows() &&
+    if (agent->max_vm_flows() && (!interface_max_flow) &&
         (in->vm_ && ((in->vm_->flow_count() + 2) > agent->max_vm_flows()))) {
         limit_exceeded = true;
     }
 
-    if (agent->max_vm_flows() &&
+    if (agent->max_vm_flows() && (!interface_max_flow) &&
         (out->vm_ && ((out->vm_->flow_count() + 2) > agent->max_vm_flows()))) {
         limit_exceeded = true;
     }
