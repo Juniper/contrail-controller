@@ -92,7 +92,8 @@ try:
 except AttributeError:
     VN_ID_MIN_ALLOC = 1
 SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
-RT_ID_MIN_ALLOC = cfgm_common.BGP_RTGT_MIN_ID
+def _get_rt_id_min_alloc(asn):
+    return cfgm_common.get_bgp_rtgt_min_id(asn)
 
 
 def _parse_rt(rt):
@@ -339,7 +340,8 @@ def _parse_args(args_str):
 class DatabaseManager(object):
     OBJ_MANDATORY_COLUMNS = ['type', 'fq_name', 'prop:id_perms']
     BASE_VN_ID_ZK_PATH = '/id/virtual-networks'
-    BASE_RTGT_ID_ZK_PATH = '/id/bgp/route-targets'
+    BASE_RTGT_ID_ZK_PATH_2 = '/id/bgp/route-targets-2'
+    BASE_RTGT_ID_ZK_PATH_4 = '/id/bgp/route-targets-4'
     BASE_SG_ID_ZK_PATH = '/id/security-groups/id'
     BASE_SUBNET_ZK_PATH = '/api-server/subnets'
 
@@ -398,7 +400,8 @@ class DatabaseManager(object):
 
         # zookeeper connection
         self.base_vn_id_zk_path = cluster_id + self.BASE_VN_ID_ZK_PATH
-        self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
+        self.base_rtgt_id_zk_path_2 = cluster_id + self.BASE_RTGT_ID_ZK_PATH_2
+        self.base_rtgt_id_zk_path_4 = cluster_id + self.BASE_RTGT_ID_ZK_PATH_4
         self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
         self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
         self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
@@ -502,14 +505,18 @@ class DatabaseManager(object):
         stale_list = {}
 
         # read in route-target ids from zookeeper
-        base_path = self.base_rtgt_id_zk_path
+        if self.global_asn > 0xFFFF:
+            base_path = self.base_rtgt_id_zk_path_4
+        else:
+            base_path = self.base_rtgt_id_zk_path_2
+
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         num_bad_rts = 0
         for id in self._zk_client.get_children(base_path) or []:
             res_fq_name_str = self._zk_client.get(base_path + '/' + id)[0]
             id = int(id)
             zk_set.add((id, res_fq_name_str))
-            if id < RT_ID_MIN_ALLOC:
+            if id < _get_rt_id_min_alloc(self.global_asn):
                 # ZK contain RT ID lock only for system RT
                 errmsg = 'Wrong Route Target range in zookeeper %d' % id
                 ret_errors.append(ZkRTRangeError(errmsg))
@@ -523,7 +530,7 @@ class DatabaseManager(object):
         num_bad_rts = 0
         for res_fq_name_str, cols in rt_table.get_range(columns=['rtgt_num']):
             id = int(cols['rtgt_num'])
-            if id < RT_ID_MIN_ALLOC:
+            if id < _get_rt_id_min_alloc(self.global_asn):
                 # Should never append
                 msg = ("Route Target ID %d allocated for %s by the schema "
                        "transformer is not contained in the system range" %
@@ -545,7 +552,8 @@ class DatabaseManager(object):
                 asn, id = _parse_rt(fq_name_str)
             except ValueError:
                 malformed_set.add((fq_name_str, uuid))
-            if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
+            if asn != self.global_asn or id < \
+                                _get_rt_id_min_alloc(self.global_asn):
                 user_rts += 1
                 continue  # Ignore user defined RT
             try:
@@ -604,7 +612,8 @@ class DatabaseManager(object):
                         stale_list.setdefault(
                             (fq_name_str, uuid, list_name), set()).add(rt)
 
-                    if asn != self.global_asn or id < RT_ID_MIN_ALLOC:
+                    if asn != self.global_asn or id <\
+                            _get_rt_id_min_alloc(global_asn):
                         num_user_rts += 1
                         continue  # all good
                     num_bad_rts += 1
