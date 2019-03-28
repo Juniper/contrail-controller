@@ -236,7 +236,7 @@ class ImportIronicNodes(object):
                 "kind": "node",
                 "data": {
                     "uuid": node_dict['uuid'],
-                    "type": "baremetal",
+                    "node_type": "baremetal",
                     "name": node_dict['hostname'],
                     "display_name": node_dict['hostname'],
                     "hostname": node_dict['hostname'],
@@ -246,7 +246,6 @@ class ImportIronicNodes(object):
                     "bms_info": {
                         "name": node_dict['hostname'],
                         "network_interface": "neutron",
-                        "type": "baremetal",
                         "properties": node_dict['properties'],
                         "driver": "pxe_ipmitool",
                         "driver_info": node_dict["driver_info"]
