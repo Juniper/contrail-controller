@@ -172,7 +172,7 @@ class FilterModule(object):
             [{
                 "kind": "node",
                 "data": {
-                    "type": node_dict.get('type', "baremetal"),
+                    "node_type": node_dict.get('node_type', "baremetal"),
                     "name": node_dict['name'],
                     "uuid": node_dict['uuid'],
                     "display_name": node_dict['display_name'],
