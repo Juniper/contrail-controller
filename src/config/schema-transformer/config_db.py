@@ -1881,7 +1881,8 @@ class PhysicalRouterST(DBBaseST):
         changed = self.update_vnc_obj(obj)
         if 'bgp_router' in changed:
             bgp_rtr = BgpRouterST.locate(self.bgp_router)
-            bgp_rtr.physical_router = self.name
+            if bgp_rtr:
+                bgp_rtr.physical_router = self.name
         return changed
     # end update
 
