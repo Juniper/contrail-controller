@@ -4,7 +4,7 @@
 import copy
 import uuid
 
-from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import LINK_LOCAL_VN_FQ_NAME
 from cfgm_common import PERMS_RWX
 from cfgm_common.exceptions import HttpError
@@ -104,6 +104,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         rt_dict = obj_dict.get('route_target_list')
         if not rt_dict:
             return True, ''
+        global_asn = cls.server.global_autonomous_system
         for rt in rt_dict.get('route_target') or []:
             ok, result = cls.server.get_resource_class(
                 'route_target').is_user_defined(rt)
@@ -112,8 +113,9 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
             user_defined_rt = result
             if not user_defined_rt:
                 return (False, "Configured route target must use ASN that is "
-                        "different from global ASN or route target value must "
-                        "be less than %d" % BGP_RTGT_MIN_ID)
+                         "different from global ASN or route target value must"
+                         " be less than %d" %\
+                         cfgm_common.get_bgp_rtgt_min_id(global_asn))
 
         return (True, '')
 
