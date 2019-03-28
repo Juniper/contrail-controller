@@ -26,6 +26,7 @@ from job_exception import JobException
 from job_messages import MsgBundle
 from inflection import camelize
 
+PLAYBOOK_EOL_PATTERN = "*EOL*\n"
 
 class JobStatus(Enum):
     STARTING = "STARTING"
@@ -89,8 +90,8 @@ class JobFileWrite(object):
         try:
             fname = '/tmp/%s' % str(exec_id)
             with open(fname, "a") as f:
-                line_in_file = "%s%s%s%s\n" % (
-                    str(pb_id), marker, msg, marker)
+                line_in_file = "%s%s%s%s%s" % (
+                    str(pb_id), marker, msg, marker, PLAYBOOK_EOL_PATTERN)
                 f.write(line_in_file)
         except Exception as ex:
             self._logger.error("Failed to write_to_file: %s\n%s\n" % (

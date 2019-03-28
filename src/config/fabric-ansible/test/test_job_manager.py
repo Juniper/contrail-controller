@@ -21,6 +21,7 @@ sys.path.append('../common/tests')
 import test_case
 from job_manager.job_mgr import WFManager
 from job_manager.job_utils import JobStatus
+from job_manager.job_utils import PLAYBOOK_EOL_PATTERN
 from test_utils import FakeKazooClient
 from test_job_manager_utils import TestJobManagerUtils
 
@@ -308,7 +309,7 @@ class TestJobManager(test_case.JobTestCase):
 
         # mock the call to write an END to the file
         with open("/tmp/"+TestJobManagerUtils.execution_id, "a") as f:
-            f.write(str(playbook_id) + 'END' + '\n')
+            f.write(str(playbook_id) + 'END' + PLAYBOOK_EOL_PATTERN)
 
         # mock sys exit call
         flexmock(sys).should_receive('exit')
