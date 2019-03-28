@@ -129,7 +129,6 @@ env.Prepend(LIBS = [
     'ifmap_vnc',
     'ifmap_agent',
     'ifmap_common', 
-    'ifmapio',
     'net',
     'sandeshflow',
     'sandeshvns',
