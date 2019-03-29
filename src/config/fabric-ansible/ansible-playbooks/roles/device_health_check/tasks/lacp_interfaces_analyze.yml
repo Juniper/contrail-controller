@@ -1,0 +1,50 @@
+---
+- name: Grab the lacp information list info for peer check
+  set_fact:
+    lacp_information: "{{interface_info.results[0].parsed_output['lacp-interface-information-list']}}"
+  when: lacp_down_peer_check
+
+- name: Grab the lacp information list for target device check
+  set_fact:
+    lacp_information: "{{interface_info.parsed_output['lacp-interface-information-list']}}"
+  when: lacp_down_local_check
+
+- name: Convert to list if dict
+  set_fact:
+    lacp_information_list: [ "{{lacp_information}}"  ]
+  when: lacp_information is mapping
+
+- name: Print the lacp information list
+  debug:
+    msg="{{lacp_information_list}}" verbosity=1
+
+- name: Set the name of the multihomed interface testing
+  set_fact:
+    multihomed_interface: "{{item.1}}"
+
+- name: Get the status of each interface in the multihomed list
+  set_fact:
+    status: "{{item['lacp-interface-information']['lag-lacp-protocol']['lacp-mux-state']}}"
+  with_items:
+    - "{{lacp_information_list}}"
+  when:
+    - multihomed_interface == "{{item['lacp-interface-information']['lag-lacp-protocol']['name']}}"
+
+- block:
+    - name: Print the status if the interface is up
+      debug:
+        msg: "The multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} is up. The status is {{status}}"
+      when: status == "Collecting distributing"
+
+    - name: Handle the case when the interface is not up
+      debug:
+        msg: "The multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} seems to be down. The upgrade will not be hitless.Traffic might get affected"
+      when: status != "Collecting distributing" and abort_upon_failure == False
+
+    #Increment the failures here?
+#    - name: Abort upon failure is True
+
+    - name: Set status back to None
+      set_fact:
+        status: None
+  when: status is defined and status != None

@@ -1,5 +1,10 @@
 - name: Call vendor-specific health check logic
   include_tasks: "{{ device_vendor }}.yml"
+  when: snap_test_pfx is defined
+
+- name: Call vendor-specific multi-homing check logic
+  include_tasks: "{{device_vendor}}_multihoming.yml"
+  when: snap_action == "check_peer"
 
 - name: Abort if requested
   include_tasks: error_handler.yml
