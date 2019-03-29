@@ -95,7 +95,8 @@ public:
                            uint8_t gen_id, int ksync_error,
                            uint64_t evict_flow_bytes,
                            uint64_t evict_flow_packets,
-                           int32_t evict_flow_oflow);
+                           int32_t evict_flow_oflow,
+                           uint32_t transcation_id);
     void MessageRequest(FlowEntry *flow);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);
