@@ -477,7 +477,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         match = port_dict['binding:profile'] == binding_profile
         self.assertTrue(match)
 
-        # CREATE:  Make sure LAG is created
+        # CREATE:  Make sure VPG is created
         vpg_found = False
         vpg_dict = self._vnc_lib.virtual_port_groups_list()
         vpgs = vpg_dict['virtual-port-groups']
@@ -490,14 +490,18 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.assertTrue(vpg_found)
 
         data2 = {'resource':{'network_id': vn2_obj.uuid,
-                            'tenant_id': proj_uuid,
-                            'binding:profile': binding_profile,
-                            'binding:vnic_type': vnic_type,
-                            'binding:host_id': 'myhost',
-                            'binding:vpg': vpg_obj.name}}
+                            'tenant_id': proj_uuid}}
         body2 = {'context': context, 'data': data2}
         resp = self._api_svr_app.post_json('/neutron/port', body2)
         port_dict2 = json.loads(resp.text)
+
+        # create baremetal bindings with another VMI and the
+        # existing vpg through http_update() api call
+        data3 = {'binding:profile': binding_profile,
+                 'binding:vnic_type': vnic_type,
+                 'binding:host_id': 'myhost',
+                 'binding:vpg': vpg_obj.name}
+        self.update_resource('port', port_dict2['id'], proj_uuid, extra_res_fields=data3)
 
         # Make sure VPG has two VMIs associated
         vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
@@ -515,10 +519,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # UPDATE: Make sure VPG has ref to only 3rd physical interface
         # after port update
         vnic_type = 'baremetal'
-        data = {            'binding:profile': binding_profile_update,
-                            'binding:vnic_type': vnic_type,
-                            'binding:vpg': vpg_obj.name,
-                            'binding:host_id': 'myhost'}
+        data = {'binding:profile': binding_profile_update,
+                'binding:vnic_type': vnic_type,
+                'binding:vpg': vpg_obj.name,
+                'binding:host_id': 'myhost'}
         self.update_resource('port', port_dict['id'], proj_uuid, extra_res_fields=data)
         vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
 
