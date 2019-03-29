@@ -1288,7 +1288,6 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     data.set_slo_list(slo_list);
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
-    list.push_back(data);
     std::vector<MulticastPolicyLink> mp_list;
     UuidList::const_iterator mpit = mp_list_.begin();
     while (mpit != mp_list_.end()) {
@@ -1300,6 +1299,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     data.set_mp_list(mp_list);
     data.set_cfg_igmp_enable(cfg_igmp_enable());
     data.set_max_flows(vn_max_flows());
+    list.push_back(data);
     return true;
 }
 
