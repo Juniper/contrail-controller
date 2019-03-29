@@ -2,6 +2,7 @@
 - name: Determine upgrade strategy and start sending upgrade batches
 
   hosts: localhost
+  gather_facts: no
   connection: local
 
   vars:

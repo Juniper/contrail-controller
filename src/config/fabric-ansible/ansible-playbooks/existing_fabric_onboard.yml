@@ -2,6 +2,7 @@
 - name: Onboard fabric data model to the database
 
   hosts: localhost
+  gather_facts: no
   connection: local
 
   tasks:

@@ -2,6 +2,7 @@
 - name: get node profile hint for physical routers in the fabric
 
   hosts: localhost
+  gather_facts: no
   connection: local
 
   roles:
