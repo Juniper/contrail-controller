@@ -424,7 +424,7 @@ class AnsibleConf(AnsibleBase):
             return None
         bgp = Bgp()
         cluster_id = self.bgp_params.get('cluster_id')
-        if cluster_id:
+        if cluster_id and not external:
             bgp.set_cluster_id(cluster_id)
         bgp.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
         if external:
