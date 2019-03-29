@@ -1,0 +1,60 @@
+---
+
+- name: Convert to list if dict
+  set_fact:
+    lacp_information_list: [ "{{lacp_information}}"  ]
+  when: lacp_information is mapping
+
+- name: Print the lacp information list
+  debug:
+    msg="{{lacp_information_list}}" verbosity=1
+
+- name: Set the name of the multihomed interface testing
+  set_fact:
+    multihomed_interface: "{{item.1}}"
+
+- name: Get the status of each interface in the multihomed list
+  set_fact:
+    status: "{{item['lacp-interface-information']['lag-lacp-protocol']['lacp-mux-state']}}"
+  with_items:
+    - "{{lacp_information_list}}"
+  when:
+    - multihomed_interface == "{{item['lacp-interface-information']['lag-lacp-protocol']['name']}}"
+
+
+- name: Handle the case when status None
+  include_tasks: error_handler.yml
+  vars:
+    op_err_message: |
+        The claimed multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} does not seem to be configured with lacp.
+    jl_err_message: |
+        The claimed multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} does not seem to be configured with lacp.
+    upgrade_error_state: "{{DEVICE_STATE.HEALTH_CHECK_FAILED}}"
+  when: status == None
+
+- block:
+    - name: Print the status if the interface is up
+      debug:
+        msg: "The multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} is up. The status is {{status}}"
+      when: status == "Collecting distributing"
+
+    - name: Handle the case when the interface is not up
+      debug:
+        msg: "The multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} seems to be down. The upgrade will not be hitless.Traffic might get affected"
+      when: status != "Collecting distributing" and abort_upon_failure == False
+
+    - name: Abort if requested
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: |
+            The multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} seems to be down. The upgrade will not be hitless. The status is {{status}}
+        jl_err_message: |
+            The multi-homed interface {{multihomed_interface}} for the device {{item.0.name}} seems to be down. The upgrade will not be hitless. The status is {{status}}
+        upgrade_error_state: "{{DEVICE_STATE.HEALTH_CHECK_FAILED}}"
+      when: status != "Collecting distributing" and abort_upon_failure == True
+
+    - name: Set status back to None
+      set_fact:
+        status: None
+  when: status is defined and status != None
+

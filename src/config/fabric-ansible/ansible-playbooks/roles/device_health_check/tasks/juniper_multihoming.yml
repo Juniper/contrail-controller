@@ -1,0 +1,127 @@
+- name: Grab device information for multihomed leaf
+  set_fact:
+      device_info: "{{upgrade_plan['device_table'].get(device_uuid)}}"
+
+- name: Set the multi homed error flag
+  set_fact:
+    multi_homed_error_flag: False
+
+- name: Check multihomed interface status for peer
+  block:
+    - name: Set the buddy details
+      set_fact:
+        buddy_details: "{{device_info.vpg_info.buddies}}"
+
+    - name: Print the buddy details
+      debug: var=buddy_details verbosity=1
+
+
+    - name: Print device health report
+      debug:
+        var: device_health_report
+        verbosity: 1
+
+    - block:
+        - name: Log error if buddy detail is null
+          set_fact:
+            lacp_error_msg: "The device {{device_info.name}} does not have any multihomed peers"
+
+        - name: Set the multi-homed error flag
+          set_fact:
+            multi_homed_error_flag: True
+      when: buddy_details|length<=0
+
+    - block:
+        - name: Set the buddy details
+          set_fact:
+            device_list: "{{buddy_details}}"
+
+        - name: Check if multihomed interfaces are up on peer device
+          block:
+            - juniper_junos_command:
+                commands:
+                  - show lacp interfaces
+                display: xml
+                provider:
+                  host: "{{item.mgmt_ip}}"
+                  username: "{{item.username}}"
+                  password: "{{item.password}}"
+                  port: 22
+                  timeout: 30
+              register: interface_info
+              with_items:
+                - "{{device_list}}"
+          rescue:
+            - name: Perform the necessary error handling
+              include_tasks: error_handler.yml
+              when: "interface_info.failed == true"
+              vars:
+                op_err_message: "{{item.msg}}"
+                jl_err_message: "Error while obtaining interface information from Juniper device: {{item.msg}}"
+
+        - name: Display the results
+          debug:
+            msg="{{interface_info}}"
+
+        - name: Grab the lacp information list info for peer check
+          set_fact:
+            lacp_information: "{{interface_info.results[0].parsed_output['lacp-interface-information-list']}}"
+
+        - include: lacp_interfaces_analyze.yml
+          with_subelements:
+          - "{{device_list}}"
+          - multihomed_interface_list
+      when: buddy_details is defined and buddy_details |length>0
+  when: lacp_down_peer_check
+
+
+- name: Check if multi-homed interfaces are up on target device
+  block:
+    - set_fact:
+            target_interface_list: "{{device_info.target_multihomed_interface}}"
+
+    - block:
+        - name: Log error if target interface is null
+          set_fact:
+            lacp_error_msg: "The device {{device_info.name}} does not have any interfaces multihomed with it said peers. "
+
+        - name: Set the multi-homed error flag
+          set_fact:
+            multi_homed_error_flag: True
+      when: target_interface_list|length<=0
+
+    - block:
+        - block:
+            - juniper_junos_command:
+                commands:
+                  - show lacp interfaces
+                display: xml
+                provider:
+                  host: "{{device_mgmt_ip}}"
+                  username: "{{device_username}}"
+                  password: "{{device_password}}"
+                  port: 22
+                  timeout: 30
+              register: interface_info
+          rescue:
+            - name: Perform the necessary error handling
+              include_tasks: error_handler.yml
+              when: "interface_info.failed == true"
+              vars:
+                op_err_message: "{{interface_info.msg}}"
+                jl_err_message: "Error while obtaining interface information from Juniper device: {{interface_info.msg}}"
+
+        - name: Grab the lacp information list for target device check
+          set_fact:
+            lacp_information: "{{interface_info.parsed_output['lacp-interface-information-list']}}"
+
+        - include: lacp_interfaces_analyze.yml
+          with_together:
+          - ["{{device_info}}"]
+          - "{{target_interface_list}}"
+      when: target_interface_list is defined and target_interface_list |length>0
+  when: lacp_down_local_check
+
+
+
+

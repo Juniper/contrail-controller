@@ -48,6 +48,13 @@
     snap_test_pfx: "{{pr_vendor}}_snapshot_1"
     snap_action: "snap_pre"
 
+- name: Check interafces
+  include_role:
+    name: device_health_check
+  vars:
+    snap_action: "check_peer"
+  when: physical_role == 'leaf'
+
 - name: Activating maintenance mode on device {{pr_name}}
   set_fact:
     device_maintenance_mode: "activate"
