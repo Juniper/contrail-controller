@@ -86,6 +86,12 @@ class DMTestCase(test_common.TestCase):
         )
         fab_uuid = self._vnc_lib.fabric_create(fab)
         return fab_uuid
+    
+    def delete_fabric(self, fab=None, id=None):
+        if id:
+            self._vnc_lib.fabric_delete(id=id)
+        if fab:
+            self._vnc_lib.fabric_delete(fqname=fab.get_fq_name())
 
     def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None, ignore_bgp=False):
         bgp_router, pr = None, None
