@@ -232,6 +232,9 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
         }
         Copy(flow, flow_req, fwd_flow_update);
         flow->set_deleted(false);
+        // this flow entry is reused , increment the transaction id
+        // so that flow events with old transaction id will be ingnored
+        flow->IncrementTransactionId();
     }
 
     if (rflow) {
@@ -249,6 +252,9 @@ void FlowTable::AddInternal(FlowEntry *flow_req, FlowEntry *flow,
                 force_update_rflow = false;
             }
             rflow->set_deleted(false);
+            // this flow entry is reused , increment the transaction id
+            // so that flow events with old transaction id will be ingnored
+            rflow->IncrementTransactionId();
         } else {
             // we are creating a new reverse flow, so avoid triggering
             // force update in this case
@@ -726,6 +732,16 @@ void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
 
     // Ignore error for Delete messages
     if (req->ksync_event() == KSyncEntry::DEL_ACK) {
+        return;
+    }
+    
+    // if transaction id is not same, then ignore the old
+    // vrouter add-ack response. this is possible that
+    // after vrouter add-ack response, flows will be evicted
+    // and new wflow with same flow tuple as evicted one will
+    // trigger new flow request to agent. this old add-ack response
+    // has no relevance, so should be ignored.
+    if (req->transaction_id() != flow->GetTransactionId()) {
         return;
     }
 
