@@ -1,0 +1,101 @@
+- name: Grab device information for multihomed leaf
+  set_fact:
+      device_info: "{{upgrade_plan['device_table'].get(device_uuid)}}"
+
+- name: Check multihomed interface status for peer
+  block:
+    - name: Set the buddy details
+      set_fact:
+        buddy_details: "{{device_info.vpg_info.buddies}}"
+
+    - name: Print the buddy details
+      debug: var=buddy_details verbosity=1
+
+
+     #Increment total failures?
+#    - name: Append error if buddy detail is null
+#      set_fact:
+#        device_health_report: {'total_failures': 1}
+#      when: buddy_details|length<=0
+
+    - block:
+        - name: Set the buddy details
+          set_fact:
+            device_list: "{{buddy_details}}"
+
+        - name: Check if multihomed interfaces are up on peer device
+          block:
+            - juniper_junos_command:
+                commands:
+                  - show lacp interfaces
+                display: xml
+                provider:
+                  host: "{{item.mgmt_ip}}"
+                  username: "{{item.username}}"
+                  password: "{{item.password}}"
+                  port: 22
+                  timeout: 30
+              register: interface_info
+              with_items:
+                - "{{device_list}}"
+          rescue:
+            - name: Perform the necessary error handling
+              include_tasks: error_handler.yml
+              when: "interface_info.failed == true"
+              vars:
+                op_err_message: "{{item.msg}}"
+                jl_err_message: "Error while obtaining interface information from Juniper device: {{item.msg}}"
+
+        - name: Display the results
+          debug:
+            msg="{{interface_info}}"
+
+        - include: lacp_interfaces_analyze.yml
+          with_subelements:
+          - "{{device_list}}"
+          - multihomed_interface_list
+      when: buddy_details is defined and buddy_details |length>0
+  when: lacp_down_peer_check
+
+
+- name: Check if multi-homed interfaces are up on target device
+  block:
+    - set_fact:
+            target_interface_list: "{{device_info.target_multihomed_interface}}"
+
+#    - name: Append error if target interface list is null
+#      set_fact:
+#        device_health_report: {'total_failures': 1}
+#      when: target_interface_list|length<=0
+
+    - block:
+        - block:
+            - juniper_junos_command:
+                commands:
+                  - show lacp interfaces
+                display: xml
+                provider:
+                  host: "{{device_mgmt_ip}}"
+                  username: "{{device_username}}"
+                  password: "{{device_password}}"
+                  port: 22
+                  timeout: 30
+              register: interface_info
+          rescue:
+            - name: Perform the necessary error handling
+              include_tasks: error_handler.yml
+              when: "interface_info.failed == true"
+              vars:
+                op_err_message: "{{interface_info.msg}}"
+                jl_err_message: "Error while obtaining interface information from Juniper device: {{interface_info.msg}}"
+
+        - include: lacp_interfaces_analyze.yml
+          with_together:
+          - ["{{device_info}}"]
+          - "{{target_interface_list}}"
+      when: target_interface_list is defined and target_interface_list |length>0
+  when: lacp_down_local_check
+
+
+
+
