@@ -1,133 +1,228 @@
-- name: Setup for jsnapy tests
+- name: Setup for jsnapy and multi-homing interface tests
   block:
-    - name: Import Juniper junos
-      import_role:
-        name: Juniper.junos
+    - block:
+        - name: Import Juniper junos
+          import_role:
+            name: Juniper.junos
 
-    - name: Initialize variables
+        - name: Initialize variables
+          set_fact:
+            test_results_detail: {}
+            test_results_list: []
+            device_health_report: {}
+
+        - name: Set location of jsnapy test files
+          set_fact:
+            jsnapy_dir: "./config/{{device_mgmt_ip}}/jsnapy/testfiles"
+
+        - name: Create directory for jsnapy test files
+          file:
+            path: "{{ jsnapy_dir }}"
+            state: directory
+
+        - name: Render test file
+          template:
+            src: "{{snap_test_pfx}}.j2"
+            dest: "{{jsnapy_dir}}/{{snap_test_pfx}}.yml"
+          register: cmd_res
+      rescue:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Error in setup for jsnapy tests: {{cmd_res.msg}}"
+            jl_err_message: "Error in setup for jsnapy tests: {{cmd_res.msg}}"
+
+    - name: Perform snapshot action
+      block:
+        - name: Call jsnapy
+          juniper_junos_jsnapy:
+            provider:
+              host: "{{device_mgmt_ip}}"
+              username: "{{device_username}}"
+              password: "{{device_password}}"
+            action: "{{snap_action}}"
+            dir: "{{jsnapy_dir}}"
+            test_files: "{{snap_test_pfx}}.yml"
+          register: check_results
+        - debug: var=check_results
+      rescue:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{check_results.msg}}"
+            jl_err_message: "Error gathering health check information ({{snap_action}}): {{check_results.msg}}"
+
+    - name: Compare snapshot if snap_post
+      block:
+        - name: Call jsnapy
+          juniper_junos_jsnapy:
+            provider:
+              host: "{{device_mgmt_ip}}"
+              username: "{{device_username}}"
+              password: "{{device_password}}"
+            action: "check"
+            dir: "{{jsnapy_dir}}"
+            test_files: "{{snap_test_pfx}}.yml"
+          register: ccheck_results
+
+        - set_fact:
+            check_results: "{{ccheck_results}}"
+
+        - name: Update check_results
+          set_fact:
+            check_results: "{{ccheck_results}}"
+      rescue:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{ccheck_results.msg}}"
+            jl_err_message: "Error gathering health check information ({{snap_action}}): {{ccheck_results.msg}}"
+      when: snap_action == 'snap_post' 
+
+    - name: Init dict
       set_fact:
-        test_results_detail: {}
-        test_results_list: []
-        device_health_report: {}
+        device_health_report: >
+                              {'description':'{{snap_action}} test results for device {{device_mgmt_ip}}',
+                                'total_failures':{{check_results.total_failed}},
+                                'advanced_parameters':{{advanced_parameters}}}
+      when: check_results.total_failed is defined
 
-    - name: Set location of jsnapy test files
+    - name: Init dict
       set_fact:
-        jsnapy_dir: "./config/{{device_mgmt_ip}}/jsnapy/testfiles"
+        device_health_report: >
+                              {'description':'{{snap_action}} test results for device {{device_mgmt_ip}}',
+                                'total_failures':0,
+                                'advanced_parameters':{{advanced_parameters}}}
+      when: check_results.total_failed is not defined
 
-    - name: Create directory for jsnapy test files
-      file:
-        path: "{{ jsnapy_dir }}"
-        state: directory
+    - name: Print test results if errors
+      block:
+        - name: Create list
+          set_fact:
+            test_results_list: "{{test_results_list}} + [{{item}}]"
+          with_dict: "{{ check_results.test_results }}"
 
-    - name: Render test file
-      template:
-        src: "{{snap_test_pfx}}.j2"
-        dest: "{{jsnapy_dir}}/{{snap_test_pfx}}.yml"
-      register: cmd_res
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "Error in setup for jsnapy tests: {{cmd_res.msg}}"
-        jl_err_message: "Error in setup for jsnapy tests: {{cmd_res.msg}}"
+        - name: Collect detailed failed test info
+          set_fact:
+            test_results_detail: >
+                                  {{test_results_detail|combine({item[0].key+' ('+item[1].node_name+')':
+                                    {'expected':item[1].expected_node_value,'failed':item[1].failed}})}}
+          with_subelements:
+            - "{{ test_results_list }}"
+            - value
+          when: item[1].failed != [] and item[1].expected_node_value is defined
 
-- name: Perform snapshot action
+        - name: Collect detailed failed test info
+          set_fact:
+            test_results_detail: >
+                                  {{test_results_detail|combine({item[0].key+' ('+item[1].node_name+')':
+                                    {'failed':item[1].failed}})}}
+          with_subelements:
+            - "{{ test_results_list }}"
+            - value
+          when: item[1].failed != [] and item[1].expected_node_value is not defined
+
+        - name: Combine dicts
+          set_fact:
+            device_health_report: "{{device_health_report|combine({'failure_list':test_results_detail})}}"
+      rescue:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Error in printing results for jsnapy tests"
+            jl_err_message: "Error in printing results for jsnapy tests"
+      when: check_results.total_failed is defined and check_results.total_failed > 0
+
+    - name: Print device health report
+      debug:
+        var: device_health_report
+        verbosity: 1
+  when: snap_test_pfx is defined 
+
+
+- name: Check peer information for multihomed leaf
   block:
-    - name: Call jsnapy
-      juniper_junos_jsnapy:
-        provider:
-          host: "{{device_mgmt_ip}}"
-          username: "{{device_username}}"
-          password: "{{device_password}}"
-        action: "{{snap_action}}"
-        dir: "{{jsnapy_dir}}"
-        test_files: "{{snap_test_pfx}}.yml"
-      register: check_results
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "{{check_results.msg}}"
-        jl_err_message: "Error gathering health check information ({{snap_action}}): {{check_results.msg}}"
+    - block:
+        - debug: 
+            var: device_health_report
+        - set_fact:
+            device_info: "{{job_ctx | multihomed_buddy_details(upgrade_plan, device_uuid)}}"
 
-- name: Compare snapshot if snap_post
-  block:
-    - name: Call jsnapy
-      juniper_junos_jsnapy:
-        provider:
-          host: "{{device_mgmt_ip}}"
-          username: "{{device_username}}"
-          password: "{{device_password}}"
-        action: "check"
-        dir: "{{jsnapy_dir}}"
-        test_files: "{{snap_test_pfx}}.yml"
-      register: ccheck_results
+        - name: Print the buddy details
+          debug: var=device_info verbosity=1
 
-    - set_fact:
-      check_results: "{{ccheck_results}}"
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "{{ccheck_results.msg}}"
-        jl_err_message: "Error gathering health check information ({{snap_action}}): {{ccheck_results.msg}}"
-  when: snap_action == 'snap_post'
+        - block:
+            - name: Debug
+              set_fact:
+                details_list: "{{device_info.buddy_details}}"
 
-- name: Init dict
-  set_fact:
-    device_health_report: >
-                           {'description':'{{snap_action}} test results for device {{device_mgmt_ip}}',
-                            'total_failures':{{check_results.total_failed}},
-                            'advanced_parameters':{{advanced_parameters}}}
-  when: check_results.total_failed is defined
+            - debug:
+                msg="{{item}}"
+              with_list: "{{details_list}}"
 
-- name: Init dict
-  set_fact:
-    device_health_report: >
-                           {'description':'{{snap_action}} test results for device {{device_mgmt_ip}}',
-                            'total_failures':0,
-                            'advanced_parameters':{{advanced_parameters}}}
-  when: check_results.total_failed is not defined
+            - name: Check if multihomed interfaces are up on peer device
+              block:
+                - juniper_junos_command:
+                    commands:
+                      - show lacp interfaces "{{item.1}}"
+                    display: xml
+                    provider:
+                      host: "{{item.0.mgmt_ip}}"
+                      username: "{{item.0.username}}"
+                      password: "{{item.0.password}}"
+                      port: 22
+                      timeout: 30
+                  register: interface_info
+                  with_subelements:
+                    - "{{details_list}}"
+                    - multihomed_interface_list
+              rescue:
+                - name: Perform the necessary error handling
+                  include_tasks: error_handler.yml
+                  when: "interface_info.failed == true"
+                  vars:
+                    op_err_message: "{{interface_info.msg}}"
+                    jl_err_message: "Error while obtaining interface information from Juniper device: {{interface_info.msg}}"
+            - name: Display the results
+              debug:
+                msg="{{interface_info.results}}"
 
-- name: Print test results if errors
-  block:
-    - name: Create list
-      set_fact:
-        test_results_list: "{{test_results_list}} + [{{item}}]"
-      with_dict: "{{ check_results.test_results }}"
+            - include: lacp_interfaces_analyze.yml
+              with_items:
+              - "{{interface_info.results}}"
+          when: device_info.buddy_details is defined
+      when: lacp_down_peer_check
 
-    - name: Collect detailed failed test info
-      set_fact:
-        test_results_detail: >
-                              {{test_results_detail|combine({item[0].key+' ('+item[1].node_name+')':
-                                {'expected':item[1].expected_node_value,'failed':item[1].failed}})}}
-      with_subelements:
-        - "{{ test_results_list }}"
-        - value
-      when: item[1].failed != [] and item[1].expected_node_value is defined
+        
+    - name: Check if multi-homed interfaces are up on target device
+      block:
+        - block:
+            - set_fact: 
+                target_interface_list: "{{device_info.target_multihomed_interface}}"          
+            - block:
+                - juniper_junos_command:
+                    commands:
+                      - show lacp interfaces "{{item}}"
+                    display: xml
+                    provider:
+                      host: "{{device_mgmt_ip}}"
+                      username: "{{device_username}}"
+                      password: "{{device_password}}"
+                      port: 22
+                      timeout: 30
+                  register: target_interface_info
+                  with_items:
+                    - "{{target_interface_list}}"
+              rescue:
+                - name: Perform the necessary error handling
+                  include_tasks: error_handler.yml
+                  when: "target_interface_info.failed == true"
+                  vars:
+                    op_err_message: "{{target_interface_info.msg}}"
+                    jl_err_message: "Error while obtaining interface information from Juniper device: {{target_interface_info.msg}}"
+          when: device_info.target_multihomed_interface is defined          
+      when: lacp_down_local_check
+  when: snap_action == 'check_peer'
 
-    - name: Collect detailed failed test info
-      set_fact:
-        test_results_detail: >
-                              {{test_results_detail|combine({item[0].key+' ('+item[1].node_name+')':
-                                {'failed':item[1].failed}})}}
-      with_subelements:
-        - "{{ test_results_list }}"
-        - value
-      when: item[1].failed != [] and item[1].expected_node_value is not defined
 
-    - name: Combine dicts
-      set_fact:
-        device_health_report: "{{device_health_report|combine({'failure_list':test_results_detail})}}"
-  rescue:
-    - name: Perform the necessary error handling
-      include_tasks: error_handler.yml
-      vars:
-        op_err_message: "Error in printing results for jsnapy tests"
-        jl_err_message: "Error in printing results for jsnapy tests"
-  when: check_results.total_failed is defined and check_results.total_failed > 0
 
-- name: Print device health report
-  debug:
-    var: device_health_report
-    verbosity: 1

@@ -1,0 +1,27 @@
+---
+- name: Analyze the results
+  set_fact:
+    status: "{{item.parsed_output['lacp-interface-information-list']['lacp-interface-information']['lag-lacp-protocol']['lacp-mux-state']}}"
+  when: item.parsed_output['lacp-interface-information-list'].error is not defined
+
+- name: Print the status if the interface is up
+  debug:
+    msg: "The multi-homed interface {{item.item[1]}} for the device {{item.item[0].name}} is up. The status is {{status}}"
+  when: item.parsed_output['lacp-interface-information-list'].error is not defined and status == "Collecting distributing"
+
+- name: Handle the case when the interface is not up
+  debug:
+    msg: "The multi-homed interface {{item.item[1]}} for the device {{item.item[0].name}} seems to be down. The upgrade will not be hitless. Traffic might get affected"
+  when: (item.parsed_output['lacp-interface-information-list'].error is defined or status != "Collecting distributing") and abort_upon_falure == False
+
+- name: Abort if requested
+  include_tasks: error_handler.yml
+  when: item.parsed_output['lacp-interface-information-list'].error is defined and abort_upon_failure == True
+  vars:
+    op_err_message: |
+        The multi-homed interface status check for the device {{item.item[0].name}} failed. The interface {{item.item[1]}} is down. The upgrade will not be hitless.
+    jl_err_message: |
+        The multi-homed interface status check for the device {{item.item[0].name}} failed. The interface {{item.item[1]}} is down. The upgrade will not be hitless.
+    upgrade_error_state: "{{DEVICE_STATE.HEALTH_CHECK_FAILED}}"
+    results:
+      "test_results": "{{item.parsed_output['lacp-interface-information-list'].error}}"
