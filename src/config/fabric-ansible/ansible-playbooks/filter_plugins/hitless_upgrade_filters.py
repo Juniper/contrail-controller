@@ -52,6 +52,7 @@ class FilterModule(object):
         return {
             'hitless_upgrade_plan': self.get_hitless_upgrade_plan,
             'hitless_next_batch': self.get_next_batch,
+            'multihomed_buddy_details': self.get_multihomed_buddy_details,
             'hitless_all_devices': self.get_all_devices,
             'hitless_device_info': self.get_device_info
         }
@@ -455,6 +456,110 @@ class FilterModule(object):
 
     def _generate_results(self):
         return self.report
+
+
+    # Wrapper to get multi-homed buddy details
+    def get_multihomed_buddy_details(self, job_ctx, upgrade_plan, device_uuid):
+        try:
+            return self._get_multihomed_buddy_details(upgrade_plan, device_uuid)
+        except Exception as ex:
+            errmsg = "Unexpected error attempting to get buddy details: " \
+                     "%s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end get_multihomed_buddy_details
+
+    def _get_multihomed_buddy_details(self, upgrade_plan, target_device_uuid):
+        device_info = upgrade_plan['device_table'].get(target_device_uuid)
+        vpg_info = device_info['vpg_info']
+        target_device_details = device_info['basic']
+        complete_buddy_detail = []
+        target_interface_list = []
+        lag_interface_list = []
+
+        # set the is_hitless flag = False
+        if len(vpg_info['buddies']) == 0:
+            return "The device %s is not multi-homed. The upgrade will not be hitless" % (
+                device_info['name'])
+        # Get the appropriate vpg group name to check for multi-homing
+        else:
+            buddies_list = vpg_info['buddies']
+            vpg_list = vpg_info['vpg_list']
+
+            #First find the multihomed interfaces for target device
+            for vpg_item in vpg_list:
+                vpg_device_table = upgrade_plan['vpg_table'][vpg_item]['device_table']
+                for device_uuid, interface_info in vpg_device_table.items():
+                    if device_uuid == target_device_uuid:
+                        for item in interface_info:
+                            lag_interface_name = item['fq_name'][2]
+                            if target_device_details.get('target_multihomed_interface') != None :
+                                if lag_interface_name not in target_device_details['target_multihomed_interface']:
+                                    target_device_details['target_multihomed_interface'].append(lag_interface_name)
+                                else:
+                                    pass
+                            else:
+                                target_interface_list.append(lag_interface_name)
+                                target_device_details['target_multihomed_interface'] = target_interface_list
+
+            #Get the interfaces for buddy items
+            for buddy_item in buddies_list:
+                peer_device_uuid = buddy_item['uuid']
+                peer_device_username = buddy_item['username']
+                peer_device_password = buddy_item['password']
+                peer_device_mgmt_ip = buddy_item['mgmt_ip']
+                peer_device_name = buddy_item['fq_name'][1]
+
+                for vpg_item in vpg_list:
+                    vpg_device_table = upgrade_plan['vpg_table'][vpg_item][
+                        'device_table']
+                    for device_uuid, interface_info in vpg_device_table.items():
+                        if device_uuid == peer_device_uuid:
+                            for item in interface_info:
+                                lag_interface_name = item['fq_name'][2]
+                                if target_device_details.get('buddy_details')!= None:
+                                    try:
+                                        present_item = next((item for item in
+                                                        target_device_details.get('buddy_details') if item["name"] == peer_device_name))
+
+                                        if lag_interface_name not in present_item['multihomed_interface_list']:
+                                            present_item['multihomed_interface_list'].append(lag_interface_name)
+                                        else:
+                                            pass
+                                    except StopIteration:
+                                            lag_interface_list.append(lag_interface_name)
+                                            complete_dict = {
+                                                "name": peer_device_name,
+                                                "mgmt_ip": peer_device_mgmt_ip,
+                                                "username": peer_device_username,
+                                                "password": peer_device_password,
+                                                "multihomed_interface_list": lag_interface_list}
+                                            complete_buddy_detail.append(complete_dict)
+                                else:
+                                    new_interface_list = []
+                                    new_interface_list.append(lag_interface_name)
+                                    complete_dict = {
+                                        "name": peer_device_name,
+                                        "mgmt_ip": peer_device_mgmt_ip,
+                                        "username": peer_device_username,
+                                        "password": peer_device_password,
+                                        "multihomed_interface_list":
+                                            new_interface_list}
+                                    complete_buddy_detail.append(complete_dict)
+                                target_device_details['buddy_details'] = complete_buddy_detail
+        return target_device_details
+        
+        
+        
+    # end _get_multihomed_buddy_details
+
+
+
 
     # Get the current and next batch off the batch list and return
     def get_next_batch(self, job_ctx, upgrade_plan, device_uuid):
