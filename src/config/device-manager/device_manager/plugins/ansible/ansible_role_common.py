@@ -988,18 +988,9 @@ class AnsibleRoleCommon(AnsibleConf):
                                 ri_conf['router_external'] = lr.logical_router_gateway_external
                             if lr.data_center_interconnect:
                                 ri_conf['connected_dci_network'] = lr.data_center_interconnect
-                                lr_vn_list = lr.get_connected_networks(False) or []
-                                for lr_vn in lr_vn_list:
-                                    lr_vn = VirtualNetworkDM.get(lr_vn)
-                                    if lr_vn:
-                                        exports, imports = lr_vn.get_route_targets()
-                                        if imports:
-                                            ri_conf['import_targets'] |= imports
-                                        if exports:
-                                            ri_conf['export_targets'] |= exports
                                 dci_uuid = lr.data_center_interconnect
                                 dci = DataCenterInterconnectDM.get(dci_uuid)
-                                lr_vn_list = dci.get_connected_lr_internal_vns() if dci else []
+                                lr_vn_list = dci.get_connected_lr_internal_vns(exclude_lr=lr.uuid) if dci else []
                                 for lr_vn in lr_vn_list:
                                     exports, imports = lr_vn.get_route_targets()
                                     if imports:

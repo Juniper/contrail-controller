@@ -2176,9 +2176,11 @@ class DataCenterInterconnectDM(DBBaseDM):
         return set(pr_list)
     # end get_dci_peers
 
-    def get_connected_lr_internal_vns(self):
+    def get_connected_lr_internal_vns(self, exclude_lr=None):
         vn_list = []
         for lr_uuid in self.logical_routers or []:
+            if exclude_lr == lr_uuid:
+                continue
             lr = LogicalRouterDM.get(lr_uuid)
             if lr and lr.virtual_network:
                 vn = VirtualNetworkDM.get(lr.virtual_network)
