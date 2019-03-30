@@ -69,7 +69,7 @@ from vnc_cfg_api_server.resources.service_appliance import\
 from vnc_cfg_api_server.resources.service_instance import ServiceInstanceServer
 from vnc_cfg_api_server.resources.port_tuple import PortTupleServer
 from vnc_cfg_api_server.resources.node_port import PortServer
-from vnc_cfg_api_server.resources.node import Node
+from vnc_cfg_api_server.resources.node import NodeServer
 
 
 def initialize_all_server_resource_classes(server_instance):
