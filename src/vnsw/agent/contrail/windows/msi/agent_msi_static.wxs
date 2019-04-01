@@ -52,12 +52,6 @@
                         <Component Id="BoostThreadDll" Guid="E98600E3-ABFF-4CEB-A352-3C1245178E35" Win64="yes">
                             <File Id="BoostThreadDll" Source="build/bin/boost_thread$(var.BoostDllSuffix).dll"/>
                         </Component>
-                        <Component Id="SslEayDll" Guid="64E55EA2-B9C6-44BE-9363-D1E1A2F45183" Win64="yes">
-                            <File Id="SslEayDll" Source="build/bin/ssleay32.dll"/>
-                        </Component>
-                        <Component Id="LibEayDll" Guid="C6C17A24-95DF-44D9-9537-037A5C780280" Win64="yes">
-                            <File Id="LibEayDll" Source="build/bin/libeay32.dll"/>
-                        </Component>
                         <Component Id="Entrypoint" Guid="D2247CAF-617D-40E7-BC60-125B551A73A5" Win64="yes">
                             <File Id="Entrypoint" Source="controller/src/vnsw/agent/contrail/windows/msi/entrypoint.ps1"/>
                         </Component>
@@ -81,8 +75,6 @@
             <ComponentRef Id="BoostRegexDll"/>
             <ComponentRef Id="BoostSystemDll"/>
             <ComponentRef Id="BoostThreadDll"/>
-            <ComponentRef Id="SslEayDll"/>
-            <ComponentRef Id="LibEayDll"/>
             <ComponentRef Id="Entrypoint"/>
         </Feature>
     </Product>

@@ -2,21 +2,12 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
-import os
-import sys
 import subprocess
-from distutils.file_util import copy_file
 
 env = DefaultEnvironment()
 
 vpath = '#third_party/rabbitmq-c'
 working_dir = Dir('.').abspath
-
-expected_lib = File('#build/lib/' + env['LIBPREFIX'] + 'rabbitmq' + env['LIBSUFFIX'])
-product_libs = [expected_lib]
-if sys.platform == 'win32':
-    installed_lib = File('#build/lib/librabbitmq.4.lib')
-    product_libs.append(installed_lib)
 
 cmake_flags = [
     '-DBUILD_SHARED_LIBS=OFF',
@@ -27,11 +18,11 @@ cmake_flags = [
     '-DCMAKE_INSTALL_LIBDIR=' + Dir('#build/lib').abspath
 ]
 
-if sys.platform == 'win32':
-    cmake_flags.extend([
-        '-DCMAKE_GENERATOR_PLATFORM=x64',
-        '-DCMAKE_BUILD_TYPE=' + env['VS_BUILDMODE'],
-    ])
+def build_rabbitmq_c(target, source, env):
+    env.EnsureBuildDependency('cmake')
+
+    subprocess.call(['cmake'] + cmake_flags + [Dir(vpath).abspath], cwd=working_dir)
+    subprocess.call(['cmake', '--build', '.', '--target', 'install'], cwd=working_dir)
 
 header_files = [
     'amqp.h',
@@ -39,16 +30,8 @@ header_files = [
     'amqp_tcp_socket.h',
     'amqp_ssl_socket.h',
 ]
+header_files = [File('#build/include/' + h) for h in header_files]
 
-header_files = [File('#build/include/' + h).abspath for h in header_files]
+expected_lib = File('#build/lib/' + env['LIBPREFIX'] + 'rabbitmq' + env['LIBSUFFIX'])
 
-def build_rabbitmq_c(target, source, env):
-    env.EnsureBuildDependency('cmake')
-
-    subprocess.call(['cmake'] + cmake_flags + [Dir(vpath).abspath], cwd=working_dir)
-    subprocess.call(['cmake', '--build', '.', '--target', 'install'], cwd=working_dir)
-
-    if sys.platform == 'win32':
-        copy_file(installed_lib.abspath, expected_lib.abspath)
-
-librabbitmq = env.Command(product_libs + header_files, Dir(vpath), build_rabbitmq_c)
+librabbitmq = env.Command([expected_lib] + header_files, Dir(vpath), build_rabbitmq_c)
