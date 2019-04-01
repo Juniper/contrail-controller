@@ -124,10 +124,9 @@ class NodeServer(ResourceMixin, Node):
         node_ports = cls.node_get_ports(obj_dict, db_conn)
         msg = ("ES-PORTS: %s", pformat(node_ports))
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
-        cls.remove_tag_refs(id, db_conn, node_ports)
-        msg = ("ES-PORTS: %s", pformat(node_ports))
 
-        if obj_dict.get('node_profile_refs'):
+        if 'node_profile_refs' in obj_dict \
+           and obj_dict.get('node_profile_refs'):
             msg = ("process_node_profile: %s", pformat(obj_dict))
             db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
             np_uuid = obj_dict['node_profile_refs'][0]['uuid']
@@ -208,6 +207,8 @@ class NodeServer(ResourceMixin, Node):
                     msg = ("ref-update status ", str(ok), ": result ",
                            pformat(result))
                     db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
+        elif 'node_profile_refs' in obj_dict:
+          cls.remove_tag_refs(id, db_conn, node_ports)
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
