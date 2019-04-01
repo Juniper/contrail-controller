@@ -1149,6 +1149,7 @@ void InterfaceKSyncEntry::SetKsyncItfSandeshData(KSyncItfSandeshData *data) cons
 
     data->set_rx_vlan_id(rx_vlan_id_);
     data->set_tx_vlan_id(tx_vlan_id_);
+    data->set_vhostuser_mode(vhostuser_mode_);
     data->set_vrf_id(vrf_id_);
 
     if (persistent_) {
