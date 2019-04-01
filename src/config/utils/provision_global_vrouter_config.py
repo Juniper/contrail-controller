@@ -65,16 +65,44 @@ class GlobalVrouterConfigProvisioner(object):
             except RefsExistError:
                 print "Already created!"
 
+        existing_snat_pools = current_config.get_port_translation_pools()
+        if not existing_snat_pools:
+             existing_snat_pools = PortTranslationPools([])
+        if port_trans_pool_list:
+            for snat_pool in port_trans_pool_list:
+                if not self.check_dup_snat_pool(snat_pool, existing_snat_pools):
+                    existing_snat_pools.add_port_translation_pool(snat_pool)
+
         if self._args.oper != "add":
             conf_obj=GlobalVrouterConfig()
         else:
             conf_obj=GlobalVrouterConfig(flow_export_rate=self._args.flow_export_rate)
-            conf_obj.set_port_translation_pools(port_trans_pools_obj)
+            conf_obj.set_port_translation_pools(existing_snat_pools)
 
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
         print 'Updated.%s'%(result)
     # end __init__
 
+    def check_dup_snat_pool(self, snat_pool, existing_snat_pools):
+        exists = False
+        for pool_obj in existing_snat_pools.get_port_translation_pool():
+            if snat_pool.get_port_count() and pool_obj.get_port_count():
+                if snat_pool.get_port_count() == pool_obj.get_port_count() and \
+                    snat_pool.get_protocol() == pool_obj.get_protocol():
+                    exists = True
+                    return exists
+                else:
+                    continue
+            elif snat_pool.get_port_range() and pool_obj.get_port_range():
+                if snat_pool.get_protocol() == pool_obj.get_protocol() and \
+                    snat_pool.get_port_range().start_port == pool_obj.get_port_range().start_port and \
+                    snat_pool.get_port_range().end_port == pool_obj.get_port_range().end_port:
+                    exists = True
+                    return exists
+                else:
+                  continue
+        return exists
+ 
     def _parse_args(self, args_str):
         '''
         Eg. python provision_global_vrouter_config.py
