@@ -234,6 +234,7 @@ bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
 InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+InetUnicastRouteEntry* RouteGetLPM(const string &vrf_name, const Ip4Address &addr);
 InetUnicastRouteEntry *RouteGetMpls(const string &vrf_name, const Ip4Address &addr, int plen);
 InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
@@ -247,6 +248,8 @@ EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr, uint32_t ethernet_tag);
 const NextHop* RouteToNextHop(const string &vrf_name, const Ip4Address &addr,
                               int plen);
+const NextHop* LPMRouteToNextHop(const string &vrf_name,
+                              const Ip4Address &addr);
 const NextHop* MCRouteToNextHop(const Peer *peer, const string &vrf_name,
                             const Ip4Address &grp_addr,
                             const Ip4Address &src_addr);
@@ -801,4 +804,12 @@ void SetIgmpConfig(bool enable);
 void ClearIgmpConfig(void);
 void SetIgmpVnConfig(std::string vn_name, int vn_id, bool enable);
 void SetIgmpIntfConfig(std::string intf_name, int intf_id, bool enable);
+
+void CfgVxlanRouting(bool mode);
+void DeleteVxlanRouting();
+void AddRoutingVrf(int lr_id);
+void DelRoutingVrf(int lr_id);
+void AddBridgeVrf(const std::string &vmi_name, int lr_id);
+void DelBridgeVrf(const std::string &vmi_name, int lr_id);
+
 #endif // vnsw_agent_test_cmn_util_h
