@@ -1337,7 +1337,7 @@
     },
     {
       "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5210-64c" ]
     },
