@@ -149,12 +149,14 @@ void FlowTableKSyncEntry::Reset() {
     token_.reset();
     ksync_response_info_.Reset();
     qos_config_idx = AgentQosConfigTable::kInvalidIndex;
+    transaction_id_ = 0;
 }
 
 void FlowTableKSyncEntry::Reset(FlowEntry *flow, uint32_t hash_id) {
     flow_entry_ = flow;
     hash_id_ = hash_id;
     gen_id_ = flow->gen_id();
+    transaction_id_ = flow->GetTransactionId();
 }
 
 KSyncObject *FlowTableKSyncEntry::GetObject() const {
@@ -528,7 +530,10 @@ bool FlowTableKSyncEntry::Sync() {
         qos_config_idx = flow_entry_->data().qos_config_idx;
         changed = true;
     }
-
+    if (transaction_id_ != flow_entry_->GetTransactionId()) {
+        transaction_id_ = flow_entry_->GetTransactionId();
+        changed = true;
+    }
     return changed;
 }
 
@@ -775,12 +780,15 @@ void FlowTableKSyncObject::GrowFreeList() {
 void FlowTableKSyncObject::NetlinkAck(KSyncEntry *entry,
                                       KSyncEntry::KSyncEvent event) {
     FlowProto *proto = ksync()->agent()->pkt()->get_flow_proto();
+    const FlowTableKSyncEntry *flow_ksync_entry =
+        static_cast<const FlowTableKSyncEntry *>(entry);
     const FlowKSyncResponseInfo *resp =
-        static_cast<const FlowTableKSyncEntry *>(entry)->ksync_response_info();
+        flow_ksync_entry->ksync_response_info();
     proto->KSyncEventRequest(entry, event, resp->flow_handle_,
                              resp->gen_id_, resp->ksync_error_,
                              resp->evict_flow_bytes_, resp->evict_flow_packets_,
-                             resp->evict_flow_oflow_);
+                             resp->evict_flow_oflow_,
+                             flow_ksync_entry->get_transaction_id());
 }
 
 void FlowTableKSyncObject::GenerateKSyncEvent(FlowTableKSyncEntry *entry,
