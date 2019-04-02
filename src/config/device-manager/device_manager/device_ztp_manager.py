@@ -77,7 +77,7 @@ class DeviceZtpManager(object):
 
         self._active = True
         self._lease_pattern = re.compile(
-            r"[0-9]+ ([:A-Fa-f0-9]+) ([0-9.]+) .*",
+            r"[0-9]+ ([:A-Fa-f0-9]+) ([0-9.]+) ([a-zA-Z0-9\-]+) .*",
             re.MULTILINE | re.DOTALL)
         consumer = 'device_manager_ztp.ztp_queue'
         self._amqp_client.add_consumer(consumer, self.EXCHANGE,
@@ -132,14 +132,18 @@ class DeviceZtpManager(object):
         results = {}
         results['failed'] = True
 
-        device_count = config.get('device_count', 0)
-        timeout = self._timeout
+        device_info = config.get('device_info')
+        if device_info:
+            device_count = len(device_info)
+        else:
+            device_count = config.get('device_count', 0)
         self._logger.info("Waiting for %s devices" % device_count)
+
+        timeout = self._timeout
+        matched_devices = {}
         while timeout > 0:
             timeout -= 1
-            results['device_list'] = []
             lease_table = {}
-
             if os.path.isfile(self._dhcp_leases_file):
                 with open(self._dhcp_leases_file) as lfile:
                     line = lfile.readline()
@@ -147,19 +151,19 @@ class DeviceZtpManager(object):
                         match = self._lease_pattern.match(line)
                         mac = match.group(1)
                         ip_addr = match.group(2)
-                        lease_table[mac] = ip_addr
+                        host_name = match.group(3)
+                        lease_table[mac] = (ip_addr, host_name)
                         line = lfile.readline()
-
-            for mac, ip_addr in lease_table.iteritems():
-                if self._within_dhcp_subnet(ip_addr, config):
-                    results['device_list'].append({"ip_addr": ip_addr, "mac": mac})
-
-            if len(results['device_list']) >= device_count:
+            for mac, (ip_addr, host_name) in lease_table.iteritems():
+                if self._within_dhcp_subnet(ip_addr, config) and \
+                        self._within_device_info(host_name, device_info):
+                    matched_devices[mac] = ip_addr
+            if len(matched_devices) >= device_count:
                 results['failed'] = False
                 break
-
             gevent.sleep(1)
 
+        results['device_list'] = [{'ip_addr': ip_addr, 'mac': mac} for mac, ip_addr in matched_devices.iteritems()]
         results['msg'] = "Found {} devices, expected {} devices".\
             format(len(results['device_list']), device_count)
         self._logger.info(results['msg'])
@@ -222,5 +226,12 @@ class DeviceZtpManager(object):
                 return True
         return False
     # end _within_dhcp_subnet
+
+    @staticmethod
+    def _within_device_info(host_name, device_info):
+        if not device_info:
+            return True
+        return any([host_name == i.get('serial_number') for i in device_info])
+    # end _within_device_info
 
 # end DeviceZtpManager
