@@ -642,7 +642,8 @@ void VxlanRoutingManager::UpdateEvpnType5Route(Agent *agent,
                                                   path->path_preference(),
                                                   path->ecmp_load_balance(),
                                                   path->tag_list(),
-                                                  routing_vrf));
+                                                  routing_vrf,
+                                                  routing_vrf->vxlan_id()));
 }
 
 //Handles change in NH of local vm port path
@@ -715,7 +716,8 @@ bool VxlanRoutingManager::EvpnType5RouteNotify(DBTablePartBase *partition,
                                     p->path_preference(),
                                     p->ecmp_load_balance(),
                                     p->tag_list(),
-                                    nh_req);
+                                    nh_req,
+                                    p->vxlan_id());
     return true;
 }
 
@@ -753,7 +755,8 @@ void VxlanRoutingManager::DeleteInetRoute(DBTablePartBase *partition,
                                            PathPreference(),
                                            EcmpLoadBalance(),
                                            TagList(),
-                                           NULL));
+                                           NULL,
+                                           0));
 }
 
 void VxlanRoutingManager::UpdateInetRoute(DBTablePartBase *partition,
@@ -778,7 +781,8 @@ void VxlanRoutingManager::UpdateInetRoute(DBTablePartBase *partition,
                                     p->path_preference(),
                                     p->ecmp_load_balance(),
                                     p->tag_list(),
-                                    nh_req);
+                                    nh_req,
+                                    routing_vrf->vxlan_id());
 }
 
 /**
@@ -879,7 +883,8 @@ void VxlanRoutingManager::UpdateDefaultRoute(const VrfEntry *bridge_vrf,
                             PathPreference(),
                             EcmpLoadBalance(),
                             TagList(),
-                            v4_nh_req);
+                            v4_nh_req,
+                            routing_vrf->vxlan_id());
     DBRequest v6_nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     v6_nh_req.key.reset(new VrfNHKey(routing_vrf->GetName(), false, false));
     v6_nh_req.data.reset(new VrfNHData(false, false, false));
@@ -891,7 +896,8 @@ void VxlanRoutingManager::UpdateDefaultRoute(const VrfEntry *bridge_vrf,
                             PathPreference(),
                             EcmpLoadBalance(),
                             TagList(),
-                            v6_nh_req);
+                            v6_nh_req,
+                            routing_vrf->vxlan_id());
 }
 
 /**
