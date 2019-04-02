@@ -560,7 +560,8 @@ class VncApiServer(object):
         amqp_worker = VncApiServer.AmqpWorker()
         self._amqp_client.add_consumer(consumer, body.get('exchange'),
             routing_key=body.get('response_key'),
-            callback=amqp_worker.handle_message)
+            callback=amqp_worker.handle_message,
+            auto_delete=True)
 
         self._amqp_client.publish(body.get('payload'),
                                   body.get('exchange'),
@@ -577,6 +578,7 @@ class VncApiServer(object):
         msg = "Amqp response, status %s, body %s " % (bottle.response.status,
             json.dumps(amqp_worker.body))
         self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+        self.config_log("Exiting amqp-request", level=SandeshLevel.SYS_DEBUG)
         return amqp_worker.body
     # end amqp_request_http_post
 
@@ -2058,7 +2060,6 @@ class VncApiServer(object):
 
         # create amqp handle
         self._amqp_client = self.initialize_amqp_client()
-
     # end __init__
 
     def initialize_amqp_client(self):
@@ -2086,6 +2087,11 @@ class VncApiServer(object):
                 heartbeat=self.get_rabbit_health_check_interval())
             amqp_client.add_exchange(self.JOB_REQUEST_EXCHANGE, type="direct")
             amqp_client.run()
+            # add dummy consumer to initialize the consumer greenlet
+            amqp_client.add_exchange('amqp_request_exchange', type='direct')
+            consumer = 'amqp_request.%s.dummy' % socket.getfqdn()
+            amqp_client.add_consumer(consumer, 'amqp_request_exchange',
+                routing_key='amqp.request.dummy', auto_delete=True)
         except Exception as e:
             err_msg = "Error while initializing the AMQP client %s " % repr(e)
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
