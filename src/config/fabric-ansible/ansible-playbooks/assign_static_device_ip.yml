@@ -11,6 +11,12 @@
         prouter_name: "{{ playbook_input.device_fqname[-1] }}"
         prouter_vendor: "{{ playbook_input.vendor | lower }}"
         fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+    - set_fact:
+        device_info: "{{ playbook_input.input.device_info }}"
+      when: playbook_input.input.device_info is defined
+    - set_fact:
+        supplemental_day_0_cfg: "{{ playbook_input.input.supplemental_day_0_cfg }}"
+      when: playbook_input.input.supplemental_day_0_cfg is defined
 
   tasks:
     - import_role:

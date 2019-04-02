@@ -10,7 +10,8 @@ from vnc_api.vnc_api import VncApi
 class FilterModule(object):
     def filters(self):
         return {
-            'pr_gateway': self.get_pr_gateway
+            'pr_gateway': self.get_pr_gateway,
+            'supplemental_config': self.get_supplemental_config
         }
     # end filters
 
@@ -60,4 +61,17 @@ class FilterModule(object):
 
         raise Error("Cannot find gateway for device: %s" % str(device_fq_name))
     # end get_pr_gateway
+
+    @classmethod
+    def get_supplemental_config(cls, device_name, device_info, supplemental_configs):
+        supplemental_config = ""
+        if device_name and device_info and supplemental_configs:
+            device_map = dict((d.get('serial_number'), d) for d in device_info)
+            config_map = dict((c.get('name'), c) for c in supplemental_configs)
+            if device_name in device_map:
+                config_name = device_map[device_name].get('supplemental_day_0_cfg')
+                if config_name in config_map:
+                    supplemental_config = config_map[config_name].get('cfg')
+        return supplemental_config
+    # end get_supplemental_config
 # end FilterModule

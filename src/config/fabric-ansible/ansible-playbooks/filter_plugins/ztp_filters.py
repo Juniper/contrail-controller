@@ -35,8 +35,9 @@ class FilterModule(object):
             'delete_tftp_file': self.delete_tftp_file,
             'create_dhcp_file': self.create_dhcp_file,
             'delete_dhcp_file': self.delete_dhcp_file,
-            'read_dhcp_leases': self.read_dhcp_leases,
             'restart_dhcp_server': self.restart_dhcp_server,
+            'read_dhcp_leases_using_count': self.read_dhcp_leases_using_count,
+            'read_dhcp_leases_using_info': self.read_dhcp_leases_using_info,
         }
 
     @classmethod
@@ -142,8 +143,22 @@ class FilterModule(object):
     # end delete_dhcp_file
 
     @classmethod
-    def read_dhcp_leases(cls, device_count, ipam_subnets, file_name,
+    def read_dhcp_leases_using_count(cls, device_count, ipam_subnets, file_name,
                           fabric_name, job_ctx):
+        return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
+                                    job_ctx, 'device_count', int(device_count))
+    # end read_dhcp_leases_using_count
+
+    @classmethod
+    def read_dhcp_leases_using_info(cls, device_info, ipam_subnets, file_name,
+                          fabric_name, job_ctx):
+        return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
+                                    job_ctx, 'device_info', device_info)
+    # end read_dhcp_leases_using_info
+
+    @classmethod
+    def read_dhcp_leases(cls, ipam_subnets, file_name, fabric_name, job_ctx,
+                         payload_key, payload_value):
         vnc_api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                          auth_token=job_ctx.get('auth_token'))
         headers = {
@@ -152,9 +167,9 @@ class FilterModule(object):
             'action': 'create'
         }
         payload = {
-            'device_count': int(device_count),
             'ipam_subnets': ipam_subnets
         }
+        payload[payload_key] = payload_value
         return vnc_api.amqp_request(exchange=cls.ZTP_EXCHANGE,
             exchange_type=cls.ZTP_EXCHANGE_TYPE,
             routing_key=cls.ZTP_REQUEST_ROUTING_KEY,
