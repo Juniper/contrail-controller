@@ -11,10 +11,19 @@
       set_fact:
         publish_result: "{{ config_file_contents.content | create_dhcp_file(ztp_dhcp_config_file, fabric_name, job_ctx) }}"
 
-    - name: Read dhcp leases
+    - name: Read dhcp leases using device info
       set_fact:
-        publish_result: "{{ device_count | read_dhcp_leases(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
-      when: only_restart is undefined or only_restart == False
+        publish_result: "{{ device_info | read_dhcp_leases_using_info(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
+      when:
+        - device_info is defined
+        - only_restart is undefined or only_restart == False
+
+    - name: Read dhcp leases using device count
+      set_fact:
+        publish_result: "{{ device_count | read_dhcp_leases_using_count(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
+      when:
+        - device_info is not defined
+        - only_restart is undefined or only_restart == False
 
     - name: Restart dhcp server
       set_fact:
