@@ -5,7 +5,7 @@
             name: Juniper.junos
 
         - juniper_junos_config:
-            load: "set"
+            load: "override"
             lines: "{{ device_config }}"
             comment: "Applied by Ansible"
             ignore_warning: "True"

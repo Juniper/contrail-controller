@@ -1,3 +1,17 @@
-delete interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet dhcp
+set system host-name {{prouter_name}}
+set system root-authentication encrypted-password {{password | encrypt | shell_escape}}
+set system services ssh root-login allow
+set system services telnet
+set system services netconf ssh
+set system syslog user * any emergency
+set system syslog file messages any notice
+set system syslog file messages authorization info
+set system syslog file interactive-commands interactive-commands any
+set protocols lldp interface all
+
 set interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet address {{interface_configuration.get('ip_address')}}/{{interface_configuration.get('prefix')}}
 set routing-options static route 0.0.0.0/0 next-hop {{gateway}}
+
+{% if supplemental_config is defined %}
+{{supplemental_config}}
+{% endif %}
