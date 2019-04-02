@@ -508,7 +508,7 @@ class PhysicalRouterDM(DBBaseDM):
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
             ip = self.vn_ip_map[ip_used_for][vn_subnet]
-            if ip != vn.gateways[subnet_prefix].get('default_gateway'):
+            if vn and ip != vn.gateways[subnet_prefix].get('default_gateway'):
                 ret = self.free_ip(vn_uuid, self.vn_ip_map[ip_used_for][vn_subnet])
                 if ret == False:
                     self._logger.error("Unable to free ip for vn/subnet/pr "

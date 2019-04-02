@@ -13,9 +13,15 @@
       set_fact:
         fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
 
+    - name: Save device info
+      set_fact:
+        device_to_ztp: "{{ playbook_input.input.device_to_ztp }}"
+      when: playbook_input.input.device_to_ztp is defined
+
     - name: Save device count
       set_fact:
         device_count: "{{ playbook_input.input.device_count }}"
+      when: device_to_ztp is not defined
 
     - name: Get fabric fq_name
       vnc_db_mod:
