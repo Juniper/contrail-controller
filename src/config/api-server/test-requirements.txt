@@ -8,4 +8,5 @@ keystonemiddleware!=4.19.0
 junitxml
 pyOpenSSL
 mock
-kombu # set in test-requirements due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
+kombu==4.0.2
+vine==1.1.3

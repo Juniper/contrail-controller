@@ -3,10 +3,11 @@ junitxml
 testrepository
 mock
 bitarray
-kombu
+kombu==4.0.2
 gevent
 eventlet
 cfgm_common
 contrail-api-client
 sandesh
 sandesh-common
+vine==1.1.3
