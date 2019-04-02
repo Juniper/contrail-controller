@@ -5,15 +5,22 @@
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "fabric_fq_name", "management_subnets", "loopback_subnets", "fabric_subnets", "fabric_asn_pool", "device_auth", "node_profiles", "device_count"
+      "fabric_fq_name",
+      "management_subnets",
+      "loopback_subnets",
+      "fabric_subnets",
+      "fabric_asn_pool",
+      "device_auth",
+      "node_profiles",
+      "device_count"
     ],
     "properties": {
-      "fabric_fq_name": { 
-         "type": "array",
-         "items": {
-            "type": "string"
-         }
-       },
+      "fabric_fq_name": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
       "fabric_display_name": {
         "type": "string"
       },
@@ -23,7 +30,10 @@
           "type": "object",
           "description": "List of the management network subnets for the fabric",
           "additionalProperties": false,
-          "required": [ "cidr", "gateway" ],
+          "required": [
+            "cidr",
+            "gateway"
+          ],
           "properties": {
             "cidr": {
               "type": "string",
@@ -59,10 +69,17 @@
           "type": "object",
           "description": "List of the ASN pools that could be used to configure the eBGP peers for the IP fabric",
           "properties": {
-            "asn_min": { "type": "integer" },
-            "asn_max": { "type": "integer" }
+            "asn_min": {
+              "type": "integer"
+            },
+            "asn_max": {
+              "type": "integer"
+            }
           },
-          "required": [ "asn_min", "asn_max" ]
+          "required": [
+            "asn_min",
+            "asn_max"
+          ]
         }
       },
       "overlay_ibgp_asn": {
@@ -74,9 +91,13 @@
         "title": "Device Auth",
         "type": "object",
         "additionalProperties": false,
-        "required": [ "root_password" ],
+        "required": [
+          "root_password"
+        ],
         "properties": {
-          "root_password": { "type": "string" }
+          "root_password": {
+            "type": "string"
+          }
         }
       },
       "node_profiles": {
@@ -87,7 +108,9 @@
           "description": "List of node profiles to be used by the fabric.",
           "additionalProperties": false,
           "properties": {
-            "node_profile_name": { "type": "string" },
+            "node_profile_name": {
+              "type": "string"
+            },
             "serial_nums": {
               "type": "array",
               "description": "Optional list of serial numbers of fabric devices that we want to associate with this node profile.",
@@ -96,28 +119,40 @@
               }
             }
           },
-          "required": [ "node_profile_name" ]
+          "required": [
+            "node_profile_name"
+          ]
         }
       },
-      "interface_filters":{
-        "type":"array",
-        "items":{
-          "type":"object",
-          "maxProperties":2,
-          "additionalProperties":false,
+      "interface_filters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "maxProperties": 2,
+          "additionalProperties": false,
           "properties": {
             "op": {
-                    "enum": ["regex"]
+              "enum": [
+                "regex"
+              ]
             },
-            "expr": { "type": "string" }
+            "expr": {
+              "type": "string"
+            }
+          },
+          "title": "filter object",
+          "description": "filter object having op and expr fields",
+          "default": {},
+          "examples": [
+            {
+              "op": "regex",
+              "expr": "^ge-"
             },
-            "title":"filter object",
-            "description":"filter object having op and expr fields",
-            "default":{},
-            "examples":[
-                       {"op":"regex", "expr": "^ge-"},
-                       {"op":"regex", "expr": "^xe"}
-            ]
+            {
+              "op": "regex",
+              "expr": "^xe"
+            }
+          ]
         }
       },
       "import_configured": {
@@ -129,6 +164,22 @@
         "title": "Number of fabric devices",
         "type": "integer",
         "description": "Total number of devices in the fabric that needs to be zero-touch provisioned"
+      },
+      "device_info": {
+        "title": "List of device serial numbers for the devices to be ZTPed",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "serial_numnber"
+          ],
+          "properties": {
+            "serial_number": {
+              "title": "Device serial number",
+              "type": "string"
+            }
+          }
+        }
       }
     }
   },
@@ -137,20 +188,26 @@
     "title": "Generic Job Output",
     "type": "object",
     "properties": {
-       "status": {
-          "type": "string",
-          "enum": [ "Success", "Failure", "Timeout" ],
-          "description": "Result status of the job"
-       },
-       "message": {
-          "type": "string",
-          "description": "Should capture a summarized error message in case of Failures."
-       },
-       "results": {
-          "type": "object",
-          "description": "JSON object holding the job specific output details"
-       }
+      "status": {
+        "type": "string",
+        "enum": [
+          "Success",
+          "Failure",
+          "Timeout"
+        ],
+        "description": "Result status of the job"
+      },
+      "message": {
+        "type": "string",
+        "description": "Should capture a summarized error message in case of Failures."
+      },
+      "results": {
+        "type": "object",
+        "description": "JSON object holding the job specific output details"
+      }
     },
-    "required": [ "status" ]
+    "required": [
+      "status"
+    ]
   }
 }
