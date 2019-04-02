@@ -6,7 +6,7 @@ netaddr>=0.7.5
 bitarray>=0.8.0
 psutil>=0.4.1
 python-novaclient
-kombu
+kombu==4.0.2
 netifaces
 bottle
 stevedore
@@ -15,7 +15,6 @@ junitxml
 jsonpickle
 testrepository
 mock
-kombu
 cfgm_common
 vnc_api
 vnc_cfg_api_server
@@ -33,4 +32,5 @@ pyaml
 keystonemiddleware!=4.19.0
 pyOpenSSL
 schema_transformer
+vine==1.1.3
 ../../../noarch/config/svc-monitor

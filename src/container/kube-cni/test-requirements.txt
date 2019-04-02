@@ -3,7 +3,7 @@ junitxml
 testrepository
 mock
 bitarray
-kombu
+kombu==4.0.2
 gevent
 eventlet
 cfgm_common
@@ -11,3 +11,4 @@ vnc_api
 sandesh
 sandesh-common
 vnc_cfg_api_server
+vine==1.1.3
