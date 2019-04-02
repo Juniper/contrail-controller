@@ -9,3 +9,5 @@ keystonemiddleware!=4.19.0
 junitxml
 pyOpenSSL
 mock
+kombu==4.0.2
+vine==1.1.3
