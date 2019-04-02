@@ -68,7 +68,7 @@ def default_options():
         'dnsmasq_conf_dir': None,
         'tftp_dir': None,
         'dhcp_leases_file': None,
-        'ztp_timeout': 300,
+        'ztp_timeout': 600,
         'rabbit_health_check_interval': 0,
         'job_manager_db_conn_retry_timeout': '10',
         'job_manager_db_conn_max_retries': '6',

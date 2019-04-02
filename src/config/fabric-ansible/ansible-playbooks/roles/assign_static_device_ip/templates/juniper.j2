@@ -1,3 +1,46 @@
-delete interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet dhcp
-set interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet address {{interface_configuration.get('ip_address')}}/{{interface_configuration.get('prefix')}}
-set routing-options static route 0.0.0.0/0 next-hop {{gateway}}
+system {
+    host-name "{{ prouter_name }}";
+    root-authentication {
+        encrypted-password "{{ password | encrypt | shell_escape }}";
+    }
+    services {
+        ssh {
+            root-login allow;
+        }
+        telnet;
+        netconf {
+            ssh;
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any notice;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+    }
+}
+protocols {
+    lldp {
+        interface all;
+    }
+}
+interfaces {
+    {{ interface_configuration.get('name') }} {
+        unit {{ interface_configuration.get('unit') }} {
+            family inet {
+                address {{ interface_configuration.get('ip_address') }}/{{ interface_configuration.get('prefix') }};
+            }
+        }
+    }
+}
+routing-options {
+    static {
+        route 0.0.0.0/0 next-hop {{ gateway }};
+    }
+}

@@ -85,7 +85,18 @@ class SanityTestZtpWorkflow(SanityBase):
                             "node_profile_name": "juniper-qfx10k"
                         }
                     ],
-                    "device_count": 1
+                    "supplemental_day_0_cfg": [
+                        {
+                            "name": "cfg1",
+                            "cfg": "set system ntp server 66.129.233.81"
+                        }
+                    ],
+                    "device_to_ztp": [
+                        {
+                            "serial_number": "DK588",
+                            "supplemental_day_0_cfg": "cfg1"
+                        }
+                    ]
                 }
             )
         except Exception as ex:
