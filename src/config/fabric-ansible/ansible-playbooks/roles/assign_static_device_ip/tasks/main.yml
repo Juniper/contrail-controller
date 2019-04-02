@@ -32,12 +32,19 @@
   set_fact:
     gateway: "{{ job_ctx | pr_gateway(fabric_uuid, prouter_fq_name) }}"
 
+- name: Lookup supplemental config
+  set_fact:
+    supplemental_config: "{{ prouter_name | supplemental_config(device_to_ztp, supplemental_day_0_cfg) }}"
+  when:
+    - device_to_ztp is defined
+    - supplemental_day_0_cfg is defined
+
 - name: Generate vendor specific config
   set_fact:
-    device_config: "{{lookup('template', jinja_file_path)}}"
+    vendor_config: "{{lookup('template', jinja_file_path)}}"
 
-- name: Print device_config
-  debug: var=device_config verbosity=1
+- name: Print vendor specific config
+  debug: var=vendor_config verbosity=1
 
 - name: Update physical device with management interface mac
   vnc_db_mod:
@@ -50,8 +57,25 @@
         "physical_router_management_mac": "{{ interface_configuration.get('mac_address') }}"
       }
 
-- name: Commit vendor specific config
+- name: Override with vendor specific config
   include_tasks: "{{ task_file_path }}"
+  vars:
+    load: "override"
+    format: "text"
+    device_config: "{{ vendor_config }}"
+
+- name: Print device response
+  debug: msg="{{ device_push_response }}" verbosity=1
+
+- name: Commit device specific supplemental config
+  include_tasks: "{{ task_file_path }}"
+  vars:
+    load: "set"
+    format: "set"
+    device_config: "{{ supplemental_config }}"
+  when:
+    - supplemental_config is defined
+    - supplemental_config != ""
 
 - name: Print device response
   debug: msg="{{ device_push_response }}" verbosity=1
