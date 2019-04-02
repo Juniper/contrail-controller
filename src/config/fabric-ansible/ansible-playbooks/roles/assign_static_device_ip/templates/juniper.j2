@@ -1,3 +1,6 @@
 delete interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet dhcp
 set interfaces {{interface_configuration.get('name')}} unit {{interface_configuration.get('unit')}} family inet address {{interface_configuration.get('ip_address')}}/{{interface_configuration.get('prefix')}}
 set routing-options static route 0.0.0.0/0 next-hop {{gateway}}
+{% if supplemental_config is defined %}
+{{supplemental_config}}
+{% endif %}

@@ -32,6 +32,13 @@
   set_fact:
     gateway: "{{ job_ctx | pr_gateway(fabric_uuid, prouter_fq_name) }}"
 
+- name: Lookup supplemental config
+  set_fact:
+    supplemental_config: "{{ prouter_name | supplemental_config(device_to_ztp, supplemental_day_0_cfg) }}"
+  when:
+    - device_to_ztp is defined
+    - supplemental_day_0_cfg is defined
+
 - name: Generate vendor specific config
   set_fact:
     device_config: "{{lookup('template', jinja_file_path)}}"
