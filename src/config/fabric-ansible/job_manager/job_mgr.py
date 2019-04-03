@@ -291,6 +291,12 @@ class WFManager(object):
                         break
                     self.job_input['device_json'] = retry_devices
 
+                # update the job input with marked playbook output json
+                pb_output = self.result_handler.playbook_output or {}
+
+                if pb_output.get('early_exit'):
+                    break
+
                 # stop the workflow if playbook failed
                 if self.result_handler.job_result_status == JobStatus.FAILURE:
 
@@ -314,9 +320,6 @@ class WFManager(object):
                         # success even if one of the devices has succeeded the job
 
                         self.result_handler.job_result_status = JobStatus.SUCCESS
-
-                # update the job input with marked playbook output json
-                pb_output = self.result_handler.playbook_output or {}
 
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next
