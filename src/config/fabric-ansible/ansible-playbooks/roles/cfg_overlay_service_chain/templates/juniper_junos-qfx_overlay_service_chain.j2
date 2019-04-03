@@ -1,6 +1,15 @@
 {# Config for the configuring eBGP on a /29 subnet on QFX routing instances as endpoint to SRX #}
 {% for ri in device_abstract_config.get('routing_instances', []) %}
 {%     if 'bgp' in ri.get('protocols',[]) %}
+{%         set sys_config = device_abstract_config.get('system', None) %}
+{%         set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%         if 'PNF-Servicechain' in sys_roles %}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols evpn ip-prefix-routes export PL-ITR-DEFAULT
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT term DEFAULT-ITR1 from protocol bgp
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT term DEFAULT-ITR1 from route-filter 0.0.0.0/0 exact
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT term DEFAULT-ITR1 then accept
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT then reject
+{%         endif %}
 {%         for bgp in ri.protocols.bgp %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export {{bgp.name}}-export
