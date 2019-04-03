@@ -9,6 +9,8 @@ with open('ci_unittests.json') as f:
   ci_unittests = json.load(f)
 
 default_target_list = ci_unittests['default']['scons_test_targets']
+default_cplusplus_target_list = \
+    ci_unittests['default_cplusplus']['scons_test_targets']
 
 env = DefaultEnvironment()
 
@@ -21,6 +23,7 @@ if platform.system() != 'Windows':
     SConscript(dirs=['../src/contrail-analytics'])
 
 env.Alias('controller/test', default_target_list)
+env.Alias('controller/cplusplus_test', default_cplusplus_target_list)
 
 env.Alias('controller/flaky-test', [
     'controller/src/agent:flaky-test',
