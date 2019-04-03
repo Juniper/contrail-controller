@@ -19,6 +19,12 @@ set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export ter
 {% for ifd in device_abstract_config.get('physical_interfaces',[]) %}
 {%    for ifl in ifd.get('logical_interfaces',[]) %}
 {%        if ifl.get('comment','') == 'PNF-Service-Chaining' %}
+{%            if manage_underlay %}
+{%                if {{ifl.get('family')}} != 'ethernet-switching' %}
+delete protocols rstp interface {{ifd.get('name')}}
+{%                endif %}
+delete interfaces {{ifd.get('name')}} unit 0
+{%            endif %}
 set groups {{cfg_group}} interfaces {{ifd.get('name')}} unit {{ifl.get('unit')}} family {{ifl.get('family')}} interface-mode trunk
 {%            for vlan in ifl.get('vlans',[]) %}
 set groups {{cfg_group}} interfaces {{ifd.get('name')}} unit {{ifl.get('unit')}} family {{ifl.get('family')}} vlan members {{vlan.get('name')}}

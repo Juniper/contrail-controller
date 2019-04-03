@@ -6,6 +6,9 @@
 {%                     set unit = li.get('unit') %}
 {%                     set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
+{%                     if manage_underlay %}
+delete interfaces {{inter}} unit 0
+{%                     endif %}
 {%                     if li.get('is_tagged', false) == false %}
 set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode access
 {%                     else %}
