@@ -9,6 +9,7 @@ set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} 
 {%                 endfor %}
 {%             endif %}
 {%             if li_item.get('family') == 'ethernet-switching' %}
+delete interfaces {{pi_interface_name}} unit 0
 {%                 if li_item.get('vlans')|length > 1 %}
 set groups {{cfg_group}} interfaces {{pi_interface_name}} unit {{li_item.unit}} family ethernet-switching interface-mode trunk
 {%                 endif %}

@@ -5,6 +5,10 @@
 {%                     set name = phy_int.get('name') %}
 {%                     set unit = li.get('unit') %}
 {%                     set vlan_id = li.get('vlan_tag') %}
+{%                     if manage_underlay %}
+delete protocols rstp interface {{name}}
+delete interfaces {{name}} unit 0
+{%                     endif %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
 set groups {{cfg_group}} interfaces {{name}} flexible-vlan-tagging
 set groups {{cfg_group}} interfaces {{name}} encapsulation extended-vlan-bridge
