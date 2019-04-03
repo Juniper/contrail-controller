@@ -113,10 +113,19 @@ class KombuAmqpClient(object):
         if self._consumer_gl is not None:
             self._consumer_gl.kill()
         for consumer in (self._removed_consumers + self._consumers.values()):
-            if consumer.queue.is_bound:
-                consumer.queue.delete()
+            self._delete_consumer(consumer)
         self._connection.close()
     # end stop
+
+    def _delete_consumer(self, consumer):
+        msg = 'KombuAmqpClient: Removing queue %s' % consumer.queue.name
+        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
+        consumer.queue.maybe_bind(self._connection)
+        try:
+            consumer.queue.delete(if_unused=True, nowait=True)
+        except self._connection.channel_errors:
+            pass
+    # end _delete_consumer
 
     def _start_consuming(self):
         errors = (self._connection.connection_errors +
@@ -132,8 +141,7 @@ class KombuAmqpClient(object):
                 while len(self._removed_consumers) > 0 or removed_consumer:
                     if removed_consumer is None:
                         removed_consumer = self._removed_consumers.pop(0)
-                    if removed_consumer.queue.is_bound:
-                        removed_consumer.queue.delete()
+                    self._delete_consumer(removed_consumer)
                     removed_consumer = None
 
                 if len(self._consumers.values()) == 0:
