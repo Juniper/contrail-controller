@@ -99,6 +99,13 @@ const NextHop* AgentPath::ComputeNextHop(Agent *agent) const {
             (agent->nexthop_table()->FindActiveEntry(&key));
     }
 
+    // Send back discard NH if dependant_rt_ is not set
+    if (dependant_rt_.get() == NULL) {
+        DiscardNH key;
+        return static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&key));
+    }
+
     //Indirect route's path, get direct route's NH
     const NextHop *nh = dependant_rt_.get()->GetActiveNextHop();
     if (nh == NULL) {
