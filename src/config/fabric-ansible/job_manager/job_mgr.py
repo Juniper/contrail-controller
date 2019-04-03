@@ -289,7 +289,14 @@ class WFManager(object):
                     retry_devices = self.result_handler.get_retry_devices()
                     if job_status == JobStatus.FAILURE or not retry_devices:
                         break
+                    if self.result_handler.playbook_output:
+                        if self.result_handler.playbook_output.get('early_exit'):
+                            break
                     self.job_input['device_json'] = retry_devices
+
+                if self.result_handler.playbook_output:
+                    if self.result_handler.playbook_output.get('early_exit'):
+                        break
 
                 # stop the workflow if playbook failed
                 if self.result_handler.job_result_status == JobStatus.FAILURE:
