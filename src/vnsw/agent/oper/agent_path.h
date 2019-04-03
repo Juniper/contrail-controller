@@ -1123,7 +1123,8 @@ public:
                     const PathPreference &path_preference,
                     const EcmpLoadBalance &ecmp_load_balance,
                     const TagList &tag_list,
-                    VrfEntryConstRef vrf_entry);
+                    VrfEntryConstRef vrf_entry,
+                    uint32_t vxlan_id);
     virtual ~EvpnRoutingData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -1143,6 +1144,7 @@ private:
     const EcmpLoadBalance ecmp_load_balance_;
     const TagList tag_list_;
     VrfEntryConstRef routing_vrf_;
+    uint32_t vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRoutingData);
 };
 

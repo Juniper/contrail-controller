@@ -422,7 +422,8 @@ public:
                              const PathPreference &path_preference,
                              const EcmpLoadBalance &ecmp_load_balance,
                              const TagList &tag_list,
-                             DBRequest &nh_req);
+                             DBRequest &nh_req,
+                             uint32_t vxlan_id);
 
 private:
     Agent::RouteTableType type_;
