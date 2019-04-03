@@ -409,21 +409,25 @@ class FilterModule(object):
 
         # Dump summary of batches
         total_time = str(timedelta(minutes=IMAGE_UPGRADE_DURATION*len(self.batches)))
-        report += "\nTotal estimated duration is {}.\n".format(total_time)
-        report += "\nNote that this time estimate may vary depending on network speeds and system capabilities.\n"
-        report += "The following batches of devices will be upgraded in the order listed:\n"
-        for batch in self.batches:
-            report += "\n{}:\n".format(batch.get('name'))
-            for device_name in batch.get('device_names', []):
-                device_info = devices[device_name]
-                current_version = device_info['current_image_version'] or ""
-                new_version = device_info['image_version']
-                hitless_upgrade = device_info['basic']['device_hitless_upgrade']
-                is_hitless = "" if hitless_upgrade else "(not hitless)"
-                report += "  {}  {} --> {}  {}\n".format(device_name,
-                                                     current_version,
-                                                     new_version,
-                                                     is_hitless)
+        if total_time > 0:
+            report += "\nTotal estimated duration is {}.\n".format(total_time)
+            report += "\nNote that this time estimate may vary depending on network speeds and system capabilities.\n"
+            report += "The following batches of devices will be upgraded in the order listed:\n"
+            for batch in self.batches:
+                report += "\n{}:\n".format(batch.get('name'))
+                for device_name in batch.get('device_names', []):
+                    device_info = devices[device_name]
+                    current_version = device_info['current_image_version'] or ""
+                    new_version = device_info['image_version']
+                    hitless_upgrade = device_info['basic']['device_hitless_upgrade']
+                    is_hitless = "" if hitless_upgrade else "(not hitless)"
+                    report += "  {}  {} --> {}  {}\n".format(device_name,
+                                                         current_version,
+                                                         new_version,
+                                                         is_hitless)
+        else:
+            report += "(No devices to upgrade)"
+
         report += "\n"
 
         # Dump summary of skipped devices
