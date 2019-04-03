@@ -1,32 +1,29 @@
-# -*- mode: python; -*-
+import os
 import platform
 from distutils.version import LooseVersion
-import os
+
+subdirs = [
+    'gunit',
+    'http_parser',
+    'pugixml',
+    'rapidjson',
+]
 
 if platform.system() == 'Windows':
-    subdirs = [
+    subdirs += [
         'boost/windows',
+        'cmocka',
+        'curl-7.24.0/windows',
+        'dirent',
         'libxml2/windows',
         'log4cplus/windows',
-        'tbb/windows',
         'openssl',
-        'curl-7.24.0/windows',
-        'http_parser',
-        'pugixml',
-        'rapidjson',
-        'dirent',
-        'gunit',
-        'http_parser',
-        'cmocka',
+        'tbb/windows',
     ]
 else:
-    subdirs = [
+    subdirs += [
         'bind',
-        'gunit',
         'hiredis',
-        'http_parser',
-        'pugixml',
-        'rapidjson',
         'rabbitmq-c',
         'SimpleAmqpClient',
         'thrift',

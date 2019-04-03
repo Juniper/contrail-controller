@@ -2,10 +2,7 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
-import os
-import sys
 import subprocess
-from distutils.file_util import copy_file
 
 env = DefaultEnvironment()
 
@@ -13,13 +10,8 @@ vpath = '#third_party/SimpleAmqpClient'
 working_dir = Dir('.').abspath
 products = [File('#build/lib/' + env['LIBPREFIX'] + 'SimpleAmqpClient' + env['LIBSUFFIX'])]
 
-if sys.platform == 'win32':
-    librabbitmq = 'librabbitmq.4.lib'
-    shared_libs_mode = 'ON'
-    products.append(File('#build/lib/SimpleAmqpClient.2.lib'))
-else:
-    librabbitmq = 'librabbitmq.a'
-    shared_libs_mode = 'OFF'
+librabbitmq = 'librabbitmq.a'
+shared_libs_mode = 'OFF'
 
 cmake_flags = [
     '-DCMAKE_INSTALL_PREFIX=' + Dir('#build').abspath,
@@ -28,24 +20,6 @@ cmake_flags = [
     '-DENABLE_SSL_SUPPORT=ON',
     '-DBUILD_SHARED_LIBS=' + shared_libs_mode,
 ]
-
-if sys.platform == 'win32':
-    libraries = ' '.join([
-        File('#build/lib/ssl.lib').abspath,
-        File('#build/lib/crypto.lib').abspath,
-        'ws2_32.lib',
-        'crypt32.lib',
-        'advapi32.lib',
-        'user32.lib',
-        'gdi32.lib',
-    ])
-
-    cmake_flags.extend([
-        '-DCMAKE_GENERATOR_PLATFORM=x64',
-        '-DCMAKE_BUILD_TYPE=' + env['VS_BUILDMODE'],
-        '-DBoost_USE_STATIC_LIBS=ON',
-        '-DCMAKE_CXX_STANDARD_LIBRARIES=' + libraries,
-    ])
 
 # Header files cannot be listed in some smart way (e.g. using glob())
 # because only part of headers from third_party are installed with cmake.
@@ -74,14 +48,6 @@ def build_simple_amqp_client(target, source, env):
     subprocess.call(['cmake'] + cmake_flags + [Dir(vpath).abspath], cwd=working_dir)
     subprocess.call(['cmake', '--build', '.', '--target', 'install'], cwd=working_dir)
 
-    if sys.platform == 'win32':
-        copy_file(File('#build/lib/SimpleAmqpClient.2.lib').abspath,
-                  File('#build/lib/SimpleAmqpClient.lib').abspath)
-
 libSimpleAmqpClient = env.Command(products + header_files, Dir(vpath), build_simple_amqp_client)
-
-if sys.platform == 'win32':
-    env.Requires(libSimpleAmqpClient, '#build/lib/ssl.lib')
-    env.Requires(libSimpleAmqpClient, '#build/lib/crypto.lib')
 
 env.Requires(libSimpleAmqpClient, '#build/lib/' + librabbitmq)

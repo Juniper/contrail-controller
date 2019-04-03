@@ -116,7 +116,18 @@ env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 
 if platform.system() == 'Windows':
-    agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
+    # to be removed after openssl is updated on CI builders
+    import os
+    openssl_root = os.getenv('OPENSSL_ROOT')
+    ssleay_dll = openssl_root + '/bin/ssleay32.dll'
+    libeay_dll = openssl_root + '/bin/libeay32.dll'
+    if os.path.isfile(ssleay_dll) and os.path.isfile(libeay_dll):
+        agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
+        openssl_requirements = ['#build/bin/ssleay32.dll', '#build/bin/libeay32.dll']
+    else:
+        agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi_static.wxs'])
+        openssl_requirements = []
+
     env.Append(WIXCANDLEFLAGS = ['-doptimization=' + env['OPT']])
 
     if env['OPT'] == 'debug':
@@ -134,7 +145,7 @@ if platform.system() == 'Windows':
 
     env.Append(WIXCANDLEFLAGS = ['-ext', 'WixUtilExtension.dll'])
     env.Append(WIXLIGHTFLAGS = ['-ext', 'WixUtilExtension.dll'])
-    env.Depends(agent_msi, [contrail_vrouter_agent])
+    env.Depends(agent_msi, [contrail_vrouter_agent] + openssl_requirements)
 
     env.Alias('contrail-vrouter-agent.msi', agent_msi)
     env.Default(agent_msi)
