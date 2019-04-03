@@ -1440,6 +1440,8 @@ class VncCassandraClient(object):
                            columns=['fq_name', 'type'])
             if not obj:
                 raise NoIdError(id)
+            if 'type' not in obj or 'fq_name' not in obj:
+                raise NoIdError(id)
             fq_name = obj['fq_name']
             obj_type = obj['type']
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
@@ -1453,6 +1455,8 @@ class VncCassandraClient(object):
             obj = self.get(self._OBJ_UUID_CF_NAME, id,
                            columns=['fq_name', 'type'])
             if not obj:
+                raise NoIdError(id)
+            if 'type' not in obj or 'fq_name' not in obj:
                 raise NoIdError(id)
             fq_name = obj['fq_name']
             obj_type = obj['type']
