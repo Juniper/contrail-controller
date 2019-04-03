@@ -848,10 +848,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                                            scale_out=scale_out)
         service_instance = ServiceInstance(
             name=si_name, service_instance_properties=si_props)
-        service_instance.set_annotations(KeyValuePairs([KeyValuePair(key='left-svc-vlan', value="100"),
-                                                        KeyValuePair(key='right-svc-vlan', value="101"),
-                                                        KeyValuePair(key='left-svc-asns', value="20,21"),
-                                                        KeyValuePair(key='right-svc-asns', value="20,22")]))
         service_instance.add_service_template(service_template)
         self._vnc_lib.service_instance_create(service_instance)
 
