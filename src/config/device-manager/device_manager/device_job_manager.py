@@ -85,6 +85,11 @@ class DeviceJobManager(object):
             callback=self.handle_execute_job_request)
     # end __init__
 
+    def destroy(self):
+        self._amqp_client.remove_consumer(self.JOB_REQUEST_CONSUMER)
+        self._amqp_client.remove_consumer(self.JOB_STATUS_CONSUMER + "dummy")
+    # end destroy
+
     @classmethod
     def get_instance(cls):
         return cls._instance
@@ -95,6 +100,7 @@ class DeviceJobManager(object):
         inst = cls.get_instance()
         if not inst:
             return
+        inst.destroy()
         cls._instance = None
     # end destroy_instance
 

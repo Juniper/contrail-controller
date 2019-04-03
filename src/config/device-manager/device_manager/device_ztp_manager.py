@@ -48,6 +48,7 @@ class DeviceZtpManager(object):
         inst = cls.get_instance()
         if not inst:
             return
+        inst.destroy()
         cls._instance = None
     # end destroy_instance
 
@@ -58,15 +59,15 @@ class DeviceZtpManager(object):
         self._initialized = True
         self._amqp_client.add_exchange(self.EXCHANGE)
 
-        consumer = 'device_manager_ztp.%s.config_queue' % \
+        self.config_consumer = 'device_manager_ztp.%s.config_queue' % \
             socket.getfqdn()
-        self._amqp_client.add_consumer(consumer, self.EXCHANGE,
+        self._amqp_client.add_consumer(self.config_consumer, self.EXCHANGE,
             routing_key=self.CONFIG_FILE_ROUTING_KEY,
             callback=self.handle_config_file_request)
 
-        consumer = 'device_manager_ztp.%s.tftp_queue' % \
+        self.tftp_consumer = 'device_manager_ztp.%s.tftp_queue' % \
             socket.getfqdn()
-        self._amqp_client.add_consumer(consumer, self.EXCHANGE,
+        self._amqp_client.add_consumer(self.tftp_consumer, self.EXCHANGE,
             routing_key=self.TFTP_FILE_ROUTING_KEY,
             callback=self.handle_tftp_file_request)
     # end _initialize
@@ -79,11 +80,19 @@ class DeviceZtpManager(object):
         self._lease_pattern = re.compile(
             r"[0-9]+ ([:A-Fa-f0-9]+) ([0-9.]+) .*",
             re.MULTILINE | re.DOTALL)
-        consumer = 'device_manager_ztp.ztp_queue'
-        self._amqp_client.add_consumer(consumer, self.EXCHANGE,
+        self.ztp_consumer = 'device_manager_ztp.ztp_queue'
+        self._amqp_client.add_consumer(self.ztp_consumer, self.EXCHANGE,
             routing_key=self.ZTP_REQUEST_ROUTING_KEY,
             callback=self.handle_ztp_request)
     # end set_active
+
+    def destroy(self):
+        if self._active:
+            self._amqp_client.remove_consumer(self.ztp_consumer)
+        if self._initialized:
+            self._amqp_client.remove_consumer(self.tftp_consumer)
+            self._amqp_client.remove_consumer(self.config_consumer)
+    # end destroy
 
     def handle_config_file_request(self, body, message):
         self._handle_file_request(body, message, self._dnsmasq_conf_dir)
