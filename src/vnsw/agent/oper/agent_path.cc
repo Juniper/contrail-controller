@@ -404,6 +404,15 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     bool ret = false;
     bool unresolved = false;
 
+    InetUnicastAgentRouteTable *table = NULL;
+    table = dynamic_cast<InetUnicastAgentRouteTable *>
+                                (sync_route->get_table());
+    // agent path sync is expected only for
+    // inet unicast table entries, agent path resync for 
+    // evpn routes does not take this code path.
+    if (table == NULL) {
+        return false;
+    }
     Agent *agent = static_cast<AgentRouteTable *>
         (sync_route->get_table())->agent();
 
@@ -445,13 +454,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         return ret;
     }
 
-    InetUnicastAgentRouteTable *table = NULL;
     InetUnicastRouteEntry *rt = NULL;
-    //table = sync_route->vrf()->GetInetUnicastRouteTable(gw_ip_);
-    //table = sync_route->vrf->GetRouteTable(sync_route->GetTableType());
-    table = (InetUnicastAgentRouteTable *)(sync_route->get_table());
 
-    rt = table ? table->FindRoute(gw_ip_) : NULL;
+    rt = table->FindRoute(gw_ip_);
     if (rt == sync_route) {
         rt = NULL;
     }
