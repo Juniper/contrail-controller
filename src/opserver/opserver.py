@@ -125,6 +125,14 @@ class ContrailGeventServer(bottle.GeventServer):
             if not threading.local is local.local: monkey.patch_all()
         wsgi = wsgi_fast if self.options.get('fast') else pywsgi
         self._std_log = OpserverStdLog("API", self.port)
+
+        if OpServer._KEEPALIVE_IDLE_TIME is not 0:
+            SandeshHttp.set_keepAliveIdle(OpServer._KEEPALIVE_IDLE_TIME)
+        if OpServer._KEEPALIVE_INTERVAL is not 0:
+            SandeshHttp.set_keepAliveIntvl(OpServer._KEEPALIVE_INTERVAL)
+        if OpServer._KEEPALIVE_PROBES is not 0:
+            SandeshHttp.set_keepAliveProbes(OpServer._KEEPALIVE_PROBES)
+
         self.srv = wsgi.WSGIServer((self.host, self.port), handler, log = self._std_log)
         self.srv.serve_forever()
     def stop(self):
@@ -410,6 +418,11 @@ class OpServer(object):
         * ``/analytics/query``:
         * ``/analytics/operation/database-purge``:
     """
+
+    _KEEPALIVE_INTERVAL = 0
+    _KEEPALIVE_PROBES = 0
+    _KEEPALIVE_IDLE_TIME = 0
+
     def disc_publish(self):
         data = {
             'ip-address': self._args.host_ip,
@@ -884,6 +897,16 @@ class OpServer(object):
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+                if 'keepalive_idle_time' in config.options('DEFAULTS'):
+                    OpServer._KEEPALIVE_IDLE_TIME = config.getint('DEFAULTS',
+                                                        'keepalive_idle_time')
+                if 'keepalive_intvl' in config.options('DEFAULTS'):
+                    OpServer._KEEPALIVE_INTERVAL = config.getint('DEFAULTS'
+                                                    'keepalive_intvl')
+                if 'keepalive_probes' in config.options('DEFAULTS'):
+                    OpServer._KEEPALIVE_PROBES = config.getint('DEFAULTS'
+                                                    'keepalive_probes')
+
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
