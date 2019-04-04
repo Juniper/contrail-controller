@@ -13,6 +13,7 @@
 #include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/multicast_flags.h"
 #include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/extended-community/source_as.h"
@@ -517,6 +518,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_vrf_route_import(*it)) {
             VrfRouteImport rt_import(*it);
             communities->push_back(rt_import.ToString());
+        } else if (ExtCommunity::is_multicast_flags(*it)) {
+            MulticastFlags mf(*it);
+            communities->push_back(mf.ToString());
         } else {
             char temp[50];
             int len = snprintf(temp, sizeof(temp), "ext community: ");
@@ -648,6 +652,10 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         srp.set_origin(attr->origin_string());
         if (attr->as_path() != NULL)
             srp.set_as_path(attr->as_path()->path().ToString());
+        else if (attr->aspath_4byte() != NULL)
+            srp.set_as_path(attr->aspath_4byte()->path().ToString());
+        if (attr->as4_path() != NULL)
+            srp.set_as4_path(attr->as4_path()->path().ToString());
         srp.set_local_preference(attr->local_pref());
         srp.set_med(attr->med());
         srp.set_next_hop(attr->nexthop().to_string());

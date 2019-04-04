@@ -207,6 +207,7 @@ struct ShowRoutePath {
     8: string peer_router_id;           // neighbor router id
     9: string source;                   // neighbor ip address
     10: string as_path;
+    30: string as4_path;
     11: string next_hop;
     12: u32 label;
     26: string origin;
