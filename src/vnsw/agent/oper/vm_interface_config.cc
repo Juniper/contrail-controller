@@ -1434,7 +1434,8 @@ static void ReadMaxFlowsConfig(const IFMapNode *vn_node,
 
     if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
         data->max_flows_ = cfg->properties().max_flows;
-    } else if (vn && (data->max_flows_ == 0)) {
+    }
+    if (vn && (data->max_flows_ == 0)) {
         autogen::VirtualNetworkType properties = vn->properties();
         data->max_flows_ = properties.max_flows;
 
