@@ -38,7 +38,7 @@ delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTE
 
 
 {% if bgp_group_info.protocols is defined and bgp_group_info.protocols != None %}
-{%     if bgp_group_info.protocols.bgp is defined %}
+{%     if bgp_group_info.protocols.bgp is defined and bgp_group_info.protocols.bgp.group is defined %}
 {%         set bgp_group = bgp_group_info.protocols.bgp.group %}
 {%         if bgp_group is mapping %}
 {%             set bgp_group = [bgp_group] %}
