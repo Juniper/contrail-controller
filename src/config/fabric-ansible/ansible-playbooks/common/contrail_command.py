@@ -89,7 +89,7 @@ class CreateCCResource(object):
         self.auth_headers['X-Auth-Token'] = self.auth_token
 
     def get_cc_token_via_cluster(self):
-        cc_token_url = '%s%s' %(self.auth_uri, '/v3/auth/tokens')
+        cc_token_url = '%s%s' %(self.auth_uri, '/keystone/v3/auth/tokens')
         auth_data = {
             "auth": {
                 "identity": {
