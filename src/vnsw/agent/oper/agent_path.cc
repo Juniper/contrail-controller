@@ -452,13 +452,18 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         return ret;
     }
 
+    // check dependant route change
+    // this is needed only for inet routes
     InetUnicastAgentRouteTable *table = NULL;
-    InetUnicastRouteEntry *rt = NULL;
-    //table = sync_route->vrf()->GetInetUnicastRouteTable(gw_ip_);
-    //table = sync_route->vrf->GetRouteTable(sync_route->GetTableType());
-    table = (InetUnicastAgentRouteTable *)(sync_route->get_table());
+    table = dynamic_cast<InetUnicastAgentRouteTable *>
+                                (sync_route->get_table());
+    if (table == NULL) {
+        return ret;
+    }
 
-    rt = table ? table->FindRoute(gw_ip_) : NULL;
+    InetUnicastRouteEntry *rt = NULL;
+
+    rt = table->FindRoute(gw_ip_);
     if (rt == sync_route) {
         rt = NULL;
     }
