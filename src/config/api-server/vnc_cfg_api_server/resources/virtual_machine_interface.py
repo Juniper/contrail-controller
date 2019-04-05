@@ -267,7 +267,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     return False, vrList
                 vrouter_id = ""
                 for vr in vrList:
-                    if vr['fq_name'][-1].partition('.')[0] == host_id:
+                    if vr['fq_name'][-1].partition('.')[0] == \
+                        host_id.partition('.')[0]:
                         vrouter_id = vr['uuid']
                         break
                 if vrouter_id == "":
