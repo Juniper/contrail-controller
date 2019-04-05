@@ -153,10 +153,11 @@ class BgpProvisioner(object):
             bgp_router_obj = cur_obj
 
         if (router_type == 'control-node' and
-                not bgp_router_obj.global_system_config_back_refs):
+                not hasattr(bgp_router_obj, 'global_system_config_back_refs')):
             gsc_obj = vnc_lib.global_system_config_read(
                         fq_name=['default-global-system-config'])
             gsc_obj.add_bgp_router(bgp_router_obj)
+            vnc_lib.ref_relax_for_delete(gsc_obj.uuid, bgp_router_obj.uuid)
             vnc_lib.global_system_config_update(gsc_obj)
 
     # end add_bgp_router
