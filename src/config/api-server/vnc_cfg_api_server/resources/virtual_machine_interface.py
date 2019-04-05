@@ -247,31 +247,20 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             vrouter_id = db_conn.fq_name_to_uuid('virtual_router',
                                                  vrouter_fq_name)
         except NoIdError:
-            if '.' in host_id:
-                try:
-                    vrouter_fq_name = ['default-global-system-config',
-                                       host_id.split('.')[0]]
-                    vrouter_id = db_conn.fq_name_to_uuid('virtual_router',
-                                                         vrouter_fq_name)
-                except NoIdError:
-                    # dropping the NoIdError as its equivalent to
-                    # VirtualRouterNotFound its treated as False, non dpdk
-                    # case, hack for vcenter plugin
-                    return True, False
-            else:
-                ok, vrList, _ = db_conn.dbe_list('virtual_router',
-                                                 field_names=[
-                                                     'uuid',
-                                                     'fq_name'])
-                if not ok:
-                    return False, vrList
-                vrouter_id = ""
-                for vr in vrList:
-                    if vr['fq_name'][-1].partition('.')[0] == host_id:
-                        vrouter_id = vr['uuid']
-                        break
-                if vrouter_id == "":
-                    return True, False
+            ok, vrList, _ = db_conn.dbe_list('virtual_router',
+                                             field_names=[
+                                                 'uuid',
+                                                 'fq_name'])
+            if not ok:
+                return False, vrList
+            vrouter_id = ""
+            for vr in vrList:
+                if vr['fq_name'][-1].partition('.')[0] == \
+                    host_id.partition('.')[0]:
+                    vrouter_id = vr['uuid']
+                    break
+            if vrouter_id == "":
+                return True, False
 
         ok, result = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
         if not ok:
