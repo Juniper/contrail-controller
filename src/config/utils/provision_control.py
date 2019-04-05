@@ -81,7 +81,7 @@ class ControlProvisioner(BgpProvisioner):
                 router_obj = self._vnc_lib.bgp_router_read(
                     fq_name = self._get_rt_inst_obj().fq_name + [hostname],
                     fields=['global_system_config_back_refs'])
-                if not router_obj.global_system_config_back_refs:
+                if not router_obj.get_global_system_config_back_refs():
                     print "global-system-config-bgp-router link is not present"
                     return True
                 print "Skip provisioning, router already exists"
