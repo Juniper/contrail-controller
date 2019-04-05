@@ -52,12 +52,6 @@
 
     - block:
         - block:
-            - name: Upgrade devices
-              include_role:
-                name: image_upgrade_role
-          when: not is_hitless_upgrade
-
-        - block:
             - name: Run health check
               include_role:
                 name: maintenance_mode_validation
@@ -74,6 +68,12 @@
               include_role:
                 name: maintenance_mode_deactivate
           when: is_hitless_upgrade
+
+        - block:
+            - name: Upgrade devices
+              include_role:
+                name: image_upgrade_role
+          when: not is_hitless_upgrade
 
         - name: Get next batch of devices and return to job manager
           set_fact:

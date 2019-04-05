@@ -181,6 +181,7 @@ class FilterModule(object):
                         device_obj.physical_router_role, rb_roles),
                     'err_msgs': [],
                     'vpg_info': {"vpg_list": [], "buddies": []},
+                    'target_multihomed_interface': []
                 }
                 skip, reason = self._check_skip_device_upgrade(device_info)
                 if skip:
@@ -231,6 +232,13 @@ class FilterModule(object):
                         device_info['vpg_info']['vpg_list'].append(vpg_uuid)
                 pi_entry = {"fq_name": pi_obj.fq_name, "uuid": pi_obj.uuid}
                 vpg_dev_table[device_uuid].append(pi_entry)
+                # Add interface name to multihomed list
+                if device_uuid in self.device_table:
+                    device_info = self.device_table[device_uuid]
+                    if_name = pi_obj.fq_name[2]
+                    if if_name not in device_info['target_multihomed_interface']:
+                        device_info['target_multihomed_interface'].\
+                            append(if_name)
         return vpg_table
     # end _generate_vpg_table
 
@@ -245,12 +253,13 @@ class FilterModule(object):
                 for vpg_dev_uuid, pi_list in vpg_dev_table.iteritems():
                     if vpg_dev_uuid not in vpg_info['buddies'] and \
                                     vpg_dev_uuid != device_uuid:
-                        buddy_entry = self._get_buddy_entry(vpg_dev_uuid)
+                        buddy_entry = self._get_buddy_entry(vpg_dev_uuid,
+                                                            pi_list)
                         vpg_info['buddies'].append(buddy_entry)
     # end _generate_buddy_lists
 
     # Create entry for peer, including ip_addr, username, password
-    def _get_buddy_entry(self, device_uuid):
+    def _get_buddy_entry(self, device_uuid, pi_list):
         if device_uuid in self.device_table or \
                         device_uuid in self.skipped_device_table:
             if device_uuid in self.device_table:
@@ -261,21 +270,37 @@ class FilterModule(object):
             mgmt_ip = device_info['basic']['device_management_ip']
             username = device_info['basic']['device_username']
             password = device_info['basic']['device_password']
+            multihomed_interface_list = \
+                device_info['target_multihomed_interface']
         else:
             device_obj = self.vncapi.physical_router_read(id=device_uuid)
             fq_name = device_obj.fq_name
             mgmt_ip = device_obj.physical_router_management_ip
             username = device_obj.physical_router_user_credentials.username
             password = self._get_password(device_obj)
+            multihomed_interface_list = \
+                self._get_multihomed_interface_list(pi_list)
 
         return {
             "uuid": device_uuid,
             "fq_name": fq_name,
+            "name": fq_name[-1],
             "mgmt_ip": mgmt_ip,
             "username": username,
-            "password": password
+            "password": password,
+            "multihomed_interface_list": multihomed_interface_list
         }
     # end _get_buddy_entry
+
+    # Get list of multihomed interface names
+    def _get_multihomed_interface_list(self, pi_list):
+        if_list = []
+        for pi_entry in pi_list:
+            if_name = pi_entry['fq_name'][-1]
+            if if_name not in if_list:
+                if_list.append(if_name)
+        return if_list
+    # end _get_multihomed_interface_list
 
     # Use the ordered list of role groups and the role device groups to
     # generate sets of batches. Also prevent two or more devices from being
@@ -697,3 +722,4 @@ def __main__():
 
 if __name__ == '__main__':
     __main__()
+
