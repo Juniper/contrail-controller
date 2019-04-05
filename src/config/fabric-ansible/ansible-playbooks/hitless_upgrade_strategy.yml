@@ -31,13 +31,9 @@
       debug: var=upgrade_plan verbosity=1
 
     - name: Exit if nothing to do
-      include_tasks: error_handler.yml
+      set_fact:
+         output: "{{ output|combine({'early_exit': True})}}"
       when: upgrade_plan.device_count == 0
-      vars:
-        op_err_message: "No devices to upgrade"
-        jl_err_message: "No devices to upgrade"
-        results:
-          upgrade_plan: "{{ upgrade_plan.results }}"
 
     - name: If test run, return all devices to job manager
       set_fact:
