@@ -524,7 +524,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_vlan_config
 
     def add_ri_vlan_config(self, vrf_name, vni):
-        vlan = Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni)
+        vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 
