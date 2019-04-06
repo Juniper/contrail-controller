@@ -35,6 +35,14 @@
          output: "{{ output|combine({'early_exit': True})}}"
       when: upgrade_plan.device_count == 0
 
+    - name: Update prouter state on skipped devices
+      prouter_objectlog:
+        prouter_fqname: "{{item.value.basic.device_fqname}}"
+        onboarding_state: "{{DEVICE_STATE.SKIPPED}}"
+        job_ctx: "{{job_ctx}}"
+      with_dict: "{{upgrade_plan.skipped_device_table}}"
+      when: upgrade_plan.skipped_device_table|length>0
+
     - name: If test run, return all devices to job manager
       set_fact:
         first_batch: "{{ job_ctx | hitless_all_devices(upgrade_plan) }}"
