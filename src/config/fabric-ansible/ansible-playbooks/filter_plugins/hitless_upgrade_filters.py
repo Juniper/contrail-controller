@@ -460,10 +460,14 @@ class FilterModule(object):
             report += "\nThe following devices will not be upgraded for the reasons listed:\n"
             for device_name, device_info in sorted(sdevices.iteritems()):
                 report += "\n  {} ({})".format(device_name, device_info.get('skip_reason', "unknown reason"))
-            report += "\n"
+
+            report += "\n NOTE: \n Incompatible device-image platform with " \
+                      "the same versions could also lead to a device being skipped for image upgrade. Please recheck the platform compatibility" \
+                      "for the above skipped devices."
 
         # Now dump the details
         report += "\n*************************** Details ***************************\n"
+
 
         # Dump device info
         if len(devices) > 0:
