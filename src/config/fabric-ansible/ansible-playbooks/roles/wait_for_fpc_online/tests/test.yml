@@ -1,0 +1,26 @@
+---
+- name: Test the assign_device_ip role
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  pre_tasks:
+    - set_fact:
+        playbook_input: {
+            "device_fqname": ["test-router"],
+            "vendor": "Juniper",
+            "device_family": "junos-qfx",
+            "device_management_ip": "10.87.69.129",
+            "device_username": "root",
+            "device_password": "Embe1mpls",
+        }
+    - set_fact:
+        DEVICE_COMMAND_TIMEOUT: 30
+  roles:
+    - role: ../..
+
+  tasks:
+    - debug:
+        msg: "{{fpc_pic_status_info}}"
+    - debug:
+        msg: "{{fpc_pic_online}}"

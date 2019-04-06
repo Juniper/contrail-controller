@@ -1,0 +1,23 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get fpc pic status
+  juniper_junos_command:
+    commands:
+      - show chassis fpc pic-status
+    display: xml
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: execute_command_resp
+
+- name: Save fpc pic status information from command response
+  set_fact:
+    fpc_pic_status_info: "{{execute_command_resp.parsed_output}}"
+
+- name: Check fpc pic status
+  set_fact:
+    fpc_pic_online: "{{fpc_pic_status_info | is_juniper_device_online}}"
