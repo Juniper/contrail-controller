@@ -262,6 +262,10 @@ class GlobalSystemConfigST(DBBaseST):
             old_rtgt_name = "target:%d:%s" % (cls._autonomous_system, target)
             old_rtgt_obj = RouteTarget(old_rtgt_name)
 
+            route_tgt.obj = RouteTargetST.read_vnc_obj(
+                fq_name=[old_rtgt_name],
+                fields=['logical_router_back_refs', 'routing_instance_back_refs'])
+
             for ri_ref in route_tgt.obj.get_routing_instance_back_refs() or []:
                 rt_inst = RoutingInstanceST.get(':'.join(ri_ref['to']))
                 if rt_inst:
@@ -4328,12 +4332,17 @@ class LogicalRouterST(DBBaseST):
         except NoIdError:
             self._logger.error(
                 "NoIdError while accessing logical router %s" % self.name)
-        for vn in self.virtual_networks:
-            vn_obj = VirtualNetworkST.get(vn)
-            if vn_obj is not None:
-                ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_del=[old_rt],
-                                                rt_add=[rt_key])
+
+        # We need to execute this code only in case of SNAT routing.
+        # If vxlan_routing is enabled, LR RTs will not have a back_ref
+        # to the Routing Instance of all the connected VNs
+        if not self.vxlan_routing:
+            for vn in self.virtual_networks:
+                vn_obj = VirtualNetworkST.get(vn)
+                if vn_obj is not None:
+                    ri_obj = vn_obj.get_primary_routing_instance()
+                    ri_obj.update_route_target_list(rt_del=[old_rt],
+                                                    rt_add=[rt_key])
         self.delete_route_targets([old_rt])
         self.route_target = rt_key
     # end update_autonomous_system
