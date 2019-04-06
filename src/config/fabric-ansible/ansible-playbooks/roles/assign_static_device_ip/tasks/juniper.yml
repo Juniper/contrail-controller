@@ -5,11 +5,11 @@
             name: Juniper.junos
 
         - juniper_junos_config:
-            load: "set"
+            load: "{{ load }}"
             lines: "{{ device_config }}"
             comment: "Applied by Ansible"
             ignore_warning: "True"
-            format: "set"
+            format: "{{ format }}"
             provider:
               host: "{{ host }}"
               username: "{{ username }}"

@@ -37,7 +37,7 @@ class FilterModule(object):
         with open('./group_vars/all.yml') as f:
             group_vars = yaml.load(f)
         role_to_feature_mapping = group_vars['role_to_feature_mapping']
-        self.role_to_feature_mapping = role_to_feature_mapping
+        self.role_to_feature_mapping = dict((k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
 
     # Load the abstract config
     def _load_abstract_config(self):
@@ -95,7 +95,7 @@ class FilterModule(object):
     def _get_feature_list(self):
         dev_feature_list = set()
         for rb_role in self.device_rb_roles:
-            role = rb_role + '@' + self.device_phy_role
+            role = rb_role.lower() + '@' + self.device_phy_role.lower()
             role_features = self.role_to_feature_mapping.get(role, [])
             dev_feature_list |= set(role_features)
         self.dev_feature_list = list(dev_feature_list)
@@ -141,7 +141,7 @@ class FilterModule(object):
     def _render_feature_config(self, feature, template, is_empty):
         file = self.device_vendor + '_feature_config.j2'
         file_loader = FileSystemLoader('./')
-        env = Environment(loader=file_loader,
+        env = Environment(loader=file_loader, trim_blocks=True,
                           extensions = (ext.loopcontrols, ext.do))
         templ = env.get_template('templates/'+file)
         model = '_'+self.device_model if '[' in template and ']' in template \
