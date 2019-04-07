@@ -1,0 +1,24 @@
+---
+- name: Execute commands from template (recursive)
+  include_tasks: "{{task_file}}"
+
+- block:
+    - name: Timeout ("{{ delay * retries }}" seconds)
+      fail:
+        msg: "Timed out while waiting for fpc pic status to be online."
+      when:
+        - count | int >= retries | int
+
+    - name: Wait for "{{ delay }}" seconds
+      wait_for:
+        timeout: "{{ delay }}"
+
+    - name: Update count to ("{{ count | int + 1 }}")
+      set_fact:
+        try_count: "{{ count | int + 1 }}"
+
+    - name: Call itself recursively
+      include_tasks: "do_until_loop.yml"
+      vars:
+        count: "{{ try_count | int }}"
+  when: not fpc_pic_online
