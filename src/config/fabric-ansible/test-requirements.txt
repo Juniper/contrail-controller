@@ -7,7 +7,7 @@ pyaml
 python-keystoneclient
 python-novaclient
 webtest
-ncclient
+ncclient==0.6.3
 cfgm_common
 sandesh
 sandesh_common
