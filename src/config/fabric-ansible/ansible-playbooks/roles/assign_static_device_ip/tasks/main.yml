@@ -28,9 +28,9 @@
     task_file_path: "{{prouter_vendor}}.yml"
   when: p.stat.exists == False
 
-- name: Lookup physical router gateway
+- name: Lookup physical router subnet
   set_fact:
-    gateway: "{{ job_ctx | pr_gateway(fabric_uuid, prouter_fq_name) }}"
+    subnet: "{{ job_ctx | pr_subnet(fabric_uuid, prouter_fq_name) }}"
 
 - name: Lookup supplemental config
   set_fact:

@@ -122,7 +122,7 @@ class KombuAmqpClient(object):
         self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         consumer.queue.maybe_bind(self._connection)
         try:
-            consumer.queue.delete(if_unused=True, nowait=True)
+            consumer.queue.delete(if_unused=True, nowait=False)
         except self._connection.channel_errors:
             pass
     # end _delete_consumer
