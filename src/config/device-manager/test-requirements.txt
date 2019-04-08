@@ -6,7 +6,7 @@ pyaml
 python-keystoneclient
 webtest
 kazoo
-ncclient
+ncclient==0.6.3
 jsonpickle
 cfgm_common
 sandesh
