@@ -155,6 +155,23 @@
                     }
                   }
                 },
+                "lacp": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "lacp_down_local_check": {
+                      "type": "boolean",
+                      "description": "Enable lacp interface status check on target device",
+                      "default": true
+                    },
+                    "lacp_down_peer_check": {
+                      "type": "boolean",
+                      "description": "Enable lacp interface status check on peer device",
+                      "default": true
+                    }
+                  }
+                },
                 "active_route_count_check": {
                   "type": "boolean",
                   "description": "Enable/disable active route count check",
@@ -204,4 +221,5 @@
       ]
    }
 }
+
 

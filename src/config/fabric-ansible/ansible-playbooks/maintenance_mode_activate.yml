@@ -32,6 +32,10 @@
         pr_vendor: "{{item.value.device_vendor|lower}}"
       with_dict: "{{playbook_input.job_device_json}}"
 
+    - name: Define upgrade plan
+      set_fact:
+        upgrade_plan: "{{job_ctx | hitless_device_info(pr_uuid)}}"
+
     - block:
         - name: Run health check only
           include_role:

@@ -579,7 +579,7 @@ class FilterModule(object):
     #end get_all_devices
 
     # Get info for a single device
-    def get_device_info(self, job_ctx, device_uuid, device_json):
+    def get_device_info(self, job_ctx, device_uuid):
         try:
             FilterLog.instance("HitlessUpgradeFilter")
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
@@ -590,7 +590,6 @@ class FilterModule(object):
             self.advanced_parameters = self._get_advanced_params()
             self._cache_job_input()
             self.device_uuid = device_uuid
-            self.device_json = device_json
             device_info =  self._get_device_info()
             return device_info
         except Exception as ex:
@@ -649,6 +648,7 @@ class FilterModule(object):
                 device_obj.physical_router_role, rb_roles),
             'err_msgs': [],
             'vpg_info': {"vpg_list": [], "buddies": []},
+            'target_multihomed_interface': []
         }
         device_table[self.device_uuid] = device_info
         return device_table
@@ -718,8 +718,7 @@ def __main__():
                                                      mock_upgrade_plan)
     elif parser.device_info:
         device_info = hitless_filter.get_device_info(mock_job_ctx,
-                                                     mock_device_uuid,
-                                                     mock_device_json)
+                                                     mock_device_uuid)
         print json.dumps(device_info)
 # end __main__
 

@@ -47,6 +47,8 @@ local_sources = [
     'discover_role.yml',
     'topology_discovery.yml',
     'hitless_upgrade_strategy.yml',
+    'maintenance_mode_activate.yml',
+    'maintenance_mode_deactivate.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
@@ -60,6 +62,7 @@ local_sources = [
     'plugin_ironic.yml',
     'server_import.yml',
     'hitless_upgrade_errors.yml',
+    'maintenance_mode_errors.yml',
     'update_dhcp_config.yml',
 ]
 
