@@ -8,7 +8,7 @@ psutil>=0.6.0
 lxml>=2.3.3
 geventhttpclient==1.0a
 netaddr>=0.7.5
-kombu==4.0.2
+kombu
 bottle
 stevedore
 ansible==2.4.3
@@ -17,4 +17,3 @@ subprocess32
 jsonschema
 inflection>=0.3.1
 pycrypto
-vine==1.1.3
