@@ -124,6 +124,7 @@ void ConnectionStateTable::PhysicalDeviceNotify(DBTablePartBase *part,
                 UpdateConnectionInfo(state, true);
                 entry_map_.erase(state->device_name_);
                 delete state;
+                state = NULL;
             } else {
                 UpdateConnectionInfo(state, false);
             }
