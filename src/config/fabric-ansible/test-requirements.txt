@@ -5,7 +5,7 @@ coverage
 pyaml
 python-keystoneclient
 webtest
-ncclient
+ncclient==0.6.3
 cfgm_common
 sandesh
 sandesh_common
