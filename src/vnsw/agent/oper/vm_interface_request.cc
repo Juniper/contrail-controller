@@ -882,6 +882,11 @@ bool VmInterfaceNovaData::OnResync(const InterfaceTable *table,
         ret = true;
     }
 
+    if (vmi->vhostuser_mode_ != vhostuser_mode_) {
+        vmi->vhostuser_mode_ = vhostuser_mode_;
+        ret = true;
+    }
+
     if (vmi->nova_ip_addr_ != ipv4_addr_) {
         vmi->nova_ip_addr_ = ipv4_addr_;
         ret = true;
