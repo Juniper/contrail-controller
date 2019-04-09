@@ -1059,7 +1059,20 @@ void RoutingInstance::ProcessServiceChainConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
+    /**
+      * If any VN (both internal and non-internal) is connnected to an internal
+      * VN via a service-chain, we will create a service chain for EVPN address
+      * family as well so that we can re-originate routes from the internal VN
+      * RI's EVPN table.
+      * For other cases (any VN communicating with a non-internal VN via service
+      * chain), we do not need a service chain to watch the EVPN table.
+      * Schema-transformer needs to make sure to add the service chain config for
+      * EVPN address family to all VNs which need to communicate via a
+      * service-chain with an interval VN.
+      */
+    vector<Address::Family> families =
+            list_of(Address::INET)(Address::INET6)(Address::EVPN);
+
     BOOST_FOREACH(Address::Family family, families) {
         const ServiceChainConfig *sc_config =
             config_ ? config_->service_chain_info(family) : NULL;
@@ -1431,6 +1444,15 @@ const string RoutingInstance::GetVirtualNetworkName() const {
     } else {
         return name_.substr(0, pos);
     }
+}
+
+const bool RoutingInstance::IsVirtualNetworkInternal() const {
+    const RoutingInstanceMgr *mgr = manager();
+    if (mgr->TestMode()) {
+        return true;
+    }
+    string vn = GetVirtualNetworkName();
+    return (vn.find("InternalVirtualNetwork") != string::npos);
 }
 
 int RoutingInstance::virtual_network_index() const {

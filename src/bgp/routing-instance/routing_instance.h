@@ -118,6 +118,7 @@ public:
 
     const std::string &name() const { return name_; }
     const std::string GetVirtualNetworkName() const;
+    const bool IsVirtualNetworkInternal() const;
 
     const BgpInstanceConfig *config() const { return config_; }
     int virtual_network_index() const;
@@ -394,6 +395,9 @@ public:
     }
     size_t GetMvpnProjectManagerCount(const std::string &network) const;
 
+    // For testing EVPN service chain
+    void SetTestMode() { test_mode_ = true; }
+    bool TestMode() const { return test_mode_; }
 private:
     friend class BgpConfigTest;
     friend class RoutingInstanceMgrTest;
@@ -450,6 +454,7 @@ private:
     VirtualNetworksMap virtual_networks_;
 
     MvpnProjectManagerNetworks mvpn_project_managers_;
+    bool test_mode_;
 };
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_H_
