@@ -352,6 +352,7 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
                                     vmi_state->vrf_name_, vm_itf);
         }
         if (itf->IsDeleted()) {
+            vm_ip_to_vmi_.erase(vmi_state->vmi_v4_addr_);
             entry->ClearState(part->parent(), itf_listener_id_);
             delete vmi_state;
         }
@@ -396,6 +397,8 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         vm_ip_to_vmi_.insert(std::pair<IpAddress,boost::uuids::uuid>
                                         (vmi_state->vmi_v4_addr_,
                                          vm_itf->GetUuid()));
+    } else {
+        vm_ip_to_vmi_[vmi_state->vmi_v4_addr_] = vm_itf->GetUuid();
     }
 
     return;
@@ -645,7 +648,7 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
     }
 
     if (vm_ip_to_vmi_.find(host) == vm_ip_to_vmi_.end()) {
-        MCTRACE(Info, "igmp_trace: ", "No host found");
+        MCTRACE(Info, "igmp_trace: No host found", host.to_string());
         return;
     }
 
@@ -653,7 +656,7 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
     InterfaceConstRef intf_ref = agent_->interface_table()->FindVmi(vmi_uuid);
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf_ref.get());
     if (!vm_intf) {
-        MCTRACE(Info, "igmp_trace: ", "No VM Interface for host");
+        MCTRACE(Info, "igmp_trace: No VM Interface for host", host.to_string());
         return;
     }
 
