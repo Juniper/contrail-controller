@@ -1562,7 +1562,6 @@ class FilterModule(object):
                         'physical_interfaces',
                         'fabric_refs',
                         'node_profile_refs',
-                        'physical_router_role',
                         'physical_router_loopback_ip',
                         'physical_router_management_ip',
                         'physical_router_underlay_managed',
@@ -1943,7 +1942,7 @@ class FilterModule(object):
         bgp_router_obj = None
         device_obj = device_roles.get('device_obj')
         rb_roles = device_roles.get('routing_bridging_roles', [])
-        phys_role = device_obj.get_physical_router_role()
+        phys_role = device_roles.get('physical_role')
         if phys_role == 'pnf':
             return
         if device_obj.physical_router_loopback_ip:
