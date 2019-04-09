@@ -94,11 +94,183 @@ TEST_F(IgmpTest, IgmpV2) {
     local_g_del_count += 1;
     leave_count++;
     SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
-    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, report_count);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
     EXPECT_EQ(ret, true);
     ret = WaitForGCount(false, local_g_del_count);
     EXPECT_EQ(ret, true);
 
+    nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
+    EXPECT_EQ((nh == NULL), true);
+
+    b_route = L2RouteGet(vrf_name, mac);
+    EXPECT_EQ((b_route == NULL), true);
+
+    usleep(lmqt);
+
+    IgmpGlobalClear();
+
+    TestEnvDeinit();
+    client->WaitForIdle();
+
+    return;
+}
+
+TEST_F(IgmpTest, IgmpV2_2Groups) {
+
+    bool ret = false;
+    boost::system::error_code ec;
+
+    uint32_t idx = 0;
+
+    uint32_t local_g_add_count = 0;
+    uint32_t local_g_del_count = 0;
+    uint32_t report_count = 0;
+    uint32_t leave_count = 0;
+
+    Agent *agent = Agent::GetInstance();
+
+    TestEnvInit(UT_IGMP_VERSION_2, true);
+
+    VmInterface *vmi_0 = VmInterfaceGet(input[0].intf_id);
+    std::string vrf_name = vmi_0->vrf()->GetName();
+
+    IgmpGlobalEnable(true);
+    for (idx = 0; idx < sizeof(input)/sizeof(PortInfo); idx++) {
+        IgmpVmiEnable(idx, true);
+    }
+
+    idx = 0;
+    local_g_add_count += 1;
+    report_count += 1;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 2);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    local_g_add_count += 1;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    local_g_add_count += 1;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, &igmp_gs[1], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    local_g_add_count += 1;
+    report_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Report, &igmp_gs[1], 1);
+    ret = WaitForRxOkCount(idx, IGMP_V2_MEMBERSHIP_REPORT, report_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(true, local_g_add_count);
+    EXPECT_EQ(ret, true);
+
+    Ip4Address group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    Ip4Address source = Ip4Address::from_string(MSOURCE_ADDR_0, ec);
+
+    MacAddress mac;
+
+    const NextHop *nh;
+    const CompositeNH *cnh;
+    const ComponentNH *cnh1;
+
+    agent->oper_db()->multicast()->GetMulticastMacFromIp(group, mac);
+
+    BridgeRouteEntry *b_route = L2RouteGet(vrf_name, mac);
+    EXPECT_EQ((b_route != NULL), true);
+
+    nh = L2RouteToNextHop(vrf_name, mac);
+    EXPECT_EQ((nh != NULL), true);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+
+    nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+
+    group = Ip4Address::from_string(MGROUP_ADDR_2, ec);
+    agent->oper_db()->multicast()->GetMulticastMacFromIp(group, mac);
+
+    b_route = L2RouteGet(vrf_name, mac);
+    EXPECT_EQ((b_route != NULL), true);
+
+    nh = L2RouteToNextHop(vrf_name, mac);
+    EXPECT_EQ((nh != NULL), true);
+
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(1, cnh->ActiveComponentNHCount());
+
+    cnh1 = cnh->Get(0);
+    nh = cnh1->nh();
+    cnh = dynamic_cast<const CompositeNH *>(nh);
+    EXPECT_EQ(2, cnh->ActiveComponentNHCount());
+
+    idx = 0;
+    local_g_del_count += 1;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    local_g_del_count += 1;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, igmp_gs, 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 0;
+    local_g_del_count += 1;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, &igmp_gs[1], 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
+
+    idx = 1;
+    local_g_del_count += 1;
+    leave_count++;
+    SendIgmp(GetItfId(idx), input[idx].addr, IgmpTypeV2Leave, &igmp_gs[1], 1);
+    ret = WaitForRxOkCount(idx, IGMP_GROUP_LEAVE, leave_count);
+    EXPECT_EQ(ret, true);
+    ret = WaitForGCount(false, local_g_del_count);
+    EXPECT_EQ(ret, true);
+
+    group = Ip4Address::from_string(MGROUP_ADDR_1, ec);
+    nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
+    EXPECT_EQ((nh == NULL), true);
+
+    b_route = L2RouteGet(vrf_name, mac);
+    EXPECT_EQ((b_route == NULL), true);
+
+    group = Ip4Address::from_string(MGROUP_ADDR_2, ec);
     nh = MCRouteToNextHop(agent->local_vm_peer(), vrf_name, group, source);
     EXPECT_EQ((nh == NULL), true);
 
