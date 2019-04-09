@@ -4,7 +4,6 @@
 {%                 if 'EVPN' in li.get('comment', '') %}
 {%                     set name = phy_int.get('name') %}
 {%                     set unit = li.get('unit') %}
-{%                     set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
 {%                     if li.get('is_tagged', false) == false %}
 set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode access
@@ -18,6 +17,7 @@ set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching in
 
 {%     for vlan in device_abstract_config.get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
+{%         set ns = namespace(vlan_id='') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
 {%         for each in intfs %}
@@ -30,15 +30,19 @@ set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching in
 {%                     if li.get('name', '') == int_name %}
 {%                         set ifd_name = int_name.split('.')[0] %}
 set groups {{cfg_group}} interfaces {{ifd_name}} unit 0 family ethernet-switching vlan members {{vlan_name}}
-{%                         set vlan_id = li.get('vlan_tag', '') %}
 {%                         if li.get('is_tagged', false) != false %}
-set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%                             set ns.vlan_id = li.get('vlan_tag') %}
 {%                         endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%                     endif %}
 {%                 endfor %}
 {%             endfor %}
 {%         endfor %}
+{%         if ns.vlan_id == '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+{%         else %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{ns.vlan_id}}
+{%         endif %}
 {%     endfor %}
 
 {%     for bgp_elem in device_abstract_config.get('bgp', []) %}
