@@ -538,7 +538,7 @@ class VirtualNetworkST(DBBaseST):
             # clean RT and its internal when it will receive the RI delete
             # notification. That prevents ST to fail to delete RT because RI
             # was not yet removed
-            if not ri.is_default:
+            if ri is not None and not ri.is_default:
                 ri.delete(ri_name, True)
         if self.acl:
             self._vnc_lib.access_control_list_delete(id=self.acl.uuid)
