@@ -477,11 +477,16 @@ class AnsibleRoleCommon(AnsibleConf):
                             ifd_name))
                     continue
                 unit_name = ifd_name + "." + str(interface_list[0].unit)
+                vlan_tag = interface_list[0].vlan_tag
+                if not vlan_tag:
+                    self._logger.error(
+                        "No vlan tag found for interface %s" %(unit_name))
+                    continue
                 unit = self.set_default_li(li_map, unit_name,
                                            interface_list[0].unit)
                 unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn, False))
                 unit.set_is_tagged(False)
-                unit.set_vlan_tag('4094')
+                unit.set_vlan_tag(str(vlan_tag))
                 # attach acls
                 self.attach_acls(interface_list[0], unit)
                 if vlan_conf:
@@ -524,7 +529,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_vlan_config
 
     def add_ri_vlan_config(self, vrf_name, vni):
-        vlan = Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni)
+        vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 
@@ -611,20 +616,21 @@ class AnsibleRoleCommon(AnsibleConf):
                 if vn_id:
                     vn = VirtualNetworkDM.get(vn_id)
                     vlan_tag = vmi_obj.vlan_tag
+                    is_tagged = vmi_obj.intf_is_tagged
                     for pi_uuid in vpg_interfaces:
                         if pi_uuid in pr.physical_interfaces:
                             ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
                             if ae_id is not None and vlan_tag is not None:
                                 ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
                                 vn_dict.setdefault(vn_id, []).append(
-                                    JunosInterface(ae_name, 'l2', vlan_tag))
+                                    JunosInterface(ae_name, 'l2', vlan_tag, is_tagged=is_tagged))
                                 break
                             else:
                                 pi_obj = PhysicalInterfaceDM.get(pi_uuid)
                                 if pi_obj:
                                     li_name = pi_obj.name + "." + str(vlan_tag)
                                     vn_dict.setdefault(vn_id, []).append(
-                                    JunosInterface(li_name, 'l2', vlan_tag))
+                                    JunosInterface(li_name, 'l2', vlan_tag, is_tagged=is_tagged))
                                     break
         return vn_dict
     # end
