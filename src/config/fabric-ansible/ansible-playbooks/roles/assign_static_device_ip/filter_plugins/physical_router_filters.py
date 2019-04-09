@@ -10,13 +10,13 @@ from vnc_api.vnc_api import VncApi
 class FilterModule(object):
     def filters(self):
         return {
-            'pr_gateway': self.get_pr_gateway,
+            'pr_subnet': self.get_pr_subnet,
             'supplemental_config': self.get_supplemental_config
         }
     # end filters
 
     @classmethod
-    def get_pr_gateway(cls, job_ctx, fabric_uuid, device_fq_name):
+    def get_pr_subnet(cls, job_ctx, fabric_uuid, device_fq_name):
         api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                      auth_token=job_ctx.get('auth_token'))
         fabric = api.fabric_read(id=fabric_uuid)
@@ -45,6 +45,7 @@ class FilterModule(object):
                 subnets = ipam_subnets.get('subnets')
 
         gateway = None
+        cidr = None
         if subnets:
             pr = api.physical_router_read(fq_name=device_fq_name)
             pr_dict = api.obj_to_dict(pr)
@@ -56,11 +57,11 @@ class FilterModule(object):
                 if ip_addr in IPNetwork(cidr) and subnet.get('default_gateway'):
                     gateway = subnet.get('default_gateway')
                     break
-        if gateway:
-            return gateway
+        if cidr and gateway:
+            return { 'cidr': cidr, 'gateway': gateway }
 
-        raise Error("Cannot find gateway for device: %s" % str(device_fq_name))
-    # end get_pr_gateway
+        raise Error("Cannot find cidr and gateway for device: %s" % str(device_fq_name))
+    # end get_pr_subnet
 
     @classmethod
     def get_supplemental_config(cls, device_name, device_to_ztp, supplemental_configs):
