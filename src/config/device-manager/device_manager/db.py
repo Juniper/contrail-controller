@@ -1193,8 +1193,10 @@ class VirtualMachineInterfaceDM(DBBaseDM):
                 'service_interface_type', None)
         else:
             self.vlan_tag = 0
-
         self.bindings = obj.get('virtual_machine_interface_bindings') or {}
+        kvps = self.bindings.get('key_value_pair') or []
+        kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+        self.port_vlan_tag = kvp_dict.get('tor_port_vlan_id') or 4094
         self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
         self.update_multiple_refs('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
