@@ -3,7 +3,8 @@
 #
 import logging
 
-from cfgm_common.exceptions import BadRequest
+from cfgm_common import CANNOT_MODIFY_MSG
+from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import RoutingInstance
 from vnc_api.vnc_api import VirtualNetwork
@@ -42,7 +43,15 @@ class TestRoutingInstance(test_case.ApiServerTestCase):
 
         ri2 = RoutingInstance('ri2-%s' % self.id(), parent_obj=vn)
         ri2.set_routing_instance_is_default(True)
-        self.assertRaises(BadRequest, self.api.routing_instance_create, ri2)
+        msg = CANNOT_MODIFY_MSG % {
+            'resource_type':
+                RoutingInstance.object_type.replace('_', ' ').title(),
+            'fq_name': ri2.get_fq_name_str(),
+            'uuid': '.*',
+        }
+        msg = r'^%s$' % msg.replace('(', r'\(').replace(')', r'\)')
+        with self.assertRaisesRegex(RefsExistError, msg):
+            self.api.routing_instance_create(ri2)
 
     def test_cannot_update_routing_instance_to_default(self):
         project = Project('project-%s' % self.id())
@@ -53,7 +62,15 @@ class TestRoutingInstance(test_case.ApiServerTestCase):
         self.api.routing_instance_create(ri)
 
         ri.set_routing_instance_is_default(True)
-        self.assertRaises(BadRequest, self.api.routing_instance_update, ri)
+        msg = CANNOT_MODIFY_MSG % {
+            'resource_type':
+                RoutingInstance.object_type.replace('_', ' ').title(),
+            'fq_name': ri.get_fq_name_str(),
+            'uuid': ri.uuid,
+        }
+        msg = r'^%s$' % msg.replace('(', r'\(').replace(')', r'\)')
+        with self.assertRaisesRegex(RefsExistError, msg):
+            self.api.routing_instance_update(ri)
 
     def test_cannot_update_default_routing_instance_to_not_default(self):
         project = Project('project-%s' % self.id())
@@ -64,8 +81,15 @@ class TestRoutingInstance(test_case.ApiServerTestCase):
         default_ri = self.api.routing_instance_read(default_ri_fq_name)
 
         default_ri.set_routing_instance_is_default(False)
-        self.assertRaises(BadRequest, self.api.routing_instance_update,
-                          default_ri)
+        msg = CANNOT_MODIFY_MSG % {
+            'resource_type':
+                RoutingInstance.object_type.replace('_', ' ').title(),
+            'fq_name': default_ri.get_fq_name_str(),
+            'uuid': default_ri.uuid,
+        }
+        msg = r'^%s$' % msg.replace('(', r'\(').replace(')', r'\)')
+        with self.assertRaisesRegex(RefsExistError, msg):
+            self.api.routing_instance_update(default_ri)
 
     def test_cannot_delete_default_routing_instance(self):
         project = Project('project-%s' % self.id())
@@ -75,8 +99,15 @@ class TestRoutingInstance(test_case.ApiServerTestCase):
         default_ri_fq_name = vn.fq_name + [vn.fq_name[-1]]
         default_ri = self.api.routing_instance_read(default_ri_fq_name)
 
-        self.assertRaises(BadRequest, self.api.routing_instance_delete,
-                          id=default_ri.uuid)
+        msg = CANNOT_MODIFY_MSG % {
+            'resource_type':
+                RoutingInstance.object_type.replace('_', ' ').title(),
+            'fq_name': default_ri.get_fq_name_str(),
+            'uuid': default_ri.uuid,
+        }
+        msg = r'^%s$' % msg.replace('(', r'\(').replace(')', r'\)')
+        with self.assertRaisesRegex(RefsExistError, msg):
+            self.api.routing_instance_delete(id=default_ri.uuid)
 
         self.api.virtual_network_delete(id=vn.uuid)
 
