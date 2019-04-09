@@ -477,11 +477,16 @@ class AnsibleRoleCommon(AnsibleConf):
                             ifd_name))
                     continue
                 unit_name = ifd_name + "." + str(interface_list[0].unit)
+                vlan_tag = interface_list[0].vlan_tag
+                if not vlan_tag:
+                    self._logger.error(
+                        "No vlan tag found for interface %s" %(unit_name))
+                    continue
                 unit = self.set_default_li(li_map, unit_name,
                                            interface_list[0].unit)
                 unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn, False))
                 unit.set_is_tagged(False)
-                unit.set_vlan_tag('4094')
+                unit.set_vlan_tag(str(vlan_tag))
                 # attach acls
                 self.attach_acls(interface_list[0], unit)
                 if vlan_conf:
@@ -524,7 +529,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_vlan_config
 
     def add_ri_vlan_config(self, vrf_name, vni):
-        vlan = Vlan(name=vrf_name[1:], vlan_id=vni, vxlan_id=vni)
+        vlan = Vlan(name=vrf_name[1:], vxlan_id=vni)
         self.vlan_map[vlan.get_name()] = vlan
     # end add_ri_vlan_config
 

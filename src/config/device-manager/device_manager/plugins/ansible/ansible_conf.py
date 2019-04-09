@@ -581,9 +581,7 @@ class JunosInterface(object):
     # end __init__
 
     def is_untagged(self):
-        if not self.vlan_tag:
-            return True
-        return False
+        return self.intf_is_tagged:
     # end is_untagged
 
 # end JunosInterface

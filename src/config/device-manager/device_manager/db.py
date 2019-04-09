@@ -1189,11 +1189,12 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         if obj.get('virtual_machine_interface_properties'):
             self.params = obj['virtual_machine_interface_properties']
             self.vlan_tag = self.params.get('sub_interface_vlan_tag', None)
+            self.intf_is_tagged = self.params.get('sub_interface_tagged', False)
             self.service_interface_type = self.params.get(
                 'service_interface_type', None)
         else:
             self.vlan_tag = 0
-
+            self.intf_is_tagged = False
         self.bindings = obj.get('virtual_machine_interface_bindings') or {}
         self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
         self.update_multiple_refs('logical_interface', obj)
