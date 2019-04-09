@@ -569,11 +569,13 @@ class AnsibleConf(AnsibleBase):
 
 class JunosInterface(object):
 
-    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None, li_uuid=None):
+    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None,
+                 li_uuid=None, port_vlan_tag=4094):
         self.li_uuid = li_uuid
         self.name = if_name
         self.if_type = if_type
         self.vlan_tag = if_vlan_tag
+        self.port_vlan_tag = port_vlan_tag
         ifparts = if_name.split('.')
         self.ifd_name = ifparts[0]
         self.unit = ifparts[1]
@@ -581,9 +583,7 @@ class JunosInterface(object):
     # end __init__
 
     def is_untagged(self):
-        if not self.vlan_tag:
-            return True
-        return False
+        return not self.vlan_tag
     # end is_untagged
 
 # end JunosInterface
