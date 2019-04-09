@@ -90,6 +90,11 @@ bool BgpShowHandler<ShowServiceChainReq, ShowServiceChainReqIterate,
                                  search_expr, inet6_info, rinstance)) {
             data->show_list.push_back(inet6_info);
         }
+        ShowServicechainInfo evpn_info;
+        if (FillServiceChainInfo(Address::EVPN, data->search_string,
+                                 search_expr, evpn_info, rinstance)) {
+            data->show_list.push_back(evpn_info);
+        }
 
         if (data->show_list.size() >= page_limit)
             break;

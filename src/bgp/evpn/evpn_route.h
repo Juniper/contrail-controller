@@ -84,19 +84,34 @@ public:
     std::string ToXmppIdString() const;
 
     int CompareTo(const EvpnPrefix &rhs) const;
-    bool operator==(const EvpnPrefix &rhs) const { return CompareTo(rhs) == 0; }
-
+    bool operator==(const EvpnPrefix &rhs) const {
+        return CompareTo(rhs) == 0;
+    }
+    bool operator!=(const EvpnPrefix &rhs) const {
+        return CompareTo(rhs) != 0;
+    }
+    bool operator<(const EvpnPrefix &rhs) const {
+        int cmp = CompareTo(rhs);
+        return (cmp < 0);
+    }
+    bool operator>(const EvpnPrefix &rhs) const {
+        int cmp = CompareTo(rhs);
+        return (cmp > 0);
+    }
     uint8_t type() const { return type_; }
     const RouteDistinguisher &route_distinguisher() const { return rd_; }
     const EthernetSegmentId &esi() const { return esi_; }
     uint32_t tag() const { return tag_; }
     const MacAddress &mac_addr() const { return mac_addr_; }
     Address::Family family() const { return family_; }
+    IpAddress addr() const { return ip_address_; }
     IpAddress ip_address() const { return ip_address_; }
     IpAddress group() const { return group_; }
     IpAddress source() const { return source_; }
     uint8_t ip_address_length() const;
-    uint8_t ip_prefix_length() const { return ip_prefixlen_; }
+    uint8_t prefixlen() const { return ip_prefixlen_; }
+    Ip4Address ip4_addr() const { return ip_address_.to_v4(); }
+    Ip6Address ip6_addr() const { return ip_address_.to_v6(); }
     Ip4Prefix inet_prefix() const {
         return Ip4Prefix(ip_address_.to_v4(), ip_prefixlen_);
     }
@@ -104,6 +119,9 @@ public:
         return Inet6Prefix(ip_address_.to_v6(), ip_prefixlen_);
     }
     void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
+
+    // Check whether 'this' is more specific than rhs.
+    bool IsMoreSpecific(const EvpnPrefix &rhs) const;
 
 private:
     uint8_t type_;
