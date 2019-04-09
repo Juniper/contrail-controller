@@ -10,8 +10,7 @@ if openssl_root is None:
 
 ssleay_dll = openssl_root + '/bin/ssleay32.dll'
 libeay_dll = openssl_root + '/bin/libeay32.dll'
-if os.path.isfile(ssleay_dll) and os.path.isfile(libeay_dll):
-    env.Install('#build/bin', [ssleay_dll, libeay_dll])
 
+env.Install('#build/bin', [ssleay_dll, libeay_dll])
 env.InstallAs('#build/lib/ssl.lib', openssl_root + '/lib/ssleay32.lib')
 env.InstallAs('#build/lib/crypto.lib', openssl_root + '/lib/libeay32.lib')
