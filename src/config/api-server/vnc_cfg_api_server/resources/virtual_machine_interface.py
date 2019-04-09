@@ -242,44 +242,28 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             else:
                 return True, False
 
+        vrouter = None
         vrouter_fq_name = ['default-global-system-config', host_id]
-        try:
-            vrouter_id = db_conn.fq_name_to_uuid('virtual_router',
-                                                 vrouter_fq_name)
-        except NoIdError:
-            if '.' in host_id:
-                try:
-                    vrouter_fq_name = ['default-global-system-config',
-                                       host_id.split('.')[0]]
-                    vrouter_id = db_conn.fq_name_to_uuid('virtual_router',
-                                                         vrouter_fq_name)
-                except NoIdError:
-                    # dropping the NoIdError as its equivalent to
-                    # VirtualRouterNotFound its treated as False, non dpdk
-                    # case, hack for vcenter plugin
-                    return True, False
-            else:
-                ok, vrList, _ = db_conn.dbe_list('virtual_router',
-                                                 field_names=[
-                                                     'uuid',
-                                                     'fq_name'])
-                if not ok:
-                    return False, vrList
-                vrouter_id = ""
-                for vr in vrList:
-                    if vr['fq_name'][-1].partition('.')[0] == host_id:
-                        vrouter_id = vr['uuid']
-                        break
-                if vrouter_id == "":
-                    return True, False
-
-        ok, result = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
-        if not ok:
-            return ok, result
-        if result.get('virtual_router_dpdk_enabled'):
-            return True, True
+        fields = ['uuid', 'fq_name', 'virtual_router_dpdk_enabled']
+        ok, result = cls.server.get_resource_class('virtual_router').locate(
+            vrouter_fq_name, create_it=False, fields=fields)
+        if not ok and result[0] == 404:
+            ok, result, _ = db_conn.dbe_list('virtual_router',
+                                             field_names=fields)
+            if not ok:
+                return False, result
+            vrs = result
+            for vr in vrs:
+                if (vr['fq_name'][-1].partition('.')[0] ==
+                        host_id.partition('.')[0]):
+                    vrouter = vr
+                    break
+        elif not ok:
+            return False, result
         else:
-            return True, False
+            vrouter = result
+
+        return True, vrouter.get('virtual_router_dpdk_enabled', False)
 
     @classmethod
     def _kvps_update(cls, kvps, kvp):
