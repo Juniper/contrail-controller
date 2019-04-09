@@ -24,12 +24,17 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:22:22:22
 {%     for vlan in device_abstract_config.get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
+{%         set ns = namespace(vlan_has_interface=false) %}
 {%         for intf in vlan.get('interfaces', []) %}
 {%             set int_name = intf.get('name') %}
 {%             if 'irb' not in int_name %}
+{%                 set ns.vlan_has_interface = true %}
 {%                 continue %}
 {%             endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
 {%         endfor %}
+{%         if not ns.vlan_has_interface %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vni}}
+{%         endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%     endfor %}
