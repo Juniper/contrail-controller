@@ -499,6 +499,9 @@ void FlowEntry::Init() {
 
 FlowEntry *FlowEntry::Allocate(const FlowKey &key, FlowTable *flow_table) {
     // flow_table will be NULL for some UT cases
+    std::cout << "FlowEntry::Allocate " << key.src_addr.to_string() << ' ' << key.dst_addr.to_string() << ' ';
+    std::cout << key.protocol << ' ' << key.src_port << ' ' << key.dst_port << ' ' << key.nh << std::endl;
+
     FlowEntry *flow;
     if (flow_table == NULL) {
         flow = new FlowEntry(flow_table);
