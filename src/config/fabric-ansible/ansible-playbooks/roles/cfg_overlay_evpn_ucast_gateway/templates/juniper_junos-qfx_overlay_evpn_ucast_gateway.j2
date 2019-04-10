@@ -31,5 +31,6 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:22:22:22
 {%             endif %}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
 {%         endfor %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vni}}
 set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%     endfor %}
