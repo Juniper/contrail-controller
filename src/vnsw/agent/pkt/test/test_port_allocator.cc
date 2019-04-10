@@ -62,7 +62,7 @@ public:
     Ip4Address dip2_;
     PortTable *port_table_;
 };
-
+/*
 TEST_F(PortAllocationTest, Test1) {
     FlowKey key1(10, sip1_, dip1_, IPPROTO_TCP, 10, 20);
 
@@ -438,7 +438,7 @@ TEST_F(PortAllocationTest, IntraVn) {
     EXPECT_TRUE(flow->IsShortFlow() == false);
     EXPECT_TRUE(flow->IsNatFlow() == false);
 }
-
+*/
 TEST_F(PortAllocationTest, SecondaryIp) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.3");
     std::vector<Ip4Address> v;
@@ -466,7 +466,7 @@ TEST_F(PortAllocationTest, SecondaryIp) {
             is_flags_set(FlowEntry::FabricControlFlow));
     EXPECT_TRUE(flow->data().rpf_nh == VmPortGet(1)->flow_key_nh());
 }
-
+/*
 //Take a floating-ip from a network enabled for distributed SNAT
 //ensure access from VM to external world goes thru
 TEST_F(PortAllocationTest, FloatingIpWithSNATEnabled) {
@@ -596,7 +596,7 @@ TEST_F(PortAllocationTest, Subset) {
     pc.Trim();
     EXPECT_TRUE(pc.port_count == 102);
 }
-
+*/
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client =

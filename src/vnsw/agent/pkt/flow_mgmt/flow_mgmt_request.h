@@ -78,6 +78,7 @@ public:
             return FlowEvent::DELETE_FLOW;
 
         if (event_ == IMPLICIT_ROUTE_DELETE) {
+            std::cout << "FlowMgmtRequest GetResponseEvent" << std::endl;
             resp_event = FlowEvent::RECOMPUTE_FLOW;
         }
 
@@ -102,7 +103,9 @@ public:
         const AgentRoute *rt =
             dynamic_cast<const AgentRoute *>(db_entry_);
         if (rt) {
+            std::cout << "FlowMgmtRequest GetResponseEvent2" << std::endl;
             resp_event = FlowEvent::RECOMPUTE_FLOW;
+            //resp_event = FlowEvent::INVALID;
         }
 
         return resp_event;

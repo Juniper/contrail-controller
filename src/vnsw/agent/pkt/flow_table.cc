@@ -669,10 +669,14 @@ void FlowTable::HandleKSyncError(FlowEntry *flow,
     return;
 }
 
+#include <iostream>
 /////////////////////////////////////////////////////////////////////////////
 // KSync Routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowTable::DeleteKSync(FlowEntry *flow) {
+    const FlowKey &key = flow->key();
+    std::cout << "FlowTable::DeleteKSync " << key.src_addr.to_string() << ' ' << key.dst_addr.to_string() << ' ';
+    std::cout << (int)(key.protocol) << ' ' << key.src_port << ' ' << key.dst_port << ' ' << key.nh << std::endl;
     KSyncFlowIndexManager *mgr = agent()->ksync()->ksync_flow_index_manager();
     mgr->Delete(flow);
 }
