@@ -303,6 +303,7 @@ bool InetRouteFlowMgmtEntry::RecomputeCoveringRouteEntry
         FlowMgmtKeyNode *node = &(*it);
         // Queue the DB Event only route key  matches src or dst ip matches.
         if (key->NeedsReCompute(node->flow_entry())) {
+            std::cout << "InetRouteFlowMgmtEntry::RecomputeCoveringRouteEntry" << std::endl;
             mgr->DBEntryEvent(FlowEvent::RECOMPUTE_FLOW, covering_route,
                               node->flow_entry());
         }
@@ -324,6 +325,7 @@ bool InetRouteFlowMgmtEntry::HandleNhChange(FlowMgmtManager *mgr,
         it++;
         FlowEntry *fe = node->flow_entry();
         if (fe->l3_flow()) {
+            std::cout << "InetRouteFlowMgmtEntry::HandleNhChange" << std::endl;
             event = FlowEvent::RECOMPUTE_FLOW;
         } else {
             event = FlowEvent::DELETE_FLOW;

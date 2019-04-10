@@ -213,10 +213,13 @@ void FlowMgmtManager::ChangeDBEntryEvent(const DBEntry *entry,
     db_event_queue_.Enqueue(req);
 }
 
+#include <iostream>
+
 void FlowMgmtManager::DeleteDBEntryEvent(const DBEntry *entry,
                                          uint32_t gen_id) {
     FlowMgmtRequestPtr req(new FlowMgmtRequest(FlowMgmtRequest::DELETE_DBENTRY,
                                                entry, gen_id));
+    //std::cout << "FlowMgmtManager::DeleteDBEntryEvent " << gen_id << std::endl;
     db_event_queue_.Enqueue(req);
 }
 
@@ -267,6 +270,7 @@ size_t FlowMgmtManager::FlowUpdateQueueLength() {
 size_t FlowMgmtManager::FlowDBQueueLength() {
     return db_event_queue_.Length();
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Handlers for events from the work-queue
 /////////////////////////////////////////////////////////////////////////////
@@ -284,6 +288,8 @@ bool FlowMgmtManager::ProcessEvent(FlowMgmtRequest *req, FlowMgmtKey *key,
 
     case FlowMgmtRequest::DELETE_DBENTRY:
     case FlowMgmtRequest::IMPLICIT_ROUTE_DELETE:
+        //std::cout << "FlowMgmtManager::ProcessEvent " << req->event() << ' ';
+        //std::cout << FlowMgmtRequest::DELETE_DBENTRY << ' ' << FlowMgmtRequest::IMPLICIT_ROUTE_DELETE << std::endl;
         tree->OperEntryDelete(req, key);
         break;
 

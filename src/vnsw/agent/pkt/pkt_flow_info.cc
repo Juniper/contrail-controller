@@ -604,6 +604,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
     // Set NAT flow fields
     linklocal_flow = true;
+    std::cout << "true LinkLocalServiceFromVm" << std::endl;
     nat_done = true;
     underlay_flow = false;
     if (nat_server == agent->router_id()) {
@@ -685,6 +686,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
     }
 
     linklocal_flow = true;
+    std::cout << "true LinkLocalServiceFromHost" << std::endl;
     nat_done = true;
     underlay_flow = false;
     // Get NAT source/destination IP from MetadataIP retrieved from interface
@@ -757,7 +759,7 @@ void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
     out->vrf_ = agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
     dest_vrf = out->vrf_->vrf_id();
-
+    std::cout << "true BgpRouterServiceFromVm" << std::endl;
     nat_done = true;
     //Populate NAT
     nat_ip_saddr = agent->router_id();
@@ -827,6 +829,7 @@ void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
     if (mip == NULL)
         return;
 
+    std::cout << "true ProcessHealthCheckFatFlow" << std::endl;
     nat_done = true;
     nat_ip_saddr = mip->GetLinkLocalIp();
     nat_ip_daddr = agent->router_id();
@@ -934,6 +937,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
     nat_sport = pkt->sport;
     nat_vrf = dest_vrf;
+    std::cout << "true FloatingIpDNat" << std::endl;
     nat_done = true;
 
     if (in->rt_) {
@@ -1050,6 +1054,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     dest_vrf = out->rt_->vrf_id();
     // Setup reverse flow to translate sip.
+    std::cout << "true FloatingIpSNat" << std::endl;
     nat_done = true;
     nat_ip_saddr = fip_it->floating_ip_;
     nat_ip_daddr = pkt->ip_daddr;
@@ -1073,6 +1078,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
             if (nat_sport == 0) {
                 short_flow = true;
                 short_flow_reason = FlowEntry::SHORT_PORT_MAP_DROP;
+                std::cout << "false FloatingIpSNat" << std::endl;
                 nat_done = false;
                 out->nh_ = in->nh_;
                 return;
@@ -1330,6 +1336,7 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
+    std::cout << "PktFlowInfo::IngressProcess" << std::endl;
     // Flow packets are expected only on VMPort interfaces
     if (in->intf_->type() != Interface::VM_INTERFACE &&
         in->intf_->type() != Interface::INET) {

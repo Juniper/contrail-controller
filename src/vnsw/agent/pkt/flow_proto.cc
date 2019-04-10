@@ -305,6 +305,8 @@ bool FlowProto::UpdateFlow(FlowEntry *flow) {
 // Flow Control Event routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowProto::EnqueueFlowEvent(FlowEvent *event) {
+    std::cout << "FlowProto::EnqueueFlowEvent " << event->event() << std::endl;
+
     FlowEventQueueBase *queue = NULL;
     switch (event->event()) {
     case FlowEvent::VROUTER_FLOW_MSG: {
@@ -618,6 +620,38 @@ void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
                                   uint64_t evict_flow_packets,
                                   int32_t evict_flow_oflow,
                                   uint32_t transaction_id) {
+    /*std::cout << "FlowProto::KSyncEventRequest ";
+    switch(event) {
+        case KSyncEntry::ADD_CHANGE_REQ:
+            std::cout << "ADD_CHANGE_REQ";
+            break;
+        case KSyncEntry::ADD_ACK:
+            std::cout << "ADD_ACK";
+            break;
+        case KSyncEntry::CHANGE_ACK:
+            std::cout << "CHANGE_ACK";
+            break;
+        case KSyncEntry::DEL_REQ:
+            std::cout << "DEL_REQ";
+            break;
+        case KSyncEntry::DEL_ADD_REQ:
+            std::cout << "DEL_ADD_REQ";
+            break;
+        case KSyncEntry::DEL_ACK:
+            std::cout << "DEL_ACK";
+            break;
+        case KSyncEntry::RE_EVAL:
+            std::cout << "RE_EVAL";
+            break;
+        case KSyncEntry::INT_PTR_REL:
+            std::cout << "INT_PTR_REL";
+            break;
+        case KSyncEntry::INVALID:
+            std::cout << "INVALID";
+            break;
+    }
+    std::cout << std::endl;*/
+
     EnqueueFlowEvent(new FlowEventKSync(ksync_entry, event, flow_handle,
                                         gen_id, ksync_error, evict_flow_bytes,
                                         evict_flow_packets, evict_flow_oflow,
@@ -625,6 +659,7 @@ void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
 }
 
 void FlowProto::MessageRequest(FlowEntry *flow) {
+    std::cout << "FlowProto::MessageRequest FLOW_MESSAGE" << std::endl;
     EnqueueFlowEvent(new FlowEvent(FlowEvent::FLOW_MESSAGE, flow,
                             flow->flow_handle(), flow->gen_id()));
     return;
