@@ -2,8 +2,8 @@
 
 - name: Convert to list if dict
   set_fact:
-    lacp_information_list: [ "{{lacp_information}}"  ]
-  when: lacp_information is mapping
+    lacp_information_list: [ "{{lacp_information_list}}"  ]
+  when: lacp_information_list is mapping
 
 - name: Print the lacp information list
   debug:
@@ -20,11 +20,11 @@
 
 - name: Get the status of each interface in the multihomed list
   set_fact:
-    status: "{{item['lacp-interface-information']['lag-lacp-protocol']['lacp-mux-state']}}"
+    status: "{{item['lag-lacp-protocol']['lacp-mux-state']}}"
   with_items:
     - "{{lacp_information_list}}"
   when:
-    - multihomed_interface == "{{item['lacp-interface-information']['lag-lacp-protocol']['name']}}"
+    - multihomed_interface == "{{item['lag-lacp-protocol']['name']}}"
 
 - block:
     - name: Handle the case when status None
@@ -41,9 +41,14 @@
   when: status is not defined or status == ""
 
 - block:
-    - name: Print the status if the interface is up
-      debug:
-        msg: "The multi-homed interface {{multihomed_interface}} for the device {{device_name}} is up. The status is {{status}}"
+    - block:
+        - name: Log buddy interface status
+          set_fact:
+            lacp_status_msg: "\n The multi-homed interface {{multihomed_interface}} for the device {{device_name}} is up. The status is {{status}}"
+
+        - name: Append interface status to list
+          set_fact:
+            interface_up_list: "{{ interface_up_list + [lacp_status_msg] }}"
       when: status == "Collecting distributing"
 
     - block:
