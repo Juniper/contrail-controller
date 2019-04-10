@@ -1,5 +1,5 @@
-{%- set mac_address = input_params.get('mac_address', '')                          %}
-{%- set ip_address = input_params.get('ip_address', '')                            %}
+{%- set mac_address = input_params.get('mac_address', '') | trim                   %}
+{%- set ip_address = input_params.get('ip_address', '') | trim                     %}
 {%- if evpn_command_resp is mapping                                                %}
 {%-     set evpn_db_instances = [evpn_command_resp]                                %}
 {%- else                                                                           %}
