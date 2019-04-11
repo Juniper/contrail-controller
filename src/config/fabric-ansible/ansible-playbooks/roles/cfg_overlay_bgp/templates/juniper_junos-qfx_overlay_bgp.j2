@@ -34,6 +34,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}}
 {%                 endif %}
 {%                 if fam == 'evpn' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} family {{fam}} signaling
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} import REJECT-MAINTENANCE-MODE
 {%                 endif %}
 {%                 if bgp_group_type == 'external' %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
