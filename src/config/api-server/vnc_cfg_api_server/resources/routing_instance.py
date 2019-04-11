@@ -2,6 +2,7 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from cfgm_common import CANNOT_MODIFY_MSG
 from vnc_api.gen.resource_common import RoutingInstance
 
 from vnc_cfg_api_server.context import is_internal_request
@@ -30,14 +31,13 @@ class RoutingInstanceServer(ResourceMixin, RoutingInstance):
 
         if not db_obj_dict:
             db_obj_dict = obj_dict
-        msg = ("Routing instance %s(%s) cannot modify as it the default "
-               "routing instance of the %s %s(%s)" % (
-                   ':'.join(db_obj_dict['fq_name']),
-                   db_obj_dict['uuid'],
-                   db_obj_dict['parent_type'].replace('_', ' '),
-                   ':'.join(db_obj_dict['fq_name'][:-1]),
-                   db_obj_dict['parent_uuid']))
-        return False, (400, msg)
+        msg = CANNOT_MODIFY_MSG % {
+            'resource_type':
+                RoutingInstance.object_type.replace('_', ' ').title(),
+            'fq_name': ':'.join(db_obj_dict['fq_name']),
+            'uuid': db_obj_dict['uuid'],
+        }
+        return False, (409, msg)
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
