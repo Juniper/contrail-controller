@@ -231,7 +231,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def _is_dpdk_enabled(cls, obj_dict, db_conn, host_id=None):
-        if host_id is None:
+        if host_id is None or not host_id:
             if obj_dict.get('virtual_machine_interface_bindings'):
                 bindings = obj_dict['virtual_machine_interface_bindings']
                 kvps = bindings['key_value_pair']
@@ -258,6 +258,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         host_id.partition('.')[0]):
                     vrouter = vr
                     break
+            if not vrouter:
+                return False, result
         elif not ok:
             return False, result
         else:
