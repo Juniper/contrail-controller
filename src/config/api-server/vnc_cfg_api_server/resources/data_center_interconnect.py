@@ -2,83 +2,12 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-import json
-
-from cfgm_common import _obj_serializer_all
-from cfgm_common import get_dci_internal_vn_name
-from cfgm_common.exceptions import HttpError
-from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_common import DataCenterInterconnect
-from vnc_api.gen.resource_common import VirtualNetwork
-from vnc_api.gen.resource_xsd import IdPermsType
-from vnc_api.gen.resource_xsd import RouteTargetList
-from vnc_api.gen.resource_xsd import VirtualNetworkType
 
-from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
 class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
-    @classmethod
-    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls.create_dci_vn(obj_dict, db_conn)
-
-    @classmethod
-    def create_dci_vn(cls, obj_dict, db_conn):
-        vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
-        vn_obj = VirtualNetwork(name=vn_int_name)
-        id_perms = IdPermsType(enable=True, user_visible=False)
-        vn_obj.set_id_perms(id_perms)
-
-        int_vn_property = VirtualNetworkType(forwarding_mode='l3')
-        if 'data_center_interconnect_vxlan_network_identifier' in obj_dict:
-            vni_id = obj_dict[
-                'data_center_interconnect_vxlan_network_identifier']
-            int_vn_property.set_vxlan_network_identifier(vni_id)
-        vn_obj.set_virtual_network_properties(int_vn_property)
-
-        rt_list = obj_dict.get(
-            'data_center_interconnect_configured_route_target_list',
-            {}).get('route_target')
-        if rt_list:
-            vn_obj.set_route_target_list(RouteTargetList(rt_list))
-
-        vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
-        api_server = cls.server
-        try:
-            return api_server.internal_request_create('virtual-network',
-                                                      json.loads(vn_int_dict))
-        except HttpError as e:
-            return False, (e.status_code, e.content)
-
-    @classmethod
-    def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        vn_int_fqname = ["default-domain", "default-project"]
-        vn_int_name = get_dci_internal_vn_name(obj_dict.get('uuid'))
-        vn_int_fqname.append(vn_int_name)
-        vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
-
-        api_server = cls.server
-        try:
-            api_server.internal_request_ref_update(
-                'data-center-interconnect',
-                obj_dict['uuid'],
-                'DELETE',
-                'virtual-network',
-                vn_int_uuid,
-                vn_int_fqname)
-            api_server.internal_request_delete('virtual-network', vn_int_uuid)
-        except HttpError as e:
-            if e.status_code != 404:
-                return False, (e.status_code, e.content), None
-        except NoIdError as e:
-            pass
-
-        def undo_dci_vn_delete():
-            return cls.create_dci_vn_and_ref(obj_dict, db_conn)
-        get_context().push_undo(undo_dci_vn_delete)
-
-        return True, '', None
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
