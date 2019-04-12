@@ -1,37 +1,26 @@
 # -*- mode: python; -*-
 import sys
-
-# path to the sources
-vpath = '#/third_party/libxml2-2.8.0'
+import os
+import subprocess
 
 env = DefaultEnvironment().Clone()
 
-# use 'configure' first to set things up
-cfg_opts = '--prefix=' + str(Dir('#/build')) + ' ' + \
-           '--disable-dependency-tracking'
-cfg_cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
-           '/configure' + ' ' + cfg_opts + ' )')
 
-# API is Command(self, target, source, action, **kw)
-do_cfg = env.Command('config.status', "", cfg_cmd,
-                     ENV = {'PATH' : env['ENV']['PATH'], })
+vpath = '#/third_party/libxml2-2.9.4'
+vpath_win32 = os.path.join(Dir(vpath).abspath, 'win32')
 
-if sys.platform.startswith('freebsd'):
-    make = 'gmake'
-else:
-    make = 'make'
+output_lib = File('#/build/lib/xml2.lib')
 
-libs = ['libxml2.la',
-        '.libs/libxml2.a',
-        '.libs/libxml2' + env['SHLIBSUFFIX'] ]
+def build(target, source, env):
+    configure = ['cscript', 'configure.js', 'iconv=no', 'prefix=' + Dir('#/build').abspath]
+    make = ['nmake', '/f', 'Makefile.msvc']
+    make_install = ['nmake', '/f', 'Makefile.msvc', 'install']
 
-do_lib = env.Command(libs, 'config.status',
-                     '(cd ' + Dir('.').abspath + '; ' + make + ')')
+    subprocess.call(configure, cwd=vpath_win32)
+    subprocess.call(make, cwd=vpath_win32)
+    subprocess.call(make_install, cwd=vpath_win32)
+    
+    os.rename(File('#/build/lib/libxml2.lib').abspath, output_lib.abspath)
 
-hdrnames = ['SAX.h', 'SAX2.h', 'parser.h', 'tree.h']
-headers = map(lambda x: "#/build/include/libxml2/libxml/" + x, hdrnames)
-
-products = ['#/build/lib/libxml2.a'] + headers
-do_install = env.Command(products, libs,
-                         '(cd ' + Dir('.').abspath + '; ' + make + ' install)')
-
+products = [output_lib, Dir('#/build/include/libxml2')]
+env.Command(products, vpath, build)
