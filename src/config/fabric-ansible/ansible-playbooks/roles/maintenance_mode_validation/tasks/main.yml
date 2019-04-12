@@ -58,9 +58,14 @@
     - name: Update job logs with interface status
       job_objectlog:
         job_ctx: "{{ job_ctx }}"
-        message: PEER AND TARGET MULTIHOMED INTERFACE RESULTS "{{interface_up_list}}"
+        message: PEER AND TARGET MULTIHOMED INTERFACES THAT ARE UP :"{{interface_up_list}}"
         status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
 
+    - name: Update job logs with interface status
+      job_objectlog:
+        job_ctx: "{{ job_ctx }}"
+        message: PEER AND TARGET MULTIHOMED INTERFACES THAT ARE DOWN :"{{errors_list}}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
   when: physical_role == 'leaf'
 
 - name: Activating maintenance mode on device {{pr_name}}
