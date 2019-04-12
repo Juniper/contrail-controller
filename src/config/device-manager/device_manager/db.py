@@ -2318,6 +2318,8 @@ class NodeProfileDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        for rc in obj.get('role_configs') or []:
+            self.role_configs.add(rc.get('uuid', None))
     # end update
 # end class NodeProfileDM
 
