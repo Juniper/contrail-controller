@@ -93,17 +93,6 @@ class TestNetworkDM(TestCommonDM):
                 raise Exception("Subnet still found")
     # end check_dci_lo_network
 
-    @retries(5, hook=retry_exc_handler)
-    def check_dci_int_network(self, dci, is_del=False):
-        vn_name = DMUtils.get_dci_internal_vn_name(dci.uuid)
-        try:
-            vn = self._vnc_lib.virtual_network_read(fq_name=["default-domain", "default-project", vn_name])
-        except NoIdError:
-            if is_del:
-                return
-            raise Exception("DCI Network: " + vn_name + " not found")
-    # end check_dci_int_network
-
     def test_dci_api(self):
         gs = GlobalSystemConfig(fq_name=["default-global-system-config"])
         subnets = SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 16)])
@@ -140,9 +129,6 @@ class TestNetworkDM(TestCommonDM):
         dci.add_logical_router(lr)
 
         self._vnc_lib.data_center_interconnect_create(dci)
-        dci = self._vnc_lib.data_center_interconnect_read(fq_name=dci.fq_name)
-
-        self.check_dci_int_network(dci)
 
         # test lr connected two dcis
         dci2 = DataCenterInterconnect("test-dci-2")
@@ -179,8 +165,6 @@ class TestNetworkDM(TestCommonDM):
             pass
 
         self._vnc_lib.data_center_interconnect_delete(fq_name=dci.fq_name)
-        self.check_dci_int_network(dci, True)
-
     # end test_dci_api
 
     # test vn  flat subnet lo0 ip allocation
