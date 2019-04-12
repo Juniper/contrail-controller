@@ -2318,6 +2318,7 @@ class NodeProfileDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.update_multiple_refs('role_config', obj)
     # end update
 # end class NodeProfileDM
 
