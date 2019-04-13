@@ -44,6 +44,10 @@
 #include <cmn/agent_factory.h>
 #include <net/if.h>
 
+#ifdef _WIN32
+#include <posix_fcntl.h>
+#endif
+
 const std::string Agent::null_string_ = "";
 const std::set<std::string> Agent::null_string_list_;
 const std::string Agent::fabric_vn_name_ =
@@ -102,6 +106,28 @@ std::string Agent::GetUuidStr(boost::uuids::uuid uuid_val) const {
 const string &Agent::vhost_interface_name() const {
     return vhost_interface_name_;
 };
+
+bool Agent::is_vhost_interface_up() const {
+#define LOG_RATE_LIMIT (15)
+    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()) {
+        return true;
+    }
+    struct ifreq ifr;
+    static int err_count = 0;
+    int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, vhost_interface_name().c_str());
+    int err = ioctl(sock, SIOCGIFFLAGS, &ifr);
+    if (err < 0) {
+        if ((err_count % LOG_RATE_LIMIT) == 0) {
+            LOG(DEBUG, "vhost is down");
+        }
+        err_count++;
+    }
+    close(sock);
+    return (ifr.ifr_flags & IFF_UP);
+#undef LOG_RATE_LIMIT
+}
 
 bool Agent::isXenMode() {
     return params_->isXenMode();
