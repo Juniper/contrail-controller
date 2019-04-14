@@ -13,6 +13,7 @@ import sys
 import traceback
 import argparse
 import copy
+import re
 from datetime import timedelta
 
 from job_manager.job_utils import JobAnnotations, JobVncApi
@@ -446,10 +447,11 @@ class FilterModule(object):
                     new_version = device_info['image_version']
                     hitless_upgrade = device_info['basic']['device_hitless_upgrade']
                     is_hitless = "" if hitless_upgrade else "(not hitless)"
-                    report += "  {}  {} --> {}  {}\n".format(device_name,
+                    workflow_info = self._check_for_downgrade(device_info)
+                    report += "  {}  {} --> {}  {}{}\n".format(device_name,
                                                          current_version,
                                                          new_version,
-                                                         is_hitless)
+                                                         is_hitless,workflow_info)
         else:
             report += "\n   NO DEVICES TO UPGRADE!"
 
@@ -462,7 +464,8 @@ class FilterModule(object):
                 report += "\n  {} ({})".format(device_name, device_info.get('skip_reason', "unknown reason"))
 
             report += "\n NOTE: \n Incompatible device-image platform with " \
-                      "the same versions could also lead to a device being skipped for image upgrade. Please recheck the platform compatibility" \
+                      "the same versions could also lead to a device being " \
+                      "skipped for image upgrade. Please recheck the platform compatibility " \
                       "for the above skipped devices."
 
         # Now dump the details
@@ -579,7 +582,7 @@ class FilterModule(object):
     #end get_all_devices
 
     # Get info for a single device
-    def get_device_info(self, job_ctx, device_uuid, device_json):
+    def get_device_info(self, job_ctx, device_uuid,):
         try:
             FilterLog.instance("HitlessUpgradeFilter")
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
@@ -590,7 +593,6 @@ class FilterModule(object):
             self.advanced_parameters = self._get_advanced_params()
             self._cache_job_input()
             self.device_uuid = device_uuid
-            self.device_json = device_json
             device_info =  self._get_device_info()
             return device_info
         except Exception as ex:
@@ -649,6 +651,7 @@ class FilterModule(object):
                 device_obj.physical_router_role, rb_roles),
             'err_msgs': [],
             'vpg_info': {"vpg_list": [], "buddies": []},
+            'target_multihomed_interface': []
         }
         device_table[self.device_uuid] = device_info
         return device_table
@@ -678,6 +681,14 @@ class FilterModule(object):
             return True, "Upgrade image version matches current image version"
         return False, ""
     #end _check_skip_device_upgrade
+
+    def _check_for_downgrade(self, device_info):
+        new_image_int = int(re.sub("\D", "", device_info['image_version']))
+        current_image_int = int(re.sub("\D", "", device_info['current_image_version']))
+        if new_image_int > current_image_int:
+            return ""
+        else:
+            return "(Image downgrade)"
 
     # Get device password
     def _get_password(self, device_obj):
@@ -718,8 +729,7 @@ def __main__():
                                                      mock_upgrade_plan)
     elif parser.device_info:
         device_info = hitless_filter.get_device_info(mock_job_ctx,
-                                                     mock_device_uuid,
-                                                     mock_device_json)
+                                                     mock_device_uuid)
         print json.dumps(device_info)
 # end __main__
 
