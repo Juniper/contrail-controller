@@ -102,7 +102,7 @@ const string &Agent::vhost_interface_name() const {
 
 bool Agent::is_vhost_interface_up() const {
 #define LOG_RATE_LIMIT (15)
-    if (test_mode()) {
+    if (tor_agent_enabled() || test_mode()) {
         return true;
     }
     struct ifreq ifr;
