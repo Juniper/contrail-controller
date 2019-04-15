@@ -77,7 +77,7 @@ class DeviceZtpManager(object):
 
         self._active = True
         self._lease_pattern = re.compile(
-            r"[0-9]+ ([:A-Fa-f0-9]+) ([0-9.]+) ([a-zA-Z0-9\-]+) .*",
+            r"[0-9]+ ([:A-Fa-f0-9]+) ([0-9.]+) ([a-zA-Z0-9\-_]+|\*) .*",
             re.MULTILINE | re.DOTALL)
         consumer = 'device_manager_ztp.ztp_queue'
         self._amqp_client.add_consumer(consumer, self.EXCHANGE,
@@ -130,7 +130,7 @@ class DeviceZtpManager(object):
 
     def _read_dhcp_leases(self, fabric_name, config):
         results = {}
-        results['failed'] = True
+        results['failed'] = False
 
         device_to_ztp = config.get('device_to_ztp')
         if device_to_ztp:
@@ -159,7 +159,6 @@ class DeviceZtpManager(object):
                         self._within_ztp_devices(host_name, device_to_ztp):
                     matched_devices[mac] = ip_addr
             if len(matched_devices) >= device_count:
-                results['failed'] = False
                 break
             gevent.sleep(1)
 
@@ -229,7 +228,7 @@ class DeviceZtpManager(object):
 
     @staticmethod
     def _within_ztp_devices(host_name, device_to_ztp):
-        if not device_to_ztp:
+        if not device_to_ztp or host_name == "*":
             return True
         return any([host_name == i.get('serial_number') for i in device_to_ztp])
     # end _within_ztp_devices
