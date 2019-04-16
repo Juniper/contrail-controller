@@ -36,10 +36,10 @@ void RouteKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            RouteContext *rctx = static_cast<RouteContext *>(more_context_);
+            RouteContext *rctx = boost::any_cast<RouteContext *>(more_context_);
             if (rctx) {
                 delete rctx;
-                more_context_ = NULL;
+                more_context_ = boost::any();
             }
         }
     }
@@ -47,7 +47,7 @@ void RouteKState::Handler() {
 
 void RouteKState::SendNextRequest() {
     vr_route_req req;
-    RouteContext *rctx = static_cast<RouteContext *>(more_context_);
+    RouteContext *rctx = boost::any_cast<RouteContext *>(more_context_);
 
     InitEncoder(req, rctx->vrf_id, op_code_);
     if (family_id_ == AF_BRIDGE) {

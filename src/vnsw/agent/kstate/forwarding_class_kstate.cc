@@ -24,7 +24,7 @@ ForwardingClassKState::ForwardingClassKState(
 void ForwardingClassKState::SendNextRequest() {
     vr_fc_map_req req;
     req.set_h_op(sandesh_op::DUMP);
-    int id = reinterpret_cast<long>(more_context_);
+    int16_t id = boost::any_cast<int16_t>(more_context_);
     req.set_fmr_marker(id);
     EncodeAndSend(req);
 }
@@ -38,7 +38,7 @@ void ForwardingClassKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            more_context_ = NULL;
+            more_context_ = boost::any();
         }
     }
 }

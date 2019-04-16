@@ -80,7 +80,7 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                more_context_ = NULL;
+                more_context_ = boost::any();
             }
         }
     }
@@ -184,10 +184,10 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                RouteContext *rctx = static_cast<RouteContext *>(more_context_);
+                RouteContext *rctx = boost::any_cast<RouteContext *>(more_context_);
                 if (rctx) {
                     delete rctx;
-                    more_context_ = NULL;
+                    more_context_ = boost::any();
                 }
             }
         }
@@ -268,7 +268,7 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                more_context_ = NULL;
+                more_context_ = boost::any();
             }
         }
     }
@@ -348,7 +348,7 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                more_context_ = NULL;
+                more_context_ = boost::any();
             }
         }
     }

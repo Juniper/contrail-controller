@@ -13,7 +13,7 @@ void KStateIoContext::Handler() {
 
     kctx->Handler();
 
-    if (kctx->more_context() == NULL)
+    if (kctx->more_context().empty())
         delete kctx;
 }
 
@@ -25,4 +25,3 @@ void KStateIoContext::ErrorHandler(int err) {
         << strerror(err) << ": Sequence No : " << GetSeqno());
 
 }
-
