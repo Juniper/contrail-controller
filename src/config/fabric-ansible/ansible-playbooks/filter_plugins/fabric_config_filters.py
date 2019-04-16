@@ -168,6 +168,7 @@ class FilterModule(object):
         feature_dir_list = \
             [name for name in os.listdir("./roles") if name.startswith("cfg_")]
         feature_list = [feature_dir[4:] for feature_dir in feature_dir_list]
+        feature_list.sort()
         # Loop through all the features
         for feature in feature_list:
             feature_template_list = self._get_feature_templates(feature)
