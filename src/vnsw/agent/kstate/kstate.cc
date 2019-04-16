@@ -73,7 +73,7 @@ void KState::EncodeAndSend(Sandesh &encoder) {
     sock->GenericSend(ioc);
 }
 
-void KState::UpdateContext(void *ctx) {
+void KState::UpdateContext(const boost::any &ctx) {
     more_context_ = ctx;
 }
 
@@ -174,7 +174,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     }
     list.push_back(data);
 
-    UpdateContext(reinterpret_cast<void *>(r->get_vifr_idx()));
+    UpdateContext(r->get_vifr_idx());
 }
 
 void KState::NHMsgHandler(vr_nexthop_req *r) {
@@ -225,7 +225,7 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
 
     nhst->SetComponentNH(r, data);
     list.push_back(data);
-    UpdateContext(reinterpret_cast<void *>(r->get_nhr_id()));
+    UpdateContext(r->get_nhr_id());
 }
 
 const std::string KState::PrefixToString(const std::vector<int8_t> &prefix) {
@@ -292,7 +292,8 @@ void KState::RouteMsgHandler(vr_route_req *r) {
 
     list.push_back(data);
 
-    RouteContext *rctx = static_cast<RouteContext *>(rst->more_context());
+    RouteContext *rctx = rst->more_context().empty() ?
+        NULL : boost::any_cast<RouteContext *>(rst->more_context());
     if (!rctx) {
         rctx = new RouteContext;
     }
@@ -322,8 +323,8 @@ void KState::MplsMsgHandler(vr_mpls_req *r) {
 
     list.push_back(data);
 
-    int label = r->get_mr_label();
-    UpdateContext(reinterpret_cast<void *>(label));
+    int32_t label = r->get_mr_label();
+    UpdateContext(label);
 }
 
 void KState::MirrorMsgHandler(vr_mirror_req *r) {
@@ -345,8 +346,8 @@ void KState::MirrorMsgHandler(vr_mirror_req *r) {
 
     list.push_back(data);
 
-    int mirror_id = r->get_mirr_index();
-    UpdateContext(reinterpret_cast<void *>(mirror_id));
+    int32_t mirror_id = r->get_mirr_index();
+    UpdateContext(mirror_id);
 }
 
 void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
@@ -368,8 +369,8 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
 
     // Update the last interface and tag seen.
     // Will be used to send next request to kernel
-    VrfAssignContext *ctx =
-        static_cast<VrfAssignContext *>(state->more_context());
+    VrfAssignContext *ctx = state->more_context().empyt() ?
+        NULL : boost::any_cast<VrfAssignContext *>(state->more_context());
     if (!ctx) {
         ctx = new VrfAssignContext;
     }
@@ -418,7 +419,7 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
     data.set_vrf_uuc_floods(r->get_vsr_uuc_floods());
     list.push_back(data);
 
-    UpdateContext(reinterpret_cast<void *>(r->get_vsr_vrf()));
+    UpdateContext(r->get_vsr_vrf());
 }
 
 void KState::VxLanMsgHandler(vr_vxlan_req *r) {
@@ -437,8 +438,8 @@ void KState::VxLanMsgHandler(vr_vxlan_req *r) {
 
     list.push_back(data);
 
-    int label = r->get_vxlanr_vnid();
-    UpdateContext(reinterpret_cast<void *>(label));
+    int32_t label = r->get_vxlanr_vnid();
+    UpdateContext(label);
 }
 
 void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
@@ -513,8 +514,8 @@ void KState::ForwardingClassMsgHandler(vr_fc_map_req *r) {
     data.set_qos_queue(r->get_fmr_queue_id()[0]);
     list.push_back(data);
 
-    uint32_t index = r->get_fmr_id()[0];
-    UpdateContext(reinterpret_cast<void *>(index));
+    int16_t index = r->get_fmr_id()[0];
+    UpdateContext(index);
 }
 
 void KState::QosConfigMsgHandler(vr_qos_map_req *r) {
@@ -570,6 +571,6 @@ void KState::QosConfigMsgHandler(vr_qos_map_req *r) {
     data.set_vlan_priority_map(vlan_priority_list);
     list.push_back(data);
 
-    uint32_t id = r->get_qmr_id();
-    UpdateContext(reinterpret_cast<void *>(id));
+    uint16_t id = r->get_qmr_id();
+    UpdateContext(id);
 }

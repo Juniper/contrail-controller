@@ -20,7 +20,7 @@ void VxLanKState::SendNextRequest() {
     vr_vxlan_req req;
     req.set_h_op(sandesh_op::DUMP);
     req.set_vxlanr_vnid(0);
-    int label = reinterpret_cast<long>(more_context_);
+    int32_t label = boost::any_cast<int32_t>(more_context_);
     req.set_vxlanr_vnid(label);
     EncodeAndSend(req);
 }
@@ -37,7 +37,7 @@ void VxLanKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            more_context_ = NULL;
+            more_context_ = boost::any();
         }
     }
 }
@@ -51,5 +51,3 @@ void VxLanKState::SendResponse() {
 
     response_object_ = new KVxLanResp();
 }
-
-

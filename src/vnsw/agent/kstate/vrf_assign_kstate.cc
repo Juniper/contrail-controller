@@ -16,7 +16,7 @@ VrfAssignKState::VrfAssignKState(KVrfAssignResp *obj,
 }
 
 void VrfAssignKState::SendNextRequest() {
-    VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_context_);
+    VrfAssignContext *ctx = boost::any_cast<VrfAssignContext *>(more_context_);
     vr_vrf_assign_req req;
 
     req.set_h_op(sandesh_op::DUMP);
@@ -38,10 +38,13 @@ void VrfAssignKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_context_);
-            if (ctx) {
-                delete ctx;
-                more_context_ = NULL;
+            if (!more_context_.empty()) {
+                VrfAssignContext *ctx =
+                    boost::any_cast<VrfAssignContext *>(more_context_);
+                if (ctx) {
+                    delete ctx;
+                    more_context_ = boost::any();
+                }
             }
         }
     }

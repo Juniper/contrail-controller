@@ -29,7 +29,7 @@ void NHKState::SendNextRequest() {
     vr_nexthop_req req;
     req.set_nhr_id(0);
     req.set_h_op(sandesh_op::DUMP);
-    int idx = reinterpret_cast<long>(more_context_);
+    int32_t idx = boost::any_cast<int32_t>(more_context_);
     req.set_nhr_marker(idx);
     EncodeAndSend(req);
 }
@@ -46,7 +46,7 @@ void NHKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            more_context_ = NULL;
+            more_context_ = boost::any();
         }
     }
 }

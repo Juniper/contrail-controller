@@ -20,7 +20,7 @@ void QosConfigKState::SendNextRequest() {
     vr_qos_map_req req;
     req.set_h_op(sandesh_op::DUMP);
     req.set_qmr_id(0);
-    int id = reinterpret_cast<long>(more_context_);
+    uint16_t id = boost::any_cast<uint16_t>(more_context_);
     req.set_qmr_marker(id);
     EncodeAndSend(req);
 }
@@ -34,7 +34,7 @@ void QosConfigKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            more_context_ = NULL;
+            more_context_ = boost::any();
         }
     }
 }

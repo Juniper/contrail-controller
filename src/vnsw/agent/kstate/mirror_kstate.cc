@@ -25,7 +25,7 @@ void MirrorKState::SendNextRequest() {
 
     req.set_mirr_index(0);
     req.set_h_op(sandesh_op::DUMP);
-    int idx = reinterpret_cast<long>(more_context_);
+    int32_t idx = boost::any_cast<int32_t>(more_context_);
     req.set_mirr_marker(idx);
     EncodeAndSend(req);
 }
@@ -42,7 +42,7 @@ void MirrorKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            more_context_ = NULL;
+            more_context_ = boost::any();
         }
     }
 }
@@ -66,4 +66,3 @@ const string MirrorKState::FlagsToString(int flags) const {
     }
     return "INVALID";
 }
-
