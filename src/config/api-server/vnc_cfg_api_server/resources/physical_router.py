@@ -13,7 +13,8 @@ from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
     @classmethod
     def post_dbe_read(cls, obj_dict, db_conn):
-        if obj_dict.get('physical_router_user_credentials', {}).get(
+        if obj_dict.get('physical_router_user_credentials') and \
+           obj_dict.get('physical_router_user_credentials', {}).get(
                 'password'):
 
             if cls.server._args.auth == 'keystone':
