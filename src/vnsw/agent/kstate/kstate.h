@@ -5,6 +5,8 @@
 #ifndef vnsw_agent_kstate_h
 #define vnsw_agent_kstate_h
 
+#include <boost/any.hpp>
+
 #include <cmn/agent_cmn.h>
 #include <vr_types.h>
 #include <vr_flow.h>
@@ -23,7 +25,8 @@ class KState : public AgentSandeshContext {
 public:
     static const int kMaxEntriesPerResponse = 100;
     KState(const std::string &s, Sandesh *obj) : response_context_(s),
-        response_object_(obj), vr_response_code_(0), more_context_(NULL) {}
+        response_object_(obj), vr_response_code_(0),
+        more_context_(boost::any()) {}
 
     void EncodeAndSend(Sandesh &encoder);
     virtual void SendResponse() = 0;
@@ -37,7 +40,7 @@ public:
     }
     const std::string response_context() const { return response_context_; }
     Sandesh *response_object() const { return response_object_; }
-    void *more_context() const { return more_context_; }
+    const boost::any &more_context() const { return more_context_; }
     void set_vr_response_code(int value) { vr_response_code_ = value; }
     bool MoreData() const;
     const std::string MacToString(const std::vector<signed char> &mac) const;
@@ -59,9 +62,9 @@ protected:
     std::string response_context_;
     Sandesh *response_object_;
     int vr_response_code_; /* response code from kernel */
-    void *more_context_; /* context to hold marker info */
+    boost::any more_context_; /* context to hold marker info */
 private:
-    void UpdateContext(void *);
+    void UpdateContext(const boost::any &);
     const std::string PrefixToString(const std::vector<int8_t> &prefix);
 };
 
