@@ -1045,6 +1045,18 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def build_service_chain_ri_config(self, left_vrf_info, right_vrf_info):
         #left vrf
+        # Proceed only if RI interface exists in vlan_map
+        found = False
+        irb_name = 'irb.'+left_vrf_info.get('left_svc_unit')
+        for k, v in self.vlan_map.items():
+            for i in range(len(v.get_interfaces())):
+                if v.get_interfaces()[i].name == irb_name:
+                    found = True
+                    break
+        if not found:
+            self._logger.warn("Interface %s does not exist" % irb_name)
+            return
+
         vn_obj = VirtualNetworkDM.get(left_vrf_info.get('vn_id'))
         if vn_obj:
             vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1056,7 +1068,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 left_ri = RoutingInstance(name=vrf_name)
                 self.ri_map[vrf_name] = left_ri
 
-            self.add_ref_to_list(left_ri.get_routing_interfaces(), 'irb.'+left_vrf_info.get('left_svc_unit'))
+            self.add_ref_to_list(left_ri.get_routing_interfaces(), irb_name)
 
             if left_vrf_info.get('srx_left_interface') and left_vrf_info.get('loopback_ip'):
                 protocols = RoutingInstanceProtocols()
@@ -1102,6 +1114,18 @@ class AnsibleRoleCommon(AnsibleConf):
                         self.add_to_list(vni_ri_left.get_export_targets(), target)
 
         #right vrf
+        # Proceed only if RI interface is present in vlan_map
+        found = False
+        irb_name = 'irb.'+left_vrf_info.get('right_svc_unit')
+        for k, v in self.vlan_map.items():
+            for i in range(len(v.get_interfaces())):
+                if v.get_interfaces()[i].name == irb_name:
+                    found = True
+                    break
+        if not found:
+            self._logger.warn("Interface %s does not exist" % irb_name)
+            return
+
         vn_obj = VirtualNetworkDM.get(right_vrf_info.get('vn_id'))
         if vn_obj:
             vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
@@ -1113,7 +1137,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 right_ri = RoutingInstance(name=vrf_name)
                 self.ri_map[vrf_name] = right_ri
 
-            self.add_ref_to_list(right_ri.get_routing_interfaces(), 'irb.'+right_vrf_info.get('right_svc_unit'))
+            self.add_ref_to_list(right_ri.get_routing_interfaces(), irb_name)
 
             if right_vrf_info.get('srx_right_interface') and left_vrf_info.get('loopback_ip'):
                 protocols = RoutingInstanceProtocols()
