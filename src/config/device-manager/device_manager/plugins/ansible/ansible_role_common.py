@@ -1256,16 +1256,16 @@ class AnsibleRoleCommon(AnsibleConf):
             return
 
         if self.is_service_chained():
-            left_vrf_info = {}
-            right_vrf_info = {}
-            left_interface = ''
-            right_interface = ''
-            left_right_params = {}
-
             if not pr.port_tuples:
                 return
 
             for pt in pr.port_tuples:
+                left_vrf_info = {}
+                right_vrf_info = {}
+                left_interface = ''
+                right_interface = ''
+                left_right_params = {}
+
                 pt_obj = PortTupleDM.get(pt)
 
                 if not pt_obj.logical_routers:
