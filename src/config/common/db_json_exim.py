@@ -73,7 +73,7 @@ class DatabaseExim(object):
     def _parse_args(self, args_str):
         parser = argparse.ArgumentParser()
 
-        help="Path to contrail-api conf file, default /etc/contrail-api.conf"
+        help="Path to contrail-api conf file, default /etc/contrail/contrail-api.conf"
         parser.add_argument(
             "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
         parser.add_argument(
@@ -200,16 +200,16 @@ class DatabaseExim(object):
             if self._api_args.cassandra_use_ssl:
                 socket_factory = self._make_ssl_socket_factory(
                     self._api_args.cassandra_ca_certs, validate=False)
-            pool = pycassa.ConnectionPool(
-                full_ks_name, self._api_args.cassandra_server_list,
-                pool_timeout=120, max_retries=-1, timeout=5,
-                socket_factory=socket_factory)
 
             creds = None
             if (self._api_args.cassandra_user and
                 self._api_args.cassandra_password):
                 creds = {'username': self._api_args.cassandra_user,
                          'password': self._api_args.cassandra_password}
+            pool = pycassa.ConnectionPool(
+                full_ks_name, self._api_args.cassandra_server_list,
+                pool_timeout=120, max_retries=-1, timeout=5,
+                socket_factory=socket_factory, credentials=creds)
             sys_mgr = SystemManager(self._api_args.cassandra_server_list[0],
                 credentials=creds)
             for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
