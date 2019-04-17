@@ -1,21 +1,21 @@
 #!/usr/bin/python
 
+import itertools
+import json
 import logging
+import subprocess
 import sys
 import traceback
-import netaddr
-import subprocess
-import itertools
-import requests
-import gevent
-from gevent import Greenlet, monkey, pool, queue
-from pprint import pformat
+
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
-from plugin_ironic import ImportIronicNodes
-from contrail_command import CreateCCNode, CreateCCNodeProfile
-import json
+from contrail_command import CreateCCNode
+import gevent
+from gevent import Greenlet, pool, queue
 import jsonschema
+import netaddr
+from plugin_ironic import ImportIronicNodes
+
 from job_manager.job_utils import JobVncApi
 
 
@@ -31,9 +31,7 @@ class DiscoveryLog(object):
 
     @staticmethod
     def _init_logging():
-        """
-        :return: type=<logging.Logger>
-        """
+        """:return: type=<logging.Logger>."""
         logger = logging.getLogger('ServerFilter')
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
@@ -48,6 +46,7 @@ class DiscoveryLog(object):
     # end _init_logging
 
     def __init__(self):
+        """Initialize logger() for discovery."""
         self._msg = None
         self._logs = []
         self._logger = DiscoveryLog._init_logging()
@@ -89,14 +88,16 @@ class FilterModule(object):
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.WARN)
 
-        formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s',
-                                      datefmt='%Y/%m/%d %H:%M:%S')
+        formatter = logging.Formatter(
+            '%(asctime)s %(levelname)-8s %(message)s',
+            datefmt='%Y/%m/%d %H:%M:%S')
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
         return logger
 
     def __init__(self):
+        """Initialize filmofule logging."""
         self._logger = FilterModule._init_logging()
     # end __init__
 
@@ -115,7 +116,8 @@ class FilterModule(object):
         server_discovery_template = vnc_api.job_template_read(
             fq_name=job_template_fqname
         )
-        input_schema = server_discovery_template.get_job_template_input_schema()
+        input_schema = \
+            server_discovery_template.get_job_template_input_schema()
         input_schema = json.loads(input_schema)
         jsonschema.validate(job_input, input_schema)
         return job_input
@@ -149,8 +151,8 @@ class FilterModule(object):
             for node in cc_nodes['nodes']:
                 cc_node = {}
                 if node.get('bms_info') \
-                        and node['bms_info'].get('driver_info') \
-                        and node['bms_info']['driver_info'].get('ipmi_address'):
+                   and node['bms_info'].get('driver_info') \
+                   and node['bms_info']['driver_info'].get('ipmi_address'):
 
                     print node['bms_info']['driver_info']['ipmi_address']
                     cc_node['ipmi_address'] = node['bms_info']['driver_info'][
@@ -175,7 +177,7 @@ class FilterModule(object):
                         node_found_in_cc = True
                         break
 
-                if node_found_in_cc == False:
+                if node_found_in_cc is False:
                     final_ipmi_details.append(ipmi_node)
         except Exception as e:
             errmsg = "Unexpected error: %s\n%s" % (
@@ -194,10 +196,9 @@ class FilterModule(object):
             'discover_log': DiscoveryLog.instance().dump()
         }
 
-
-    def ping_check(self, retry_queue, result_queue ):
-        if retry_queue.empty() :
-          return True
+    def ping_check(self, retry_queue, result_queue):
+        if retry_queue.empty():
+            return True
 
         host_params = retry_queue.get_nowait()
         host = host_params['address']
@@ -206,11 +207,11 @@ class FilterModule(object):
                 ['ping', '-W', '1', '-c', '2', host], stdout=subprocess.PIPE)
             gevent.sleep(2)
             ping_output.wait()
-            result_queue.put({'address':host,
+            result_queue.put({'address': host,
                               'result': ping_output.returncode == 0})
             return ping_output.returncode == 0
         except Exception as ex:
-            print host, "ERROR: SUBPROCESS.POPEN failed with error {}"
+            print host, "ERROR: SUBPROCESS.POPEN failed with error {}", ex
             return False
     # end _ping_check
 
@@ -247,46 +248,43 @@ class FilterModule(object):
 
     def expand_subnets(self, job_ctx):
         """
+        Expand subnet from 10.10.10.0/24 to [10.10.10.1, ..., 10.10.10.254].
+
         :param job_ctx: Dictionary
-            example:
-            {
-                "auth_token": "EB9ABC546F98",
-                "job_input": {
-                    "ipmi": {
-                        "ipmi_subnet_list": [
-                            "30.1.1.1/24"
-                        ],
-                        "ipmi_cred_list": [
-                           "admin:admin",
-                           "admin:password"
-                        ],
-                        "ipmi_port_ranges": [
-                            {
-                                "port_range_start": 623,
-                                "port_range_end": 623
-                            }
-                        ]
-                    },
-                    "ironic": {
-                        "auth_url": "",
-                        "username": "",
-                        "password": ""
-                    },
-                    "contrail_command_host": ""
-                }
-            }
+
         :return: Dictionary
-            if success, returns
-            [
-                <list: valid_ipmi_list>
-            ]
-            if failure, returns
-            {
-                'status': 'failure',
-                'error_msg': <string: error message>,
-                'discover_log': <string: discover_log>
+           'status': 'success/failure',
+           'error_msg': <string: error message>,
+           'import_log': <string: import_log>
+        """
+        """
+        This continuation of above comments due to PEP8 error of following
+        example.
+        job_ctx: {
+            "auth_token": "EB9ABC546F98",
+            "job_input": {
+                 "ipmi": {
+                    "ipmi_subnet_list": [
+                        "30.1.1.1/24"
+                    ],
+                    "ipmi_cred_list": [
+                       "admin:admin",
+                       "admin:password"
+                    ],
+                    "ipmi_port_ranges": [ {
+                        "port_range_start": 623,
+                        "port_range_end": 623
+                    } ]
+                },
+                "ironic": {
+                    "auth_url": "",
+                    "username": "",
+                    "password": ""
+                },
+                "contrail_command_host": ""
             }
-            """
+        }
+        """
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
             self._logger.info("Job INPUT:\n" + str(job_input))
@@ -311,7 +309,6 @@ class FilterModule(object):
 
         return list(set(ipmi_addresses))
 
-
     def ipmi_check_gevent(self, input_queue, result_queue):
         if input_queue.empty():
             return True
@@ -324,18 +321,21 @@ class FilterModule(object):
         result_queue.put(ipmi_host)
         return
 
-    def ipmi_check_power_status(self, address, ipmi_username, ipmi_password,
-                               ipmi_port):
+    def ipmi_check_power_status(self,
+                                address,
+                                ipmi_username,
+                                ipmi_password,
+                                ipmi_port):
         try:
             ipmi_output = subprocess.Popen(['/usr/bin/ipmitool', '-R', '2',
-                                              '-I','lanplus',
-                                              '-U', ipmi_username,
-                                              '-P', ipmi_password,
-                                              '-p', str(ipmi_port),
-                                              '-H', address,
-                                              'power' ,'status'],
-                                          stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE)
+                                            '-I', 'lanplus',
+                                            '-U', ipmi_username,
+                                            '-P', ipmi_password,
+                                            '-p', str(ipmi_port),
+                                            '-H', address,
+                                            'power', 'status'],
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE)
             gevent.sleep(10)
             ipmi_output.wait()
             if ipmi_output.returncode == 0:
@@ -353,65 +353,61 @@ class FilterModule(object):
 
         threadpool = pool.Pool(concurrent)
         while True:
-          try:
-            if input_queue.qsize() == 0:
+            try:
+                if input_queue.qsize() == 0:
+                    break
+
+                for each_thread in range(concurrent):
+                    threadpool.start(
+                        Greenlet(
+                            func_call,
+                            input_queue, result_queue))
+                threadpool.join()
+
+            except queue.Empty:
+                print "QUEUE EMPTY EXIT"
                 break
 
-            for each_thread in range(concurrent):
-                threadpool.start(
-                    Greenlet(
-                        func_call,
-                        input_queue, result_queue ))
-            threadpool.join()
-
-          except queue.Empty:
-            print "QUEUE EMPTY EXIT"
-            break
-
-        print ("RESULTS-QUEUE-SIZE" , result_queue.qsize())
+        print ("RESULTS-QUEUE-SIZE", result_queue.qsize())
 
     def ipmi_auth_check(self, job_ctx, ipaddress_list):
         """
+        Check the IPMI addresses, credentials and port combo.
+
         :param job_ctx: Dictionary
-            example:
-            {
-                "auth_token": "EB9ABC546F98",
-                "job_input": {
-                    "ipmi": {
-                        "ipmi_subnet_list": [
-                            "30.1.1.1/24"
-                        ],
-                        "ipmi_cred_list": [
-                           "admin:admin",
-                           "admin:password"
-                        ],
-                        "ipmi_port_ranges": [
-                            {
-                                "port_range_start": 623,
-                                "port_range_end": 623
-                            }
-                        ]
-                    },
-                    "ironic": {
-                        "auth_url": "",
-                        "username": "",
-                        "password": ""
-                    },
-                    "contrail_command_host": ""
-                }
-            }
         :return: Dictionary
-            if success, returns
-            [
-                <list: valid_ipmi_details>
-            ]
-            if failure, returns
-            {
-                'status': 'failure',
-                'error_msg': <string: error message>,
-                'discover_log': <string: discover_log>
+           'status': 'success/failure',
+           'error_msg': <string: error message>,
+           'import_log': <string: import_log>
+        """
+        """
+        This continuation of above comments due to PEP8 error of following
+        example.
+        job_ctx: {
+            "auth_token": "EB9ABC546F98",
+            "job_input": {
+                 "ipmi": {
+                    "ipmi_subnet_list": [
+                        "30.1.1.1/24"
+                    ],
+                    "ipmi_cred_list": [
+                       "admin:admin",
+                       "admin:password"
+                    ],
+                    "ipmi_port_ranges": [ {
+                        "port_range_start": 623,
+                        "port_range_end": 623
+                    } ]
+                },
+                "ironic": {
+                    "auth_url": "",
+                    "username": "",
+                    "password": ""
+                },
+                "contrail_command_host": ""
             }
-            """
+        }
+        """
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
             ipmi_config = job_input.get('ipmi')
@@ -424,7 +420,8 @@ class FilterModule(object):
                 port_range_start = ipmi_port_range["port_range_start"]
                 port_range_end = ipmi_port_range["port_range_end"]
                 if port_range_end >= port_range_start:
-                    port_list.extend(range(port_range_start,port_range_end+1))
+                    port_list.extend(range(port_range_start,
+                                           port_range_end + 1))
                 else:
                     print "IGNORING, BAD RANGE ", ipmi_port_range
 
@@ -512,11 +509,11 @@ class FilterModule(object):
             cc_username = job_input.get('cc_username')
             cc_password = job_input.get('cc_password')
             ironic_node_object = ImportIronicNodes(auth_args=ironic_auth_args,
-                                              cluster_id=cluster_id,
-                                              cluster_token=cluster_token,
-                                              cc_username=cc_username,
-                                              cc_password=cc_password,
-                                              cc_host=cc_host)
+                                                   cluster_id=cluster_id,
+                                                   cluster_token=cluster_token,
+                                                   cc_username=cc_username,
+                                                   cc_password=cc_password,
+                                                   cc_host=cc_host)
             introspected_nodes = ironic_node_object.trigger_introspection(
                 registered_nodes)
         except Exception as e:
@@ -536,51 +533,47 @@ class FilterModule(object):
             'nodes': introspected_nodes
         }
 
-    def import_ironic_nodes(self, job_ctx, added_nodes_list):
+    def import_ironic_nodes(self, job_ctx, added_nodes):
         """
-                :param job_ctx: Dictionary
-                    example:
-                    {
-                        "auth_token": "EB9ABC546F98",
-                        "job_input": {
-                            "ipmi": {
-                                "ipmi_subnet_list": [
-                                    "30.1.1.1/24"
-                                ],
-                                "ipmi_cred_list": [
-                                   "admin:admin",
-                                   "admin:password"
-                                ],
-                                "ipmi_port_ranges": [
-                                    {
-                                        "port_range_start": 623,
-                                        "port_range_end": 623
-                                    }
-                                ]
-                            },
-                            "ironic": {
-                                "auth_url": "",
-                                "username": "",
-                                "password": ""
-                            },
-                            "contrail_command_host": ""
+        Import the nodes from ironic server.
+
+        :param job_ctx: Dictionary
+        :return: Dictionary
+                'status': 'success/failure',
+                'success_nodes': <on-success> <list: introspected nodes>,
+                'failed_nodes': <on-success> <list: failed introspected nodes>,
+                'error_msg': <string: error message>,
+                'discover_log': <string: discover_log>
+        """
+        """
+        example:
+        {
+            "auth_token": "EB9ABC546F98",
+            "job_input": {
+                "ipmi": {
+                    "ipmi_subnet_list": [
+                        "30.1.1.1/24"
+                    ],
+                    "ipmi_cred_list": [
+                       "admin:admin",
+                       "admin:password"
+                    ],
+                    "ipmi_port_ranges": [
+                        {
+                            "port_range_start": 623,
+                            "port_range_end": 623
                         }
-                    }
-                :return: Dictionary
-                    if success, returns
-                    [
-                        'status': 'success',
-                        'success_nodes': <list: successful introspected nodes>,
-                        'failed_nodes': <list: failed introspected nodes>,
-                        'discover_log': <list: discover_log>
                     ]
-                    if failure, returns
-                    {
-                        'status': 'failure',
-                        'error_msg': <string: error message>,
-                        'discover_log': <string: discover_log>
-                    }
-                    """
+                },
+                "ironic": {
+                    "auth_url": "",
+                    "username": "",
+                    "password": ""
+                },
+                "contrail_command_host": ""
+            }
+        }
+        """
         try:
             job_input = FilterModule._validate_job_ctx(job_ctx)
             ironic_auth_args = job_input.get('ironic')
@@ -596,11 +589,12 @@ class FilterModule(object):
                                               cc_host=cc_host,
                                               cc_username=cc_username,
                                               cc_password=cc_password,
-                                              added_nodes_list=added_nodes_list)
+                                              added_nodes_list=added_nodes)
             ironic_object.read_nodes_from_db()
             success_nodes = []
             failed_nodes = []
-            introspection_flag = ironic_auth_args.get('introspection_flag',True)
+            introspection_flag = ironic_auth_args.get('introspection_flag',
+                                                      True)
             if introspection_flag:
                 print "CHECKING INTROSPECTION"
                 success_nodes, failed_nodes = \

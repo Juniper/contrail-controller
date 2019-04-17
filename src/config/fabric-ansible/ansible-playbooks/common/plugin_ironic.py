@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
-import requests
-from ironicclient import client as ironicclient
-from urlparse import urlparse
-from keystoneauth1.identity import v3
-from keystoneauth1 import session
-from keystoneclient.v3 import client
-import ironic_inspector_client
-from contrail_command import CreateCCNode
 import time
+from urlparse import urlparse
+
+from contrail_command import CreateCCNode
+import ironic_inspector_client
+from ironicclient import client as ironicclient
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
+from keystoneclient.v3 import client
+
 
 class ImportIronicNodes(object):
 
@@ -57,15 +58,16 @@ class ImportIronicNodes(object):
     }
 
     def __init__(self, auth_args, cluster_id=None, cluster_token=None,
-                 cc_host=None, cc_username=None,cc_password=None,
+                 cc_host=None, cc_username=None, cc_password=None,
                  added_nodes_list=None):
-        for key,val in auth_args.iteritems():
+        """Create ironic client and authenticate with keystone."""
+        for key, val in auth_args.iteritems():
             if key in self.auth_args:
                 self.auth_args[key] = val
             elif key in self.ironic_client_kwargs:
                 self.ironic_client_kwargs[key] = val
             if 'os_' + str(key) in self.ironic_client_kwargs:
-                self.ironic_client_kwargs['os_'+str(key)] = val
+                self.ironic_client_kwargs['os_' + str(key)] = val
 
         if not self.auth_args['auth_url']:
             self.auth_url = '%s://%s:%s%s' % (self.auth_args['auth_protocol'],
@@ -215,45 +217,49 @@ class ImportIronicNodes(object):
 
     def get_cc_port_payload(self, port_dict, local_link_dict):
         cc_port = {"kind": "port",
-            "data": {
-                "parent_type": "node",
-                "parent_uuid": port_dict['node_uuid'],
-                "name": port_dict['ifname'],
-                "uuid": port_dict['uuid'],
-                "bms_port_info": {
-                    "pxe_enabled": port_dict['pxe_enabled'],
-                    "address": port_dict['address'],
-                    "node_uuid": port_dict['node_uuid'],
-                    "local_link_connection": local_link_dict
-                }
-            }
-        }
+                   "data": {
+                       "parent_type": "node",
+                       "parent_uuid": port_dict['node_uuid'],
+                       "name": port_dict['ifname'],
+                       "uuid": port_dict['uuid'],
+                       "bms_port_info": {
+                           "pxe_enabled": port_dict['pxe_enabled'],
+                           "address": port_dict['address'],
+                           "node_uuid": port_dict['node_uuid'],
+                           "local_link_connection": local_link_dict
+                       }
+                   }
+                   }
         return cc_port
 
     def get_cc_node_payload(self, node_dict):
-        cc_node = {"resources":
-            [{
-                "kind": "node",
-                "data": {
-                    "uuid": node_dict['uuid'],
-                    "node_type": "baremetal",
-                    "name": node_dict['hostname'],
-                    "display_name": node_dict['hostname'],
-                    "hostname": node_dict['hostname'],
-                    "parent_type": "global-system-config",
-                    "fq_name": ["default-global-system-config",
-                                node_dict['uuid']],
-                    "bms_info": {
+        cc_node = \
+            {
+                "resources": [{
+                    "kind": "node",
+                    "data": {
+                        "uuid": node_dict['uuid'],
+                        "node_type": "baremetal",
                         "name": node_dict['hostname'],
-                        "network_interface": "neutron",
-                        "properties": node_dict['properties'],
-                        "driver": "pxe_ipmitool",
-                        "driver_info": node_dict["driver_info"]
+                        "display_name": node_dict['hostname'],
+                        "hostname": node_dict['hostname'],
+                        "parent_type": "global-system-config",
+                        "fq_name": ["default-global-system-config",
+                                    node_dict['uuid']],
+                        "bms_info": {
+                            "name": node_dict['hostname'],
+                            "network_interface": "neutron",
+                            "properties": node_dict['properties'],
+                            "driver": "pxe_ipmitool",
+                            "driver_info": node_dict["driver_info"]
+                        }
                     }
-                }
-            }]
-        }
-        cc_node['resources'][0]['data']['bms_info']['driver_info']['ipmi_port'] = str(cc_node['resources'][0]['data']['bms_info']['driver_info']['ipmi_port'])
+                }]
+            }
+        bms_info = cc_node['resources'][0]['data']['bms_info']
+        bms_info['driver_info']['ipmi_port'] = \
+            str(bms_info['driver_info']['ipmi_port'])
+        cc_node['resources'][0]['data']['bms_info'] = bms_info
 
         return cc_node
 
@@ -261,7 +267,7 @@ class ImportIronicNodes(object):
         processed_data = {}
         interface_data_dict = introspection_data['all_interfaces']
 
-        for if_name,if_data in interface_data_dict.iteritems():
+        for if_name, if_data in interface_data_dict.iteritems():
             mac_address = if_data['mac']
             processed_data[mac_address] = {'ifname': if_name}
             if 'lldp_processed' in if_data:
@@ -275,7 +281,7 @@ class ImportIronicNodes(object):
         cc_port_list = []
         generated_hostname = ""
         processed_interface_dict = self.get_processed_if_data(
-         introspection_data)
+            introspection_data)
 
         for port in port_list:
             port_dict = port.to_dict()
@@ -287,7 +293,7 @@ class ImportIronicNodes(object):
                 generated_hostname = "auto-" + mac.replace(":", "")[6:]
             if mac in processed_interface_dict:
                 local_link_dict['switch_info'] = \
-                    processed_interface_dict[mac].get('switch_name',"")
+                    processed_interface_dict[mac].get('switch_name', "")
                 local_link_dict['port_id'] = \
                     processed_interface_dict[mac].get('port_name', "")
 
@@ -343,13 +349,12 @@ class ImportIronicNodes(object):
         return registered_nodes
 
 
-def main(added_nodes_list=None, ironic_auth_args=None, cc_auth_host=None,
-         cc_auth_token=None, introspection_flag = False):
+def main(added_nodes=None, ironic_auth_args=None, cc_auth_host=None,
+         cc_auth_token=None, introspection_flag=False):
     import_ironic_nodes_obj = ImportIronicNodes(auth_args=ironic_auth_args,
                                                 cc_host=cc_auth_host,
                                                 cc_auth_token=cc_auth_token,
-                                                added_nodes_list=
-                                                added_nodes_list)
+                                                added_nodes_list=added_nodes)
     import_ironic_nodes_obj.read_nodes_from_db()
     if introspection_flag:
         import_ironic_nodes_obj.check_introspection()
@@ -377,4 +382,3 @@ if __name__ == '__main__':
              introspection_flag=introspection_flag)
     except Exception as e:
         print e.message
-
