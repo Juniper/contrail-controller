@@ -499,7 +499,7 @@ class PhysicalRouterDM(DBBaseDM):
         for vn_subnet in new_vn_ip_set.intersection(old_set):
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
-            ip = self.vn_ip_map[ip_used_for][vn_subnet]
+            ip = self.vn_ip_map[ip_used_for][vn_subnet].split('/')[0]
             if ip == vn.gateways[subnet_prefix].get('default_gateway') and not is_erb_only:
                 create_set.add(vn_subnet)
                 delete_set.add(vn_subnet)
