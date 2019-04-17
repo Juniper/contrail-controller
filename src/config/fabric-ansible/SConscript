@@ -19,6 +19,8 @@ subdirs=[
 ]
 
 setup_sources = [
+           '.coveragerc',
+           '.stestr.conf',
            'setup.py',
            'MANIFEST.in',
            'run_tests.sh',
@@ -26,6 +28,7 @@ setup_sources = [
            'test-requirements.txt',
            '.testr.conf',
            '.coveragerc',
+           'tox.ini',
            'test',
           ]
 
@@ -86,6 +89,6 @@ env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-fabric-ansible/', doc_files))
 
 test_target = env.SetupPyTestSuite(sdist_gen,
-                                   '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz')
+                                   '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz', use_tox=True)
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
