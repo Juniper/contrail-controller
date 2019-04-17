@@ -10,13 +10,11 @@ env = BuildEnv.Clone()
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('..').path + '/../' + x, list)
 
-env.Prepend(CPPPATH = env['TOP'] + '/../include/thrift')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
-env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
 
-env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh',
+env.Prepend(LIBS=['xmpp', 'peer_sandesh',
                   'xmpp_unicast', 'xmpp_multicast', 'services',
                   'xml', 'pugixml', 'route',
                   'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common',
