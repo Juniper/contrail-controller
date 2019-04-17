@@ -51,3 +51,5 @@ set groups {{cfg_group}} policy-options policy-statement REJECT-MAINTENANCE-MODE
 
 set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE-underlay then as-path-prepend "9999 9999 9999"
 set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE-underlay then accept
+
+set groups {{cfg_group}} protocols l2-learning global-mac-table-aging-time 1800
