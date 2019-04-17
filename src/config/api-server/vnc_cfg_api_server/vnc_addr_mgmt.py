@@ -353,7 +353,7 @@ class Subnet(object):
                     ip_alloc_unit, 'Pool range<=block_alloc_unit')
 
         # Exclude host and broadcast
-        exclude = [IPAddress(network.first), network.broadcast]
+        exclude = [IPAddress(network.first), IPAddress(network.broadcast)]
 
         # exclude gw_ip, service_node_address if they are within
         # allocation-pool and subnet is not subnetted
@@ -2046,6 +2046,13 @@ class AddrMgmt(object):
                                               subnet_name, subnet_dict)
             if subnet_obj.ip_belongs(ip_addr):
                 subnet_obj.ip_free(IPAddress(ip_addr))
+                if ((subnet_obj.subscriber_tag) and (subnet_obj.subscriber_tag != None)):
+                    for ip_addr in subnet_obj._network:
+                        if IPAddress(ip_addr) in subnet_obj._exclude:
+                            continue
+                        if(subnet_obj.is_ip_allocated(ip_addr)):
+                            return True
+                    subnet_obj.subscriber_tag = None
                 return True
         return False
     # end _net_ip_free_req
