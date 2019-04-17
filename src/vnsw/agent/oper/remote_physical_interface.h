@@ -39,7 +39,7 @@ public:
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
 
-    friend class RemotePhysicalInterfaceKey;
+    friend struct RemotePhysicalInterfaceKey;
 private:
     std::string display_name_;
     PhysicalDeviceRef physical_device_;

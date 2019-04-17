@@ -10,7 +10,7 @@
 class Agent;
 class AgentDBEntry;
 class AgentDBTable;
-class AgentDBState;
+struct AgentDBState;
 class AgentSandesh;
 class AgentSandeshArguments;
 class AgentSandesh;

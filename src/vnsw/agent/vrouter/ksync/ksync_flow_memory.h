@@ -14,7 +14,7 @@
 
 class Timer;
 class KSync;
-class FlowKey;
+struct FlowKey;
 struct vr_flow_entry;
 struct vr_flow_stats;
 struct KFlowData;

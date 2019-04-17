@@ -27,10 +27,10 @@ class XmlPugi;
 class PathPreference;
 class AgentPath;
 class EcmpLoadBalance;
-class ControllerTimer;
-class EndOfRibTxTimer;
-class EndOfRibRxTimer;
-class LlgrStaleTimer;
+struct ControllerTimer;
+struct EndOfRibTxTimer;
+struct EndOfRibRxTimer;
+struct LlgrStaleTimer;
 class ControllerEcmpRoute;
 
 class XmlWriter : public pugi::xml_writer {

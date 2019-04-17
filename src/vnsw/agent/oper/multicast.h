@@ -297,7 +297,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MulticastTEWalker);
 };
 
-class AgentRouteData;
+struct AgentRouteData;
 
 /* Static class for handling multicast objects common functionalities */
 class MulticastHandler {
