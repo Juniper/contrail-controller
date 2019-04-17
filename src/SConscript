@@ -11,21 +11,21 @@ Import('contrail_common_base_doc_files')
 Import('contrail_common_io_doc_files')
 
 subdirs = [
-           'analytics/database',
-           'bfd',
-           'bgp',
-           'db',
-           'dns',
-           'ifmap',
-           'net',
-           'route',
-           'sandesh',
-           'storage',
-           'xml',
-           'xmpp',
-           'nodemgr',
-           ]
- 
+    'analytics/database',
+    'bfd',
+    'bgp',
+    'db',
+    'dns',
+    'ifmap',
+    'net',
+    'route',
+    'sandesh',
+    'storage',
+    'xml',
+    'xmpp',
+    'nodemgr',
+]
+
 if platform.system() != 'Darwin':
     subdirs += ['ksync']
 
@@ -57,8 +57,10 @@ else:
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
 
-if platform.system() != 'Windows':
-    common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
+if platform.system() == 'Windows':
+    common.Append(CXXFLAGS = ['/W1', '/WX'])
+else:
+    common.Append(CXXFLAGS = ['-Wall', '-Werror', '-Wsign-compare'])
 
     if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
                                shell=True).rstrip() == "4.8.5":
