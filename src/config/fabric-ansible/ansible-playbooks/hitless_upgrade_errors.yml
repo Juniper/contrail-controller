@@ -6,19 +6,22 @@
     name: "maintenance_mode_deactivate"
   when: device_push_response is defined and device_push_response.failed == false and device_maintenance_mode == "activate"
 
-- name: Get the next batch of devices and return to job manager
-  set_fact:
-    next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
-  when: device_push_response is undefined
+- block:
+  - block:
+    - name: Get the next batch of devices and return to job manager
+      set_fact:
+        next_batch: "{{ job_ctx | hitless_next_batch(upgrade_plan, pr_uuid)}}"
+    when: device_push_response is undefined
 
-- name: Set next_set
-  set_fact:
-    next_set: "{{next_batch.next.batch_devices}}"
+  - name: Set next_set
+    set_fact:
+      next_set: "{{next_batch.next.batch_devices}}"
+  when: upgrade_mode == 'upgrade'
 
 - set_fact:
     output: {
        "status": "success",
-       "retry_devices": "{{next_set}}",
+       "retry_devices": "{{next_set if next_set is defined else {} }}",
        "message": "{{op_err_message}}",
        "results": "{{ results if results is defined else {} }}"
     }
