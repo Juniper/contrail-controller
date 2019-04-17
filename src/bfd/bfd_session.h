@@ -18,8 +18,8 @@
 
 namespace BFD {
 class Connection;
-class SessionConfig;
-class ControlPacket;
+struct SessionConfig;
+struct ControlPacket;
 
 struct BFDRemoteSessionState {
     BFDRemoteSessionState() : discriminator(0),

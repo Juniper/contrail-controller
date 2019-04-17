@@ -8,7 +8,7 @@
 class AgentConfig;
 class DBTable;
 class IFMapNode;
-class DBRequest;
+struct DBRequest;
 
 class CfgFilter {
 public:

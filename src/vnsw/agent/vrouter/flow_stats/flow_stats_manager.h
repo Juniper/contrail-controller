@@ -192,7 +192,7 @@ public:
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
 private:
-    friend class FlowStatsCollectorReq;
+    friend struct FlowStatsCollectorReq;
     friend class FlowStatsCollector;
     friend class SessionStatsCollector;
     bool UpdateSessionThreshold(void);

@@ -13,7 +13,7 @@
 
 class PacketBuffer;
 class PacketBufferManager;
-class AgentHdr;
+struct AgentHdr;
 class PktHandler;
 class PktModule;
 

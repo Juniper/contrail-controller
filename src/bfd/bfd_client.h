@@ -10,7 +10,7 @@ namespace BFD {
 
 class Connection;
 class Session;
-class SessionConfig;
+struct SessionConfig;
 
 class Client {
 public:

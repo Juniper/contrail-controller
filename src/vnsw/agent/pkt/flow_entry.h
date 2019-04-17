@@ -38,7 +38,7 @@
 
 class FlowTableKSyncEntry;
 class FlowEntry;
-struct FlowExportInfo;
+class FlowExportInfo;
 class FlowStatsCollector;
 class Token;
 class FlowMgmtRequest;

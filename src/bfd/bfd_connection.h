@@ -10,7 +10,7 @@
 #include "bfd/bfd_server.h"
 
 namespace BFD {
-class ControlPacket;
+struct ControlPacket;
 class Server;
 
 class Connection {
