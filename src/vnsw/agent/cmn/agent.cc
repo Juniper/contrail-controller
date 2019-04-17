@@ -104,10 +104,12 @@ const string &Agent::vhost_interface_name() const {
 };
 
 bool Agent::is_vhost_interface_up() const {
-#define LOG_RATE_LIMIT (15)
+    enum { LOG_RATE_LIMIT = 15 };
+
     if (tor_agent_enabled() || test_mode() || vrouter_on_windows()) {
         return true;
     }
+
 #ifndef _WIN32
     struct ifreq ifr;
     static int err_count = 0;
@@ -133,9 +135,9 @@ bool Agent::is_vhost_interface_up() const {
         return false;
     }
     close(sock);
-    return true;
 #endif
-#undef LOG_RATE_LIMIT
+
+    return true;
 }
 
 bool Agent::isXenMode() {
