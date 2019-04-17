@@ -18,7 +18,7 @@
                "items":{
                    "$id":"/properties/interface_names/items",
                    "type":"string",
-                   "pattern": "^([a-z]{2,3}-[0-9]{1,}/[0-9]{1,}/[0-9]{1,}(.[0-9]{1,})?)$",
+                   "pattern": "^([a-z]{2,3}[0-9]{0,}(-[0-9]{1,}/[0-9]{1,}/[0-9]{1,})?(.[0-9]{1,})?)$",
                    "title":"Interface Name"
                },
                "examples":["ge-0/0/1", "xe-0/0/0"]

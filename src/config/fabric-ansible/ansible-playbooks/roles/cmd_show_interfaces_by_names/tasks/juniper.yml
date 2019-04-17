@@ -29,6 +29,12 @@
   set_fact:
     command_resp_log_intf: "{{command_resp['results']|json_query('[*].parsed_output.\"interface-information\".\"logical-interface\"')}}"
 
+- name: get the physical and logical interfaces info if it is a single interface query
+  set_fact:
+    command_resp_phy_intf: ["{{command_resp | json_query('parsed_output.\"interface-information\".\"physical-interface\"')}}"]
+    command_resp_log_intf: ["{{command_resp | json_query('parsed_output.\"interface-information\".\"logical-interface\"')}}"]
+  when: "'results' not in command_resp"
+
 - name: set the command_resp
   set_fact:
     command_resp: {
