@@ -21,13 +21,23 @@
       timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
   register: command_resp
 
-- name: get the physical interfaces info
+- name: get the physical or logical interfaces info for multiple matching interfaces
   set_fact:
     command_resp_phy_intf: "{{command_resp['results']|json_query('[*].parsed_output.\"interface-information\".\"physical-interface\"')}}"
-
-- name: get the logical interfaces info
-  set_fact:
     command_resp_log_intf: "{{command_resp['results']|json_query('[*].parsed_output.\"interface-information\".\"logical-interface\"')}}"
+  when: "'results' in command_resp"
+
+- name: get the physical and logical interfaces info if it is a single matching interface
+  set_fact:
+    command_resp_phy_intf: "{{command_resp | json_query('parsed_output.\"interface-information\".\"physical-interface\"') | default([], true)}}"
+    command_resp_log_intf: "{{command_resp | json_query('parsed_output.\"interface-information\".\"logical-interface\"') | default([], true)}}"
+  when: "'results' not in command_resp"
+
+- name: convert dict back into list
+  set_fact:
+    command_resp_phy_intf: ["{{command_resp_phy_intf}}"]
+    command_resp_log_intf: ["{{command_resp_log_intf}}"]
+  when: command_resp_phy_intf is mapping or command_resp_log_intf is mapping
 
 - name: set the command_resp
   set_fact:
