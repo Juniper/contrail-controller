@@ -16,7 +16,7 @@ set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%                     set family = ip_addr.get('family') %}
 set groups {{cfg_group}} protocols igmp interface {{name}}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}}
-set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:22:22:22
+set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:01:00:01
 {%                 endfor %}
 {%             endfor %}
 {%         endif %}
