@@ -14,7 +14,7 @@
 #include <oper/vxlan.h>
 //Forward declaration
 class AgentXmppChannel;
-class InterfaceKey;
+struct InterfaceKey;
 class PhysicalInterface;
 class Peer;
 class EvpnPeer;

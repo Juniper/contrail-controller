@@ -22,7 +22,7 @@
 
 class InterfaceTable;
 class Agent;
-class VmInterfaceConfigData;
+struct VmInterfaceConfigData;
 class VmiSubscribeEntry;
 class VmVnPortSubscribeEntry;
 class PortSubscribeEntry;

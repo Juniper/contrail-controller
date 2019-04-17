@@ -7,7 +7,7 @@
 
 class Timer;
 class KSync;
-class vr_bridge_entry;
+struct vr_bridge_entry;
 /*
  * Module responsible to manage the VRouter memory mapped to agent
  */

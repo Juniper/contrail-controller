@@ -12,7 +12,7 @@
 class Agent;
 class DB;
 class AgentQosConfigTable;
-class AgentQosConfigData;
+struct AgentQosConfigData;
 
 struct AgentQosConfigKey : public AgentOperDBKey {
     AgentQosConfigKey(const boost::uuids::uuid &uuid):

@@ -13,7 +13,7 @@
 
 //Forward declaration
 class AgentXmppChannel;
-class AgentRouteData;
+struct AgentRouteData;
 class EcmpLoadBalance;
 class Peer;
 class BgpPeer;

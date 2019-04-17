@@ -22,7 +22,7 @@ class SessionStatsCollector;
 class SessionStatsCollectorObject;
 class NexthopManager;
 class FlowStatsManager;
-class FlowAgingTableKey;
+struct FlowAgingTableKey;
 
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
@@ -46,4 +46,3 @@ class AgentObjectFactory : public Factory<AgentObjectFactory> {
 };
 
 #endif // vnsw_agent_factory_hpp
-

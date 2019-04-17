@@ -300,7 +300,7 @@ public:
     }
 
 private:
-    friend class HealthCheckInstanceEvent;
+    friend struct HealthCheckInstanceEvent;
 
     bool IsInstanceTaskBased() const;
     HealthCheckInstanceBase *StartHealthCheckService(VmInterface *intrface,
