@@ -111,18 +111,29 @@ bool Agent::is_vhost_interface_up() const {
 #ifndef _WIN32
     struct ifreq ifr;
     static int err_count = 0;
-    int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     memset(&ifr, 0, sizeof(ifr));
     strcpy(ifr.ifr_name, vhost_interface_name().c_str());
     int err = ioctl(sock, SIOCGIFFLAGS, &ifr);
-    if (err < 0) {
+    if (err < 0 || !(ifr.ifr_flags & IFF_UP)) {
+        close(sock);
         if ((err_count % LOG_RATE_LIMIT) == 0) {
             LOG(DEBUG, "vhost is down");
         }
         err_count++;
+        return false;
+    }
+    err = ioctl(sock, SIOCGIFADDR, &ifr);
+    if (err < 0) {
+        close(sock);
+        if ((err_count % LOG_RATE_LIMIT) == 0) {
+            LOG(DEBUG, "vhost is up. but ip is not set");
+        }
+        err_count++;
+        return false;
     }
     close(sock);
-    return (ifr.ifr_flags & IFF_UP);
+    return true;
 #endif
 #undef LOG_RATE_LIMIT
 }
