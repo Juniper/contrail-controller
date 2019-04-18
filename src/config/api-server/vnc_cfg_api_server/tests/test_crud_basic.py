@@ -450,6 +450,15 @@ class TestCrud(test_case.ApiServerTestCase):
         # reading Physical Router object when user credentials
         # are set to None should be successfull.
         phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_router.uuid)
+
+        phy_rout3_name = self.id() + '-phy-router-3'
+        phy_router3 = PhysicalRouter(phy_rout3_name)
+        self._vnc_lib.physical_router_create(phy_router3)
+        phy_router3.set_physical_router_user_credentials(None)
+        self._vnc_lib.physical_router_update(phy_router3)
+        # reading Physical Router object when user credentials
+        # are update to None should be successfull.
+        phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_router3.uuid)
         # end test_physical_router_w_no_user_credentials
 
     def test_bridge_domain_with_multiple_bd_in_vn(self):
