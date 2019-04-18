@@ -129,6 +129,24 @@ struct BgpAttrAtomicAggregate : public BgpAttribute {
     virtual std::string ToString() const;
 };
 
+struct BgpAttrAs4Aggregator : public BgpAttribute {
+    static const int kSize = 8;
+    static const uint8_t kFlags = Optional|Transitive;
+    BgpAttrAs4Aggregator()
+        : BgpAttribute(As4Aggregator, kFlags), as_num(0), address(0) {
+    }
+    explicit BgpAttrAs4Aggregator(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), as_num(0), address(0) {
+    }
+    explicit BgpAttrAs4Aggregator(uint32_t as_num, uint32_t address) :
+        BgpAttribute(As4Aggregator, kFlags), as_num(as_num), address(address) {}
+    as_t as_num;
+    uint32_t address;
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+};
+
 struct BgpAttrAggregator : public BgpAttribute {
     static const int kSize = 6;
     static const uint8_t kFlags = Optional|Transitive;
@@ -141,6 +159,24 @@ struct BgpAttrAggregator : public BgpAttribute {
     explicit BgpAttrAggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(Aggregator, kFlags), as_num(as_num), address(address) {}
     as2_t as_num;
+    uint32_t address;
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+};
+
+struct BgpAttr4ByteAggregator : public BgpAttribute {
+    static const int kSize = 8;
+    static const uint8_t kFlags = Optional|Transitive;
+    BgpAttr4ByteAggregator()
+        : BgpAttribute(Aggregator, kFlags), as_num(0), address(0) {
+    }
+    explicit BgpAttr4ByteAggregator(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), as_num(0), address(0) {
+    }
+    explicit BgpAttr4ByteAggregator(uint32_t as_num, uint32_t address) :
+        BgpAttribute(Aggregator, kFlags), as_num(as_num), address(address) {}
+    as_t as_num;
     uint32_t address;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);

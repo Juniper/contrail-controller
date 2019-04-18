@@ -105,6 +105,27 @@ string BgpAttrAtomicAggregate::ToString() const {
     return string(repr);
 }
 
+int BgpAttr4ByteAggregator::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    KEY_COMPARE(as_num,
+            static_cast<const BgpAttr4ByteAggregator &>(rhs_attr).as_num);
+    KEY_COMPARE(address,
+            static_cast<const BgpAttr4ByteAggregator &>(rhs_attr).address);
+    return 0;
+}
+void BgpAttr4ByteAggregator::ToCanonical(BgpAttr *attr) {
+    attr->set_aggregator(as_num, Ip4Address(address));
+}
+
+string BgpAttr4ByteAggregator::ToString() const {
+    char repr[80];
+    snprintf(repr, sizeof(repr),
+             "Aggregator <code: %d, flags: %02x> : %d:%08x",
+             code, flags, as_num, address);
+    return string(repr);
+}
+
 int BgpAttrAggregator::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
@@ -119,6 +140,27 @@ void BgpAttrAggregator::ToCanonical(BgpAttr *attr) {
 }
 
 string BgpAttrAggregator::ToString() const {
+    char repr[80];
+    snprintf(repr, sizeof(repr),
+             "Aggregator <code: %d, flags: %02x> : %d:%08x",
+             code, flags, as_num, address);
+    return string(repr);
+}
+
+int BgpAttrAs4Aggregator::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    KEY_COMPARE(as_num,
+            static_cast<const BgpAttrAs4Aggregator &>(rhs_attr).as_num);
+    KEY_COMPARE(address,
+            static_cast<const BgpAttrAs4Aggregator &>(rhs_attr).address);
+    return 0;
+}
+void BgpAttrAs4Aggregator::ToCanonical(BgpAttr *attr) {
+    attr->set_aggregator(as_num, Ip4Address(address));
+}
+
+string BgpAttrAs4Aggregator::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr),
              "Aggregator <code: %d, flags: %02x> : %d:%08x",

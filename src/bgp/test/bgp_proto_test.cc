@@ -946,7 +946,7 @@ TEST_F(BgpProtoTest, UpdateScale) {
     BgpAttrAtomicAggregate *aa = new BgpAttrAtomicAggregate;
     update.path_attributes.push_back(aa);
 
-    BgpAttrAggregator *agg = new BgpAttrAggregator(0xface, 0xcafebabe);
+    BgpAttr4ByteAggregator *agg = new BgpAttr4ByteAggregator(0xface, 0xcafebabe);
     update.path_attributes.push_back(agg);
 
     AsPath4ByteSpec *path4_spec = new AsPath4ByteSpec;
