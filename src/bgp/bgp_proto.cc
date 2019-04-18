@@ -953,6 +953,32 @@ public:
     > Sequence;
 };
 
+class BgpPathAttributeAggregator4Byte :
+    public ProtoSequence<BgpPathAttributeAggregator4Byte> {
+public:
+    typedef BgpAttr4ByteAggregator ContextType;
+    typedef BgpContextSwap<BgpAttr4ByteAggregator> ContextSwap;
+    typedef mpl::list<BgpPathAttrLength,
+            BgpAttributeValue<4, BgpAttr4ByteAggregator, as_t,
+                                  &BgpAttr4ByteAggregator::as_num>,
+            BgpAttributeValue<4, BgpAttr4ByteAggregator, uint32_t,
+                                  &BgpAttr4ByteAggregator::address>
+    > Sequence;
+};
+
+class BgpPathAttributeAs4Aggregator :
+    public ProtoSequence<BgpPathAttributeAs4Aggregator> {
+public:
+    typedef BgpAttrAs4Aggregator ContextType;
+    typedef BgpContextSwap<BgpAttrAs4Aggregator> ContextSwap;
+    typedef mpl::list<BgpPathAttrLength,
+            BgpAttributeValue<4, BgpAttrAs4Aggregator, as_t,
+                                  &BgpAttrAs4Aggregator::as_num>,
+            BgpAttributeValue<4, BgpAttrAs4Aggregator, uint32_t,
+                                  &BgpAttrAs4Aggregator::address>
+    > Sequence;
+};
+
 class BgpPathAttrAsPathSegmentLength :
     public ProtoElement<BgpPathAttrAsPathSegmentLength> {
 public:
@@ -1851,6 +1877,8 @@ public:
                     BgpPathAttributeAtomicAggregate>,
           mpl::pair<mpl::int_<BgpAttribute::Aggregator>,
                     BgpPathAttributeAggregator>,
+          mpl::pair<mpl::int_<BgpAttribute::As4Aggregator>,
+                    BgpPathAttributeAs4Aggregator>,
           mpl::pair<mpl::int_<BgpAttribute::Communities>,
                     BgpPathAttributeCommunities>,
           mpl::pair<mpl::int_<BgpAttribute::OriginatorId>,
@@ -1900,7 +1928,9 @@ public:
           mpl::pair<mpl::int_<BgpAttribute::AtomicAggregate>,
                     BgpPathAttributeAtomicAggregate>,
           mpl::pair<mpl::int_<BgpAttribute::Aggregator>,
-                    BgpPathAttributeAggregator>,
+                    BgpPathAttributeAggregator4Byte>,
+          mpl::pair<mpl::int_<BgpAttribute::As4Aggregator>,
+                    BgpPathAttributeAs4Aggregator>,
           mpl::pair<mpl::int_<BgpAttribute::Communities>,
                     BgpPathAttributeCommunities>,
           mpl::pair<mpl::int_<BgpAttribute::OriginatorId>,
