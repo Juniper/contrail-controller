@@ -109,7 +109,7 @@ class IndexAllocator(object):
         for idx, bitval in enumerate(self._in_use):
             if not bitval:
                 continue
-            zk_idx = self._get_zk_index_from_bit(idx)
+            zk_idx = self._get_zk_index_from_bit(idx, sorted_alloc_list)
             idx_int = self._get_bit_from_zk_index(zk_idx, sorted_alloc_list)
 
             if idx_int >= 0:
