@@ -1356,6 +1356,10 @@ def parse_args(args_str):
         'white_list_publish': None,
         'white_list_subscribe': None,
         'policy': 'load-balance',
+        'tcp_keepalive_enable': True,
+        'tcp_keepalive_idle_time': 7200,
+        'tcp_keepalive_interval': 75,
+        'tcp_keepalive_probes': 9,
     }
 
     cassandra_opts = {
@@ -1484,6 +1488,14 @@ def parse_args(args_str):
     parser.add_argument(
         "--auth", choices=['keystone'],
         help="Type of authentication for user-requests")
+    parser.add_argument("--tcp_keepalive_enable", action="store_true",
+        help="Used to enable keepalive for tcp connection")
+    parser.add_argument("--tcp_keepalive_idle_time", type=int,
+        help="Used to set the keepalive timer in seconds")
+    parser.add_argument("--tcp_keepalive_interval", type=int,
+        help="Used to specify the tcp keepalive interval time")
+    parser.add_argument("--tcp_keepalive_probes", type=int,
+        help="Used to specify the tcp keepalive probes")
 
     args = parser.parse_args(remaining_argv)
     args.conf_file = args.conf_file
@@ -1499,6 +1511,46 @@ def parse_args(args_str):
     return args
 # end parse_args
 
+class ContrailGeventServer(bottle.GeventServer):
+    def __init__(self, host, port, args):
+        super(ContrailGeventServer, self ).__init__(host, port)
+        self.tcp_keepalive_enable = args.tcp_keepalive_enable
+        self.tcp_keepalive_idle_time = args.tcp_keepalive_idle_time
+       self.tcp_keepalive_interval = args.tcp_keepalive_interval
+        self.tcp_keepalive_probes = args.tcp_keepalive_probes
+
+    def run(self, handler):
+        from gevent import wsgi as wsgi_fast, pywsgi, monkey, local
+        if self.options.get('monkey', True):
+            import threading
+            if not threading.local is local.local: monkey.patch_all()
+        wsgi = wsgi_fast if self.options.get('fast') else pywsgi
+        self.srv = wsgi.WSGIServer((self.host, self.port), handler)
+        self.srv.init_socket()
+
+        if hasattr(_socket,'SO_KEEPALIVE'):
+            self.srv.socket.setsockopt(_socket.SOL_SOCKET,
+                                       _socket.SO_KEEPALIVE,
+                                       self.tcp_keepalive_enable)
+        if hasattr(_socket, 'TCP_KEEPIDLE'):
+            self.srv.socket.setsockopt(_socket.IPPROTO_TCP, 
+                                       _socket.TCP_KEEPIDLE,
+                                       self.tcp_keepalive_idle_time)
+        if hasattr(socket, 'TCP_KEEPINTVL'):
+            self.srv.socket.setsockopt(_socket.IPPROTO_TCP, 
+                                       _socket.TCP_KEEPINTVL,
+                                       self.tcp_keepalive_interval)
+        if hasattr(socket, 'TCP_KEEPCNT'):
+            self.srv.socket.setsockopt(_socket.IPPROTO_TCP,
+                                       _socket.TCP_KEEPCNT,
+                                       self.tcp_keepalive_probes)
+
+        self.srv.serve_forever()
+    def stop(self):
+        if hasattr(self, 'srv'):
+            self.srv.stop()
+            gevent.sleep(0)
+
 server = None
 def run_discovery_server(args):
     global server
@@ -1506,8 +1558,12 @@ def run_discovery_server(args):
     pipe_start_app = server.get_pipe_start_app()
 
     try:
+        _webserver = ContrailGeventServer(
+                                   host=server.get_ip_addr(),
+                                   port=server.get_port(),args=args)
+
         bottle.run(app=pipe_start_app, host=server.get_ip_addr(),
-                   port=server.get_port(), server='gevent')
+                   port=server.get_port(), server=self._webserver)
     except Exception as e:
         # cleanup gracefully
         server.cleanup()
