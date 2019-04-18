@@ -1039,6 +1039,27 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "juniper-qfx10k-lean"
+          ],
+          "name": "juniper-qfx10k-lean",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_hitless_upgrade": true,
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["Route-Reflector"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "Route-Reflector"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "juniper-qfx10k"
           ],
           "name": "juniper-qfx10k",
@@ -1147,6 +1168,20 @@
           "parent_type": "node-profile",
           "role_config_config": {
             "bgp_hold_time": 90
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "juniper-qfx10k-lean", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": {
+            "snmp": {
+              "communities": [
+                { "name": "public", "readonly": true }
+              ]
+            }
           }
         },
         {
@@ -1355,7 +1390,7 @@
     },
     {
       "from_type": "node_profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-60c" ]
     },
@@ -1506,6 +1541,12 @@
     {
       "from_type": "role_config",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k", "underlay_ip_clos" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "role_config",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k-lean", "basic" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
