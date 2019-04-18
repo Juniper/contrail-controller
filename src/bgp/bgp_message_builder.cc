@@ -52,10 +52,17 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     }
 
     if (attr->aggregator_as_num()) {
-        BgpAttrAggregator *agg = new BgpAttrAggregator(
+        if (ribout->as4_supported()) {
+            BgpAttr4ByteAggregator *agg = new BgpAttr4ByteAggregator(
                 attr->aggregator_as_num(),
                 attr->aggregator_adderess().to_v4().to_ulong());
-        update.path_attributes.push_back(agg);
+            update.path_attributes.push_back(agg);
+        } else {
+            BgpAttrAggregator *agg = new BgpAttrAggregator(
+                attr->aggregator_as_num(),
+                attr->aggregator_adderess().to_v4().to_ulong());
+            update.path_attributes.push_back(agg);
+        }
     }
 
     if (!attr->originator_id().is_unspecified()) {
