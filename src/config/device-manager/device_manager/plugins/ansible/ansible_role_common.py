@@ -180,14 +180,12 @@ class AnsibleRoleCommon(AnsibleConf):
         prefixes = ri_conf.get("prefixes", [])
         gateways = ri_conf.get("gateways", [])
         router_external = ri_conf.get("router_external", False)
-        is_dci = ri_conf.get("is_dci_network", False)
         connected_dci_network = ri_conf.get("connected_dci_network")
         interfaces = ri_conf.get("interfaces", [])
         vni = ri_conf.get("vni", None)
         fip_map = ri_conf.get("fip_map", None)
         network_id = ri_conf.get("network_id", None)
         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn.name else False
-        is_dci_vn = True if '_contrail_dci_internal_vn_' in vn.name else False
         encapsulation_priorities = \
            ri_conf.get("encapsulation_priorities") or ["MPLSoGRE"]
 
@@ -200,7 +198,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
         ri.set_virtual_network_id(str(network_id))
         ri.set_vxlan_id(str(vni))
-        ri.set_virtual_network_is_internal(is_internal_vn or is_dci_vn)
+        ri.set_virtual_network_is_internal(is_internal_vn)
         ri.set_is_public_network(router_external)
         if is_l2_l3:
             ri.set_virtual_network_mode('l2-l3')
@@ -229,10 +227,8 @@ class AnsibleRoleCommon(AnsibleConf):
 
         if is_internal_vn:
             self.internal_vn_ris.append(ri)
-        if is_dci_vn:
-            self.dci_vn_ris.append(ri)
 
-        if is_internal_vn or router_external or is_dci_vn:
+        if is_internal_vn or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
 
         if self.is_gateway() and is_l2_l3:
@@ -292,18 +288,6 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.inet6_forwarding_filter.set_terms(terms)
 
         # add firewall config for DCI Network
-        if is_dci:
-            self.firewall_config = self.firewall_config or Firewall(
-                comment=DMUtils.firewall_comment())
-            self.dci_forwarding_filter[vn.uuid] = self.add_inet_vrf_filter(
-                    self.firewall_config, ri_name)
-            # add terms to inet4 filter
-            term = self.add_inet_filter_term(ri_name, prefixes, "inet4")
-            # insert before the last term
-            terms = self.dci_forwarding_filter[vn.uuid].get_terms()
-            terms = [term] + (terms or [])
-            self.dci_forwarding_filter[vn.uuid].set_terms(terms)
-
         if fip_map is not None:
             self.firewall_config = self.firewall_config or Firewall(
                 comment=DMUtils.firewall_comment())
@@ -361,7 +345,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if (not is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             self.init_evpn_config()
-            if not is_internal_vn and not is_dci_vn:
+            if not is_internal_vn:
                 # add vlans
                 self.add_ri_vlan_config(ri_name, vni)
 
@@ -586,10 +570,6 @@ class AnsibleRoleCommon(AnsibleConf):
             if not lr:
                 continue
             vn_list += lr.get_connected_networks(include_internal=True)
-            if lr.data_center_interconnect:
-                dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
-                if dci.virtual_network:
-                    vn_list += [dci.virtual_network]
 
         vn_dict = {}
         for vn_id in vn_list:
@@ -959,7 +939,6 @@ class AnsibleRoleCommon(AnsibleConf):
                         else:
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         is_internal_vn = True if '_contrail_lr_internal_vn_' in vn_obj.name else False
-                        is_dci_vn = True if '_contrail_dci_internal_vn_' in vn_obj.name else False
                         ri_conf = {'ri_name': vrf_name_l3, 'vn': vn_obj,
                                    'is_l2': False,
                                    'is_l2_l3': vn_obj.get_forwarding_mode() ==
@@ -971,20 +950,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                    'interfaces': interfaces,
                                    'gateways': lo0_ips,
                                    'network_id': vn_obj.vn_network_id}
-                        if is_dci_vn:
-                            ri_conf["prefixes"] = vn_obj.get_prefixes(self.physical_router.uuid)
-                            ri_conf['vni'] = vn_obj.get_vxlan_vni(is_dci_vn = is_dci_vn)
-                            ri_conf['is_dci_network'] = True
-                            dci_uuid = vn_obj.data_center_interconnect
-                            dci = DataCenterInterconnectDM.get(dci_uuid)
-                            lr_vn_list = dci.get_connected_lr_internal_vns() if dci else []
-                            for lr_vn in lr_vn_list:
-                                exports, imports = lr_vn.get_route_targets()
-                                if imports:
-                                    ri_conf['import_targets'] |= imports
-                                if exports:
-                                    ri_conf['export_targets'] |= exports
-                        elif is_internal_vn:
+                        if is_internal_vn:
                             ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                             lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(vrf_name_l3)
                             lr = LogicalRouterDM.get(lr_uuid)

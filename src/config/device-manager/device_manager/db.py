@@ -1358,7 +1358,6 @@ class VirtualNetworkDM(DBBaseDM):
         self.tags = set()
         self.network_ipams = set()
         self.logical_router = None
-        self.data_center_interconnect = None
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
@@ -1397,37 +1396,10 @@ class VirtualNetworkDM(DBBaseDM):
                 lr_obj.virtual_network = self.uuid
     # end set_logical_router
 
-    def set_data_center_interconnect(self, name):
-        if DMUtils.get_dci_internal_vn_prefix() in name:
-            dci_uuid = DMUtils.extract_dci_uuid_from_internal_vn_name(name)
-            dci_obj = DataCenterInterconnectDM.get(dci_uuid)
-            if dci_obj:
-                self.data_center_interconnect = dci_obj.uuid
-                dci_obj.virtual_network = self.uuid
-    # end set_data_center_interconnect
-
-    def get_dci_connected_lr_network(self, pr_uuid):
-        if not self.data_center_interconnect:
-            return None
-        dci_obj = DataCenterInterconnectDM.get(self.data_center_interconnect)
-        if dci_obj:
-            return dci_obj.get_lr_vn(pr_uuid)
-        return None
-    # end get_dci_connected_lr_network
-
-    def get_dci_connected_lr(self, pr_uuid):
-        if not self.data_center_interconnect:
-            return None
-        dci_obj = DataCenterInterconnectDM.get(self.data_center_interconnect)
-        if dci_obj:
-            return dci_obj.get_lr(pr_uuid)
-        return None
-
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
             self.set_logical_router(obj.get("fq_name")[-1])
-            self.set_data_center_interconnect(obj.get("fq_name")[-1])
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('tag', obj)
         self.update_multiple_refs('network_ipam', obj)
@@ -1459,9 +1431,7 @@ class VirtualNetworkDM(DBBaseDM):
         lr = None
         if self.logical_router:
             lr = LogicalRouterDM.get(self.logical_router)
-        elif self.data_center_interconnect and pr_uuid:
-            lr = self.get_dci_connected_lr(pr_uuid)
-        if not lr or (not lr.logical_router_gateway_external and not self.data_center_interconnect):
+        if not lr or not lr.logical_router_gateway_external:
             return set(self.gateways.keys())
         vn_list = lr.get_connected_networks(include_internal=False)
         prefix_set = set()
@@ -2086,7 +2056,6 @@ class DataCenterInterconnectDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.logical_routers = set()
-        self.virtual_network = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -2094,12 +2063,6 @@ class DataCenterInterconnectDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-        if not self.virtual_network:
-            vn_name = DMUtils.get_dci_internal_vn_name(self.uuid)
-            vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
-            if vn_obj:
-                self.virtual_network = vn_obj.uuid
-                vn_obj.data_center_interconnect = self.uuid
         self.name = obj['fq_name'][-1]
         self.update_multiple_refs('logical_router', obj)
         return obj
@@ -2184,7 +2147,6 @@ class DataCenterInterconnectDM(DBBaseDM):
         obj = cls._dict[uuid]
         obj._object_db.delete_dci(obj.uuid)
         obj.update_multiple_refs('logical_router', {})
-        obj.update_single_ref('virtual_network', None)
         del cls._dict[uuid]
     # end delete
 
