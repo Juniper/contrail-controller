@@ -571,7 +571,7 @@ void VxlanRoutingManager::VmiNotify(DBTablePartBase *partition,
         if (!vmi_state) {
             return;
         }
-        vn = vmi_state->vn_entry_;
+        vn = vmi_state->vn_entry_.get();
         vn_state = dynamic_cast<VxlanRoutingVnState *>
             (vn->GetAgentDBEntryState(vn_listener_id_));
         if (vn_state)

@@ -105,7 +105,7 @@ struct VxlanRoutingVmiState : public DBState {
     VxlanRoutingVmiState();
     virtual ~VxlanRoutingVmiState();
 
-    VnEntry *vn_entry_;
+    VnEntryRef vn_entry_;
     boost::uuids::uuid logical_router_uuid_;
 };
 
