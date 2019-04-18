@@ -2030,6 +2030,13 @@ class AddrMgmt(object):
                 subnet_obj = subnet_objs[subnet_name]
                 if subnet_obj.ip_belongs(ip_addr):
                     subnet_obj.ip_free(IPAddress(ip_addr))
+                    if ((subnet_obj.subscriber_tag) and (subnet_obj.subscriber_tag != None)):
+                        for ip_addr in subnet_obj._network:
+                            if IPAddress(ip_addr) in subnet_obj._exclude:
+                                continue
+                            if(subnet_obj.is_ip_allocated(ip_addr)):
+                                return True
+                        subnet_obj.subscriber_tag = None
                     return True
         return False
     # end _ipam_ip_free_req
