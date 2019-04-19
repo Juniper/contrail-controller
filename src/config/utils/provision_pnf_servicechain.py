@@ -223,8 +223,9 @@ class PnfScProvisioner(object):
             sa_obj = self._vnc_lib.service_appliance_read(fq_name=sa_fq_name)
             print "Service Appliance Exists " + (sa_obj.uuid)
         except NoIdError:
-            sa_uuid = self._vnc_lib.service_appliance_create(sa_obj)
-            print "Service Appliance Created " + (sa_uuid)
+            # sa_uuid = self._vnc_lib.service_appliance_create(sa_obj)
+            # print "Service Appliance Created " + (sa_uuid)
+            pass
 
         try:
             kvp_array = []
@@ -273,7 +274,7 @@ class PnfScProvisioner(object):
             print "Error: Right PNF interface missing"
             sys.exit(-1)
 
-        self._vnc_lib.service_appliance_update(sa_obj)
+        self._vnc_lib.service_appliance_create(sa_obj)
         print "Service Appliance Updated " + (sa_obj.uuid)
     # end add_service_appliance
 
@@ -300,8 +301,9 @@ class PnfScProvisioner(object):
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
             print "Service Instance exists " + (si_obj.uuid)
         except NoIdError:
-            si_uuid = self._vnc_lib.service_instance_create(si_obj)
-            print "Service Instance created " + (si_uuid)
+            # si_uuid = self._vnc_lib.service_instance_create(si_obj)
+            # print "Service Instance created " + (si_uuid)
+            pass
         try:
             st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
             si_obj.add_service_template(st_obj)
@@ -330,8 +332,8 @@ class PnfScProvisioner(object):
         except AttributeError:
             print "Warning: Some attributes of Service Instance missing "\
                                                                    + (si_name)
-        self._vnc_lib.service_instance_update(si_obj)
-        print "Service Instance updated " + (si_obj.uuid)
+        self._vnc_lib.service_instance_create(si_obj)
+        print "Service Instance created " + (si_obj.uuid)
     # end add_service_instance
 
     def del_service_instance(self):
@@ -360,8 +362,9 @@ class PnfScProvisioner(object):
             pt_obj = self._vnc_lib.port_tuple_read(fq_name=pt_fq_name)
             print "Port Tuple Exists " + (pt_obj.uuid)
         except NoIdError:
-            pt_uuid = self._vnc_lib.port_tuple_create(pt_obj)
-            print "Port Tuple Created " + (pt_uuid)
+            # pt_uuid = self._vnc_lib.port_tuple_create(pt_obj)
+            # print "Port Tuple Created " + (pt_uuid)
+            pass
         try:
             left_lr_fq_name = ['default-domain',
                                'admin',
@@ -378,7 +381,19 @@ class PnfScProvisioner(object):
         except NoIdError as e:
             print "Error! LR not found " + (e.message)
             sys.exit(-1)
-        self._vnc_lib.port_tuple_update(pt_obj)
+	# Add annotations of left-LR UUID and right-LR UUID
+	try:
+	    kvp_array = []
+	    kvp = KeyValuePair("left-lr", left_lr_obj.uuid)
+	    kvp_array.append(kvp)
+	    kvp = KeyValuePair("right-lr",right_lr_obj.uuid)
+	    kvp_array.append(kvp)
+	    kvps = KeyValuePairs()
+	    kvps.set_key_value_pair(kvp_array)
+	    pt_obj.set_annotations(kvps)
+	except AttributeError:
+	    print "Warning: Some attributes of PT missing " + pt_name
+        self._vnc_lib.port_tuple_create(pt_obj)
         print "Port Tuple Updated " + (pt_obj.uuid)
     # end add_port_tuple
 
@@ -395,7 +410,7 @@ class PnfScProvisioner(object):
         # end del_port_tuple
 
     def add_pnf(self):
-        self.add_service_appliance_set()
+	self.add_service_appliance_set()
         self.add_service_template()
         self.add_service_appliance()
         self.add_service_instance()
