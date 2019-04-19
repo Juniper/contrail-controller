@@ -180,13 +180,23 @@ void VNController::XmppServerConnect() {
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS;
-            // Since TcpServer asserts in bind failure, dont need to assert in failure
-            Ip4Address local_endpoint = agent_->compute_node_ip();
+            /*
+             * Since TcpServer asserts in bind failure,
+             * dont need to assert in failure.
+             * Also TorAgent can be run anywhere. so vhost0
+             * ip binding should not be done for TorAgent.
+             */
+            Ip4Address local_endpoint;
+            if (!agent_->tor_agent_enabled()) {
+                local_endpoint = agent_->compute_node_ip();
+                xmpp_cfg->local_endpoint.address(
+                    ip::address::from_string(local_endpoint.to_string(), ec));
+            }
             if (agent_->test_mode()) {
                 local_endpoint = Ip4Address::from_string("127.0.0.1", ec);
+                xmpp_cfg->local_endpoint.address(
+                    ip::address::from_string(local_endpoint.to_string(), ec));
             }
-            xmpp_cfg->local_endpoint.address(
-                ip::address::from_string(local_endpoint.to_string(), ec));
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
             assert(ec.value() == 0);
@@ -284,13 +294,23 @@ void VNController::DnsXmppServerConnect() {
             xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
             xmpp_cfg_dns->FromAddr = agent_->agent_name() + "/dns";
             xmpp_cfg_dns->NodeAddr = "";
-            // Since TcpServer asserts in bind failure, dont need to assert in failure
-            Ip4Address local_endpoint = agent_->compute_node_ip();
+            /*
+             * Since TcpServer asserts in bind failure,
+             * dont need to assert in failure.
+             * Also TorAgent can be run anywhere. so vhost0
+             * ip binding should not be done for TorAgent.
+             */
+            Ip4Address local_endpoint;
+            if (!agent_->tor_agent_enabled()) {
+                local_endpoint = agent_->compute_node_ip();
+                xmpp_cfg_dns->local_endpoint.address(
+                    ip::address::from_string(local_endpoint.to_string(), ec));
+            }
             if (agent_->test_mode()) {
                 local_endpoint = Ip4Address::from_string("127.0.0.1", ec);
+                xmpp_cfg_dns->local_endpoint.address(
+                    ip::address::from_string(local_endpoint.to_string(), ec));
             }
-            xmpp_cfg_dns->local_endpoint.address(
-                ip::address::from_string(local_endpoint.to_string(), ec));
             xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));
             assert(ec.value() == 0);
