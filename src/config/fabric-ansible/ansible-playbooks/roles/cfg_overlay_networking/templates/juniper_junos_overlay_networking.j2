@@ -73,6 +73,8 @@ set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import REJECT-
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import {{l3_vrf_import}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-export {{l3_vrf_export}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options multipath
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options rib {{contrail_l3_ri}}.inet6.0 multipath
 {%                         set inet_vars = namespace(inet4='no', inet6='no') %}
 {%                         for subnet in ri.get('prefixes', []) %}
 {%                             set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
