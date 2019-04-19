@@ -723,6 +723,7 @@ class VncApiServer(object):
             # Tag type is unique per object, unless
             # TAG_TYPE_NOT_UNIQUE_PER_OBJECT type
             if (tag_type not in TAG_TYPE_NOT_UNIQUE_PER_OBJECT and
+                    obj_type != 'firewall_rule' and
                     len(refs) > 1):
                 msg = ("Tag type '%s' cannot be set multiple times on the same "
                        "%s resource type" % (
