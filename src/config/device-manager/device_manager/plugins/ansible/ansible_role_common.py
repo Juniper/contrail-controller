@@ -200,6 +200,8 @@ class AnsibleRoleCommon(AnsibleConf):
         ri.set_vxlan_id(str(vni))
         ri.set_virtual_network_is_internal(is_internal_vn)
         ri.set_is_public_network(router_external)
+        if connected_dci_network:
+            ri.set_multipath(True)
         if is_l2_l3:
             ri.set_virtual_network_mode('l2-l3')
         elif is_l2:

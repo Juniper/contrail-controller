@@ -13,6 +13,9 @@ set groups {{cfg_group}} routing-options forwarding-table chained-composite-next
 set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
 set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
 {%             endfor %}
+{%             if ri.get('multipath', '') == true %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options multipath
+{%             endif %}
 {%             if (vxlan_id != '') %}
 set groups {{cfg_group}} protocols evpn default-gateway no-gateway-community
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop

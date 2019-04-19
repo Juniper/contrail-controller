@@ -140,6 +140,7 @@
        <xsd:element name="vxlan-id" type="xsd:integer"/>
        <xsd:element name="routing-instance-type" type="xsd:string"/>
        <xsd:element name="is-public-network" type="xsd:boolean"/>
+       <xsd:element name="multipath" type="xsd:boolean"/>
        <xsd:element name="import-targets" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="export-targets" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="static-routes" type="dac:Route" maxOccurs="unbounded"/>
