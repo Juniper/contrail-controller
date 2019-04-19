@@ -8,3 +8,6 @@ pyaml
 keystonemiddleware
 junitxml
 pyOpenSSL
+mock
+kombu==4.0.2
+vine==1.1.3

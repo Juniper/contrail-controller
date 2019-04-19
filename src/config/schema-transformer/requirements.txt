@@ -6,7 +6,8 @@ netaddr>=0.7.5
 bitarray>=0.8.0
 psutil>=0.4.1
 python-novaclient
-kombu
+kombu==4.0.2
 netifaces
 bottle
 stevedore
+vine==1.1.3
