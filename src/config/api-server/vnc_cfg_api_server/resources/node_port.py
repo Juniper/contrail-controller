@@ -24,6 +24,7 @@ class PortServer(ResourceMixin, Port):
             switch_name = link_details.get('switch_info')
             port_id = link_details.get('port_id')
             if switch_name and port_id:
+                port_id = port_id.replace(':', '_')
                 pi_fq_name = ['default-global-system-config',
                               switch_name, port_id]
                 pi_uuid = None
