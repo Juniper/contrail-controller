@@ -410,6 +410,7 @@ class OpServer(object):
         * ``/analytics/query``:
         * ``/analytics/operation/database-purge``:
     """
+
     def disc_publish(self):
         data = {
             'ip-address': self._args.host_ip,
@@ -494,7 +495,8 @@ class OpServer(object):
             self._instance_id, self._args.collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
             self.disc, logger_class=self._args.logger_class,
-            logger_config_file=self._args.logging_conf)
+            logger_config_file=self._args.logging_conf,
+            config=self._args.sandesh_config)
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
@@ -881,6 +883,8 @@ class OpServer(object):
             'admin_tenant_name': 'default-domain'
         }
 
+        sandesh_opts = SandeshConfig.get_default_options()
+
         # read contrail-analytics-api own conf file
         config = None
         if args.conf_file:
@@ -899,6 +903,7 @@ class OpServer(object):
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
+            SandeshConfig.update_options(sandesh_opts, config)
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -913,6 +918,7 @@ class OpServer(object):
         defaults.update(disc_opts)
         defaults.update(cassandra_opts)
         defaults.update(keystone_opts)
+        defaults.update(sandesh_opts)
         defaults.update()
         parser.set_defaults(**defaults)
 
@@ -1016,6 +1022,7 @@ class OpServer(object):
             help="Use SSL to connect with API server")
         parser.add_argument("--use_aggregated_uve_db",
             help="enable/disbale read uve from aggregated uve db")
+        SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -1045,6 +1052,8 @@ class OpServer(object):
         if self._args.use_aggregated_uve_db.lower() == 'false' or\
            self._args.use_aggregated_uve_db == '0':
             self._usecache = False
+        self._args.sandesh_config = \
+             SandeshConfig.from_parser_arguments(self._args)
     # end _parse_args
 
     def get_args(self):
