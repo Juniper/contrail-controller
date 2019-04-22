@@ -587,6 +587,7 @@ class AddrMgmt(object):
         nameservers = ipam_subnet.get('dns_nameservers')
         addr_start = ipam_subnet.get('addr_from_start') or False
         alloc_unit = ipam_subnet.get('alloc_unit') or 1
+        subscriber_tag = ipam_subnet.get('subscriber_tag') or None
         subnet_obj = Subnet(
             '%s:%s' % (fq_name_str, subnet_name),
             subnet['ip_prefix'], str(subnet['ip_prefix_len']),
@@ -594,7 +595,8 @@ class AddrMgmt(object):
             dns_nameservers=nameservers,
             alloc_pool_list=allocation_pools,
             addr_from_start=addr_start, should_persist=should_persist,
-            ip_alloc_unit=alloc_unit, subnetting=subnetting)
+            ip_alloc_unit=alloc_unit, subnetting=subnetting,
+            subscriber_tag = subscriber_tag)
 
         return subnet_obj
     #end _create_subnet_obj_for_ipam_subnet
@@ -1197,7 +1199,7 @@ class AddrMgmt(object):
 
             # check gw
             gw = ipam_subnet.get('default_gateway')
-            if gw is not None:
+            if gw and gw != 'None':
                 try:
                     gw_ip = IPAddress(gw)
                 except netaddr.core.AddrFormatError:
@@ -1214,7 +1216,7 @@ class AddrMgmt(object):
 
             # check service address
             service_address = ipam_subnet.get('dns_server_address')
-            if service_address is not None:
+            if service_address and service_address != 'None':
                 try:
                     service_node_address = IPAddress(service_address)
                 except netaddr.core.AddrFormatError:
@@ -1446,7 +1448,7 @@ class AddrMgmt(object):
                     if ((req_df_gw is None) and (db_df_gw != df_gw_ip)):
                         invalid_update = True
 
-                    if ((req_df_gw != None) and (req_df_gw != df_gw_ip)):
+                    if ((req_df_gw != None) and (req_df_gw != 'none') and (req_df_gw != df_gw_ip)):
                         invalid_update = True
                     if invalid_update is True:
                         err_msg = "default gateway change is not allowed" +\
@@ -1551,6 +1553,31 @@ class AddrMgmt(object):
         return subnet_obj
     # end _get_subnet_obj
 
+    def _ipam_subnet_db_sync(self, ipam_uuid, subnet_name, field,
+                             new_value=None):
+        '''
+        update specific field in a subnet of ipam object in the database
+        '''
+        db_conn = self._get_db_conn()
+        (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
+                                           obj_id=ipam_uuid)
+        db_ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
+        db_ipam_subnets = db_ipam_subnets_dict.get('subnets') or []
+        for db_ipam_subnet in db_ipam_subnets:
+            db_subnet = db_ipam_subnet['subnet']
+            db_subnet_name = db_subnet['ip_prefix'] + '/' + str(
+                                 db_subnet['ip_prefix_len'])
+            if db_subnet_name != subnet_name:
+                continue
+            if field in db_ipam_subnet:
+                db_ipam_subnet[field] = new_value
+                self._server_mgr.internal_request_update('network-ipam',
+                                                         ipam_uuid,
+                                                         ipam_dict)
+            return
+        return
+    # end _ipam_subnet_db_sync
+
     def _ipam_ip_alloc(self, ipam_ref=None,
                 sn_uuid=None, sub=None, asked_ip_addr=None,
                 asked_ip_version=4, alloc_id=None, alloc_pools=None,
@@ -1593,6 +1620,9 @@ class AddrMgmt(object):
                         continue
                     if ip_addr is not None:
                         subnet_obj.subscriber_tag = subscriber_tag
+                        self._ipam_subnet_db_sync(ipam_uuid, subnet_name,
+                                                  'subscriber_tag',
+                                                   subscriber_tag)
                         return (ip_addr, subnets_tried, subnet_name)
                 return (ip_addr, subnets_tried, None)
             else:
@@ -2036,7 +2066,11 @@ class AddrMgmt(object):
                                 continue
                             if(subnet_obj.is_ip_allocated(ip_addr)):
                                 return True
+                        # All ip address are free for this subscriber_tag, need to remove
+                        # subscriber_tag from ipam object
                         subnet_obj.subscriber_tag = None
+                        self._ipam_subnet_db_sync(ipam_uuid, subnet_name,
+                                                  'subscriber_tag')
                     return True
         return False
     # end _ipam_ip_free_req
@@ -2053,13 +2087,6 @@ class AddrMgmt(object):
                                               subnet_name, subnet_dict)
             if subnet_obj.ip_belongs(ip_addr):
                 subnet_obj.ip_free(IPAddress(ip_addr))
-                if ((subnet_obj.subscriber_tag) and (subnet_obj.subscriber_tag != None)):
-                    for ip_addr in subnet_obj._network:
-                        if IPAddress(ip_addr) in subnet_obj._exclude:
-                            continue
-                        if(subnet_obj.is_ip_allocated(ip_addr)):
-                            return True
-                    subnet_obj.subscriber_tag = None
                 return True
         return False
     # end _net_ip_free_req
