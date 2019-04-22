@@ -13,7 +13,7 @@ sandesh
 sandesh_common
 contrail-api-client
 contrail-api-server
-schema_transformer
+../schema-transformer
 junitxml
 xmltodict
 pyOpenSSL
