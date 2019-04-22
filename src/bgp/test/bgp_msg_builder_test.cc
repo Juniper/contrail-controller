@@ -81,7 +81,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
     BgpAttrAtomicAggregate *aa = new BgpAttrAtomicAggregate;
     attr.push_back(aa);
 
-    BgpAttrAggregator *agg = new BgpAttrAggregator(0xface, 0xcafebabe);
+    BgpAttr4ByteAggregator *agg = new BgpAttr4ByteAggregator(0xface, 0xcafebabe);
     attr.push_back(agg);
 
     AsPath4ByteSpec *path_spec = new AsPath4ByteSpec;
@@ -187,7 +187,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
     delete lp;
     delete aa;
     delete agg;
-    //delete path_spec;
+    delete path_spec;
     delete community;
     delete ext_community;
     delete result;
