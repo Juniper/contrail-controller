@@ -47,6 +47,9 @@ abstract_generated_rule = env.Command(abstract_generated_files,
                              abstract_gen_cmd + ' $SOURCE')
 
 setup_sources = [
+           '.coveragerc',
+           '.stestr.conf',
+           'tox.ini',
            'setup.py',
            'MANIFEST.in',
            'run_tests.sh',
@@ -144,7 +147,8 @@ env.Alias('install', env.Install(
 test_target = env.SetupPyTestSuite(sdist_gen,
                                    '/config/fabric-ansible/dist/fabric_ansible-0.1dev.tar.gz',
                                    '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
-                                   '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz')
+                                   '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
+                                   use_tox=True)
 
 env.Alias('flaky-test', test_target)
 env.Alias('controller/src/config/device-manager:flaky-test', test_target)
