@@ -2,6 +2,8 @@ set groups {{cfg_group}} protocols igmp-snooping vlan all proxy
 set groups {{cfg_group}} protocols evpn multicast-mode ingress-replication
 set groups {{cfg_group}} protocols evpn default-gateway do-not-advertise
 set groups {{cfg_group}} forwarding-options multicast-replication evpn irb local-remote
+{%     set sys_config = device_abstract_config.get('system', None) %}
+{%     set is_ucast_gateway = sys_config.get('is_ucast_gateway_only', false) %}
 {%     if device_model.startswith('qfx51') %}
 set groups {{cfg_group}} forwarding-options vxlan-routing overlay-ecmp
 {%     endif %}
@@ -16,7 +18,9 @@ set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%                     set family = ip_addr.get('family') %}
 set groups {{cfg_group}} protocols igmp interface {{name}}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}}
+{%                     if is_ucast_gateway == true %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:01:00:01
+{%                     endif %}
 {%                 endfor %}
 {%             endfor %}
 {%         endif %}
