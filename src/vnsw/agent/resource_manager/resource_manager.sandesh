@@ -93,7 +93,7 @@ buffer sandesh InterfaceIndexResourceMapSandesh {
 }
 
 /**
- * Map of Vrf Mpls Resource data. 
+ * Map of Vrf Mpls Resource data.
 */
 buffer sandesh VrfMplsResourceMapSandesh {
     1: map<u32, VrfMplsResource> index_map;
@@ -109,7 +109,7 @@ buffer sandesh VlanMplsResourceMapSandesh {
 }
 
 /**
- * Map of Route Mpls Resource data. 
+ * Map of Route Mpls Resource data.
 */
 buffer sandesh RouteMplsResourceMapSandesh {
     1: map<u32, RouteMplsResource> index_map;

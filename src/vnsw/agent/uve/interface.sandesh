@@ -143,7 +143,7 @@ struct UveVMInterfaceAgent {
    13: optional bool ip6_active;
     /** List of Floating IPs associated with VMI */
    15: optional list<VmFloatingIPAgent> floating_ips;
- 
+
     /** UUID of Virtual machine to which the VMI belongs */
    19: string vm_uuid;
     /** Value 'true' indicates VMI is IPv4 active. This means that

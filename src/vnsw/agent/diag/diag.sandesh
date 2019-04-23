@@ -149,7 +149,7 @@ response sandesh PingErrResp {
 
 /**
  * Trace route for the address
- */ 
+ */
 struct TraceRouteHop {
     /** Each hop IP address */
     1: string address;
