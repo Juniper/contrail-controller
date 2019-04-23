@@ -38,7 +38,7 @@ struct UveVirtualMachineAgent {
     /** Value 'true' indicates VM is removed. Holds value of 'false' otherwise*/
     2: optional bool         deleted
     /** List of Security groups associated with VM */
-    3: optional list<string> attached_groups; 
+    3: optional list<string> attached_groups;
     /** List of virtual-machine-interfaces associated with VM */
     4: optional list<string> interface_list;
     /** Name of the vrouter-agent which hosts current VM*/

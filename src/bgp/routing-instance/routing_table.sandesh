@@ -27,7 +27,7 @@ struct RoutingInstanceStatsData {
 
     /** @display_name:Routing Instance IPv4 Vpn Information*/
     7: optional map<string, RoutingTableStats> raw_inetvpn_stats (tags=".__key", aggtype="union");
-    
+
     /** @display_name:Routing Instance IPv6 Vpn Information*/
     9: optional map<string, RoutingTableStats> raw_inet6vpn_stats (tags=".__key", aggtype="union");
 

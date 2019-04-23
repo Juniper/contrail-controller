@@ -15,8 +15,8 @@ struct UvePhysicalRouterConfig {
     3: optional string                  ip_address
     4: optional string                  connected_bgp_router
     5: optional string                  product_info
-    6: optional bool                    auto_conf_enabled 
-    7: optional bool                    netconf_enabled_status 
+    6: optional bool                    auto_conf_enabled
+    7: optional bool                    netconf_enabled_status
     8: optional string                  last_commit_time
     9: optional string                  last_commit_duration
     10: optional string                 commit_status_message

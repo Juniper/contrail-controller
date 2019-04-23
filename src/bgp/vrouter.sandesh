@@ -9,10 +9,10 @@
 struct VrouterCtrl {  // Control plane view of the vrouter
     1: string name (key="ObjectVRouterTable")
     2: optional bool                deleted
-    3: optional list<string> subscribed_routing_instance; 
-    4: optional list<string> unsubscribed_routing_instance; 
-    5: optional i64 in_xmpp_msgs; 
-    6: optional i64 out_xmpp_msgs; 
+    3: optional list<string> subscribed_routing_instance;
+    4: optional list<string> unsubscribed_routing_instance;
+    5: optional i64 in_xmpp_msgs;
+    6: optional i64 out_xmpp_msgs;
 }
 
 /**
@@ -23,4 +23,3 @@ struct VrouterCtrl {  // Control plane view of the vrouter
 uve sandesh UveVrouterCtrl {
     1: VrouterCtrl data;
 }
-

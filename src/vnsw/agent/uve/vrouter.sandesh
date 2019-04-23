@@ -43,9 +43,9 @@ struct AgentVgwConfig {
     /** Name of the routing instance */
     2: string            vrf_name;
     /** List of subnets for virtual gateway */
-    3: list<string>      ip_blocks_list; 
+    3: list<string>      ip_blocks_list;
     /** List of routes for virtual gateway */
-    4: optional list<string> route_list; 
+    4: optional list<string> route_list;
 }
 
 /**
@@ -118,7 +118,7 @@ struct VrouterAgent {
    /** List of configuration names of virtual-machine-interfaces which are not
     * active in agent
     */
-   11: optional list<string> error_intf_list; 
+   11: optional list<string> error_intf_list;
    /** Details of physical interfaces associated with this vrouter */
    12: optional list<AgentInterface> phy_if;
    /** Details of vrouter host interface associated with this vrouter */
@@ -156,7 +156,7 @@ struct VrouterAgent {
    /** control IP as specified in confgiration file. It is used by web-ui to
     * to connect to agent introspect.
     */
-   29: optional string control_ip; 
+   29: optional string control_ip;
    /** List of UUIDs of virtual-machine-interfaces for which configuration is
     * not received yet.
     */
@@ -179,7 +179,7 @@ struct VrouterAgent {
    /** List of control-nodes as specified in confgiration file*/
    35: optional list<string> control_node_list_cfg;
    /** Hostname configuration as specified in configuration file*/
-   36: optional string hostname_cfg; 
+   36: optional string hostname_cfg;
    /** Aging time of flow records in seconds as specified in configuration file*/
    37: optional u16 flow_cache_timeout_cfg;
    /** Maximum Link-local flows permitted as specified in configuration file*/
@@ -201,7 +201,7 @@ struct VrouterAgent {
    /** Sent from TSN Agent. Indicates list of prouters associated with this
     * Agent
     */
-   45: optional list<string> tsn_prouter_list; 
+   45: optional list<string> tsn_prouter_list;
    /** Sent from Tor Agent. Indicates list of prouters associated with this
     * Agent
     */
@@ -314,11 +314,11 @@ struct AgentIfStats {
     /** Ingress packet count */
     2: u64 in_pkts;
     /** Ingress bytes count */
-    3: u64 in_bytes; 
+    3: u64 in_bytes;
     /** Egress packet count */
-    4: u64 out_pkts; 
+    4: u64 out_pkts;
     /** Egress bytes count */
-    5: u64 out_bytes; 
+    5: u64 out_bytes;
     /** Speed of interface in mbps */
     6: i32 speed;
     /** Duplexity of interface */
@@ -394,25 +394,25 @@ struct VrouterStatsAgent {
      */
     2: optional bool                deleted
     /** Ingress packets count */
-    3: optional u64 in_tpkts; 
+    3: optional u64 in_tpkts;
     /** Ingress bytes count */
-    4: optional u64 in_bytes; 
+    4: optional u64 in_bytes;
     /** Egress packets count */
     5: optional u64 out_tpkts;
     /** Egress bytes count */
-    6: optional u64 out_bytes; 
+    6: optional u64 out_bytes;
 
     /** CPU and memory statistics for process and system */
     12: optional cpuinfo.CpuLoadInfo cpu_info;
 
     /** Number of packets trapped to agent */
-    15: optional u64 exception_packets; 
+    15: optional u64 exception_packets;
     /** Count of dropped packets which were trapped to agent */
-    16: optional u64 exception_packets_dropped; 
+    16: optional u64 exception_packets_dropped;
     /** Count of allowed packets which were trapped to agent */
-    19: optional u64 exception_packets_allowed; 
+    19: optional u64 exception_packets_allowed;
     /** Count of flows created in agent */
-    20: optional u64 total_flows; 
+    20: optional u64 total_flows;
     /** Count of flows aged in agent */
     22: optional u64 aged_flows;
 
@@ -429,7 +429,7 @@ struct VrouterStatsAgent {
     78: optional AgentDropStats raw_vhost_drop_stats (metric="agg", tags="")
 
     /** Bandwidth of physical interface in bps for last 5 minutes */
-    36: optional list<AgentIfBandwidth> phy_if_5min_usage; 
+    36: optional list<AgentIfBandwidth> phy_if_5min_usage;
     /** Bitmap of UDP source port numbers that packets on this vrouter have
      * used
      */
@@ -569,4 +569,3 @@ uve sandesh VrouterControlStatsTrace {
     /** Vrouter Control statistics */
     1: VrouterControlStats data;
 }
-

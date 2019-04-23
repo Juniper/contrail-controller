@@ -16,13 +16,13 @@ struct AclRuleToVnPolicyRule {
 }
 
 struct UveAclConfig {  // Config view
-    1: optional string virtual_network; 
-    2: optional list<string> attached_policies; 
-    3: optional list<AclRuleToVnPolicyRule> acl_rule_to_policy; 
+    1: optional string virtual_network;
+    2: optional list<string> attached_policies;
+    3: optional list<AclRuleToVnPolicyRule> acl_rule_to_policy;
 }
 
 struct UveAclVirtualNetworkConfig {
-    1: string name (key="ObjectVNTable")  
+    1: string name (key="ObjectVNTable")
     2: optional bool deleted;
     3: optional UveAclConfig config;
 }
@@ -40,4 +40,3 @@ uve sandesh UveAclVirtualNetworkConfigTrace {
 uve sandesh UveAclVirtualMachineConfigTrace {
     1: UveAclVirtualMachineConfig data;
 }
-
