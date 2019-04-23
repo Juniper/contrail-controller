@@ -1037,7 +1037,8 @@ void Agent::set_flow_table_size(uint32_t count) {
     if (params_->max_vm_flows() >= 100) {
         max_vm_flows_ = 0;
     } else {
-        max_vm_flows_ = (count * params_->max_vm_flows()) / 100;
+        max_vm_flows_ = static_cast<uint32_t>(
+            (count * params_->max_vm_flows()) / 100);
     }
 }
 

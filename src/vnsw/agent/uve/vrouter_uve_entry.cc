@@ -207,12 +207,15 @@ uint64_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
         return 0;
     }
     /* Compute bandwidth in bps */
-    uint64_t bps = bits/diff_seconds;
+    uint64_t bps = bits / diff_seconds;
 
-    /* Compute network utilization in percentage */
-    uint64_t speed_bps = speed_mbps * 1024 * 1024;
-    double bps_double = bits/diff_seconds;
-    if (utilization_bps) *utilization_bps = (bps_double * 100)/speed_bps;
+    if (utilization_bps) {
+        /* Compute network utilization in percentage */
+        uint64_t speed_bps = speed_mbps * 1024 * 1024;
+        double bps_double = static_cast<double>(bits) / diff_seconds;
+        *utilization_bps = (bps_double * 100) / speed_bps;
+    }
+
     return bps;
 }
 

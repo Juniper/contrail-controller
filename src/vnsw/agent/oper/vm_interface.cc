@@ -717,10 +717,10 @@ bool VmInterface::SecurityGroupEntry::DeleteL3(const Agent *agent,
 // any new states
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::FatFlowEntry::FatFlowEntry(const uint8_t proto, const uint16_t p,
-                                        std::string ignore_addr_value, 
+                                        std::string ignore_addr_value,
                                         FatFlowPrefixAggregateType in_prefix_aggregate,
                                         IpAddress in_src_prefix, uint8_t in_src_prefix_mask,
-                                        uint8_t in_src_aggregate_plen, 
+                                        uint8_t in_src_aggregate_plen,
                                         IpAddress in_dst_prefix, uint8_t in_dst_prefix_mask,
                                         uint8_t in_dst_aggregate_plen) :
     protocol(proto), port(p) {
@@ -1499,7 +1499,7 @@ void VmInterface::InstanceIp::SetPrefixForAllocUnitIpam(VmInterface *vmi) const{
 
     uint8_t alloc_prefix = 0;
     if (alloc_unit > 0) {
-        alloc_prefix = log2(alloc_unit);
+        alloc_prefix = static_cast<uint8_t>(log2(alloc_unit));
     }
 
     if (ip_.is_v4()) {

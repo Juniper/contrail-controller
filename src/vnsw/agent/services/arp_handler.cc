@@ -397,7 +397,7 @@ void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const Mac
         /* Loop through all the IPs for the prefix-len and send Arp for each
          * IP*/
         uint8_t diff_plen = Address::kMaxV4PrefixLen - data->plen();
-        uint32_t num_addresses = pow(2, diff_plen);
+        uint32_t num_addresses = static_cast<uint32_t>(pow(2, diff_plen));
         const uint32_t &max_addresses = MaxArpProbeAddresses();
         if (num_addresses > max_addresses) {
             num_addresses = max_addresses;
@@ -428,7 +428,7 @@ void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const Mac
 uint32_t ArpHandler::MaxArpProbeAddresses() const {
     uint32_t diff_plen = Address::kMaxV4PrefixLen -
                          agent()->params()->min_aap_prefix_len();
-    return pow(2, diff_plen);
+    return static_cast<uint32_t>(pow(2, diff_plen));
 }
 
 void intrusive_ptr_add_ref(const ArpHandler *p) {

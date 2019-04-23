@@ -176,7 +176,8 @@ void GlobalVrouter::UpdatePortConfig(autogen::GlobalVrouterConfig *cfg) {
 
     pc_list_it = new_protocol_port_set.begin();
     for (; pc_list_it != new_protocol_port_set.end(); pc_list_it++) {
-        pc_list_it->second.port_count *= avail_percent;
+        pc_list_it->second.port_count = static_cast<uint16_t>(
+            pc_list_it->second.port_count * avail_percent);
         agent()->port_config_handler()(agent(), pc_list_it->first,
                                        &(pc_list_it->second));
     }

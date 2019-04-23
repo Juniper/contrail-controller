@@ -2016,7 +2016,7 @@ bool SessionStatsCollector::SampleSession
     }
 
     if (subject_flows_to_algorithm) {
-        double probability = diff_bytes/threshold();
+        double probability = static_cast<double>(diff_bytes) / threshold();
         uint32_t num = rand() % threshold();
         if (num > diff_bytes) {
             /* Do not export the flow, if the random number generated is more
@@ -2043,14 +2043,14 @@ bool SessionStatsCollector::SampleSession
             stats->rev_flow.diff_bytes = 0;
             stats->rev_flow.diff_packets = 0;
         } else {
-            stats->fwd_flow.diff_bytes = stats->fwd_flow.diff_bytes/
-                                                probability;
-            stats->fwd_flow.diff_packets = stats->fwd_flow.diff_packets/
-                                                  probability;
-            stats->rev_flow.diff_bytes = stats->rev_flow.diff_bytes/
-                                                probability;
-            stats->rev_flow.diff_packets = stats->rev_flow.diff_packets/
-                                                  probability;
+            stats->fwd_flow.diff_bytes = static_cast<uint64_t>(
+                stats->fwd_flow.diff_bytes / probability);
+            stats->fwd_flow.diff_packets = static_cast<uint64_t>(
+                stats->fwd_flow.diff_packets / probability);
+            stats->rev_flow.diff_bytes = static_cast<uint64_t>(
+                stats->rev_flow.diff_bytes / probability);
+            stats->rev_flow.diff_packets = static_cast<uint64_t>(
+                stats->rev_flow.diff_packets / probability);
         }
     }
 
