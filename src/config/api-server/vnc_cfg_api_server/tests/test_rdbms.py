@@ -76,7 +76,7 @@ class TestVncCfgApiServer(
                     False, 'Instance IP delete worked unexpectedly')
             except Exception as e:
                 self.assertThat(str(e),
-                    Contains('"Faking db delete for instance ip"'))
+                    Contains('Faking db delete for instance ip'))
 
         # floating-ip test
         fip_pool_obj = FloatingIpPool(
@@ -102,7 +102,7 @@ class TestVncCfgApiServer(
                     False, 'Floating IP delete worked unexpectedly')
             except Exception as e:
                 self.assertThat(str(e),
-                    Contains('"Faking db delete for floating ip"'))
+                    Contains('Faking db delete for floating ip'))
 
         # alias-ip test
         aip_pool_obj = AliasIpPool(
@@ -122,7 +122,7 @@ class TestVncCfgApiServer(
                     False, 'Alias IP delete worked unexpectedly')
             except Exception as e:
                 self.assertThat(str(e),
-                    Contains('"Faking db delete for alias ip"'))
+                    Contains('Faking db delete for alias ip'))
     #end test_ip_addr_not_released_on_delete_error
 
 
