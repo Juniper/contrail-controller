@@ -14,6 +14,7 @@ set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT then rej
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export {{bgp.name}}-export
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} local-as {{bgp.autonomous_system}}
+set groups {{cfg_group}} routing-instances {{ri.name}} routing-options autonomous-system {{bgp.autonomous_system}}
 {%                     for peer in bgp.peers %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
@@ -34,4 +35,5 @@ set groups {{cfg_group}} interfaces {{ifd.get('name')}} unit {{ifl.get('unit')}}
 {%            endfor %}
 {%        endif %}
 {%    endfor %}
+set groups {{cfg_group}} routing-instances {{ri.name}} routing-options autonomous-system independent-domain no-attrset
 {% endfor %}
