@@ -178,11 +178,9 @@ def error_400(err):
     return err.body
 # end error_400
 
-
 def error_403(err):
     return err.body
 # end error_403
-
 
 def error_404(err):
     return err.body
@@ -205,10 +203,14 @@ def error_500(err):
     return err.body
 # end error_500
 
-
 def error_503(err):
     return err.body
 # end error_503
+
+def traceback_err_msg(err_msg):
+    '''Return the last row of traceback error message'''
+    return err_msg.strip('\n').split('\n')[-1]
+# end traceback_err_msg
 
 
 class VncApiServer(object):
@@ -1171,7 +1173,7 @@ class VncApiServer(object):
         except Exception as e:
             ok = False
             err_msg = cfgm_common.utils.detailed_traceback()
-            result = (500, err_msg)
+            result = (500, traceback_err_msg(err_msg))
         if not ok:
             fq_name_str = ':'.join(fq_name)
             self.undo(result, obj_type, fq_name=fq_name_str,
@@ -1606,7 +1608,7 @@ class VncApiServer(object):
         except Exception as e:
             ok = False
             err_msg = cfgm_common.utils.detailed_traceback()
-            result = (500, err_msg)
+            result = (500, traceback_err_msg(err_msg))
         if not ok:
             self.undo(result, obj_type, id=id, counter=quota_counter, value=1)
             code, msg = result
@@ -4398,7 +4400,7 @@ class VncApiServer(object):
         except Exception as e:
             ok = False
             err_msg = cfgm_common.utils.detailed_traceback()
-            result = (500, err_msg)
+            result = (500, traceback_err_msg(err_msg))
         if not ok:
             self.undo(result, obj_type, id=obj_uuid)
             # Revert changes made to quota counter by using DB quota dict
@@ -4657,7 +4659,8 @@ class VncApiServer(object):
             ok = False
             result = cfgm_common.utils.detailed_traceback()
         if not ok:
-            raise cfgm_common.exceptions.HttpError(500, result)
+            raise cfgm_common.exceptions.HttpError(
+                500, traceback_err_msg(result))
 
         obj_dict = result
         subnet_list = req_dict[
