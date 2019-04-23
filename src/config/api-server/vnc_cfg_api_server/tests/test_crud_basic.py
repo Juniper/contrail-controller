@@ -2107,7 +2107,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     False, 'Instance IP delete worked unexpectedly')
             except Exception as e:
                 self.assertThat(str(e),
-                    Contains('"Faking db delete for instance ip"'))
+                    Contains('Faking db delete for instance ip'))
                 # assert reservation present in zookeeper and value in iip
                 zk_node = "%(#)010d" % {'#': int(netaddr.IPAddress(
                     iip_obj.instance_ip_address))}
@@ -2145,7 +2145,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     False, 'Floating IP delete worked unexpectedly')
             except Exception as e:
                 self.assertThat(str(e),
-                    Contains('"Faking db delete for floating ip"'))
+                    Contains('Faking db delete for floating ip'))
                 # assert reservation present in zookeeper and value in iip
                 zk_node = "%(#)010d" % {'#': int(netaddr.IPAddress(
                     fip_obj.floating_ip_address))}
@@ -2177,7 +2177,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     False, 'Alias IP delete worked unexpectedly')
             except Exception as e:
                 self.assertThat(str(e),
-                    Contains('"Faking db delete for alias ip"'))
+                    Contains('Faking db delete for alias ip'))
                 # assert reservation present in zookeeper and value in iip
                 zk_node = "%(#)010d" % {'#': int(netaddr.IPAddress(
                     aip_obj.alias_ip_address))}
