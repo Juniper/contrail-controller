@@ -51,7 +51,10 @@ class ControlProvisioner(BgpProvisioner):
         print "Perfroming provisioning of global BGP parameters"
         gsc_obj = self._vnc_lib.global_system_config_read(
                 fq_name=['default-global-system-config'])
-        gsc_obj.set_autonomous_system(self._args.router_asn)
+        # global asn might have been modified in clusters.
+        # so provision_control should not set back to 64512(default)
+        if (self._args.router_asn != '64512'):
+            gsc_obj.set_autonomous_system(self._args.router_asn)
         if self._args.ibgp_auto_mesh is not None:
             gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
 
