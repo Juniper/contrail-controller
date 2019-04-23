@@ -160,7 +160,7 @@ class PortTupleServer(ResourceMixin, PortTuple):
         li_fqname = cls._construct_li_fq_name(dev_name, link, vlan_tag)
         li_display_name = li_fqname[-1]
         li_display_name = li_display_name.replace("_", ":")
-        id_perms = IdPermsType(enable=True, user_visible=False)
+        id_perms = IdPermsType(enable=True, user_visible=True)
         li_obj = LogicalInterface(parent_type='physical-interface',
                                   fq_name=li_fqname,
                                   logical_interface_vlan_tag=vlan_tag,
