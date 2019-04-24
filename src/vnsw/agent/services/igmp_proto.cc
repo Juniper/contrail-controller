@@ -259,6 +259,10 @@ const bool IgmpProto::GetItfStats(const VnEntry *vn, IpAddress gateway,
                             IgmpInfo::IgmpItfStats &stats) {
 
     const VnIpam *ipam = vn->GetIpam(gateway);
+    if (!ipam) {
+        return false;
+    }
+
     IgmpInfo::VnIgmpDBState *state = NULL;
     state = static_cast<IgmpInfo::VnIgmpDBState *>(vn->GetState(
                             vn->get_table_partition()->parent(), vn_listener_id_));
