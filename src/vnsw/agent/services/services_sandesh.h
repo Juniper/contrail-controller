@@ -39,6 +39,7 @@ private:
     void BfdStatsSandesh(std::string ctxt, bool more);
     void DnsStatsSandesh(std::string ctxt, bool more);
     void IcmpStatsSandesh(std::string ctxt, bool more);
+    void IgmpStatsSandesh(std::string ctxt, bool more);
     void Icmpv6StatsSandesh(std::string ctxt, bool more);
 
     void ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp);
