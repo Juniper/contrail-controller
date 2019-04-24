@@ -16,6 +16,7 @@
 #include <services/bfd_proto.h>
 #include <services/dns_proto.h>
 #include <services/icmp_proto.h>
+#include <services/igmp_proto.h>
 #include <services/icmpv6_proto.h>
 #include <services/metadata_proxy.h>
 #include <services/services_types.h>
@@ -332,6 +333,20 @@ void ServicesSandesh::Icmpv6StatsSandesh(std::string ctxt, bool more) {
     icmp->set_context(ctxt);
     icmp->set_more(more);
     icmp->Response();
+}
+
+void ServicesSandesh::IgmpStatsSandesh(std::string ctxt, bool more) {
+    IgmpStatsResponse *igmp = new IgmpStatsResponse();
+    const IgmpProto::IgmpStats &istats = Agent::GetInstance()->GetIgmpProto()->GetStats();
+    igmp->set_bad_length(istats.bad_length);
+    igmp->set_bad_cksum(istats.bad_cksum);
+    igmp->set_bad_interface(istats.bad_interface);
+    igmp->set_not_local(istats.not_local);
+    igmp->set_rx_unknown(istats.rx_unknown);
+    igmp->set_rejected_pkt(istats.rejected_pkt);
+    igmp->set_context(ctxt);
+    igmp->set_more(more);
+    igmp->Response();
 }
 
 void ServicesSandesh::FillPktData(PktTrace::Pkt &pkt, PktData &resp) {
@@ -890,6 +905,10 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
                              static_cast<Icmpv6PktSandesh *>(resp));
             break;
 
+        case PktHandler::IGMP:
+            IgmpStatsSandesh(ctxt, false);
+            return;
+
         case PktHandler::FLOW:
         case PktHandler::DIAG:
         case PktHandler::INVALID:
@@ -960,6 +979,97 @@ void IcmpInfo::HandleRequest() const {
 void Icmpv6Info::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.HandleRequest(PktHandler::ICMPV6, context());
+}
+
+void IgmpStatsReq::HandleRequest() const {
+    ServicesSandesh ssandesh;
+    ssandesh.HandleRequest(PktHandler::IGMP, context());
+}
+
+void GmpStatsReq::HandleRequest() const {
+    GmpStatsResponse *gmp = new GmpStatsResponse();
+    GmpProto *gmp_proto_ = Agent::GetInstance()->GetIgmpProto()->GetGmpProto();
+    const GmpProto::GmpStats &stats = gmp_proto_->GetStats();
+    gmp->set_gmp_g_add_count(stats.gmp_g_add_count_);
+    gmp->set_gmp_g_del_count(stats.gmp_g_del_count_);
+    gmp->set_gmp_sg_add_count(stats.gmp_sg_add_count_);
+    gmp->set_gmp_sg_del_count(stats.gmp_sg_del_count_);
+    gmp->set_context(context());
+    gmp->set_more(false);
+    gmp->Response();
+}
+
+static void  SandeshError(const std::string msg, const std::string &context) {
+    IgmpErrorResp *resp = new IgmpErrorResp();
+    resp->set_resp(msg); 
+    resp->set_context(context);
+    resp->set_more(false);
+    resp->Response();
+}
+
+void InterfaceIgmpStatsReq::HandleRequest() const {
+    std::string vn_uuid = get_vn_uuid();
+    std::string gw = get_ipam_gateway();
+    IgmpErrorResp *resp = new IgmpErrorResp();
+    InterfaceIgmpStatsResponse *igmp = new InterfaceIgmpStatsResponse();
+    IgmpType rx_badpacket_stats;
+    IgmpType rx_okpacket_stats;
+    IgmpInfo::IgmpItfStats stats;
+    
+    if (vn_uuid.empty() || gw.empty()) {
+        SandeshError("Invalid Input !!", context());
+        return;
+    }
+
+    VnEntry *vn = 
+        Agent::GetInstance()->vn_table()->Find(StringToUuid(vn_uuid));
+    if (!vn ) {
+        SandeshError("Invalid UUID !!", context());
+        return;
+    }
+
+    boost::system::error_code ec;
+    IpAddress gateway = IpAddress(Ip4Address::from_string(gw, ec));
+    if (Agent::GetInstance()->GetIgmpProto()->GetItfStats(vn, gateway, 
+                stats) == false ) {
+        SandeshError("Stats not found !!", context());
+        return;
+    }
+
+    igmp->set_rx_unknown(stats.rx_unknown);
+    igmp->set_tx_packet(stats.tx_packet);
+    igmp->set_tx_drop_packet(stats.tx_drop_packet);
+
+    rx_badpacket_stats.undefined = stats.rx_badpacket[IGMP_UNDEFINED];
+    rx_badpacket_stats.igmp_membership_query = stats.rx_badpacket[IGMP_MEMBERSHIP_QUERY];
+    rx_badpacket_stats.igmp_v1_membership_report = stats.rx_badpacket[IGMP_V1_MEMBERSHIP_REPORT];
+    rx_badpacket_stats.igmp_proto_dvmrp = stats.rx_badpacket[IGMP_PROTO_DVMRP];
+    rx_badpacket_stats.igmp_proto_pim = stats.rx_badpacket[IGMP_PROTO_PIM];
+    rx_badpacket_stats.igmp_cisco_trace = stats.rx_badpacket[IGMP_CISCO_TRACE];
+    rx_badpacket_stats.igmp_v2_membership_report = stats.rx_badpacket[IGMP_V2_MEMBERSHIP_REPORT];
+    rx_badpacket_stats.igmp_group_leave = stats.rx_badpacket[IGMP_GROUP_LEAVE];
+    rx_badpacket_stats.igmp_mtrace_response = stats.rx_badpacket[IGMP_MTRACE_RESPONSE];
+    rx_badpacket_stats.igmp_mtrace_request = stats.rx_badpacket[IGMP_MTRACE_REQUEST];
+    rx_badpacket_stats.igmp_dwr = stats.rx_badpacket[IGMP_DWR];
+    rx_badpacket_stats.igmp_v3_membership_report = stats.rx_badpacket[IGMP_V3_MEMBERSHIP_REPORT];
+    igmp->set_rx_badpacket_stats(rx_badpacket_stats);
+
+    rx_okpacket_stats.undefined = stats.rx_okpacket[IGMP_UNDEFINED];
+    rx_okpacket_stats.igmp_membership_query = stats.rx_okpacket[IGMP_MEMBERSHIP_QUERY];
+    rx_okpacket_stats.igmp_v1_membership_report = stats.rx_okpacket[IGMP_V1_MEMBERSHIP_REPORT];
+    rx_okpacket_stats.igmp_proto_dvmrp = stats.rx_okpacket[IGMP_PROTO_DVMRP];
+    rx_okpacket_stats.igmp_proto_pim = stats.rx_okpacket[IGMP_PROTO_PIM];
+    rx_okpacket_stats.igmp_cisco_trace = stats.rx_okpacket[IGMP_CISCO_TRACE];
+    rx_okpacket_stats.igmp_v2_membership_report = stats.rx_okpacket[IGMP_V2_MEMBERSHIP_REPORT];
+    rx_okpacket_stats.igmp_group_leave = stats.rx_okpacket[IGMP_GROUP_LEAVE];
+    rx_okpacket_stats.igmp_mtrace_response = stats.rx_okpacket[IGMP_MTRACE_RESPONSE];
+    rx_okpacket_stats.igmp_mtrace_request = stats.rx_okpacket[IGMP_MTRACE_REQUEST];
+    rx_okpacket_stats.igmp_dwr = stats.rx_okpacket[IGMP_DWR];
+    rx_okpacket_stats.igmp_v3_membership_report = stats.rx_okpacket[IGMP_V3_MEMBERSHIP_REPORT];
+    igmp->set_rx_okpacket_stats(rx_okpacket_stats);
+
+    igmp->set_context(context());
+    igmp->Response();
 }
 
 void MetadataInfo::HandleRequest() const {
