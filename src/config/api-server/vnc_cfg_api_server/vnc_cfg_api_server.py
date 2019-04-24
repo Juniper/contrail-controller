@@ -712,7 +712,7 @@ class VncApiServer(object):
     @staticmethod
     def _validate_tag_refs(obj_type, obj_dict):
         if not obj_dict:
-            return
+            return True, ''
 
         refs_per_type = {}
         for ref in obj_dict.get('tag_refs', []):
@@ -721,22 +721,24 @@ class VncApiServer(object):
 
         for tag_type, refs in refs_per_type.items():
             # Tag type is unique per object, unless
-            # TAG_TYPE_NOT_UNIQUE_PER_OBJECT type and object type
-            # is Firewall Rule
-            if (tag_type not in TAG_TYPE_NOT_UNIQUE_PER_OBJECT and
-                    obj_type != 'firewall_rule' and
-                    len(refs) > 1):
+            # TAG_TYPE_NOT_UNIQUE_PER_OBJECT tag type or object type is a
+            # Firewall Rule
+            if (len(refs) > 1 and
+                    tag_type not in TAG_TYPE_NOT_UNIQUE_PER_OBJECT and
+                    obj_type != FirewallRule.object_type):
                 msg = ("Tag type '%s' cannot be set multiple times on the same "
                        "%s resource type" % (
                            tag_type, obj_type.replace('_', ' ').title()))
-                raise cfgm_common.exceptions.HttpError(400, msg)
+                return False, (400, msg)
 
             # address-group resource can only be associated with label tag type
             if (obj_type == 'address_group' and
                     tag_type not in TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP):
                 msg = ("Invalid tag type %s for object type %s" %
                        (tag_type, obj_type))
-                raise cfgm_common.exceptions.HttpError(400, msg)
+                return False, (400, msg)
+
+        return True, ''
 
     def _validate_perms_in_request(self, resource_class, obj_type, obj_dict):
         for ref_name in resource_class.ref_fields:
@@ -834,9 +836,6 @@ class VncApiServer(object):
         if not ok:
             result = 'Bad reference in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
-
-        # All resource type can have tag refs but there is some constraints
-        self._validate_tag_refs(obj_type, obj_dict)
 
         get_context().set_state('PRE_DBE_ALLOC')
         # type-specific hook
@@ -948,6 +947,12 @@ class VncApiServer(object):
                     tenant_name, obj_dict, db_conn)
             if not ok:
                 return (ok, result)
+
+            # All resource type can have tag refs but there is some constraints
+            # Done after PRE_DBE_CREATE as tag refs can be modifed in that hook
+            ok, result = self._validate_tag_refs(obj_type, obj_dict)
+            if not ok:
+                return False, result
 
             callable = getattr(r_class, 'http_post_collection_fail', None)
             if callable:
@@ -4170,9 +4175,6 @@ class VncApiServer(object):
                 result = 'Bad reference in %s: %s' %(api_name, result)
                 raise cfgm_common.exceptions.HttpError(400, result)
 
-        # All resource type can have tag refs but there is some constraints
-        self._validate_tag_refs(obj_type, req_obj_dict)
-
         # common handling for all resource put
         request = get_request()
         fq_name_str = ":".join(obj_fq_name or [])
@@ -4262,6 +4264,12 @@ class VncApiServer(object):
             attr_to_publish = None
             if isinstance(result, dict):
                 attr_to_publish = result
+
+            # All resource type can have tag refs but there is some constraints
+            # Done after PRE_DBE_UPDATE as tag refs can be modifed in that hook
+            ok, result = self._validate_tag_refs(obj_type, req_obj_dict)
+            if not ok:
+                return False, result
 
             get_context().set_state('DBE_UPDATE')
             if api_name == 'ref-update':
