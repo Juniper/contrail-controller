@@ -13,7 +13,6 @@ set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT then rej
 {%         for bgp in ri.protocols.bgp %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export {{bgp.name}}-export
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} local-as {{bgp.autonomous_system}}
 {%                     for peer in bgp.peers %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
