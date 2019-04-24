@@ -696,6 +696,8 @@
               "juniper-qfx5210-64c",
               "juniper-vmx",
               "juniper-mx80",
+              "juniper-mx80-48t",
+              "juniper-mx204",
               "juniper-mx240",
               "juniper-mx480",
               "juniper-mx960",
@@ -887,6 +889,18 @@
             "juniper-mx80"
           ],
           "name": "juniper-mx80"
+        },
+        {
+          "fq_name": [
+            "juniper-mx80-48t"
+          ],
+          "name": "juniper-mx80-48t"
+        },
+        {
+          "fq_name": [
+            "juniper-mx204"
+          ],
+          "name": "juniper-mx204"
         },
         {
           "fq_name": [
@@ -1417,6 +1431,18 @@
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx80" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-mx80-48t" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-mx204" ]
     },
     {
       "from_type": "node_profile",
