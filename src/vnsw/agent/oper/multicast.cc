@@ -1103,16 +1103,6 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                        comp_type,
                                                        component_nh_key_list,
                                                        obj->pbb_vrf(), false);
-        bridge_data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
-                                                       obj->vrf_name(),
-                                                       obj->GetVnName(),
-                                                       label,
-                                                       obj->vxlan_id(),
-                                                       ethernet_tag,
-                                                       route_tunnel_bmap,
-                                                       Composite::FABRIC,
-                                                       component_nh_key_list,
-                                                       obj->pbb_vrf(), false);
     } else {
         data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                           obj->GetVnName(),
@@ -1122,15 +1112,28 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                           comp_type,
                                                           component_nh_key_list,
                                                           obj->pbb_vrf(), false);
-        bridge_data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
-                                                          obj->GetVnName(),
-                                                          label,
-                                                          obj->vxlan_id(),
-                                                          route_tunnel_bmap,
-                                                          Composite::FABRIC,
-                                                          component_nh_key_list,
-                                                          obj->pbb_vrf(), false);
     }
+
+    boost::system::error_code ec;
+    Ip4Address bcast_addr =
+                    IpAddress::from_string("255.255.255.255", ec).to_v4();
+    if ((grp != bcast_addr) && !agent_->params()->mvpn_ipv4_enable()) {
+        if (bgp_peer) {
+            bridge_data = BridgeAgentRouteTable::BuildBgpPeerData(peer,
+                                    obj->vrf_name(), obj->GetVnName(), label,
+                                    obj->vxlan_id(), ethernet_tag,
+                                    route_tunnel_bmap, Composite::FABRIC,
+                                    component_nh_key_list,
+                                    obj->pbb_vrf(), false);
+        } else {
+            bridge_data = BridgeAgentRouteTable::BuildNonBgpPeerData(
+                                    obj->vrf_name(), obj->GetVnName(), label,
+                                    obj->vxlan_id(), route_tunnel_bmap,
+                                    Composite::FABRIC, component_nh_key_list,
+                                    obj->pbb_vrf(), false);
+        }
+    }
+
     AddMulticastRoute(obj, peer, ethernet_tag, data, bridge_data);
     MCTRACE(LogSG, "rebake subnet peer for subnet", vrf_name,
             obj->GetSourceAddress().to_string(),
