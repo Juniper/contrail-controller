@@ -4722,7 +4722,7 @@ class DBInterface(object):
         rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
         self._security_group_rule_create(sg_uuid, rule)
 
-        ret_sg_q = self._security_group_vnc_to_neutron(sg_obj)
+        ret_sg_q = self.security_group_read(sg_uuid)
         return ret_sg_q
     #end security_group_create
 
