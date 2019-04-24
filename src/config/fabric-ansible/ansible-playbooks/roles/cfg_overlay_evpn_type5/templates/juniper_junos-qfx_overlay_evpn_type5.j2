@@ -1,4 +1,8 @@
 set groups {{cfg_group}} routing-options forwarding-table chained-composite-next-hop ingress evpn
+set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 from protocol direct
+set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 then accept
+set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 from protocol static
+set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 then accept
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
 {%         set vxlan_id = ri.get('vxlan_id', '') %}
@@ -15,11 +19,13 @@ set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
 {%             endfor %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options rib {{name}}.inet6.0 multipath
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route 172.16.1.1/32 discard
 {%             if (vxlan_id != '') %}
 set groups {{cfg_group}} protocols evpn default-gateway no-gateway-community
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
+set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export dummy_type5
 {%             endif %}
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
 {%             set vrf_import = name+'-import' %}
