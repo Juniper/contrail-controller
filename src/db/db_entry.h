@@ -46,7 +46,7 @@ public:
     void Delete();
     void MarkDelete() { flags |= DeleteMarked; }
     void ClearDelete() { flags &= ~DeleteMarked; }
-    bool IsDeleted() const { return (flags&DeleteMarked); }
+    bool IsDeleted() const { return (flags & DeleteMarked) != 0; }
 
     void set_onlist() { flags |= Onlist; }
     void clear_onlist() { flags &= ~Onlist; }
