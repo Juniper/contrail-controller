@@ -107,6 +107,12 @@ class ICRMQMain():
         msg['type'] = msg['type'].replace('-', '_')
         self.issu_cass_config_db_uuid_handle.issu_sync_row(msg,
                                                            'obj_uuid_table')
+        # If fq_name is not present in the message, get it from DB
+        if not msg.get('fq_name', None):
+            obj_dict = self.issu_cass_config_db_uuid_handle.issu_read_row(msg)
+            if obj_dict.get('fq_name', None):
+                msg['fq_name'] = obj_dict['fq_name']
+
         self.amqp_new_version_handle.publish(msg)
 
     def start(self):
