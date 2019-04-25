@@ -12,8 +12,6 @@ struct PhysicalInterfaceData;
 // Can be Ethernet Ports or LAG Ports
 // Name of port is used as key
 /////////////////////////////////////////////////////////////////////////////
-class PhysicalInterfaceData;
-
 class PhysicalInterface : public Interface {
 public:
     enum SubType {
@@ -72,7 +70,7 @@ public:
     static void Delete(InterfaceTable *table, const std::string &ifname);
     bool OnChange(PhysicalInterfaceData *data);
     virtual void ObtainOsSpecificParams(const std::string &name);
-    friend class PhysicalInterfaceKey;
+    friend struct PhysicalInterfaceKey;
 
 private:
     std::string GetPhysicalInterfaceName() const;

@@ -2,7 +2,7 @@
 #define __AGENT_FLOW_TRACE_FILTER_H__
 #include <base/address_util.h>
 
-class FlowKey;
+struct FlowKey;
 class SandeshFlowFilterInfo;
 
 /////////////////////////////////////////////////////////////////////////////

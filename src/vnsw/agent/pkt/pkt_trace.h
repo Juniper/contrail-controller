@@ -7,7 +7,7 @@
 
 #include <boost/scoped_array.hpp>
 
-class AgentHdr;
+struct AgentHdr;
 
 class PktTrace {
 public:

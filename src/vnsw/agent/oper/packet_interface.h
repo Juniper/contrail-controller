@@ -10,7 +10,7 @@
 // between vrouter to agent
 /////////////////////////////////////////////////////////////////////////////
 
-class PacketInterfaceData;
+struct PacketInterfaceData;
 
 class PacketInterface : public Interface {
 public:

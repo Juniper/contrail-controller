@@ -19,14 +19,14 @@ class EventManager;
 namespace BFD {
 class Connection;
 class Session;
-class ControlPacket;
-class SessionConfig;
+struct ControlPacket;
+struct SessionConfig;
 
 typedef std::set<SessionKey> Sessions;
 
 // This class manages sessions with other BFD peers.
 class Server {
- class Event;
+ struct Event;
  public:
     Server(EventManager *evm, Connection *communicator);
     virtual ~Server();

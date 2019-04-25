@@ -14,7 +14,7 @@
 #include <cmn/agent.h>
 #include <agent_types.h>
 
-class PacketHeader;
+struct PacketHeader;
 struct FlowPolicyInfo;
 
 struct AclAddressInfo {

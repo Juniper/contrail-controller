@@ -14,7 +14,7 @@
 
 struct AgentDiagPktData;
 struct OverlayOamPktData;
-class PktInfo;
+struct PktInfo;
 
 // Pseudo header for TCP checksum
 struct PseudoTcpHdr {

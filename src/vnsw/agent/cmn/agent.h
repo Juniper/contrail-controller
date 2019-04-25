@@ -39,7 +39,7 @@ class FlowStatsManager;
 class MetaDataIpAllocator;
 class ResourceManager;
 class SecurityLoggingObjectTable;
-class PortConfig;
+struct PortConfig;
 namespace OVSDB {
 class OvsdbClient;
 };

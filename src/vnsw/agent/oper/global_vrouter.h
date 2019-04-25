@@ -23,7 +23,7 @@ class CryptTunnelTable;
 namespace autogen {
     struct LinklocalServiceEntryType;
     struct FlowAgingTimeout;
-    struct GlobalVrouterConfig;
+    class GlobalVrouterConfig;
 }
 
 struct LinkLocalDBState : DBState {
