@@ -220,7 +220,7 @@ systemlog sandesh IFMapNoVmSub {
 /**
  * @description: System log for IFMap module
  * @severity: ERROR
- * @cause: Received duplicate virtual router subscribe message 
+ * @cause: Received duplicate virtual router subscribe message
  * @action: Contact your technical support representative
  */
 systemlog sandesh IFMapDuplicateVrSub {
@@ -233,7 +233,7 @@ systemlog sandesh IFMapDuplicateVrSub {
 /**
  * @description: System log for IFMap module
  * @severity: ERROR
- * @cause: Received duplicate virtual machine subscribe message 
+ * @cause: Received duplicate virtual machine subscribe message
  * @action: Contact your technical support representative
  */
 systemlog sandesh IFMapDuplicateVmSub {

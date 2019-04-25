@@ -615,7 +615,7 @@ struct NhSandeshData {
    23: optional MulticastCompositeData evpn_comp;
    /** Boolean value which indicates if vxlan is associated with vrf nh */
    24: optional bool vxlan_flag;
-   34: i32 intf_flags;    
+   34: i32 intf_flags;
    /** Boolean value which indicates to flood unknown unicast packets for nh */
    25: optional bool flood_unknown_unicast;
    /** I-SID identifier for bridge domain */

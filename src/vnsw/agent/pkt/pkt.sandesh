@@ -18,7 +18,7 @@ include "vnsw/agent/oper/agent.sandesh"
  */
 struct MirrorInfo {
     1: optional string mirror_destination;
-    2: optional u16 mirror_port; 
+    2: optional u16 mirror_port;
     3: optional string mirror_vrf;
     4: optional string encap;
     5: optional string analyzer;

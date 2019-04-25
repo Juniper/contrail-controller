@@ -19,7 +19,7 @@ struct PrefixToRouteListInfo {
     4: bgp_peer.ShowRoute  aggregate_rt;
     3: list<string> more_specific_list;
 }
- 
+
 struct ExtConnectRouteInfo {
     1: string ext_rt_prefix;
     2: bgp_peer.ShowRoute ext_rt_svc_rt;

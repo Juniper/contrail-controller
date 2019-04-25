@@ -7,7 +7,7 @@
  *   and other virtual instances connected to a TOR switch supporting OVSDB protocol.
  *
  *  The ovsdb clinet module interacts with the tor switch for all ovsdb interactions
- *  It programs the differnet OVSDB tables on the TOR switch and receives the local 
+ *  It programs the differnet OVSDB tables on the TOR switch and receives the local
  *   unicast table entries from it.
  *
  */
