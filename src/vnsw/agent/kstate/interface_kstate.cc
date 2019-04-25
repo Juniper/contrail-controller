@@ -39,7 +39,7 @@ void InterfaceKState::Handler() {
         } else {
             resp->set_context(response_context_);
             resp->Response();
-            more_context_ = NULL;
+            more_context_ = boost::any();
         }
     }
 }
@@ -47,7 +47,7 @@ void InterfaceKState::Handler() {
 void InterfaceKState::SendNextRequest() {
     vr_interface_req req;
     InitDumpRequest(req);
-    int idx = reinterpret_cast<long>(more_context_);
+    int32_t idx = boost::any_cast<int32_t>(more_context_);
     req.set_vifr_marker(idx);
     EncodeAndSend(req);
 }

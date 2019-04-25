@@ -63,7 +63,7 @@ public:
                 }
             }
         }
-        more_context_ = NULL;
+        more_context_ = boost::any();
     }
 
     void PrintIfResp(KInterfaceResp *r) {
@@ -132,7 +132,7 @@ public:
                     EXPECT_EQ(expected_count_, fetched_count_);
                 }
                 handler_count_++;
-                more_context_ = NULL;
+                more_context_ = boost::any();
             }
         }
         if (verify_idx_ != -1) {
@@ -219,7 +219,7 @@ public:
                 }
             }
         }
-        more_context_ = NULL;
+        more_context_ = boost::any();
     }
 
     void PrintMplsResp(KMplsResp *r) {
@@ -287,7 +287,7 @@ public:
                 }
             }
         }
-        more_context_ = NULL;
+        more_context_ = boost::any();
     }
 
     void PrintMirrorResp(KMirrorResp *r) {
@@ -348,8 +348,8 @@ public:
 
         KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         if (resp) {
-            if (more_context_) {
-                rctx = static_cast<RouteContext *>(more_context_);
+            if (!more_context_.empty()) {
+                rctx = boost::any_cast<RouteContext *>(more_context_);
             }
             if (vr_response_code_ > 0) {
                /* There are more routes in Kernel. We need to query them from
@@ -364,7 +364,7 @@ public:
                 handler_count_++;
                 if (rctx) {
                     delete rctx;
-                    more_context_ = NULL;
+                    more_context_ = boost::any();
                 }
             }
 
