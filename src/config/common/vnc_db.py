@@ -412,6 +412,13 @@ class DBBase(object):
     # end find_by_name_or_uuid
 
     @classmethod
+    def find_by_fq_name(cls, fq_name):
+        for obj in cls.values():
+            if obj.fq_name == fq_name:
+                return obj
+        return None
+
+    @classmethod
     def reset(cls):
         cls._dict = {}
 

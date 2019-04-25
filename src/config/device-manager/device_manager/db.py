@@ -184,6 +184,7 @@ class PhysicalRouterDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip')
@@ -2427,7 +2428,7 @@ class VirtualPortGroupDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
             if not vmi_obj:
                 return sg_list
-            if vmi_obj.vlan_tag == int(vlan_tag) or (not vmi_obj.vlan_tag and int(vlan_tag) == 4094):
+            if vmi_obj.vlan_tag == int(vlan_tag) or (not vmi_obj.vlan_tag and int(vlan_tag) == int(vmi_obj.port_vlan_tag)):
                 for sg in vmi_obj.security_groups or []:
                     sg = SecurityGroupDM.get(sg)
                     if sg and sg not in sg_list:
