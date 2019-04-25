@@ -1100,7 +1100,7 @@
           "name": "juniper-mx",
           "node_profile_vendor": "Juniper",
           "node_profile_device_family": "junos",
-          "node_profile_hitless_upgrade": false,
+          "node_profile_hitless_upgrade": true,
           "node_profile_roles": {
             "role_mappings": [
               {
