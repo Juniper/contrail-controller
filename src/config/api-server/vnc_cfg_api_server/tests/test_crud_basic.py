@@ -709,6 +709,40 @@ class TestCrud(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_machine_interface_update(port_obj)
     # end test_port_security_and_allowed_address_pairs
 
+    def test_disable_port_security_with_empty_allowed_address_pair_list(self):
+        project = Project('%s-project' % self.id())
+        self.api.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.virtual_network_create(vn)
+        addr_pair = AllowedAddressPairs()
+
+        vmi1 = VirtualMachineInterface(
+            'vmi1-%s' % self.id(),
+            parent_obj=project,
+            port_security_enabled=False,
+            virtual_machine_interface_allowed_address_pairs=addr_pair)
+        vmi1.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi1)
+
+        addr_pair = AllowedAddressPairs(
+            allowed_address_pair=[
+                AllowedAddressPair(ip=SubnetType('1.1.1.0', 24),
+                                   mac='02:ce:1b:d7:a6:e7')])
+        vmi2 = VirtualMachineInterface(
+            'vmi2-%s' % self.id(),
+            parent_obj=project,
+            port_security_enabled=True,
+            virtual_machine_interface_allowed_address_pairs=addr_pair)
+        vmi2.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi2)
+
+        addr_pair = AllowedAddressPairs()
+        vmi2.set_virtual_machine_interface_allowed_address_pairs(addr_pair)
+        self._vnc_lib.virtual_machine_interface_update(vmi2)
+
+        vmi2.set_port_security_enabled(False)
+        self._vnc_lib.virtual_machine_interface_update(vmi2)
+
     def test_physical_router_credentials_list(self):
         phy_rout_name = self.id() + '-phy-router-1'
         phy_rout_name_2 = self.id() + '-phy-router-2'
