@@ -1136,9 +1136,11 @@ class AnsibleRoleCommon(AnsibleConf):
                 if spine_pi not in self.physical_router.physical_interfaces:
                     continue
                 spine_pi_obj = PhysicalInterfaceDM.get(spine_pi)
+                pr = self.physical_router
                 if spine_pi_obj.fq_name == left_fq_name:
                     li_name = spine_pi_obj.name + '.' + left_svc_vlan
-                    li_obj = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
+                    li_fq_name = spine_pi_obj.fq_name + [li_name.replace(":", "_")]
+                    li_obj = LogicalInterfaceDM.find_by_fq_name(li_fq_name)
                     if li_obj:
                         #irb creation
                         iip_obj = InstanceIpDM.get(li_obj.instance_ip)
@@ -1172,7 +1174,8 @@ class AnsibleRoleCommon(AnsibleConf):
 
                 if spine_pi_obj.fq_name == right_fq_name:
                     li_name = spine_pi_obj.name + '.' + right_svc_vlan
-                    li_obj = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
+                    li_fq_name = spine_pi_obj.fq_name + [li_name.replace(":", "_")]
+                    li_obj = LogicalInterfaceDM.find_by_fq_name(li_fq_name)
                     if li_obj:
                         #irb creation
                         iip_obj = InstanceIpDM.get(li_obj.instance_ip)
@@ -1231,8 +1234,11 @@ class AnsibleRoleCommon(AnsibleConf):
 
                 pt_obj = PortTupleDM.get(pt)
 
+                if not pt_obj:
+                    continue
+
                 if not pt_obj.logical_routers:
-                    return
+                    continue
 
                 si_obj = ServiceInstanceDM.get(pt_obj.svc_instance)
 
@@ -1294,7 +1300,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 for pnf_pi, intf_type in svc_app_obj.physical_interfaces.iteritems():
                     if intf_type.get('interface_type') == "left":
                         pnf_pi_obj = PhysicalInterfaceDM.get(pnf_pi)
-                        pnf = pnf_pi_obj.physical_router
+                        pnf_pr = pnf_pi_obj.physical_router
+                        pnf_pr_obj = PhysicalRouterDM.get(pnf_pr)
                         for li in pnf_pi_obj.logical_interfaces:
                             li_obj = LogicalInterfaceDM.get(li)
                             if li_obj:
@@ -1325,9 +1332,10 @@ class AnsibleRoleCommon(AnsibleConf):
                 else:
                     #get rendezvous point IP address as srx loopback IP
                     li_name = "lo0." + left_svc_vlan
-                    li = LogicalInterfaceDM.find_by_name_or_uuid(li_name)
-                    if li:
-                        instance_ip = InstanceIpDM.get(li.instance_ip)
+                    li_fq_name = pnf_pr_obj.fq_name + ['lo0', li_name]
+                    li_obj = LogicalInterfaceDM.find_by_fq_name(li_fq_name)
+                    if li_obj:
+                        instance_ip = InstanceIpDM.get(li_obj.instance_ip)
                         if instance_ip:
                             left_vrf_info['loopback_ip'] = \
                                 instance_ip.instance_ip_address

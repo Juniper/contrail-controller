@@ -109,7 +109,7 @@ class PnfConf(AnsibleRoleCommon):
                     peer = Bgp(
                         name=name,
                         ip_address=peer_ip,
-                        autonomous_system=svc_params.get('left_asns')[1])
+                        autonomous_system=svc_params.get('left_peer_asn'))
                     peers[name] = peer
                 if peers:
                     bgp.set_peers(self.get_values_sorted_by_key(peers))
@@ -128,7 +128,7 @@ class PnfConf(AnsibleRoleCommon):
                     peer = Bgp(
                         name=name,
                         ip_address=peer_ip,
-                        autonomous_system=svc_params.get('right_asns')[1])
+                        autonomous_system=svc_params.get('right_peer_asn'))
                     peers[name] = peer
                 if peers:
                     bgp.set_peers(self.get_values_sorted_by_key(peers))
@@ -182,11 +182,25 @@ class PnfConf(AnsibleRoleCommon):
            svc_params.get('peer_left_li_ips') and \
            svc_params.get('left_li_ip') and \
            svc_params.get('lo0_li') and \
+           svc_params.get('left_peer_asn') and \
+           svc_params.get('right_peer_asn') and \
            svc_params.get('lo0_li_ip'):
             return True
 
         return False
     # end build_pnf_required_params
+
+    def get_peer_asn(self, pi_obj):
+        pr_uuid = pi_obj.physical_router
+        pr_obj = PhysicalRouterDM.get(pr_uuid)
+        if pr_obj:
+            bgp_uuid = pr_obj.bgp_router
+            bgp_obj = BgpRouterDM.get(bgp_uuid)
+            if bgp_obj and bgp_obj.params:
+                return bgp_obj.params.get('autonomous_system')
+
+        return None
+    # end get_peer_asn
 
     def build_pnf_svc_config(self):
         pr = self.physical_router
@@ -216,8 +230,8 @@ class PnfConf(AnsibleRoleCommon):
                             if attr == 'left':
                                 left_li_name = pi_obj.name + '.' + \
                                     str(svc_params['left_vlan'])
-                                left_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                    left_li_name)
+                                left_li_fq_name = pi_obj.fq_name + [left_li_name.replace(":", "_")]
+                                left_li_obj = LogicalInterfaceDM.find_by_fq_name(left_li_fq_name)
                                 if left_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         left_li_obj.instance_ip)
@@ -227,8 +241,8 @@ class PnfConf(AnsibleRoleCommon):
                                         svc_params['left_li_ip'] = left_li_ip
                                 lo0_li_name = 'lo0' + '.' + \
                                     str(svc_params['left_vlan'])
-                                lo0_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                    lo0_li_name)
+                                lo0_fq_name = pr.fq_name + ['lo0', lo0_li_name]
+                                lo0_li_obj = LogicalInterfaceDM.find_by_fq_name(lo0_fq_name)
                                 if lo0_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         lo0_li_obj.instance_ip)
@@ -240,10 +254,11 @@ class PnfConf(AnsibleRoleCommon):
                                 for pi_ref in pi_obj.physical_interfaces or []:
                                     pi_ref_obj = PhysicalInterfaceDM.get(
                                         pi_ref)
+                                    svc_params['left_peer_asn'] = self.get_peer_asn(pi_ref_obj)
                                     peer_li_name = pi_ref_obj.name + \
                                         '.' + str(svc_params['left_vlan'])
-                                    peer_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                        peer_li_name)
+                                    peer_li_fq_name = pi_ref_obj.fq_name + [peer_li_name.replace(":", "_")]
+                                    peer_li_obj = LogicalInterfaceDM.find_by_fq_name(peer_li_fq_name)
                                     if peer_li_obj:
                                         instance_ip = InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
@@ -255,8 +270,8 @@ class PnfConf(AnsibleRoleCommon):
                             elif attr == 'right':
                                 right_li_name = pi_obj.name + '.' + \
                                     str(svc_params['right_vlan'])
-                                right_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                    right_li_name)
+                                right_li_fq_name = pi_obj.fq_name + [right_li_name.replace(":", "_")]
+                                right_li_obj = LogicalInterfaceDM.find_by_fq_name(right_li_fq_name)
                                 if right_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         right_li_obj.instance_ip)
@@ -268,10 +283,11 @@ class PnfConf(AnsibleRoleCommon):
                                 for pi_ref in pi_obj.physical_interfaces or []:
                                     pi_ref_obj = PhysicalInterfaceDM.get(
                                         pi_ref)
+                                    svc_params['right_peer_asn'] = self.get_peer_asn(pi_ref_obj)
                                     peer_li_name = pi_ref_obj.name + \
                                         '.' + str(svc_params['right_vlan'])
-                                    peer_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                        peer_li_name)
+                                    peer_li_fq_name = pi_ref_obj.fq_name + [peer_li_name.replace(":", "_")]
+                                    peer_li_obj = LogicalInterfaceDM.find_by_fq_name(peer_li_fq_name)
                                     if peer_li_obj:
                                         instance_ip = InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
