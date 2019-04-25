@@ -705,6 +705,8 @@
               "juniper-mx2010",
               "juniper-mx2020",
               "juniper-mx10003",
+              "juniper-jnp10008",
+              "juniper-jnp10016",
               "juniper-srx5400",
               "juniper-srx5600",
               "juniper-srx4600",
@@ -943,6 +945,18 @@
             "juniper-mx10003"
           ],
           "name": "juniper-mx10003"
+        },
+        {
+          "fq_name": [
+            "juniper-jnp10008"
+          ],
+          "name": "juniper-jnp10008"
+        },
+        {
+          "fq_name": [
+            "juniper-jnp10016"
+          ],
+          "name": "juniper-jnp10016"
         },
         {
           "fq_name": [
@@ -1485,6 +1499,18 @@
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx10003" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-jnp10008" ]
+    },
+    {
+      "from_type": "node_profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
+      "to_type": "hardware",
+      "to_fq_name": [ "juniper-jnp10016" ]
     },
     {
       "from_type": "node_profile",
