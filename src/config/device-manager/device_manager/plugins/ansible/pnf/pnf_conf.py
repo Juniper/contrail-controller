@@ -216,8 +216,8 @@ class PnfConf(AnsibleRoleCommon):
                             if attr == 'left':
                                 left_li_name = pi_obj.name + '.' + \
                                     str(svc_params['left_vlan'])
-                                left_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                    left_li_name)
+                                left_li_fq_name = pi_obj.fq_name + [left_li_name.replace(":", "_")]
+                                left_li_obj = LogicalInterfaceDM.find_by_fq_name(left_li_fq_name)
                                 if left_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         left_li_obj.instance_ip)
@@ -227,8 +227,8 @@ class PnfConf(AnsibleRoleCommon):
                                         svc_params['left_li_ip'] = left_li_ip
                                 lo0_li_name = 'lo0' + '.' + \
                                     str(svc_params['left_vlan'])
-                                lo0_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                    lo0_li_name)
+                                lo0_fq_name = pr.fq_name + ['lo0', lo0_li_name]
+                                lo0_li_obj = LogicalInterfaceDM.find_by_fq_name(lo0_fq_name)
                                 if lo0_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         lo0_li_obj.instance_ip)
@@ -242,8 +242,8 @@ class PnfConf(AnsibleRoleCommon):
                                         pi_ref)
                                     peer_li_name = pi_ref_obj.name + \
                                         '.' + str(svc_params['left_vlan'])
-                                    peer_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                        peer_li_name)
+                                    peer_li_fq_name = pi_ref_obj.fq_name + [peer_li_name.replace(":", "_")]
+                                    peer_li_obj = LogicalInterfaceDM.find_by_fq_name(peer_li_fq_name)
                                     if peer_li_obj:
                                         instance_ip = InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
@@ -255,8 +255,8 @@ class PnfConf(AnsibleRoleCommon):
                             elif attr == 'right':
                                 right_li_name = pi_obj.name + '.' + \
                                     str(svc_params['right_vlan'])
-                                right_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                    right_li_name)
+                                right_li_fq_name = pi_obj.fq_name + [right_li_name.replace(":", "_")]
+                                right_li_obj = LogicalInterfaceDM.find_by_fq_name(right_li_fq_name)
                                 if right_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         right_li_obj.instance_ip)
@@ -270,8 +270,8 @@ class PnfConf(AnsibleRoleCommon):
                                         pi_ref)
                                     peer_li_name = pi_ref_obj.name + \
                                         '.' + str(svc_params['right_vlan'])
-                                    peer_li_obj = LogicalInterfaceDM.find_by_name_or_uuid(
-                                        peer_li_name)
+                                    peer_li_fq_name = pi_ref_obj.fq_name + [peer_li_name.replace(":", "_")]
+                                    peer_li_obj = LogicalInterfaceDM.find_by_fq_name(peer_li_fq_name)
                                     if peer_li_obj:
                                         instance_ip = InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
