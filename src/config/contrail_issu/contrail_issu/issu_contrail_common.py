@@ -169,6 +169,15 @@ class ICCassandraClient():
                     # TBD If failure to add, fail ISSU
     # end
 
+    def issu_read_row(self, msg):
+        try:
+            (ok, result) = self._newversion_handle.object_read(
+                msg['type'], [msg['uuid']], field_names=['fq_name'])
+        except Exception as e:
+            self._logger(str(e), level=SandeshLevel.SYS_ERR)
+            return {}
+        return result[0]
+
     def issu_sync_row(self, msg, cf):
         if msg['oper'] == "CREATE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
