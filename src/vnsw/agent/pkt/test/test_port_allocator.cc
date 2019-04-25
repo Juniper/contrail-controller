@@ -45,6 +45,7 @@ protected:
     }
 
     virtual void TearDown() {
+        agent_->pkt()->FlushFlows();
         delete port_table_;
         DelIPAM("vn1");
         DeleteVmportEnv(input, 2, true);
@@ -264,7 +265,7 @@ TEST_F(PortAllocationTest, NonTcpUdpFlow) {
 
 TEST_F(PortAllocationTest, IpScale) {
     PortConfig pc;
-    pc.port_range.push_back(PortConfig::PortRange(50000, 50000));
+    pc.port_range.push_back(PortConfig::PortRange(50001, 50100));
     pc.Trim();
 
     port_table_->UpdatePortConfig(&pc);
@@ -303,7 +304,7 @@ TEST_F(PortAllocationTest, PortRangeAllocation) {
 
 TEST_F(PortAllocationTest, PortScale) {
     PortConfig pc;
-    pc.port_range.push_back(PortConfig::PortRange(50000, 50000));
+    pc.port_range.push_back(PortConfig::PortRange(50001, 50100));
     pc.Trim();
 
     port_table_->UpdatePortConfig(&pc);
