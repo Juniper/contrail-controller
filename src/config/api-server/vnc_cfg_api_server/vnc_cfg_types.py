@@ -1956,11 +1956,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _check_bridge_domain_vmi_association
 
     @classmethod
-    def _check_port_security_and_address_pairs(cls, obj_dict, db_dict={}):
+    def _check_port_security_and_address_pairs(cls, obj_dict, db_dict=None):
         if ('port_security_enabled' not in obj_dict and
             'virtual_machine_interface_allowed_address_pairs' not in obj_dict):
             return True, ""
 
+        if not db_dict:
+            db_dict = {}
         if 'port_security_enabled' in obj_dict:
             port_security = obj_dict.get('port_security_enabled', True)
         else:
@@ -1973,7 +1975,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             address_pairs = db_dict.get(
                             'virtual_machine_interface_allowed_address_pairs')
 
-        if not port_security and address_pairs:
+        if (not port_security and address_pairs and
+                address_pairs.get('allowed_address_pair')):
             msg = "Allowed address pairs are not allowed when port "\
                   "security is disabled"
             return (False, (400, msg))
