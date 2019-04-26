@@ -2,10 +2,14 @@ import unittest
 from flexmock import flexmock
 import swiftclient
 import swiftclient.utils
-from ansible.modules.network.fabric import swift_fileutil
+import sys
 from test_fabric_base import TestFabricModule
 from test_fabric_base import set_module_args
-from ansible.module_utils import fabric_utils
+
+sys.path.append('../fabric-ansible/ansible-playbooks/library')
+import swift_fileutil
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+import fabric_utils
 
 
 class TestSwiftFileUtilModule(TestFabricModule):
