@@ -16,3 +16,4 @@ junitxml
 timeout-decorator
 subprocess32
 pycrypto
+python-swiftclient
