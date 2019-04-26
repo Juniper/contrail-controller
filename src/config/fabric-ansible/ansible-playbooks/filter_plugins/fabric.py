@@ -12,7 +12,8 @@ import traceback
 import argparse
 import json
 import uuid
-from netaddr import IPNetwork
+import struct
+import socket
 import jsonschema
 
 from job_manager.job_utils import JobVncApi, JobAnnotations
@@ -127,6 +128,14 @@ def _subscriber_tag(local_mac, remote_mac):
     macs.sort()
     return "%s-%s" % (macs[0], macs[1])
 # end _subscriber_tag
+
+
+def _ip2int(addr):
+    return struct.unpack("!I", socket.inet_aton(addr))[0]
+
+
+def _int2ip(addr):
+    return socket.inet_ntoa(struct.pack("!I", addr))
 
 
 class NetworkType(object):
@@ -1565,7 +1574,8 @@ class FilterModule(object):
                         'physical_router_loopback_ip',
                         'physical_router_management_ip',
                         'physical_router_underlay_managed',
-                        'display_name'
+                        'display_name',
+                        'annotations'
                     ]
                 )
                 device_roles['device_obj'] = device_obj
@@ -1616,6 +1626,8 @@ class FilterModule(object):
             # fabric_config playbook to push the role-based configuration to
             # the devices
             for device_roles in role_assignments:
+                # This is a workaround for the dummy route JUNOS issue
+                self._assign_private_dummy_ip(device_roles.get('device_obj'), vnc_api)
                 if device_roles.get('supported_roles'):
                     self._assign_device_roles(vnc_api, device_roles)
         except Exception as ex:
@@ -1630,6 +1642,60 @@ class FilterModule(object):
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
+
+    def _read_and_increment_dummy_ip(self, vnc_api):
+        gsc_obj = vnc_api.global_system_config_read(fq_name=[GSC])
+        dummy_ip = None
+        kvs = []
+        annotations = gsc_obj.get_annotations()
+        if annotations:
+            kvs = annotations.get_key_value_pair() or []
+            for kv in kvs:
+                if kv.get_key() == 'next_dummy_ip':
+                    dummy_ip = kv.get_value()
+                    kv.set_value(_int2ip(_ip2int(dummy_ip)+1))
+                    break
+
+        if not dummy_ip:
+            dummy_ip = "172.16.0.1"
+            kvs.append(KeyValuePair(key="next_dummy_ip", value=dummy_ip))
+
+        if not annotations:
+            annotations = KeyValuePairs(kvs)
+        gsc_obj.set_annotations(annotations)
+        vnc_api.global_system_config_update(gsc_obj)
+        return gsc_obj, dummy_ip
+
+    def _get_device_dummy_ip(self, device_obj):
+        annotations = device_obj.get_annotations()
+        if annotations:
+            for kv in annotations.get_key_value_pair() or []:
+                if kv.get_key() == "dummy_ip":
+                    return kv.get_value()
+        return None
+    # end _get_device_dummy_ip
+
+    def _update_device_dummy_ip(self, vnc_api, device_obj, dummy_ip):
+        annotations = device_obj.get_annotations()
+        if not annotations:
+            annotations = KeyValuePairs()
+        annotations.add_key_value_pair(KeyValuePair(key='dummy_ip', value=dummy_ip))
+        device_obj.set_annotations(annotations)
+        vnc_api.physical_router_update(device_obj)
+    # end _update_device_dummy_ip
+
+    def _assign_private_dummy_ip(self, device_obj, vnc_api):
+        """This method is a hack to workaround the junos issue on type-5 routes.
+        Due to this JUNOS limitation, we need to configure one dummy static route
+        per fabric device to resolve the issue. We are allocating a private IP
+        from 172.16.0.0/12 subnets and store it as one key-value annotation of
+        the physical-router object"""
+        if vnc_api and device_obj:
+            dummy_ip = self._get_device_dummy_ip(device_obj)
+            if not dummy_ip:
+                gsc_obj, dummy_ip = self._read_and_increment_dummy_ip(vnc_api)
+                self._update_device_dummy_ip(vnc_api, device_obj, dummy_ip)
+    # end _assign_private_dummy_ip
 
     @staticmethod
     def _enable_ibgp_auto_mesh(vnc_api, enable):

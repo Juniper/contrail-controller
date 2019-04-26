@@ -35,6 +35,7 @@
        <xsd:element name="tunnel-ip" type="xsd:string"/>
        <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
        <xsd:element name="is-ucast-gateway-only" type="xsd:boolean"/>
+       <xsd:element name="dummy-ip" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
