@@ -126,10 +126,10 @@ class AuthPreKeystone(object):
 
 class AuthPostKeystone(object):
 
-    def __init__(self, server_mgr, conf):
+    def __init__(self, server_mgr, auth_svc):
         self.server_mgr = server_mgr
         self.app = server_mgr.api_bottle
-        self.conf = conf
+        self.auth_svc = auth_svc
 
     @use_auth_context
     def __call__(self, env, start_response):
@@ -138,7 +138,7 @@ class AuthPostKeystone(object):
                      env.get('HTTP_X_USER_DOMAIN_ID'))
         # if there is not domain ID (aka Keystone v2) or if it equals to
         # 'default', fallback to the Contrail default-domain ID and name
-        if not domain_id or domain_id == self.conf['default_domain_id']:
+        if not domain_id or domain_id == self.auth_svc.default_domain_id:
             env['HTTP_X_DOMAIN_ID'] =\
                 self.server_mgr.default_domain['uuid'].replace('-', '')
             env['HTTP_X_DOMAIN_NAME'] =\
@@ -148,7 +148,7 @@ class AuthPostKeystone(object):
 
         set_auth_context(env)
         # if rbac is set, skip old admin based MT
-        if self.conf['auth_svc']._mt_rbac:
+        if self.auth_svc.mt_rbac:
             return self.app(env, start_response)
 
         # only allow admin access when MT is on
@@ -179,7 +179,6 @@ class AuthServiceKeystone(object):
             'region_name': args.region_name,
             'insecure': args.insecure,
             'signing_dir': args.signing_dir,
-            'default_domain_id': args.default_domain_id,
         }
         if args.auth_url:
             auth_url = args.auth_url
@@ -219,7 +218,7 @@ class AuthServiceKeystone(object):
         self._server_mgr = server_mgr
         self._auth_method = args.auth
         self._auth_middleware = None
-        self._mt_rbac = server_mgr.is_rbac_enabled()
+        self.mt_rbac = server_mgr.is_rbac_enabled()
         self._auth_needed = server_mgr.is_auth_needed()
         if not self._auth_method:
             return
@@ -239,7 +238,7 @@ class AuthServiceKeystone(object):
                 self._conf_info['token_cache_time'] = args.token_cache_time
         self._user_auth_middleware = None
         self._hdr_from_token_auth_middleware = None
-        self._conf_info['auth_svc'] = self
+        self.default_domain_id = args.default_domain_id
     # end __init__
 
     def get_middleware_app(self):
@@ -251,7 +250,7 @@ class AuthServiceKeystone(object):
 
         # keystone middleware is needed for fetching objects
 
-        app = AuthPostKeystone(self._server_mgr, self._conf_info)
+        app = AuthPostKeystone(self._server_mgr, self)
 
         auth_middleware = auth_token.AuthProtocol(app, self._conf_info)
         self._auth_middleware = auth_middleware
