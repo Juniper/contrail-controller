@@ -187,6 +187,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip')
+        self.dummy_ip = self.get_dummy_ip(obj)
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
         self.vendor = obj.get('physical_router_vendor_name') or ''
@@ -220,6 +221,13 @@ class PhysicalRouterDM(DBBaseDM):
         self.allocate_asn()
         self.reinit_device_plugin()
     # end update
+
+    def get_dummy_ip(self, obj):
+        kvs = obj.get('annotations', {}).get('key_value_pair') or []
+        for kv in kvs:
+            if kv.get_key() == 'dummy_ip':
+                return kv.get_value()
+        return None
 
     def set_associated_lags(self, lag_uuid):
         self.virtual_port_groups.append(lag_uuid)
