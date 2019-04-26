@@ -1186,6 +1186,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.security_groups = set()
         self.service_instance = None
         self.service_endpoint = None
+        self.virtual_port_group = None
         self.update(obj_dict)
     # end __init__
 
@@ -1221,6 +1222,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             if pt:
                 self.service_instance = pt.svc_instance
         self.update_single_ref('service_endpoint', obj)
+        self.update_single_ref('virtual_port_group', obj)
     # end update
 
     def is_device_owner_bms(self):
@@ -1249,6 +1251,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_multiple_refs('security_group', {})
         obj.update_single_ref('port_tuple', {})
         obj.update_single_ref('service_endpoint', {})
+        obj.update_single_ref('virtual_port_group', {})
         del cls._dict[uuid]
     # end delete
 
@@ -2424,7 +2427,7 @@ class VirtualPortGroupDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
             if not vmi_obj:
                 return sg_list
-            if vmi_obj.vlan_tag == int(vlan_tag):
+            if vmi_obj.vlan_tag == int(vlan_tag) or (not vmi_obj.vlan_tag and int(vlan_tag) == 4094):
                 for sg in vmi_obj.security_groups or []:
                     sg = SecurityGroupDM.get(sg)
                     if sg and sg not in sg_list:
