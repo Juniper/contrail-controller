@@ -298,12 +298,10 @@ TEST_F(AclTest, Config) {
 
     PacketHeader *packet1 = new PacketHeader();
     MatchAclParams m_acl;
-    std::string vn11("vn11");
-    std::string vn21("vn21");
     VnListType vn11_list;
     VnListType vn21_list;
-    vn11_list.insert("vn11");
-    vn21_list.insert("vn21");
+    vn11_list.insert("vn1");
+    vn21_list.insert("vn2");
     packet1->src_policy_id = &vn11_list;
     packet1->dst_policy_id = &vn21_list;
     packet1->protocol = 10;

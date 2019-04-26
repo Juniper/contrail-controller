@@ -171,7 +171,7 @@ static void ValidateVgwInterface(InetUnicastRouteEntry *route,
     EXPECT_TRUE(inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
     EXPECT_STREQ(intf->name().c_str(), name);
     EXPECT_TRUE(route->GetActivePath()->GetTunnelBmap() ==
-                TunnelType::GREType());
+                TunnelType::MplsType());
     EXPECT_TRUE(static_cast<const InterfaceNH *>(nh)->GetVrf()->GetName() ==
                 inet_intf->vrf()->GetName());
 }
@@ -233,7 +233,7 @@ TEST_F(VgwTest, RouteResync) {
     client->WaitForIdle();
     route = RouteGet("default-domain:admin:public:public",
                      Ip4Address::from_string("0.0.0.0"), 0);
-    EXPECT_EQ(route->GetActivePath()->tunnel_type(), TunnelType::MPLS_GRE);
+    EXPECT_EQ(route->GetActivePath()->tunnel_type(), TunnelType::MPLS_UDP);
 
     AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
     client->WaitForIdle();
@@ -251,12 +251,19 @@ TEST_F(VgwTest, RouteResync) {
                      Ip4Address::from_string("0.0.0.0"), 0);
     EXPECT_TRUE(route != NULL);
     ValidateVgwInterface(route, "vgw");
+
+    DelEncapList();
 }
 
 TEST_F(VgwTest, IngressFlow_1) {
-    AddVmPort("vnet2", 2, "2.2.2.3", "00:00:02:02:02:03",
-              "default-domain:admin:public:public",
-              "default-domain:admin:public", 2, "vm2", 2, "instance-ip-2", 2);
+    struct PortInfo input[] = {
+        {"vnet1", 1, "2.2.2.4", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "2.2.2.3", "00:00:00:02:02:02", 1, 2},
+    };
+
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+
     WAIT_FOR(1000, 100, (VmPortFind(2) == true));
     VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(2));
     EXPECT_TRUE(vmi != NULL);
@@ -282,9 +289,7 @@ TEST_F(VgwTest, IngressFlow_1) {
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
-    DelVmPort("vnet2", 2, "2.2.2.3", "00:00:02:02:02:03",
-              "default-domain:admin:public:public",
-              "default-domain:admin:public", 2, "vm2", 2, "instance-ip-2", 2);
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(2));
@@ -292,9 +297,14 @@ TEST_F(VgwTest, IngressFlow_1) {
 }
 
 TEST_F(VgwTest, EgressFlow_1) {
-    AddVmPort("vnet2", 2, "2.2.2.3", "00:00:02:02:02:03",
-              "default-domain:admin:public:public",
-              "default-domain:admin:public", 2, "vm2", 2, "instance-ip-2", 2);
+    struct PortInfo input[] = {
+        {"vnet1", 1, "2.2.2.4", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "2.2.2.3", "00:00:00:02:02:02", 1, 2},
+    };
+
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+
     WAIT_FOR(1000, 100, (VmPortFind(2) == true));
     VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(2));
     EXPECT_TRUE(vmi != NULL);
@@ -322,9 +332,7 @@ TEST_F(VgwTest, EgressFlow_1) {
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
-    DelVmPort("vnet2", 2, "2.2.2.3", "00:00:02:02:02:03",
-              "default-domain:admin:public:public",
-              "default-domain:admin:public", 2, "vm2", 2, "instance-ip-2", 2);
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(2));
