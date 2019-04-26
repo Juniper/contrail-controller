@@ -30,6 +30,7 @@ ordered_role_groups = [
 ]
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+sys.path.append("../fabric-ansible/ansible-playbooks/module_utils") # unit test
 from filter_utils import FilterLog, _task_error_log
 
 IMAGE_UPGRADE_DURATION = 30 # minutes

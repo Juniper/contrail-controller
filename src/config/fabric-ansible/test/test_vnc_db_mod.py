@@ -1,11 +1,16 @@
 import unittest
 from flexmock import flexmock
-from ansible.modules.network.fabric import vnc_db_mod
+#from ansible.modules.network.fabric import vnc_db_mod
+import sys
+sys.path.append('../fabric-ansible/ansible-playbooks/library')
+import vnc_db_mod
 from test_fabric_base import TestFabricModule
 from test_fabric_base import set_module_args
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import *
-from ansible.module_utils import fabric_utils
+#from ansible.module_utils import fabric_utils
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+import fabric_utils
 
 
 class TestFabricVncDbModule(TestFabricModule):
