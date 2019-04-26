@@ -15,7 +15,10 @@ from inflection import camelize
 from job_manager.job_utils import JobVncApi
 from vnc_api.vnc_api import VncApi
 import vnc_api
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
+#from ansible.module_utils.fabric_utils import FabricAnsibleModule
+import sys
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+from fabric_utils import FabricAnsibleModule
 
 DOCUMENTATION = '''
 ---

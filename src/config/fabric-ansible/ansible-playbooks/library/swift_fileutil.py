@@ -101,7 +101,10 @@ import time
 from urlparse import urlparse
 import swiftclient
 import swiftclient.utils
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
+#from ansible.module_utils.fabric_utils import FabricAnsibleModule
+import sys
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+from fabric_utils import FabricAnsibleModule
 from threading import RLock
 
 connection_lock = RLock()
