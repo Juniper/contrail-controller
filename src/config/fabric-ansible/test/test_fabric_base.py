@@ -27,8 +27,8 @@ try:
 except ImportError:
     from xml.etree.ElementTree import parse
 
-from ansible.compat.tests import unittest
-from ansible.compat.tests.mock import patch
+import unittest
+from mock import patch
 from ansible.module_utils import basic
 from ansible.module_utils._text import to_bytes
 
