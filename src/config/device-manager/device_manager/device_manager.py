@@ -117,7 +117,7 @@ class DeviceManager(object):
             'logical_interface': ['physical_interface', 'physical_router'],
             'physical_interface': ['physical_router'],
             'virtual_port_group': ['physical_router'],
-            'virtual_machine_interface': ['physical_interface'],
+            'virtual_machine_interface': ['physical_interface', 'physical_router'],
             'service_appliance': ['physical_router'],
             'port': ['physical_router'],
         },
@@ -154,7 +154,7 @@ class DeviceManager(object):
             'routing_instance': ['port_tuple', 'physical_interface'],
             'port_tuple': ['physical_interface'],
             'service_endpoint': ['physical_router'],
-            'security_group': ['logical_interface'],
+            'security_group': ['logical_interface', 'virtual_port_group'],
         },
         'security_group': {
             'self': [],
