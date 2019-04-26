@@ -101,6 +101,7 @@ error_msg:
 import logging
 import re
 from threading import RLock
+import sys
 import time
 from urlparse import urlparse
 
@@ -108,6 +109,10 @@ from ansible.module_utils.fabric_utils import FabricAnsibleModule
 import requests
 import swiftclient
 import swiftclient.utils
+
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils') # unit test
+from fabric_utils import FabricAnsibleModule
 
 connection_lock = RLock()
 

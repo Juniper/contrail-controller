@@ -1,11 +1,16 @@
 import unittest
+import sys
 from flexmock import flexmock
-from ansible.modules.network.fabric import vnc_db_mod
 from test_fabric_base import TestFabricModule
 from test_fabric_base import set_module_args
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import *
-from ansible.module_utils import fabric_utils
+
+sys.path.append('../fabric-ansible/ansible-playbooks/library')
+import vnc_db_mod
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+import fabric_utils
+from job_manager.job_utils import JobVncApi
 
 
 class TestFabricVncDbModule(TestFabricModule):
@@ -69,7 +74,7 @@ class TestFabricVncDbModule(TestFabricModule):
 
     def test_vnc_read(self):
         fake_vnc_lib = flexmock()
-        flexmock(VncApi, __new__=fake_vnc_lib)
+        flexmock(JobVncApi).should_receive('vnc_init').and_return(fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
         fake_router = PhysicalRouter(name='test-tenant')
         fake_router_obj = {"physical-router": {"name": "Router-1"}}
@@ -92,7 +97,7 @@ class TestFabricVncDbModule(TestFabricModule):
                        "physical_router_product_name": "MX",
                        "physical_router_device_family": "junos"}
         fake_vnc_lib = flexmock()
-        flexmock(VncApi, __new__=fake_vnc_lib)
+        flexmock(JobVncApi).should_receive('vnc_init').and_return(fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
         fake_router_uuid = "1ef6cf9d-c2e2-4004-810a-43d471c94dc5"
         flexmock(fake_vnc_lib).should_receive(
@@ -113,7 +118,7 @@ class TestFabricVncDbModule(TestFabricModule):
             }
         }
         fake_vnc_lib = flexmock()
-        flexmock(VncApi, __new__=fake_vnc_lib)
+        flexmock(JobVncApi).should_receive('vnc_init').and_return(fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
         fake_router_obj = "{'physical-router' : {'uuid': '1ef6cf9d-c2e2-4004-810a-43d471c94dc5'}}"
         flexmock(fake_vnc_lib).should_receive(
@@ -129,7 +134,7 @@ class TestFabricVncDbModule(TestFabricModule):
 
     def test_vnc_read_with_job_params(self):
         fake_vnc_lib = flexmock()
-        flexmock(VncApi, __new__=fake_vnc_lib)
+        flexmock(JobVncApi).should_receive('vnc_init').and_return(fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
         fake_router = PhysicalRouter(name='test-tenant')
         fake_router_obj = {"physical-router": {"name": "Router-1"}}
@@ -153,13 +158,16 @@ class TestFabricVncDbModule(TestFabricModule):
         object_list = [{"parent_type": "global-system-config",
                         "fq_name": ["default-global-system-config", "mx-240"],
                         "physical_router_management_ip": "172.10.68.1",
-                        "physical_router_vendor_name": "Juni",
+                        "physical_router_vendor_name": "Juniper",
                         "physical_router_product_name": "MX",
                         "physical_router_device_family": "junos"}]
         fake_vnc_lib = flexmock()
-        flexmock(VncApi, __new__=fake_vnc_lib)
+        flexmock(JobVncApi).should_receive('vnc_init').and_return(fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
         fake_router_uuid = "1ef6cf9d-c2e2-4004-810a-43d471c94dc5"
+        fake_router = PhysicalRouter(name='mx-240')
+        flexmock(fake_vnc_lib).should_receive(
+            'physical_router_read').and_return(fake_router)
         flexmock(fake_vnc_lib).should_receive(
             'physical_router_create').and_return(fake_router_uuid)
         set_module_args(
@@ -178,7 +186,7 @@ class TestFabricVncDbModule(TestFabricModule):
             }
         }]
         fake_vnc_lib = flexmock()
-        flexmock(VncApi, __new__=fake_vnc_lib)
+        flexmock(JobVncApi).should_receive('vnc_init').and_return(fake_vnc_lib)
         fake_vnc_lib.should_receive('__init__')
         fake_router_obj = "{'physical-router' : {'uuid': '1ef6cf9d-c2e2-4004-810a-43d471c94dc5'}}"
         flexmock(fake_vnc_lib).should_receive(
