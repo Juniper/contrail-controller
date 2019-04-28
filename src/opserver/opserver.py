@@ -38,7 +38,7 @@ import copy
 import datetime
 import platform
 from analytics_db import AnalyticsDb
-
+from gevent.server import StreamServer
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
@@ -123,6 +123,10 @@ class OpserverStdLog(object):
         sys.stderr.write('[' + self._server_name + ':' + str(self._port) + ']' + text)
 
 class ContrailGeventServer(bottle.GeventServer):
+    def __init__(self, host, port, sock):
+	    self._socket = sock
+	    super(ContrailGeventServer, self).__init__(host, port)
+
     def run(self, handler):
         from gevent import wsgi as wsgi_fast, pywsgi, monkey, local
         if self.options.get('monkey', True):
@@ -130,8 +134,9 @@ class ContrailGeventServer(bottle.GeventServer):
             if not threading.local is local.local: monkey.patch_all()
         wsgi = wsgi_fast if self.options.get('fast') else pywsgi
         self._std_log = OpserverStdLog("API", self.port)
-        self.srv = wsgi.WSGIServer((self.host, self.port), handler, log = self._std_log)
+        self.srv = wsgi.WSGIServer(self._socket, handler, backlog=None , log = self._std_log)
         self.srv.serve_forever()
+
     def stop(self):
         if hasattr(self, 'srv'):
             self.srv.stop()
@@ -2444,10 +2449,13 @@ class OpServer(object):
 
     def start_webserver(self):
         pipe_start_app = bottle.app()
+        self._socket = self._get_socket()
+        self._set_dscp_value(self._args.sandesh_config.dscp_value)
         try:
             self._webserver = ContrailGeventServer(
                                    host=self._args.rest_api_ip,
-                                   port=self._args.rest_api_port)
+                                   port=self._args.rest_api_port,
+                                   sock=self._socket)
             bottle.run(app=pipe_start_app, server=self._webserver)
         except Exception as e:
             self._logger.error("Exception: %s" % e)
@@ -2598,7 +2606,35 @@ class OpServer(object):
                         redis_elem = (redis_ip_port[0], int(redis_ip_port[1]))
                         redis_uve_list.append(redis_elem)
                     self._uve_server.update_redis_uve_list(redis_uve_list)
+            if 'SANDESH' in config.sections():
+		        try:
+		            new_dscp_value = config.get('SANDESH', 'sandesh_dscp_value')
+		            set_dscp_value(self._socket, new_dscp_value)
+		        except ConfigParser.NoOptionError as e:
+		            pass
     # end sighup_handler
+
+    def _get_socket(self):
+        try:
+            sock = StreamServer.get_listener((self._args.rest_api_ip,
+                self._args.rest_api_port), family=socket.AF_INET)
+        except socket.error as e:
+            self._logger.error('Unable to open HTTP Port %d, %s' %
+                    (self._args.rest_api_port, e))
+            sys.exit()
+        else:
+            return sock
+    #end _get_socket
+
+    def _set_dscp_value(self, dscp_value):
+        if hasattr(socket, 'IP_TOS'):
+            #The 'value' argument is expected to have DSCP value between 0 and
+            #63 ie., in the lower order 6 bits of a byte. However, setsockopt
+            #expects DSCP value in upper 6 bits of a byte. Hence left shift the
+            #value by 2 digits before passing it to setsockopt
+            value = dscp_value << 2
+            self._socket.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, value)
+    # end _set_dscp_value
 
 def main(args_str=' '.join(sys.argv[1:])):
     opserver = OpServer(args_str)
