@@ -624,6 +624,7 @@ void AgentXmppChannel::AddInetEcmpRoute(string vrf_name, IpAddress prefix_addr,
         rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
                                         prefix_addr, prefix_len,
                                         (*iter));
+        iter++;
     }
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
@@ -657,6 +658,7 @@ void AgentXmppChannel::AddEvpnEcmpRoute(string vrf_name,
                                         mac, prefix_addr,
                                         item->entry.nlri.ethernet_tag,
                                         (*iter));
+        iter++;
     }
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
