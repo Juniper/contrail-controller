@@ -152,6 +152,8 @@ int main(int argc, char *argv[]) {
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
+    std::map<std::string, std::map<std::string,std::string> > ds = 
+            std::map<std::string, std::map<std::string,std::string> >(),
     if (options.discovery_server().empty()) {
         NodeType::type node_type =
             g_vns_constants.Module2NodeType.find(module)->second;
@@ -163,7 +165,8 @@ int main(int argc, char *argv[]) {
                     Dns::GetEventManager(),
                     options.http_server_port(), 0,
                     options.collector_server_list(),
-                    NULL));
+                    NULL, ds,
+                    options.sandesh_config()));
         if (!success) {
             LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
             Sandesh::Uninit();
@@ -281,7 +284,9 @@ int main(int argc, char *argv[]) {
                                    options.http_server_port(),
                                    csf,
                                    list,
-                                   NULL));
+                                   NULL,
+                                   ds,
+                                   options.sandesh_config()));
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
                 Sandesh::Uninit();

@@ -18,6 +18,7 @@
 #include "base/util.h"
 #include "io/server_manager.h"
 #include "io/io_utils.h"
+#include <sandesh/sandesh_options.h>
 
 class EventManager;
 class TcpSession;
@@ -93,6 +94,8 @@ public:
                            const std::string &md5_password);
     int SetListenSocketMd5Option(uint32_t peer_ip,
                                  const std::string &md5_password);
+    int SetSocketOptions(const SandeshConfig &sandesh_config);
+    int SetKeepAliveSocketOption(int fd, const SandeshConfig &sandesh_config);
 
 protected:
     typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
