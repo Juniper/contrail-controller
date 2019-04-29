@@ -34,6 +34,9 @@ GmpIntf::GmpIntf(const GmpProto *gmp_proto) : gmp_proto_(gmp_proto),
     querying_ = false;
 }
 
+// GmpIntf is local to Agent IGMP implementation and is not known
+// by core IGMP module.
+// IP address change to be reflected in GMP interface also.
 bool GmpIntf::set_ip_address(const IpAddress &addr) {
 
     if (ip_addr_ != addr) {
@@ -51,11 +54,13 @@ bool GmpIntf::set_ip_address(const IpAddress &addr) {
     return false;
 }
 
+// Update the new VRF name for GmpIntf.
 bool GmpIntf::set_vrf_name(const string &vrf_name) {
     vrf_name_ = vrf_name;
     return true;
 }
 
+// Change of querying mode per-GmpIntf.
 bool GmpIntf::set_gmp_querying(bool querying) {
 
     if (querying_ != querying) {
@@ -89,6 +94,7 @@ GmpProto::GmpProto(GmpType::Type type, Agent *agent,
 GmpProto::~GmpProto() {
 }
 
+// Start the GmpProto that represents the agent's IGMP functionality.
 bool GmpProto::Start() {
 
     if (type_ != GmpType::IGMP) {
@@ -100,6 +106,8 @@ bool GmpProto::Start() {
         return false;
     }
 
+    // TaskTrigger instance for handling GMP notifications like join, leave
+    // per-<S,G> and per-host as required.
     gmp_notif_trigger_ = new TaskTrigger(
                             boost::bind(&GmpProto::GmpNotificationHandler,this),
                             TaskScheduler::GetInstance()->GetTaskId(name_),
@@ -127,6 +135,7 @@ bool GmpProto::Start() {
     return true;
 }
 
+// Stop the GmpProto that represents the agent's IGMP functionality.
 bool GmpProto::Stop() {
 
     if (!gd_) {
@@ -155,6 +164,7 @@ bool GmpProto::Stop() {
     return true;
 }
 
+// Cleans up <S,G> per-GmpIntf. Also cleans up VMIs per-<S,G> from NH.
 void GmpProto::GmpIntfSGClear(VnGmpDBState *state,
                             VnGmpDBState::VnGmpIntfState *gmp_intf_state) {
 
@@ -177,6 +187,7 @@ void GmpProto::GmpIntfSGClear(VnGmpDBState *state,
         sg_to_delete.insert(gmp_sg);
         if (gmp_sg->refcount_ == 0) {
             state->gmp_sg_list_.erase(gmp_sg);
+            // Delete VMIs from multicast list for the <S,G>
             m_handler->DeleteMulticastVrfSourceGroup(
                             gmp_intf_state->gmp_intf_->get_vrf_name(),
                             gmp_sg->source_.to_v4(), gmp_sg->group_.to_v4());
@@ -195,6 +206,7 @@ void GmpProto::GmpIntfSGClear(VnGmpDBState *state,
     return;
 }
 
+// Handle VN change notification, specifically IPAM changes
 void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
     // Registering/Unregistering every IPAM gateway (or) dns_server
@@ -320,6 +332,8 @@ void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
     }
 }
 
+// Handle Interface notification, specifically VMI delete notification
+// Clean up VMI from NH for the <S,G>s on VMI delete
 void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
     Interface *itf = static_cast<Interface *>(entry);
@@ -402,6 +416,7 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     return;
 }
 
+// Create a GmpIntf. Represents per-IPAM entry.
 GmpIntf *GmpProto::CreateIntf() {
 
     GmpIntf *gmp_intf = new GmpIntf(this);
@@ -415,6 +430,7 @@ GmpIntf *GmpProto::CreateIntf() {
     return gmp_intf;
 }
 
+// Delete a GmpIntf.
 bool GmpProto::DeleteIntf(GmpIntf *gif) {
 
     gmp_detach_intf(gd_, gif->GetGif());
@@ -423,6 +439,7 @@ bool GmpProto::DeleteIntf(GmpIntf *gif) {
     return true;
 }
 
+// Pass the IP header processed IGMP packet to the GMP
 bool GmpProto::GmpProcessPkt(const VmInterface *vm_itf,
                         void *rcv_pkt, uint32_t packet_len,
                         IpAddress ip_saddr, IpAddress ip_daddr) {
@@ -471,6 +488,7 @@ void GmpProto::GmpBufferFree(uint8_t *pkt) {
     delete [] pkt;
 }
 
+// TaskTrigger handler for IGMP notifications like join, leave.
 bool GmpProto::GmpNotificationHandler() {
 
     boolean pending = FALSE;
@@ -489,6 +507,7 @@ bool GmpProto::GmpNotificationHandler() {
     return true;
 }
 
+// Timer instance to handle pending notifications not handled in previous run
 bool GmpProto::GmpNotificationTimer() {
 
     if (gmp_notif_trigger_ && !gmp_notif_trigger_->IsSet()) {
@@ -500,6 +519,9 @@ bool GmpProto::GmpNotificationTimer() {
     return false;
 }
 
+// Handler registered with GMP to take care of per-<S,G> and also
+// per-host, per-<S,G> notifications. TaskTriggers instance created
+// above is triggered to further handle the notifications
 void GmpProto::GmpNotificationReady() {
 
     if (!gmp_notif_trigger_ || gmp_notif_trigger_->IsSet()) {
@@ -511,6 +533,7 @@ void GmpProto::GmpNotificationReady() {
     return;
 }
 
+// <S,G>, including <*,G> notification handling
 void GmpProto::GroupNotify(GmpIntf *gif, IpAddress source, IpAddress group,
                             int group_action) {
 
@@ -628,6 +651,7 @@ void GmpProto::ResyncNotify(GmpIntf *gif, IpAddress source, IpAddress group) {
     return;
 }
 
+// Per-host, per-<S,G> handling. For now, only per-host, per-<*,G> handling
 void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
                                     IpAddress source, IpAddress group) {
 
@@ -669,6 +693,7 @@ void GmpProto::UpdateHostInSourceGroup(GmpIntf *gif, bool join, IpAddress host,
     return;
 }
 
+// Handling per-host, per-<S,G> notification for MVPN case
 void GmpProto::TriggerMvpnNotification(const VmInterface *vm_intf, bool join,
                                     IpAddress source, IpAddress group) {
 
@@ -697,6 +722,7 @@ void GmpProto::TriggerMvpnNotification(const VmInterface *vm_intf, bool join,
     return;
 }
 
+// Handling per-host, per-<S,G> notification for EVPN(SMET) case
 void GmpProto::TriggerEvpnNotification(const VmInterface *vm_intf, bool join,
                                     IpAddress source, IpAddress group) {
 
@@ -720,6 +746,8 @@ void GmpProto::TriggerEvpnNotification(const VmInterface *vm_intf, bool join,
     return;
 }
 
+// Accept/reject <S,G> based on the multicast policy configured
+// by the user/application.
 bool GmpProto::MulticastPolicyCheck(GmpIntf *gif, IpAddress source,
                             IpAddress group) {
 
@@ -754,6 +782,7 @@ bool GmpProto::MulticastPolicyCheck(GmpIntf *gif, IpAddress source,
     return false;
 }
 
+// Send IGMP packet generated by the GMP to particular destination
 bool GmpProto::SendPacket(GmpIntf *gif, uint8_t *pkt, uint32_t pkt_len,
                             IpAddress dest) {
 
@@ -794,6 +823,7 @@ bool GmpProtoManager::DeleteGmpProto(GmpProto *proto_inst) {
     return true;
 }
 
+// Callback registered with GMP to check <S,G> for multicast policy
 boolean gmp_policy_check(mgm_global_data *gd, gmp_intf *intf,
                             gmp_addr_string source, gmp_addr_string group)
 {
@@ -836,6 +866,7 @@ void gmp_notification_ready(mgm_global_data *gd)
     return;
 }
 
+// Function to handle per-<S,G> notifications
 void gmp_group_notify(mgm_global_data *gd, gmp_intf *intf,
                             int group_action, gmp_addr_string source,
                             gmp_addr_string group)
@@ -864,6 +895,7 @@ void gmp_group_notify(mgm_global_data *gd, gmp_intf *intf,
     gmp_proto->GroupNotify(gif, source_addr, group_addr, group_action);
 }
 
+// C-based function to handle per-<S,G> resync notifications
 void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *intf,
                             gmp_addr_string source, gmp_addr_string group)
 {
@@ -891,6 +923,7 @@ void gmp_cache_resync_notify(mgm_global_data *gd, gmp_intf *intf,
     gmp_proto->ResyncNotify(gif, source_addr, group_addr);
 }
 
+// C-based function to handle per-host, per-<S,G> notifications
 void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                             gmp_addr_string host, gmp_addr_string source,
                             gmp_addr_string group)
@@ -922,6 +955,7 @@ void gmp_host_update(mgm_global_data *gd, gmp_intf *intf, boolean join,
                                     source_addr, group_addr);
 }
 
+// Allocate buffer for use in sending IGMP packet
 uint8_t *gmp_get_send_buffer(mgm_global_data *gd, gmp_intf *intf)
 {
     if (!gd || !intf) {
@@ -932,6 +966,7 @@ uint8_t *gmp_get_send_buffer(mgm_global_data *gd, gmp_intf *intf)
     return gmp_proto->GmpBufferGet();
 }
 
+// Free the allocated buffer used in sending IGMP packet
 void gmp_free_send_buffer(mgm_global_data *gd, gmp_intf *intf, uint8_t *buffer)
 {
     if (!gd || !intf) {
@@ -944,6 +979,7 @@ void gmp_free_send_buffer(mgm_global_data *gd, gmp_intf *intf, uint8_t *buffer)
     return;
 }
 
+// Send IGMP packet out to the VMs.
 void gmp_send_one_packet(mgm_global_data *gd, gmp_intf *intf, uint8_t *pkt,
                             uint32_t pkt_len, gmp_addr_string dest)
 {
