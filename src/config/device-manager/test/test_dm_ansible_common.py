@@ -106,13 +106,13 @@ class TestAnsibleCommonDM(DMTestCase):
                                    node_profile_vendor=vendor,
                                    node_profile_device_family=device_family,
                                    node_profile_roles=node_profile_roles)
+        node_profile.set_job_template(job_template)
         self._vnc_lib.node_profile_create(node_profile)
 
         role_config = RoleConfig(fq_name=[self.GSC, name, 'basic'],
                                  parent_type='node-profile',
                                  name='basic',
                                  display_name='basic')
-        role_config.set_job_template(job_template)
         self._vnc_lib.role_config_create(role_config)
 
         return node_profile, role_config
