@@ -6,19 +6,11 @@ sys.path.append("../common/tests")
 
 from test_common import retries
 from test_common import retry_exc_handler
-from test_dm_common import TestCommonDM
+from test_dm_ansible_common import TestAnsibleCommonDM
 from test_dm_utils import FakeJobHandler
 
 
-class TestAnsibleDM(TestCommonDM):
-    @classmethod
-    def setUpClass(cls):
-        dm_config_knobs = [
-            ('DEFAULTS', 'push_mode', '1')
-        ]
-        super(TestAnsibleDM, cls).setUpClass(
-            dm_config_knobs=dm_config_knobs)
-    # end setUpClass
+class TestAnsibleDM(TestAnsibleCommonDM):
 
     @retries(5, hook=retry_exc_handler)
     def check_dm_ansible_config_push(self):
@@ -30,8 +22,13 @@ class TestAnsibleDM(TestCommonDM):
     # end check_dm_ansible_config_push
 
     def test_dm_ansible_config_push(self):
+        jt = self.create_job_template('job-template-1')
+        np, _ = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx', job_template=jt)
+
         _, pr = self.create_router('router' + self.id(), '1.1.1.1',
-                                   role='leaf', ignore_bgp=True)
+                                   role='leaf', ignore_bgp=True,
+                                   node_profile=np)
         #create a fabric and assign it as PR ref
         fab_uuid = self.create_fabric('test_fabric')
         pr.set_fabric_list([

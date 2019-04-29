@@ -20,6 +20,7 @@ from test_dm_utils import fake_job_handler_push
 import device_manager
 
 class DMTestCase(test_common.TestCase):
+    GSC = 'default-global-system-config'
 
     @classmethod
     def setUpClass(cls, extra_config_knobs=None, dm_config_knobs=None):
@@ -87,7 +88,8 @@ class DMTestCase(test_common.TestCase):
         fab_uuid = self._vnc_lib.fabric_create(fab)
         return fab_uuid
 
-    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None, ignore_bgp=False):
+    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx',
+            ignore_pr=False, role=None, ignore_bgp=False, node_profile=None):
         bgp_router, pr = None, None
         if not ignore_bgp:
             bgp_router = BgpRouter(name,
@@ -114,6 +116,8 @@ class DMTestCase(test_common.TestCase):
             pr.set_physical_router_user_credentials(uc)
             if not ignore_bgp:
                 pr.set_bgp_router(bgp_router)
+            if node_profile:
+                pr.set_node_profile(node_profile)
             self._vnc_lib.physical_router_create(pr)
 
         return bgp_router, pr
