@@ -25,8 +25,12 @@ class TestAnsibleDM(TestAnsibleCommonDM):
 
     def test_dm_ansible_config_push(self):
         fabric = self.create_fabric('test_fabric')
+        jt = self.create_job_template('job-template-1')
+        np, _ = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx', job_template=jt)
         _, pr = self.create_router('router' + self.id(), '1.1.1.1',
-                                   role='leaf', ignore_bgp=True, fabric=fabric)
+                                   role='leaf', ignore_bgp=True, fabric=fabric,
+                                   node_profile=np)
         pr.set_physical_router_loopback_ip('10.10.0.1')
         self._vnc_lib.physical_router_update(pr)
         self.check_dm_ansible_config_push()
@@ -74,7 +78,8 @@ class TestAnsibleDM(TestAnsibleCommonDM):
             product='qfx5110', family='junos-qfx',
             role='leaf', rb_roles=['erb-ucast-gateway'],
             physical_role=self.physical_roles['leaf'],
-            overlay_role=self.overlay_roles['erb-ucast-gateway'], fabric=fabric)
+            overlay_role=self.overlay_roles['erb-ucast-gateway'], fabric=fabric,
+            node_profile=np)
         pr.set_physical_router_loopback_ip('10.10.0.1')
         self._vnc_lib.physical_router_update(pr)
 
