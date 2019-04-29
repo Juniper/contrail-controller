@@ -20,7 +20,6 @@ from test_dm_utils import fake_job_handler_push
 import device_manager
 
 class DMTestCase(test_common.TestCase):
-
     GSC = 'default-global-system-config'
 
     @classmethod
@@ -73,9 +72,26 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
+    def create_fabric(self, name):
+        fab = Fabric(
+            name=name,
+            fabric_credentials={
+                'device_credential': [{
+                    'credential': {
+                        'username': 'root', 'password': '123'
+                    },
+                    'vendor': 'Juniper',
+                    'device_family': None
+                }]
+            }
+        )
+        fab_uuid = self._vnc_lib.fabric_create(fab)
+        return fab_uuid
+
     def create_router(self, name, mgmt_ip, vendor='juniper', product='mx',
-            ignore_pr=False, role=None, ignore_bgp=False, rb_roles=None,
-            physical_role=None, overlay_role=None, fabric=None, family='junos'):
+            ignore_pr=False, role=None, ignore_bgp=False, , rb_roles=None,
+            node_profile=None, physical_role=None, overlay_role=None,
+            fabric=None, family='junos'):
         bgp_router, pr = None, None
         if not ignore_bgp:
             bgp_router = BgpRouter(name=name,
@@ -112,6 +128,8 @@ class DMTestCase(test_common.TestCase):
                 pr.set_overlay_role(overlay_role)
             if fabric:
                 pr.set_fabric(fabric)
+            if node_profile:
+                pr.set_node_profile(node_profile)
             self._vnc_lib.physical_router_create(pr)
 
         return bgp_router, pr
