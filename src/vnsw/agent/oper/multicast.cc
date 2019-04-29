@@ -1618,6 +1618,16 @@ void MulticastHandler::DeleteLocalPeerRoute(MulticastGroupObject *sg_object) {
                                     sg_object->vxlan_id(), Composite::L2COMP);
 }
 
+// Create MulticastGroupObject on learning new <S,G>
+//
+// Note :
+//   For EVPN:  Routes are added to both Inet Multicast table
+//              and Bridge table in the native VRF only.
+//   For MVPN:  Routes are added to Inet Multicast table only
+//              but in both the native VRF and ip-fabric VRF.
+//   However, API CreateMulticastVrfSourceGroup is used only for
+//   EVPN for now.
+//
 void MulticastHandler::CreateMulticastVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const std::string &vn_name,
@@ -1650,6 +1660,8 @@ void MulticastHandler::CreateMulticastVrfSourceGroup(
     return;
 }
 
+// Delete VM-Interface from a MulticastGroupObject
+// API used in case of EVPN
 void MulticastHandler::HandleRouteChangeAndMulticastObject(
                                 MulticastGroupObject *sg_object,
                                 boost::uuids::uuid vm_itf_uuid) {
@@ -1700,6 +1712,8 @@ void MulticastHandler::HandleRouteChangeAndMulticastObject(
     return;
 }
 
+// Delete all VM-Interfaces for a particular <S,G> for a particular VRF
+// API used in case of EVPN
 void MulticastHandler::DeleteMulticastVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const Ip4Address &src_addr,
@@ -1741,6 +1755,8 @@ void MulticastHandler::DeleteMulticastVrfSourceGroup(
     return;
 }
 
+// Add VM-Interface for a particular <S,G> for a particular VRF
+// API used in case of MVPN and also EVPN
 bool MulticastHandler::AddVmInterfaceToVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const std::string &vn_name,
@@ -1782,6 +1798,8 @@ bool MulticastHandler::AddVmInterfaceToVrfSourceGroup(
     return created;
 }
 
+// Add VM-Interface for a particular <S,G>
+// API used in case of MVPN
 void MulticastHandler::AddVmInterfaceToSourceGroup(
                                     const std::string &mc_vrf_name,
                                     const std::string &vn_name,
@@ -1828,6 +1846,8 @@ void MulticastHandler::AddVmInterfaceToSourceGroup(
     return;
 }
 
+// Delete VM-Interface from a particular <S,G> for the specified VRF.
+// API used in case of MVPN and also EVPN
 void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const VmInterface *vm_itf,
@@ -1855,6 +1875,8 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
     return;
 }
 
+// Delete VM-Interface from a particular <S,G>
+// API used in case of MVPN
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
                                     const std::string &mc_vrf_name,
                                     const VmInterface *vm_itf,
@@ -1867,6 +1889,10 @@ void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
                                     grp_addr);
 }
 
+// Delete VM-Interface from all the learnt <S,G>s belonging
+// to a particular group for the specified VRF.
+// API used in case of MVPN and also EVPN
+// grp_addr, when default, indicate all <S,G>s
 void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
                                     const std::string &vrf_name,
                                     const VmInterface *vm_itf,
@@ -1923,6 +1949,9 @@ void MulticastHandler::DeleteVmInterfaceFromVrfSourceGroup(
     return;
 }
 
+// Delete VM-Interface from all the learnt <S,G>s belonging
+// to a particular group
+// API used in case of MVPN
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
                                     const std::string &mc_vrf_name,
                                     const VmInterface *vm_itf,
@@ -1933,6 +1962,8 @@ void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
     DeleteVmInterfaceFromVrfSourceGroup(mc_vrf_name, vm_itf, grp_addr);
 }
 
+// Delete VM-Interface from all the learnt <S,G>s
+// API used in case of MVPN
 void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
                                     const std::string &mc_vrf_name,
                                     const std::string &vm_vrf_name,
@@ -1942,6 +1973,8 @@ void MulticastHandler::DeleteVmInterfaceFromSourceGroup(
     DeleteVmInterfaceFromVrfSourceGroup(mc_vrf_name, vm_itf);
 }
 
+// Flags set to for use in SMET routes. Flags sent in XMPP message
+// to the control BGP
 void MulticastHandler::SetEvpnMulticastSGFlags(
                                     const std::string &vrf_name,
                                     const Ip4Address &src_addr,
@@ -1956,6 +1989,8 @@ void MulticastHandler::SetEvpnMulticastSGFlags(
     return;
 }
 
+// Flags Get API for use of flags in SMET routes. Flags sent in XMPP
+// message to the control BGP
 uint32_t MulticastHandler::GetEvpnMulticastSGFlags(
                                     const std::string &vrf_name,
                                     const Ip4Address &src_addr,

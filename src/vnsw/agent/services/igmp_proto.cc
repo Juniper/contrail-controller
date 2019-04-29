@@ -56,7 +56,7 @@ ProtoHandler *IgmpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
 
 void IgmpProto::VnNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
-    // Registering/Unregisterint every IPAM gateway (or) dns_server
+    // Registering/Unregistering every IPAM gateway (or) dns_server
     // present in the VN with the IGMP module.
     // Changes to VN, or VN IPAM info, or gateway or dns server is
     // handled below.
@@ -157,6 +157,7 @@ DBTableBase::ListenerId IgmpProto::vn_listener_id () {
     return vn_listener_id_;
 }
 
+// Send IGMP packets to the VMs part of the IPAM VN
 bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
                             GmpPacket *packet) {
 

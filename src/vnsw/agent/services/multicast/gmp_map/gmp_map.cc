@@ -57,6 +57,7 @@ static gmpr_client_context igmp_client_context = {
     FALSE,                          // rctx_full_notifications
 };
 
+// Value to be used for IGMP Version during init of GMP.
 void gmp_set_def_igmp_version(uint32_t version)
 {
     gmpr_intf_params *params = NULL;
@@ -65,6 +66,8 @@ void gmp_set_def_igmp_version(uint32_t version)
     params->gmpr_ifparm_version = version;
 }
 
+// Default values to use for IGMP for querier related timer intervals in
+// GMP code.
 void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
                         uint32_t qrivl, uint32_t lmqi)
 {
@@ -79,6 +82,7 @@ void gmp_set_def_ipv4_ivl_params(uint32_t robust_count, uint32_t qivl,
     return;
 }
 
+// Set of defaults for use by GMP as part of GMP initialization.
 void gmp_set_def_intf_params(mc_af mcast_af)
 {
     gmpr_intf_params *params = NULL;
@@ -105,6 +109,9 @@ void gmp_set_def_intf_params(mc_af mcast_af)
     return;
 }
 
+// Create, initialization and return global data structure instance
+// that is used as context and mapping data structure with
+// GMP code.
 mgm_global_data *gmp_init(mc_af mcast_af, task *tp, void *gmp_sm)
 {
     gmp_proto proto;
@@ -134,6 +141,8 @@ mgm_global_data *gmp_init(mc_af mcast_af, task *tp, void *gmp_sm)
     return gd;
 }
 
+// Deinit and destroy data structure once the GMP module is
+// de-inited by the caller.
 void gmp_deinit(mc_af mcast_af)
 {
     mgm_global_data *gd;
@@ -148,6 +157,7 @@ void gmp_deinit(mc_af mcast_af)
     return;
 }
 
+// Set the interface params in the GMP.
 void gmp_set_intf_params(mgm_global_data *gd, gmp_intf *gif)
 {
     gmp_intf_handle *handle;
@@ -161,6 +171,9 @@ void gmp_set_intf_params(mgm_global_data *gd, gmp_intf *gif)
     return;
 }
 
+// Attach an application interface context with GMP interface context.
+// application interface context is generally the either per-IPAM
+// gw or dns server in the context of the Agent.
 gmp_intf *gmp_attach_intf(mgm_global_data *gd, void *mif_state)
 {
     gmp_intf *gif = NULL;
@@ -190,6 +203,7 @@ gmp_intf *gmp_attach_intf(mgm_global_data *gd, void *mif_state)
     return gif;
 }
 
+// Detach the interface created using above from the GMP.
 void gmp_detach_intf(mgm_global_data *gd, gmp_intf *gif)
 {
     if (!gd) {
@@ -203,6 +217,7 @@ void gmp_detach_intf(mgm_global_data *gd, gmp_intf *gif)
     return;
 }
 
+// Update interface status - currently only IP Address.
 boolean gmp_update_intf_state(mgm_global_data *gd, gmp_intf *gif,
                                 const gmp_addr_string *intf_addr)
 {
@@ -211,6 +226,7 @@ boolean gmp_update_intf_state(mgm_global_data *gd, gmp_intf *gif,
     return TRUE;
 }
 
+// Update querying related params - currently query enable/disable.
 boolean gmp_update_intf_querying(mgm_global_data *gd, gmp_intf *gif,
                                 boolean query)
 {
@@ -220,6 +236,8 @@ boolean gmp_update_intf_querying(mgm_global_data *gd, gmp_intf *gif,
     return TRUE;
 }
 
+// Process the IGMP payload.
+// Preprocessed IP header by Agent packet handler.
 boolean gmp_process_pkt(mgm_global_data *gd, gmp_intf *gif,
                         void *rcv_pkt, u_int32_t packet_len,
                         const gmp_addr_string *src_addr,
@@ -244,6 +262,8 @@ boolean gmp_oif_map_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
     return TRUE;
 }
 
+// Handle Multicast Policy configured by user.
+// Returns allow or deny the <S,G> at VN level.
 boolean gmp_policy_cb(void *inst_context, gmp_intf_handle *handle,
                 u_int8_t *group_addr, u_int8_t *source_addr,
                 boolean static_group)
@@ -283,6 +303,9 @@ boolean gmp_ssm_check_cb(void *inst_context UNUSED, gmp_intf_handle *handle,
     return TRUE;
 }
 
+// Notification handler for handling <S,G>
+// Values per-<S,G> can adding, deleting or modifying <S,G>.
+// Modifying can be change <S> from allow to block and vice-versa.
 boolean gmp_client_notification(mgm_global_data *gd)
 {
     boolean pending = FALSE;
@@ -395,6 +418,8 @@ boolean gmp_client_notification(mgm_global_data *gd)
      return pending;
 }
 
+// Per host, per-<S,G> notification to indicate join or leave
+// among others of an host.
 boolean gmp_client_host_notification(mgm_global_data *gd)
 {
     boolean pending = FALSE;
@@ -481,6 +506,8 @@ boolean gmp_client_host_notification(mgm_global_data *gd)
     return pending;
 }
 
+// Top level handler to handle both <S,G> and also
+// per-host, per-<S,G> notifications.
 boolean gmp_notification_handler(mgm_global_data *gd)
 {
     boolean pending = FALSE;
@@ -492,6 +519,8 @@ boolean gmp_notification_handler(mgm_global_data *gd)
     return pending;
 }
 
+// per-<S,G> notification handler registered with GMP.
+// Triggers the agent IGMP TaskTrigger instance
 void igmp_notification_ready(void *context)
 {
     mgm_global_data *gd = (mgm_global_data *)context;
@@ -499,7 +528,8 @@ void igmp_notification_ready(void *context)
     gmp_notification_ready(gd);
 }
 
-
+// per-host, per-<S,G> notification handler registered with GMP.
+// Triggers the agent IGMP TaskTrigger instance
 void igmp_host_notification_ready(void *context)
 {
     mgm_global_data *gd = (mgm_global_data *)context;
@@ -507,12 +537,14 @@ void igmp_host_notification_ready(void *context)
     gmp_notification_ready(gd);
 }
 
+// No-op for now. Single querier support per-compute
 void mgm_querier_change(void *cli_context UNUSED, gmp_intf_handle *handle,
                 boolean querier, u_int8_t *querier_addr)
 {
     return;
 }
 
+// Tracing utility mapped to Multicast trace.
 void gmpx_trace(void *context, const char *fmt, ...)
 {
     va_list arglist;
@@ -528,12 +560,14 @@ void gmpx_trace(void *context, const char *fmt, ...)
     return;
 }
 
+// Not used.
 void gmpx_post_event(void *context, gmpx_event_type ev,
                 const void *parms, ...)
 {
     return;
 }
 
+// Send one IGMP packet at a time.
 bool igmp_send_one_packet(gmp_intf_handle *intf)
 {
     uint8_t *pkt = NULL;
@@ -566,6 +600,7 @@ bool igmp_send_one_packet(gmp_intf_handle *intf)
     return true;
 }
 
+// Called by GMP to send out IGMP packet.
 void gmp_xmit_ready(gmp_role role, gmp_proto proto, gmpx_intf_id intf_id)
 {
     if (role != GMP_ROLE_ROUTER) {
@@ -586,6 +621,7 @@ void gmp_xmit_ready(gmp_role role, gmp_proto proto, gmpx_intf_id intf_id)
     return;
 }
 
+// Not used.
 void gmp_static_peek(gmp_intf_handle *handle, gmp_proto proto,
                  gmp_packet *rcv_packet)
 {
