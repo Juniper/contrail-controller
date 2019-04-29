@@ -273,12 +273,11 @@ class AnsibleConf(AnsibleBase):
         if self.physical_router.node_profile is not None:
             node_profile = NodeProfileDM.get(self.physical_router.node_profile)
             if node_profile is not None:
+                job_template = node_profile.job_template_fq_name
                 for role_config_uuid in node_profile.role_configs:
                     role_config = RoleConfigDM.get(role_config_uuid)
                     if role_config is None:
                         continue
-                    if job_template is None:
-                        job_template = role_config.job_template_fq_name
                     feature_params[role_config.name] = role_config.config
         return feature_params, job_template
     # end read_node_profile_info
@@ -355,6 +354,14 @@ class AnsibleConf(AnsibleBase):
             self._logger.warning("Could not push "
                                  "config to the device: %s, %s; "
                                  "Fabric Object not yet available for "
+                                 "this Physical Router" %
+                                 (self.physical_router.uuid,
+                                  self.physical_router.name))
+            return 0
+        if not job_template:
+            self._logger.warning("Could not push "
+                                 "config to the device: %s, %s; "
+                                 "Job Tempalte not available for "
                                  "this Physical Router" %
                                  (self.physical_router.uuid,
                                   self.physical_router.name))
