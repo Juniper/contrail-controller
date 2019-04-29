@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
                     Dns::GetEventManager(),
                     options.http_server_port(), 0,
                     options.collector_server_list(),
-                    NULL));
+                    NULL, options.sandesh_config()));
         if (!success) {
             LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
             Sandesh::Uninit();
@@ -281,7 +281,8 @@ int main(int argc, char *argv[]) {
                                    options.http_server_port(),
                                    csf,
                                    list,
-                                   NULL));
+                                   NULL,
+                                   options.sandesh_config()));
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
                 Sandesh::Uninit();

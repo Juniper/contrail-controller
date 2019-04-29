@@ -82,19 +82,12 @@ public:
     bool collectors_configured() const { return collectors_configured_; }
     uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
 
+    const SandeshConfig &sandesh_config() const {
+            return sandesh_config_;
+    }
+
 private:
 
-    template <typename ValueType>
-    void GetOptValue(const boost::program_options::variables_map &var_map,
-                     ValueType &var, std::string val);
-    // Implementation overloads
-    template <typename ValueType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, std::string val, ValueType*);
-    template <typename ElementType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         std::vector<ElementType> &var, std::string val,
-                         std::vector<ElementType> *);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
@@ -142,6 +135,7 @@ private:
     bool collectors_configured_;
     std::vector<std::string> default_collector_server_list_;
     uint32_t send_ratelimit_;
+    SandeshConfig sandesh_config_;
 
     boost::program_options::options_description config_file_options_;
 };
