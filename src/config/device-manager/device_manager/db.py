@@ -2288,6 +2288,8 @@ class NodeProfileDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.role_configs = set()
+        self.job_template = None
+        self.job_template_fq_name = None
         self.update(obj_dict)
     # end __init__
 
@@ -2297,6 +2299,12 @@ class NodeProfileDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         for rc in obj.get('role_configs') or []:
             self.role_configs.add(rc.get('uuid', None))
+        self.update_single_ref('job_template', obj)
+        if self.job_template is not None:
+            self.job_template_fq_name =\
+                self._object_db.uuid_to_fq_name(self.job_template)
+        else:
+            self.job_template_fq_name = None
     # end update
 # end class NodeProfileDM
 
@@ -2458,8 +2466,6 @@ class RoleConfigDM(DBBaseDM):
         self.name = None
         self.node_profile = None
         self.config = None
-        self.job_template = None
-        self.job_template_fq_name = None
         self.update(obj_dict)
     # end __init__
 
@@ -2472,12 +2478,6 @@ class RoleConfigDM(DBBaseDM):
         self.config = obj.get('role_config_config')
         if self.config and isinstance(self.config, basestring):
             self.config = json.loads(self.config)
-        self.update_single_ref('job_template', obj)
-        if self.job_template is not None:
-            self.job_template_fq_name =\
-                self._object_db.uuid_to_fq_name(self.job_template)
-        else:
-            self.job_template_fq_name = None
     # end update
 
     def delete_obj(self):
