@@ -99,7 +99,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
             *db_manage._parse_args('--execute clean --cluster_id %s' %
                                    self._cluster_id))
         path = '%s%s/%s' % (
-            self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_id_str)
+            self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH_2, rt_id_str)
         self.assertEqual(db_checker._zk_client.get(path)[0],
                          ':'.join(ri_fq_name))
         with db_checker._zk_client.patch_path(path):
@@ -121,7 +121,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
                 '#': int(new_rt_obj.get_fq_name_str().split(':')[-1])}
             new_path = '%s%s/%s' % (
                 self._cluster_id,
-                db_checker.BASE_RTGT_ID_ZK_PATH,
+                db_checker.BASE_RTGT_ID_ZK_PATH_2,
                 new_rt_id_str,
             )
             self.assertEqual(db_checker._zk_client.get(new_path)[0],
