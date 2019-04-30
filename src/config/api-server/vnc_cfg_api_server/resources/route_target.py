@@ -2,7 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common.exceptions import VncError
 from netaddr import AddrFormatError
 from netaddr import IPAddress
@@ -53,6 +53,7 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
             except VncError as e:
                 return False, (400, str(e))
 
-        if asn == global_asn and target >= BGP_RTGT_MIN_ID:
+        if (asn == global_asn and
+                target >= get_bgp_rtgt_min_id(global_asn)):
             return True, False
         return True, True
