@@ -14,9 +14,21 @@ SG_NO_RULE_FQ_NAME = ['default-domain', 'default-project', '__no_rule__']
 DCI_VN_FQ_NAME = ['default-domain', 'default-project', 'dci-network']
 DCI_IPAM_FQ_NAME = ['default-domain', 'default-project', 'default-dci-lo0-network-ipam']
 
-BGP_RTGT_MIN_ID = 8000000
+_BGP_RTGT_MIN_ID_TYPE0 = 8000000
+_BGP_RTGT_MIN_ID_TYPE1_2 = 8000
 SGID_MIN_ALLOC = 8000000
 VNID_MIN_ALLOC = 1
+_BGP_RTGT_MAX_ID_TYPE0 = 1 << 24
+# We don't left shift by 16 below to reserve certain target
+# values if required for future use
+_BGP_RTGT_MAX_ID_TYPE1_2 = 1 << 15
+
+# Route Target location in Zookeeper for a Type0 Route Targets
+# Type0 route targets will have 2 Byte ASN and 4 Byte target values
+BGP_RTGT_ALLOC_PATH_TYPE0 = "/id/bgp/route-targets/type0/"
+# Route Target location in Zookeeper for a Type1 and Type2 Route Targets
+# Type1/2 route targets will have 4 Byte IP/ASN and 2 Byte target values
+BGP_RTGT_ALLOC_PATH_TYPE1_2 = "/id/bgp/route-targets/type1_2/"
 
 PERMS_NONE = 0
 PERMS_X = 1
@@ -40,6 +52,11 @@ proto_dict = {
     'udp': 17,
 }
 
+def get_bgp_rtgt_min_id(asn):
+    if asn > 0xFFFF:
+        return _BGP_RTGT_MIN_ID_TYPE1_2
+    else:
+        return _BGP_RTGT_MIN_ID_TYPE0
 
 RULE_IMPLICIT_ALLOW_UUID = "00000000-0000-0000-0000-100000000001"
 RULE_IMPLICIT_DENY_UUID = "00000000-0000-0000-0000-100000000002"
