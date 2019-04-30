@@ -77,6 +77,18 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             return False, (500, 'Error in dbe_list: %s' % result)
         vn_list = result
 
+        # If the ASN has changed from 2 byte to 4 byte, we need to make sure
+        # that there is enough space to reallocate the RT values in new
+        # zookeeper space.
+
+        if ((global_asn > 0xFFFF) and
+                (cls.server.global_autonomous_system < 0xFFFF)):
+            obj_uuid1, znode_stat = cls.vnc_zk_client._zk_client.read_node(
+                '/id/bgp/route-targets-2',
+                include_timestamp=True)
+            if znode_stat.numChildren > (1 << 15):
+                return (False, (400, 'Not enough space for RTs in 4 byte ASN'))
+
         founded_vn_using_asn = []
         for vn in vn_list:
             rt_dict = vn.get('route_target_list', {})
