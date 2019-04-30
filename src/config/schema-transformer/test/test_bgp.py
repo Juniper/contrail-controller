@@ -51,6 +51,20 @@ class VerifyBgp(VerifyRouteTarget):
             raise Exception("Service Instance Refs found while its not expected")
 
     @retries(5)
+    def check_4byteASN_ri_target(self, fq_name, rt_target=None):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        rt_refs = ri.get_route_target_refs()
+        if not rt_refs:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('ri_refs is None for %s' % fq_name)
+        if not rt_target:
+            return rt_refs[0]['to'][0]
+        for rt_ref in rt_refs:
+            if rt_target in rt_ref['to'][0]:
+                return rt_target
+        raise Exception('rt_target prefix %s not found in ri %s' % (rt_target, fq_name))
+
+    @retries(5)
     def check_ri_target(self, fq_name, rt_target=None):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -62,6 +76,9 @@ class VerifyBgp(VerifyRouteTarget):
         for rt_ref in rt_refs:
             if rt_ref['to'][0] == rt_target:
                 return rt_target
+            if (rt_target.rsplit(':', 1)[1] > 0xFFFF):
+                if rt_target in rt_ref['to'][0]:
+                    return rt_target
         raise Exception('rt_target %s not found in ri %s' % (rt_target, fq_name))
 
     @retries(5)
@@ -929,6 +946,35 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.bgp_router_delete(id=router4.uuid)
         gevent.sleep(1)
     # test_ibgp_auto_mesh_redundant_route_reflector
+
+    def test_asn_4byte(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+        self.assertTill(self.vnc_db_has_ident, obj=vn1_obj)
+
+        ri_target = self.check_ri_target(self.get_ri_name(vn1_obj))
+
+        #update global system config but dont change asn value for equality path
+        gs = self._vnc_lib.global_system_config_read(
+            fq_name=['default-global-system-config'])
+        gs.set_autonomous_system(64512)
+        self._vnc_lib.global_system_config_update(gs)
+
+        # check route targets
+        self.check_ri_target(self.get_ri_name(vn1_obj), ri_target)
+
+        #update ASN value
+        gs = self._vnc_lib.global_system_config_read(
+            fq_name=[u'default-global-system-config'])
+        gs.set_autonomous_system(700000)
+        self._vnc_lib.global_system_config_update(gs)
+
+        # check new route targets
+        ri_target = 'target:700000'
+        self.check_4byteASN_ri_target(self.get_ri_name(vn1_obj), ri_target)
+
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
 
     def test_asn(self):
         # create  vn1

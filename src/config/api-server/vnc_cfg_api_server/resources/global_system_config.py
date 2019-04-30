@@ -6,6 +6,7 @@ import json
 import re
 
 from cfgm_common import _obj_serializer_all
+from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
 from cfgm_common import DCI_IPAM_FQ_NAME
 from cfgm_common import DCI_VN_FQ_NAME
 from cfgm_common.exceptions import HttpError
@@ -70,6 +71,25 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
             return True, ''
+
+        # If the ASN has changed from 2 byte to 4 byte, we need to make sure
+        # that there is enough space to reallocate the RT values in new
+        # zookeeper space.
+
+        if ((global_asn > 0xFFFF) and
+                (cls.server.global_autonomous_system < 0xFFFF)):
+            try:
+                _, znode_stat = cls.vnc_zk_client._zk_client.read_node(
+                    '%s%s' % (cls.server._args.cluster_id,
+                              BGP_RTGT_ALLOC_PATH_TYPE0),
+                    include_timestamp=True)
+                if znode_stat.numChildren > (1 << 15):
+                    return (False, (400,
+                                    'Not enough space for RTs in 4 byte ASN'))
+            except TypeError:
+                # In case of a UT environment, we can expect
+                # /id/bgp/route-targets/type0 not to exist
+                pass
 
         ok, result, _ = cls.db_conn.dbe_list('virtual_network',
                                              field_names=['route_target_list'])
