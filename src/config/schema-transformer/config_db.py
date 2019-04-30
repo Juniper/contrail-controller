@@ -250,14 +250,26 @@ class GlobalSystemConfigST(DBBaseST):
         # From the global route target list, pick ones with the
         # changed ASN, and update the routing instances' referred
         # by the route target
+
         for route_tgt in RouteTargetST.values():
             _, asn, target = route_tgt.obj.get_fq_name()[0].split(':')
             if int(asn) != cls.get_autonomous_system():
                 continue
-            if int(target) < common.BGP_RTGT_MIN_ID:
+            if int(target) < common.get_bgp_rtgt_min_id(asn):
                 continue
 
-            new_rtgt_name = "target:%s:%s" % (new_asn, target)
+            asn = cls._autonomous_system
+            new_target = target
+            if ( (new_asn > 0xFFFF) and (asn < 0xFFFF) or
+                 (new_asn < 0xFFFF and asn > 0xFFFF)):
+                ri_fq_name_in_str = cls._object_db.get_ri_from_route_target(int(target),asn)
+                # free_route_target has to be called before alloc_route_target.
+                # as get_route_target(ri_fq_name) inside free_route_target will return
+                # wrong values if this order is changed.
+                cls._object_db.free_route_target(ri_fq_name_in_str,asn)
+                new_target = cls._object_db.alloc_route_target(ri_fq_name_in_str,new_asn)
+
+            new_rtgt_name = "target:%s:%s" % (new_asn, new_target)
             new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
             old_rtgt_name = "target:%d:%s" % (cls._autonomous_system, target)
             old_rtgt_obj = RouteTarget(old_rtgt_name)
@@ -299,6 +311,22 @@ class GlobalSystemConfigST(DBBaseST):
                 logical_router.del_route_target(old_rtgt_obj)
                 logical_router.add_route_target(new_rtgt_obj.obj)
                 cls._vnc_lib.logical_router_update(logical_router)
+
+                # We need to execute this code only in case of SNAT routing.
+                # If vxlan_routing is enabled, LR RTs will not have a back_ref
+                # to the Routing Instance of all the connected VNs
+                proj_obj = LogicalRouterST.read_vnc_obj(logical_router.parent_uuid,
+                                             obj_type='project',
+                                             fields=['vxlan_routing'])
+                vxlan_routing = proj_obj.get_vxlan_routing()
+                if not vxlan_routing:
+                    for vn in lr.virtual_networks:
+                        vn_obj = VirtualNetworkST.get(vn)
+                        if vn_obj is not None:
+                            ri_obj = vn_obj.get_primary_routing_instance()
+                            ri_obj.update_route_target_list(rt_del=[old_rtgt_name],
+                                                            rt_add=[new_rtgt_name])
+                lr.route_target = new_rtgt_name
 
             RouteTargetST.delete_vnc_obj(old_rtgt_obj.get_fq_name()[0])
 
@@ -1592,7 +1620,14 @@ class RouteTargetST(DBBaseST):
             asn = GlobalSystemConfigST.get_autonomous_system()
             rt_key = "target:%s:%s" % (asn, rt)
             if rt_key not in cls:
-                cls._object_db.free_route_target(ri)
+                cls._object_db.free_route_target(ri,asn)
+
+        # This is to handle upgrade scenarios.
+        # In case we upgrade to a release containing support to 4 Byte ASN
+        # Once all the RTs are recreated in ZK in their new path, delete
+        # the old path for RTs in ZK
+        cls._object_db.delete_route_target_directory('%s%s'
+             % (cls._object_db._zk_path_pfx, "/id/bgp/route-targets"))
     # end reinit
 
     def __init__(self, rt_key, obj=None):
@@ -2280,10 +2315,10 @@ class RoutingInstanceST(DBBaseST):
 
     def locate_route_target(self):
         old_rtgt = self._object_db.get_route_target(self.name)
-        rtgt_num = self._object_db.alloc_route_target(self.name)
+        asn = GlobalSystemConfigST.get_autonomous_system()
+        rtgt_num = self._object_db.alloc_route_target(self.name, asn)
 
-        rt_key = "target:%s:%d" % (GlobalSystemConfigST.get_autonomous_system(),
-                                   rtgt_num)
+        rt_key = "target:%s:%d" % (asn, rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key).obj
         if self.is_default:
             inst_tgt_data = InstanceTargetType()
@@ -2364,9 +2399,9 @@ class RoutingInstanceST(DBBaseST):
         if self.is_default:
             vn.set_route_target(rt_key)
 
-        if 0 < old_rtgt < common.BGP_RTGT_MIN_ID:
-            rt_key = "target:%s:%d" % (
-                GlobalSystemConfigST.get_autonomous_system(), old_rtgt)
+        asn = GlobalSystemConfigST.get_autonomous_system()
+        if 0 < old_rtgt < common.get_bgp_rtgt_min_id(asn):
+            rt_key = "target:%s:%d" % (asn, old_rtgt)
             RouteTargetST.delete_vnc_obj(rt_key)
     # end locate_route_target
 
@@ -2560,8 +2595,9 @@ class RoutingInstanceST(DBBaseST):
             if ri2:
                 ri2.connections.discard(self.name)
 
+        asn = GlobalSystemConfigST.get_autonomous_system()
         rtgt_list = self.obj.get_route_target_refs()
-        self._object_db.free_route_target(self.name)
+        self._object_db.free_route_target(self.name,asn)
 
         service_chain = self.service_chain
         vn_obj = VirtualNetworkST.get(self.virtual_network)
@@ -4236,13 +4272,14 @@ class LogicalRouterST(DBBaseST):
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
-            if rtgt_num < common.BGP_RTGT_MIN_ID:
+            asn = GlobalSystemConfigST.get_autonomous_system()
+            if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
-            rtgt_num = self._object_db.alloc_route_target(name, True)
-            rt_key = "target:%s:%d" % (
-                GlobalSystemConfigST.get_autonomous_system(), rtgt_num)
+            asn = GlobalSystemConfigST.get_autonomous_system()
+            rtgt_num = self._object_db.alloc_route_target(name, asn, True)
+            rt_key = "target:%s:%d" % (asn, rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
             self.obj.set_route_target(rtgt_obj.obj)
             self._vnc_lib.logical_router_update(self.obj)
@@ -4264,7 +4301,8 @@ class LogicalRouterST(DBBaseST):
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
         self.delete_route_targets([self.route_target])
-        self._object_db.free_route_target(self.name)
+        asn = GlobalSystemConfigST.get_autonomous_system()
+        self._object_db.free_route_target(self.name,asn)
     # end delete_obj
 
     def update_virtual_networks(self):

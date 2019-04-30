@@ -23,6 +23,8 @@ from test_route_target import VerifyRouteTarget
 from cfgm_common.tests import test_common
 from random import randint
 from cfgm_common import get_lr_internal_vn_name
+from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
+from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_client import Fabric
 
@@ -51,6 +53,20 @@ class VerifyBgp(VerifyRouteTarget):
             raise Exception("Service Instance Refs found while its not expected")
 
     @retries(5)
+    def check_4byteASN_ri_target(self, fq_name, rt_target=None):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        rt_refs = ri.get_route_target_refs()
+        if not rt_refs:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('ri_refs is None for %s' % fq_name)
+        if not rt_target:
+            return rt_refs[0]['to'][0]
+        for rt_ref in rt_refs:
+            if rt_target in rt_ref['to'][0]:
+                return rt_ref['to'][0]
+        raise Exception('rt_target prefix %s not found in ri %s' % (rt_target, fq_name))
+
+    @retries(5)
     def check_ri_target(self, fq_name, rt_target=None):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -62,6 +78,9 @@ class VerifyBgp(VerifyRouteTarget):
         for rt_ref in rt_refs:
             if rt_ref['to'][0] == rt_target:
                 return rt_target
+            if (rt_target.rsplit(':', 1)[1] > 0xFFFF):
+                if rt_target in rt_ref['to'][0]:
+                    return rt_target
         raise Exception('rt_target %s not found in ri %s' % (rt_target, fq_name))
 
     @retries(5)
@@ -929,6 +948,55 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.bgp_router_delete(id=router4.uuid)
         gevent.sleep(1)
     # test_ibgp_auto_mesh_redundant_route_reflector
+
+    def test_asn_4byte(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+        self.assertTill(self.vnc_db_has_ident, obj=vn1_obj)
+
+        ri_target = self.check_ri_target(self.get_ri_name(vn1_obj))
+
+        #change ASN, but to a new 2 byte ASN.
+        gs = self._vnc_lib.global_system_config_read(
+            fq_name=['default-global-system-config'])
+        gs.set_autonomous_system(5000)
+        self._vnc_lib.global_system_config_update(gs)
+
+        # check route targets
+        self.check_ri_target(self.get_ri_name(vn1_obj), ri_target)
+
+        #update ASN value
+        gs = self._vnc_lib.global_system_config_read(
+            fq_name=[u'default-global-system-config'])
+        gs.set_autonomous_system(700000)
+        self._vnc_lib.global_system_config_update(gs)
+
+        # check new route targets
+        ri_target_for_4byte_asn = 'target:700000'
+        ri_target_in_db = self.check_4byteASN_ri_target(self.get_ri_name(vn1_obj),
+                                                        ri_target_for_4byte_asn)
+
+        # Verify in ZK that old path for type0 RT doesn't exist
+        zk_value = self._api_server._db_conn._zk_db._zk_client.read_node('%s%s000%s' %
+            (self._api_server._db_conn._zk_db._zk_path_pfx,
+             BGP_RTGT_ALLOC_PATH_TYPE0,
+             ri_target.rsplit(':')[2]))
+        self.assertEqual(zk_value, None)
+
+        # Delete the virtual_network now
+        self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
+
+        # sleep for ST to take over processing
+        gevent.sleep(3)
+
+        # Verify in ZK that the path doesn't exist anymore.
+        # It wll be in the format of /id/bgp/route-targets/type1_2/0000008001
+        zk_value = self._api_server._db_conn._zk_db._zk_client.read_node('%s%s000000%s' %
+            (self._api_server._db_conn._zk_db._zk_path_pfx,
+             BGP_RTGT_ALLOC_PATH_TYPE1_2,
+             ri_target_in_db.rsplit(':')[2]))
+        self.assertEqual(zk_value, None)
 
     def test_asn(self):
         # create  vn1

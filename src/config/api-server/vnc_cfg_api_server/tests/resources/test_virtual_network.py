@@ -3,7 +3,7 @@
 #
 import logging
 
-from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import VNID_MIN_ALLOC
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
@@ -101,7 +101,8 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
         vn = VirtualNetwork('%s-vn' % self.id())
         rt_name = 'target:%d:%d' % (gsc.autonomous_system,
-                                    BGP_RTGT_MIN_ID + 1000)
+                                    get_bgp_rtgt_min_id(
+                                        gsc.autonomous_system) + 1000)
         vn.set_route_target_list(RouteTargetList([rt_name]))
 
         self.assertRaises(BadRequest, self.api.virtual_network_create, vn)
@@ -112,7 +113,8 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         self.api.virtual_network_create(vn)
 
         rt_name = 'target:%d:%d' % (gsc.autonomous_system,
-                                    BGP_RTGT_MIN_ID + 1000)
+                                    get_bgp_rtgt_min_id(
+                                        gsc.autonomous_system) + 1000)
         vn.set_route_target_list(RouteTargetList([rt_name]))
         self.assertRaises(BadRequest, self.api.virtual_network_update, vn)
 
