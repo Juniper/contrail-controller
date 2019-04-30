@@ -24,8 +24,16 @@ class SchemaTransformerDB(VncObjectDBClient):
     _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
     _zk_path_prefix = ''
 
-    _BGP_RTGT_MAX_ID = 1 << 24
-    _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
+    _BGP_RTGT_MAX_ID_AS2 = 1 << 24
+    # We don't left shift by 16 below to reserve certain target
+    # values if required for future use
+    _BGP_RTGT_MAX_ID_AS4 = 1 << 15
+    # Route Target location in Zookeeper for a Type0 Route Targets
+    # Type0 route targets will have 2 Byte ASN and 4 Byte target values
+    _BGP_RTGT_ALLOC_PATH_AS2 = "/id/bgp/route-targets/type0/"
+    # Route Target location in Zookeeper for a Type1 and Type2 Route Targets
+    # Type1/2 route targets will have 4 Byte IP/ASN and 4 Byte target values
+    _BGP_RTGT_ALLOC_PATH_AS4 = "/id/bgp/route-targets/type1_2/"
 
     _SERVICE_CHAIN_MAX_VLAN = 4093
     _SERVICE_CHAIN_VLAN_ALLOC_PATH = "/id/service-chain/vlan/"
@@ -39,6 +47,13 @@ class SchemaTransformerDB(VncObjectDBClient):
                                     cls._SERVICE_CHAIN_UUID_CF])]
         return db_info
     # end get_db_info
+
+    @classmethod
+    def get_rtgt_max_id(cls, asn):
+        max_rtgt_id = cls._BGP_RTGT_MAX_ID_AS2
+        if (asn > 0xFFFF):
+            max_rtgt_id = cls._BGP_RTGT_MAX_ID_AS4
+        return max_rtgt_id
 
     def __init__(self, manager, zkclient):
         self._manager = manager
@@ -79,17 +94,15 @@ class SchemaTransformerDB(VncObjectDBClient):
         # reset zookeeper config
         if self._args.reset_config:
             zkclient.delete_node(
-                self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH, True)
+                self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH_AS2, True)
+            zkclient.delete_node(
+                self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH_AS4, True)
             zkclient.delete_node(
                  self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
             zkclient.delete_node(
                 self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH, True)
 
-        self._rt_allocator = IndexAllocator(
-            zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
-            self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
-
-        def _init_bgpaas_ports_index_allocator():
+        def _init_index_allocators():
             bgpaas_port_start = self._args.bgpaas_port_start
             bgpaas_port_end = self._args.bgpaas_port_end
             gsc_fq_name = ['default-global-system-config']
@@ -107,7 +120,14 @@ class SchemaTransformerDB(VncObjectDBClient):
                 zkclient, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
                 bgpaas_port_end - bgpaas_port_start, bgpaas_port_start)
 
-        _init_bgpaas_ports_index_allocator()
+            self._rt_allocator = IndexAllocator(
+                zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH_AS2,
+                self._BGP_RTGT_MAX_ID_AS2, common._BGP_RTGT_MIN_ID_AS2)
+            self._rt_allocator_4 = IndexAllocator(
+                zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH_AS4,
+                self._BGP_RTGT_MAX_ID_AS4, common._BGP_RTGT_MIN_ID_AS4)
+
+        _init_index_allocators()
 
         self._sc_vlan_allocator_dict = {}
         self._upgrade_vlan_alloc_path()
@@ -194,35 +214,62 @@ class SchemaTransformerDB(VncObjectDBClient):
             #                 Probably need to be cleaned
             return 0
 
-    def alloc_route_target(self, ri_fq_name, zk_only=False):
+    def alloc_route_target(self, ri_fq_name, asn, zk_only=False):
         alloc_new = False
+
+        if (asn > 0xFFFF):
+            self.current_rt_allocator = self._rt_allocator_4
+        else:
+            self.current_rt_allocator = self._rt_allocator
 
         if zk_only:
             alloc_new = True
         else:
             rtgt_num = self.get_route_target(ri_fq_name)
-            if rtgt_num < common.BGP_RTGT_MIN_ID:
+            if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 alloc_new = True
             else:
-                rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
+                rtgt_ri_fq_name_str = self.current_rt_allocator.read(rtgt_num)
                 if (rtgt_ri_fq_name_str != ri_fq_name):
                     alloc_new = True
 
         if (alloc_new):
-            rtgt_num = self._rt_allocator.alloc(ri_fq_name)
+            rtgt_num = self.current_rt_allocator.alloc(ri_fq_name)
             self._rt_cf.insert(ri_fq_name, {'rtgt_num': str(rtgt_num)})
 
         return rtgt_num
     # end alloc_route_target
 
-    def free_route_target(self, ri_fq_name):
+    def free_route_target(self, ri_fq_name,asn):
         try:
             rtgt = self.get_route_target(ri_fq_name)
             self._rt_cf.remove(ri_fq_name)
         except NotFoundException:
             pass
-        self._rt_allocator.delete(rtgt)
+
+        if (asn > 0xFFFF):
+            self.current_rt_allocator = self._rt_allocator_4
+        else:
+            self.current_rt_allocator = self._rt_allocator
+        self.current_rt_allocator.delete(rtgt)
     # end free_route_target
+
+    def get_ri_from_route_target(self, rtgt_num,asn):
+       if (asn > 0xFFFF):
+           self.current_rt_allocator = self._rt_allocator_4
+       else:
+           self.current_rt_allocator = self._rt_allocator
+
+       return self.current_rt_allocator.read(rtgt_num)
+
+    def delete_route_target_directory(self, path):
+        for zk_node in self._zkclient.get_children(path):
+            obj_fq_name, znode_stat  = self._zkclient.read_node(
+                '%s/%s' % (path, zk_node),
+                include_timestamp=True)
+            # Delete all the zk nodes that are not sub-directories
+            if znode_stat.numChildren == 0:
+                self._zkclient.delete_node('%s/%s' % (path, zk_node))
 
     def get_service_chain_ip(self, sc_name):
         return self.get(self._SC_IP_CF, sc_name)
