@@ -143,6 +143,12 @@ class AuthPostKeystone(object):
                 self.server_mgr.default_domain['uuid'].replace('-', '')
             env['HTTP_X_DOMAIN_NAME'] =\
                 self.server_mgr.default_domain['fq_name'][-1]
+        else:
+            # ensure to set HTTP_X_DOMAIN_ID as it is the header used in the
+            # Contrail RBAC code and in certain setup, Keystone auth middleware
+            # just sets HTTP_X_PROJECT_DOMAIN_ID and/or HTTP_X_USER_DOMAIN_ID
+            # headers
+            env['HTTP_X_DOMAIN_ID'] = domain_id
 
         get_context().set_proc_time('POST_KEYSTONE_REQ')
 
