@@ -245,12 +245,11 @@ void ServicesSandesh::BfdStatsSandesh(std::string ctxt, bool more) {
         session.remote_port = key.remote_port;
 
         BFD::Session *bfd_session = server->SessionByKey(key);
-        std::ostringstream ss;
+        std::ostringstream ss, rem_ss;
         ss << bfd_session->local_state();
         session.local_status = ss.str();
-        ss.clear();
-        ss << bfd_session->remote_state().state;
-        session.remote_status = ss.str();
+        rem_ss << bfd_session->remote_state().state;
+        session.remote_status = rem_ss.str();
 
         session.stats.rx_count = bfd_session->Stats().rx_count;
         session.stats.tx_count = bfd_session->Stats().tx_count;
