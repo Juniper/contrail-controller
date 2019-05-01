@@ -7,17 +7,24 @@
 {%         endif %}
 {%         for bgp_item in bgp_group %}
 {%             set bgp_group_name = bgp_item.name %}
-{%             set bgp_export_policy = bgp_item.export %}
-{%             if bgp_export_policy is string %}
-{%                 set bgp_export_policy = [bgp_export_policy] %}
+{%             if bgp_item.export is defined and bgp_item.export != None %}
+{%                 set bgp_export_policy = bgp_item.export %}
+{%                 if bgp_export_policy is string %}
+{%                     set bgp_export_policy = [bgp_export_policy] %}
+{%                 endif %}
+{%             endif %}
+{%             if bgp_item.type is not defined %}
+{%                 do bgp_item.update({'type': 'external'}) %}
 {%             endif %}
 {%             if bgp_item.type == "internal" %}
 {%                 if device_maintenance_mode == "activate" %}
 delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
-{%                     for export_item in bgp_export_policy %}
+{%                     if bgp_export_policy is defined and bgp_export_policy != None %}
+{%                         for export_item in bgp_export_policy %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{export_item}}
-{%                     endfor %}
+{%                         endfor %}
+{%                     endif %}
 {%                 else %}
 delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
 {%                 endif %}
@@ -25,9 +32,11 @@ delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTE
 {%                 if device_maintenance_mode == "activate" %}
 delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
-{%                     for export_item in bgp_export_policy %}
+{%                     if bgp_export_policy is defined and bgp_export_policy != None %}
+{%                         for export_item in bgp_export_policy %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{export_item}}
-{%                     endfor %}
+{%                         endfor %}
+{%                     endif %}
 {%                 else %}
 delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
 {%                 endif %}
@@ -45,17 +54,24 @@ delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export MAINTE
 {%         endif %}
 {%         for item in bgp_group %}
 {%             set bgp_group_name = item.name %}
-{%             set bgp_export_policy = item.export %}
-{%             if bgp_export_policy is string %}
-{%                 set bgp_export_policy = [item.export] %}
+{%             if item.export is defined and item.export != None %}
+{%                 set bgp_export_policy = item.export %}
+{%                 if bgp_export_policy is string %}
+{%                     set bgp_export_policy = [item.export] %}
+{%                 endif %}
+{%             endif %}
+{%             if item.type is not defined %}
+{%                 do item.update({'type': 'external'}) %}
 {%             endif %}
 {%             if item.type == "internal" %}
 {%                 if device_maintenance_mode == "activate" %}
 delete protocols bgp group {{bgp_group_name}} export
 set protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
-{%                     for export_item in bgp_export_policy %}
+{%                     if bgp_export_policy is defined and bgp_export_policy != None %}
+{%                         for export_item in bgp_export_policy %}
 set protocols bgp group {{bgp_group_name}} export {{export_item}}
-{%                     endfor %}
+{%                         endfor %}
+{%                     endif %}
 {%                 else %}
 delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
 {%                 endif %}
@@ -63,9 +79,11 @@ delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE
 {%                 if device_maintenance_mode == "activate" %}
 delete protocols bgp group {{bgp_group_name}} export
 set protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
-{%                     for export_item in bgp_export_policy %}
+{%                     if bgp_export_policy is defined and bgp_export_policy != None %}
+{%                         for export_item in bgp_export_policy %}
 set protocols bgp group {{bgp_group_name}} export {{export_item}}
-{%                     endfor %}
+{%                         endfor %}
+{%                     endif %}
 {%                 else %}
 delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
 {%                 endif %}
@@ -73,6 +91,7 @@ delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
 {%         endfor %}
 {%     endif %}
 {% endif %}
+
 
 {% macro lag_configurations(interface_list, interface_group_name=None) %}
 {%     for item in interface_list %}
@@ -118,3 +137,4 @@ set interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{
 {{ lag_configurations(interface_results) }}
 {%     endif %}
 {% endif %}
+
