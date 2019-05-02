@@ -92,7 +92,7 @@ def fabric_ansible_display(self, msg, color=None, stderr=False,
         if color == CONST.COLOR_ERROR:
             logger.error(msg2)
         else:
-            logger.warn(msg2)
+            logger.info(msg2)
 
 
 import ansible.utils.display as default_display
