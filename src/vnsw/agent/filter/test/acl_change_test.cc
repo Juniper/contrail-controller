@@ -246,39 +246,23 @@ public:
                 "    </protocol>\n"
                 "    <src-address>\n"
                 "        <subnet>"
-                "            <ip-prefix> "
-                "                  %s"
-                "            </ip-prefix>"
-                "            <ip-prefix-len>"
-                "                  %d"
-                "             </ip-prefix-len>"
-                "          </subnet>"
+                "            <ip-prefix>%s</ip-prefix>"
+                "            <ip-prefix-len>%d</ip-prefix-len>"
+                "        </subnet>"
                 "     </src-address>\n"
-                "     <src-port>\n"
-                "         <start-port>\n"
-                "               %d\n"
-                "         </start-port>\n"
-                "         <end-port>\n"
-                "              %d\n"
-                "         </end-port>\n"
-                "     </src-port>\n"
+                "     <src-port>"
+                "         <start-port>%d</start-port>\n"
+                "         <end-port>%d</end-port>\n"
+                "     </src-port>"
                 "     <dst-address>\n"
                 "          <subnet>\n"
-                "              <ip-prefix>\n"
-                "                  %s\n"
-                "              </ip-prefix>\n"
-                "              <ip-prefix-len>\n"
-                "                   %d\n"
-                "              </ip-prefix-len>"
+                "              <ip-prefix>%s</ip-prefix>\n"
+                "              <ip-prefix-len>%d\n</ip-prefix-len>"
                 "          </subnet>\n"
                 "     </dst-address>\n"
                 "     <dst-port>\n"
-                "          <start-port>\n"
-                "              %d\n"
-                "          </start-port>\n"
-                "          <end-port>\n"
-                "             %d\n"
-                "          </end-port>\n"
+                "          <start-port>%d</start-port>\n"
+                "          <end-port>%d</end-port>\n"
                 "    </dst-port>\n"
                 "</match-condition>\n",
             proto.c_str(), source_ip.c_str(), source_plen, sport_start,
@@ -681,6 +665,8 @@ TEST_F(AclTest, QosActionChange_2) {
     AddAcl("acl1", 1, buff);
     client->AclNotifyWait(3);
     EXPECT_TRUE(VerifyQosAction(1, 0, "qos-config2"));
+    DelQosConfig(data);
+    DelQosConfig(data1);
 }
 }
 

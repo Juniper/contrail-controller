@@ -5072,6 +5072,17 @@ void AddQosConfig(struct TestQosConfigData &data) {
     ApplyXmlString(buf);
 }
 
+void DelQosConfig(struct TestQosConfigData &data) {
+
+    char buf[10000];
+    int len = 0;
+    memset(buf, 0, 10000);
+    DelXmlHdr(buf, len);
+    DelNodeString(buf, len, "qos-config", data.name_.c_str());
+    DelXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
 void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data) {
     AgentQosConfigKey key(MakeUuid(data->id_));
     AgentQosConfig *qc = static_cast<AgentQosConfig *>(

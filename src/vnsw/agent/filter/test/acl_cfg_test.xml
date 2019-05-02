@@ -8,18 +8,14 @@
       <match-condition>
        <protocol>any</protocol>
        <src-address>
-	 <virtual-network>
-          vn1
-	 </virtual-network> 
+        <virtual-network>vn1</virtual-network>
        </src-address>
        <src-port>
         <start-port>-1</start-port>
         <end-port>-1</end-port>
        </src-port>
        <dst-address>
-	 <virtual-network>
-	   vn2
-	 </virtual-network>
+        <virtual-network>vn2</virtual-network>
        </dst-address>
        <dst-port>
         <start-port>-1</start-port>
@@ -35,18 +31,14 @@
       <match-condition>
        <protocol>any</protocol>
        <src-address>
-	 <virtual-network>
-          any
-	 </virtual-network> 
+        <virtual-network>any</virtual-network>
        </src-address>
        <src-port>
         <start-port>-1</start-port>
         <end-port>-1</end-port>
        </src-port>
        <dst-address>
-	 <virtual-network>
-          any
-	 </virtual-network> 
+        <virtual-network>any</virtual-network>
        </dst-address>
        <dst-port>
         <start-port>-1</start-port>
@@ -81,18 +73,14 @@
       <match-condition>
        <protocol>10</protocol>
        <src-address>
-	 <virtual-network>
-	   vn11
-	 </virtual-network>
+        <virtual-network>vn1</virtual-network>
        </src-address>
        <src-port>
         <start-port>-1</start-port>
         <end-port>-1</end-port>
        </src-port>
        <dst-address>
-	 <virtual-network>
-	   vn21
-	 </virtual-network>
+        <virtual-network>vn2</virtual-network>
        </dst-address>
        <dst-port>
         <start-port>100</start-port>
@@ -108,18 +96,14 @@
       <match-condition>
        <protocol>any</protocol>
        <src-address>
-	 <virtual-network>
-          vn11
-	 </virtual-network> 
+        <virtual-network>vn1</virtual-network>
        </src-address>
        <src-port>
         <start-port>-1</start-port>
         <end-port>-1</end-port>
        </src-port>
        <dst-address>
-	 <virtual-network>
-	   vn21
-	 </virtual-network>
+        <virtual-network>vn2</virtual-network>
        </dst-address>
        <dst-port>
         <start-port>-1</start-port>
@@ -135,18 +119,14 @@
       <match-condition>
        <protocol>any</protocol>
        <src-address>
-	 <virtual-network>
-          any
-	 </virtual-network> 
+        <virtual-network>any</virtual-network>
        </src-address>
        <src-port>
         <start-port>-1</start-port>
         <end-port>-1</end-port>
        </src-port>
        <dst-address>
-	 <virtual-network>
-          any
-	 </virtual-network> 
+        <virtual-network>any</virtual-network>
        </dst-address>
        <dst-port>
         <start-port>-1</start-port>
