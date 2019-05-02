@@ -667,6 +667,24 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
         table->ProcessDelete(this);
         part->Delete(this);
     } else {
+        // change to support flow stickiness for ecmp paths
+        // find new active path peer
+        // if peer type is same, and it is composite NH
+        // then import previous active NH to current active path
+        // Note: Change is limited to paths of same type
+        const Peer *new_active_path_peer = GetActivePath()->peer();
+        AgentPath *new_active_path = FindPath(new_active_path_peer);
+        CompositeNH *new_cnh = NULL;
+        if (new_active_path && new_active_path->nexthop()) {
+            new_cnh =
+                dynamic_cast<CompositeNH *>(new_active_path->nexthop());
+        }
+        if (active_path &&
+                cnh && new_cnh &&
+                (cnh->composite_nh_type() == Composite::ECMP) &&
+                (new_cnh->composite_nh_type() == Composite::ECMP)) {
+            new_active_path->ImportPrevActiveNH(table->agent(), cnh);
+        }
         // Notify deletion of path.
         part->Notify(this);
         UpdateDerivedRoutes(table, NULL, active_path);

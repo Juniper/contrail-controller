@@ -296,6 +296,30 @@ bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
     return true;
 }
 
+void AgentPath::ImportPrevActiveNH(Agent *agent, NextHop *nh)
+{
+    if (nh_ == nh) {
+        return;
+    }
+    // change NH ,
+    // assumptions here is that composite nh grid order would be different
+    // but elements would be same , so importing previous active nh
+    // would make sure the holes are already set in proper order
+    // ex: previous nh order A,B, C, new path nh order would be BCA
+    // ex2: previous nh order _,B,C, new path nh order is just B,C
+    ChangeNH(agent, nh);
+    // will there be a race condition while removing the active path,
+    // adding new component nh? 
+    // this can be handled by calling reorder composite nh method
+    boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
+    bool comp_nh_policy = false;
+    //TODO: optimize here , compare compositenh_key from path and nh?
+    ReorderCompositeNH(agent, composite_nh_key.get(), comp_nh_policy, NULL);
+    composite_nh_key->SetPolicy(comp_nh_policy);
+    ChangeCompositeNH(agent, composite_nh_key.get());
+
+}
+
 bool AgentPath::ResolveGwNextHops(Agent *agent, const AgentRoute *sync_route) {
 
     if (tunnel_type_ != TunnelType::MPLS_OVER_MPLS) {
