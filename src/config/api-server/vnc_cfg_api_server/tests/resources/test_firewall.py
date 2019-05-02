@@ -554,7 +554,6 @@ class TestFirewall(TestFirewallBase):
             parent_obj=project,
             name='rule-%s' % self.id(),
             endpoint_1=FirewallRuleEndpointType(tags=[tag.name]),
-            # endpoint_2=FirewallRuleEndpointType(tags=[tag.name]),
             service=FirewallServiceType(),
         )
         self.api.firewall_rule_create(fr)
@@ -568,6 +567,53 @@ class TestFirewall(TestFirewallBase):
         fr = self.api.firewall_rule_read(id=fr.uuid)
         self.assertIsNone(fr.endpoint_1)
         self.assertIsNone(fr.get_tag_refs())
+
+    def test_tag_ref_to_firewall_rule_of_same_type_created(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        tag_type = 'type-%s' % self.id()
+        tag_value1 = 'value1-%s' % self.id()
+        tag_value2 = 'value2-%s' % self.id()
+        tag1 = Tag(tag_type_name=tag_type, tag_value=tag_value1,
+                   parent_obj=project)
+        self.api.tag_create(tag1)
+        tag1 = self.api.tag_read(id=tag1.uuid)
+        tag2 = Tag(tag_type_name=tag_type, tag_value=tag_value2,
+                   parent_obj=project)
+        self.api.tag_create(tag2)
+        tag2 = self.api.tag_read(id=tag2.uuid)
+        self.assertNotIn(tag_type, constants.TAG_TYPE_NOT_UNIQUE_PER_OBJECT)
+
+        fr1 = FirewallRule(
+            parent_obj=project,
+            name='rule1-%s' % self.id(),
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(tags=[tag1.name]),
+            endpoint_2=FirewallRuleEndpointType(tags=[tag2.name]),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr1)
+        fr1 = self.api.firewall_rule_read(id=fr1.uuid)
+        self.assertEqual({r['uuid'] for r in fr1.get_tag_refs()},
+                         set([tag1.uuid, tag2.uuid]))
+
+        fr2 = FirewallRule(
+            parent_obj=project,
+            name='rule2-%s' % self.id(),
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(any=True),
+            endpoint_2=FirewallRuleEndpointType(any=True),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
+        self.api.firewall_rule_create(fr2)
+        fr2.set_endpoint_1(FirewallRuleEndpointType(tags=[tag1.name]))
+        fr2.set_endpoint_2(FirewallRuleEndpointType(tags=[tag2.name]))
+        self.api.firewall_rule_update(fr2)
+        fr2 = self.api.firewall_rule_read(id=fr2.uuid)
+        self.assertEqual({r['uuid'] for r in fr2.get_tag_refs()},
+                         set([tag1.uuid, tag2.uuid]))
 
     def test_firewall_service(self):
         pobj = Project('%s-project' % self.id())
