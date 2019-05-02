@@ -1375,7 +1375,20 @@ bool AgentPath::ChangeCompositeNH(Agent *agent,
             FindActiveEntry(composite_nh_key));
     }
 
-    assert(nh);
+    // NH can be NULL in the following scenario
+    // when VMI is deleted and it is the only member of VRF
+    // and VMI is part of AAP, then local ecmp route path
+    // is deleted from route and vrf delete would trigger route deletions
+    // in the VRF. while deleting the active path, import Nh from prev active
+    // path function copies the previous active path's NH to current active path
+    // and recalucalate composite NH based on composite nh key of current
+    // active path. if component nh key element of composite nh key is
+    // interface nh key which is already deleted then processing nh req would
+    // result NULL, in that case return false.
+    //assert(nh);
+    if (nh == NULL) {
+        return false;
+    }
 
     if (ChangeNH(agent, nh) == true) {
         return true;

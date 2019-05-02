@@ -248,10 +248,13 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     }
 
     const Peer *peer = path->peer();
-    bool active_path_deletion = false;
+    NextHopRef cnh_ref;
     CompositeNH *cnh = dynamic_cast<CompositeNH *>(path->nexthop());
-    if (path == rt->GetActivePath()) {
-        active_path_deletion = true;
+    if (cnh) {
+        // take nexthop ref to avoid nexthop deletion before
+        // importing the nexthop from active path which is going to be
+        // removed.
+        cnh_ref = static_cast<NextHop *>(cnh);
     }
     //Recompute paths since one is going off before deleting.
     rt->ReComputePathDeletion(path);
@@ -295,7 +298,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
             new_cnh =
                 dynamic_cast<CompositeNH *>(new_active_path->nexthop());
         }
-        if (active_path_deletion &&
+        if (deleted_path_was_active_path &&
                 cnh && new_cnh &&
                 (cnh->composite_nh_type() == Composite::ECMP) &&
                 (new_cnh->composite_nh_type() == Composite::ECMP)) {
