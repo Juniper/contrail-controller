@@ -1654,7 +1654,8 @@ class FilterModule(object):
             for kv in kvs:
                 if kv.get_key() == 'next_dummy_ip':
                     dummy_ip = kv.get_value()
-                    kv.set_value(_int2ip(_ip2int(dummy_ip)+1))
+                    dummy_ip = _int2ip(_ip2int(dummy_ip)+1)
+                    kv.set_value(dummy_ip)
                     break
 
         if not dummy_ip:
