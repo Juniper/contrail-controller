@@ -271,6 +271,8 @@ class VncApiServer(object):
                 for item in values:
                     if attr_type == 'AllowedAddressPair':
                         cls._validate_allowed_address_pair_prefix_len(item)
+                    if attr_type == 'SubnetType':
+                        cls._validate_subnet_type(item)
                     cls._validate_complex_type(attr_cls, item)
             else:
                 simple_type = attr_type_vals['simple_type']
@@ -279,6 +281,19 @@ class VncApiServer(object):
                                               simple_type, item,
                                               restrictions)
     # end _validate_complex_type
+
+    @staticmethod
+    def _validate_subnet_type(subnet):
+        try:
+            cidr_str = '%s/%s' % (subnet['ip_prefix'], subnet['ip_prefix_len'])
+        except TypeError:
+            raise ValueError("Subnet type is invalid")
+        try:
+            cidr = netaddr.IPNetwork(cidr_str)
+        except netaddr.core.AddrFormatError:
+            raise ValueError("Subnet type '%s' is invalid" % cidr_str)
+        subnet['ip_prefix'] = str(cidr.network)
+        subnet['ip_prefix_len'] = cidr.prefixlen
 
     @classmethod
     def _validate_allowed_address_pair_prefix_len(cls, value):
