@@ -27,6 +27,7 @@ set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{route.
 {%             endfor %}
 {%         endfor %}
 {%     endif %}
+set system services netconf ssh
 set groups {{cfg_group}} policy-options community COM-MAINTENANCE members 9999:9999
 set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from family evpn
 set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 2
