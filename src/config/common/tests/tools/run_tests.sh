@@ -166,7 +166,7 @@ function run_tests {
   if [ $coverage -eq 1 ]; then
     echo "Generating coverage report in covhtml/"
     # Don't compute coverage for common code, which is tested elsewhere
-    ${wrapper} coverage combine
+    ${wrapper} coverage combine | true
     ${wrapper} coverage html --include='./*' --omit='./tests/*' -d covhtml -i
     ${wrapper} coverage report
   fi
