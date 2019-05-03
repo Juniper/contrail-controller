@@ -82,8 +82,6 @@ void Options::Initialize(EventManager &evm,
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
-        ("DEFAULT.as4byte_enable", opt::bool_switch(&as4byte_enable_),
-            "Enable 4 byte AS")
         ("DEFAULT.bgp_config_file",
              opt::value<string>()->default_value("bgp_config.xml"),
              "BGP Configuration file")
