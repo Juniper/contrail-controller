@@ -461,7 +461,7 @@ BgpServer::BgpServer(EventManager *evm)
       destroyed_(false),
       logging_disabled_(false),
       mvpn_ipv4_enable_(false),
-      disable_4byte_as_(false),
+      enable_4byte_as_(true),
       ignore_aspath_(false),
       aspath_db_(new AsPathDB(this)),
       aspath_4byte_db_(new AsPath4ByteDB(this)),
