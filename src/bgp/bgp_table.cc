@@ -465,7 +465,20 @@ void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
                     as4_seg_index++;
                 aspath_4byte->path_segments.push_back(ps4);
             }
+        } else {
+            for (size_t i = 0; i < as_path.path_segments.size(); i++) {
+                AsPath4ByteSpec::PathSegment *ps4 =
+                                      new AsPath4ByteSpec::PathSegment;
+                AsPathSpec::PathSegment *ps = as_path.path_segments[i];
+                ps4->path_segment_type = ps->path_segment_type;
+                for (size_t j = ps->path_segment.size(); j > 0; j--) {
+                    as2_t as = ps->path_segment[j-1];
+                    ps4->path_segment.push_back(as);
+                }
+                aspath_4byte->path_segments.push_back(ps4);
+            }
         }
+        attr->set_as_path(NULL);
     }
     scoped_ptr<AsPath4ByteSpec> as_path_spec(aspath_4byte->Add(local_as));
     attr->set_aspath_4byte(as_path_spec.get());
