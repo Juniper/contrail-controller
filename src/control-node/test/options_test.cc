@@ -90,7 +90,6 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
-    EXPECT_EQ(options_.as4byte_enable(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
 }
@@ -124,7 +123,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.as4byte_enable(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
@@ -178,7 +176,6 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
-    EXPECT_EQ(options_.as4byte_enable(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
@@ -231,7 +228,6 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
                      options_.config_db_server_list());
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
-    EXPECT_EQ(options_.as4byte_enable(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
     EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
@@ -260,7 +256,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "test_mode=0\n"
         "task_track_run_time=0\n"
         "optimize_snat=1\n"
-        "as4byte_enable=1\n"
         "gr_helper_bgp_disable=1\n"
         "gr_helper_xmpp_disable=1\n"
         "xmpp_auth_enable=true\n"
@@ -321,7 +316,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.task_track_run_time(), false);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.optimize_snat(), true);
-    EXPECT_EQ(options_.as4byte_enable(), true);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
     EXPECT_EQ(options_.xmpp_auth_enabled(), true);
@@ -376,7 +370,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 14;
+    int argc = 13;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -391,7 +385,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_10[] = "--SANDESH.disable_object_logs";
     char argv_11[] = "--DEFAULT.mvpn_ipv4_enable";
     char argv_12[] = "--DEFAULT.http_server_ip=10.10.10.10";
-    char argv_13[] = "--DEFAULT.as4byte_enable";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -405,7 +398,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[10] = argv_10;
     argv[11] = argv_11;
     argv[12] = argv_12;
-    argv[13] = argv_13;
 
     options_.Parse(evm_, argc, argv);
 
@@ -439,7 +431,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
-    EXPECT_EQ(options_.as4byte_enable(), true);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
     EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
