@@ -1463,8 +1463,7 @@ void RoutingInstance::ClearFamilyRouteTarget(Address::Family vrf_family,
     }
 }
 
-void RoutingInstance::AddRTargetRoute(uint32_t asn,
-    const RouteTarget &rtarget) {
+void RoutingInstance::AddRTargetRoute(as_t asn, const RouteTarget &rtarget) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
 
     RTargetPrefix prefix(asn, rtarget);

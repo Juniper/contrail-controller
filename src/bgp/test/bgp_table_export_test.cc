@@ -16,6 +16,7 @@
 #include "net/community_type.h"
 
 using boost::assign::list_of;
+using boost::scoped_ptr;
 using std::auto_ptr;
 using std::cout;
 using std::endl;
@@ -331,6 +332,15 @@ protected:
         STLDeleteValues(&ribout_peers_);
     }
 
+    void SetNewAttrAsPath(as_t as_number) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        scoped_ptr<AsPathSpec> path_spec(new AsPathSpec);
+        AsPathSpec *path_spec_ptr = path_spec->Add(as_number);
+        attr->set_as_path(path_spec_ptr);
+        delete path_spec_ptr;
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
     void SetAttrAsPath(as_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const AsPathSpec &path_spec = attr_ptr_->as_path()->path();
@@ -340,7 +350,16 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
-    void SetAttrAsPath4(as_t as_number) {
+    void SetNewAttrAsPath4(as4_t as_number) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        scoped_ptr<AsPath4ByteSpec> path_spec(new AsPath4ByteSpec);
+        AsPath4ByteSpec *path_spec_ptr = path_spec->Add(as_number);
+        attr->set_aspath_4byte(path_spec_ptr);
+        delete path_spec_ptr;
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
+    void SetAttrAsPath4(as4_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const AsPath4ByteSpec &path_spec = attr_ptr_->aspath_4byte()->path();
         AsPath4ByteSpec *path_spec_ptr = path_spec.Add(as_number);
@@ -349,7 +368,16 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
-    void SetAttrAs4Path(as_t as_number) {
+    void SetNewAttrAs4Path(as4_t as_number) {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        scoped_ptr<As4PathSpec> path_spec(new As4PathSpec);
+        As4PathSpec *path_spec_ptr = path_spec->Add(as_number);
+        attr->set_as4_path(path_spec_ptr);
+        delete path_spec_ptr;
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
+    void SetAttrAs4Path(as4_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const As4PathSpec &path_spec = attr_ptr_->as4_path()->path();
         As4PathSpec *path_spec_ptr = path_spec.Add(as_number);
@@ -361,6 +389,12 @@ protected:
     void ResetAttrAsPath() {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         attr->set_as_path(NULL);
+        attr_ptr_ = server_.attr_db()->Locate(attr);
+    }
+
+    void ResetAttrAs4Path() {
+        BgpAttr *attr = new BgpAttr(*attr_ptr_);
+        attr->set_as4_path(NULL);
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
@@ -490,26 +524,35 @@ protected:
         EXPECT_EQ(count, attr->aspath_4byte_count());
     }
 
-    void VerifyAttrAsPrepend(as_t local_as = 0) {
+    void VerifyAttrAsPrepend(as_t local_as = 0, int size = 0) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath4Byte *as4_path = attr->aspath_4byte();
+        assert(!as4_path);
         const AsPath *as_path = attr->as_path();
         as_t my_as = server_.autonomous_system();
         as_t my_local_as = local_as ?: server_.local_autonomous_system();
         EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
         if (my_as != my_local_as)
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+        if (size != 0)
+            EXPECT_TRUE(as_path->AsCount() == size);
     }
 
-    void VerifyAttrAs4Prepend(as_t local_as = 0) {
+    void VerifyAttrAs4Prepend(as_t local_as = 0, int size = 0) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath *as2_path = attr->as_path();
+        assert(!as2_path);
         const AsPath4Byte *as_path = attr->aspath_4byte();
         as_t my_as = server_.autonomous_system();
         as_t my_local_as = local_as ?: server_.local_autonomous_system();
         EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
         if (my_as != my_local_as)
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+        if (size != 0) {
+            EXPECT_TRUE(as_path->AsCount() == size);
+        }
     }
 
     void VerifyAttrAs4BytePrepend(as_t local_as = 0) {
@@ -742,6 +785,116 @@ TEST_P(BgpTableExportParamTest1, EBgpNoLocalPref) {
     VerifyAttrLocalPref(0);
 }
 
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: eBGP, iBGP
+// RibOut: eBGP
+// Intent: received route from as2 neighbor and send it out to as4 nbr.
+// Note:   Current AsPath is NULL, we should prepend our as to aspath 4 byte
+//
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs2RiboutAs4) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    AddPath();
+    RunExport();
+    VerifyAttrAs4Prepend();
+}
+// Intent: received route from as2 neighbor and send it out to as4 nbr.
+// Note:   aspath has as_trans with corresponding as4_path,
+// we should prepend our as to aspath 4 byte, resulting in 2 asns
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs2RiboutAs4WithAs4Path) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    SetNewAttrAsPath(23456);
+    SetNewAttrAs4Path(4294967294);
+    AddPath();
+    RunExport();
+    VerifyAttrAs4Prepend(0, 2);
+}
+
+// Intent: received route from as4 neighbor and send it out to as4 nbr.
+// Note:   aspath is NULL, we should prepend our as to aspath 4 byte
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs4RiboutAs4) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    AddPath(true);
+    RunExport();
+    VerifyAttrAs4Prepend();
+}
+// Intent: received route from as4 neighbor and send it out to as4 nbr.
+// Note:   aspath has some as_path with 4 byte asn,
+// we should prepend our as to aspath 4 byte, resulting in 2 asns
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs4RiboutAs4WithAsPath) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, true, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    SetNewAttrAsPath4(4294967294);
+    AddPath(true);
+    RunExport();
+    VerifyAttrAs4Prepend(0, 2);
+}
+
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs4RiboutAs2) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    AddPath(true);
+    RunExport();
+    VerifyAttrAsPrepend();
+}
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs4RiboutAs2WithAsPath4Byte) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    AddPath(true);
+    RunExport();
+    if (internal_)
+        return;
+    VerifyAttrAsPrepend(0, 2);
+}
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs2RiboutAs2) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    AddPath();
+    RunExport();
+    VerifyAttrAsPrepend();
+}
+TEST_P(BgpTableExportParamTest1, EBgpPrependPeerAs2RiboutAs2WithAsPath) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, false, -1, 0);
+    CreateRibOut(policy);
+    ResetAttrAs4Path();
+    ResetAttrAsPath4();
+    AddPath();
+    RunExport();
+    if (internal_)
+        return;
+    VerifyAttrAsPrepend(0, 2);
+}
 //
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP, iBGP
@@ -1004,6 +1157,7 @@ TEST_P(BgpTableExportParamTest1, NoRemovePrivate) {
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
 
+#if 0
 TEST_P(BgpTableExportParamTest1, NoRemovePrivateAs4) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, true, IpAddress(),
                  0, true);
@@ -1020,6 +1174,7 @@ TEST_P(BgpTableExportParamTest1, NoRemovePrivateAs4) {
     if (!PeerIsInternal())
         VerifyAttrAs4BytePathAsCount(PeerAsNumber(), 1);
 }
+#endif
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest1,
     ::testing::Combine(

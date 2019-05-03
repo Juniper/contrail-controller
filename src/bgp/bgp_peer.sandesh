@@ -89,6 +89,7 @@ struct BgpNeighborResp {
     55: bool as_override;
     65: bool origin_override;
     66: string route_origin;
+    67: bool as4_supported;
     61: string private_as_action;
     62: bool send_ready;
     50: u32 peer_port;
