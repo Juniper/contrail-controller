@@ -81,18 +81,6 @@ TEST_F(BgpMsgBuilderTest, Build) {
     BgpAttrAtomicAggregate *aa = new BgpAttrAtomicAggregate;
     attr.push_back(aa);
 
-    BgpAttr4ByteAggregator *agg = new BgpAttr4ByteAggregator(0xface, 0xcafebabe);
-    attr.push_back(agg);
-
-    AsPath4ByteSpec *path_spec = new AsPath4ByteSpec;
-    AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
-    ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SET;
-    ps->path_segment.push_back(20);
-    ps->path_segment.push_back(21);
-    ps->path_segment.push_back(22);
-    path_spec->path_segments.push_back(ps);
-    attr.push_back(path_spec);
-
     CommunitySpec *community = new CommunitySpec;
     community->communities.push_back(0x87654321);
     attr.push_back(community);
@@ -186,8 +174,6 @@ TEST_F(BgpMsgBuilderTest, Build) {
     delete med;
     delete lp;
     delete aa;
-    delete agg;
-    delete path_spec;
     delete community;
     delete ext_community;
     delete result;
