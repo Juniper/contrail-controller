@@ -140,7 +140,7 @@ struct BgpAttrAs4Aggregator : public BgpAttribute {
     }
     explicit BgpAttrAs4Aggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(As4Aggregator, kFlags), as_num(as_num), address(address) {}
-    as_t as_num;
+    as4_t as_num;
     uint32_t address;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -176,7 +176,7 @@ struct BgpAttr4ByteAggregator : public BgpAttribute {
     }
     explicit BgpAttr4ByteAggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(Aggregator, kFlags), as_num(as_num), address(address) {}
-    as_t as_num;
+    as4_t as_num;
     uint32_t address;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
