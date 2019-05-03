@@ -282,6 +282,8 @@ public:
     time_t GetRTargetTableLastUpdatedTimeStamp() const;
     bool mvpn_ipv4_enable() const { return mvpn_ipv4_enable_; }
     void set_mvpn_ipv4_enable(bool flag) { mvpn_ipv4_enable_ = flag; }
+    bool enable_4byte_as() const { return enable_4byte_as_; }
+    void set_enable_4byte_as(bool flag) { enable_4byte_as_ = flag; }
 
 private:
     class ConfigUpdater;
@@ -335,6 +337,7 @@ private:
     bool destroyed_;
     bool logging_disabled_;
     bool mvpn_ipv4_enable_;
+    bool enable_4byte_as_;
 
     // databases
     boost::scoped_ptr<AsPathDB> aspath_db_;

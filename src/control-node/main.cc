@@ -302,6 +302,8 @@ int main(int argc, char *argv[]) {
     bgp_server->rtarget_group_mgr()->Initialize();
     bgp_server->session_manager()->Initialize(options.bgp_port(),
                                               bgp_ip_address);
+    if (options.as4byte_enable())
+        bgp_server->set_enable_4byte_as(options.as4byte_enable());
 
     // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);

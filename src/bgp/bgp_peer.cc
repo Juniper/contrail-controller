@@ -1510,12 +1510,14 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
-    uint32_t asn = ntohl(local_as_);
-    BgpProto::OpenMessage::Capability *cap =
-            new BgpProto::OpenMessage::Capability(
-                BgpProto::OpenMessage::Capability::AS4Support,
-                (const uint8_t *)(&asn), 4);
-    opt_param->capabilities.push_back(cap);
+    if (server_->enable_4byte_as() || bgp_log_test::unit_test()) {
+        uint32_t asn = ntohl(local_as_);
+        BgpProto::OpenMessage::Capability *cap =
+                new BgpProto::OpenMessage::Capability(
+                    BgpProto::OpenMessage::Capability::AS4Support,
+                    (const uint8_t *)(&asn), 4);
+        opt_param->capabilities.push_back(cap);
+    }
     peer_close_->AddGRCapabilities(opt_param);
     peer_close_->AddLLGRCapabilities(opt_param);
 
@@ -1761,7 +1763,7 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
     return false;
 }
 
-bool BgpPeer::Is4ByteAsSupported() {
+bool BgpPeer::Is4ByteAsSupported() const {
     return as4_supported_;
 }
 

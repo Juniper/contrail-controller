@@ -78,6 +78,7 @@ public:
     bool collectors_configured() const { return collectors_configured_; }
     int tcp_hold_time() const { return tcp_hold_time_; }
     bool optimize_snat() const { return optimize_snat_; }
+    bool as4byte_enable() const { return as4byte_enable_; }
     bool gr_helper_bgp_disable() const { return gr_helper_bgp_disable_; }
     bool gr_helper_xmpp_disable() const { return gr_helper_xmpp_disable_; }
     const std::string cassandra_user() const { return cassandra_user_; }
@@ -137,6 +138,7 @@ private:
     int tcp_hold_time_;
     bool optimize_snat_;
     uint32_t sandesh_ratelimit_;
+    bool as4byte_enable_;
     bool gr_helper_bgp_disable_;
     bool gr_helper_xmpp_disable_;
     std::string cassandra_user_;
