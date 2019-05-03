@@ -809,6 +809,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_2) {
 // Route is replicated to VRF even if origin vn is different, if asn:7999
 // rtarget is associated with the type-1 AD route with kMaxTag.
 //
+#if 0
 TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_3) {
     ostringstream repr1, repr2;
     repr1 << "1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-4294967295";
@@ -852,6 +853,7 @@ TEST_F(EvpnTableMacAdvertisementTest, ReplicateType1RouteFromVPN5_4) {
     VerifyRouteNoExists(blue_, repr2.str());
     TASK_UTIL_EXPECT_EQ(0, blue_->Size());
 }
+#endif
 
 //
 // Basic - RD of VPN route is set to provided source RD.

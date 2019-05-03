@@ -80,6 +80,7 @@ protected:
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
         db_util::Clear(&db_);
     }
 
@@ -141,6 +142,7 @@ class BgpIfmapConfigManagerShowTest : public ::testing::Test {
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
         db_util::Clear(&db_);
     }
 

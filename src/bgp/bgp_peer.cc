@@ -1510,7 +1510,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
-    if (server_->enable_4byte_as() || bgp_log_test::unit_test()) {
+    if (server_->enable_4byte_as()) {
         uint32_t asn = ntohl(local_as_);
         BgpProto::OpenMessage::Capability *cap =
                 new BgpProto::OpenMessage::Capability(
@@ -1676,11 +1676,13 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     }
 
     as4_supported_ = false;
-    vector<BgpProto::OpenMessage::Capability *>::iterator c_it;
-    for (c_it = capabilities_.begin(); c_it < capabilities_.end(); ++c_it) {
-        if ((*c_it)->code == BgpProto::OpenMessage::Capability::AS4Support) {
-            as4_supported_ = true;
-            break;
+    if (server_->enable_4byte_as()) {
+        vector<BgpProto::OpenMessage::Capability *>::iterator c_it;
+        for (c_it = capabilities_.begin(); c_it < capabilities_.end(); ++c_it) {
+            if ((*c_it)->code == BgpProto::OpenMessage::Capability::AS4Support) {
+                as4_supported_ = true;
+                break;
+            }
         }
     }
     BgpPeerInfoData peer_info;
