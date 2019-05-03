@@ -70,6 +70,68 @@ request sandesh Icmpv6Info {
 }
 
 /**
+ * @description: Request message to get igmp info from agent
+ * @cli_name: read igmp info
+ */
+request sandesh IgmpStatsReq {
+}
+
+response sandesh IgmpStatsResponse {
+    1: u32 bad_length;
+    2: u32 bad_cksum;
+    3: u32 bad_interface;
+    4: u32 not_local;
+    5: u32 rx_unknown;
+    6: u32 rejected_pkt;
+}
+
+/**
+ * @description: Request message to get igmp interface info from agent
+ * @cli_name: read igmp interface info
+ */
+request sandesh InterfaceIgmpStatsReq {
+    1: string vn_uuid;
+    2: string ipam_gateway;
+}
+
+struct IgmpStats {
+    1: u32 undefined;
+    2: u32 igmp_membership_query;
+    3: u32 igmp_v1_membership_report;
+    4: u32 igmp_proto_dvmrp;
+    5: u32 igmp_proto_pim;
+    6: u32 igmp_cisco_trace;
+    7: u32 igmp_v2_membership_report;
+    8: u32 igmp_group_leave;
+    9: u32 igmp_mtrace_response;
+    10: u32 igmp_mtrace_request;
+    11: u32 igmp_dwr;
+    12: u32 igmp_v3_membership_report;
+}
+
+response sandesh  InterfaceIgmpStatsResponse {
+    1: IgmpStats rx_badpacket_stats;
+    2: IgmpStats rx_okpacket_stats;
+    3: u32 rx_unknown;
+    4: u32 tx_packet;
+    5: u32 tx_drop_packet;
+}
+
+/**
+ * @description: Request message to get gmp info from agent
+ * @cli_name: read gmp info
+ */
+request sandesh GmpStatsReq {
+}
+
+response sandesh GmpStatsResponse {
+    1: u32 gmp_g_add_count;
+    2: u32 gmp_g_del_count;
+    3: u32 gmp_sg_add_count;
+    4: u32 gmp_sg_del_count;
+}
+
+/**
  * @description: Request message to get meta data info from agent
  * @cli_name: read metadata info
  */
@@ -902,3 +964,9 @@ trace sandesh IgmpTrace {
     1: string msg;
 }
 
+/**
+ * Response message for invalid igmp request
+ */
+response sandesh IgmpErrorResp {
+    1: string resp = "   Invalid request  !!!   ";
+}
