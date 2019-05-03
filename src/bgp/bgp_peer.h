@@ -418,7 +418,7 @@ private:
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
     uint32_t GetLocalPrefFromMed(uint32_t med) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
-    virtual bool Is4ByteAsSupported();
+    virtual bool Is4ByteAsSupported() const;
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
     template <typename TableT, typename PrefixT>
     void ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
