@@ -338,8 +338,11 @@ void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const {
         attr->set_as_path(as_path_ptr);
         delete as_path_ptr;
     }
+    if (attr->aspath_4byte())
+        attr->set_aspath_4byte(NULL);
 }
 
+#if 0
 void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as_t asn) const {
     if (asn <= AsPathSpec::kMaxPrivateAs) {
         if (attr->as_path() && attr->as4_path()) {
@@ -356,6 +359,7 @@ void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as_t asn) const {
     PrependAsToAsPath2Byte(attr, as_trans);
     PrependAsToAs4Path(attr, asn);
 }
+#endif
 
 void BgpTable::PrependAsToAsPath4Byte(BgpAttr *clone, as_t asn) const {
     if (clone->aspath_4byte()) {
@@ -369,6 +373,8 @@ void BgpTable::PrependAsToAsPath4Byte(BgpAttr *clone, as_t asn) const {
         clone->set_aspath_4byte(as_path_ptr);
         delete as_path_ptr;
     }
+    if (clone->as_path())
+        clone->set_as_path(NULL);
 }
 
 void BgpTable::PrependAsToAs4Path(BgpAttr* attr, as_t asn) const {
@@ -447,17 +453,18 @@ void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
                 ps4->path_segment_type = ps->path_segment_type;
                 uint32_t as4_index = 0;
                 bool as_trans_found = false;
+                as_t as4 = 0;
                 for (size_t j = ps->path_segment.size(); j > 0; j--) {
                     as2_t as = ps->path_segment[j-1];
                     if (as != AS_TRANS)
                         ps4->path_segment.push_back(as);
                     else {
                         as_trans_found = true;
-                        As4PathSpec::PathSegment *ps4 =
+                        As4PathSpec::PathSegment *ps4b =
                             as4_path.path_segments[as4_seg_index];
-                        if (as4_index >= ps4->path_segment.size())
+                        if (as4_index >= ps4b->path_segment.size())
                             assert(0);
-                        as_t as4 = ps4->path_segment[as4_index++];
+                        as4 = ps4b->path_segment[as4_index++];
                         ps4->path_segment.push_back(as4);
                     }
                 }
