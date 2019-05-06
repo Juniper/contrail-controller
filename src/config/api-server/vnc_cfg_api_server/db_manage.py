@@ -464,27 +464,17 @@ class DatabaseManager(object):
         vn_row = fq_name_table.xget('virtual_network')
         vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
         for vn_id in vn_uuids:
-            ipam_refs = obj_uuid_table.xget(
-                vn_id,
-                column_start='ref:network_ipam:',
-                column_finish='ref:network_ipam;')
-            if not ipam_refs:
-                continue
-
-            for _, attr_json_dict in ipam_refs:
-                attr_dict = json.loads(attr_json_dict)['attr']
-                for subnet in attr_dict['ipam_subnets']:
-                    try:
-                        sn_id = subnet['subnet_uuid']
-                        vnc_all_subnet_info[sn_id] = '%s %s/%d' % (
-                            vn_id,
-                            subnet['subnet']['ip_prefix'],
-                            subnet['subnet']['ip_prefix_len']
-                        )
-                    except KeyError:
-                        errmsg = "Missing uuid in ipam-subnet for %s %s" \
-                                 % (vn_id, subnet['subnet']['ip_prefix'])
-                        ret_errors.append(SubnetUuidMissingError(errmsg))
+            subnets = self.get_subnets(vn_id)
+            for subnet in subnets:
+                try:
+                    vnc_all_subnet_info[subnet['subnet_uuid']] = '%s %s/%d' % (
+                        vn_id,
+                        subnet['subnet']['ip_prefix'],
+                        subnet['subnet']['ip_prefix_len'])
+                except KeyError, e:
+                    errmsg = ('Missing key (%s) '
+                              'in ipam-subnet (%s) for vn (%s)' % (e, subnet, vn_id))
+                    ret_errors.append(SubnetUuidMissingError(errmsg))
 
         return ua_subnet_info, vnc_all_subnet_info, ret_errors
     # end audit_subnet_uuid
@@ -774,6 +764,29 @@ class DatabaseManager(object):
         return zk_set, cassandra_set, ret_errors, duplicate_vn_ids, missing_ids
     # end audit_virtual_networks_id
 
+    def get_subnets(self, vn_id):
+        subnet_dicts = []
+        obj_uuid_table = self._cf_dict['obj_uuid_table']
+        # find all subnets on this VN and add for later check
+        ipam_refs = obj_uuid_table.xget(vn_id,
+            column_start='ref:network_ipam:',
+            column_finish='ref:network_ipam;')
+
+        for network_ipam_ref, attr_json_dict in ipam_refs:
+            network_ipam = obj_uuid_table.get(network_ipam_ref.split(':')[2])
+            ipam_method = network_ipam.get('prop:ipam_subnet_method')
+            if ipam_method == '"flat-subnet"':
+                ipam_subnets = obj_uuid_table.xget(network_ipam_ref.split(':')[2],
+                    column_start='propl:ipam_subnets:',
+                    column_finish='propl:ipam_subnets;')
+                for _, subnet_unicode  in ipam_subnets:
+                    subnet_dicts.append(json.loads(subnet_unicode))
+            else:
+                attr_dict = json.loads(attr_json_dict)['attr']
+                for subnet in attr_dict['ipam_subnets']:
+                    subnet_dicts.append(subnet)
+        return subnet_dicts
+
     def _addr_alloc_process_ip_objects(self, cassandra_all_vns, duplicate_ips,
                                        ip_type, ip_uuids):
         logger = self._logger
@@ -802,19 +815,16 @@ class DatabaseManager(object):
                 return
 
             # find all subnets on this VN and add for later check
-            ipam_refs = obj_uuid_table.xget(vn_id,
-                                            column_start='ref:network_ipam:',
-                                            column_finish='ref:network_ipam;')
-            if not ipam_refs:
+            subnets = self.get_subnets(vn_id)
+            if not subnets:
                 logger.debug('VN %s (%s) has no ipam refs', vn_id, fq_name_str)
                 return
 
             cassandra_all_vns[fq_name_str] = {}
-            for _, attr_json_dict in ipam_refs:
-                attr_dict = json.loads(attr_json_dict)['attr']
-                for subnet in attr_dict['ipam_subnets']:
+            for subnet in subnets:
+                try:
                     sn_key = '%s/%s' % (subnet['subnet']['ip_prefix'],
-                                        subnet['subnet']['ip_prefix_len'])
+                        subnet['subnet']['ip_prefix_len'])
                     gw = subnet.get('default_gateway')
                     dns = subnet.get('dns_server_address')
                     cassandra_all_vns[fq_name_str][sn_key] = {
@@ -822,6 +832,10 @@ class DatabaseManager(object):
                         'gw': gw,
                         'dns': dns,
                         'addrs': []}
+                except KeyError, e:
+                    errmsg = ('Missing key (%s) '
+                              'in ipam-subnet (%s) for vn (%s)' % (e, subnet, vn_id))
+                    raise SubnetUuidMissingError(errmsg)
         # end set_reserved_addrs_in_cassandra
 
         for fq_name_str_uuid, _ in obj_fq_name_table.xget('virtual_network'):
