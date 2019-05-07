@@ -358,7 +358,7 @@ public:
     bool IsRouterTypeBGPaaS() const { return router_type_ == "bgpaas-client"; }
     virtual bool ProcessSession() const;
     void RoutingInstanceCallback(const std::string &vrf_name, int op);
-    void DeleteRTargets();
+    void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);
@@ -441,10 +441,11 @@ private:
     void FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const;
     void FillCloseInfo(BgpNeighborResp *resp) const;
     BgpAttrPtr GetRouteTargetRouteAttr() const;
-    void BGPaaSAddRTarget(BgpTable *table, BgpAttrPtr attr,
+    void BGPaaSAddRTarget(as_t as, BgpTable *table, BgpAttrPtr attr,
                           RouteTargetList::const_iterator it);
-    void AddRTargets();
-    void BGPaaSDeleteRTarget(BgpTable *table,
+    void AddRTargets(as_t as);
+    void DeleteRTargets(as_t as);
+    void BGPaaSDeleteRTarget(as_t as, BgpTable *table,
                              RouteTargetList::const_iterator it);
     BgpTable *GetRTargetTable();
 
@@ -541,6 +542,7 @@ private:
     AuthenticationKey inuse_auth_key_;
     KeyType inuse_authkey_type_;
     RouteTargetList rtargets_;
+    int asn_listener_id_;
     int instance_op_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
