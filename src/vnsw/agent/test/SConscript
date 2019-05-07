@@ -111,7 +111,7 @@ test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock',
 test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk',
                                        flaky_agent_suite)
 service_instance_test = AgentEnv.MakeTestCmd(env, 'service_instance_test',
-                                             flaky_agent_suite)
+                                             agent_suite)
 test_vxlan_routing = AgentEnv.MakeTestCmd(env, 'test_vxlan_routing', agent_suite)
 
 test_xmpp_hv2 = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv2', flaky_agent_suite)
