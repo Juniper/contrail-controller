@@ -876,7 +876,7 @@ TEST_F(ServiceInstanceIntegrationTest, Delete) {
     EXPECT_TRUE(entry == NULL);
 }
 
-
+/*
 TEST_F(ServiceInstanceIntegrationTest, Loadbalancer) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
@@ -924,7 +924,7 @@ TEST_F(ServiceInstanceIntegrationTest, Loadbalancer) {
     parser->ConfigParse(config_, 0);
     task_util::WaitForIdle();
 }
-
+*/
 TEST_F(ServiceInstanceIntegrationTest, ConfigUuidChange) {
     boost::uuids::random_generator gen;
     uuid svc_id = gen();
