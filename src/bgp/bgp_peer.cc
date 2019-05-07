@@ -197,6 +197,16 @@ public:
                                         peer_->dscp_listener_id_);
             peer_->dscp_listener_id_ = -1;
         }
+        if (peer_->instance_op_ >= 0) {
+            peer_->server()->routing_instance_mgr()->
+                UnregisterInstanceOpCallback(peer_->instance_op_);
+            peer_->instance_op_ = -1;
+        }
+        if (peer_->asn_listener_id_ >= 0) {
+            peer_->server()->UnregisterASNUpdateCallback(
+                peer_->asn_listener_id_);
+            peer_->asn_listener_id_ = -1;
+        }
         assert(!peer_->membership_req_pending());
         assert(!peer_->close_manager_->IsMembershipInUse());
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
@@ -513,7 +523,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           last_flap_(0),
           dscp_listener_id_(-1),
           inuse_authkey_type_(AuthenticationData::NIL),
-          instance_op_(0) {
+          asn_listener_id_(-1),
+          instance_op_(-1) {
     buffer_.reserve(buffer_capacity_);
     close_manager_.reset(
         BgpObjectFactory::Create<PeerCloseManager>(peer_close_.get()));
@@ -538,7 +549,13 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     }
 
     dscp_listener_id_ = server_->RegisterDSCPUpdateCallback(boost::bind(
-                &BgpPeer::DSCPUpdateCallback, this, _1));
+        &BgpPeer::DSCPUpdateCallback, this, _1));
+    if (IsRouterTypeBGPaaS()) {
+        asn_listener_id_ = server->RegisterASNUpdateCallback(boost::bind(
+            &BgpPeer::ASNUpdateCallback, this, _1, _2));
+        instance_op_=server->routing_instance_mgr()->RegisterInstanceOpCallback(
+                boost::bind(&BgpPeer::RoutingInstanceCallback, this, _1, _2));
+    }
 
     membership_req_pending_ = 0;
     BGP_LOG_PEER(Event, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
@@ -694,11 +711,11 @@ BgpAttrPtr BgpPeer::GetRouteTargetRouteAttr() const {
 }
 
 // Add one route-target route to bgp.rtarget.0 table.
-void BgpPeer::BGPaaSAddRTarget(BgpTable *table, BgpAttrPtr attr,
+void BgpPeer::BGPaaSAddRTarget(as_t as, BgpTable *table, BgpAttrPtr attr,
                                RouteTargetList::const_iterator it) {
     const RouteTarget rtarget = *it;
     DBRequest req;
-    RTargetPrefix rt_prefix(server_->local_autonomous_system(), rtarget);
+    RTargetPrefix rt_prefix(as, rtarget);
     req.key.reset(new RTargetTable::RequestKey(rt_prefix, this));
     req.data.reset(new RTargetTable::RequestData(attr, 0, 0, 0, 0));
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -710,24 +727,23 @@ void BgpPeer::BGPaaSAddRTarget(BgpTable *table, BgpAttrPtr attr,
 void BgpPeer::AddRTargets() {
     if (!IsRouterTypeBGPaaS())
         return;
-    instance_op_ = server_->routing_instance_mgr()->RegisterInstanceOpCallback(
-        boost::bind(&BgpPeer::RoutingInstanceCallback, this, _1, _2));
+    assert(IsReady());
     BgpTable *table = GetRTargetTable();
     assert(table);
     BgpAttrPtr attr = GetRouteTargetRouteAttr();
     rtargets_ = rtinstance_->GetImportList();
     for (RouteTargetList::const_iterator it = rtargets_.begin();
             it != rtargets_.end(); it++) {
-        BGPaaSAddRTarget(table, attr, it);
+        BGPaaSAddRTarget(server_->local_autonomous_system(), table, attr, it);
     }
 }
 
 // Delete one route-target route from bgp.rtarget.0 table.
-void BgpPeer::BGPaaSDeleteRTarget(BgpTable *table,
+void BgpPeer::BGPaaSDeleteRTarget(as_t as, BgpTable *table,
                                   RouteTargetList::const_iterator it) {
     const RouteTarget rtarget = *it;
     DBRequest req;
-    RTargetPrefix rt_prefix(server_->local_autonomous_system(), rtarget);
+    RTargetPrefix rt_prefix(as, rtarget);
     req.key.reset(new RTargetTable::RequestKey(rt_prefix, this));
     req.oper = DBRequest::DB_ENTRY_DELETE;
     table->Enqueue(&req);
@@ -736,19 +752,25 @@ void BgpPeer::BGPaaSDeleteRTarget(BgpTable *table,
 // Delete import route-targets of associated routing-instance in order to
 // not to attract the VN routes any more, if bgpaas session goes down within
 // the instance.
-void BgpPeer::DeleteRTargets() {
+void BgpPeer::DeleteRTargets(as_t as) {
     if (!IsRouterTypeBGPaaS())
         return;
-    server_->routing_instance_mgr()->UnregisterInstanceOpCallback(instance_op_);
-    instance_op_ = 0;
     BgpTable *table = GetRTargetTable();
     if (!table)
         return;
     for (RouteTargetList::const_iterator it = rtargets_.begin();
             it != rtargets_.end(); it++) {
-        BGPaaSDeleteRTarget(table, it);
+        BGPaaSDeleteRTarget(as, table, it);
     }
     rtargets_.clear();
+}
+
+void BgpPeer::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
+    CHECK_CONCURRENCY("bgp::Config");
+    DeleteRTargets(old_local_asn);
+    if (!IsReady())
+        return;
+    AddRTargets();
 }
 
 // Process changes to routing-instance configuration. Specifically, we need
@@ -766,14 +788,15 @@ void BgpPeer::RoutingInstanceCallback(const std::string &vrf_name, int op) {
     assert(table);
     BgpAttrPtr attr = GetRouteTargetRouteAttr();
     set_synchronize(&rtargets_, &rtinstance_->GetImportList(),
-        boost::bind(&BgpPeer::BGPaaSAddRTarget, this, table, attr, _1),
-        boost::bind(&BgpPeer::BGPaaSDeleteRTarget, this, table, _1));
+        boost::bind(&BgpPeer::BGPaaSAddRTarget, this,
+            server_->local_autonomous_system(), table, attr, _1),
+        boost::bind(&BgpPeer::BGPaaSDeleteRTarget, this,
+                    server_->local_autonomous_system(), table, _1));
     rtargets_ = rtinstance_->GetImportList();
 }
 
 void BgpPeer::NotifyEstablished(bool established) {
     if (established) {
-        assert(IsReady());
         if (IsRouterTypeBGPaaS()) {
             server_->IncrementUpBgpaasPeerCount();
             AddRTargets();
@@ -1237,7 +1260,7 @@ void BgpPeer::CustomClose() {
     }
 
     if (close_manager_->IsInDeleteState())
-        DeleteRTargets();
+        DeleteRTargets(server_->local_autonomous_system());
 }
 
 //
