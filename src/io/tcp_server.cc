@@ -486,6 +486,90 @@ int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
     return retval;
 }
 
+int TcpServer::SetSocketOptions(const SandeshConfig &sandesh_config) {
+    int retval = 0;
+    if (acceptor_ && sandesh_config.tcp_keepalive_enable) {
+        retval = SetKeepAliveSocketOption(acceptor_->native_handle(), sandesh_config);
+    }
+    return retval;
+}
+
+int TcpServer::SetKeepAliveSocketOption(int fd, const SandeshConfig &sandesh_config) {
+    int tcp_keepalive_enable = 1, retval = 0;
+    int tcp_keepalive_idle_time = sandesh_config.tcp_keepalive_idle_time;
+    int tcp_keepalive_probes = sandesh_config.tcp_keepalive_probes;
+    int tcp_keepalive_interval = sandesh_config.tcp_keepalive_interval;
+    retval = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
+                reinterpret_cast<const char *>(&tcp_keepalive_enable),
+                sizeof(tcp_keepalive_enable));
+    if (retval < 0) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                        "Failure in setting Keepalive enable on the socket " +
+                        integerToString(fd) +
+                        " with errno " + strerror(errno));
+        return retval;
+    }
+
+/*https://docs.microsoft.com/en-gb/windows/desktop/WinSock/ipproto-tcp-socket-options
+  TCP_KEEPIDLE and TCP_KEEPINTVL are supported on later version of windows. Windows 10, version 1709
+  TCP_KEEPCNT are supported on Windows 10, version 1703 and later */
+
+#ifndef _WIN32
+#ifdef TCP_KEEPIDLE
+    retval = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE,
+                reinterpret_cast<const char *>(&tcp_keepalive_idle_time),
+                sizeof(tcp_keepalive_idle_time));
+    if (retval < 0) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                        "Failure in setting keepalive idle time on the socket " +
+                        integerToString(fd) +
+                        " with errno " + strerror(errno));
+        return retval;
+    }
+#elif TCP_KEEPALIVE
+    retval = setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE,
+                reinterpret_cast<const char *>(&tcp_keepalive_idle_time),
+                sizeof(tcp_keepalive_idle_time));
+    if (retval < 0) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                        "Failure in setting keepalive time on the socket " +
+                        integerToString(fd) +
+                        " with errno " + strerror(errno));
+        return retval;
+    }
+#else
+#error No TCP keepalive option defined.
+#endif
+
+#ifdef TCP_KEEPCNT
+    retval = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT,
+                reinterpret_cast<const char *>(&tcp_keepalive_probes),
+                sizeof(tcp_keepalive_probes));
+    if (retval < 0) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                        "Failure in setting keepalive probes on the socket " +
+                        integerToString(fd) +
+                        " with errno " + strerror(errno));
+        return retval;
+    }
+#endif
+
+#ifdef TCP_KEEPINTVL
+    retval = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL,
+                reinterpret_cast<const char *>(&tcp_keepalive_interval),
+                sizeof(tcp_keepalive_interval));
+    if (retval < 0) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                        "Failure in setting keepalive interval on the socket " +
+                        integerToString(fd) +
+                        " with errno " + strerror(errno));
+        return retval;
+    }
+#endif
+#endif
+    return retval;
+}
+
 void TcpServer::GetRxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }
