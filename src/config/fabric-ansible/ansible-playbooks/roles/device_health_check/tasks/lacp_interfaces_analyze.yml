@@ -18,13 +18,9 @@
     device_name: "{{item.0.name}}"
   when: itr_check is defined and itr_check == "peer_check"
 
-- name: Get the status of each interface in the multihomed list
-  set_fact:
-    status: "{{item['lag-lacp-protocol']['lacp-mux-state']}}"
+- include: check_status.yml
   with_items:
     - "{{lacp_information_list}}"
-  when:
-    - multihomed_interface == "{{item['lag-lacp-protocol']['name']}}"
 
 - block:
     - name: Handle the case when status None
@@ -69,3 +65,4 @@
       set_fact:
         status: ""
   when: status is defined and status != ""
+
