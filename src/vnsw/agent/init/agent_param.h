@@ -12,6 +12,100 @@
 class Agent;
 class VirtualGatewayConfigTable;
 
+struct TraceBuff {
+
+    uint32_t  agent_dbwalk_trace;
+    uint32_t  bgp_as_a_service;
+    uint32_t  crypttunnel;
+    uint32_t  healthcheck;
+    uint32_t  mplstrace;
+    uint32_t  multicast;
+    uint32_t  instance_manager;
+    uint32_t  oper_ifmap;
+    uint32_t  path_preference;
+    uint32_t  multicast_policy;
+    uint32_t  tasktrace;
+    uint32_t  interface_mpls_data;
+    uint32_t  vrf_mpls_data;
+    uint32_t  vlan_mpls_data;
+    uint32_t  route_mpls_data;
+    uint32_t  version_trace;
+    uint32_t  dnsbind;
+    uint32_t  ifmap_agent_trace;
+    uint32_t  io_tracebuf;
+    uint32_t  xmpp_message_trace;
+    uint32_t  xmpp_trace;
+    uint32_t  config;
+    uint32_t  controller_connections;
+    uint32_t  controller_info;
+    uint32_t  controller_tx_config_1;
+    uint32_t  controller_tx_config_2;
+    uint32_t  controller_route_walker;
+    uint32_t  controller;
+    uint32_t  controller_rx_route_xmpp_message_1;
+    uint32_t  controller_rx_config_xmpp_message_1;
+    uint32_t  controller_rx_route_xmpp_message_2;
+    uint32_t  controller_rx_config_xmpp_message_2;
+    uint32_t  controller_tx_xmpp_message_1;
+    uint32_t  controller_tx_xmpp_message_2;
+    uint32_t  acl;
+    uint32_t  vnsw_iftrace;
+    uint32_t  flow;
+    uint32_t  packet;
+    uint32_t  flow_handler;
+    uint32_t  prouter_uve;
+    uint32_t  session_stats;
+    uint32_t  flow_export_stats;
+    uint32_t  dhcp;
+    uint32_t  dhcpv6;
+    uint32_t  icmpv6;
+    uint32_t  arp;
+    uint32_t  metadata;
+    uint32_t  bfd;
+    uint32_t  igmp;
+    uint32_t  ksync_error;
+    uint32_t  maclearning;
+    uint32_t  xmpp;
+    uint32_t  ksync_interface;
+    uint32_t  ksync_mpls;
+    uint32_t  ksync_nexthop;
+    uint32_t  ksync_mirror;
+    uint32_t  ksync_vxLan;
+    uint32_t  ksync_vrf_assign;
+    uint32_t  kSync_qos_queue_object;
+    uint32_t  ksync_forwarding_class_object;
+    uint32_t  ksync_qos_config_classo_bject;
+    uint32_t  ksync_bridge_route_table;
+    uint32_t  ksync_flow_table;
+    uint32_t  operdb_interface0;
+    uint32_t  operdb_healthcheck0;
+    uint32_t  operdb_crypttunnel0;
+    uint32_t  operdb_nexthop0;
+    uint32_t  operdb_vrf0;
+    uint32_t  operdb_vm0;
+    uint32_t  operdb_sg0;
+    uint32_t  operdb_tag0;
+    uint32_t  operdb_vn0;
+    uint32_t  operdb_mpls0;
+    uint32_t  operdb_acl0;
+    uint32_t  operdb_mirror_table0;
+    uint32_t  operdb_vrf_assign0;
+    uint32_t  operdb_policy_set0;
+    uint32_t  operdb_vxlan0;
+    uint32_t  operdb_qos_queue0;
+    uint32_t  operdb_forwardingclass0;
+    uint32_t  operdb_security_logging_object0;
+    uint32_t  operdb_qos_config0;
+    uint32_t  operdb_bridge_domain0;
+    uint32_t  operdb_multicast_policy0;
+    uint32_t  operdb_service_instance0;
+    uint32_t  operdb_physical_devices0;
+    uint32_t  operdb_physical_device_vn0;
+    uint32_t  http_buf;
+    uint32_t  oper_route;
+    uint32_t  ksync_route;
+};
+
 struct LlgrParams {
 public:
     //In seconds
@@ -166,6 +260,7 @@ public:
         Ip4Address gw_;
     };
 
+    TraceBuff trace_buff;
     AgentParam(bool enable_flow_options = true,
                bool enable_vhost_options = true,
                bool enable_hypervisor_options = true,
@@ -351,6 +446,7 @@ public:
     void Init(const std::string &config_file,
               const std::string &program_name);
     void ReInit();
+    void DebugInit();
 
     void LogConfig() const;
     void LogFilteredConfig() const;
@@ -559,6 +655,8 @@ protected:
     virtual void InitFromSystem();
     virtual void InitFromConfig();
     virtual void ReInitFromConfig();
+    virtual void DebugInitFromConfig();
+    virtual void ProcessTraceArguments();
     virtual void ProcessArguments();
     boost::property_tree::ptree &tree() { return tree_; }
     template <typename ValueType>
@@ -650,6 +748,8 @@ private:
     void ParseCryptArguments
         (const boost::program_options::variables_map &v);
     void ParseSessionDestinationArguments
+        (const boost::program_options::variables_map &v);
+    void ParseTraceArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;

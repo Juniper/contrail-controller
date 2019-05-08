@@ -11,6 +11,8 @@
 #include <base/test/task_test_util.h>
 #include <cfg/cfg_init.h>
 
+#include <sandesh/sandesh_trace.h>
+
 namespace opt = boost::program_options;
 using std::map;
 using std::string;
@@ -598,6 +600,29 @@ TEST_F(AgentParamTest, Agent_Session_Destination_Option_Arguments) {
     TASK_UTIL_EXPECT_VECTOR_EQ(p1.get_slo_destination(),
                      slo_destination_list);
 
+}
+
+TEST_F(AgentParamTest, Agent_Debug_Trace_Options) {
+    AgentParam param;
+    SandeshTraceBufferPtr trace_buf;
+
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
+    param.DebugInit();
+
+    //Verify if the default value is set for parameter not configured in
+    //config file
+    EXPECT_EQ(SandeshTraceBufferCapacityGet("Config"), 2000);
+
+    //Verify if the increased configured value is set for parameter configured
+    //in config file
+    EXPECT_EQ(SandeshTraceBufferCapacityGet("Xmpp"), 50000);
+
+    //Reduce the value of the tracebuffer for Xmpp
+    param.trace_buff.xmpp = 5000;
+    trace_buf = SandeshTraceBufferResetSize("Xmpp", param.trace_buff.xmpp);
+
+    //Verify if the change is reflected in sandesh library.
+    EXPECT_EQ(SandeshTraceBufferCapacityGet("Xmpp"), 5000);
 }
 
 int main(int argc, char **argv) {

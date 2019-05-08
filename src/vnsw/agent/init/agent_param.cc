@@ -22,6 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <base/bgp_as_service_utils.h>
 #include <base/logging.h>
@@ -772,6 +773,201 @@ void AgentParam::ParseCryptArguments
                         "CRYPT.crypt_interface");
 }
 
+void AgentParam::ParseTraceArguments
+(const boost::program_options::variables_map &var_map) {
+    memset(&trace_buff, 0, sizeof(trace_buff));
+    GetOptValue<uint32_t>(var_map, trace_buff.agent_dbwalk_trace,
+                          "TRACEBUFFSIZE.AgentDBwalkTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.bgp_as_a_service,
+                          "TRACEBUFFSIZE.BgpAsAService");
+    GetOptValue<uint32_t>(var_map, trace_buff.crypttunnel,
+                          "TRACEBUFFSIZE.CryptTunnel");
+    GetOptValue<uint32_t>(var_map, trace_buff.healthcheck,
+                          "TRACEBUFFSIZE.HealthCheck");
+    GetOptValue<uint32_t>(var_map, trace_buff.mplstrace,
+                          "TRACEBUFFSIZE.MplsTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.multicast,
+                          "TRACEBUFFSIZE.Multicast");
+    GetOptValue<uint32_t>(var_map, trace_buff.instance_manager,
+                          "TRACEBUFFSIZE.InstanceManager");
+    GetOptValue<uint32_t>(var_map, trace_buff.oper_ifmap,
+                          "TRACEBUFFSIZE.OperIfmap");
+    GetOptValue<uint32_t>(var_map, trace_buff.path_preference,
+                          "TRACEBUFFSIZE.PathPreference");
+    GetOptValue<uint32_t>(var_map, trace_buff.multicast_policy,
+                          "TRACEBUFFSIZE.MulticastPolicy");
+    GetOptValue<uint32_t>(var_map, trace_buff.tasktrace,
+                          "TRACEBUFFSIZE.TaskTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.interface_mpls_data,
+                          "TRACEBUFFSIZE.InterfaceMplsData");
+    GetOptValue<uint32_t>(var_map, trace_buff.vrf_mpls_data,
+                          "TRACEBUFFSIZE.VrfMplsData");
+    GetOptValue<uint32_t>(var_map, trace_buff.vlan_mpls_data,
+                          "TRACEBUFFSIZE.VlanMplsData");
+    GetOptValue<uint32_t>(var_map, trace_buff.route_mpls_data,
+                          "TRACEBUFFSIZE.RouteMplsData");
+    GetOptValue<uint32_t>(var_map, trace_buff.version_trace,
+                          "TRACEBUFFSIZE.VersionTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.dnsbind,
+                          "TRACEBUFFSIZE.DnsBind");
+    GetOptValue<uint32_t>(var_map, trace_buff.ifmap_agent_trace,
+                          "TRACEBUFFSIZE.IFMapAgentTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.io_tracebuf,
+                          "TRACEBUFFSIZE.IOTraceBuf");
+    GetOptValue<uint32_t>(var_map, trace_buff.xmpp_message_trace,
+                          "TRACEBUFFSIZE.XmppMessageTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.xmpp_trace,
+                          "TRACEBUFFSIZE.XmppTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.config,
+                          "TRACEBUFFSIZE.Config");
+    GetOptValue<uint32_t>(var_map, trace_buff.controller_connections,
+                          "TRACEBUFFSIZE.ControllerConnections");
+    GetOptValue<uint32_t>(var_map, trace_buff.controller_info,
+                          "TRACEBUFFSIZE.ControllerInfo");
+    GetOptValue<uint32_t>(var_map, trace_buff.controller_tx_config_1,
+                          "TRACEBUFFSIZE.ControllerTxConfig_1");
+    GetOptValue<uint32_t>(var_map, trace_buff.controller_tx_config_2,
+                          "TRACEBUFFSIZE.ControllerTxConfig_2");
+    GetOptValue<uint32_t>(var_map, trace_buff.controller_route_walker,
+                          "TRACEBUFFSIZE.ControllerRouteWalker");
+    GetOptValue<uint32_t>(var_map, trace_buff.controller,
+                          "TRACEBUFFSIZE.Controller");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.controller_rx_route_xmpp_message_1,
+                          "TRACEBUFFSIZE.ControllerRxRouteXmppMessage1");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.controller_rx_config_xmpp_message_1,
+                          "TRACEBUFFSIZE.ControllerRxConfigXmppMessage1");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.controller_rx_route_xmpp_message_2,
+                          "TRACEBUFFSIZE.ControllerRxRouteXmppMessage2");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.controller_rx_config_xmpp_message_2,
+                          "TRACEBUFFSIZE.ControllerRxConfigXmppMessage2");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.controller_tx_xmpp_message_1,
+                          "TRACEBUFFSIZE.ControllerTxXmppMessage_1");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.controller_tx_xmpp_message_2,
+                          "TRACEBUFFSIZE.ControllerTxXmppMessage_2");
+    GetOptValue<uint32_t>(var_map, trace_buff.acl,
+                          "TRACEBUFFSIZE.Acl");
+    GetOptValue<uint32_t>(var_map, trace_buff.vnsw_iftrace,
+                          "TRACEBUFFSIZE.VnswIfTrace");
+    GetOptValue<uint32_t>(var_map, trace_buff.flow,
+                          "TRACEBUFFSIZE.Flow");
+    GetOptValue<uint32_t>(var_map, trace_buff.packet,
+                          "TRACEBUFFSIZE.Packet");
+    GetOptValue<uint32_t>(var_map, trace_buff.flow_handler,
+                          "TRACEBUFFSIZE.FlowHandler");
+    GetOptValue<uint32_t>(var_map, trace_buff.prouter_uve,
+                          "TRACEBUFFSIZE.ProuterUve");
+    GetOptValue<uint32_t>(var_map, trace_buff.session_stats,
+                          "TRACEBUFFSIZE.SessionStats");
+    GetOptValue<uint32_t>(var_map, trace_buff.flow_export_stats,
+                          "TRACEBUFFSIZE.FlowExportStats");
+    GetOptValue<uint32_t>(var_map, trace_buff.dhcp,
+                          "TRACEBUFFSIZE.Dhcp");
+    GetOptValue<uint32_t>(var_map, trace_buff.dhcpv6,
+                          "TRACEBUFFSIZE.Dhcpv6");
+    GetOptValue<uint32_t>(var_map, trace_buff.icmpv6,
+                          "TRACEBUFFSIZE.Icmpv6");
+    GetOptValue<uint32_t>(var_map, trace_buff.arp,
+                          "TRACEBUFFSIZE.Arp");
+    GetOptValue<uint32_t>(var_map, trace_buff.metadata,
+                          "TRACEBUFFSIZE.Metadata");
+    GetOptValue<uint32_t>(var_map, trace_buff.bfd,
+                          "TRACEBUFFSIZE.Bfd");
+    GetOptValue<uint32_t>(var_map, trace_buff.igmp,
+                          "TRACEBUFFSIZE.Igmp");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_error,
+                          "TRACEBUFFSIZE.KSync Error");
+    GetOptValue<uint32_t>(var_map, trace_buff.maclearning,
+                          "TRACEBUFFSIZE.MacLearning");
+    GetOptValue<uint32_t>(var_map, trace_buff.xmpp,
+                          "TRACEBUFFSIZE.Xmpp");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_interface,
+                          "TRACEBUFFSIZE.KSync Interface");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_mpls,
+                          "TRACEBUFFSIZE.KSync Mpls");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_nexthop,
+                          "TRACEBUFFSIZE.KSync Nexthop");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_mirror,
+                          "TRACEBUFFSIZE.KSync Mirror");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_vxLan,
+                          "TRACEBUFFSIZE.KSync VxLan");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_vrf_assign,
+                          "TRACEBUFFSIZE.KSync VrfAssign");
+    GetOptValue<uint32_t>(var_map, trace_buff.kSync_qos_queue_object,
+                          "TRACEBUFFSIZE.KSync Qos Queue Object");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.ksync_forwarding_class_object,
+                          "TRACEBUFFSIZE.KSync Forwarding class object");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.ksync_qos_config_classo_bject,
+                          "TRACEBUFFSIZE.KSync Qos Config class object");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_bridge_route_table,
+                          "TRACEBUFFSIZE.KSync BridgeRouteTable");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_flow_table,
+                          "TRACEBUFFSIZE.KSync FlowTable");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_interface0,
+                          "TRACEBUFFSIZE.Oper db.interface.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_healthcheck0,
+                          "TRACEBUFFSIZE.Oper db.healthcheck.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_crypttunnel0,
+                          "TRACEBUFFSIZE.Oper db.crypttunnel.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_nexthop0,
+                          "TRACEBUFFSIZE.Oper db.nexthop.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_vrf0,
+                          "TRACEBUFFSIZE.Oper db.vrf.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_vm0,
+                          "TRACEBUFFSIZE.Oper db.vm.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_sg0,
+                          "TRACEBUFFSIZE.Oper db.sg.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_tag0,
+                          "TRACEBUFFSIZE.Oper db.tag.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_vn0,
+                          "TRACEBUFFSIZE.Oper db.vn.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_mpls0,
+                          "TRACEBUFFSIZE.Oper db.mpls.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_acl0,
+                          "TRACEBUFFSIZE.Oper db.acl.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_mirror_table0,
+                          "TRACEBUFFSIZE.Oper db.mirror_table.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_vrf_assign0,
+                          "TRACEBUFFSIZE.Oper db.vrf_assign.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_policy_set0,
+                          "TRACEBUFFSIZE.Oper db.policy_set.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_vxlan0,
+                          "TRACEBUFFSIZE.Oper db.vxlan.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_qos_queue0,
+                          "TRACEBUFFSIZE.Oper db.qos_queue.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_forwardingclass0,
+                          "TRACEBUFFSIZE.Oper db.forwardingclass.0");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.operdb_security_logging_object0,
+                          "TRACEBUFFSIZE.Oper db.security_logging_object.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_qos_config0,
+                          "TRACEBUFFSIZE.Oper db.qos_config.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_bridge_domain0,
+                          "TRACEBUFFSIZE.Oper db.bridge_domain.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_multicast_policy0,
+                          "TRACEBUFFSIZE.Oper db.multicast_policy.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_service_instance0,
+                          "TRACEBUFFSIZE.Oper db.service-instance.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.operdb_physical_devices0,
+                          "TRACEBUFFSIZE.Oper db.physical_devices.0");
+    GetOptValue<uint32_t>(var_map,
+                          trace_buff.operdb_physical_device_vn0,
+                          "TRACEBUFFSIZE.Oper db.physical_device_vn.0");
+    GetOptValue<uint32_t>(var_map, trace_buff.http_buf,
+                          "TRACEBUFFSIZE.httpbuf");
+    GetOptValue<uint32_t>(var_map, trace_buff.oper_route,
+                          "TRACEBUFFSIZE.OperRoute");
+    GetOptValue<uint32_t>(var_map, trace_buff.ksync_route,
+                          "TRACEBUFFSIZE.KSync Route");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -838,6 +1034,23 @@ void AgentParam::ProcessArguments() {
     ParseTsnServersArguments(var_map_);
     ParseCryptArguments(var_map_);
     ParseSessionDestinationArguments(var_map_);
+    ParseTraceArguments(var_map_);
+}
+
+void AgentParam::DebugInitFromConfig() {
+    // Read and parse INI
+    opt::variables_map var_map;
+    ifstream config_file_in;
+    config_file_in.open(config_file_.c_str());
+    if (config_file_in.good()) {
+        opt::basic_parsed_options<char> ParsedOptions =
+            opt::parse_config_file(config_file_in, config_file_options_, true);
+        boost::program_options::store(ParsedOptions, var_map);
+
+        ParseTraceArguments(var_map);
+    }
+    config_file_in.close();
+    LOG(INFO, "Config file parsing for debug params completed. \n");
     return;
 }
 
@@ -1092,6 +1305,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     InitFromSystem();
     InitFromConfig();
     ProcessArguments();
+    ProcessTraceArguments();
     InitVhostAndXenLLPrefix();
     UpdateBgpAsaServicePortRangeValue();
     ComputeFlowLimits();
@@ -1100,6 +1314,482 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
 
 void AgentParam::ReInit() {
     ReInitFromConfig();
+}
+
+void SetTraceBufferSize(const string &tracebuff, size_t size) {
+    SandeshTraceBufferPtr tb = SandeshTraceBufferGet(tracebuff);
+    if (tb && SandeshTraceBufferCapacityGet(tracebuff) != size) {
+        //Disable the trace before changing the buffer size
+        SandeshTraceBufferDisable(tb);
+        SandeshTraceBufferPtr trace_buf = SandeshTraceBufferResetSize(tracebuff,
+                                                                      size);
+        //Allow 30ms before enabling the trace back
+        boost::this_thread::sleep( boost::posix_time::milliseconds(30));
+        //Enable the trace
+        SandeshTraceBufferEnable(trace_buf);
+
+        LOG(INFO, "Trace Buffer size for " << tracebuff << " set to " << size);
+    }
+}
+
+void AgentParam::ProcessTraceArguments() {
+    LOG(INFO, "Processing Trace Buffer size settings");
+
+    if (trace_buff.agent_dbwalk_trace) {
+        SetTraceBufferSize("AgentDBwalkTrace",
+                           trace_buff.agent_dbwalk_trace);
+    }
+
+    if (trace_buff.bgp_as_a_service) {
+        SetTraceBufferSize("BgpAsAService",
+                           trace_buff.bgp_as_a_service);
+    }
+
+    if (trace_buff.crypttunnel) {
+        SetTraceBufferSize("CryptTunnel",
+                           trace_buff.crypttunnel);
+    }
+
+    if (trace_buff.healthcheck) {
+        SetTraceBufferSize("HealthCheck",
+                           trace_buff.healthcheck);
+    }
+
+    if (trace_buff.mplstrace) {
+        SetTraceBufferSize("MplsTrace",
+                           trace_buff.mplstrace);
+    }
+
+    if (trace_buff.multicast) {
+        SetTraceBufferSize("Multicast",
+                           trace_buff.multicast);
+    }
+
+    if (trace_buff.instance_manager) {
+        SetTraceBufferSize("InstanceManager",
+                           trace_buff.instance_manager);
+    }
+
+    if (trace_buff.oper_ifmap) {
+        SetTraceBufferSize("OperIfmap",
+                           trace_buff.oper_ifmap);
+    }
+
+    if (trace_buff.path_preference) {
+        SetTraceBufferSize("PathPreference",
+                           trace_buff.path_preference);
+    }
+
+    if (trace_buff.multicast_policy) {
+        SetTraceBufferSize("MulticastPolicy",
+                           trace_buff.multicast_policy);
+    }
+
+    if (trace_buff.tasktrace) {
+        SetTraceBufferSize("TaskTrace",
+                           trace_buff.tasktrace);
+    }
+
+    if (trace_buff.interface_mpls_data) {
+        SetTraceBufferSize("InterfaceMplsData",
+                           trace_buff.interface_mpls_data);
+    }
+
+    if (trace_buff.vrf_mpls_data) {
+        SetTraceBufferSize("VrfMplsData",
+                           trace_buff.vrf_mpls_data);
+    }
+
+    if (trace_buff.vlan_mpls_data) {
+        SetTraceBufferSize("VlanMplsData",
+                           trace_buff.vlan_mpls_data);
+    }
+
+    if (trace_buff.route_mpls_data) {
+        SetTraceBufferSize("RouteMplsData",
+                           trace_buff.route_mpls_data);
+    }
+
+    if (trace_buff.version_trace) {
+        SetTraceBufferSize("VersionTrace",
+                           trace_buff.version_trace);
+    }
+
+    if (trace_buff.dnsbind) {
+        SetTraceBufferSize("DnsBind",
+                           trace_buff.dnsbind);
+    }
+
+    if (trace_buff.ifmap_agent_trace) {
+        SetTraceBufferSize("IFMapAgentTrace",
+                           trace_buff.ifmap_agent_trace);
+    }
+
+    if (trace_buff.io_tracebuf) {
+        SetTraceBufferSize("IOTraceBuf",
+                           trace_buff.io_tracebuf);
+    }
+
+    if (trace_buff.xmpp_message_trace) {
+        SetTraceBufferSize("XmppMessageTrace",
+                           trace_buff.xmpp_message_trace);
+    }
+
+    if (trace_buff.xmpp_trace) {
+        SetTraceBufferSize("XmppTrace",
+                           trace_buff.xmpp_trace);
+    }
+
+    if (trace_buff.config) {
+        SetTraceBufferSize("Config",
+                           trace_buff.config);
+    }
+
+    if (trace_buff.controller_connections) {
+        SetTraceBufferSize("ControllerConnections",
+                           trace_buff.controller_connections);
+    }
+
+    if (trace_buff.controller_info) {
+        SetTraceBufferSize("ControllerInfo",
+                           trace_buff.controller_info);
+    }
+
+    if (trace_buff.controller_tx_config_1) {
+        SetTraceBufferSize("ControllerTxConfig_1",
+                           trace_buff.controller_tx_config_1);
+    }
+
+    if (trace_buff.controller_tx_config_2) {
+        SetTraceBufferSize("ControllerTxConfig_2",
+                           trace_buff.controller_tx_config_2);
+    }
+
+    if (trace_buff.controller_route_walker) {
+        SetTraceBufferSize("ControllerRouteWalker",
+                           trace_buff.controller_route_walker);
+    }
+
+    if (trace_buff.controller) {
+        SetTraceBufferSize("Controller",
+                           trace_buff.controller);
+    }
+
+    if (trace_buff.controller_rx_route_xmpp_message_1) {
+        SetTraceBufferSize("ControllerRxRouteXmppMessage1",
+                           trace_buff.controller_rx_route_xmpp_message_1);
+    }
+
+    if (trace_buff.controller_rx_config_xmpp_message_1) {
+        SetTraceBufferSize("ControllerRxConfigXmppMessage1",
+                           trace_buff.controller_rx_config_xmpp_message_1);
+    }
+
+    if (trace_buff.controller_rx_route_xmpp_message_2) {
+        SetTraceBufferSize("ControllerRxRouteXmppMessage2",
+                           trace_buff.controller_rx_route_xmpp_message_2);
+    }
+
+    if (trace_buff.controller_rx_config_xmpp_message_2) {
+        SetTraceBufferSize("ControllerRxConfigXmppMessage2",
+                           trace_buff.controller_rx_config_xmpp_message_2);
+    }
+
+    if (trace_buff.controller_tx_xmpp_message_1) {
+        SetTraceBufferSize("ControllerTxXmppMessage_1",
+                           trace_buff.controller_tx_xmpp_message_1);
+    }
+
+    if (trace_buff.controller_tx_xmpp_message_2) {
+        SetTraceBufferSize("ControllerTxXmppMessage_2",
+                           trace_buff.controller_tx_xmpp_message_2);
+    }
+
+    if (trace_buff.acl) {
+        SetTraceBufferSize("Acl",
+                           trace_buff.acl);
+    }
+
+    if (trace_buff.vnsw_iftrace) {
+        SetTraceBufferSize("VnswIfTrace",
+                           trace_buff.vnsw_iftrace);
+    }
+
+    if (trace_buff.flow) {
+        SetTraceBufferSize("Flow",
+                           trace_buff.flow);
+    }
+
+    if (trace_buff.packet) {
+        SetTraceBufferSize("Packet",
+                           trace_buff.packet);
+    }
+
+    if (trace_buff.flow_handler) {
+        SetTraceBufferSize("FlowHandler",
+                           trace_buff.flow_handler);
+    }
+
+    if (trace_buff.prouter_uve) {
+        SetTraceBufferSize("ProuterUve",
+                           trace_buff.prouter_uve);
+    }
+
+    if (trace_buff.session_stats) {
+        SetTraceBufferSize("SessionStats",
+                           trace_buff.session_stats);
+    }
+
+    if (trace_buff.flow_export_stats) {
+        SetTraceBufferSize("FlowExportStats",
+                           trace_buff.flow_export_stats);
+    }
+
+    if (trace_buff.dhcp) {
+        SetTraceBufferSize("Dhcp",
+                           trace_buff.dhcp);
+    }
+
+    if (trace_buff.dhcpv6) {
+        SetTraceBufferSize("Dhcpv6",
+                           trace_buff.dhcpv6);
+    }
+
+    if (trace_buff.icmpv6) {
+        SetTraceBufferSize("Icmpv6",
+                           trace_buff.icmpv6);
+    }
+
+    if (trace_buff.arp) {
+        SetTraceBufferSize("Arp",
+                           trace_buff.arp);
+    }
+
+    if (trace_buff.metadata) {
+        SetTraceBufferSize("Metadata",
+                           trace_buff.metadata);
+    }
+
+    if (trace_buff.bfd) {
+        SetTraceBufferSize("Bfd",
+                           trace_buff.bfd);
+    }
+
+    if (trace_buff.igmp) {
+        SetTraceBufferSize("Igmp",
+                           trace_buff.igmp);
+    }
+
+    if (trace_buff.ksync_error) {
+        SetTraceBufferSize("KSync Error",
+                           trace_buff.ksync_error);
+    }
+
+    if (trace_buff.maclearning) {
+        SetTraceBufferSize("MacLearning",
+                           trace_buff.maclearning);
+    }
+
+    if (trace_buff.xmpp) {
+        SetTraceBufferSize("Xmpp",
+                           trace_buff.xmpp);
+    }
+
+    if (trace_buff.ksync_interface) {
+        SetTraceBufferSize("KSync Interface",
+                           trace_buff.ksync_interface);
+    }
+
+    if (trace_buff.ksync_mpls) {
+        SetTraceBufferSize("KSync Mpls",
+                           trace_buff.ksync_mpls);
+    }
+
+    if (trace_buff.ksync_nexthop) {
+        SetTraceBufferSize("KSync Nexthop",
+                           trace_buff.ksync_nexthop);
+    }
+
+    if (trace_buff.ksync_mirror) {
+        SetTraceBufferSize("KSync Mirror",
+                           trace_buff.ksync_mirror);
+    }
+
+    if (trace_buff.ksync_vxLan) {
+        SetTraceBufferSize("KSync VxLan",
+                           trace_buff.ksync_vxLan);
+    }
+
+    if (trace_buff.ksync_vrf_assign) {
+        SetTraceBufferSize("KSync VrfAssign",
+                           trace_buff.ksync_vrf_assign);
+    }
+
+    if (trace_buff.kSync_qos_queue_object) {
+        SetTraceBufferSize("KSync Qos Queue Object",
+                           trace_buff.kSync_qos_queue_object);
+    }
+
+    if (trace_buff.ksync_forwarding_class_object) {
+        SetTraceBufferSize("KSync Forwarding class object",
+                           trace_buff.ksync_forwarding_class_object);
+    }
+
+    if (trace_buff.ksync_qos_config_classo_bject) {
+        SetTraceBufferSize("KSync Qos Config class object",
+                           trace_buff.ksync_qos_config_classo_bject);
+    }
+
+    if (trace_buff.ksync_bridge_route_table) {
+        SetTraceBufferSize("KSync BridgeRouteTable",
+                           trace_buff.ksync_bridge_route_table);
+    }
+
+    if (trace_buff.ksync_flow_table) {
+        SetTraceBufferSize("KSync FlowTable",
+                           trace_buff.ksync_flow_table);
+    }
+
+    if (trace_buff.operdb_interface0) {
+        SetTraceBufferSize("Oper db.interface.0",
+                           trace_buff.operdb_interface0);
+    }
+
+    if (trace_buff.operdb_healthcheck0) {
+        SetTraceBufferSize("Oper db.healthcheck.0",
+                           trace_buff.operdb_healthcheck0);
+    }
+
+    if (trace_buff.operdb_crypttunnel0) {
+        SetTraceBufferSize("Oper db.crypttunnel.0",
+                           trace_buff.operdb_crypttunnel0);
+    }
+
+    if (trace_buff.operdb_nexthop0) {
+        SetTraceBufferSize("Oper db.nexthop.0",
+                           trace_buff.operdb_nexthop0);
+    }
+
+    if (trace_buff.operdb_vrf0) {
+        SetTraceBufferSize("Oper db.vrf.0",
+                           trace_buff.operdb_vrf0);
+    }
+
+    if (trace_buff.operdb_vm0) {
+        SetTraceBufferSize("Oper db.vm.0",
+                           trace_buff.operdb_vm0);
+    }
+
+    if (trace_buff.operdb_sg0) {
+        SetTraceBufferSize("Oper db.sg.0",
+                           trace_buff.operdb_sg0);
+    }
+
+    if (trace_buff.operdb_tag0) {
+        SetTraceBufferSize("Oper db.tag.0",
+                           trace_buff.operdb_tag0);
+    }
+
+    if (trace_buff.operdb_vn0) {
+        SetTraceBufferSize("Oper db.vn.0",
+                           trace_buff.operdb_vn0);
+    }
+
+    if (trace_buff.operdb_mpls0) {
+        SetTraceBufferSize("Oper db.mpls.0",
+                           trace_buff.operdb_mpls0);
+    }
+
+    if (trace_buff.operdb_acl0) {
+        SetTraceBufferSize("Oper db.acl.0",
+                           trace_buff.operdb_acl0);
+    }
+
+    if (trace_buff.operdb_mirror_table0) {
+        SetTraceBufferSize("Oper db.mirror_table.0",
+                           trace_buff.operdb_mirror_table0);
+    }
+
+    if (trace_buff.operdb_vrf_assign0) {
+        SetTraceBufferSize("Oper db.vrf_assign.0",
+                           trace_buff.operdb_vrf_assign0);
+    }
+
+    if (trace_buff.operdb_policy_set0) {
+        SetTraceBufferSize("Oper db.policy_set.0",
+                           trace_buff.operdb_policy_set0);
+    }
+
+    if (trace_buff.operdb_vxlan0) {
+        SetTraceBufferSize("Oper db.vxlan.0",
+                           trace_buff.operdb_vxlan0);
+    }
+
+    if (trace_buff.operdb_qos_queue0) {
+        SetTraceBufferSize("Oper db.qos_queue.0",
+                           trace_buff.operdb_qos_queue0);
+    }
+
+    if (trace_buff.operdb_forwardingclass0) {
+        SetTraceBufferSize("Oper db.forwardingclass.0",
+                           trace_buff.operdb_forwardingclass0);
+    }
+
+    if (trace_buff.operdb_security_logging_object0) {
+        SetTraceBufferSize("Oper db.security_logging_object.0",
+                           trace_buff.operdb_security_logging_object0);
+    }
+
+    if (trace_buff.operdb_qos_config0) {
+        SetTraceBufferSize("Oper db.qos_config.0",
+                           trace_buff.operdb_qos_config0);
+    }
+
+    if (trace_buff.operdb_bridge_domain0) {
+        SetTraceBufferSize("Oper db.bridge_domain.0",
+                           trace_buff.operdb_bridge_domain0);
+    }
+
+    if (trace_buff.operdb_multicast_policy0) {
+        SetTraceBufferSize("Oper db.multicast_policy.0",
+                           trace_buff.operdb_multicast_policy0);
+    }
+
+    if (trace_buff.operdb_service_instance0) {
+        SetTraceBufferSize("Oper db.service-instance.0",
+                           trace_buff.operdb_service_instance0);
+    }
+
+    if (trace_buff.operdb_physical_devices0) {
+        SetTraceBufferSize("Oper db.physical_devices.0",
+                           trace_buff.operdb_physical_devices0);
+    }
+
+    if (trace_buff.operdb_physical_device_vn0) {
+        SetTraceBufferSize("Oper db.physical_device_vn.0",
+                           trace_buff.operdb_physical_device_vn0);
+    }
+
+    if (trace_buff.http_buf) {
+        SetTraceBufferSize("httpbuf",
+                           trace_buff.http_buf);
+    }
+
+    if (trace_buff.oper_route) {
+        SetTraceBufferSize("OperRoute",
+                           trace_buff.oper_route);
+    }
+
+    if (trace_buff.ksync_route) {
+        SetTraceBufferSize("KSync Route",
+                           trace_buff.ksync_route);
+    }
+
+}
+
+void AgentParam::DebugInit() {
+    DebugInitFromConfig();
+    ProcessTraceArguments();
 }
 
 void AgentParam::LogFilteredConfig() const {
@@ -1442,6 +2132,191 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Configuration file")
         ("version", "Display version information")
         ;
+
+    boost::program_options::options_description debug("Debug options");
+    debug.add_options()
+        ("TRACEBUFFSIZE.AgentDBwalkTrace",opt::value<uint32_t>(),
+          "AgentDBwalkTrace trace buffer size")
+        ("TRACEBUFFSIZE.BgpAsAService",opt::value<uint32_t>(),
+          "BgpAsAService trace buffer size")
+        ("TRACEBUFFSIZE.CryptTunnel",opt::value<uint32_t>(),
+          "CryptTunnel trace buffer size")
+        ("TRACEBUFFSIZE.HealthCheck",opt::value<uint32_t>(),
+          "HealthCheck trace buffer size")
+        ("TRACEBUFFSIZE.MplsTrace",opt::value<uint32_t>(),
+          "MplsTrace trace buffer size")
+        ("TRACEBUFFSIZE.Multicast",opt::value<uint32_t>(),
+          "Multicast trace buffer size")
+        ("TRACEBUFFSIZE.InstanceManager",opt::value<uint32_t>(),
+          "InstanceManager trace buffer size")
+        ("TRACEBUFFSIZE.OperIfmap",opt::value<uint32_t>(),
+          "OperIfmap trace buffer size")
+        ("TRACEBUFFSIZE.PathPreference",opt::value<uint32_t>(),
+          "PathPreference trace buffer size")
+        ("TRACEBUFFSIZE.MulticastPolicy",opt::value<uint32_t>(),
+          "MulticastPolicy trace buffer size")
+        ("TRACEBUFFSIZE.TaskTrace",opt::value<uint32_t>(),
+          "TaskTrace trace buffer size")
+        ("TRACEBUFFSIZE.InterfaceMplsData",opt::value<uint32_t>(),
+          "InterfaceMplsData trace buffer size")
+        ("TRACEBUFFSIZE.VrfMplsData",opt::value<uint32_t>(),
+          "VrfMplsData trace buffer size")
+        ("TRACEBUFFSIZE.VlanMplsData",opt::value<uint32_t>(),
+          "VlanMplsData trace buffer size")
+        ("TRACEBUFFSIZE.RouteMplsData",opt::value<uint32_t>(),
+          "RouteMplsData trace buffer size")
+        ("TRACEBUFFSIZE.VersionTrace",opt::value<uint32_t>(),
+          "VersionTrace trace buffer size")
+        ("TRACEBUFFSIZE.DnsBind",opt::value<uint32_t>(),
+          "DnsBind trace buffer size")
+        ("TRACEBUFFSIZE.IFMapAgentTrace",opt::value<uint32_t>(),
+          "IFMapAgentTrace trace buffer size")
+        ("TRACEBUFFSIZE.IOTraceBuf",opt::value<uint32_t>(),
+          "IOTraceBuf trace buffer size")
+        ("TRACEBUFFSIZE.XmppMessageTrace",opt::value<uint32_t>(),
+          "XmppMessageTrace trace buffer size")
+        ("TRACEBUFFSIZE.XmppTrace",opt::value<uint32_t>(),
+          "XmppTrace trace buffer size")
+        ("TRACEBUFFSIZE.Config",opt::value<uint32_t>(),
+          "Config trace buffer size")
+        ("TRACEBUFFSIZE.ControllerConnections",opt::value<uint32_t>(),
+          "ControllerConnections trace buffer size")
+        ("TRACEBUFFSIZE.ControllerInfo",opt::value<uint32_t>(),
+          "ControllerInfo trace buffer size")
+        ("TRACEBUFFSIZE.ControllerTxConfig_1",opt::value<uint32_t>(),
+          "ControllerTxConfig_1 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerTxConfig_2",opt::value<uint32_t>(),
+          "ControllerTxConfig_2 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerRouteWalker",opt::value<uint32_t>(),
+          "ControllerRouteWalker trace buffer size")
+        ("TRACEBUFFSIZE.Controller",opt::value<uint32_t>(),
+          "Controller trace buffer size")
+        ("TRACEBUFFSIZE.ControllerRxRouteXmppMessage1",opt::value<uint32_t>(),
+          "ControllerRxRouteXmppMessage1 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerRxConfigXmppMessage1",opt::value<uint32_t>(),
+          "ControllerRxConfigXmppMessage1 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerRxRouteXmppMessage2",opt::value<uint32_t>(),
+          "ControllerRxRouteXmppMessage2 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerRxConfigXmppMessage2",opt::value<uint32_t>(),
+          "ControllerRxConfigXmppMessage2 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerTxXmppMessage_1",opt::value<uint32_t>(),
+          "ControllerTxXmppMessage_1 trace buffer size")
+        ("TRACEBUFFSIZE.ControllerTxXmppMessage_2",opt::value<uint32_t>(),
+          "ControllerTxXmppMessage_2 trace buffer size")
+        ("TRACEBUFFSIZE.Acl",opt::value<uint32_t>(),
+          "Acl trace buffer size")
+        ("TRACEBUFFSIZE.VnswIfTrace",opt::value<uint32_t>(),
+          "VnswIfTrace trace buffer size")
+        ("TRACEBUFFSIZE.Flow",opt::value<uint32_t>(),
+          "Flow trace buffer size")
+        ("TRACEBUFFSIZE.Packet",opt::value<uint32_t>(),
+          "Packet trace buffer size")
+        ("TRACEBUFFSIZE.FlowHandler",opt::value<uint32_t>(),
+          "FlowHandler trace buffer size")
+        ("TRACEBUFFSIZE.ProuterUve",opt::value<uint32_t>(),
+          "ProuterUve trace buffer size")
+        ("TRACEBUFFSIZE.SessionStats",opt::value<uint32_t>(),
+          "SessionStats trace buffer size")
+        ("TRACEBUFFSIZE.FlowExportStats",opt::value<uint32_t>(),
+          "FlowExportStats trace buffer size")
+        ("TRACEBUFFSIZE.Dhcp",opt::value<uint32_t>(),
+          "Dhcp trace buffer size")
+        ("TRACEBUFFSIZE.Dhcpv6",opt::value<uint32_t>(),
+          "Dhcpv6 trace buffer size")
+        ("TRACEBUFFSIZE.Icmpv6",opt::value<uint32_t>(),
+          "Icmpv6 trace buffer size")
+        ("TRACEBUFFSIZE.Arp",opt::value<uint32_t>(),
+          "Arp trace buffer size")
+        ("TRACEBUFFSIZE.Metadata",opt::value<uint32_t>(),
+          "Metadata trace buffer size")
+        ("TRACEBUFFSIZE.Bfd",opt::value<uint32_t>(),
+          "Bfd trace buffer size")
+        ("TRACEBUFFSIZE.Igmp",opt::value<uint32_t>(),
+          "Igmp trace buffer size")
+        ("TRACEBUFFSIZE.KSync Error",opt::value<uint32_t>(),
+          "KSync Error trace buffer size")
+        ("TRACEBUFFSIZE.MacLearning",opt::value<uint32_t>(),
+          "MacLearning trace buffer size")
+        ("TRACEBUFFSIZE.Xmpp",opt::value<uint32_t>(),
+          "Xmpp trace buffer size")
+        ("TRACEBUFFSIZE.KSync Interface",opt::value<uint32_t>(),
+          "KSync Interface trace buffer size")
+        ("TRACEBUFFSIZE.KSync Mpls",opt::value<uint32_t>(),
+          "KSync Mpls trace buffer size")
+        ("TRACEBUFFSIZE.KSync Nexthop",opt::value<uint32_t>(),
+          "KSync Nexthop trace buffer size")
+        ("TRACEBUFFSIZE.KSync Mirror",opt::value<uint32_t>(),
+          "KSync Mirror trace buffer size")
+        ("TRACEBUFFSIZE.KSync VxLan",opt::value<uint32_t>(),
+          "KSync VxLan trace buffer size")
+        ("TRACEBUFFSIZE.KSync VrfAssign",opt::value<uint32_t>(),
+          "KSync VrfAssign trace buffer size")
+        ("TRACEBUFFSIZE.KSync Qos Queue Object",opt::value<uint32_t>(),
+          "KSync Qos Queue Object trace buffer size")
+        ("TRACEBUFFSIZE.KSync Forwarding class object",opt::value<uint32_t>(),
+          "KSync Forwarding class object trace buffer size")
+        ("TRACEBUFFSIZE.KSync Qos Config class object",opt::value<uint32_t>(),
+          "KSync Qos Config class object trace buffer size")
+        ("TRACEBUFFSIZE.KSync BridgeRouteTable",opt::value<uint32_t>(),
+          "KSync BridgeRouteTable trace buffer size")
+        ("TRACEBUFFSIZE.KSync FlowTable",opt::value<uint32_t>(),
+          "KSync FlowTable trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.interface.0",opt::value<uint32_t>(),
+          "Oper db.interface.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.healthcheck.0",opt::value<uint32_t>(),
+          "Oper db.healthcheck.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.crypttunnel.0",opt::value<uint32_t>(),
+          "Oper db.crypttunnel.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.nexthop.0",opt::value<uint32_t>(),
+          "Oper db.nexthop.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.vrf.0",opt::value<uint32_t>(),
+          "Oper db.vrf.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.vm.0",opt::value<uint32_t>(),
+          "Oper db.vm.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.sg.0",opt::value<uint32_t>(),
+          "Oper db.sg.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.tag.0",opt::value<uint32_t>(),
+          "Oper db.tag.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.vn.0",opt::value<uint32_t>(),
+          "Oper db.vn.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.mpls.0",opt::value<uint32_t>(),
+          "Oper db.mpls.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.acl.0",opt::value<uint32_t>(),
+          "Oper db.acl.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.mirror_table.0",opt::value<uint32_t>(),
+          "Oper db.mirror_table.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.vrf_assign.0",opt::value<uint32_t>(),
+          "Oper db.vrf_assign.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.policy_set.0",opt::value<uint32_t>(),
+          "Oper db.policy_set.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.vxlan.0",opt::value<uint32_t>(),
+          "Oper db.vxlan.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.qos_queue.0",opt::value<uint32_t>(),
+          "Oper db.qos_queue.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.forwardingclass.0",opt::value<uint32_t>(),
+          "Oper db.forwardingclass.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.security_logging_object.0",opt::value<uint32_t>(),
+          "Oper db.security_logging_object.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.qos_config.0",opt::value<uint32_t>(),
+          "Oper db.qos_config.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.bridge_domain.0",opt::value<uint32_t>(),
+          "Oper db.bridge_domain.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.multicast_policy.0",opt::value<uint32_t>(),
+          "Oper db.multicast_policy.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.service-instance.0",opt::value<uint32_t>(),
+          "Oper db.service-instance.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.physical_devices.0",opt::value<uint32_t>(),
+          "Oper db.physical_devices.0 trace buffer size")
+        ("TRACEBUFFSIZE.Oper db.physical_device_vn.0",opt::value<uint32_t>(),
+          "Oper db.physical_device_vn.0 trace buffer size")
+        ("TRACEBUFFSIZE.httpbuf",opt::value<uint32_t>(),
+          "httpbuf trace buffer size")
+        ("TRACEBUFFSIZE.OperRoute",opt::value<uint32_t>(),
+          "OperRoute trace buffer size")
+        ("TRACEBUFFSIZE.KSync Route",opt::value<uint32_t>(),
+          "KSync Route trace buffer size");
+    options_.add(generic).add(debug);
+    config_file_options_.add(debug);
 
     boost::program_options::options_description config("Configuration options");
     config.add_options()

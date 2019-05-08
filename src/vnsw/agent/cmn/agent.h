@@ -1186,6 +1186,7 @@ public:
     void InitCollector();
     void ReConnectCollectors();
     void ReconfigSignalHandler(boost::system::error_code , int);
+    void DebugSignalHandler(boost::system::error_code , int);
 
     LifetimeManager *lifetime_manager() { return lifetime_manager_;}
     void CreateLifetimeManager();
