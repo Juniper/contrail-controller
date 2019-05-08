@@ -32,6 +32,9 @@ bool IgmpHandler::Run() {
     return true;
 }
 
+// Received IGMP packet handler for processing before sending to core IGMP
+// message decoder and handler.
+// Processes the IP header of the received IGMP packet
 bool IgmpHandler::HandleVmIgmpPacket() {
 
     IgmpProto *igmp_proto = agent()->GetIgmpProto();
@@ -134,6 +137,7 @@ bool IgmpHandler::HandleVmIgmpPacket() {
     return true;
 }
 
+// Verify the checksum of the IGMP data present in the received packet
 bool IgmpHandler::CheckPacket() const {
 
     uint16_t checksum = igmp_->igmp_cksum;
@@ -144,6 +148,7 @@ bool IgmpHandler::CheckPacket() const {
     return false;
 }
 
+// Send packet to the VMs.
 void IgmpHandler::SendPacket(const VmInterface *vm_itf, const VrfEntry *vrf,
                                     const IpAddress& gmp_addr,
                                     GmpPacket *packet) {
