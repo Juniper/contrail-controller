@@ -28,6 +28,9 @@ class OverlayConf(AnsibleRoleCommon):
     def push_conf(self, is_delete=False):
         if not self.physical_router:
             return 0
+        if self.physical_router.managed_state == 'rma':
+            # do not push any config to this device
+            return 0
         if is_delete:
             return self.send_conf(is_delete=True)
         self.set_common_config()
