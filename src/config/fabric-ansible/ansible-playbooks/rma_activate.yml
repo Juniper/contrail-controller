@@ -1,0 +1,74 @@
+---
+
+- name: RMA Activation Workflow
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    serial_number: "{{playbook_input.input.serial_number}}"
+    hostname: "{{playbook_input.input.hostname}}"
+
+  tasks:
+    - name: get device uuid
+      set_fact:
+        device_uuid: "{{item.key}}"
+      with_dict: "{{playbook_input.job_device_json}}"
+
+    - debug: var=serial_number
+    - debug: var=hostname
+    - debug: var=device_uuid
+
+    - name: Call vnc to read the physical-router
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "read"
+        object_dict: {"uuid": "{{device_uuid}}"}
+      register: prouter_obj
+
+    - name: Save facts
+      set_fact:
+        underlay_managed: "{{prouter_obj.obj.get('physical_router_underlay_managed')}}"
+        managed_state: "{{prouter_obj.obj.get('physical_router_managed_state')}}"
+
+    - name: Update physical device with serial number
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_serial_number": "{{ serial_number }}"
+          }
+      when: serial_number is defined
+
+    #- Update hostname if provided with input. Are we doing this???
+
+    - name: If brownfield device, fetch underlay_config and push to device
+      # replace with tasks to push config to device
+      debug:
+        msg: 'push config to device'
+      when: underlay_managed is defined and underlay_managed == false
+
+    - name: If greenfield device, invoke IP assignment task
+      # replace with task to assign IPs
+      debug:
+        msg: 'assign IPs'
+      when: underlay_managed is defined and underlay_managed == true
+
+    - name: Change managed state to active
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_managed_state": "active"
+          }
+
+    - name: Exit if nothing to do
+      set_fact:
+        output: {"status":"SUCCESS", "message":""}
