@@ -214,11 +214,12 @@ class AnsibleConf(AnsibleBase):
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
         start_time = None
         config_size = 0
+        forced_cfg_push = self.physical_router.forced_cfg_push
         try:
             config_size = len(config_str)
             current_config_hash = md5(config_str).hexdigest()
             if self.last_config_hash is None or\
-                    current_config_hash != self.last_config_hash:
+                    (current_config_hash != self.last_config_hash or forced_cfg_push):
                 self._logger.info("Config push for %s(%s) using job template %s" %
                           (self.physical_router.name, self.physical_router.uuid,
                            str(job_template)))
