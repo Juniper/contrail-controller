@@ -1,0 +1,108 @@
+---
+
+- name: RMA Activation Workflow
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    prouter_name: "{{playbook_input.device_fqname[-1]}}"
+    new_serial_number: "{{playbook_input.input.serial_number}}"
+    output: {"status":"Failure", "message":"RMA activate failed"}
+
+  tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[10, 90] })}}"
+
+    - name: get device uuid
+      set_fact:
+        device_uuid: "{{item.key}}"
+      with_dict: "{{playbook_input.job_device_json}}"
+
+    - name: Call vnc to read the physical-router
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "read"
+        object_dict: {"uuid": "{{device_uuid}}"}
+      register: prouter_obj
+
+    - name: Save facts
+      set_fact:
+        underlay_managed: "{{prouter_obj.obj.get('physical_router_underlay_managed')}}"
+        managed_state: "{{prouter_obj.obj.get('physical_router_managed_state')}}"
+        cur_serial_number: "{{prouter_obj.obj.get('physical_router_serial_number')}}"
+
+    - name: Make sure the serial number is given or previously configured
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Serial number not found"
+            jl_err_message: "Serial number not found"
+      when: cur_serial_number is undefined and new_serial_number is undefined
+      
+    - name: Update physical device with serial number
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_serial_number": "{{ new_serial_number }}"
+          }
+      when: new_serial_number is defined
+
+    - name: If brownfield device, fetch underlay_config and push to device
+      block:
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Pushing underlay configuration for device \'{{prouter_name}}\'"
+
+        # replace with tasks to push config to device
+        - debug:
+          msg: 'push config to device'
+      when: underlay_managed is defined and underlay_managed == false
+
+    - name: If greenfield device, invoke IP assignment task
+      block:
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Assigning management IP to device \'{{prouter_name}}\'"
+
+        # replace with tasks to push config to device
+        - debug:
+          msg: 'assign IPs'
+      when: underlay_managed is defined and underlay_managed == true
+
+    - name: Change managed state to active
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_managed_state": "active"
+          }
+
+    - name: Update prouter logs with active state
+      prouter_objectlog:
+        prouter_fqname: "{{prouter_name}}"
+        onboarding_state: "{{DEVICE_STATE.ACTIVE}}"
+        job_ctx: "{{job_ctx}}"
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 2
+        jl_message: "Device \'{{prouter_name}}\' successfully transferred from \'rma\' to \'active\' state"
+
+    - name: Exit if successful
+      set_fact:
+        output: {"status":"SUCCESS", "message":"Finished with RMA activate"}
