@@ -42,3 +42,14 @@ class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
                 if not ok:
                     return ok, err_msg
         return True, ''
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if obj_dict.get('physical_router_managed_state'):
+            state = obj_dict.get('physical_router_managed_state')
+            if state == 'rma' or state == 'activating':
+                msg = "Managed state cannot be %s for router %s" % (
+                    state, obj_dict.get('fq_name'))
+                return False, (400, msg)
+
+        return True, ''
