@@ -1,0 +1,33 @@
+---
+
+- name: Zeroize device
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    device_mgmt_ip: "{{playbook_input.device_management_ip}}"
+    device_username: "{{playbook_input.device_username}}"
+    device_password: "{{playbook_input.device_password}}"
+
+  tasks:
+    - debug: var=playbook_input
+
+    - import_role:
+        name: Juniper.junos
+    - block:
+        - juniper_junos_command:
+            commands:
+              - request system zeroize
+            display: xml
+            provider:
+              host: "{{device_mgmt_ip}}"
+              username: "{{device_username}}"
+              password: "{{device_password}}"
+              port: 22
+              timeout: 5
+          register: result
+      rescue:
+        - name: Print error if juniper junos command fails
+          set_fact:
+            error_msg: "Error while zeroizing device: {{result.msg}}"
