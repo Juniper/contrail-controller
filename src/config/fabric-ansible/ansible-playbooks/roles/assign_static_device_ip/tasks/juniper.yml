@@ -11,7 +11,7 @@
             ignore_warning: "True"
             format: "{{ format }}"
             provider:
-              host: "{{ host }}"
+              host: "{{ prouter_dynamic_ip }}"
               username: "{{ username }}"
               password: "{{ password }}"
               port: 22
@@ -36,3 +36,4 @@
                 "msg": "Junos config push task failed"
               }
             jl_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{ junos_response.msg }}"
+          when: prouter_mgmt_ip == prouter_dynamic_ip

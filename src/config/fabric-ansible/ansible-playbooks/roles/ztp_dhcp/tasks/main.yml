@@ -30,7 +30,7 @@
         publish_result: "{{ ztp_dhcp_config_file | restart_dhcp_server(fabric_name, job_ctx) }}"
       when:
         - only_restart is defined
-        - only_restart
+        - only_restart == True
   rescue:
     - set_fact:
         dhcp_output: {
