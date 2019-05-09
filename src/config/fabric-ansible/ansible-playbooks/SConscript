@@ -61,6 +61,7 @@ local_sources = [
     'server_import.yml',
     'hitless_upgrade_errors.yml',
     'update_dhcp_config.yml',
+    'rma_activate.yml'
 ]
 
 local_sources_rules = []

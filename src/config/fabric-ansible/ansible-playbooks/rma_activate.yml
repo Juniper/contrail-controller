@@ -1,0 +1,24 @@
+---
+
+- name: RMA Activation Workflow
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    serial_number: "{{playbook_input.input.serial_number}}"
+    hostname: "{{playbook_input.input.hostname}}"
+
+  tasks:
+    - name: get device uuid
+      set_fact:
+        device_uuid: "{{item.key}}"
+      with_dict: "{{playbook_input.job_device_json}}"
+
+    - debug: var=serial_number
+    - debug: var=hostname
+    - debug: var=device_uuid
+
+    - name: Exit if nothing to do
+      set_fact:
+        output: {"status":"SUCCESS", "message":""}
