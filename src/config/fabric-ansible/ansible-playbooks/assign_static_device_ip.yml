@@ -10,7 +10,14 @@
         prouter_fq_name: "{{ playbook_input.device_fqname }}"
         prouter_name: "{{ playbook_input.device_fqname[-1] }}"
         prouter_vendor: "{{ playbook_input.vendor | lower }}"
+        prouter_mgmt_ip: "{{playbook_input.device_management_ip}}"
         fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+    - set_fact:
+        prouter_dynamic_ip: "{{playbook_input.input.dynamic_mgmt_ip}}"
+      when: playbook_input.input.dynamic_mgmt_ip is defined
+    - set_fact:
+        prouter_dynamic_ip: "{{prouter_mgmt_ip}}"
+      when: playbook_input.input.dynamic_mgmt_ip is undefined
     - set_fact:
         device_to_ztp: "{{ playbook_input.input.device_to_ztp }}"
       when: playbook_input.input.device_to_ztp is defined
