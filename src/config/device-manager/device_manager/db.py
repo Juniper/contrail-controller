@@ -192,6 +192,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
         self.vendor = obj.get('physical_router_vendor_name') or ''
+        self.managed_state = obj.get('physical_router_managed_state') or ''
         self.product = obj.get('physical_router_product_name') or ''
         self.device_family = obj.get('physical_router_device_family')
         self.vnc_managed = obj.get('physical_router_vnc_managed')

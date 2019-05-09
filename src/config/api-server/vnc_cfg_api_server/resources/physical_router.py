@@ -42,3 +42,23 @@ class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
                 if not ok:
                     return ok, err_msg
         return True, ''
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, pr_obj = cls.dbe_read(
+            db_conn, 'physical_router', id, obj_fields=[
+                'physical_router_underlay_config', 'display_name'])
+        if not ok:
+            return ok, pr_obj
+
+        # do not allow RMA managed state if underlay config is not backed up
+        if obj_dict.get('physical_router_managed_state'):
+            state = obj_dict.get('physical_router_managed_state')
+            if state == 'rma':
+                config = pr_obj.get('physical_router_underlay_config')
+                if config is None:
+                    msg = "Underlay config is not backed up for physical "
+                    " router" % (pr_obj.get('display_name'))
+                    return False, (400, msg)
+
+        return True, ''
