@@ -16,6 +16,7 @@ class AgentSignal {
 
     void Terminate();
     void RegisterSigHupHandler(process::Signal::SignalHandler handler);
+    void RegisterDebugSigHandler(process::Signal::SignalHandler handler);
 
  private:
     process::Signal process_signal_;
