@@ -209,7 +209,7 @@ class AnsibleConf(AnsibleBase):
                     self.bgp_map[bgp_name] = bgp
     # end build_underlay_bgp
 
-    def device_send(self, job_template, job_input, is_delete, retry):
+    def device_send(self, job_template, job_input, is_delete, retry, forced_push):
         config_str = json.dumps(job_input, sort_keys=True)
         self.push_config_state = PushConfigState.PUSH_STATE_IN_PROGRESS
         start_time = None
@@ -218,7 +218,7 @@ class AnsibleConf(AnsibleBase):
             config_size = len(config_str)
             current_config_hash = md5(config_str).hexdigest()
             if self.last_config_hash is None or\
-                    current_config_hash != self.last_config_hash:
+                    (current_config_hash != self.last_config_hash or forced_push):
                 self._logger.info("Config push for %s(%s) using job template %s" %
                           (self.physical_router.name, self.physical_router.uuid,
                            str(job_template)))
@@ -344,7 +344,7 @@ class AnsibleConf(AnsibleBase):
         return self.system_config or self.bgp_map or self.pi_map
     # end has_conf
 
-    def send_conf(self, is_delete=False, retry=True):
+    def send_conf(self, is_delete=False, retry=True, forced_push=False):
         if not self.has_conf() and not is_delete:
             return 0
         config = self.prepare_conf(is_delete=is_delete)
@@ -367,7 +367,7 @@ class AnsibleConf(AnsibleBase):
             'is_delete': is_delete,
             'manage_underlay': self.physical_router.underlay_managed
         }
-        return self.device_send(job_template, job_input, is_delete, retry)
+        return self.device_send(job_template, job_input, is_delete, retry, forced_push)
     # end send_conf
 
     def add_dynamic_tunnels(self, tunnel_source_ip, ip_fabric_nets):

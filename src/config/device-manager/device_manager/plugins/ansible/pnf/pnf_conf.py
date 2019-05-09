@@ -27,13 +27,15 @@ class PnfConf(AnsibleRoleCommon):
         return super(PnfConf, cls).register(qconf)
     # end register
 
-    def push_conf(self, is_delete=False):
+    def push_conf(self, is_delete=False, forced_push=False):
         if not self.physical_router:
+            return 0
+        if self.physical_router.managed_state == 'rma':
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
         self.set_pnf_config()
-        return self.send_conf()
+        return self.send_conf(forced_push=forced_push)
     # end push_conf
 
     def build_pnf_svc_sc_zone_policy_config(self, svc_params):

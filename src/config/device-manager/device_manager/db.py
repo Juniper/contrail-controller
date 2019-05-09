@@ -192,6 +192,11 @@ class PhysicalRouterDM(DBBaseDM):
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
         self.vendor = obj.get('physical_router_vendor_name') or ''
+        self.managed_state = obj.get('physical_router_managed_state') or 'active'
+        if self.managed_state == 'activating':
+            self.forced_cfg_push = True
+        else:
+            self.forced_cfg_push = False
         self.product = obj.get('physical_router_product_name') or ''
         self.device_family = obj.get('physical_router_device_family')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
@@ -360,18 +365,19 @@ class PhysicalRouterDM(DBBaseDM):
         self.update_multiple_refs('service_endpoint', {})
         self.update_multiple_refs('e2_service_provider', {})
 
+        forced_cfg_push = self.forced_cfg_push
         if self.config_manager:
             if self.use_ansible_plugin():
-                self.config_manager.push_conf(is_delete=True)
+                self.config_manager.push_conf(is_delete=True, forced_push=forced_cfg_push)
                 max_retries = 3
                 for _ in range(max_retries):
                     if self.config_manager.retry():
-                        self.config_manager.push_conf(is_delete=True)
+                        self.config_manager.push_conf(is_delete=True, forced_push=forced_cfg_push)
                     else:
                         break
                 self.set_conf_sent_state(False)
             elif self.is_vnc_managed():
-                self.config_manager.push_conf(is_delete=True)
+                self.config_manager.push_conf(is_delete=True, forced_push=forced_cfg_push)
                 self.config_manager.clear()
 
         self._object_db.delete_pr(self.uuid)
@@ -587,7 +593,8 @@ class PhysicalRouterDM(DBBaseDM):
                 self.uve_send()
                 return False
             # user must have unset the vnc managed property
-            self.config_manager.push_conf(is_delete=True)
+            forced_cfg_push = self.forced_cfg_push
+            self.config_manager.push_conf(is_delete=True, forced_push=forced_cfg_push)
             if self.config_manager.retry():
                 # failed commit: set repush interval upto max value
                 self.config_repush_interval = min([2 * self.config_repush_interval,
@@ -687,7 +694,8 @@ class PhysicalRouterDM(DBBaseDM):
                   "device configuration=%s" % (self.uuid, \
                            str(self.config_manager.get_device_config())))
             return
-        config_size = self.config_manager.push_conf()
+        forced_cfg_push = self.forced_cfg_push
+        config_size = self.config_manager.push_conf(forced_push=forced_cfg_push)
         if not config_size:
             return
         self.set_conf_sent_state(True)
