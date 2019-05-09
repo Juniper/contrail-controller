@@ -339,6 +339,11 @@ class PhysicalRouterDM(DBBaseDM):
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
         self.vendor = obj.get('physical_router_vendor_name') or ''
+        self.managed_state = obj.get('physical_router_managed_state') or 'active'
+        if self.managed_state == 'activating':
+            self.forced_cfg_push = True
+        else:
+            self.forced_cfg_push = False
         self.product = obj.get('physical_router_product_name') or ''
         self.device_family = obj.get('physical_router_device_family')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
@@ -893,6 +898,13 @@ class PhysicalRouterDM(DBBaseDM):
                   "ip: %s, not pushing config" % (str(self.vendor),
                                      str(self.product), self.management_ip))
             return
+
+        if self.managed_state == 'rma':
+            # do not push any config to this device
+            self._logger.debug("No config push for PR(%s) in RMA state" % (
+                                self.name))
+            return
+
         if self.delete_config() or not self.is_vnc_managed():
             return
 
