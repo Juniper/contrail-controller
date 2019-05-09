@@ -1,0 +1,182 @@
+---
+
+- name: RMA Activation Workflow
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    prouter_name: "{{playbook_input.device_fqname[-1]}}"
+    device_uuid: "{{playbook_input.device_id}}"
+    new_serial_number: "{{playbook_input.input.serial_number}}"
+    output: {"status":"", "message":""}
+
+  tasks:
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[50, 50] })}}"
+        device_name: "{{prouter_name}}"
+        device_username: "{{playbook_input.device_username}}"
+        device_password: "{{playbook_input.device_password}}"
+        device_mgmt_ip: "{{playbook_input.device_management_ip}}"
+        device_vendor: "{{playbook_input.vendor | lower}}"
+        fabric_fqname: "{{playbook_input.fabric_fq_name.split(':')}}"
+
+    - set_fact:
+        fabric_name: "{{fabric_fqname[-1]}}"
+
+    - name: Call vnc to read the fabric object
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "fabric"
+        object_op: "read"
+        object_dict: { "fq_name": "{{fabric_fqname}}" }
+      register: fabric_obj
+
+    - name: Call vnc to read the physical-router object
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "read"
+        object_dict: {"uuid": "{{device_uuid}}"}
+      register: prouter_obj
+
+    - name: Save facts
+      set_fact:
+        underlay_managed: "{{prouter_obj.obj.get('physical_router_underlay_managed')}}"
+        managed_state: "{{prouter_obj.obj.get('physical_router_managed_state')}}"
+        cur_serial_number: "{{prouter_obj.obj.get('physical_router_serial_number')}}"
+
+    - name: Make sure the serial number is given or previously configured
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Serial number not found"
+            jl_err_message: "Serial number not found"
+      when: cur_serial_number is undefined and new_serial_number is undefined
+
+    - name: Update physical device with serial number
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_serial_number": "{{ new_serial_number }}"
+          }
+      when: new_serial_number is defined
+
+    - name: Change managed state to activating
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ device_uuid }}",
+            "physical_router_managed_state": "activating"
+          }
+
+    - name: If brownfield device, fetch underlay_config and push to device
+      block:
+#        - name: Update job log with percentage
+#          include_tasks: percentage_update.yml
+#          vars:
+#            current_index: 1
+#            jl_message: "Pushing underlay configuration for device \'{{prouter_name}}\'"
+#
+#        - set_fact:
+#            conf_dir: "./config/{{device_mgmt_ip}}"
+#        - name: Remove final_config/final_rma_activate_config directory if it already exists
+#          file:
+#            path: "{{ conf_dir }}/final_config/final_rma_activate_config"
+#            state: absent
+#        - name: Create final_config/final_rma_activate_config directory
+#          file:
+#            path: "{{ conf_dir }}/final_config/final_rma_activate_config"
+#            state: directory
+#        - name: Create final_config/final_rma_activate_config/rma_activate_config.conf
+#          copy:
+#            content: "{{ prouter_obj.obj.get('physical_router_underlay_config') }}"
+#            dest: "{{ conf_dir }}/final_config/final_rma_activate_config/rma_activate_config.conf"
+#        - name: Set the src file for restoring config on the device
+#          set_fact:
+#            source_file: "{{ conf_dir }}/final_config/final_rma_activate_config/rma_activate_config.conf"
+#        - include_role:
+#            name: "commit_fabric_config"
+#        - name: Change managed state to active
+#          vnc_db_mod:
+#            job_ctx: "{{ job_ctx }}"
+#            object_type: "physical_router"
+#            object_op: "update"
+#            object_dict: |
+#              {
+#                "uuid": "{{ device_uuid }}",
+#                "physical_router_managed_state": "active"
+#              }
+#      rescue:
+#        - name: Perform the necessary error handling
+#          include_tasks: error_handler.yml
+#          vars:
+#            op_err_message: "Failed to RMA brownfield device {{prouter_name}}"
+#            jl_err_message: "Failed to RMA brownfield device {{prouter_name}}"
+
+        - name: Not supported yet
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "RMA not supported for brownfield device {{prouter_name}}"
+            jl_err_message: "RMA not supported for brownfield device {{prouter_name}}"
+      when: underlay_managed is defined and underlay_managed == false
+
+    - name: If greenfield device, invoke IP assignment task
+      block:
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Assigning management IP to device \'{{prouter_name}}\'"
+
+        - name: Get ZTP DHCP config
+          set_fact:
+             ztp_dhcp_config: "{{ job_ctx | ztp_dhcp_config(fabric_obj.obj.uuid) }}"
+
+        - name: Save ZTP DHCP config file name
+          set_fact:
+             ztp_dhcp_config_file: "{{ fabric_name }}.conf"
+
+        - name: Create single device_to_ztp entry for this device only
+          set_fact:
+             device_to_ztp: [{"serial_number": "{{new_serial_number}}"}]
+
+        - name: Read dhcp leases using device info
+          set_fact:
+            leases_result: "{{ device_to_ztp | read_dhcp_leases_using_info(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
+
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Device not found in DHCP leases file"
+            jl_err_message: "Device not found in DHCP leases file"
+          when: leases_result.failed == True
+
+        - name: Return dynamic DHCP mgmt_ip in output for use in next playbook
+          set_fact:
+            output: "{{ output|combine({'dynamic_mgmt_ip': leases_result['device_list'][0]['ip_addr'], 'fabric_uuid': fabric_obj.obj.uuid })}}"
+      rescue:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "Failed to RMA greenfield device {{prouter_name}}"
+            jl_err_message: "Failed to RMA greenfield device {{prouter_name}}"
+      when: underlay_managed is defined and underlay_managed == true
+
+    - name: Update job log with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 2
+        jl_message: "Read from dnsmasq leases file for device \'{{prouter_name}}\'"
+
+    - name: Exit if successful
+      set_fact:
+        output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating'})}}"
