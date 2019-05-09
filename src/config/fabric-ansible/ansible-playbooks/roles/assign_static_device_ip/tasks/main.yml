@@ -57,6 +57,11 @@
         "physical_router_management_mac": "{{ interface_configuration.get('mac_address') }}"
       }
 
+- name: Do short timeout when static and dynamic mgmt addrs are different
+  set_fact:
+    timeout: 10
+  when: prouter_mgmt_ip != prouter_dynamic_ip
+
 - name: Override with vendor specific config
   include_tasks: "{{ task_file_path }}"
   vars:
@@ -66,11 +71,12 @@
 
 - name: Print device response
   debug: msg="{{ device_push_response }}" verbosity=1
+  when: device_push_response is defined
 
 - block:
     - name: Wait for management port to reinitialize
       wait_for:
-        host: "{{ host }}"
+        host: "{{ prouter_mgmt_ip }}"
         port: 22
         delay: 0
         sleep: 5
