@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
+#include "base/options_util.h"
 #include "query_engine/buildinfo.h"
 #include "net/address_util.h"
 #include "viz_constants.h"
@@ -162,6 +163,8 @@ void Options::Initialize(EventManager &evm,
              "password for Redis Server")
         ;
 
+    sandesh::options::AddOptions(&config, &sandesh_config_);
+
     config_file_options_.add(config).add(cassandra_config);
     cmdline_options.add(generic).add(config).add(cassandra_config);
 }
@@ -274,4 +277,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");
     GetOptValue<string>(var_map, cassandra_user_, "CASSANDRA.cassandra_user");
     GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
+    
+    sandesh::options::ProcessOptions(var_map, &sandesh_config_);
 }
