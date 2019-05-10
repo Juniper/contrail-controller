@@ -1,0 +1,10 @@
+This has few gdb macros for STL and boost as downloaded
+from internet. To use this pl modify sample gdbinit 
+file with appropriate path and copy it to ~/.gdbinit.
+This works on gdb 7.x on linux.
+
+More detail on STL macro
+http://www.yolinux.com/TUTORIALS/GDB-Commands.html#STLDEREF
+
+Boost macro
+https://github.com/ruediger/Boost-Pretty-Printer

@@ -1,0 +1,8 @@
+$1 = empty boost::container::flat_set<int>
+$2 = boost::container::flat_set<int> with 2 elements, capacity 2 = {1, 2}
+$3 = 2
+$4 = uninitialized boost::container::flat_set<int, std::less<int>, std::allocator<int> >::const_iterator
+$5 = empty boost::container::flat_map<int, double>
+$6 = boost::container::flat_map<int, double> with 2 elements, capacity 2 = {[1] = 1, [2] = 2}
+$7 = {first = 2, second = 2}
+$8 = uninitialized boost::container::flat_map<int, double, std::less<int>, std::allocator<std::pair<int, double> > >::const_iterator

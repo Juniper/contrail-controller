@@ -1,0 +1,26 @@
+GNU gdb (GDB) 7.6.1
+Copyright (C) 2013 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-unknown-linux-gnu".
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>...
+Reading symbols from Boost-Pretty-Printer/examples/test-multi-index...done.
+Breakpoint 1 at 0x400856: file test-multi-index.cpp, line 18.
+warning: no loadable sections found in added symbol-file system-supplied DSO at 0x7ffff7ffa000
+
+Breakpoint 1, done () at test-multi-index.cpp:18
+warning: Source file is more recent than executable.
+18	    return 0;
+$1 = boost::multi_index_container<int, indexed_by<sequenced<>, ordered_unique<identity<int>>, random_access<>, ordered_non_unique<global_fun<int, int, negative>>, hashed_non_unique<identity<int>>>>[idx=0] = {[0x60a250] = 1, [0x60a340] = 5, [0x60a3a0] = 17, [0x60a400] = 4, [0x60a460] = 14, [0x60a4c0] = 3, [0x60a520] = 9}
+$2 = boost::multi_index_container<int, indexed_by<sequenced<>, ordered_unique<identity<int>>, random_access<>, ordered_non_unique<global_fun<int, int, negative>>, hashed_non_unique<identity<int>>>>[idx=1] = {[0x60a250] = 1, [0x60a4c0] = 3, [0x60a400] = 4, [0x60a340] = 5, [0x60a520] = 9, [0x60a460] = 14, [0x60a3a0] = 17}
+$3 = boost::multi_index_container<int, indexed_by<sequenced<>, ordered_unique<identity<int>>, random_access<>, ordered_non_unique<global_fun<int, int, negative>>, hashed_non_unique<identity<int>>>>[idx=2] = {boost::multi_index::random_access = printer not implemented}
+$4 = boost::multi_index_container<int, indexed_by<sequenced<>, ordered_unique<identity<int>>, random_access<>, ordered_non_unique<global_fun<int, int, negative>>, hashed_non_unique<identity<int>>>>[idx=3] = {[0x60a3a0] = 17, [0x60a460] = 14, [0x60a520] = 9, [0x60a340] = 5, [0x60a400] = 4, [0x60a4c0] = 3, [0x60a250] = 1}
+$5 = boost::multi_index_container<int, indexed_by<sequenced<>, ordered_unique<identity<int>>, random_access<>, ordered_non_unique<global_fun<int, int, negative>>, hashed_non_unique<identity<int>>>>[idx=4] = {boost::multi_index::hashed_non_unique = printer not implemented}
+A debugging session is active.
+
+	Inferior 1 [process 13830] will be killed.
+
+Quit anyway? (y or n) [answered Y; input not from terminal]

@@ -1,0 +1,56 @@
+GNU gdb (GDB) 7.6.1
+Copyright (C) 2013 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-unknown-linux-gnu".
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>...
+Reading symbols from Boost-Pretty-Printer/examples/test-other...done.
+Breakpoint 1 at 0x401618: file test-other.cpp, line 101.
+
+Breakpoint 1, done () at test-other.cpp:101
+101	    return 0;
+$1 = boost::iterator_range<char*> of length 0
+$2 = boost::iterator_range<char*> of length 2 = {108 'l', 108 'l'}
+$3 = boost::optional<int> is not initialized
+$4 = boost::optional<char*> is initialized
+$5 = (boost::reference_wrapper<int>) 42
+$6 = (boost::logic::tribool) false
+$7 = (boost::logic::tribool) indeterminate
+$8 = (boost::scoped_ptr<int>) 0x0
+$9 = (boost::scoped_ptr<int>) 0x616010
+$10 = (boost::shared_ptr<int>) 0x0
+$11 = (boost::shared_ptr<int>) (count 1, weak count 1) 0x616030
+$12 = boost::circular_buffer<int, std::allocator<int> > of length 0/0
+$13 = boost::circular_buffer<int, std::allocator<int> > of length 2/3 = {1, 4}
+$14 = {, , }
+$15 = {0, 1, 2, 0, 0}
+$16 = (boost::variant<...>) which (0) = int value = 0
+$17 = (boost::variant<...>) which (1) = int value = 42
+$18 = (boost::uuids::uuid) 00000000-0000-0000-0000-000000000000
+$19 = (boost::uuids::uuid) 01234567-89ab-cdef-0123-456789abcdef
+$20 = boost::intrusive::set<MyClass> with 0 elements = {
+  [0] = {<boost::intrusive::set_base_hook<boost::intrusive::optimize_size<true> >> = {<boost::intrusive::detail::generic_hook<boost::intrusive::get_set_node_algo<void*, true>, boost::intrusive::default_tag, (boost::intrusive::link_mode_type)1, 3>> = {<boost::intrusive::detail::default_definer<boost::intrusive::detail::generic_hook<boost::intrusive::get_set_node_algo<void*, true>, boost::intrusive::default_tag, (boost::intrusive::link_mode_type)1, 3>, 3u>> = {<No data fields>}, <boost::intrusive::detail::node_holder<boost::intrusive::compact_rbtree_node<void*>, boost::intrusive::default_tag, (boost::intrusive::link_mode_type)1, 3>> = {<boost::intrusive::compact_rbtree_node<void*>> = {parent_ = 0x0, left_ = 0x6155c8 <v_intrusive_set_1+8>, 
+            right_ = 0x6155c8 <v_intrusive_set_1+8>}, <No data fields>}, <No data fields>}, <No data fields>}, int_ = 1, 
+    member_hook_ = {<boost::intrusive::detail::generic_hook<boost::intrusive::get_set_node_algo<void*, false>, boost::intrusive::member_tag, (boost::intrusive::link_mode_type)1, 0>> = {<boost::intrusive::detail::no_default_definer> = {<No data fields>}, <boost::intrusive::rbtree_node<void*>> = {parent_ = 0x7fffffffd790, left_ = 0x7fffffffd790, right_ = 0x7fffffffd790, 
+          color_ = boost::intrusive::rbtree_node<void*>::red_t}, <No data fields>}, <No data fields>}}}
+$21 = boost::intrusive::set<MyClass> with 1 elements = {
+  [0] = {<boost::intrusive::set_base_hook<boost::intrusive::optimize_size<true> >> = {<boost::intrusive::detail::generic_hook<boost::intrusive::get_set_node_algo<void*, true>, boost::intrusive::default_tag, (boost::intrusive::link_mode_type)1, 3>> = {<boost::intrusive::detail::default_definer<boost::intrusive::detail::generic_hook<boost::intrusive::get_set_node_algo<void*, true>, boost::intrusive::default_tag, (boost::intrusive::link_mode_type)1, 3>, 3u>> = {<No data fields>}, <boost::intrusive::detail::node_holder<boost::intrusive::compact_rbtree_node<void*>, boost::intrusive::default_tag, (boost::intrusive::link_mode_type)1, 3>> = {<boost::intrusive::compact_rbtree_node<void*>> = {parent_ = 0x6155e9 <v_intrusive_set_2+9>, left_ = 0x0, 
+            right_ = 0x0}, <No data fields>}, <No data fields>}, <No data fields>}, int_ = 42, 
+    member_hook_ = {<boost::intrusive::detail::generic_hook<boost::intrusive::get_set_node_algo<void*, false>, boost::intrusive::member_tag, (boost::intrusive::link_mode_type)1, 0>> = {<boost::intrusive::detail::no_default_definer> = {<No data fields>}, <boost::intrusive::rbtree_node<void*>> = {parent_ = 0x0, left_ = 0x0, right_ = 0x0, 
+          color_ = (unknown: 4201230)}, <No data fields>}, <No data fields>}}}
+Python Exception <type 'exceptions.TypeError'> __init__() takes exactly 2 arguments (3 given): 
+$22 = boost::intrusive::list<MyClass_list> with 0 elements
+Python Exception <type 'exceptions.TypeError'> __init__() takes exactly 2 arguments (3 given): 
+$23 = boost::intrusive::list<MyClass_list> with 1 elements
+$24 = (boost::gregorian::date) uninitialized
+$25 = (boost::gregorian::date) 2013-12-09
+$26 = (boost::posix_time::ptime) uninitialized
+$27 = (boost::posix_time::ptime) 212253368400000000
+A debugging session is active.
+
+	Inferior 1 [process 13810] will be killed.
+
+Quit anyway? (y or n) [answered Y; input not from terminal]
