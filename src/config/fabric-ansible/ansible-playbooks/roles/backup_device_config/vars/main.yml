@@ -1,0 +1,9 @@
+---
+# vars file for import_device_facts
+device_name: "{{playbook_input.device_fqname[-1]}}"
+username: "{{playbook_input.device_username}}"
+host: "{{playbook_input.device_management_ip}}"
+password: "{{playbook_input.device_password}}"
+device_id: "{{playbook_input.device_id}}"
+device_vendor: "{{playbook_input.vendor | lower}}"
+timeout: "{{DEVICE_FACTS_TIMEOUT|int}}"
