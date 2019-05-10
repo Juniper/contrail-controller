@@ -1,0 +1,23 @@
+A list of supported Boost classes:
+
+- boost::iterator_range (Boost.Range)
+- boost::logic::tribool (Boost.Tribool)
+- boost::reference_wrapper (Boost.Ref)
+- boost::optional (Boost.Optional)
+- boost::scoped_ptr (Boost.SmartPtr)
+- boost::scoped_array (Boost.SmartPtr)
+- boost::shared_ptr (Boost.SmartPtr)
+- boost::shared_array (Boost.SmartPtr)
+- boost::weak_ptr (Boost.SmartPtr)
+- boost::intrusive_ptr (Boost.SmartPtr)
+- boost::array (Boost.Array)
+- boost::variant (Boost.Variant)
+- boost::uuids::uuid (Boost.Uuid) Thanks to Ivan Tarasov (ivant)
+- boost::intrusive::set (Boost.Intrusive) Thanks to Johan Sternerup (johanst)
+- boost::intrusive::list (Boost.Intrusive) "
+- boost::gregorian::date (Boost.Date_Time) Thanks to Brian O'Kennedy (brokenn)
+- boost::posix_time::ptime (Boost.Date_Time) "
+- boost::circular_buffer (Boost.Circular_Buffer) Thanks to Luc Hermitte
+- boost::multi_index_container (only Ordered and Sequenced indexes) Thanks to Matei David
+
+Patches/Pull Requests are welcome!

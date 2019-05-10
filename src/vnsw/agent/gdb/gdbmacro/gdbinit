@@ -1,0 +1,21 @@
+python
+import sys
+
+sys.path.insert(0, '/home/sangarshp/gdbmacro/stl')
+sys.path.insert(0, '/home/sangarshp/gdbmacro/stl/libstdcxx/v6')
+
+from libstdcxx.v6.printers import register_libstdcxx_printers
+#register_libstdcxx_printers(None)
+
+sys.path.insert(0, '/home/sangarshp/gdbmacro/boost_pretty_printer')
+from boost.printers import register_printer_gen
+#register_printer_gen(None)
+
+end
+
+source /home/sangarshp/gdbmacro/stl.gdb
+source /home/sangarshp/gdbmacro/backtrace.gdb
+source /home/sangarshp/gdbmacro/db.gdb
+source /home/sangarshp/gdbmacro/task.gdb
+source /home/sangarshp/gdbmacro/sandesh_trace_dump.py
+source /home/sangarshp/gdbmacro/agent_init.gdb

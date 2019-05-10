@@ -1,0 +1,74 @@
+# -*- mode:org; mode:visual-line; coding:utf-8; -*-
+GDB (the [[http://sourceware.org/gdb/][GNU Debugger]]) Pretty Printers for [[http://boost.org][Boost]]
+
+Since version 7.0 GDB has Python scripting support. This can be used to provide "Pretty Printers" to make the output of GDB more usable. The libstdc++ project currently provides a set of pretty printers for their implementation of the C++ standard library. This projects goal is to provide a similar set of pretty printers for the Boost library.
+
+Help is appreciated!
+
+See supported.txt for supported classes and names of contributors.
+
+The pretty printers are licensed under the terms of the [[http://www.boost.org/users/license.html][Boost Software License, version 1.0]].
+
+* Installation:
+GDB version 7 or better is required!
+
+Check out the git repository
+#+BEGIN_EXAMPLE
+  git clone git://github.com/ruediger/Boost-Pretty-Printer.git
+#+END_EXAMPLE
+
+and add the following lines to your =~/.gdbinit=
+
+#+BEGIN_EXAMPLE
+python
+import sys
+sys.path.insert(0, 'PATH-TO-THE-REPO/Boost-Pretty-Printer')
+from boost.printers import register_printer_gen
+register_printer_gen(None)
+end
+#+END_EXAMPLE
+
+and of course replace =PATH-TO-THE-REPO= with the absolute path to the Boost Pretty Printer repository. If you have no =~/.gdbinit= file just create it.
+
+Now you can simply use GDB's print (short p) statement to pretty print the supported boost objects.
+
+* Example
+#+BEGIN_EXAMPLE
+  $ cat > foo.c++
+  #include <boost/range/iterator_range.hpp>
+  using namespace boost;
+
+  int main() {
+    char buf[] = "Hello World";
+    iterator_range<char const*> range(buf, buf + sizeof(buf));
+
+    return range[0];
+  }
+  ^D
+  $ g++ -g3 foo.c++
+  $ gdb -q a.out
+  Reading symbols from /home/ruediger/develop/demos/a.out...done.
+  (gdb) break 7
+  Breakpoint 1 at 0x4006cb: file /home/ruediger/develop/demos/foo.c++, line 7.
+  (gdb) run
+  Starting program: /home/ruediger/develop/demos/a.out
+
+  Breakpoint 1, main () at /home/ruediger/develop/demos/foo.c++:8
+  8         return range[0];
+  (gdb) p range
+  $1 = boost::iterator_range<char const*> of length 12 = {72 'H', 101 'e', 108 'l', 108 'l', 111 'o', 32 ' ', 87 'W', 111 'o', 114 'r', 108 'l', 100 'd', 0 '\000'}
+#+END_EXAMPLE
+
+* GDB Subprinters and Version Numbers
+Recent versions of gdb allow the user to list, enable, and disable individual printers and subprinters.
+For more information, see the [[https://sourceware.org/gdb/onlinedocs/gdb/Pretty-Printing.html][GDB documentation]].
+This python module installs a single top-level printer called =boost=, and individual subprinters for the various supported types.
+Each individual subprinter comes with a version number corresponding to the boost version number that it was designed for.
+As boost evolves, older printers might stop working.
+
+* Multi_Index_Container
+The printer included here can only print Ordered (Unique or Non-Unique) and Sequenced indexes.
+Hashed and Random-Access indexes are not currently supported, though with the default settings, the printer
+will capture them and display an appropriate message.
+It is possible to specify which index to use for printing a specific container dynamically, from inside GDB.
+See the =examples= folder.
