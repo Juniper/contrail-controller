@@ -10,6 +10,7 @@
     - read_interfaces_info
     - import_interfaces_info
     - update_physical_router_properties
+    - backup_device_config
 
   tasks:
 
