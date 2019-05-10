@@ -3043,8 +3043,7 @@ void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
     as_t old_local_asn) {
     CHECK_CONCURRENCY("bgp::Config");
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
-        i.second->rtarget_manager()->ASNUpdateCallback(old_asn,
-                                                                old_local_asn);
+        i.second->rtarget_manager()->ASNUpdateCallback(old_asn, old_local_asn);
     }
     if (bgp_server_->autonomous_system() != old_asn) {
         xmpp_server_->ClearAllConnections();
