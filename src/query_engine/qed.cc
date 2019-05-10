@@ -138,6 +138,7 @@ main(int argc, char *argv[]) {
     ip::tcp::endpoint dss_ep;
     string dss_ep_name;
     Sandesh::CollectorSubFn csf = 0;
+    std::map<std::string, std::map<std::string, std::string> > qed;
 
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
             options.discovery_server(), options.discovery_port(), &dss_ep,
@@ -229,13 +230,19 @@ main(int argc, char *argv[]) {
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     instance_id, &evm, options.http_server_port(), 0,
-                    collectors, NULL);
+                    collectors, NULL,qed,options.sandesh_config());
+        // LOG(INFO, "Aadarsh: http-server-port " << options.http_server_port());
+        // LOG(DEBUG,"Aadarsh2: http-server-port " << options.http_server_port());
+        // LOG(ERROR,"Aadarsh3: http-server-port " << options.http_server_port());
     } else {
         const std::vector<std::string> collectors;
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     instance_id, &evm, options.http_server_port(), csf,
-                    collectors, NULL);
+                    collectors, NULL,qed,options.sandesh_config());
+      // LOG(INFO, "Aadarsh4: http-server-port " << options.http_server_port());
+      //  LOG(DEBUG,"Aadarsh5: http-server-port " << options.http_server_port());
+      //  LOG(ERROR,"Aadarsh6: http-server-port " << options.http_server_port());
     }
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
