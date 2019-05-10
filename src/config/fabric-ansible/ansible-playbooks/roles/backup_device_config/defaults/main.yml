@@ -1,0 +1,3 @@
+---
+# defaults file for import_device_facts
+percent_init_dict: { 'total_task_count':4, 'task_weightage_array':[30, 50, 10, 10] }

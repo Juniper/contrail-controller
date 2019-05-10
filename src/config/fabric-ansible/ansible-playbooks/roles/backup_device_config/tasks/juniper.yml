@@ -1,0 +1,31 @@
+- name: Reading device configuration
+  block:
+    - name: Import Juniper junos
+      import_role:
+        name: Juniper.junos
+    - juniper_junos_config:
+        provider:
+          host: "{{host}}"
+          username: "{{username}}"
+          password: "{{password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        retrieve: 'committed'
+        diff: true
+        check: false
+        commit: false
+        config_mode: 'private'
+        format: set
+      register: group_info_cfg
+    - set_fact:
+       backed_up_device_config: "{{ group_info_cfg.config }}"
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "group_info_cfg.failed == true"
+      vars:
+        op_err_message: "{{group_info_cfg.msg}}"
+        jl_err_message: "Error while obtaining config from Juniper device {{host}}: {{group_info_cfg.msg}}"
+- name: Print configuration
+  debug:
+    var: group_info_cfg
