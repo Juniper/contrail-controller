@@ -1,0 +1,36 @@
+---
+# vendor agnostic tasks file for backup_device_config
+- set_fact:
+    job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
+
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: Invoke the vendor specific backup task
+      include_tasks: "{{ device_vendor }}.yml"
+
+    - name: Save the backed up configuration into database
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+              "uuid": "{{ device_id }}",
+              "physical_router_underlay_config": backed_up_device_config
+          }
+      register: results
+    - name: Update Job log with successs with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        current_index: 4
+        jl_message: "Backed up configuration for the device {{host}}"
+  rescue:
+    - name: Perform the necessary error handling when trying the save the config
+      include_tasks: error_handler.yml
+      when: "'Failed' in results"
+      vars:
+        op_err_message: "Failed to save the backed up configuration in the database. {{results}}"
+        jl_err_message: "Failed to save the backed up configuration in the database. {{results}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play
