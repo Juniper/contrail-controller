@@ -155,6 +155,7 @@ struct DnsItem {
     uint16_t data_plen;   // length of the prefix in data that is unique
     uint16_t data_offset; // offset from where rest of data exists
     std::string name;
+    std::string source_name;
     std::string data;
     DnsSOAData soa;
     DnsSRVData srv;
@@ -166,7 +167,7 @@ struct DnsItem {
 
     bool operator ==(const DnsItem &rhs) const {
         if (eclass == rhs.eclass && type == rhs.type && 
-            name == rhs.name && data == rhs.data && soa == rhs.soa)
+            name == rhs.name && data == rhs.data && soa == rhs.soa && source_name == rhs.source_name)
             return true;
         return false;
     }
@@ -181,7 +182,8 @@ struct DnsItem {
         if ((rhs.eclass == DNS_CLASS_ANY || rhs.eclass == DNS_CLASS_NONE) &&
             (rhs.type == DNS_TYPE_ANY || type == rhs.type) &&
             (name == rhs.name) &&
-            (rhs.data.size() == 0 || data == rhs.data))
+            (rhs.data.size() == 0 || data == rhs.data) &&
+            (source_name == rhs.source_name))
             return true;
         return false;
     }

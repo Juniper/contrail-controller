@@ -127,7 +127,7 @@ DnsAgentXmpp::EncodeDnsItem(pugi::xml_node *node, DnsItem &item) {
 bool 
 DnsAgentXmpp::DnsAgentXmppDecode(const pugi::xml_node dns, 
                                  XmppType &type, uint32_t &xid,
-                                 uint16_t &resp_code, DnsUpdateData *data) {
+                                 uint16_t &resp_code, DnsUpdateData *data, std::string source_name) {
     std::stringstream id(dns.attribute("transid").value());
     id >> xid;
 
@@ -135,22 +135,22 @@ DnsAgentXmpp::DnsAgentXmppDecode(const pugi::xml_node dns,
     if (strcmp(resp.name(), "response") == 0) {
         std::stringstream code(resp.attribute("code").value());
         code >> resp_code;
-        return DecodeDns(resp.first_child(), type, true, data);
+        return DecodeDns(resp.first_child(), type, true, data, source_name);
     } else
-        return DecodeDns(resp, type, false, data);
+        return DecodeDns(resp, type, false, data, source_name);
 }
 
 bool 
 DnsAgentXmpp::DecodeDns(const pugi::xml_node node, 
                               XmppType &type, 
                               bool is_resp, 
-                              DnsUpdateData *data) {
+                              DnsUpdateData *data, std::string source_name) {
     if (strcmp(node.name(), "update") == 0) {
         type = is_resp ? UpdateResponse : Update;
-        return DecodeDnsItems(node, data);
+        return DecodeDnsItems(node, data, source_name);
     } else if (strcmp(node.name(), "query") == 0) {
         type = is_resp ? DnsQueryResponse : DnsQuery;
-        return DecodeDnsItems(node, data);
+        return DecodeDnsItems(node, data, source_name);
     }
 
     DNS_XMPP_TRACE(DnsXmppTrace, "Dns XMPP response : unknown tag : " << 
@@ -160,7 +160,7 @@ DnsAgentXmpp::DecodeDns(const pugi::xml_node node,
 
 bool 
 DnsAgentXmpp::DecodeDnsItems(const pugi::xml_node dnsdata, 
-                                   DnsUpdateData *data) {
+                                   DnsUpdateData *data, std::string source_name) {
     for (pugi::xml_node node = dnsdata.first_child(); node; 
          node = node.next_sibling()) {
         if (strcmp(node.name(), "virtual-dns") == 0) {
@@ -194,6 +194,7 @@ DnsAgentXmpp::DecodeDnsItems(const pugi::xml_node dnsdata,
                     return false;
                 }
             }
+            item.source_name = source_name;
             data->items.push_back(item);
         } else {
             DNS_XMPP_TRACE(DnsXmppTrace, "Dns XMPP response : unknown tag : " <<
