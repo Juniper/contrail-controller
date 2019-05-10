@@ -166,6 +166,8 @@ public:
         Ip4Address gw_;
     };
 
+    std::map<std::string, uint32_t> trace_buff_size_map;
+    std::map<std::string, uint32_t>::iterator  trace_buff_size_iter;
     AgentParam(bool enable_flow_options = true,
                bool enable_vhost_options = true,
                bool enable_hypervisor_options = true,
@@ -351,6 +353,7 @@ public:
     void Init(const std::string &config_file,
               const std::string &program_name);
     void ReInit();
+    void DebugInit();
 
     void LogConfig() const;
     void LogFilteredConfig() const;
@@ -559,6 +562,8 @@ protected:
     virtual void InitFromSystem();
     virtual void InitFromConfig();
     virtual void ReInitFromConfig();
+    virtual void DebugInitFromConfig();
+    virtual void ProcessTraceArguments();
     virtual void ProcessArguments();
     boost::property_tree::ptree &tree() { return tree_; }
     template <typename ValueType>
@@ -650,6 +655,8 @@ private:
     void ParseCryptArguments
         (const boost::program_options::variables_map &v);
     void ParseSessionDestinationArguments
+        (const boost::program_options::variables_map &v);
+    void ParseTraceArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;

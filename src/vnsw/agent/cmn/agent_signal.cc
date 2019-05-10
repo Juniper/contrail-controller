@@ -21,3 +21,10 @@ void AgentSignal::RegisterSigHupHandler(process::Signal::SignalHandler handler) 
     process_signal_.RegisterHandler(SIGHUP, handler);
 #endif
 }
+
+void AgentSignal::RegisterDebugSigHandler(
+                            process::Signal::SignalHandler handler) {
+#ifndef _WIN32
+    process_signal_.RegisterHandler(SIGUSR1, handler);
+#endif
+}

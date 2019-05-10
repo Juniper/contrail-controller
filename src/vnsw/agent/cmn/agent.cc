@@ -686,6 +686,12 @@ void Agent::ReconfigSignalHandler(boost::system::error_code ec, int signum) {
     ReConnectCollectors();
 }
 
+void Agent::DebugSignalHandler(boost::system::error_code ec, int signum) {
+        LOG(INFO, "Received SIGUSR1 to update debug configuration");
+        //Read the debug configuration
+        params_->DebugInit();
+}
+
 Agent::Agent() :
     params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
@@ -765,6 +771,8 @@ Agent::Agent() :
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
     agent_signal_.get()->RegisterSigHupHandler(
         boost::bind(&Agent::ReconfigSignalHandler, this, _1, _2));
+    agent_signal_.get()->RegisterDebugSigHandler(
+        boost::bind(&Agent::DebugSignalHandler, this, _1, _2));
 
     config_manager_.reset(new ConfigManager(this));
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
