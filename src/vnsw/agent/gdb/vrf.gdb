@@ -32,43 +32,43 @@ end
 define nh_entry_match
    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
    if $__nh->type_ == NextHop::ARP
-       set $__arp = (ArpNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__arp = (ArpNH *) ((size_t)($Xnode) - (size_t)&(((ArpNH *)0)->node_))
        if $__arp->vrf_.px == $__vrf
            printf "Arp-NH %p refers to VRF %p\n", $__arp, $__vrf
        end
    end
    if $__nh->type_ == NextHop::INTERFACE
-       set $__intf_nh = (InterfaceNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__intf_nh = (InterfaceNH *) ((size_t)($Xnode) - (size_t)&(((InterfaceNH *)0)->node_))
        if $__intf_nh->vrf_.px == $__vrf
            printf "Interface-NH %p refers to VRF %p\n", $__intf_nh, $__vrf
        end
    end
    if $__nh->type_ == NextHop::VRF
-       set $__vrf_nh = (VrfNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__vrf_nh = (VrfNH *) ((size_t)($Xnode) - (size_t)&(((VrfNH *)0)->node_))
        if $__vrf_nh->vrf_.px == $__vrf
            printf "Vrf-NH %p refers to VRF %p\n", $__vrf_nh, $__vrf
        end
    end
    if $__nh->type_ == NextHop::VLAN
-       set $__vlan_nh = (VlanNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__vlan_nh = (VlanNH *) ((size_t)($Xnode) - (size_t)&(((VlanNH *)0)->node_))
        if $__vrf_nh->vrf_.px == $__vrf
            printf "Vrf-NH %p refers to VRF %p\n", $__vlan_nh, $__vrf
        end
    end
    if $__nh->type_ == NextHop::TUNNEL
-       set $__tunnel = (TunnelNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__tunnel = (TunnelNH *) ((size_t)($Xnode) - (size_t)&(((TunnelNH *)0)->node_))
        if $__tunnel->vrf_.px == $__vrf
            printf "Tunnel-NH %p refers to VRF %p\n", $__tunnel, $__vrf
        end
    end
    if $__nh->type_ == NextHop::MIRROR
-       set $__mirror = (MirrorNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__mirror = (MirrorNH *) ((size_t)($Xnode) - (size_t)&(((MirrorNH *)0)->node_))
        if $__mirror->vrf_.px == $__vrf
            printf "Mirror-NH %p refers to VRF %p\n", $__mirror, $__vrf
        end
    end
    if $__nh->type_ == NextHop::COMPOSITE
-       set $__comp = (CompositeNH *) ((size_t)($Xnode) - (size_t)&(((NextHop *)0)->node_))
+       set $__comp = (CompositeNH *) ((size_t)($Xnode) - (size_t)&(((CompositeNH *)0)->node_))
        if $__comp->vrf_.px == $__vrf
            printf "Composite-NH %p refers to VRF %p\n", $__comp, $__vrf
        end
@@ -106,19 +106,22 @@ end
 define find_vrf_ref
    if $argc != 1
        help find_vrf_ref <vrf>
-   else 
+   else
        set $__vrf = (VrfEntry *) $arg0
        printf "Unicast DB Count : "
-       get_table_count $__vrf->rt_table_db_[0]
-       printf "\n"
-       printf "Multicast DB Count : ", 
        get_table_count $__vrf->rt_table_db_[1]
        printf "\n"
-       printf "EVPN DB Count : ", 
+       printf "Multicast DB Count : ",
        get_table_count $__vrf->rt_table_db_[2]
        printf "\n"
-       printf "Bridge DB Count : ", 
+       printf "EVPN DB Count : ",
        get_table_count $__vrf->rt_table_db_[3]
+       printf "\n"
+       printf "Bridge DB Count : ",
+       get_table_count $__vrf->rt_table_db_[4]
+       printf "\n"
+       printf "MCast DB Count : ",
+       get_table_count $__vrf->rt_table_db_[5]
        printf "\n"
        find_intf_vrf_ref $__vrf
        find_nh_vrf_ref $__vrf
