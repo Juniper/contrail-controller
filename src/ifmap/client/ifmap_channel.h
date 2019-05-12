@@ -215,7 +215,7 @@ private:
     ProcCompleteMsgCb GetCallback(ResponseState response_state);
     void CloseSockets(const boost::system::error_code& error,
                       TimerImpl *socket_close_timer);
-    void SetArcSocketOptions();
+    void SetSocketOptions(SslStream *socket);
     std::string timeout_to_string(uint64_t timeout);
     void set_connection_status(ConnectionStatus status);
 
