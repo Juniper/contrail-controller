@@ -186,6 +186,7 @@ class FeatureConfigDM(DBBaseDM):
                                     'feature_config_additional_params')
         self.vendor_config = self._read_key_value_pair(obj,
                                     'feature_config_vendor_config')
+        self.add_to_parent(obj)
     # end update
 # end class FeatureDM
 
@@ -214,13 +215,10 @@ class RoleDefinitionDM(DBBaseDM):
         self.physical_role = None
         self.overlay_role = None
 
-        self.set_children('feature_config', obj)
         self.update_multiple_refs('feature', obj)
         self.update_single_ref('physical_role', obj)
         self.update_single_ref('overlay_role', obj)
 
-        if self.feature_configs:
-            self.feature_configs = [FeatureConfigDM.get(f) for f in self.feature_configs]
         if self.features:
             self.features = [FeatureDM.get(f) for f in self.features]
         if self.physical_role:
@@ -245,6 +243,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.bgp_router = None
         self.physical_router_role = None
         self.routing_bridging_roles = None
+        self.replicator_ip = None
         self.config_manager = None
         self.service_endpoints = set()
         self.router_mode = None
@@ -335,6 +334,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip')
+        self.replicator_ip = obj.get('physical_router_replicator_loopback_ip') or None
         self.dummy_ip = self.get_dummy_ip(obj)
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
@@ -403,8 +403,10 @@ class PhysicalRouterDM(DBBaseDM):
                 if feature.name not in features:
                     features[feature.name] = AttrDict(feature=feature, configs=[])
             for feature_config in rd.feature_configs:
+                feature_config = FeatureConfigDM.get(feature_config)
                 if feature_config.name in features:
-                    features[feature_config.name].configs.append(feature_config)
+                    features[feature_config.name]['configs'].append(
+                        feature_config)
         return features.values()
     # end get_features
 
