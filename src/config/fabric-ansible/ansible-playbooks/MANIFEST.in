@@ -10,3 +10,4 @@ graft test
 graft filter_plugins
 graft templates
 graft common
+graft config_templates
