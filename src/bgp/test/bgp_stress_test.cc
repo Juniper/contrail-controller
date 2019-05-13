@@ -517,6 +517,7 @@ void BgpStressTest::SetUp() {
         server_.reset(new BgpServerTest(&evm_, "A0"));
     }
 
+    server_->set_ignore_aspath(true);
     if (d_xmpp_auth_enabled_) {
         XmppChannelConfig xs_cfg(false);
         xs_cfg.auth_enabled = true;
@@ -841,6 +842,9 @@ string BgpStressTest::GetRouterConfig(int router_id, int peer_id,
         out << "192.168.0." + boost::lexical_cast<string>(router_id);
         out << "</identifier>";
         out << "<address>127.0.0.1</address>";
+        uint32_t asn = router_id ?: 64512;
+        out << "<autonomous-system>" << asn << "</autonomous-system>";
+        //out << "<local-autonomous-system>" << asn << "</local-autonomous-system>";
         out << "<port>" << local_port << "</port>";
     }
 
@@ -871,7 +875,10 @@ string BgpStressTest::GetInstanceConfig(int instance_id, int ntargets) {
     int vn_id = 1;
 
     string instance_name = GetInstanceName(instance_id);
+    out << "<virtual-network name='" << instance_name << "'>";
+    out << "<network-id>" << instance_id << "</network-id></virtual-network>";
     out << "<routing-instance name='" << instance_name << "'>\n";
+    out << "<virtual-network>" << instance_name << "</virtual-network>";
 
     for (int j = 1; j <= ntargets; ++j) {
         out << "    <vrf-target>target:" << vn_id << ":";
@@ -1086,7 +1093,10 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
     boost::scoped_ptr<BgpAttrLocalPref> local_pref;
 
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
-    BgpTable *table = rtinstance_->GetTable(families_[family]);
+    RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
+        peer_servers_[peer_id]->routing_instance_mgr()->GetRoutingInstance(
+            BgpConfigManager::kMasterInstance));
+    BgpTable *table = rtinstance->GetTable(families_[family]);
     if (!table) return;
 
     if (!peers_[peer_id]) return;
@@ -1117,6 +1127,34 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
     local_pref.reset(new BgpAttrLocalPref(localpref));
     attr_spec.push_back(local_pref.get());
 
+    AsPath4ByteSpec aspath_4byte_spec;
+    AsPathSpec aspath_spec;
+    As4PathSpec as4path_spec;
+    if (!peer_servers_[peer_id]->disable_4byte_as()) {
+        AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
+        aspath_4byte_spec.path_segments.push_back(ps);
+        ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
+        ps->path_segment.push_back(0xffff + peer_id*10 + 100);
+        ps->path_segment.push_back(0xffff + peer_id*10 + 101);
+        ps->path_segment.push_back(0xffff + peer_id*10 + 102);
+        attr_spec.push_back(&aspath_4byte_spec);
+    } else {
+        AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+        aspath_spec.path_segments.push_back(ps);
+        ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        ps->path_segment.push_back(23456);
+        ps->path_segment.push_back(23456);
+        ps->path_segment.push_back(23456);
+        attr_spec.push_back(&aspath_spec);
+        As4PathSpec::PathSegment *ps4 = new As4PathSpec::PathSegment;
+        as4path_spec.path_segments.push_back(ps4);
+        ps4->path_segment_type = As4PathSpec::PathSegment::AS_SEQUENCE;
+        ps4->path_segment.push_back(0xffff + peer_id*10 + 300);
+        ps4->path_segment.push_back(0xffff + peer_id*10 + 301);
+        ps4->path_segment.push_back(0xffff + peer_id*10 + 302);
+        attr_spec.push_back(&as4path_spec);
+    }
+
     BgpAttrNextHop nexthop(0x66010000 + peer_id); // 0x66 is 'B' for BGP
     attr_spec.push_back(&nexthop);
 
@@ -1125,10 +1163,10 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
             commspec.reset(new ExtCommunitySpec());
             AddTunnelEncapToCommunitySpec(commspec.get());
             attr_spec.push_back(commspec.get());
-            req.key.reset(new InetTable::RequestKey(prefix, peer));
+            req.key.reset(new InetTable::RequestKey(prefix, NULL));
             break;
         case Address::INETVPN:
-            req.key.reset(new InetVpnTable::RequestKey(vpn_prefix, peer));
+            req.key.reset(new InetVpnTable::RequestKey(vpn_prefix, NULL));
             commspec.reset(new ExtCommunitySpec());
             AddRouteTargetsToCommunitySpec(commspec.get(), ntargets);
             AddTunnelEncapToCommunitySpec(commspec.get());
@@ -1139,7 +1177,7 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
             break;
     }
 
-    BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+    BgpAttrPtr attr = peer_servers_[peer_id]->attr_db()->Locate(attr_spec);
     req.data.reset(new InetTable::RequestData(attr, 0, label));
     table->Enqueue(&req);
 }
@@ -1278,14 +1316,14 @@ void BgpStressTest::DeleteBgpInetRouteInternal(int family, int peer_id,
     DBRequest req;
 
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
-    BgpTable *table = rtinstance_->GetTable(families_[family]);
+    RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
+        peer_servers_[peer_id]->routing_instance_mgr()->GetRoutingInstance(
+            BgpConfigManager::kMasterInstance));
+    BgpTable *table = rtinstance->GetTable(families_[family]);
     if (!table) return;
 
     BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_BGP_ROUTE);
-    IPeer *peer = peers_[peer_id]->peer();
-
     req.oper = DBRequest::DB_ENTRY_DELETE;
-
     Ip4Prefix prefix(Ip4Prefix::FromString("192.168.255.0/24"));
 
     // Use routes with same RD as well as with different RD to cover more
@@ -1306,10 +1344,10 @@ void BgpStressTest::DeleteBgpInetRouteInternal(int family, int peer_id,
 
     switch (table->family()) {
         case Address::INET:
-            req.key.reset(new InetTable::RequestKey(prefix, peer));
+            req.key.reset(new InetTable::RequestKey(prefix, NULL));
             break;
         case Address::INETVPN:
-            req.key.reset(new InetVpnTable::RequestKey(vpn_prefix, peer));
+            req.key.reset(new InetVpnTable::RequestKey(vpn_prefix, NULL));
             break;
         default:
             assert(0);
@@ -2072,6 +2110,8 @@ void BgpStressTest::AddBgpPeer(int peer_id, bool verify_state) {
     if (!peer_servers_[peer_id]) {
         peer_servers_[peer_id] = new BgpServerTest(&evm_,
                                                    GetRouterName(peer_id));
+        if (peer_id % 2)
+            peer_servers_[peer_id]->set_disable_4byte_as(true);
         peer_servers_[peer_id]->session_manager()->Initialize(0);
     }
 
@@ -2135,6 +2175,10 @@ void BgpStressTest::DeleteBgpPeer(int peer_id, bool verify_state) {
     if (peer_id >= (int) peers_.size() || !peers_[peer_id]) return;
     BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::DELETE_BGP_PEER);
     string peer_name = peers_[peer_id]->peer()->ToString();
+
+    // Delete all bgp routes injected from this peer.
+    for (int family = 0; family < n_families_; ++family)
+        DeleteBgpRoutes(family, peer_id, n_routes_, n_targets_);
 
     ifmap_test_util::IFMapMsgUnlink(server_->config_db(), "bgp-router",
         "default-domain:default-project:ip-fabric:__default__:" +
@@ -2612,8 +2656,10 @@ TEST_P(BgpStressTest, RandomEvents) {
     BGP_STRESS_TEST_LOG("Time taken for initial setup: " <<
         boost::posix_time::time_duration(time_end - time_start));
 
-    ShowAllRoutes();
-    ShowNeighborStatistics();
+    if (!d_no_verify_routes_) {
+        ShowAllRoutes();
+        ShowNeighborStatistics();
+    }
     Pause("Pause after initial setup is complete");
 
     while (!d_events_ || BgpStressTestEvent::count_ < d_events_) {

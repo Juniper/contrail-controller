@@ -503,7 +503,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           origin_override_(config->origin_override()),
           defer_close_(false),
           graceful_close_(true),
-          as4_supported_(true),
+          as4_supported_(false),
           vpn_tables_registered_(false),
           hold_time_(config->hold_time()),
           local_as_(config->local_as()),
@@ -1533,12 +1533,14 @@ void BgpPeer::SendOpen(TcpSession *session) {
         opt_param->capabilities.push_back(cap);
     }
 
-    uint32_t asn = ntohl(local_as_);
-    BgpProto::OpenMessage::Capability *cap =
-            new BgpProto::OpenMessage::Capability(
-                BgpProto::OpenMessage::Capability::AS4Support,
-                (const uint8_t *)(&asn), 4);
-    opt_param->capabilities.push_back(cap);
+    if (!server_->disable_4byte_as()) {
+        uint32_t asn = ntohl(local_as_);
+        BgpProto::OpenMessage::Capability *cap =
+                new BgpProto::OpenMessage::Capability(
+                    BgpProto::OpenMessage::Capability::AS4Support,
+                    (const uint8_t *)(&asn), 4);
+        opt_param->capabilities.push_back(cap);
+    }
     peer_close_->AddGRCapabilities(opt_param);
     peer_close_->AddLLGRCapabilities(opt_param);
 
@@ -1697,12 +1699,14 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     }
 
     as4_supported_ = false;
+    if (!server_->disable_4byte_as()) {
     vector<BgpProto::OpenMessage::Capability *>::iterator c_it;
     for (c_it = capabilities_.begin(); c_it < capabilities_.end(); ++c_it) {
         if ((*c_it)->code == BgpProto::OpenMessage::Capability::AS4Support) {
             as4_supported_ = true;
             break;
         }
+    }
     }
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
@@ -1784,7 +1788,7 @@ bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
     return false;
 }
 
-bool BgpPeer::Is4ByteAsSupported() {
+bool BgpPeer::Is4ByteAsSupported() const {
     return as4_supported_;
 }
 
@@ -2536,6 +2540,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_task_instance(GetTaskInstance());
     bnr->set_send_ready(send_ready_);
     bnr->set_flap_count(peer_stats_->num_flaps());
+    bnr->set_as4_supported(Is4ByteAsSupported());
     bnr->set_flap_time(peer_stats_->last_flap());
     bnr->set_auth_type(
         AuthenticationData::KeyTypeToString(inuse_authkey_type_));

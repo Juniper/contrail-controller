@@ -293,7 +293,9 @@ int AsPath4ByteSpec::CompareTo(const BgpAttribute &rhs_attr) const {
 }
 
 void AsPath4ByteSpec::ToCanonical(BgpAttr *attr) {
+/*-----------------------------------------------------------------------
     attr->set_aspath_4byte(this);
+ -----------------------------------------------------------------------*/
 }
 
 string AsPath4ByteSpec::ToString() const {
