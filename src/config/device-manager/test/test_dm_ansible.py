@@ -146,4 +146,68 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         self.delete_features()
         self.wait_for_features_delete()
     # end test_erb_config_push
+
+    def test_ar_config_push(self):
+        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+                              'l3-gateway', 'vn-interconnect', 'assisted-replicator'])
+        self.create_physical_roles(['leaf', 'spine'])
+        self.create_overlay_roles(['ar-client', 'ar-replicator'])
+        rd_spine = self.create_role_definitions([
+            AttrDict({
+                'name': 'ar-replicator-spine',
+                'physical_role': 'spine',
+                'overlay_role': 'ar-replicator',
+                'features': ['assisted-replicator'],
+                'feature_configs': None
+            })
+        ])
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'ar-client-leaf',
+                'physical_role': 'leaf',
+                'overlay_role': 'ar-client',
+                'features': ['assisted-replicator'],
+                'feature_configs': {'assisted-replicator': {'replicator_activation_delay': '30'}}
+            })
+        ])
+
+        jt = self.create_job_template('job-template-2')
+        fabric = self.create_fabric('fabric-ar')
+        np, rc = self.create_node_profile('node-profile-ar',
+                                          device_family='junos-qfx',
+                                          role_mappings=[
+                                              AttrDict(
+                                                  {'physical_role': 'spine',
+                                                   'rb_roles': [
+                                                       'ar-replicator']}
+                                              )],
+                                          job_template=jt)
+
+        _, pr = self.create_router('router' + self.id(), '1.1.1.1',
+                                   product='qfx10008', family='junos-qfx',
+                                   role='spine', rb_roles=['ar-replicator'],
+                                   physical_role=self.physical_roles['spine'],
+                                   overlay_role=self.overlay_roles[
+                                       'ar-replicator'], fabric=fabric)
+        pr.set_physical_router_loopback_ip('10.10.0.1')
+        pr.set_physical_router_replicator_loopback_ip('10.10.0.2')
+        self._vnc_lib.physical_router_update(pr)
+
+        gevent.sleep(1)
+        self.check_dm_ansible_config_push()
+
+        self.delete_routers(None, pr)
+        self.wait_for_routers_delete(None, pr.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+        self.delete_role_definitions()
+        self.delete_overlay_roles()
+        self.delete_physical_roles()
+        self.delete_features()
+        self.wait_for_features_delete()
+    # end test_ar_config_push
 # end TestAnsibleDM
