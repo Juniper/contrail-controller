@@ -1612,13 +1612,16 @@ class FilterModule(object):
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
             for device_roles in role_assignments:
+                ar_flag = False
                 # this check ensures that roles are assigned
                 # to the device only if node_profile_refs are present
                 # in the device
+                if "AR-Replicator" in device_roles.get('routing_bridging_roles'):
+                    ar_flag = True
                 if device_roles.get('supported_roles'):
                     device_obj = device_roles.get('device_obj')
-                    if device_obj.get_physical_router_underlay_managed():
-                        self._add_loopback_interface(vnc_api, device_obj)
+                    if device_obj.get_physical_router_underlay_managed() or ar_flag:
+                        self._add_loopback_interface(vnc_api, device_obj, ar_flag)
                         self._add_logical_interfaces_for_fabric_links(
                             vnc_api, device_obj
                         )
@@ -1938,7 +1941,7 @@ class FilterModule(object):
         return network_obj
     # end _get_device_network
 
-    def _add_loopback_interface(self, vnc_api, device_obj):
+    def _add_loopback_interface(self, vnc_api, device_obj, ar_flag):
         """
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
@@ -1992,6 +1995,11 @@ class FilterModule(object):
             = iip_obj.get_instance_ip_address()
         device_obj.physical_router_dataplane_ip \
             = iip_obj.get_instance_ip_address()
+        if ar_flag:
+            device_obj.physical_router_replicator_loopback_ip \
+                = iip_obj.get_instance_ip_address()
+
+
     # end _add_loopback_interface
 
     def _add_bgp_router(self, vnc_api, device_roles):
