@@ -86,14 +86,16 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Do not compare as path length for service chain paths at this point.
     // We want to treat service chain paths as ECMP irrespective of as path
     // length.
-    if (!attr_->origin_vn_path() || !rattr->origin_vn_path())
+    const BgpServer *server = attr_->attr_db()->server();
+    if (!server->ignore_aspath() &&
+            (!attr_->origin_vn_path() || !rattr->origin_vn_path())) {
         KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
+    }
 
     KEY_COMPARE(attr_->origin(), rattr->origin());
 
     // Compare med if always compare med knob is enabled or if both paths are
     // learnt from the same neighbor as.
-    const BgpServer *server = attr_->attr_db()->server();
     if (server->global_config()->always_compare_med() ||
         (attr_->neighbor_as() &&
          attr_->neighbor_as() == rattr->neighbor_as())) {

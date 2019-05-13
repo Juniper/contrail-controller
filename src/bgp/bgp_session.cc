@@ -28,6 +28,8 @@ int BgpMessageReader::MsgLength(Buffer buffer, int offset) {
     const uint8_t *data = TcpSession::BufferData(buffer) + offset;
     data += 16;
     int length = get_value(data, 2);
+    if (bgp_log_test::unit_test())
+        assert(length <= 4096);
     return length;
 }
 
