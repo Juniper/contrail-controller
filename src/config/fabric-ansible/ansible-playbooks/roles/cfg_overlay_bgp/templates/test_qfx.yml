@@ -266,7 +266,7 @@
         }
 
     - template:
-        src: juniper_junos-qfx_overlay_bgp.j2
+        src: juniper_junos-qfx_overlay_assisted_replication.j2
         dest: /tmp/output.json
 
     - command: cat /tmp/output.json

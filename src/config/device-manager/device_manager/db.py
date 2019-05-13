@@ -245,6 +245,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.bgp_router = None
         self.physical_router_role = None
         self.routing_bridging_roles = None
+        self.replicator_ip = None
         self.config_manager = None
         self.service_endpoints = set()
         self.router_mode = None
@@ -335,6 +336,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip')
+        self.replicator_ip = obj.get('physical_router_replicator_loopback_ip') or None
         self.dummy_ip = self.get_dummy_ip(obj)
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
