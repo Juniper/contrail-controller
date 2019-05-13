@@ -1052,6 +1052,12 @@
             "default-global-system-config", "vn-interconnect"
           ],
           "name": "vn-interconnect"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "assisted-replicator"
+          ],
+          "name": "assisted-replicator"
         }
       ]
     },
@@ -1086,6 +1092,18 @@
             "default-global-system-config", "crb-mcast-gateway"
           ],
           "name": "crb-mcast-gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "ar-client"
+          ],
+          "name": "ar-client"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "ar-replicator"
+          ],
+          "name": "ar-replicator"
         }
       ]
     },
@@ -1097,6 +1115,30 @@
             "default-global-system-config", "erb-leaf"
           ],
           "name": "erb-leaf"
+        },
+         {
+          "fq_name": [
+            "default-global-system-config", "ar-client-leaf"
+          ],
+          "name": "ar-client-leaf"
+        },
+         {
+          "fq_name": [
+            "default-global-system-config", "ar-client-spine"
+          ],
+          "name": "ar-client-spine"
+        },
+         {
+          "fq_name": [
+            "default-global-system-config", "ar-replicator-leaf"
+          ],
+          "name": "ar-replicator-leaf"
+        },
+         {
+          "fq_name": [
+            "default-global-system-config", "ar-replicator-spine"
+          ],
+          "name": "ar-replicator-spine"
         }
       ]
     },
@@ -1114,6 +1156,36 @@
               {
                 "key": "use_gateway_ip",
                 "value": "True"
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "ar-client-spine", "assisted-replicator"
+          ],
+          "name": "assisted-replicator",
+          "parent_type": "role-definition",
+          "feature_config_additional_params": {
+            "key_value_pair": [
+              {
+                "key": "replicator_activation_delay",
+                "value": "30"
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "ar-client-leaf", "assisted-replicator"
+          ],
+          "name": "assisted-replicator",
+          "parent_type": "role-definition",
+          "feature_config_additional_params": {
+            "key_value_pair": [
+              {
+                "key": "replicator_activation_delay",
+                "value": "30"
               }
             ]
           }
@@ -1135,11 +1207,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "Route-Reflector"]
+                "rb_roles": ["CRB-Access", "Route-Reflector", "AR-Client"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "Route-Reflector"]
+                "rb_roles": ["null", "Route-Reflector", "AR-Client"]
               }
             ]
           }
@@ -1156,11 +1228,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain", "AR-Client"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain"]
+                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
               }
             ]
           }
@@ -1177,11 +1249,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["Route-Reflector"]
+                "rb_roles": ["Route-Reflector", "AR-Client"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "Route-Reflector"]
+                "rb_roles": ["null", "Route-Reflector", "AR-Client", "AR-Replicator"]
               }
             ]
           }
@@ -1198,11 +1270,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain", "AR-Client", "AR-Replicator"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain"]
+                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client", "AR-Replicator"]
               }
             ]
           }
@@ -1219,11 +1291,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["DC-Gateway", "Route-Reflector", "DCI-Gateway"]
+                "rb_roles": ["DC-Gateway", "Route-Reflector", "DCI-Gateway", "AR-Client"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["DC-Gateway", "Route-Reflector", "DCI-Gateway"]
+                "rb_roles": ["DC-Gateway", "Route-Reflector", "DCI-Gateway", "AR-Client"]
               }
             ]
           }
@@ -1331,6 +1403,78 @@
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
+      "to_type": "overlay_role",
+      "to_fq_name": [ "default-global-system-config", "ar-replicator" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-spine" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-spine" ],
+      "to_type": "overlay_role",
+      "to_fq_name": [ "default-global-system-config", "ar-replicator" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-leaf" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-leaf" ],
+      "to_type": "overlay_role",
+      "to_fq_name": [ "default-global-system-config", "ar-client" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-spine" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role_definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-spine" ],
+      "to_type": "overlay_role",
+      "to_fq_name": [ "default-global-system-config", "ar-client" ]
     },
     {
       "from_type": "node-profile",
