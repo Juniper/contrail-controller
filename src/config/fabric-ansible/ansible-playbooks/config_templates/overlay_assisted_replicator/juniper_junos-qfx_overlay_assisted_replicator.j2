@@ -1,0 +1,11 @@
+{%    set replicator_ip = device_abstract_config.get('features').get('assisted-replicator').get('assisted_replicator').get('ar_loopback_ip', '') %}
+{%    if replicator_ip %}
+set groups {{cfg_group}} interfaces lo0 unit 0 family inet address {{replicator_ip}} preferred
+set groups {{cfg_group}} protocols evpn assisted-replication replicator
+set groups {{cfg_group}} protocols evpn assisted-replication replicator inet {{replicator_ip}}
+set groups {{cfg_group}} protocols evpn assisted-replication replicator vxlan-encapsulation-source-ip ingress-replication-ip
+{%    endif %}
+
+
+
+
