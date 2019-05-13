@@ -225,6 +225,8 @@ class FilterModule(object):
             feature_template_list = self._get_feature_templates(config_template_dir, feature)
             # If feature not supported on this platform, skip
             if not feature_template_list:
+                errmsg = "No templates found for feature: %s" % (feature)
+                _task_error_log(errmsg)
                 continue
             # If not managing underlay for this feature, skip
             if 'underlay' in feature and not self.manage_underlay:
@@ -345,7 +347,7 @@ def _mock_job_ctx(is_delete, manage_underlay):
                 "cassandra_use_ssl": False,
                 "cassandra_user": None
             },
-            "fabric_fqname": "default-global-system-config:fab01",
+            "fabric_fqname": "default-global-system-config:fab-ar",
             "job_execution_id": "1550273845641_70275584-b110-4f15-ac7a-70d1ecf53c49",
             "job_input": {
                 "additional_feature_params": {
@@ -361,8 +363,8 @@ def _mock_job_ctx(is_delete, manage_underlay):
                         "bgp_hold_time": 90
                     }
                 },
-                "device_management_ip": "172.16.1.1",
-                "fabric_uuid": "dbae95a1-7647-4da9-9080-f70fbcb5f653",
+                "device_management_ip": "2.2.2.1",
+                "fabric_uuid": "b119e4fe-a0ec-48ba-a204-888ca7216ae5",
                 "is_delete": is_delete,
                 "manage_underlay": manage_underlay
             },

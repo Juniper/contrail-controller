@@ -1,0 +1,76 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_assisted_replicator
+    cfg_group: __contrail_overlay_assisted_replication__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "bgp": [{
+                    "autonomous_system": 64512,
+                    "cluster_id": 100,
+                    "comment": "/* overlay_bgp: BGP Router: vqfx1-bgp, UUID: bb296288-6d23-4be9-89c5-1c486024a03a */",
+                    "families": [
+                      "inet-vpn",
+                      "inet6-vpn",
+                      "route-target",
+                      "evpn"
+                    ],
+                    "hold_time": 90,
+                    "ip_address": "10.1.1.252",
+                    "name": "_contrail_asn-64512",
+                    "type_": "internal"
+                  }],
+          "comment": "/* Contrail Generated Group Config */",
+          "features": {
+            "assisted-replicator": {
+              "assisted_replicator": {
+                "ar_loopback_ip": "10.1.1.252"
+              },
+              "name": "assisted-replicator"
+            }
+          },
+          "system": {
+            "credentials": {
+              "authentication_method": "PasswordBasedAuthentication",
+              "password": "c0ntrail123",
+              "user_name": "root"
+            },
+            "device_family": "junos-qfx",
+            "dummy_ip": "172.16.0.1",
+            "encapsulation_priorities": [
+              "VXLAN",
+              "MPLSoUDP",
+              "MPLSoGRE"
+            ],
+            "is_ucast_gateway_only": false,
+            "loopback_ip_list": [
+              "10.1.1.252"
+            ],
+            "management_ip": "2.2.2.1",
+            "name": "vqfx1",
+            "physical_role": "spine",
+            "product_name": "vqfx-10000",
+            "routing_bridging_roles": [
+              "AR-Replicator",
+              "Route-Reflector"
+            ],
+            "tunnel_ip": "10.1.1.252",
+            "uuid": "ae0c9a99-c28f-4858-b01d-88bdd6155d2b",
+            "vendor_name": "Juniper"
+          }
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_assisted_replicator_client.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
