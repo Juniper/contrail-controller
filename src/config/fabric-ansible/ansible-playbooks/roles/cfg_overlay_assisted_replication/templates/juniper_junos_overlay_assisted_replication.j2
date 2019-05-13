@@ -1,0 +1,5 @@
+{%    set sys_config = device_abstract_config.get('system', None) %}
+{%    set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%    if 'AR-Client' in sys_roles %}
+set groups {{cfg_group}} protocols evpn assisted-replication leaf
+{%    endif %}

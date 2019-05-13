@@ -29,4 +29,5 @@ def import_feature_plugins():
     from l2_gateway_feature import L2GatewayFeature
     from l3_gateway_feature import L3GatewayFeature
     from vn_interconnect_feature import VnInterconnectFeature
+    from assisted_replicator_feature import AssistedReplicatorFeature
 # end import_feature_plugins

@@ -1,0 +1,79 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_bgp
+    cfg_group: __contrail_overlay_bgp__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          'comment': '/* Contrail Generated Group Config */',
+          'bgp': [{
+                    'comment': '/* overlay_bgp: BGP Router: routertest.test_dm_ansible.TestAnsibleDM.test_ar_config_push, UUID: c69f7ea0-12d6-47c9-9ec9-265800f8755c */',
+                    'families': ['route-target', 'inet-vpn', 'evpn', 'inet6-vpn'],
+                    'name': '_contrail_asn-64512',
+                    'hold_time': 0,
+                    'type_': 'internal',
+                    'ip_address': '1.1.1.1',
+                    'autonomous_system': 64512
+                  }],
+          'features': {
+            'assisted_replicator': {
+              'name': 'assisted_replicator',
+              'ar_loopback_ip': '10.10.0.2'
+            },
+            'l3_gateway': {
+              'name': 'l3_gateway'
+            },
+            'vn_interconnect': {
+              'name': 'vn_interconnect'
+            },
+            'overlay_bgp': {
+              'bgp': [{
+                        'families': ['route-target', 'inet-vpn', 'evpn', 'inet6-vpn'],
+                        'name': '_contrail_asn-64512',
+                        'hold_time': 0,
+                        'type_': 'internal',
+                        'ip_address': '1.1.1.1',
+                        'autonomous_system': 64512
+                      }],
+              'tunnel_ip': '10.10.0.1',
+              'name': 'overlay_bgp'
+            },
+            'l2_gateway': {
+              'name': 'l2_gateway'
+            }
+          },
+          'system': {
+            'loopback_ip_list': ['10.10.0.1'],
+            'tunnel_ip': '10.10.0.1',
+            'name': 'routertest.test_dm_ansible.TestAnsibleDM.test_ar_config_push',
+            'is_ucast_gateway_only': False,
+            'device_family': 'junos-qfx',
+            'management_ip': '1.1.1.1',
+            'routing_bridging_roles': ['ar-replicator'],
+            'credentials': {
+              'authentication_method': 'PasswordBasedAuthentication',
+              'password': 'pw',
+              'user_name': 'user'
+            },
+            'vendor_name': 'juniper',
+            'product_name': 'qfx10008',
+            'physical_role': 'spine',
+            'uuid': 'cf834bf7-09b2-408b-ac06-f08c4b45cf18'
+          }
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_assisted_replication.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
+
