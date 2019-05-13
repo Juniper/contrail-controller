@@ -186,7 +186,7 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
                         host_params['time'] = datetime.now()
                         retry_queue.put(host_params)
         except queue.Empty:
-            logger.info("QUEUE EMPTY EXIT")
+            logger.debug("QUEUE EMPTY EXIT")
             return
 # end _single_greenlet_processing
 
