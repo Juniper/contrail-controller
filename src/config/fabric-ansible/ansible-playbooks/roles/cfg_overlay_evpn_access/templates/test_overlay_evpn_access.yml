@@ -1,0 +1,212 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_evpn_access
+    cfg_group: __contrail_overlay_evpn_access__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "bgp": [
+          {
+            "autonomous_system": 64512,
+            "comment": "/* overlay_bgp: BGP Router: bng-contrail-qfx51-15-bgp, UUID: 78ee7061-9b66-46f3-858a-9cd099c5eb7a */",
+            "families": [
+              "inet-vpn",
+              "inet6-vpn",
+              "route-target",
+              "evpn"
+            ],
+            "hold_time": 90,
+            "ip_address": "12.12.12.12",
+            "name": "_contrail_asn-64512",
+            "peers": [
+            {
+              "autonomous_system": 64512,
+              "comment": "/* overlay_bgp: BGP Router: dhawan-bgp, UUID: 830a7247-52a8-4d7a-9c9e-890e22580fc8 */",
+              "ip_address": "77.77.77.77",
+              "name": "77.77.77.77"
+            }
+            ],
+            "type_": "internal"
+          }
+          ],
+          "comment": "/* Contrail Generated Group Config */",
+          "evpn": {
+            "encapsulation": "vxlan"
+          },
+          "firewall": {
+            "comment": "/* Firewalls Configuration */",
+            "family": "inet",
+            "firewall_filters": [
+            {
+              "comment": "/* fip: Public VRF Filter for Floating IPs */",
+              "name": "_contrail_redirect-to-public-vrfs-inet4",
+              "terms": [
+              {
+                "fromxx": {
+                  "destination_address": [
+                  {
+                    "prefix": "10.1.1.0",
+                    "prefix_len": 24
+                  }
+                  ]
+                },
+                "name": "term-_contrail_ironic-provision-l3-7",
+                "then": {
+                  "routing_instance": [
+                    "_contrail_ironic-provision-l3-7"
+                  ]
+                }
+              },
+              {
+                "name": "default-term",
+                "then": {
+                  "accept_or_reject": true
+                }
+              }
+              ]
+            }
+            ]
+          },
+          "physical_interfaces": [
+          {
+            "interface_type": "loopback",
+            "logical_interfaces": [
+            {
+              "comment": "/* Bogus lo0 interface (PFE limitation), Virtual Network: ironic-provision, UUID: 218e37bd-84a3-4c2a-b0b0-27aae76297ff */",
+              "ip_addresses": [
+              {
+                "address": "127.0.0.1",
+                "family": "inet"
+              }
+              ],
+              "ip_list": [
+                "127.0.0.1"
+              ],
+              "name": "lo0.1007",
+              "unit": 1007
+            }
+            ],
+            "name": "lo0"
+          }
+          ],
+          "routing_instances": [
+          {
+            "comment": "/* Public Virtual Network: ironic-provision, UUID: 218e37bd-84a3-4c2a-b0b0-27aae76297ff, VRF Type: L2, Forwarding Mode: L2-L3 */",
+            "export_targets": [
+              "target:64512:8000005"
+            ],
+            "import_targets": [
+              "target:64512:8000005"
+            ],
+            "is_public_network": true,
+            "loopback_interfaces": [
+            {
+              "name": "lo0.1007"
+            }
+            ],
+            "name": "_contrail_ironic-provision-l2-7",
+            "routing_instance_type": "virtual-switch",
+            "virtual_network_id": "7",
+            "virtual_network_is_internal": false,
+            "virtual_network_mode": "l2-l3",
+            "vxlan_id": "7"
+          },
+          {
+            "comment": "/* Public Virtual Network: ironic-provision, UUID: 218e37bd-84a3-4c2a-b0b0-27aae76297ff, VRF Type: L3, Forwarding Mode: L2-L3 */",
+            "export_targets": [
+              "target:64512:8000005"
+            ],
+            "import_targets": [
+              "target:64512:8000005"
+            ],
+            "interfaces": [
+            {
+              "name": "irb.7"
+            }
+            ],
+            "is_public_network": true,
+            "loopback_interfaces": [
+            {
+              "name": "lo0.1007"
+            }
+            ],
+            "name": "_contrail_ironic-provision-l3-7",
+            "prefixes": [
+            {
+              "prefix": "10.1.1.0",
+              "prefix_len": 24
+            }
+            ],
+            "routing_instance_type": "vrf",
+            "static_routes": [
+            {
+              "prefix": "10.1.1.0",
+              "prefix_len": 24
+            }
+            ],
+            "virtual_network_id": "7",
+            "virtual_network_is_internal": false,
+            "virtual_network_mode": "l2-l3",
+            "vxlan_id": "None"
+          }
+          ],
+          "system": {
+            "credentials": {
+              "authentication_method": "PasswordBasedAuthentication",
+              "password": "c0ntrail123",
+              "user_name": "root"
+            },
+            "device_family": "junos-qfx",
+            "encapsulation_priorities": [
+              "VXLAN",
+              "MPLSoUDP",
+              "MPLSoGRE"
+            ],
+            "loopback_ip_list": [
+              "12.12.12.12"
+            ],
+            "management_ip": "10.204.217.31",
+            "name": "bng-contrail-qfx51-15",
+            "physical_role": "leaf",
+            "product_name": "qfx5100-48s-6q",
+            "routing_bridging_roles": [
+              "CRB-Access"
+            ],
+            "tunnel_destination_networks": [
+            {
+              "prefix": "192.169.3.0",
+              "prefix_len": 24
+            }
+            ],
+            "tunnel_ip": "12.12.12.12",
+            "uuid": "cad62dfa-c9fe-4e4d-bf18-bf8a483af93b",
+            "vendor_name": "Juniper"
+          },
+          "vlans": [
+          {
+            "comment": "/* Virtual Network: ironic-provision, UUID: 218e37bd-84a3-4c2a-b0b0-27aae76297ff, Encapsulation: VXLAN */",
+            "interfaces": [
+            {
+              "name": "irb.7"
+            }
+            ],
+            "name": "bd-7",
+            "vxlan_id": 7
+          }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_evpn_access.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines verbosity=1
