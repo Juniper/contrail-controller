@@ -236,6 +236,16 @@ role_to_feature_mapping:
   PNF-Servicechain@pnf:
     - overlay_pim
     - overlay_service_chain
+  AR-Client@leaf:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_assisted_replication
+  AR-Replicator@spine:
+    - basic
+    - underlay_ip_clos
+    - underlay_infra_bms_access
+    - overlay_assisted_replication
 
 feature_based_plugin_roles:
   - ERB-UCAST-Gateway@leaf
