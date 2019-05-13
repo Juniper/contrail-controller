@@ -1,0 +1,20 @@
+{%    set sys_config = device_abstract_config.get('system', None) %}
+{%    set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%    if 'AR-Client' in sys_roles %}
+set groups {{cfg_group}} protocols evpn assisted-replication leaf
+{%    else %}
+{%        set replicator_ip = device_abstract_config.features.assisted_replicator.assisted_replicator.get('ar_loopback_ip', '') %}
+{%        set replicator_delay = device_abstract_config.features.assisted_replicator.assisted_replicator.get('ar-activation-delay', None) %}
+{%        if replicator_ip %}
+set groups {{cfg_group}} interfaces lo0 unit 0 family inet address {{replicator_ip}} preferred
+set groups {{cfg_group}} protocols evpn assisted-replication replicator
+set groups {{cfg_group}} protocols evpn assisted-replication replicator inet {{replicator_ip}}
+set groups {{cfg_group}} protocols evpn assisted-replication replicator vxlan-encapsulation-source-ip ingress-replication-ip
+{%        endif %}
+{%        if replicator_delay %}
+set groups {{cfg_group}} protocols evpn assisted-replication leaf replicator-activation-delay {{replicator_delay}}
+{%        endif %}
+{%    endif %}
+
+
+
