@@ -12,7 +12,8 @@ delete interfaces {{ifd.name}} unit {{ifl.unit}}
 set interfaces {{ifd.name}} unit {{ifl.unit}} family inet
 {%                 set address = ifl.ip_addresses[0].address %}
 {%                 if ifl.name == 'lo0.0' %}
-set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32 primary
+set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32 preferred
 {%                 else %}
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/30
 {%                 endif %}
