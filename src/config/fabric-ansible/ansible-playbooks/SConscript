@@ -47,6 +47,7 @@ local_sources = [
     'discover_role.yml',
     'topology_discovery.yml',
     'hitless_upgrade_strategy.yml',
+    'container_cleanup.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
