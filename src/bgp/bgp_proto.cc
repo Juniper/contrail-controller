@@ -421,13 +421,24 @@ int BgpProto::Update::Validate(const BgpPeer *peer, string *data) {
             nh = true;
         } else if ((*it)->code == BgpAttribute::AsPath) {
             as_path = true;
-            AsPathSpec *asp = static_cast<AsPathSpec *>(*it);
-            // Check segments size for ebgp.
-            // IBGP can have empty path for routes that are originated.
-            if (!ibgp) {
-                if (!asp->path_segments.size() ||
-                    !asp->path_segments[0]->path_segment.size())
-                    return BgpProto::Notification::MalformedASPath;
+            if (peer && peer->IsAs4Supported()) {
+                AsPath4ByteSpec *asp = static_cast<AsPath4ByteSpec *>(*it);
+                // Check segments size for ebgp.
+                // IBGP can have empty path for routes that are originated.
+                if (!ibgp) {
+                    if (!asp->path_segments.size() ||
+                        !asp->path_segments[0]->path_segment.size())
+                        return BgpProto::Notification::MalformedASPath;
+                }
+            } else {
+                AsPathSpec *asp = static_cast<AsPathSpec *>(*it);
+                // Check segments size for ebgp.
+                // IBGP can have empty path for routes that are originated.
+                if (!ibgp) {
+                    if (!asp->path_segments.size() ||
+                        !asp->path_segments[0]->path_segment.size())
+                        return BgpProto::Notification::MalformedASPath;
+                }
             }
         } else if ((*it)->code == BgpAttribute::MPReachNlri) {
             mp_reach_nlri = true;

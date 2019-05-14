@@ -72,6 +72,7 @@ struct AsPathSpec : public BgpAttribute {
     virtual std::string ToString() const;
     AsPathSpec *Add(as2_t asn) const;
     AsPathSpec *Add(const std::vector<as2_t> &asn_list) const;
+    AsPathSpec *Add(const std::vector<as_t> &asn_list) const;
     AsPathSpec *Replace(as2_t old_asn, as2_t asn) const;
     AsPathSpec *RemovePrivate(bool all, as2_t asn, as2_t peer_as) const;
 

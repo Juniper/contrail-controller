@@ -132,15 +132,19 @@ void BgpTable::PrependLocalAs(const RibOut *ribout, BgpAttr *clone,
         const IPeer* peer) const {
     as_t local_as = ribout->local_as() ?:
                 clone->attr_db()->server()->local_autonomous_system();
-    if (ribout->as4_supported()) {
-        if (peer && peer->IsAs4Supported())
-            PrependAsToAsPath4Byte(clone, local_as);
-        else
-            CreateAsPath4Byte(clone, local_as);
+    if (server()->disable_4byte_as()) {
+       PrependAsToAsPath2Byte(clone, (as2_t)local_as);
     } else {
-       if (peer && peer->IsAs4Supported())
-           CreateAsPath2Byte(clone);
-       PrependAsToAsPath2Byte(clone, local_as);
+        if (ribout->as4_supported()) {
+            if (clone->aspath_4byte())
+                PrependAsToAsPath4Byte(clone, local_as);
+            else
+                CreateAsPath4Byte(clone, local_as);
+        } else {
+            if (!clone->as_path())
+                CreateAsPath2Byte(clone);
+            PrependAsToAsPath2Byte(clone, local_as);
+        }
     }
 }
 
@@ -159,6 +163,17 @@ void BgpTable::RemovePrivateAs(const RibOut *ribout, BgpAttr *attr) const {
             replace_asn = spec.AsLeftMostPublic();
         }
     }
+    if (replace_asn > AsPathSpec::kMaxPrivateAs) {
+        if (!attr->as4_path())
+            CreateAs4Path(attr);
+        const As4PathSpec &spec = attr->as4_path()->path();
+        As4PathSpec *new_spec = spec.RemovePrivate(all, replace_asn, peer_asn);
+        attr->set_as4_path(new_spec);
+        delete new_spec;
+        replace_asn = AS_TRANS;
+    }
+    if (peer_asn > AsPathSpec::kMaxPrivateAs)
+        peer_asn = AS_TRANS;
 
     AsPathSpec *new_spec = spec.RemovePrivate(all, replace_asn, peer_asn);
     attr->set_as_path(new_spec);
@@ -229,28 +244,36 @@ void BgpTable::ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const {
 //
 void BgpTable::ProcessAsOverride(const RibOut *ribout, BgpAttr *attr) const {
     if (ribout->as_override() && !attr->IsAsPathEmpty()) {
-        as_t local_as = ribout->local_as() ?:
+        as_t replace_as = ribout->local_as() ?:
                 attr->attr_db()->server()->local_autonomous_system();
         if (attr->as_path()) {
             const AsPathSpec &as_path = attr->as_path()->path();
-            if (local_as > AsPathSpec::kMaxPrivateAs) {
-                as2_t as_trans = AS_TRANS;
+            // If peer_as is > 0xffff, it can't be in as_path
+            if (ribout->peer_as() <= AsPathSpec::kMaxPrivateAs) {
+                if (replace_as > AsPathSpec::kMaxPrivateAs) {
+                    // if replace_as > 0xffff, as4_path should be created if
+                    // not already there by copying data from as_path
+                    if (!attr->as4_path()) {
+                        CreateAs4Path(attr);
+                    }
+                    replace_as = AS_TRANS;
+                }
                 AsPathSpec *as_path_ptr = as_path.Replace(
-                                                  ribout->peer_as(), as_trans);
+                                                 ribout->peer_as(), replace_as);
                 attr->set_as_path(as_path_ptr);
                 delete as_path_ptr;
-                PrependAsToAs4Path(attr, local_as);
-            } else {
-                AsPathSpec *as_path_ptr = as_path.Replace(
-                                                  ribout->peer_as(), local_as);
-                attr->set_as_path(as_path_ptr);
+            }
+            if (attr->as4_path()) {
+                As4PathSpec *as_path_ptr = attr->as4_path()->path().Replace(
+                                                 ribout->peer_as(), replace_as);
+                attr->set_as4_path(as_path_ptr);
                 delete as_path_ptr;
             }
         }
         if (attr->aspath_4byte()) {
             const AsPath4ByteSpec &as_path = attr->aspath_4byte()->path();
             AsPath4ByteSpec *as_path_ptr =
-                          as_path.Replace(ribout->peer_as(), local_as);
+                          as_path.Replace(ribout->peer_as(), replace_as);
             attr->set_aspath_4byte(as_path_ptr);
             delete as_path_ptr;
         }
@@ -393,9 +416,9 @@ void BgpTable::CreateAs4Path(BgpAttr *attr) const {
         for (size_t i = 0; i < as_path.path_segments.size(); i++) {
             As4PathSpec::PathSegment *ps4 = new As4PathSpec::PathSegment;
             AsPathSpec::PathSegment *ps = as_path.path_segments[i];
-            ps->path_segment_type = ps->path_segment_type;
-            for (size_t j = ps->path_segment.size(); j > 0; j--) {
-                as_t as = ps->path_segment[j-1];
+            ps4->path_segment_type = ps->path_segment_type;
+            for (size_t j = 0; j < ps->path_segment.size(); j++) {
+                as_t as = ps->path_segment[j];
                 ps4->path_segment.push_back(as);
             }
             new_as_path->path_segments.push_back(ps4);
@@ -404,68 +427,126 @@ void BgpTable::CreateAs4Path(BgpAttr *attr) const {
     }
 }
 
+// Check if aspath_4byte has any asn > 0xFFFF
+bool BgpTable::Has4ByteAsn(BgpAttr *attr) const {
+    if (!attr->aspath_4byte())
+        return false;
+    const AsPath4ByteSpec &as_path4 = attr->aspath_4byte()->path();
+    for (size_t i = 0; i < as_path4.path_segments.size(); ++i) {
+        AsPath4ByteSpec::PathSegment *ps4 = as_path4.path_segments[i];
+        for (size_t j = 0; j < ps4->path_segment.size(); ++j) {
+            if (ps4->path_segment[j] > AsPathSpec::kMaxPrivateAs)
+                return true;
+        }
+    }
+    return false;
+}
+
 // Create as_path (and as4_path) from as_path4byte
 void BgpTable::CreateAsPath2Byte(BgpAttr *attr) const {
     scoped_ptr<AsPathSpec> new_as_path(new AsPathSpec);
+    As4PathSpec *new_as4_path = NULL;
+    bool has_4byte_asn = Has4ByteAsn(attr);
+    if (has_4byte_asn)
+        new_as4_path = new As4PathSpec;
     if (attr->aspath_4byte()) {
         const AsPath4ByteSpec &as_path4 = attr->aspath_4byte()->path();
         for (size_t i = 0; i < as_path4.path_segments.size(); i++) {
             AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+            As4PathSpec::PathSegment *as4_ps = NULL;
             AsPath4ByteSpec::PathSegment *ps4 = as_path4.path_segments[i];
             ps->path_segment_type = ps4->path_segment_type;
-            for (size_t j = ps4->path_segment.size(); j > 0; j--) {
-                as_t as4 = ps4->path_segment[j-1];
+            if (has_4byte_asn) {
+                as4_ps = new As4PathSpec::PathSegment;
+                as4_ps->path_segment_type = ps4->path_segment_type;
+            }
+            for (size_t j = 0; j < ps4->path_segment.size(); ++j) {
+                as_t as4 = ps4->path_segment[j];
                 if (as4 > AsPathSpec::kMaxPrivateAs) {
                     as2_t as_trans = AS_TRANS;
                     ps->path_segment.push_back(as_trans);
-                    PrependAsToAs4Path(attr, as4);
                 } else {
                     ps->path_segment.push_back((as2_t)as4);
                 }
+                if (has_4byte_asn)
+                    as4_ps->path_segment.push_back(as4);
             }
             new_as_path->path_segments.push_back(ps);
+            if (has_4byte_asn)
+                new_as4_path->path_segments.push_back(as4_ps);
         }
+        attr->set_aspath_4byte(NULL);
     }
     attr->set_as_path(new_as_path.get());
-    attr->set_aspath_4byte(NULL);
+    if (has_4byte_asn)
+        attr->set_as4_path(new_as4_path);
 }
 
 // Create aspath_4byte by merging as_path and as4_path
 void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
+    int as2_count = attr->as_path_count();
+    int as4_count = attr->as4_path_count();
+    if (as2_count < as4_count)
+        return;
+    AsPath4ByteSpec::PathSegment *ps4 = NULL;
+    bool part_segment = false;
     scoped_ptr<AsPath4ByteSpec> aspath_4byte(new AsPath4ByteSpec);
     if (attr->as_path()) {
         const AsPathSpec &as_path = attr->as_path()->path();
-        if (attr->as4_path()) {
-            const As4PathSpec &as4_path = attr->as4_path()->path();
-            if (as_path.path_segments.size() < as4_path.path_segments.size())
-                return;
-            uint32_t as4_seg_index = 0;
-            for (size_t i = 0; i < as_path.path_segments.size(); i++) {
-                AsPath4ByteSpec::PathSegment *ps4 =
-                                      new AsPath4ByteSpec::PathSegment;
-                AsPathSpec::PathSegment *ps = as_path.path_segments[i];
-                ps4->path_segment_type = ps->path_segment_type;
-                uint32_t as4_index = 0;
-                bool as_trans_found = false;
-                for (size_t j = ps->path_segment.size(); j > 0; j--) {
-                    as2_t as = ps->path_segment[j-1];
-                    if (as != AS_TRANS)
-                        ps4->path_segment.push_back(as);
-                    else {
-                        as_trans_found = true;
-                        As4PathSpec::PathSegment *ps4 =
-                            as4_path.path_segments[as4_seg_index];
-                        if (as4_index >= ps4->path_segment.size())
-                            assert(0);
-                        as_t as4 = ps4->path_segment[as4_index++];
-                        ps4->path_segment.push_back(as4);
+        int new_as_count = 0;
+        for (size_t i = 0; i < as_path.path_segments.size() &&
+                    new_as_count < (as2_count - as4_count) ; ++i) {
+            ps4 = new AsPath4ByteSpec::PathSegment;
+            AsPathSpec::PathSegment *ps = as_path.path_segments[i];
+            ps4->path_segment_type = ps->path_segment_type;
+            if (ps->path_segment_type == AsPathSpec::PathSegment::AS_SET) {
+                new_as_count++;
+                for (size_t j = 0; j < ps->path_segment.size(); ++j) {
+                    as2_t as = ps->path_segment[j];
+                    ps4->path_segment.push_back(as);
+                }
+            } else {
+                for (size_t j = 0; j < ps->path_segment.size() &&
+                        new_as_count < (as2_count - as4_count); ++j) {
+                    new_as_count++;
+                    as2_t as = ps->path_segment[j];
+                    ps4->path_segment.push_back(as);
+                }
+                if (new_as_count == (as2_count - as4_count)) {
+                    if (attr->as4_path()) {
+                        part_segment = true;
+                        break;
                     }
                 }
-                if (as_trans_found)
-                    as4_seg_index++;
+            }
+            aspath_4byte->path_segments.push_back(ps4);
+        }
+        if (attr->as4_path()) {
+            const As4PathSpec &as4_path = attr->as4_path()->path();
+            for (size_t i = 0; i < as4_path.path_segments.size(); ++i) {
+                if (!part_segment) {
+                    ps4 = new AsPath4ByteSpec::PathSegment;
+                }
+                part_segment = false;
+                As4PathSpec::PathSegment *ps = as4_path.path_segments[i];
+                ps4->path_segment_type = ps->path_segment_type;
+                if (ps->path_segment_type == As4PathSpec::PathSegment::AS_SET) {
+                    new_as_count++;
+                    for (size_t j = 0; j < ps->path_segment.size(); ++j) {
+                        as2_t as = ps->path_segment[j];
+                        ps4->path_segment.push_back(as);
+                    }
+                } else {
+                    for (size_t j = 0; j < ps->path_segment.size(); ++j) {
+                        as_t as = ps->path_segment[j];
+                        ps4->path_segment.push_back(as);
+                    }
+                }
                 aspath_4byte->path_segments.push_back(ps4);
             }
+            attr->set_as4_path(NULL);
         }
+        attr->set_as_path(NULL);
     }
     scoped_ptr<AsPath4ByteSpec> as_path_spec(aspath_4byte->Add(local_as));
     attr->set_aspath_4byte(as_path_spec.get());

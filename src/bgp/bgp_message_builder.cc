@@ -77,20 +77,22 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
         update.path_attributes.push_back(clist);
     }
 
-    if (attr->as_path()) {
-        AsPathSpec *path = new AsPathSpec(attr->as_path()->path());
-        update.path_attributes.push_back(path);
-    }
 
-    if (attr->aspath_4byte()) {
-        AsPath4ByteSpec *path = new AsPath4ByteSpec(
+    if (ribout->as4_supported()) {
+        if (attr->aspath_4byte()) {
+            AsPath4ByteSpec *path = new AsPath4ByteSpec(
                                 attr->aspath_4byte()->path());
-        update.path_attributes.push_back(path);
-    }
-
-    if (attr->as4_path()) {
-        As4PathSpec *path = new As4PathSpec(attr->as4_path()->path());
-        update.path_attributes.push_back(path);
+            update.path_attributes.push_back(path);
+        }
+    } else {
+        if (attr->as_path()) {
+            AsPathSpec *path = new AsPathSpec(attr->as_path()->path());
+            update.path_attributes.push_back(path);
+        }
+        if (attr->as4_path()) {
+            As4PathSpec *path = new As4PathSpec(attr->as4_path()->path());
+            update.path_attributes.push_back(path);
+        }
     }
 
     if (attr->edge_discovery()) {
