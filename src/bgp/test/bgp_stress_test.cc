@@ -177,7 +177,7 @@ static string d_log_level_ = "SYS_DEBUG";
 static bool d_log_local_disable_ = false;
 static bool d_log_trace_enable_ = false;
 static bool d_log_disable_ = false;
-static bool d_no_verify_routes_ = false;
+static bool d_no_verify_routes_ = true;
 static bool d_no_agent_updates_processing_ = false;
 static bool d_no_agent_messages_processing_ = false;
 static float d_events_proportion_ = 0.0;
@@ -2107,6 +2107,7 @@ void BgpStressTest::AddBgpPeer(int peer_id, bool verify_state) {
         peer_servers_.resize(peer_id + 1, NULL);
     }
 
+            //server_->set_disable_4byte_as(true);
     if (!peer_servers_[peer_id]) {
         peer_servers_[peer_id] = new BgpServerTest(&evm_,
                                                    GetRouterName(peer_id));
