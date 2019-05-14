@@ -1,0 +1,2 @@
+auth_token: "{{playbook_input.auth_token}}"
+container_name: "{{playbook_input.input.container_name}}"
