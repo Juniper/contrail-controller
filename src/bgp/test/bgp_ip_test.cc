@@ -282,15 +282,27 @@ protected:
         BgpAttrOrigin origin_spec(BgpAttrOrigin::IGP);
         attr_spec.push_back(&origin_spec);
 
-        AsPath4ByteSpec path_spec;
-        AsPath4ByteSpec::PathSegment *path_seg =
+        AsPath4ByteSpec path4_spec;
+        AsPathSpec path_spec;
+        if (server->disable_4byte_as()) {
+            AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
+            path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+            path_seg->path_segment.push_back(64513);
+            path_seg->path_segment.push_back(64514);
+            path_seg->path_segment.push_back(64515);
+            path_spec.path_segments.push_back(path_seg);
+            attr_spec.push_back(&path_spec);
+        } else {
+            AsPath4ByteSpec::PathSegment *path_seg =
                             new AsPath4ByteSpec::PathSegment;
-        path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
-        path_seg->path_segment.push_back(64513);
-        path_seg->path_segment.push_back(64514);
-        path_seg->path_segment.push_back(64515);
-        path_spec.path_segments.push_back(path_seg);
-        attr_spec.push_back(&path_spec);
+            path_seg->path_segment_type =
+                            AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
+            path_seg->path_segment.push_back(64513);
+            path_seg->path_segment.push_back(64514);
+            path_seg->path_segment.push_back(64515);
+            path4_spec.path_segments.push_back(path_seg);
+            attr_spec.push_back(&path4_spec);
+        }
 
         IpAddress nh_addr = IpAddress::from_string(nexthop_str, ec);
         EXPECT_FALSE(ec);

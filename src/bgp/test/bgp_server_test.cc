@@ -915,11 +915,11 @@ TEST_P(BgpServerUnitTest, ChangeLocalAsNumber1) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               BgpConfigManager::kDefaultAutonomousSystem + 101,
-               BgpConfigManager::kDefaultAutonomousSystem + 101);
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff,
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
     VerifyPeers(peer_count, 0,
-                BgpConfigManager::kDefaultAutonomousSystem + 101,
-                BgpConfigManager::kDefaultAutonomousSystem + 101);
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff,
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
 
     //
     // Make sure that the peers did flap
@@ -973,10 +973,10 @@ TEST_P(BgpServerUnitTest, ChangeLocalAsNumber2) {
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 100,
-               BgpConfigManager::kDefaultAutonomousSystem + 101);
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 100,
-                BgpConfigManager::kDefaultAutonomousSystem + 101);
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
 
     //
     // Make sure that the peers did flap
@@ -1001,10 +1001,10 @@ TEST_P(BgpServerUnitTest, ChangeLocalAsNumber3) {
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 100,
-               BgpConfigManager::kDefaultAutonomousSystem + 101);
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 100,
-                BgpConfigManager::kDefaultAutonomousSystem + 101);
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;

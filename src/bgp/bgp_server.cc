@@ -102,6 +102,12 @@ public:
                 new_config->gr_bgp_helper());
             clear_peers = true;
         }
+        if (server_->global_config()->disable_4byte_as() !=
+                new_config->disable_4byte_as()) {
+            server_->global_config()->set_disable_4byte_as(
+                new_config->disable_4byte_as());
+            clear_peers = true;
+        }
 
         // Clear peers if there's a change in always-compare-med knob.
         if (server_->global_config()->always_compare_med() !=
@@ -461,7 +467,7 @@ BgpServer::BgpServer(EventManager *evm)
       destroyed_(false),
       logging_disabled_(false),
       mvpn_ipv4_enable_(false),
-      disable_4byte_as_(false),
+      disable_4byte_as_(true),
       ignore_aspath_(false),
       aspath_db_(new AsPathDB(this)),
       aspath_4byte_db_(new AsPath4ByteDB(this)),

@@ -136,6 +136,42 @@ AsPathSpec *AsPathSpec::Add(as2_t asn) const {
 // Create a new AsPathSpec by prepending the given vector of asns at the
 // beginning.
 //
+AsPathSpec *AsPathSpec::Add(const vector<as_t> &asn_list) const {
+    AsPathSpec *new_spec = new AsPathSpec;
+    PathSegment *ps = new PathSegment;
+    ps->path_segment_type = PathSegment::AS_SEQUENCE;
+    for (vector<as_t>::const_iterator it = asn_list.begin(); it != asn_list.end();
+                     it++) {
+        ps->path_segment.push_back((as2_t)(*it));
+    }
+    //ps->path_segment = asn_list;
+    size_t first = 0;
+    size_t last = path_segments.size();
+    if (last &&
+        path_segments[0]->path_segment_type == PathSegment::AS_SEQUENCE &&
+        path_segments[0]->path_segment.size() + asn_list.size() <= 255) {
+        copy(path_segments[0]->path_segment.begin(),
+             path_segments[0]->path_segment.end(),
+             back_inserter(ps->path_segment));
+        new_spec->path_segments.push_back(ps);
+        first++;
+    } else {
+        new_spec->path_segments.push_back(ps);
+    }
+    if (first == last)
+        return new_spec;
+    for (size_t idx = first; idx < last; ++idx) {
+        PathSegment *ps = new PathSegment;
+        *ps = *path_segments[idx];
+        new_spec->path_segments.push_back(ps);
+    }
+    return new_spec;
+}
+
+//
+// Create a new AsPathSpec by prepending the given vector of asns at the
+// beginning.
+//
 AsPathSpec *AsPathSpec::Add(const vector<as2_t> &asn_list) const {
     AsPathSpec *new_spec = new AsPathSpec;
     PathSegment *ps = new PathSegment;
