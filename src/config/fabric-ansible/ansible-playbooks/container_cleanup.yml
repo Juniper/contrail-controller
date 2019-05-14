@@ -1,0 +1,25 @@
+- name: Container Cleanup
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - container_cleanup_role
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Container cleanup successful",
+              "results":
+                  {
+                    "msg": "Container cleanup successful"
+                  }
+          }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1
+
