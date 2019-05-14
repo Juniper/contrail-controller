@@ -2078,6 +2078,11 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    if (data_.disable_4byte_as() != system->disable_4byte_as()) {
+        data_.set_disable_4byte_as(system->disable_4byte_as());
+        changed |= true;
+    }
+
     if (data_.always_compare_med() != system->bgp_always_compare_med()) {
         data_.set_always_compare_med(system->bgp_always_compare_med());
         changed |= true;
