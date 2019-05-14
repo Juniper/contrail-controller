@@ -50,6 +50,7 @@ local_sources = [
     'hitless_upgrade_strategy.yml',
     'maintenance_mode_activate.yml',
     'maintenance_mode_deactivate.yml',
+    'container_cleanup.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
