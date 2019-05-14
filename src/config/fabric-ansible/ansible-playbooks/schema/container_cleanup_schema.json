@@ -1,0 +1,46 @@
+{
+   "input_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Container cleanup input",
+      "type":"object",
+      "required":["fabric_fq_name","container_name"],
+      "properties":{
+         "container_name":{
+            "type":"string"
+         },
+         "fabric_fq_name": {
+            "type": "array",
+            "items": {
+               "type": "string"
+        }
+      }
+      }
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Container cleanup output",
+      "type":"object",
+      "properties":{
+         "status":{
+            "type":"string",
+            "enum":[
+               "Success",
+               "Failure",
+               "Timeout"
+            ],
+            "description":"Result status of the job"
+         },
+         "message":{
+            "type":"string",
+            "description":"Should capture a summarized error message in case of Failures."
+         },
+         "results":{
+            "type":"object",
+            "description":"JSON object holding the job specific output details"
+         }
+      },
+      "required":[
+         "status"
+      ]
+   }
+}
