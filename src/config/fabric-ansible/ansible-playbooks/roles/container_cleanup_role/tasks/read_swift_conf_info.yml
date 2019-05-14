@@ -1,0 +1,39 @@
+- name: Read swift config from swift_conf.ini file
+  block:
+    - set_fact:
+        keystone_conf_path: "{{ lookup('ini', 'keystone_conf_path section=DEFAULT file=conf/swift_conf.ini default=/etc/contrail/contrail-keystone-auth.conf') }}"
+        temp_url_key: "{{ lookup('ini', 'temp_url_key section=DEFAULT file=conf/swift_conf.ini default=mykey') }}"
+        temp_url_key_2: "{{ lookup('ini', 'temp_url_key_2 section=DEFAULT file=conf/swift_conf.ini default=mykey2') }}"
+        chosen_temp_url_key: "{{ lookup('ini', 'chosen_temp_url_key section=DEFAULT file=conf/swift_conf.ini default=temp_url_key') }}"
+      register: swift_info
+  rescue:
+    - include_tasks: error_handler.yml
+      vars:
+        op_err_message: "Error reading swift conf file: {{swift_info.msg}}"
+        results: |
+          {
+            "msg": "Error reading swift conf file."
+          }
+        jl_err_message: "Error reading swift conf file: {{swift_info.msg}}"
+
+- name: Read keystone config from contrail-keystone-auth.conf file
+  block:
+    - set_fact:
+        auth_url: "{{ lookup('ini', 'auth_url section=KEYSTONE file='+keystone_conf_path) }}"
+        keystoneip: "{{ lookup('ini', 'auth_host section=KEYSTONE file='+keystone_conf_path) }}"
+        user: "{{ lookup('ini', 'admin_user section=KEYSTONE file='+keystone_conf_path) }}"
+        key: "{{ lookup('ini', 'admin_password section=KEYSTONE file='+keystone_conf_path) }}"
+        tenant_name: "{{ lookup('ini', 'admin_tenant_name section=KEYSTONE default=admin file='+keystone_conf_path) }}"
+      register: keystone_info
+  rescue:
+    - include_tasks: error_handler.yml
+      vars:
+        op_err_message: "Error reading keystone conf file {{keystone_info.msg}}"
+        results: |
+          {
+            "msg": "Error reading keystone_info file."
+          }
+        jl_err_message: "Error reading keystone conf file: {{keystone_info.msg}}"
+
+- set_fact:
+    auth_version: "{{auth_url.split('/')[-1].replace('v','')}}"
