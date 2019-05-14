@@ -646,6 +646,27 @@ class SanityBase(object):
                                             prouter_name_list=prouter_name_list)
     #end image_upgrade_maintenance_mode
 
+    def container_cleanup(self, fabric_fq_name,container_name):
+        job_template_fq_name = [
+            'default-global-system-config',
+            'container_cleanup_template']
+        job_execution_info = self._api.execute_job(
+            job_template_fq_name=job_template_fq_name,
+            job_input={
+                'fabric_fq_name': fabric_fq_name,
+                'container_name': container_name
+            })
+        job_execution_id = job_execution_info.get('job_execution_id')
+        self._logger.info(
+            "Container cleanup job started with execution id: %s",
+            job_execution_id)
+        self._wait_and_display_job_progress('Container cleanup',
+                                            job_execution_id,
+                                            fabric_fq_name,
+                                            job_template_fq_name)
+    #end container_cleanup
+
+
     def activate_maintenance_mode(self, device_uuid, mode,
                                   fabric, advanced_parameters,
                                   prouter_name_list):
