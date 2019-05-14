@@ -122,6 +122,7 @@ public:
     void CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const;
     void CreateAsPath2Byte(BgpAttr *attr) const;
     void CreateAs4Path(BgpAttr *attr) const;
+    bool Has4ByteAsn(BgpAttr *attr) const;
     void PrependAsToAsPath4Byte(BgpAttr *attr, as_t asn) const;
     void PrependAsToAsPath2Byte(BgpAttr *attr, as_t asn) const;
     void PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const;
