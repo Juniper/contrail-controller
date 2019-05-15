@@ -33,7 +33,7 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    cassandra_version = '2.1.9'
+    cassandra_version = '2.2.12'
     cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
     if not os.path.exists(cassandra_bdir):
@@ -84,7 +84,8 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
         (cport, cqlport, thriftport))
 
     replace_string_(confdir + "cassandra.yaml", \
-        [("rpc_port: 9160","rpc_port: " + str(thriftport)), \
+        [("start_rpc: false", "start_rpc: true"), \
+        ("rpc_port: 9160","rpc_port: " + str(thriftport)), \
         ("storage_port: 7000","storage_port: " + str(sport)),
         ("native_transport_port: 9042","native_transport_port: " + str(cqlport))])
 
