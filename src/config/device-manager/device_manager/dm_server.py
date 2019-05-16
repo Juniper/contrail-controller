@@ -22,6 +22,7 @@ from device_manager import DeviceManager
 from device_ztp_manager import DeviceZtpManager
 from dm_amqp import DMAmqpHandle
 from dm_server_args import parse_args
+from fabric_manager import FabricManager
 from logger import DeviceManagerLogger
 
 
@@ -64,8 +65,10 @@ def run_device_manager(dm_logger, args):
 
     dm_logger.notice("Elected master Device Manager node. Initializing... ")
     dm_logger.introspect_init()
+    FabricManager.initialize(args, dm_logger)
     DeviceZtpManager.get_instance().set_active()
-    DeviceManager(dm_logger, args, _zookeeper_client, _amqp_client)
+    vnc_api = FabricManager.get_instance()._vnc_api
+    DeviceManager(vnc_api, dm_logger, args, _zookeeper_client, _amqp_client)
     if _amqp_client._consumer_gl is not None:
         gevent.joinall([_amqp_client._consumer_gl])
 # end run_device_manager

@@ -159,6 +159,7 @@ class JobAnnotations(object):
         job_template_obj = self.vncapi.job_template_read(
             fq_name=job_template_fqname)
         input_schema = job_template_obj.get_job_template_input_schema()
+        input_schema = json.loads(input_schema)
         return self._generate_default_schema_json(input_schema)
     # end _generate_default_json
 

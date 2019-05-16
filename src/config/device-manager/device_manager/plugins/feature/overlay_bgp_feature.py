@@ -16,7 +16,7 @@ class OverlayBgpFeature(FeatureBase):
 
     @classmethod
     def feature_name(cls):
-        return 'overlay_bgp'
+        return 'overlay-bgp'
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):

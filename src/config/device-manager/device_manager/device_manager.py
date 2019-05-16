@@ -10,20 +10,13 @@ import gevent
 # Import kazoo.client before monkey patching
 from gevent import monkey
 monkey.patch_all()
-import requests
 import ConfigParser
-import time
 import hashlib
 import signal
 import random
 import traceback
 
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
-from vnc_api.vnc_api import VncApi
 from db import DMCassandraDB
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
@@ -269,9 +262,10 @@ class DeviceManager(object):
 
     _instance = None
 
-    def __init__(self, dm_logger=None, args=None, zookeeper_client=None,
-                 amqp_client=None):
+    def __init__(self, vnc_lib, dm_logger=None, args=None,
+                 zookeeper_client=None, amqp_client=None):
         DeviceManager._instance = self
+        self._vnc_lib = vnc_lib
         self._args = args
         self._amqp_client = amqp_client
         self.logger = dm_logger or DeviceManagerLogger(args)
@@ -325,26 +319,6 @@ class DeviceManager(object):
                 "Internal error while registering feature plugins: " +
                 str(e) + tb)
             raise e
-
-        # Retry till API server is up
-        connected = False
-        self.connection_state_update(ConnectionStatus.INIT)
-        api_server_list = args.api_server_ip.split(',')
-        while not connected:
-            try:
-                self._vnc_lib = VncApi(
-                    args.admin_user, args.admin_password,
-                    args.admin_tenant_name, api_server_list,
-                    args.api_server_port,
-                    api_server_use_ssl=args.api_server_use_ssl)
-                connected = True
-                self.connection_state_update(ConnectionStatus.UP)
-            except requests.exceptions.ConnectionError as e:
-                # Update connection info
-                self.connection_state_update(ConnectionStatus.DOWN, str(e))
-                time.sleep(3)
-            except ResourceExhaustionError:  # haproxy throws 503
-                time.sleep(3)
 
         # Initialize amqp
         self._vnc_amqp.establish()
@@ -464,15 +438,6 @@ class DeviceManager(object):
         DMCassandraDB.clear_instance()
         cls._instance = None
     # end destroy_instance
-
-    def connection_state_update(self, status, message=None):
-        ConnectionState.update(
-            conn_type=ConnType.APISERVER, name='ApiServer',
-            status=status, 
-            message=message or 'ApiServer Connection State updated',
-            server_addrs=['%s:%s' % (self._args.api_server_ip,
-                                     self._args.api_server_port)])
-    # end connection_state_update
 
     # sighup handler for applying new configs
     def sighup_handler(self):

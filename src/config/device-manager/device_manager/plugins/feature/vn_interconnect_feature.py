@@ -16,7 +16,7 @@ class VnInterconnectFeature(FeatureBase):
 
     @classmethod
     def feature_name(cls):
-        return 'vn_interconnect'
+        return 'vn-interconnect'
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
