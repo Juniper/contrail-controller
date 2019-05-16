@@ -632,7 +632,8 @@ class PhysicalRouterDM(DBBaseDM):
             if ip_addr:
                 return ip_addr[0]  # ip_alloc default ip count is 1
         except Exception as e:
-            self._logger.error("Exception: %s" % (str(e)))
+            tb = traceback.format_exc()
+            self._logger.error("Exception: " + str(e) + tb)
             return None
     # end
 
@@ -645,7 +646,8 @@ class PhysicalRouterDM(DBBaseDM):
                 vn, [ip_addr])
             return True
         except Exception as e:
-            self._logger.error("Exception: %s" % (str(e)))
+            tb = traceback.format_exc()
+            self._logger.error("Exception: " + str(e) + tb)
             return False
     # end
 

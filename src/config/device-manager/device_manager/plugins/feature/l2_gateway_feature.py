@@ -17,7 +17,7 @@ class L2GatewayFeature(FeatureBase):
 
     @classmethod
     def feature_name(cls):
-        return 'l2_gateway'
+        return 'l2-gateway'
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):

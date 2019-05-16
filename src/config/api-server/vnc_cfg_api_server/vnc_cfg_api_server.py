@@ -447,13 +447,6 @@ class VncApiServer(object):
             self.config_log("Entered execute-job",
                             level=SandeshLevel.SYS_INFO)
 
-            # check if the job manager functionality is enabled
-            if not self._args.enable_fabric_ansible:
-                err_msg = "Fabric ansible job manager is disabled. " \
-                          "Please enable it by setting the " \
-                          "'enable_fabric_ansible' to True in the conf file"
-                raise cfgm_common.exceptions.HttpError(405, err_msg)
-
             request_params = get_request().json
             msg = "Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -3535,10 +3528,6 @@ class VncApiServer(object):
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
 
-        #Load init data for job playbooks like JobTemplates, Tags, etc
-        if self._args.enable_fabric_ansible:
-            self._load_init_data()
-
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
         fq_name = ['default-domain', 'default-project', 'default-network-ipam']
@@ -3549,133 +3538,6 @@ class VncApiServer(object):
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
 
     # end _db_init_entries
-
-    # Load init data for job playbooks like JobTemplates, Tags, etc
-    def _load_init_data(self):
-        """
-        This function loads init data from a data file specified by the
-        argument '--fabric_ansible_dir' to the database. The data file
-        must be in JSON format and follow the format below:
-        {
-          "data": [
-            {
-              "object_type": "<vnc object type name>",
-              "objects": [
-                {
-                  <vnc object payload>
-                },
-                ...
-              ]
-            },
-            ...
-          ]
-        }
-
-        Here is an example:
-        {
-          "data": [
-            {
-              "object_type": "tag",
-              "objects": [
-                {
-                  "fq_name": [
-                    "fabric=management_ip"
-                  ],
-                  "name": "fabric=management_ip",
-                  "tag_type_name": "fabric",
-                  "tag_value": "management_ip"
-                }
-              ]
-            }
-          ]
-        }
-        """
-        try:
-            json_data = self._load_json_data()
-            if json_data is None:
-                msg = 'unable to load init data'
-                self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-                return
-
-            for item in json_data.get("data"):
-                object_type = item.get("object_type")
-
-                # Get the class name from object type
-                cls_name = cfgm_common.utils.CamelCase(object_type)
-
-                # Get the class object
-                cls_ob = cfgm_common.utils.str_to_class(cls_name, __name__)
-
-                # saving the objects to the database
-                for obj in item.get("objects"):
-                    instance_obj = cls_ob.from_dict(**obj)
-                    self.create_singleton_entry(instance_obj)
-
-                    # update the objects if it already exists
-                    fq_name = instance_obj.get_fq_name()
-                    uuid = self._db_conn.fq_name_to_uuid(
-                        object_type.replace('-', '_'), fq_name)
-                    self._db_conn.dbe_update(object_type, uuid, obj)
-
-            for item in json_data.get("refs"):
-                from_type = item.get("from_type")
-                from_fq_name = item.get("from_fq_name")
-                from_uuid = self._db_conn._object_db.fq_name_to_uuid(
-                    from_type, from_fq_name
-                )
-
-                to_type = item.get("to_type")
-                to_fq_name = item.get("to_fq_name")
-                to_uuid = self._db_conn._object_db.fq_name_to_uuid(
-                    to_type, to_fq_name
-                )
-
-                ok, result = self._db_conn.ref_update(
-                    from_type,
-                    from_uuid,
-                    to_type,
-                    to_uuid,
-                    { 'attr': None },
-                    'ADD',
-                    None,
-                )
-        except Exception as e:
-            err_msg = 'error while loading init data: %s\n' % str(e)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
-    # end Load init data
-
-    # Load json data from fabric_ansible_playbooks/conf directory
-    def _load_json_data(self):
-        json_file = self._args.fabric_ansible_dir + '/conf/predef_payloads.json'
-        if not os.path.exists(json_file):
-            msg = 'predef payloads file does not exist: %s' % json_file
-            self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-            return None
-
-        # open the json file
-        with open(json_file) as data_file:
-            input_json = json.load(data_file)
-
-        # Loop through the json
-        for item in input_json.get("data"):
-            if item.get("object_type") == "job-template":
-                for object in item.get("objects"):
-                    fq_name = object.get("fq_name")[-1]
-                    schema_name = fq_name.replace('template', 'schema.json')
-                    with open(os.path.join(self._args.fabric_ansible_dir +
-                            '/schema/', schema_name), 'r+') as schema_file:
-                        schema_json = json.load(schema_file)
-                        object["job_template_input_schema"] = schema_json.get(
-                            "input_schema")
-                        object["job_template_output_schema"] = schema_json.get(
-                            "output_schema")
-                        object["job_template_input_ui_schema"] = schema_json.get(
-                            "input_ui_schema")
-                        object["job_template_output_ui_schema"] = schema_json.get(
-                            "output_ui_schema")
-        return input_json
-    # end load json data
 
     # generate default rbac group rule
     def _create_default_rbac_rule(self):

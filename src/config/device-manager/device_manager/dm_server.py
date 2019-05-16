@@ -66,6 +66,7 @@ def run_device_manager(dm_logger, args):
     dm_logger.introspect_init()
     DeviceZtpManager.get_instance().set_active()
     DeviceManager(dm_logger, args, _zookeeper_client, _amqp_client)
+
     if _amqp_client._consumer_gl is not None:
         gevent.joinall([_amqp_client._consumer_gl])
 # end run_device_manager

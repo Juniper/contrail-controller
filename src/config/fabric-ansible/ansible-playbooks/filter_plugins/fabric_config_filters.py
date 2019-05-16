@@ -38,6 +38,8 @@ class FilterModule(object):
             group_vars = yaml.load(f)
         role_to_feature_mapping = group_vars['role_to_feature_mapping']
         self.role_to_feature_mapping = dict((k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
+        feature_based_plugin_roles = group_vars['feature_based_plugin_roles']
+        self.feature_based_plugin_roles = set([r.lower() for r in feature_based_plugin_roles])
 
     # Load the abstract config
     def _load_abstract_config(self):
@@ -94,15 +96,18 @@ class FilterModule(object):
     # Get the union of all features from all assigned routing-bridging roles
     def _get_feature_list(self):
         dev_feature_list = set()
+        feature_based_list = set()
         for rb_role in self.device_rb_roles:
             role = rb_role.lower() + '@' + self.device_phy_role.lower()
             role_features = self.role_to_feature_mapping.get(role, [])
             dev_feature_list |= set(role_features)
+            if role in self.feature_based_plugin_roles:
+                feature_based_list |= set(role_features)
         self.dev_feature_list = list(dev_feature_list)
+        self.feature_based_list = list(feature_based_list)
 
     # Get all jinja templates for this feature for this model
-    def _get_feature_templates(self, feature):
-        feature_template_dir = './roles/cfg_' + feature + '/templates'
+    def _get_feature_templates(self, feature_template_dir, feature):
         template_list = os.listdir(feature_template_dir)
         feature_template_list = []
 
@@ -171,7 +176,8 @@ class FilterModule(object):
         feature_list.sort()
         # Loop through all the features
         for feature in feature_list:
-            feature_template_list = self._get_feature_templates(feature)
+            feature_template_dir = './roles/cfg_' + feature + '/templates'
+            feature_template_list = self._get_feature_templates(feature_template_dir, feature)
             # If feature not supported on this platform, skip
             if not feature_template_list:
                 continue
@@ -185,6 +191,7 @@ class FilterModule(object):
                     feature, feature_template,
                     False if feature in self.dev_feature_list else True
             )
+        self._render_feature_based_config()
         # Write to config file which will be sent to device
         with open(self.combined_config_path, 'w') as f:
             f.write(self.final_config)
@@ -204,6 +211,32 @@ class FilterModule(object):
             'status': "success"
         }
         return render_output
+
+    def _render_feature_based_config(self):
+        if 'features' not in self.abstract_config or not self.feature_based_list:
+            return
+        config_template_list = os.listdir('./config_templates')
+        config_template_list.sort()
+        # Loop through all the features
+        for feature in config_template_list:
+            if feature not in self.feature_based_list:
+                continue
+            config_template_dir = './config_templates/' + feature + '/'
+            feature_template_list = self._get_feature_templates(config_template_dir, feature)
+            # If feature not supported on this platform, skip
+            if not feature_template_list:
+                continue
+            # If not managing underlay for this feature, skip
+            if 'underlay' in feature and not self.manage_underlay:
+                continue
+            # For each feature template, including model-specific templates,
+            # render the jinja template
+            for feature_template in feature_template_list:
+                self._render_feature_config(
+                    feature, feature_template,
+                    False
+            )
+    # end _render_feature_based_config
 
     def render_fabric_config(self, job_ctx):
         try:
