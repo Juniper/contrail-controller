@@ -89,8 +89,6 @@ def parse_args(args_str):
         'debug_object_cache_types': '', # csv of object types to debug cache
         'db_engine': 'cassandra',
         'max_request_size': 1024000,
-        'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
-        'enable_fabric_ansible': True,
         'amqp_timeout': 660,
         'config_api_ssl_enable': False,
         'config_api_ssl_keyfile': '',
@@ -304,11 +302,6 @@ def parse_args(args_str):
         help="Database engine to use, default cassandra")
     parser.add_argument("--max_request_size", type=int,
             help="Maximum size of bottle requests served by api server")
-    parser.add_argument("--fabric_ansible_dir",
-        help="Fabric ansible directory path")
-    parser.add_argument("--enable_fabric_ansible",
-                        help="Enables/disables execute-job api and the initial"
-                             "data loading for the job manager.")
     parser.add_argument("--amqp_timeout", help="Timeout for amqp request")
     SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)

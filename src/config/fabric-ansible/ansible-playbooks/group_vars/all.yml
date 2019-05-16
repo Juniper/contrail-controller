@@ -237,6 +237,9 @@ role_to_feature_mapping:
     - overlay_pim
     - overlay_service_chain
 
+feature_based_plugin_roles:
+  - ERB-UCAST-Gateway@leaf
+
 DEVICE_FACTS_TIMEOUT: 120
 DEVICE_COMMAND_TIMEOUT: 600
 

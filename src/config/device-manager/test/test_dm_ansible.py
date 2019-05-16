@@ -24,9 +24,9 @@ class TestAnsibleDM(TestAnsibleCommonDM):
     # end check_dm_ansible_config_push
 
     def test_dm_ansible_config_push(self):
-        fabric = self.create_fabric('test_fabric')
         jt = self.create_job_template('job-template-1')
-        np, _ = self.create_node_profile('node-profile-1',
+        fabric = self.create_fabric('test_fabric')
+        np, rc = self.create_node_profile('node-profile-1',
             device_family='junos-qfx', job_template=jt)
         _, pr = self.create_router('router' + self.id(), '1.1.1.1',
                                    role='leaf', ignore_bgp=True, fabric=fabric,
@@ -37,6 +37,11 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         pr_fq = pr.get_fq_name()
         self.delete_routers(None, pr)
         self.wait_for_routers_delete(None, pr_fq)
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
     # end test_dm_ansible_config_push
 
     def test_erb_config_push(self):
@@ -74,7 +79,7 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         vn1_obj = self.create_vn('1', '1.1.1.0')
         vn2_obj = self.create_vn('2', '2.2.2.0')
 
-        _, pr = self.create_router('router' + self.id(), '1.1.1.1',
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1',
             product='qfx5110', family='junos-qfx',
             role='leaf', rb_roles=['erb-ucast-gateway'],
             physical_role=self.physical_roles['leaf'],
@@ -112,6 +117,9 @@ class TestAnsibleDM(TestAnsibleCommonDM):
 
         self._vnc_lib.logical_router_delete(fq_name=lr.get_fq_name())
 
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi3.get_fq_name())
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi4.get_fq_name())
+
         self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
         self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
         self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
@@ -122,6 +130,16 @@ class TestAnsibleDM(TestAnsibleCommonDM):
 
         self.delete_routers(None, pr)
         self.wait_for_routers_delete(None, pr.get_fq_name())
+        self._vnc_lib.bgp_router_delete(fq_name=bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
         self.delete_role_definitions()
         self.delete_overlay_roles()
         self.delete_physical_roles()

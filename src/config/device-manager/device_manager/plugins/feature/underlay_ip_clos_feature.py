@@ -16,7 +16,7 @@ class UnderlayIpClosFeature(FeatureBase):
 
     @classmethod
     def feature_name(cls):
-        return 'underlay_ip_clos'
+        return 'underlay-ip-clos'
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
