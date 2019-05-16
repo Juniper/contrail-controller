@@ -172,6 +172,9 @@ public:
     bool IsActive() { return (state_ != TEMP && !IsDeleted()); }
 
     void set_del_add_pending(bool pending) {del_add_pending_ = pending;}
+    void RecordTransition(KSyncState from, KSyncState to, KSyncEvent event) {
+        t_history_.RecordTransition(from, to, event);
+    }
 
 protected:
     void SetIndex(size_t index) {index_ = index;};
@@ -197,6 +200,35 @@ private:
     // this is set to true when Delete Add operation cannot go
     // through as entry is waiting of Ack for previous operation
     bool                del_add_pending_;
+
+    struct KSyncEntryTransition {
+            KSyncState from_;
+            KSyncState to_;
+            KSyncEvent event_;
+    };
+    class KSyncEntryTransHistory {
+        public:
+            KSyncEntryTransHistory() {
+                idx_ = 0;
+                for (int i = 0; i < size_; i++) {
+                    history_[i].event_ = INVALID;
+                }
+            }
+
+            void RecordTransition(KSyncState from, KSyncState to,
+                                   KSyncEvent event) {
+                history_[idx_].from_ = from;
+                history_[idx_].to_ = to;
+                history_[idx_].event_ = event;
+                idx_ = (idx_+1) % size_;
+            }
+        private:
+            static const int size_ = 5;
+            int idx_;
+            struct KSyncEntryTransition history_[size_];
+    };
+    KSyncEntryTransHistory t_history_;
+
     DISALLOW_COPY_AND_ASSIGN(KSyncEntry);
 };
 
