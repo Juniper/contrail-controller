@@ -928,12 +928,8 @@ void VnTable::DelVn(const uuid &vn_uuid) {
 void VnTable::UpdateHostRoute(const IpAddress &old_address, 
                               const IpAddress &new_address,
                               VnEntry *vn, bool policy) {
-    VrfEntry *vrf = vn->GetVrf();
-
-    if (vrf && (vrf->GetName() != agent()->linklocal_vrf_name())) {
-        AddHostRoute(vn, new_address, policy);
-        DelHostRoute(vn, old_address);
-    }
+    AddHostRoute(vn, new_address, policy);
+    DelHostRoute(vn, old_address);
 }
 
 // Check the old and new Ipam data and update receive routes for GW addresses
@@ -969,15 +965,34 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 // If gateway is changed then take appropriate actions.
                 IpAddress unspecified;
                 bool policy = (agent()->tsn_enabled()) ? false : true;
-                if (gateway_changed) {
-                    if (IsGwHostRouteRequired()) {
-                        UpdateHostRoute((*it_old).default_gw,
-                                        (*it_new).default_gw, vn, policy);
+                // CEM-4646:don't delete route if is used by DNS/GW
+                // Update: GW changed?NO, DNS changed?YES
+                // action: check if old DNS address is same as GW address
+                // Update: GW changed?YES, DNS changed?NO
+                // action: check if old GW address is same as DNS address
+                // Update: GW changed?YES, DNS changed?YES
+                // action: check if new DNS server address is same as old GW address
+                VrfEntry *vrf = vn->GetVrf();
+
+                if (vrf && (vrf->GetName() != agent()->linklocal_vrf_name())) {
+                    if (gateway_changed) {
+                        if (IsGwHostRouteRequired()) {
+                            if ((*it_old).default_gw != (*it_new).dns_server) {
+                                UpdateHostRoute((*it_old).default_gw,
+                                            (*it_new).default_gw, vn, policy);
+                            } else {
+                                AddHostRoute(vn, (*it_new).default_gw, policy);
+                            }
+                        }
                     }
-                }
-                if (service_address_changed) {
-                    UpdateHostRoute((*it_old).dns_server,
-                                    (*it_new).dns_server, vn, policy);
+                    if (service_address_changed) {
+                        if ((*it_old).dns_server != (*it_new).default_gw) {
+                            UpdateHostRoute((*it_old).dns_server,
+                                        (*it_new).dns_server, vn, policy);
+                        } else {
+                            AddHostRoute(vn, (*it_new).dns_server, policy);
+                        }
+                    }
                 }
             } else {
                 AddIPAMRoutes(vn, *it_new);
