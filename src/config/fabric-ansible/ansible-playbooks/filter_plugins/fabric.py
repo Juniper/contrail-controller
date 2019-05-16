@@ -215,6 +215,7 @@ class FilterModule(object):
             fq_name=job_template_fqname
         )
         input_schema = fabric_onboard_template.get_job_template_input_schema()
+        input_schema = json.loads(input_schema)
         jsonschema.validate(job_input, input_schema)
 
         # make sure there is management subnets are not overlapping with

@@ -119,6 +119,7 @@ class FilterModule(object):
             fq_name=job_template_fqname
         )
         input_schema = node_profile_template.get_job_template_input_schema()
+        input_schema = json.loads(input_schema)
         jsonschema.validate(job_input, input_schema)
         return job_input
 

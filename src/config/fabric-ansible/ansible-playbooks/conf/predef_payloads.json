@@ -1025,33 +1025,33 @@
       "objects": [
         {
           "fq_name": [
-            "default-global-system-config", "underlay_ip_clos"
+            "default-global-system-config", "underlay-ip-clos"
           ],
-          "name": "underlay_ip_clos"
+          "name": "underlay-ip-clos"
         },
         {
           "fq_name": [
-            "default-global-system-config", "overlay_bgp"
+            "default-global-system-config", "overlay-bgp"
           ],
-          "name": "overlay_bgp"
+          "name": "overlay-bgp"
         },
         {
           "fq_name": [
-            "default-global-system-config", "l2_gateway"
+            "default-global-system-config", "l2-gateway"
           ],
-          "name": "l2_gateway"
+          "name": "l2-gateway"
         },
         {
           "fq_name": [
-            "default-global-system-config", "l3_gateway"
+            "default-global-system-config", "l3-gateway"
           ],
-          "name": "l3_gateway"
+          "name": "l3-gateway"
         },
         {
           "fq_name": [
-            "default-global-system-config", "vn_interconnect"
+            "default-global-system-config", "vn-interconnect"
           ],
-          "name": "vn_interconnect"
+          "name": "vn-interconnect"
         }
       ]
     },
@@ -1094,7 +1094,7 @@
       "objects": [
         {
           "fq_name": [
-            "default-global-system-config", "erb_leaf"
+            "default-global-system-config", "erb-leaf"
           ],
           "name": "erb@leaf"
         }
@@ -1105,9 +1105,9 @@
       "objects": [
         {
           "fq_name": [
-            "default-global-system-config", "erb_leaf", "l3_gateway"
+            "default-global-system-config", "erb-leaf", "l3-gateway"
           ],
-          "name": "l3_gateway",
+          "name": "l3-gateway",
           "parent_type": "role-definition",
           "feature_config_additional_params": {
             "key_value_pair": [
@@ -1256,13 +1256,7 @@
           ],
           "name": "basic",
           "parent_type": "node-profile",
-          "role_config_config": {
-            "snmp": {
-              "communities": [
-                { "name": "public", "readonly": true }
-              ]
-            }
-          }
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
         },
         {
           "fq_name": [
@@ -1270,13 +1264,7 @@
           ],
           "name": "basic",
           "parent_type": "node-profile",
-          "role_config_config": {
-            "snmp": {
-              "communities": [
-                { "name": "public", "readonly": true }
-              ]
-            }
-          }
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
         },
         {
           "fq_name": [
@@ -1284,13 +1272,7 @@
           ],
           "name": "basic",
           "parent_type": "node-profile",
-          "role_config_config": {
-            "snmp": {
-              "communities": [
-                { "name": "public", "readonly": true }
-              ]
-            }
-          }
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
         },
         {
           "fq_name": [
@@ -1298,13 +1280,7 @@
           ],
           "name": "basic",
           "parent_type": "node-profile",
-          "role_config_config": {
-            "snmp": {
-              "communities": [
-                { "name": "public", "readonly": true }
-              ]
-            }
-          }
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
         },
         {
           "fq_name": [
@@ -1312,13 +1288,7 @@
           ],
           "name": "basic",
           "parent_type": "node-profile",
-          "role_config_config": {
-            "snmp": {
-              "communities": [
-                { "name": "public", "readonly": true }
-              ]
-            }
-          }
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
         },
         {
           "fq_name": [
@@ -1326,13 +1296,7 @@
           ],
           "name": "basic",
           "parent_type": "node-profile",
-          "role_config_config": {
-            "snmp": {
-              "communities": [
-                { "name": "public", "readonly": true }
-              ]
-            }
-          }
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
         }
       ]
     }
@@ -1340,372 +1304,372 @@
   "refs": [
     {
       "from_type": "role_definition",
-      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "underlay_ip_clos" ]
+      "to_fq_name": [ "default-global-system-config", "underlay-ip-clos" ]
     },
     {
       "from_type": "role_definition",
-      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "overlay_bgp" ]
+      "to_fq_name": [ "default-global-system-config", "overlay-bgp" ]
     },
     {
       "from_type": "role_definition",
-      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "l2_gateway" ]
+      "to_fq_name": [ "default-global-system-config", "l2-gateway" ]
     },
     {
       "from_type": "role_definition",
-      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "l3_gateway" ]
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
     },
     {
       "from_type": "role_definition",
-      "from_fq_name": [ "default-global-system-config", "erb_leaf" ],
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
-      "to_fq_name": [ "default-global-system-config", "vn_interconnect" ]
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48sh-afi" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48sh-afo" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48th-afi" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48th-afo" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48s-6q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-96s-8q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48t" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-48t-6q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-24q-2p" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100-24q-aa" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100e-48s-6q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100e-96s-8q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100e-48t-6q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5100e-24q-2p" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5110-48s-4c" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5110-32q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-48y-8c" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-32c" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5200-32c-32q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5200-48y" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5210-64c" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-72q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-36q" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-60c" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10016" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10008" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vqfx-10000" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx80" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx80-48t" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx204" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx240" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx480" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx960" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx2008" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx2010" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx2020" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-mx10003" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-jnp10008" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-jnp10016" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vmx" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx5400" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx5600" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx4600" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx4100" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx1500" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx240h-poe" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-vsrx" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx5800" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-srx4200" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "physical_role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "overlay_role",
       "to_fq_name": [ "default-global-system-config", "erb-ucast-gateway" ]
     },
     {
-      "from_type": "role_config",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-lean" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k-lean" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-mx" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
     {
-      "from_type": "node_profile",
+      "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
