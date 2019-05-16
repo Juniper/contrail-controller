@@ -14,7 +14,11 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address 
 {%                 endfor %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
+{%                     if family == 'inet' %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                     elif family == 'inet6' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+{%                     endif %}
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
