@@ -3505,14 +3505,15 @@ class VncApiServer(object):
                                user_visible=True)
         perms2 = PermType2(owner='cloud-admin')
         perms2.set_global_access(PERMS_RX)
+        # Creating SG without SG-ID which will then
+        # be populated and attached to this SG during
+        # singleton create
         sg_obj = SecurityGroup(
             name=SG_NO_RULE_FQ_NAME[-1],
             parent_obj=project,
             security_group_entries=sg_rules.exportDict(''),
             id_perms=id_perms.exportDict(''),
-            perms2=perms2.exportDict(''),
-            security_group_id=self.alloc_security_group_id(
-                ':'.join(SG_NO_RULE_FQ_NAME)))
+            perms2=perms2.exportDict(''))
         self.create_singleton_entry(sg_obj)
 
         self.create_singleton_entry(DiscoveryServiceAssignment())
@@ -3805,6 +3806,9 @@ class VncApiServer(object):
                 obj_dict['virtual_network_network_id'] = vn_id
             if obj_type == 'tag':
                 obj_dict = self._allocate_tag_id(obj_dict)
+            if obj_type == 'security_group':
+                sg_id = self.alloc_security_group_id(fq_name)
+                obj_dict['security_group_id'] = sg_id
             self._db_conn.dbe_create(obj_type, obj_id, obj_dict)
             self.create_default_children(obj_type, s_obj)
         return s_obj
