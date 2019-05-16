@@ -11,7 +11,7 @@ from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
 from test_common import *
 from test_dm_common import *
-from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import FakeDeviceConnect, FakeNetconfManager
 
 #
 # All Networks related DM test cases should go here
@@ -94,6 +94,7 @@ class TestNetworkDM(TestCommonDM):
     # end check_dci_lo_network
 
     def test_dci_api(self):
+        FakeNetconfManager.set_model('qfx10000')
         gs = GlobalSystemConfig(fq_name=["default-global-system-config"])
         subnets = SubnetListType([SubnetType("10.0.0.0", 24), SubnetType("20.0.0.0", 16)])
         gs.set_data_center_interconnect_loopback_namespace(subnets)

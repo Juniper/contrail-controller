@@ -40,6 +40,7 @@ from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
 from device_conf import DeviceConf
+from fabric_manager import FabricManager
 from feature_base import FeatureBase
 from logger import DeviceManagerLogger
 
@@ -346,6 +347,8 @@ class DeviceManager(object):
             except ResourceExhaustionError:  # haproxy throws 503
                 time.sleep(3)
 
+        if PushConfigState.is_push_mode_ansible():
+            FabricManager.initialize(args, dm_logger, self._vnc_lib)
         # Initialize amqp
         self._vnc_amqp.establish()
 
@@ -458,6 +461,8 @@ class DeviceManager(object):
         if not inst:
             return
         inst._vnc_amqp.close()
+        if PushConfigState.is_push_mode_ansible():
+            FabricManager.destroy_instance()
         for obj_cls in DBBaseDM.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
@@ -468,7 +473,7 @@ class DeviceManager(object):
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
             conn_type=ConnType.APISERVER, name='ApiServer',
-            status=status, 
+            status=status,
             message=message or 'ApiServer Connection State updated',
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])

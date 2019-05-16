@@ -26,6 +26,7 @@ setup_sources = [
            'filter_plugins',
            'templates',
            'common',
+           'config_templates',
           ]
 
 setup_sources_rules = []
