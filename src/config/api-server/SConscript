@@ -55,10 +55,11 @@ env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
 env.Alias('install', env.Install(env['INSTALL_CONF'],
     'supervisord_config.conf'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+
-    '/supervisord_config_files', 'contrail-api.ini'))
+    '/supervisord_config_files', 'contrail-api.in'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_config_files', 'contrail-config.rules'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-api/', doc_files))
 
 env.SetupPyTestSuite(sdist_gen, use_tox=True)
+
