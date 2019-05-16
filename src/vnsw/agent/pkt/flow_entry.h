@@ -723,7 +723,10 @@ class FlowEntry {
                  uint32_t flow_handle, uint8_t gen_id);
     void RevFlowDepInfo(RevFlowDepParams *params);
     uint32_t last_event() const { return last_event_; }
-    void set_last_event(uint32_t event) { last_event_ = event; }
+    void set_last_event(uint32_t event) {
+        last_event_ = event;
+        e_history_.UpdateEvtHistory(event);
+    }
     uint8_t GetMaxRetryAttempts() { return flow_retry_attempts_; }
     void  IncrementRetrycount() { flow_retry_attempts_++;}
     void ResetRetryCount(){ flow_retry_attempts_ = 0; }
@@ -843,6 +846,26 @@ private:
     // transaction id should not be copied, it is incremented when flow entry
     // is reused.
     uint32_t transaction_id_;
+    class FlowEntryEventHistory {
+        public:
+            FlowEntryEventHistory() {
+                idx_ = 0;
+                for (uint32_t i = 0; i < size_; i++) {
+                      last_events_[i] = 0;
+                }
+            }
+
+            void UpdateEvtHistory( uint32_t event ) {
+                last_events_[idx_] = event;
+                idx_ = (idx_+1) % size_;
+            }
+
+        private:
+            static const uint32_t size_ = 5;
+            uint32_t last_events_[size_];
+            uint32_t idx_;
+    };
+    FlowEntryEventHistory e_history_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
