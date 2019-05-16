@@ -352,6 +352,9 @@ class DeviceInfo(object):
                 physical_router_product_name=oid_mapped.get('product'),
                 physical_router_device_family=oid_mapped.get('family'),
                 physical_router_vnc_managed=True,
+                physical_router_serial_number=serial_num,
+                physical_router_hostname=fq_name[-1],
+                display_name=fq_name[-1],
                 physical_router_user_credentials={
                     'username': oid_mapped.get('username'),
                     'password': oid_mapped.get('password')
@@ -403,6 +406,15 @@ class DeviceInfo(object):
         self.discovery_percentage_write()
         return True, pr_uuid
 
+    def get_hostname_from_job_input(self, serial_num):
+        hostname = None
+        devices_to_ztp = self.job_ctx.get('job_input').get('device_to_ztp')
+        for device_info in devices_to_ztp:
+            if device_info.get('serial_number') == serial_num:
+                hostname = device_info.get('hostname')
+                break
+        return hostname
+
     def device_info_processing(self, host, oid_mapped):
         valid_creds = False
         return_code = True
@@ -435,7 +447,17 @@ class DeviceInfo(object):
                             oid_mapped.get('serial-number'), host))
                     return
 
-            if oid_mapped.get('hostname') is None:
+            # use the user input hostname is there. If its none check
+            # for hostname derived from the device system info. If
+            # that is also missing then set the hostname to the serial num
+            user_input_hostname = None
+            if self.job_ctx.get('job_input').get('device_to_ztp') is not None:
+                user_input_hostname = \
+                    self.get_hostname_from_job_input(oid_mapped.get(
+                        'serial-number'))
+            if user_input_hostname is not None:
+                oid_mapped['hostname'] = user_input_hostname
+            elif oid_mapped.get('hostname') is None:
                 oid_mapped['hostname'] = oid_mapped.get('serial-number')
 
             fq_name = [

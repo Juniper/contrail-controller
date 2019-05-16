@@ -198,6 +198,10 @@
               "title": "Device serial number",
               "type": "string"
             },
+            "hostname": {
+              "title": "Device hostname can be optionally specified.",
+              "type": "string"
+            },
             "supplemental_day_0_cfg": {
               "title": "Name of the supplemental day-0 config that can be optionally specified for this device",
               "type": "string"
