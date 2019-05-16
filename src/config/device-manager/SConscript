@@ -74,6 +74,7 @@ local_sources = [
     'device_manager/dm_server.py',
     'device_manager/dm_server_args.py',
     'device_manager/dm_utils.py',
+    'device_manager/fabric_manager.py',
     'device_manager/logger.py',
     'device_manager/opserver_util.py',
     'device_manager/plugins/imports.py',

@@ -72,6 +72,7 @@ def default_options():
         'rabbit_health_check_interval': 0,
         'job_manager_db_conn_retry_timeout': '10',
         'job_manager_db_conn_max_retries': '6',
+        'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
     }
 # end default_options
 
@@ -176,6 +177,8 @@ def add_parser_arguments(parser):
                         help="Timeout between job manager retries")
     parser.add_argument("--job_manager_db_conn_max_retries",
                         help="Max number of job manager retries")
+    parser.add_argument("--fabric_ansible_dir",
+                        help="Fabric ansible directory path")
     SandeshConfig.add_parser_arguments(parser)
 # end add_parser_arguments
 
