@@ -199,7 +199,7 @@ class WFManager(object):
                                self.job_execution_id)
         try:
             ip_schema_json = input_schema
-            if isinstance(input_schema, str):
+            if isinstance(input_schema, basestring):
                 ip_schema_json = json.loads(input_schema)
             jsonschema.validate(ip_json, ip_schema_json)
             self._logger.debug("Input Schema Validation Successful"

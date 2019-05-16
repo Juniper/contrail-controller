@@ -14,6 +14,7 @@ sys.path.append('/opt/contrail/fabric_ansible_playbooks/filter_plugins')
 sys.path.append('/opt/contrail/fabric_ansible_playbooks/common')
 from plugin_ironic import ImportIronicNodes
 from contrail_command import CreateCCNode, CreateCCNodeProfile
+import json
 import jsonschema
 from job_manager.job_utils import JobVncApi
 
@@ -115,6 +116,7 @@ class FilterModule(object):
             fq_name=job_template_fqname
         )
         input_schema = server_discovery_template.get_job_template_input_schema()
+        input_schema = json.loads(input_schema)
         jsonschema.validate(job_input, input_schema)
         return job_input
 
