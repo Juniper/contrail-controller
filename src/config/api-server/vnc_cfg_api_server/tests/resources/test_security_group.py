@@ -178,3 +178,20 @@ class TestSecurityGroup(test_case.ApiServerTestCase):
         self.assertIsNotNone(no_rule_sg.security_group_id)
         self.assertIsInstance(no_rule_sg.security_group_id, int)
         self.assertGreater(no_rule_sg.security_group_id, 0)
+
+    def test_singleton_no_rule_sg(self):
+        try:
+            no_rule_sg = self.api.security_group_read(SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            self.fail("Cannot read singleton security '%s' for OpenStack" %
+                      ':'.join(SG_NO_RULE_FQ_NAME))
+
+        sg_obj = SecurityGroup(name=SG_NO_RULE_FQ_NAME[-1])
+        self._api_server.create_singleton_entry(sg_obj)
+        try:
+            no_rule_sg_2 = self.api.security_group_read(SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            self.fail("Cannot read singleton security '%s' for OpenStack" %
+                      ':'.join(SG_NO_RULE_FQ_NAME))
+        self.assertEqual(no_rule_sg.security_group_id,
+                         no_rule_sg_2.security_group_id)
