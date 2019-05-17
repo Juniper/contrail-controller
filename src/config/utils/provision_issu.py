@@ -129,6 +129,11 @@ class ISSUContrailPostProvisioner(object):
             args_obj.control_host_info=\
                 json.loads(json_string)
 
+        if getattr(args_obj, 'del_compute_host_info', None):
+            json_string=args_obj.del_compute_host_info.replace("'", "\"")
+            args_obj.del_compute_host_info=\
+                json.loads(json_string)
+
         self._args = args_obj
     # end _parse_args
 
@@ -248,7 +253,28 @@ class ISSUContrailPostProvisioner(object):
                     router_info.bgp_router_parameters.router_type)
             self._vnc_lib.bgp_router_delete(id=node_list_value['uuid'])
 
+        # delete old TSN nodes and refs
+        if getattr(self._args, 'del_compute_host_info', None):
+            self.delete_tsn_nodes()
+
     # end del_node
+
+    def delete_tsn_nodes(self):
+        cluster_virtual_routers = []
+        PRs = []
+        del_virtual_routers = self._args.del_compute_host_info.values()
+        PRs = self._vnc_lib.physical_routers_list()['physical-routers']
+        # get associated tsn
+        for PR in PRs:
+            virtual_router_refs = []
+            PR_obj = self._vnc_lib.physical_router_read(id = PR['uuid'])
+            virtual_router_refs = PR_obj.get_virtual_router_refs()
+            for ref in virtual_router_refs:
+                vr_name = ref['to'][1]
+                if vr_name in del_virtual_routers:
+                    vr_obj = self._vnc_lib.virtual_router_read(id=ref['uuid'])
+                    PR_obj.del_virtual_router(vr_obj)
+                    self._vnc_lib.virtual_router_delete(fq_name=vr_obj.fq_name)
 
 # end class ISSUContrailPostProvisioner
 
