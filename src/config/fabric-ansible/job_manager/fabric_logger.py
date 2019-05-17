@@ -38,7 +38,7 @@ def fabric_ansible_logger(name, ctx=None):
     elif verbosity > 1:
         level = logging.DEBUG
     else:
-        level = logging.WARNING
+        level = logging.INFO
     # If log file is writable, init normal logger, otherwise use null logger
     # to avoid logging errors
     if (logfile is not None and os.path.exists(logfile) and os.access(
