@@ -9,6 +9,7 @@
 # 'git review' to submit changeset to review.opencontrail.org Code Review
 # (gerrit) System.
 #
+# test
 [gerrit]
 host=review.opencontrail.org
 port=29418
