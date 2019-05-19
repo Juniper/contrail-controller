@@ -163,6 +163,26 @@ namespace {
 // Config parsing tests
 //
 
+TEST_F(DnsConfigManagerTest, RecordMigration) {
+    // UT to check record add/del with source name field set in dns record
+    // ToDo: Add more cases for record migration
+    ClearCounts();
+    string content = FileRead("controller/src/dns/testdata/config_test_record_migration.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    EXPECT_EQ(1, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(1, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
+}
+
 TEST_F(DnsConfigManagerTest, Config) {
     ClearCounts();
     string content = FileRead("controller/src/dns/testdata/config_test_1.xml");
