@@ -352,9 +352,7 @@ void IFMapChannel::DoSslHandshakeInMainThr(bool is_ssrc) {
     socket->async_handshake(boost::asio::ssl::stream_base::client,
         boost::bind(&IFMapStateMachine::ProcHandshakeResponse, state_machine_,
                     boost::asio::placeholders::error));
-    if (!is_ssrc) {
-        SetArcSocketOptions();
-    }
+    SetSocketOptions(socket);
 }
 
 void IFMapChannel::DoSslHandshake(bool is_ssrc) {
@@ -913,11 +911,11 @@ IFMapChannel::ProcCompleteMsgCb IFMapChannel::GetCallback(
 }
 
 // Get the TCP layer and set the keepalive options on it
-void IFMapChannel::SetArcSocketOptions() {
+void IFMapChannel::SetSocketOptions(SslStream *socket) {
     boost::system::error_code ec;
 
     boost::asio::socket_base::keep_alive option(true);
-    arc_socket_->next_layer().set_option(option, ec);
+    socket->next_layer().set_option(option, ec);
     if (ec) {
         IFMAP_PEER_WARN(IFMapServerConnection, "Error setting keepalive option",
                         ec.message());
@@ -926,7 +924,7 @@ void IFMapChannel::SetArcSocketOptions() {
 #ifdef TCP_KEEPIDLE
     boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPIDLE>
         keepalive_idle_time_option(kSessionKeepaliveIdleTime);
-    arc_socket_->next_layer().set_option(keepalive_idle_time_option, ec);
+    socket->next_layer().set_option(keepalive_idle_time_option, ec);
     if (ec) {
         IFMAP_PEER_WARN(IFMapServerConnection,
                         "Error setting keepalive idle time", ec.message());
@@ -936,7 +934,7 @@ void IFMapChannel::SetArcSocketOptions() {
 #ifdef TCP_KEEPALIVE
     boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPALIVE>
         keepalive_idle_time_option(kSessionKeepaliveIdleTime);
-    arc_socket_->next_layer().set_option(keepalive_idle_time_option, ec);
+    socket->next_layer().set_option(keepalive_idle_time_option, ec);
     if (ec) {
         IFMAP_PEER_WARN(IFMapServerConnection,
                         "Error setting keepalive idle time", ec.message());
@@ -946,7 +944,7 @@ void IFMapChannel::SetArcSocketOptions() {
 #ifdef TCP_KEEPINTVL
     boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPINTVL>
         keepalive_interval_option(kSessionKeepaliveInterval);
-    arc_socket_->next_layer().set_option(keepalive_interval_option, ec);
+    socket->next_layer().set_option(keepalive_interval_option, ec);
     if (ec) {
         IFMAP_PEER_WARN(IFMapServerConnection,
                         "Error setting keepalive interval", ec.message());
@@ -956,7 +954,7 @@ void IFMapChannel::SetArcSocketOptions() {
 #ifdef TCP_KEEPCNT
     boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPCNT>
         keepalive_count_option(kSessionKeepaliveProbes);
-    arc_socket_->next_layer().set_option(keepalive_count_option, ec);
+    socket->next_layer().set_option(keepalive_count_option, ec);
     if (ec) {
         IFMAP_PEER_WARN(IFMapServerConnection, "Error setting keepalive probes",
                         ec.message());
@@ -966,7 +964,7 @@ void IFMapChannel::SetArcSocketOptions() {
 #ifdef TCP_USER_TIMEOUT
     boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_USER_TIMEOUT>
         user_timeout_option(kSessionTcpUserTimeout);
-    arc_socket_->next_layer().set_option(user_timeout_option, ec);
+    socket->next_layer().set_option(user_timeout_option, ec);
     if (ec) {
         IFMAP_PEER_WARN(IFMapServerConnection, "Error setting user timeout",
                         ec.message());
