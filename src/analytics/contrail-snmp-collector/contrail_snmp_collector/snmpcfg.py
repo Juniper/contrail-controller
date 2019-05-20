@@ -97,6 +97,8 @@ Mibs = LldpTable, ArpTable
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'          :'',
         }
+        defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
+
         ksopts = {
             'auth_host': '127.0.0.1',
             'auth_protocol': 'http',
@@ -113,6 +115,7 @@ Mibs = LldpTable, ArpTable
             'disc_server_key'   : '/etc/contrail/ssl/private/server-privkey.pem',
             'disc_server_cacert'   : '/etc/contrail/ssl/ca-cert.pem,'
         }
+        sandesh_opts = SandeshConfig.get_default_options()
 
         config = None
         if args.conf_file:
@@ -128,6 +131,8 @@ Mibs = LldpTable, ArpTable
                 if 'disc_server_ssl' in config.options('DISCOVERY'):
                     defaults['disc_server_ssl'] = config.getboolean(
                         'DISCOVERY', 'disc_server_ssl')
+            SandeshConfig.update_options(sandesh_opts, config)
+
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -140,6 +145,7 @@ Mibs = LldpTable, ArpTable
         )
         defaults.update(ksopts)
         defaults.update(disc_opts)
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--collectors",
             help="List of Collector IP addresses in ip:port format",
@@ -201,6 +207,7 @@ Mibs = LldpTable, ArpTable
             help="ip:port of api-server for snmp credentials")
         group.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
+        SandeshConfig.add_parser_arguments(parser) 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -298,3 +305,6 @@ Mibs = LldpTable, ArpTable
 
     def sandesh_send_rate_limit(self):
         return self._args.sandesh_send_rate_limit
+
+    def sandesh_config(self):
+        return SandeshConfig.from_parser_arguments(self._args)
