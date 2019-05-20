@@ -1,0 +1,17 @@
+---
+
+- name: Get the lacp protocol item
+  set_fact:
+    lacp_protocol_list: "{{item['lag-lacp-protocol']}}"
+
+- name: Convert lacp protocol item to list
+  set_fact:
+    lacp_protocol_list: [ "{{lacp_protocol_list}}"]
+  when: lacp_protocol_list is mapping
+
+- name: Get status of each interface in the multihomed list
+  set_fact:
+    status: "{{item['lacp-mux-state']}}"
+  with_items:
+    - "{{lacp_protocol_list}}"
+  when: multihomed_interface == "{{item.name}}"

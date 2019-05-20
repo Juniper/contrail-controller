@@ -119,7 +119,7 @@
         - name: Set the multi-homed error flag
           set_fact:
             multi_homed_error_flag: True
-      when: target_interface_list|length<=0
+      when: buddy_details is defined and buddy_details |length>0 and target_interface_list|length<=0
 
     - block:
         - block:
@@ -160,9 +160,6 @@
               - ["{{device_info}}"]
               - "{{target_interface_list}}"
           when: interface_info.failed == False
-      when: target_interface_list is defined and target_interface_list |length>0
+      when: buddy_details is defined and buddy_details |length>0 and target_interface_list is defined and target_interface_list |length>0
   when: lacp_down_local_check
-
-
-
 
