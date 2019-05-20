@@ -70,6 +70,7 @@ class CfgParser(object):
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'     :'',
         }
+        defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -94,6 +95,7 @@ class CfgParser(object):
             'admin_tenant_name': 'default-domain'
         }
 
+        sandesh_opts = SandeshConfig.get_default_options()
         config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
@@ -110,6 +112,7 @@ class CfgParser(object):
                         'DISCOVERY', 'disc_server_ssl')
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
+            SandeshConfig.update_options(sandesh_opts, config)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -124,6 +127,7 @@ class CfgParser(object):
         defaults.update(redis_opts)
         defaults.update(disc_opts)
         defaults.update(keystone_opts)
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--host_ip",
             help="Host IP address")
@@ -211,6 +215,8 @@ class CfgParser(object):
             help="Password of keystone admin user")
         parser.add_argument("--admin_tenant_name",
             help="Tenant name for keystone admin user")
+
+        SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -298,6 +304,9 @@ class CfgParser(object):
 
     def kafka_prefix(self):
         return self._args.cluster_id
+
+    def sandesh_config(self):
+        return SandeshConfig.from_parser_arguments(self._args)
 
     def rabbitmq_params(self):
         return {'servers': self._args.rabbitmq_server_list,
