@@ -597,6 +597,7 @@ public:
             last_change_at_(0), gr_time_(0), llgr_time_(0),
             end_of_rib_timeout_(kEndOfRibTime), gr_enable_(false),
             gr_bgp_helper_(false), gr_xmpp_helper_(false),
+            disable_4byte_as_(true),
             bgpaas_port_start_(0),
             bgpaas_port_end_(0),
             always_compare_med_(false),
@@ -618,6 +619,8 @@ public:
     void set_gr_xmpp_helper(bool helper) { gr_xmpp_helper_ = helper; }
     bool gr_enable() const { return gr_enable_; }
     void set_gr_enable(bool enable) { gr_enable_ = enable; }
+    bool disable_4byte_as() const { return disable_4byte_as_; }
+    void set_disable_4byte_as(bool as_4byte) { disable_4byte_as_ = as_4byte; }
     bool always_compare_med() const { return always_compare_med_; }
     void set_always_compare_med(bool always_compare_med) {
         always_compare_med_ = always_compare_med;
@@ -645,6 +648,7 @@ private:
     bool gr_enable_;
     bool gr_bgp_helper_;
     bool gr_xmpp_helper_;
+    bool disable_4byte_as_;
     uint16_t bgpaas_port_start_;
     uint16_t bgpaas_port_end_;
     bool always_compare_med_;
