@@ -5069,6 +5069,7 @@ def main(args_str=None, server=None):
     if pipe_start_app is None:
         pipe_start_app = vnc_api_server.api_bottle
     try:
+        vnc_args = vnc_api_server.get_args()
         if enable_ssl:
             if not (certfile and keyfile and ca_cert):
                 msg = "SSL is enabled but one or more of these options " \
@@ -5077,10 +5078,16 @@ def main(args_str=None, server=None):
                 raise cfgm_common.exceptions.VncError(msg)
             bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
                        ca_certs=ca_cert, keyfile=keyfile, certfile=certfile,
-                       server=get_bottle_server(server._args.max_requests))
+                       server=get_bottle_server(server._args.max_requests,
+                       tcp_keepalive_interval=vnc_args.tcp_keepalive_interval,
+                       tcp_keepalive_idle_time=vnc_args.tcp_keepalive_idle_time,
+                       tcp_keepalive_probes=vnc_args.tcp_keepalive_probes))
         else:
             bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
-                       server=get_bottle_server(server._args.max_requests))
+                       server=get_bottle_server(server._args.max_requests,
+                       tcp_keepalive_interval=vnc_args.tcp_keepalive_interval,
+                       tcp_keepalive_idle_time=vnc_args.tcp_keepalive_idle_time,
+                       tcp_keepalive_probes=vnc_args.tcp_keepalive_probes))
     except KeyboardInterrupt:
         # quietly handle Ctrl-C
         pass
