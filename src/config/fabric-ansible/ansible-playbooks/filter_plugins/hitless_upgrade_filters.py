@@ -582,7 +582,7 @@ class FilterModule(object):
     #end get_all_devices
 
     # Get info for a single device
-    def get_device_info(self, job_ctx, device_uuid,):
+    def get_device_info(self, job_ctx, device_uuid):
         try:
             FilterLog.instance("HitlessUpgradeFilter")
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
