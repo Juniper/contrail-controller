@@ -1495,6 +1495,59 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.assertNotEqual(port_dict, port_dict1)
     # end test_dpdk_compute_port_bindings_with_split_hostid
 
+    def test_port_status(self):
+        proj_obj = vnc_api.Project('proj-%s_new' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+
+        vn = vnc_api.VirtualNetwork('vn-%s' % (self.id()), proj_obj)
+        self._vnc_lib.virtual_network_create(vn)
+
+        vm_name = 'virtual_machine1'
+        vm = vnc_api.VirtualMachine(vm_name)
+        self._vnc_lib.virtual_machine_create(vm)
+
+        # First, create a VMI 'vmi1' which has a VM attached to it.
+        # The status will be internally set to 'ACTIVE' for this port.
+        vmi_name = 'virtual_machine_interface_1'
+        vmi_obj = vnc_api.VirtualMachineInterface(vmi_name, proj_obj)
+        vmi_obj.set_virtual_network(vn)
+        vmi_obj.add_virtual_machine(vm)
+        vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        # Next, create a VMI 'vmi2' which has no VM attached to it.
+        # The status will be internally set to 'DOWN' for this port.
+        vmi_name = 'virtual_machine_interface_2'
+        vmi_obj_2 = vnc_api.VirtualMachineInterface(vmi_name, proj_obj)
+        vmi_obj_2.set_virtual_network(vn)
+        vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj_2)
+
+        list_result = self.list_resource(
+            'port',
+            proj_obj.uuid,
+            req_filters={
+                'status': 'ACTIVE',
+            },
+        )
+        self.assertEquals(len(list_result), 1)
+        self.assertEquals(list_result[0]['device_id'], 'virtual_machine1')
+
+        list_result = self.list_resource(
+            'port',
+            proj_obj.uuid,
+            req_filters={
+                'status': 'DOWN',
+            },
+        )
+        self.assertEquals(len(list_result), 1)
+        self.assertEquals(list_result[0]['device_id'], '')
+
+        # Clean the resources
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj_2.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm.uuid)
+        self._vnc_lib.project_delete(id=proj_obj.uuid)
+        # end test_port_status
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
