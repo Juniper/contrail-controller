@@ -8,17 +8,17 @@ set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
 {%                     set family = ip_addr.get('family', 'inet') %}
 {%                     set gw = ip_addr.get('gateway', '') %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
+{%                     if family == 'inet' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                     elif family == 'inet6' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+{%                     endif %}
 {%                     if gw != '' %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
 {%                     endif %}
 {%                 endfor %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
-{%                     if family == 'inet' %}
-set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
-{%                     elif family == 'inet6' %}
-set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
-{%                     endif %}
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
