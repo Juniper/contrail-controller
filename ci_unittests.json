@@ -172,6 +172,8 @@
         "misc_test_targets" : [
             "contrail-collector",
             "contrail-control",
+            "contrail-config",
+            "contrail-api-client",
             "contrail-vrouter"
          ]
     },
