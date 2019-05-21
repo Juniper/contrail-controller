@@ -45,11 +45,12 @@ void DnsAgentXmppChannel::ReceiveReq(const XmppStanza::XmppMessage *msg) {
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
         pugi::xml_node node = pugi->FindNode("dns");
         DnsAgentXmpp::XmppType type;
+        std::string source_name = msg->from;
         uint32_t xid;
         uint16_t code;
         std::auto_ptr<DnsUpdateData> rcv_data(new DnsUpdateData());
         DnsUpdateData *data = rcv_data.get();
-        if (DnsAgentXmpp::DnsAgentXmppDecode(node, type, xid, code, data)) {
+        if (DnsAgentXmpp::DnsAgentXmppDecode(node, type, xid, code, data, source_name)) {
             if (type == DnsAgentXmpp::Update) {
                 HandleAgentUpdate(rcv_data);
             }
@@ -157,6 +158,7 @@ void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
             record.rec_ttl = (*iter).ttl;
             record.source = "Agent";
             record.installed = "yes";
+            record.rec_source_name = (*iter).source_name;
             records.push_back(record);
         }
         item.set_records(records);
