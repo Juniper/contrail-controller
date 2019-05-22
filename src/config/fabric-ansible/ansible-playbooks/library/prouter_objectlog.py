@@ -3,11 +3,9 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-
-"""
-This file contains implementation of creating PROUTER objectlog
-via sandesh
-"""
+# This file contains implementation of creating PROUTER objectlog
+# via sandesh
+#
 
 DOCUMENTATION = '''
 ---
@@ -54,7 +52,6 @@ EXAMPLES = '''
         onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
 '''
 
-import logging
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 

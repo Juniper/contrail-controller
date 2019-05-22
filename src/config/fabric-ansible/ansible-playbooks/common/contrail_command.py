@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
-import requests
-from urlparse import urlparse
-from keystoneauth1.identity import v3
-from keystoneauth1 import session
-from keystoneclient.v3 import client
 import json
 import pprint
+from urlparse import urlparse
+
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
+from keystoneclient.v3 import client
+import requests
 
 
 class CreateCCResource(object):
@@ -40,11 +41,20 @@ class CreateCCResource(object):
     }
 
     def __init__(self, auth_host,
-        cluster_id=None,
-        cluster_token=None,
-        cc_username=None,
-        cc_password=None,
-        auth_token=None):
+                 cluster_id=None,
+                 cluster_token=None,
+                 cc_username=None,
+                 cc_password=None,
+                 auth_token=None):
+        """Initialization.
+
+        :param auth_host
+        :param cluster_id
+        :param cluster_token
+        :param cc_username
+        :param cc_password
+        :param auth_token
+        """
         if not auth_host:
             return
         auth_host_data = auth_host.split(':')
@@ -67,8 +77,8 @@ class CreateCCResource(object):
                                               self.auth_args[
                                                   'auth_path'])
             self.auth_uri = '%s://%s:%s' % (self.auth_args['auth_protocol'],
-                                              self.auth_args['auth_host'],
-                                              self.auth_args['auth_port'])
+                                            self.auth_args['auth_host'],
+                                            self.auth_args['auth_port'])
         else:
             self.auth_url = self.auth_args['auth_url']
             parsed_auth_url = urlparse(self.auth_url)
@@ -77,8 +87,8 @@ class CreateCCResource(object):
             self.auth_args['auth_port'] = parsed_auth_url.port
             self.auth_args['auth_url_version'] = parsed_auth_url.path
             self.auth_uri = '%s://%s:%s' % (self.auth_args['auth_protocol'],
-                                              self.auth_args['auth_host'],
-                                              self.auth_args['auth_port'])
+                                            self.auth_args['auth_host'],
+                                            self.auth_args['auth_port'])
 
         if not auth_token and self.auth_args['username'] and \
                 self.auth_args['password']:
@@ -92,7 +102,7 @@ class CreateCCResource(object):
         self.auth_headers['X-Auth-Token'] = self.auth_token
 
     def get_cc_token_via_cluster(self):
-        cc_token_url = '%s%s' %(self.auth_uri, '/keystone/v3/auth/tokens')
+        cc_token_url = '%s%s' % (self.auth_uri, '/keystone/v3/auth/tokens')
         auth_data = {
             "auth": {
                 "identity": {
@@ -133,7 +143,8 @@ class CreateCCResource(object):
         self.keystone_client = client.Client(
             session=self.keystone_session)
 
-    def get_rest_api_response(self, url, headers, data=None, request_type=None):
+    def get_rest_api_response(self, url, headers, data=None,
+                              request_type=None):
         response = None
         print data
         if request_type == "post":
@@ -141,7 +152,7 @@ class CreateCCResource(object):
                                      verify=False)
         elif request_type == "get":
             response = requests.get(url, headers=headers, data=data,
-                                        verify=False)
+                                    verify=False)
         response.raise_for_status()
         return response
 
@@ -149,7 +160,8 @@ class CreateCCResource(object):
         cc_url = '%s%s' % (self.auth_uri, '/sync')
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
-                                              data=json.dumps(resource_payload),
+                                              data=json.dumps(
+                                                  resource_payload),
                                               request_type="post")
         return response.content
 
@@ -161,6 +173,14 @@ class CreateCCNode(CreateCCResource):
                  cluster_token=None,
                  cc_username=None,
                  cc_password=None):
+        """Initialization.
+
+        :param auth_host
+        :param cluster_id
+        :param cluster_token
+        :param cc_username
+        :param cc_password
+        """
         super(CreateCCNode, self).__init__(auth_host,
                                            cluster_id,
                                            cluster_token,
@@ -172,7 +192,7 @@ class CreateCCNode(CreateCCResource):
         response = self.create_cc_resource(node_payload)
         return response
 
-    def get_cc_nodes(self ):
+    def get_cc_nodes(self):
         cc_url = '%s%s' % (self.auth_uri, '/nodes?detail=true')
         response = self.get_rest_api_response(cc_url,
                                               headers=self.auth_headers,
@@ -188,6 +208,14 @@ class CreateCCNodeProfile(CreateCCResource):
                  cluster_token=None,
                  cc_username=None,
                  cc_password=None):
+        """Initialization.
+
+        :param auth_host
+        :param cluster_id
+        :param cluster_token
+        :param cc_username
+        :param cc_password
+        """
         super(CreateCCNodeProfile, self).__init__(auth_host,
                                                   cluster_id,
                                                   cluster_token,
@@ -209,6 +237,7 @@ class CreateCCNodeProfile(CreateCCResource):
 
 def main(cc_auth_args=None):
     return
+
 
 if __name__ == '__main__':
     my_auth_args = {
