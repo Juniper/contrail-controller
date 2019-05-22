@@ -3,19 +3,16 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-
-"""
-This file contains code to gather IPAM config from the fabric management virtual network
-"""
-
-from cfgm_common.exceptions import (
-    RefsExistError,
-    NoIdError
-)
-from vnc_api.vnc_api import VncApi
-from job_manager.job_utils import JobVncApi
+# This file contains code to gather IPAM config from the fabric management
+# virtual network
+#
 
 import logging
+
+from cfgm_common.exceptions import NoIdError
+from vnc_api.vnc_api import VncApi
+
+from job_manager.job_utils import JobVncApi
 
 
 class FilterModule(object):
@@ -52,7 +49,8 @@ class FilterModule(object):
 
             # From here we get the 'management' type virtual network
             vn_uuid = None
-            virtual_network_refs = fabric_dict.get('virtual_network_refs') or []
+            virtual_network_refs = fabric_dict.get(
+                'virtual_network_refs') or []
             for virtual_net_ref in virtual_network_refs:
                 if 'management' in virtual_net_ref['attr']['network_type']:
                     vn_uuid = virtual_net_ref['uuid']
@@ -87,7 +85,8 @@ class FilterModule(object):
             if static_ips:
                 dhcp_config['static_ips'] = static_ips
         except Exception as ex:
-            logging.error("Error getting ZTP DHCP configuration: {}".format(ex))
+            logging.error(
+                "Error getting ZTP DHCP configuration: {}".format(ex))
 
         return dhcp_config
     # end get_ztp_dhcp_config
@@ -112,7 +111,8 @@ class FilterModule(object):
                             'admin_password'))
                     tftp_config['password'] = password
         except Exception as ex:
-            logging.error("Error getting ZTP TFTP configuration: {}".format(ex))
+            logging.error(
+                "Error getting ZTP TFTP configuration: {}".format(ex))
 
         return tftp_config
     # end get_ztp_tftp_config
@@ -121,48 +121,52 @@ class FilterModule(object):
     def create_tftp_file(cls, file_contents, file_name,
                          fabric_name, job_ctx):
         return cls._publish_file(file_name, file_contents, 'create',
-            cls.TFTP_FILE_ROUTING_KEY, fabric_name, job_ctx)
+                                 cls.TFTP_FILE_ROUTING_KEY, fabric_name,
+                                 job_ctx)
     # end create_tftp_file
 
     @classmethod
     def delete_tftp_file(cls, file_name, fabric_name, job_ctx):
-        return cls._publish_file(file_name, '', 'delete', cls.TFTP_FILE_ROUTING_KEY,
-            fabric_name, job_ctx)
+        return cls._publish_file(file_name, '', 'delete',
+                                 cls.TFTP_FILE_ROUTING_KEY,
+                                 fabric_name, job_ctx)
     # end delete_tftp_file
 
     @classmethod
     def create_dhcp_file(cls, file_contents, file_name,
                          fabric_name, job_ctx):
         return cls._publish_file(file_name, file_contents, 'create',
-            cls.CONFIG_FILE_ROUTING_KEY, fabric_name, job_ctx)
+                                 cls.CONFIG_FILE_ROUTING_KEY, fabric_name,
+                                 job_ctx)
     # end create_dhcp_file
 
     @classmethod
     def delete_dhcp_file(cls, file_name, fabric_name, job_ctx):
-        return cls._publish_file(file_name, '', 'delete', cls.CONFIG_FILE_ROUTING_KEY,
-            fabric_name, job_ctx)
+        return cls._publish_file(file_name, '', 'delete',
+                                 cls.CONFIG_FILE_ROUTING_KEY,
+                                 fabric_name, job_ctx)
     # end delete_dhcp_file
 
     @classmethod
-    def read_dhcp_leases_using_count(cls, device_count, ipam_subnets, file_name,
-                          fabric_name, job_ctx):
+    def read_dhcp_leases_using_count(cls, device_count, ipam_subnets,
+                                     file_name, fabric_name, job_ctx):
         return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
                                     job_ctx, 'device_count', int(device_count))
     # end read_dhcp_leases_using_count
 
     @classmethod
-    def read_dhcp_leases_using_info(cls, device_to_ztp, ipam_subnets, file_name,
-                          fabric_name, job_ctx):
+    def read_dhcp_leases_using_info(cls, device_to_ztp, ipam_subnets,
+                                    file_name, fabric_name, job_ctx):
         return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
                                     job_ctx, 'device_to_ztp', device_to_ztp)
     # end read_dhcp_leases_using_info
 
     @classmethod
     def read_only_dhcp_leases(cls, device_to_ztp, ipam_subnets, file_name,
-                          fabric_name, job_ctx):
+                              fabric_name, job_ctx):
         return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
                                     job_ctx, 'device_to_ztp', device_to_ztp,
-                                    action = 'read')
+                                    action='read')
     # end read_dhcp_leases_using_info
 
     @classmethod
@@ -179,7 +183,8 @@ class FilterModule(object):
             'ipam_subnets': ipam_subnets
         }
         payload[payload_key] = payload_value
-        return vnc_api.amqp_request(exchange=cls.ZTP_EXCHANGE,
+        return vnc_api.amqp_request(
+            exchange=cls.ZTP_EXCHANGE,
             exchange_type=cls.ZTP_EXCHANGE_TYPE,
             routing_key=cls.ZTP_REQUEST_ROUTING_KEY,
             response_key=cls.ZTP_RESPONSE_ROUTING_KEY + fabric_name,
@@ -196,10 +201,11 @@ class FilterModule(object):
             'action': 'delete'
         }
         vnc_api.amqp_publish(exchange=cls.ZTP_EXCHANGE,
-            exchange_type=cls.ZTP_EXCHANGE_TYPE,
-            routing_key=cls.ZTP_REQUEST_ROUTING_KEY, headers=headers,
-            payload={})
-        return { 'status': 'success' }
+                             exchange_type=cls.ZTP_EXCHANGE_TYPE,
+                             routing_key=cls.ZTP_REQUEST_ROUTING_KEY,
+                             headers=headers,
+                             payload={})
+        return {'status': 'success'}
     # end restart_dhcp_server
 
     @classmethod
@@ -213,8 +219,8 @@ class FilterModule(object):
             'action': action
         }
         vnc_api.amqp_publish(exchange=cls.ZTP_EXCHANGE,
-            exchange_type=cls.ZTP_EXCHANGE_TYPE,
-            routing_key=routing_key, headers=headers,
-            payload=contents)
-        return { 'status': 'success' }
+                             exchange_type=cls.ZTP_EXCHANGE_TYPE,
+                             routing_key=routing_key, headers=headers,
+                             payload=contents)
+        return {'status': 'success'}
     # end _publish_file
