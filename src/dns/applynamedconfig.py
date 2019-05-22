@@ -18,7 +18,20 @@ import sys
 import os
 import subprocess
 import ConfigParser
+import logging
 
+def setup_logger():
+    log = logging.getLogger('applynamedconfig')
+    # create file handler
+    fh = logging.FileHandler('/var/log/contrail/contrail-dns.log')
+    fh.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        '[%(asctime)s %(name)s(%(lineno)s) %(levelname)s]: %(message)s',
+        datefmt='%a %b %d %H:%M:%S %Y')
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+
+    return log
 
 def parse_contrail_dns_conf():
 
@@ -103,41 +116,46 @@ def parse_contrail_dns_conf():
 # end parse_contrail_dns_conf
 
 def main():
+    log = setup_logger()
     if not os.path.exists('/etc/contrail/dns/contrail-named-base.conf'):
         # parse contrail-dns.conf and build contrail-named-base.conf
         parse_contrail_dns_conf()
 
-    # open contrail-named-base.conf and read the base configs
-    file1 = open('/etc/contrail/dns/contrail-named-base.conf', 'r')
-    file1_lines = file1.readlines()
-    file1.close()
+    try:
+        # open contrail-named-base.conf and read the base configs
+        file1 = open('/etc/contrail/dns/contrail-named-base.conf', 'r')
+        file1_lines = file1.readlines()
+        file1.close()
 
-    # open contrail-named.conf and remove configurable stanzas
-    # options{} key{} controls{} logging {}
-    count = 0
-    file2 = open('/etc/contrail/dns/contrail-named.conf', 'r')
-    lines = file2.readlines()
-    for i, line in enumerate(lines[:]):
-        if line.startswith('view'):
-            break
-        else:
-           count = count + 1
-    file2.close()
+        # open contrail-named.conf and remove configurable stanzas
+        # options{} key{} controls{} logging {}
+        count = 0
+        file2 = open('/etc/contrail/dns/contrail-named.conf', 'r')
+        lines = file2.readlines()
+        for i, line in enumerate(lines[:]):
+            if line.startswith('view'):
+                break
+            else:
+                count = count + 1
+        file2.close()
 
-    # delete all lines before the view stanza {}
-    del lines[0:count]
+        # delete all lines before the view stanza {}
+        del lines[0:count]
 
-    # open contrail-named.conf
-    file3 = open('/etc/contrail/dns/contrail-named.conf', 'w')
-    file3.truncate()
-    file3.write("/* Build from contrail-named-base.conf */\n")
-    file3.writelines(file1_lines)
-    file3.write("/* Build from contrail-named.conf */\n")
-    file3.writelines(lines)
-    file3.close()
+        # open contrail-named.conf
+        file3 = open('/etc/contrail/dns/contrail-named.conf', 'w')
+        file3.truncate()
+        file3.write("/* Build from contrail-named-base.conf */\n")
+        file3.writelines(file1_lines)
+        file3.write("/* Build from contrail-named.conf */\n")
+        file3.writelines(lines)
+        file3.close()
 
-    # apply config
-    os.system('/usr/bin/contrail-rndc -c /etc/contrail/dns/contrail-rndc.conf reconfig')
+        # apply config
+        os.system('/usr/bin/contrail-rndc -c /etc/contrail/dns/contrail-rndc.conf reconfig')
+
+    except Exception as e:
+        log.error("applynamedconfig.py Failed, Exception: %s", str(e))
 #end main
 
 if __name__ == "__main__":
