@@ -109,6 +109,10 @@ To run only the unit tests:
 
     tox -e py27
 
+To run only pep8:
+
+    tox -e pep8
+
 ### Running Individual Tests
 
 For running individual test modules, cases or tests, you just need to pass
