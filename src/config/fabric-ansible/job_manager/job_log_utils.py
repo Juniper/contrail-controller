@@ -2,35 +2,31 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Initializes Sandesh instance and provides utility functions to create UVE
-objects and object logs. Also provides the config logger instance for
-generating the config logs
-"""
+"""Initializes Sandesh instance and provides utility sandesh functions."""
 
-import time
 import argparse
-import random
-import json
 import ConfigParser
-import traceback
 from decimal import Decimal, getcontext
+import json
+import random
+import time
+import traceback
 
-from pysandesh.sandesh_base import SandeshConfig
-from pysandesh.sandesh_base import Sandesh
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh.job.ttypes import JobLogEntry
-from sandesh.job.ttypes import JobLog
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
-from sandesh.job.ttypes import PRouterOnboardingLogEntry
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.sandesh_base import Sandesh
+from pysandesh.sandesh_base import SandeshConfig
+from sandesh.job.ttypes import JobLog
+from sandesh.job.ttypes import JobLogEntry
 from sandesh.job.ttypes import PRouterOnboardingLog
+from sandesh.job.ttypes import PRouterOnboardingLogEntry
 
-from job_manager.logger import JobLogger
 from job_manager.job_exception import JobException
-from job_manager.sandesh_utils import SandeshUtils
 from job_manager.job_messages import MsgBundle
 from job_manager.job_utils import JobFileWrite
+from job_manager.logger import JobLogger
+from job_manager.sandesh_utils import SandeshUtils
 
 
 class JobLogUtils(object):
@@ -43,10 +39,12 @@ class JobLogUtils(object):
 
     def __init__(self, sandesh_instance_id=None, config_args=None,
                  sandesh=True, sandesh_instance=None):
+        """Initialize JobLogUtils. Initialize sandesh instance."""
         self.sandesh_instance_id = sandesh_instance_id
         self.args = None
         self.config_logger = self.initialize_sandesh_logger(config_args,
-            sandesh, sandesh_instance)
+                                                            sandesh,
+                                                            sandesh_instance)
         self._job_file_write = JobFileWrite(self.config_logger)
 
     def get_config_logger(self):
@@ -73,7 +71,8 @@ class JobLogUtils(object):
                 msg = MsgBundle.getMessage(
                     MsgBundle.SANDESH_INITIALIZATION_TIMEOUT_ERROR)
                 raise JobException(msg)
-            logger.info("Sandesh is initialized. Config logger instance created.")
+            logger.info("Sandesh is initialized."
+                        " Config logger instance created.")
 
         return logger
 
@@ -219,7 +218,6 @@ class JobLogUtils(object):
             fabric_fq_name,
             job_template_fqname,
             job_execution_id,
-            timestamp=None,
             percentage_completed=None):
         try:
             fabric_job_name = list(job_template_fqname)
@@ -250,7 +248,7 @@ class JobLogUtils(object):
             prouter_state=None,
             job_status=None,
             percentage_completed=None,
-            device_op_results = "{}"):
+            device_op_results="{}"):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if prouter_state is None:
@@ -259,7 +257,7 @@ class JobLogUtils(object):
                     execution_id=job_execution_id,
                     job_status=job_status,
                     percentage_completed=percentage_completed,
-                    device_op_results = device_op_results
+                    device_op_results=device_op_results
                 )
             else:
                 prouter_job_data = PhysicalRouterJobExecution(
@@ -268,7 +266,7 @@ class JobLogUtils(object):
                     prouter_state=prouter_state,
                     job_status=job_status,
                     percentage_completed=percentage_completed,
-                    device_op_results = device_op_results
+                    device_op_results=device_op_results
                 )
 
             prouter_job_uve = PhysicalRouterJobUve(
@@ -399,4 +397,3 @@ class JobLogUtils(object):
             self.config_logger.error(msg)
             self.config_logger.error("%s" % traceback.format_exc())
             raise JobException(e)
-

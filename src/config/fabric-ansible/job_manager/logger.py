@@ -2,19 +2,26 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Job manager logger.
-"""
-from sandesh_common.vns.ttypes import Module
-from cfgm_common.vnc_logger import ConfigServiceLogger
+"""Job manager logger."""
+
 from cfgm_common.vnc_greenlets import VncGreenlet
+from cfgm_common.vnc_logger import ConfigServiceLogger
 from pysandesh.sandesh_base import Sandesh
+from sandesh_common.vns.ttypes import Module
 
 
 class JobLogger(ConfigServiceLogger):
 
     def __init__(self, args=None, http_server_port=None,
                  sandesh_instance_id=None, sandesh_instance=None):
+        """
+        Initialize Job Logger.
+
+        :param args: Config params passed to job manager
+        :param http_server_port: Required for Sandesh logger initialization
+        :param sandesh_instance_id: Uniquely identifies the logger instance
+        :param sandesh_instance: Optional sandesh instance
+        """
         self.sandesh_instance_id = sandesh_instance_id
         self._sandesh = sandesh_instance
         module = Module.FABRIC_ANSIBLE
@@ -24,7 +31,6 @@ class JobLogger(ConfigServiceLogger):
             module, module_pkg, args, http_server_port)
 
     def sandesh_init(self, http_server_port=None):
-        """ Init sandesh """
         if self._sandesh is not None:
             return
 
