@@ -2,10 +2,6 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
-
 import os
 import random
 import signal
@@ -16,13 +12,16 @@ from attrdict import AttrDict
 from cfgm_common import vnc_cgitb
 from cfgm_common.kombu_amqp import KombuAmqpClient
 from cfgm_common.zkclient import ZookeeperClient
-from distutils.util import strtobool
 from device_job_manager import DeviceJobManager
-from device_manager import DeviceManager
 from device_ztp_manager import DeviceZtpManager
 from dm_amqp import DMAmqpHandle
 from dm_server_args import parse_args
+import gevent
+from gevent import monkey
 from logger import DeviceManagerLogger
+
+from device_manager import DeviceManager
+monkey.patch_all()
 
 
 _amqp_client = None
@@ -46,7 +45,8 @@ def initialize_amqp_client(logger, args):
             ssl_certfile=args.kombu_ssl_certfile,
             ssl_ca_certs=args.kombu_ssl_ca_certs
         )
-        amqp_client = KombuAmqpClient(logger.log, rabbitmq_cfg,
+        amqp_client = KombuAmqpClient(
+            logger.log, rabbitmq_cfg,
             heartbeat=args.rabbit_health_check_interval)
         amqp_client.run()
     except Exception as e:
@@ -123,7 +123,7 @@ def main(args_str=None):
         args.host_ip = socket.gethostbyname(socket.getfqdn())
 
     _amqp_client = initialize_amqp_client(dm_logger, args)
-    _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
+    _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
                                         args.zk_server_ip, args.host_ip)
 
     try:
@@ -152,15 +152,17 @@ def main(args_str=None):
     gevent.signal(signal.SIGINT, sigterm_handler)
 
     dm_logger.notice("Waiting to be elected as master...")
-    _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
+    _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
                                       os.getpid(), run_device_manager,
                                       dm_logger, args)
 # end main
+
 
 def server_main():
     vnc_cgitb.enable(format='text')
     main()
 # end server_main
+
 
 if __name__ == '__main__':
     server_main()

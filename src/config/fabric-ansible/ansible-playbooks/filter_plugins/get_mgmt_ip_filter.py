@@ -1,13 +1,13 @@
 #!/usr/bin/python
 
+from filter_utils import FilterLog, _task_log, _task_done, \
+    _task_error_log
 import traceback
 import sys
 
 from job_manager.job_utils import JobVncApi
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog, _task_log, _task_done, \
-    _task_error_log
 
 
 class FilterModule(object):
@@ -28,7 +28,7 @@ class FilterModule(object):
                 if lo0_ip:
                     mgmt_ip, dev_name = self._get_mgmt_ip(lo0_ip)
                     if mgmt_ip:
-                        mgmt_ips.append({mgmt_ip : (dev_name, lo0_ip)})
+                        mgmt_ips.append({mgmt_ip: (dev_name, lo0_ip)})
 
             _task_done()
             return {
@@ -49,11 +49,12 @@ class FilterModule(object):
     def _get_mgmt_ip(self, lo0_ip):
         # This should ideally be an array of just one device
         physical_routers_map = self.vnc_lib.physical_routers_list(
-            fields = ["display_name", "physical_router_management_ip"],
+            fields=["display_name", "physical_router_management_ip"],
             filters={"physical_router_loopback_ip": lo0_ip})
         physical_routers_list = physical_routers_map.get('physical-routers')
         if physical_routers_list:
-            pr_mgmt_ip = physical_routers_list[0].get('physical_router_management_ip')
+            pr_mgmt_ip = physical_routers_list[0].get(
+                'physical_router_management_ip')
             pr_name = physical_routers_list[0].get('display_name')
             return pr_mgmt_ip, pr_name
         else:

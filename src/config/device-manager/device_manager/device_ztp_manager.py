@@ -3,11 +3,12 @@
 #
 
 import base64
-import docker
-import gevent
 import os
 import re
 import socket
+
+import docker
+import gevent
 from netaddr import IPAddress, IPNetwork
 
 
@@ -18,11 +19,12 @@ class DeviceZtpManager(object):
     TFTP_FILE_ROUTING_KEY = 'device_ztp.tftp.file'
     ZTP_REQUEST_ROUTING_KEY = 'device_ztp.request'
     ZTP_RESPONSE_ROUTING_KEY = 'device_ztp.response.'
-    MESSAGE_TTL = 5*60
+    MESSAGE_TTL = 5 * 60
 
     _instance = None
 
     def __init__(self, amqp_client, args, logger):
+        """Init routine for ZTP manager."""
         DeviceZtpManager._instance = self
         self._client = None
         self._active = False
@@ -41,7 +43,7 @@ class DeviceZtpManager(object):
     @classmethod
     def get_instance(cls):
         return cls._instance
-     # end get_instance
+    # end get_instance
 
     @classmethod
     def destroy_instance(cls):
@@ -60,15 +62,15 @@ class DeviceZtpManager(object):
 
         consumer = 'device_manager_ztp.%s.config_queue' % \
             socket.getfqdn()
-        self._amqp_client.add_consumer(consumer, self.EXCHANGE,
-            routing_key=self.CONFIG_FILE_ROUTING_KEY,
+        self._amqp_client.add_consumer(
+            consumer, self.EXCHANGE, routing_key=self.CONFIG_FILE_ROUTING_KEY,
             callback=self.handle_config_file_request)
 
         consumer = 'device_manager_ztp.%s.tftp_queue' % \
             socket.getfqdn()
         self._amqp_client.add_consumer(consumer, self.EXCHANGE,
-            routing_key=self.TFTP_FILE_ROUTING_KEY,
-            callback=self.handle_tftp_file_request)
+                                       routing_key=self.TFTP_FILE_ROUTING_KEY,
+                                       callback=self.handle_tftp_file_request)
     # end _initialize
 
     def set_active(self):
@@ -80,8 +82,8 @@ class DeviceZtpManager(object):
             r"[0-9]+ ([:A-Fa-f0-9]+) ([0-9.]+) ([a-zA-Z0-9\-_]+|\*) .*",
             re.MULTILINE | re.DOTALL)
         consumer = 'device_manager_ztp.ztp_queue'
-        self._amqp_client.add_consumer(consumer, self.EXCHANGE,
-            routing_key=self.ZTP_REQUEST_ROUTING_KEY,
+        self._amqp_client.add_consumer(
+            consumer, self.EXCHANGE, routing_key=self.ZTP_REQUEST_ROUTING_KEY,
             callback=self.handle_ztp_request)
     # end set_active
 
@@ -101,8 +103,8 @@ class DeviceZtpManager(object):
 
     def _ztp_request(self, headers, config):
         try:
-            self._logger.debug("ztp_request: headers %s, config %s" % \
-                (str(headers), str(config)))
+            self._logger.debug("ztp_request: headers %s, config %s" %
+                               (str(headers), str(config)))
             action = headers.get('action')
             if action is None:
                 return
@@ -112,14 +114,16 @@ class DeviceZtpManager(object):
             file_path = os.path.join(self._dnsmasq_conf_dir, file_name)
 
             if action == 'create':
-                self._logger.info("Waiting for file %s to be created" % file_path)
+                self._logger.info(
+                    "Waiting for file %s to be created" % file_path)
                 while timeout > 0 and not os.path.isfile(file_path):
                     timeout -= 1
                     gevent.sleep(1)
                 self._restart_dnsmasq_container()
                 self._read_dhcp_leases(headers.get('fabric_name'), config)
             elif action == 'delete':
-                self._logger.info("Waiting for file %s to be deleted" % file_path)
+                self._logger.info(
+                    "Waiting for file %s to be deleted" % file_path)
                 while timeout > 0 and os.path.isfile(file_path):
                     timeout -= 1
                     gevent.sleep(1)
@@ -165,20 +169,26 @@ class DeviceZtpManager(object):
                 break
             gevent.sleep(1)
 
-        results['device_list'] = [{'ip_addr': ip_addr, 'mac': mac, 'host_name': host_name} for mac, (ip_addr, host_name) in matched_devices.iteritems()]
+        results['device_list'] = [
+            {'ip_addr': ip_addr, 'mac': mac, 'host_name': host_name}
+            for mac, (ip_addr, host_name) in matched_devices.iteritems()
+        ]
         if not results['device_list']:
             results['failed'] = True
-        results['msg'] = "Found {} devices, expected {} devices. Here are the found devices: {}". \
-            format(len(results['device_list']), device_count, results['device_list'])
+        results['msg'] = ("Found {} devices, expected {} devices. Here are " +
+                          "the devices found: {}").format(
+            len(results['device_list']), device_count, results['device_list'])
 
         self._logger.info(results['msg'])
+        routing_key = self.ZTP_RESPONSE_ROUTING_KEY + fabric_name
         self._amqp_client.publish(results, self.EXCHANGE,
-            routing_key=self.ZTP_RESPONSE_ROUTING_KEY + fabric_name)
+                                  routing_key=routing_key)
     # end _read_dhcp_leases
 
     def _handle_file_request(self, body, message, dir):
         try:
-            self._logger.debug("handle_file_request: headers %s" % str(message.headers))
+            self._logger.debug("handle_file_request: headers %s" %
+                               str(message.headers))
             message.ack()
             action = message.headers.get('action')
             if action is None:
@@ -194,7 +204,7 @@ class DeviceZtpManager(object):
                 with open(file_path, 'w') as f:
                     contents = base64.b64decode(body)
                     contents = contents.replace('<host_ip>',
-                        self._host_ip)
+                                                self._host_ip)
                     f.write(bytearray(contents))
             elif action == 'delete':
                 self._logger.info("Deleting file %s" % file_path)
@@ -226,7 +236,8 @@ class DeviceZtpManager(object):
             subnet = subnet_obj.get('subnet', {})
             ip_prefix = subnet.get('ip_prefix')
             length = subnet.get('ip_prefix_len')
-            if IPAddress(ip_addr) in IPNetwork("{}/{}".format(ip_prefix, length)):
+            ip_network = "{}/{}".format(ip_prefix, length)
+            if IPAddress(ip_addr) in IPNetwork(ip_network):
                 return True
         return False
     # end _within_dhcp_subnet
@@ -235,7 +246,9 @@ class DeviceZtpManager(object):
     def _within_ztp_devices(host_name, device_to_ztp):
         if not device_to_ztp or host_name == "*":
             return True
-        return any([host_name == i.get('serial_number') for i in device_to_ztp])
+        return any([
+            host_name == i.get('serial_number') for i in device_to_ztp
+        ])
     # end _within_ztp_devices
 
 # end DeviceZtpManager
