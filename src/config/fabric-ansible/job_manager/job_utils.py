@@ -2,37 +2,33 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Contains utility functions used by the job manager
-"""
-import random
-from enum import Enum
-import traceback
-import collections
-import json
-from jsonschema import Draft4Validator, validators
-from Crypto.Cipher import AES
+"""Contains utility functions used by the job manager."""
 import base64
+import collections
+from enum import Enum
+import json
+import random
+import traceback
 
-from vnc_api.gen.resource_xsd import (
-    KeyValuePairs,
-    KeyValuePair
-)
-
-from vnc_api.vnc_api import VncApi
-import vnc_api
-
+from Crypto.Cipher import AES
+from inflection import camelize
 from job_exception import JobException
 from job_messages import MsgBundle
-from inflection import camelize
+from jsonschema import Draft4Validator, validators
+import vnc_api
+from vnc_api.gen.resource_xsd import KeyValuePair
+from vnc_api.vnc_api import VncApi
+
 
 PLAYBOOK_EOL_PATTERN = "*EOL*\n"
+
 
 class JobStatus(Enum):
     STARTING = "STARTING"
     IN_PROGRESS = "IN_PROGRESS"
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
+
 
 class JobVncApi(object):
     @staticmethod
@@ -48,7 +44,7 @@ class JobVncApi(object):
                 params.get('api_server_port'),
                 api_server_use_ssl=params.get('api_server_use_ssl'))
         elif job_ctx.get('auth_token') is not None:
-            vnc_api =  VncApi(
+            vnc_api = VncApi(
                 api_server_host=api_server_ip_list,
                 auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
                 auth_token=job_ctx.get('auth_token')
@@ -76,6 +72,7 @@ class JobVncApi(object):
         password = cipher.decrypt(base64.b64decode(encrypted_password))
         return password.strip()
 
+
 class JobFileWrite(object):
     JOB_PROGRESS = 'JOB_PROGRESS##'
     PLAYBOOK_OUTPUT = 'PLAYBOOK_OUTPUT##'
@@ -84,6 +81,7 @@ class JobFileWrite(object):
     GEN_DEV_OP_RES = 'GENERIC_DEVICE##'
 
     def __init__(self, logger, ):
+        """Initializes JobFileWrite."""
         self._logger = logger
 
     def write_to_file(self, exec_id, pb_id, marker, msg):
@@ -102,6 +100,7 @@ class JobFileWrite(object):
 class JobUtils(object):
 
     def __init__(self, job_execution_id, job_template_id, logger, vnc_api):
+        """Initializes JobUtils."""
         self._job_execution_id = job_execution_id
         self._job_template_id = job_template_id
         self._logger = logger
@@ -113,15 +112,17 @@ class JobUtils(object):
                 id=self._job_template_id)
             self._logger.debug("Read job template %s from "
                                "database" % self._job_template_id)
-        except Exception as e:
+        except Exception:
             msg = MsgBundle.getMessage(MsgBundle.READ_JOB_TEMPLATE_ERROR,
                                        job_template_id=self._job_template_id)
             raise JobException(msg, self._job_execution_id)
         return job_template
 
+
 class JobAnnotations(object):
 
     def __init__(self, vnc_api):
+        """Initializes JobAnnotations."""
         self.vncapi = vnc_api
 
     skip_validators = ['required', 'minProperties', 'maxProperties']
@@ -129,15 +130,16 @@ class JobAnnotations(object):
     # Extension to populate default values when creating JSON data from schema
     def _extend_with_default(self, validator_class):
         validate_properties = validator_class.VALIDATORS["properties"]
+
         def set_defaults(validator, properties, instance, schema):
-            for property, subschema in properties.iteritems():
+            for obj_property, subschema in properties.iteritems():
                 if "default" in subschema:
-                    instance.setdefault(property, subschema["default"])
+                    instance.setdefault(obj_property, subschema["default"])
             for error in validate_properties(
                     validator, properties, instance, schema):
                 yield error
         extended_validators = validators.extend(
-            validator_class, {"properties" : set_defaults},
+            validator_class, {"properties": set_defaults},
         )
         VALIDATORS = extended_validators.VALIDATORS
         for _validator in self.skip_validators:

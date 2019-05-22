@@ -2,31 +2,31 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains job manager process code and api
-"""
-import time
-import sys
-import json
-import jsonschema
+"""This file contains job manager process code and api."""
+
 import argparse
-import traceback
+import json
 import socket
+import sys
+import time
+import traceback
+
 
 from cfgm_common.zkclient import ZookeeperClient
-from job_manager.job_handler import JobHandler
-from job_manager.job_exception import JobException
-from job_manager.job_log_utils import JobLogUtils
-from job_manager.job_utils import JobUtils, JobStatus
-from job_manager.job_result_handler import JobResultHandler
-from job_manager.job_messages import MsgBundle
-from job_manager.sandesh_utils import SandeshUtils
-
-from vnc_api.vnc_api import VncApi
-from gevent.greenlet import Greenlet
-from gevent.pool import Pool
 from gevent import monkey
 monkey.patch_socket()
+from gevent.greenlet import Greenlet
+from gevent.pool import Pool
+import jsonschema
+from vnc_api.vnc_api import VncApi
+
+from job_manager.job_exception import JobException
+from job_manager.job_handler import JobHandler
+from job_manager.job_log_utils import JobLogUtils
+from job_manager.job_messages import MsgBundle
+from job_manager.job_result_handler import JobResultHandler
+from job_manager.job_utils import JobStatus, JobUtils
+from job_manager.sandesh_utils import SandeshUtils
 
 
 class JobManager(object):
@@ -34,6 +34,7 @@ class JobManager(object):
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
                  result_handler, job_utils, playbook_seq, job_percent,
                  zk_client):
+        """Initializes job manager."""
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_execution_id = None
@@ -123,7 +124,8 @@ class JobManager(object):
         for device_id in self.device_json:
             if device_id in result_handler.failed_device_jobs:
                 self._logger.debug("Not executing the next operation"
-                                   "in the workflow for device: %s" % device_id)
+                                   "in the workflow for device: %s"
+                                   % device_id)
                 continue
 
             device_data = self.device_json.get(device_id)
@@ -158,6 +160,7 @@ class JobManager(object):
 class WFManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, zk_client):
+        """Initializes workflow manager."""
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_input = job_input
@@ -224,10 +227,10 @@ class WFManager(object):
 
             job_template = self.job_utils.read_job_template()
 
-            msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
-                                       job_execution_id=self.job_execution_id,
-                                       job_template_name=\
-                                           job_template.fq_name[-1])
+            msg = MsgBundle.getMessage(
+                MsgBundle.START_JOB_MESSAGE,
+                job_execution_id=self.job_execution_id,
+                job_template_name=job_template.fq_name[-1])
             self._logger.debug(msg)
 
             timestamp = int(round(time.time() * 1000))
@@ -279,8 +282,8 @@ class WFManager(object):
                     job_mgr = JobManager(self._logger, self._vnc_api,
                                          self.job_input, self.job_log_utils,
                                          job_template,
-                                         self.result_handler, self.job_utils, i,
-                                         job_percent, self._zk_client)
+                                         self.result_handler, self.job_utils,
+                                         i, job_percent, self._zk_client)
                     job_mgr.start_job()
 
                     # retry the playbook execution if retry_devices is added to
@@ -307,19 +310,21 @@ class WFManager(object):
 
                     if not multi_device_playbook or \
                             (multi_device_playbook and
-                             len(self.result_handler.failed_device_jobs) == \
+                             len(self.result_handler.failed_device_jobs) ==
                              len(self.job_input.get('device_json'))):
                         self._logger.error(
                             "Stop the workflow on the failed Playbook.")
                         break
 
                     elif not retry_devices:
-                        # it is a multi device playbook but one of the device jobs
-                        # have failed. This means we should still declare
-                        # the operation as success. We declare workflow as
-                        # success even if one of the devices has succeeded the job
+                        # it is a multi device playbook but one of
+                        # the device jobs have failed. This means we should
+                        # still declare the operation as success. We declare
+                        # workflow as success even if one of the devices has
+                        # succeeded the job
 
-                        self.result_handler.job_result_status = JobStatus.SUCCESS
+                        self.result_handler.job_result_status =\
+                            JobStatus.SUCCESS
 
                 # read the device_data output of the playbook
                 # and update the job input so that it can be used in next
@@ -400,8 +405,8 @@ def initialize_zookeeper_client(args):
     else:
         client_pfx = ''
 
-    zookeeper_client = ZookeeperClient(client_pfx+"job-manager",
-                                        args.zk_server_ip, host_ip)
+    zookeeper_client = ZookeeperClient(client_pfx + "job-manager",
+                                       args.zk_server_ip, host_ip)
     return zookeeper_client
 
 
