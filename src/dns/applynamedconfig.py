@@ -23,7 +23,7 @@ import logging
 def setup_logger():
     log = logging.getLogger('applynamedconfig')
     # create file handler
-    fh = logging.handlers.FileHandler('/var/log/contrail/contrail-dns.log')
+    fh = logging.FileHandler('/var/log/contrail/contrail-dns.log')
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '[%(asctime)s %(name)s(%(lineno)s) %(levelname)s]: %(message)s',
