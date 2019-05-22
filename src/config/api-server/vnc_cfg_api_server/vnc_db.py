@@ -1594,6 +1594,12 @@ class VncDbClient(object):
             # include objects shared with tenant
             domain_id, project_id = self._owner_id()
             shares = self.get_shared_objects(obj_type, project_id, domain_id)
+            if project_id:
+                project_id = str(uuid.UUID(project_id))
+            if domain_id:
+                domain_id = str(uuid.UUID(domain_id))
+            if project_id or domain_id:
+                shares.extend(self.get_shared_objects(obj_type, project_id, domain_id))
             if start is not None:
                 # pick only ones greater than marker
                 shares = sorted(shares, key=lambda uuid_perm: uuid_perm[0])
