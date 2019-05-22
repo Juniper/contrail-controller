@@ -1613,10 +1613,10 @@ class VncDbClient(object):
         env = get_request().headers.environ
         domain_id = env.get('HTTP_X_DOMAIN_ID')
         if domain_id:
-            domain_id = domain_id.replace('-', '')
+            domain_id = str(uuid.UUID(domain_id))
         project_id = env.get('HTTP_X_PROJECT_ID')
         if project_id:
-            project_id = project_id.replace('-', '')
+            project_id = str(uuid.UUID(project_id))
         return domain_id, project_id
 
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
