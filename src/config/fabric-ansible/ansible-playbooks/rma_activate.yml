@@ -80,53 +80,47 @@
 
     - name: If brownfield device, fetch underlay_config and push to device
       block:
-#        - name: Update job log with percentage
-#          include_tasks: percentage_update.yml
-#          vars:
-#            current_index: 1
-#            jl_message: "Pushing underlay configuration for device \'{{prouter_name}}\'"
-#
-#        - set_fact:
-#            conf_dir: "./config/{{device_mgmt_ip}}"
-#        - name: Remove final_config/final_rma_activate_config directory if it already exists
-#          file:
-#            path: "{{ conf_dir }}/final_config/final_rma_activate_config"
-#            state: absent
-#        - name: Create final_config/final_rma_activate_config directory
-#          file:
-#            path: "{{ conf_dir }}/final_config/final_rma_activate_config"
-#            state: directory
-#        - name: Create final_config/final_rma_activate_config/rma_activate_config.conf
-#          copy:
-#            content: "{{ prouter_obj.obj.get('physical_router_underlay_config') }}"
-#            dest: "{{ conf_dir }}/final_config/final_rma_activate_config/rma_activate_config.conf"
-#        - name: Set the src file for restoring config on the device
-#          set_fact:
-#            source_file: "{{ conf_dir }}/final_config/final_rma_activate_config/rma_activate_config.conf"
-#        - include_role:
-#            name: "commit_fabric_config"
-#        - name: Change managed state to active
-#          vnc_db_mod:
-#            job_ctx: "{{ job_ctx }}"
-#            object_type: "physical_router"
-#            object_op: "update"
-#            object_dict: |
-#              {
-#                "uuid": "{{ device_uuid }}",
-#                "physical_router_managed_state": "active"
-#              }
-#      rescue:
-#        - name: Perform the necessary error handling
-#          include_tasks: error_handler.yml
-#          vars:
-#            op_err_message: "Failed to RMA brownfield device {{prouter_name}}"
-#            jl_err_message: "Failed to RMA brownfield device {{prouter_name}}"
+        - name: Update job log with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Pushing underlay configuration for device \'{{prouter_name}}\'"
 
-        - name: Not supported yet
+        - set_fact:
+            conf_dir: "./config/{{device_mgmt_ip}}"
+        - name: Remove final_config/final_rma_activate_config directory if it already exists
+          file:
+            path: "{{ conf_dir }}/final_config/final_rma_activate_config"
+            state: absent
+        - name: Create final_config/final_rma_activate_config directory
+          file:
+            path: "{{ conf_dir }}/final_config/final_rma_activate_config"
+            state: directory
+        - name: Create final_config/final_rma_activate_config/rma_activate_config.conf
+          copy:
+            content: "{{ prouter_obj.obj.get('physical_router_underlay_config') }}"
+            dest: "{{ conf_dir }}/final_config/final_rma_activate_config/rma_activate_config.conf"
+        - name: Set the src file for restoring config on the device
+          set_fact:
+            source_file: "{{ conf_dir }}/final_config/final_rma_activate_config/rma_activate_config.conf"
+        - include_role:
+            name: "commit_fabric_config"
+        - name: Change managed state to active
+          vnc_db_mod:
+            job_ctx: "{{ job_ctx }}"
+            object_type: "physical_router"
+            object_op: "update"
+            object_dict: |
+              {
+                "uuid": "{{ device_uuid }}",
+                "physical_router_managed_state": "active"
+              }
+      rescue:
+        - name: Perform the necessary error handling
           include_tasks: error_handler.yml
           vars:
-            op_err_message: "RMA not supported for brownfield device {{prouter_name}}"
-            jl_err_message: "RMA not supported for brownfield device {{prouter_name}}"
+            op_err_message: "Failed to RMA brownfield device {{prouter_name}}"
+            jl_err_message: "Failed to RMA brownfield device {{prouter_name}}"
       when: underlay_managed is defined and underlay_managed == false
 
     - name: If greenfield device, invoke IP assignment task
