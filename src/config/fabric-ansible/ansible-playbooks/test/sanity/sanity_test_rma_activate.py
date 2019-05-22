@@ -43,66 +43,69 @@ class SanityTestRmaActivate(SanityBase):
         device_obj = self._api.physical_router_read(fq_name=device_fq_name)
         self.device_uuid = device_obj.uuid
         self.managed_state = device_obj.get_physical_router_managed_state()
+        self.underlay_managed = device_obj.get_physical_router_underlay_managed()
         self.underlay_config = device_obj.get_physical_router_underlay_config()
         self.mac = device_obj.get_physical_router_management_mac()
         self._logger.info("Device {}: serial_number={}, mac={}, managed_state={}".\
                            format(self.device_name, self.serial_number,
                                   self.mac, self.managed_state))
 
-        # Use underlay config if already found, otherwise provide default
-        if self.underlay_config:
-            self._logger.info("Underlay config found: \'{}\'".\
-                               format(self.underlay_config))
+        if not self.underlay_managed:
+            # Use underlay config if already found, otherwise provide default
+            if self.underlay_config:
+                self._logger.info("Underlay config found: \'{}\'".\
+                                   format(self.underlay_config))
+            else:
+                self.underlay_config = test_underlay_config
+                self._logger.info("Underlay config added: \'{}\'".\
+                                   format(self.underlay_config))
+                device_obj.set_physical_router_underlay_config(self.underlay_config)
+
         else:
-            self.underlay_config = test_underlay_config
-            self._logger.info("Underlay config added: \'{}\'".\
-                               format(self.underlay_config))
-            device_obj.set_physical_router_underlay_config(self.underlay_config)
+            # Change mac and serial number to bogus values to pretend like this
+            # is another device. Then run update_dhcp_config playbook to install
+            # mac into dnsmasq config file
+            device_obj.set_physical_router_management_mac(BOGUS_MGMT_MAC)
+            device_obj.set_physical_router_serial_number(BOGUS_SERIAL_NUMBER)
+            self._api.physical_router_update(device_obj)
 
-        # Change mac and serial number to bogus values to pretend like this
-        # is another device. Then run update_dhcp_config playbook to install
-        # mac into dnsmasq config file
-        device_obj.set_physical_router_management_mac(BOGUS_MGMT_MAC)
-        device_obj.set_physical_router_serial_number(BOGUS_SERIAL_NUMBER)
-        self._api.physical_router_update(device_obj)
+            playbook_input = {
+                "device_management_ip": device_obj.physical_router_management_ip,
+                "device_username": device_obj.physical_router_user_credentials.username,
+                "device_password": self.device_password,
+                "fabric_fq_name": fabric_fq_name,
+                "fabric_uuid": self.fabric_uuid,
+                "input": {"fabric_uuid": self.fabric_uuid},
+                "api_server_host": [
+                    self.api_server_host
+                ],
+                "unique_pb_id": "e1d01b16-88ce-476a-9e83-066e4703274b",
+                "auth_token": "",
+                "job_execution_id": "1557873207326_641ccb71-be06-487a-972b-55ac90537fd2",
+                "vnc_api_init_params": {
+                    "admin_password": "contrail123",
+                    "admin_tenant_name": "admin",
+                    "admin_user": "admin",
+                    "api_server_port": "8082",
+                    "api_server_use_ssl": "False"
+                },
+                "job_template_fqname": [
+                    "default-global-system-config",
+                    "rma_activate_template"
+                ],
+                "args": "{\"fabric_ansible_conf_file\": [\"/etc/contrail/contrail-keystone-auth.conf\", \"/etc/contrail/contrail-fabric-ansible.conf\"], \"zk_server_ip\": \"10.87.6.1:2181\", \"cluster_id\": \"\", \"host_ip\": \"10.87.6.1\", \"collectors\": [\"10.87.6.1:8086\"]}",
+                "playbook_job_percentage": 28.5,
+            }
 
-        playbook_input = {
-            "device_management_ip": device_obj.physical_router_management_ip,
-            "device_username": device_obj.physical_router_user_credentials.username,
-            "device_password": self.device_password,
-            "fabric_fq_name": fabric_fq_name,
-            "fabric_uuid": self.fabric_uuid,
-            "input": {"fabric_uuid": self.fabric_uuid},
-            "api_server_host": [
-                self.api_server_host
-            ],
-            "unique_pb_id": "e1d01b16-88ce-476a-9e83-066e4703274b",
-            "auth_token": "",
-            "job_execution_id": "1557873207326_641ccb71-be06-487a-972b-55ac90537fd2",
-            "vnc_api_init_params": {
-                "admin_password": "contrail123",
-                "admin_tenant_name": "admin",
-                "admin_user": "admin",
-                "api_server_port": "8082",
-                "api_server_use_ssl": "False"
-            },
-            "job_template_fqname": [
-                "default-global-system-config",
-                "rma_activate_template"
-            ],
-            "args": "{\"fabric_ansible_conf_file\": [\"/etc/contrail/contrail-keystone-auth.conf\", \"/etc/contrail/contrail-fabric-ansible.conf\"], \"zk_server_ip\": \"10.87.6.1:2181\", \"cluster_id\": \"\", \"host_ip\": \"10.87.6.1\", \"collectors\": [\"10.87.6.1:8086\"]}",
-            "playbook_job_percentage": 28.5,
-        }
+            self.execute_playbook('../../update_dhcp_config.yml', playbook_input)
 
-        self.execute_playbook('../../update_dhcp_config.yml', playbook_input)
-
-        # Now zeroize the device and wait for it to come back online
-        # Since we don't know what IP address the device will be assigned,
-        # we can't easily poll the device to see if it is back up
-        # So the easiest thing to do is just delay
-        self.execute_playbook('test_zeroize.yml', playbook_input)
-        self._logger.info("Wait for {} minutes...".format(self.zeroize_timeout))
-        time.sleep(self.zeroize_timeout*60)
+            # Now zeroize the device and wait for it to come back online
+            # Since we don't know what IP address the device will be assigned,
+            # we can't easily poll the device to see if it is back up
+            # So the easiest thing to do is just delay
+            self.execute_playbook('test_zeroize.yml', playbook_input)
+            self._logger.info("Wait for {} minutes...".format(self.zeroize_timeout))
+            time.sleep(self.zeroize_timeout*60)
 
         # Change to rma state and verify
         device_obj = self._api.physical_router_read(fq_name=device_fq_name)
