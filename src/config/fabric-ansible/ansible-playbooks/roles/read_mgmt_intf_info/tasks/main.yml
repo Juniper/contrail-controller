@@ -26,7 +26,7 @@
 
     - name: Find management interface to be configured
       set_fact:
-        interface_configuration: "{{interfaces_payload | find_dhcp_assigned_mgmt_interface(host)}}"
+        interface_configuration: "{{interfaces_payload | find_dhcp_assigned_mgmt_interface(prouter_dynamic_ip)}}"
 
     - name: Print interface_configuration
       debug: var=interface_configuration verbosity=1
