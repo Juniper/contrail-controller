@@ -1,0 +1,25 @@
+---
+
+- name: Get uuid of image refs
+  set_fact:
+    device_image_uuid: "{{item.uuid}}"
+
+- name: Read the image
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "device_image"
+    object_op: "read"
+    object_dict: |
+      {
+        "uuid": "{{device_image_uuid}}"
+      }
+  register: image_details
+
+- name: Set the image os version
+  set_fact:
+    image_os_version: "{{image_details.obj.device_image_os_version}}"
+
+- name: Set the uuid of image
+  set_fact:
+    image_uuid: "{{device_image_uuid}}"
+  when: ztp_os_version == image_os_version
