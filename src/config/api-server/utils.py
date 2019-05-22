@@ -100,6 +100,10 @@ def parse_args(args_str):
         'ifmap_max_message_size': 1024*1024,
         'ifmap_health_check_interval': '60', # in seconds
         'max_request_size': 1024000,
+        'tcp_keepalive_enable': True,
+        'tcp_keepalive_idle_time': 7200,
+        'tcp_keepalive_interval': 75,
+        'tcp_keepalive_probes': 9,
     }
     # ssl options
     secopts = {
@@ -362,6 +366,15 @@ def parse_args(args_str):
                         type=user_password, nargs='*')
     parser.add_argument("--max_request_size", type=int,
             help="Maximum size of bottle requests served by api server")
+    parser.add_argument("--tcp_keepalive_enable", action="store_true",
+        help="Used to enable keepalive for tcp connection")
+    parser.add_argument("--tcp_keepalive_idle_time", type=int,
+        help="Used to set the keepalive timer in seconds")
+    parser.add_argument("--tcp_keepalive_interval", type=int,
+        help="Used to specify the tcp keepalive interval time")
+    parser.add_argument("--tcp_keepalive_probes", type=int,
+        help="Used to specify the tcp keepalive probes")
+
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
     args_obj.config_sections = config
