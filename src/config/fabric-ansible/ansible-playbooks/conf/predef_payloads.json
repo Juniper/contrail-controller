@@ -321,11 +321,18 @@
                 "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 20
+                "job_completion_weightage": 15
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_device.yml",
                 "multi_device_playbook": false,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 15
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/ztp_select_image.yml",
+                "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
                 "job_completion_weightage": 15
@@ -349,14 +356,14 @@
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 20
+                "job_completion_weightage": 15
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 20
+                "job_completion_weightage": 15
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/update_dhcp_config.yml",
