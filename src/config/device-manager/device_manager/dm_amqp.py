@@ -3,20 +3,18 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Device Manager amqp handler
-"""
+"""Device Manager amqp handler."""
 
 import socket
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
-
-from db import DBBaseDM, VirtualNetworkDM, PhysicalRouterDM
+from db import DBBaseDM, PhysicalRouterDM, VirtualNetworkDM
 
 
 class DMAmqpHandle(VncAmqpHandle):
 
     def __init__(self, logger, reaction_map, args):
+        """Initialize the amqp handler."""
         q_name_prefix = 'device_manager'
         rabbitmq_cfg = {
             'servers': args.rabbit_server, 'port': args.rabbit_port,
@@ -33,8 +31,9 @@ class DMAmqpHandle(VncAmqpHandle):
         else:
             host_ip = socket.gethostbyname(socket.getfqdn())
         super(DMAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseDM,
-            reaction_map, q_name_prefix, rabbitmq_cfg, host_ip,
-            register_handler=False)
+                                           reaction_map, q_name_prefix,
+                                           rabbitmq_cfg, host_ip,
+                                           register_handler=False)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
