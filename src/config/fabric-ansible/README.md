@@ -19,6 +19,7 @@ for managing the virtual environments for running test cases. It uses
 [stestr](https://stestr.readthedocs.io/en/latest/index.html) for managing the
 running of the test cases.
 
+<<<<<<< HEAD
 Tox handles the creation of a series of# Contrail Fabric Ansible
 
 ## What is Contrail Fabric?
@@ -40,6 +41,8 @@ for managing the virtual environments for running test cases. It uses
 [stestr](https://stestr.readthedocs.io/en/latest/index.html) for managing the
 running of the test cases.
 
+=======
+>>>>>>> cdb90c3... Adding pep8 run in scons
 Tox handles the creation of a series of
 [virtualenvs](https://pypi.python.org/pypi/virtualenv) that target specific
 versions of Python (limited to 2.7 for the moment).
@@ -58,6 +61,7 @@ To run only the unit tests:
 
     tox -e py27
 
+<<<<<<< HEAD
 ### Running Individual Tests
 
 For running individual test modules, cases or tests, you just need to pass
@@ -108,6 +112,11 @@ of the Contrail Fabric Ansible source code:
 To run only the unit tests:
 
     tox -e py27
+=======
+To run only pep8:
+
+    tox -e pep8
+>>>>>>> cdb90c3... Adding pep8 run in scons
 
 ### Running Individual Tests
 

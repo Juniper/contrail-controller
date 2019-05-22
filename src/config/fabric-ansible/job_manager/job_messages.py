@@ -181,4 +181,3 @@ class MsgBundle(object):
         except KeyError as ex:
             return 'Failed to construct job message due to missing message '\
                    'arguments: %s' % ex.message
-

@@ -2,10 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Contains common logger initialization to be used in job_manager internals
-that are to be captured from playbook_helper.py sub-process
-"""
+"""Contains common logger initialization to be used in job mgr internals."""
 
 import logging
 
