@@ -1,12 +1,9 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+"""Contains utility functions used for Sandesh initialization and logging."""
 
-"""
-Contains utility functions used for Sandesh initialization and logging
-"""
 import time
-import timeout_decorator
 
 from job_manager.job_exception import JobException
 from job_manager.job_messages import MsgBundle
@@ -15,6 +12,11 @@ from job_manager.job_messages import MsgBundle
 class SandeshUtils(object):
 
     def __init__(self, logger):
+        """
+        Creates an instance of SandeshUtils.
+
+        :param logger: Sandesh logger
+        """
         self._logger = logger
 
 #    @timeout_decorator.timeout(15, timeout_exception=JobException)
@@ -26,7 +28,8 @@ class SandeshUtils(object):
             time.sleep(0.2)
             total_wait += 0.2
             if total_wait > 30:
-                self._logger.error("Giving up on opening sandesh connection: %s" % state)
+                self._logger.error("Giving up on opening sandesh connection:"
+                                   " %s" % state)
                 break
             state = self._logger._sandesh._client._connection.\
                 statemachine().state()
@@ -44,7 +47,8 @@ class SandeshUtils(object):
             if total_wait > 30:
                 state = self._logger._sandesh._client._connection.\
                     statemachine().state()
-                self._logger.error("Giving up on empty sandesh send queue: %s" % state)
+                self._logger.error("Giving up on empty sandesh send queue:"
+                                   " %s" % state)
                 break
 
     # checks and waits for the sandesh client message queue to be empty and
