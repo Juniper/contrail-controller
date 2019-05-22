@@ -209,6 +209,9 @@
             }
           }
         }
+      },
+      "os_version": {
+        "type": "string"
       }
     }
   },
