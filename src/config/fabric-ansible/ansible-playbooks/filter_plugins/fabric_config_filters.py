@@ -3,26 +3,24 @@
 #
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains code to support fabric device configuration operations
+#
 
-"""
-This file contains code to support fabric device configuration operations
-"""
-
-import sys
 import argparse
-import os
-import yaml
 import json
-import shutil
-import traceback
+import os
 import re
-from jinja2 import FileSystemLoader, Environment, ext
+import shutil
+import sys
+import traceback
+
+from jinja2 import Environment, ext, FileSystemLoader
+import yaml
 
 PLAYBOOK_BASE = 'opt/contrail/fabric_ansible_playbooks'
 
-sys.path.append(PLAYBOOK_BASE+"/module_utils")
-from filter_utils import FilterLog, _task_log, _task_done,\
-     _task_error_log, _task_debug_log, _task_warn_log, vnc_bulk_get
+sys.path.append(PLAYBOOK_BASE + "/module_utils")
+from filter_utils import FilterLog, _task_error_log # noqa
 
 
 class FilterModule(object):
@@ -37,20 +35,23 @@ class FilterModule(object):
         with open('./group_vars/all.yml') as f:
             group_vars = yaml.load(f)
         role_to_feature_mapping = group_vars['role_to_feature_mapping']
-        self.role_to_feature_mapping = dict((k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
+        self.role_to_feature_mapping = dict(
+            (k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
         feature_based_plugin_roles = group_vars['feature_based_plugin_roles']
-        self.feature_based_plugin_roles = dict((k.lower(), v) for k, v in feature_based_plugin_roles.iteritems())
+        self.feature_based_plugin_roles = \
+            dict((k.lower(), v) for k, v in
+                 feature_based_plugin_roles.iteritems())
 
     # Load the abstract config
     def _load_abstract_config(self):
-        self.abstract_config_path = self.conf_dir+'/abstract_cfg.json'
+        self.abstract_config_path = self.conf_dir + '/abstract_cfg.json'
         with open(self.abstract_config_path) as f:
             ab_cfg = f.read()
         self.abstract_config = json.loads(ab_cfg)
 
     # Prepare the template render environment
     def _prepare_render_env(self):
-        self.final_config_path = self.conf_dir+'/final_config'
+        self.final_config_path = self.conf_dir + '/final_config'
         self.combined_config_path = \
             self.final_config_path + '/combined_config.conf'
         shutil.rmtree(self.final_config_path, ignore_errors=True)
@@ -67,12 +68,12 @@ class FilterModule(object):
         self.job_ctx = job_ctx
         os.chdir(PLAYBOOK_BASE)
 
-        input = self.job_ctx['job_input']
-        self.input = input
-        self.device_mgmt_ip = input['device_management_ip']
-        self.additional_feature_params = input['additional_feature_params']
-        self.is_delete = input['is_delete']
-        self.manage_underlay = input['manage_underlay']
+        job_input = self.job_ctx['job_input']
+        self.input = job_input
+        self.device_mgmt_ip = job_input['device_management_ip']
+        self.additional_feature_params = job_input['additional_feature_params']
+        self.is_delete = job_input['is_delete']
+        self.manage_underlay = job_input['manage_underlay']
 
         self.conf_dir = './config/' + self.device_mgmt_ip
         self._load_abstract_config()
@@ -114,48 +115,48 @@ class FilterModule(object):
         # Find vendor-family-feature templates
         vf_feature = '_'.join([self.device_vendor, self.device_family,
                                feature])
-        file = vf_feature + '.j2'
-        if file in template_list:
+        ffile = vf_feature + '.j2'
+        if ffile in template_list:
             feature_template_list.\
-                append('/'.join([feature_template_dir, file]))
+                append('/'.join([feature_template_dir, ffile]))
         # Find vendor-feature templates
         else:
             vf_feature = '_'.join([self.device_vendor, feature])
-            file = vf_feature + '.j2'
-            if file in template_list:
+            ffile = vf_feature + '.j2'
+            if ffile in template_list:
                 feature_template_list.\
-                    append('/'.join([feature_template_dir, file]))
+                    append('/'.join([feature_template_dir, ffile]))
 
         # Find model-specific regexp templates
         model_template_list = \
             [t for t in template_list if '[' in t and ']' in t]
         got_template = False
-        for file in model_template_list:
-            pattern = file[file.find('[')+1:file.rfind(']')]
+        for ffile in model_template_list:
+            pattern = ffile[ffile.find('[') + 1:ffile.rfind(']')]
             if re.match(pattern, self.device_model):
                 # Can't match more than one model template
                 if got_template:
                     raise ValueError('Multiple regex template match!')
                 feature_template_list.\
-                    append('/'.join([feature_template_dir, file]))
+                    append('/'.join([feature_template_dir, ffile]))
                 got_template = True
 
         return feature_template_list
 
     # Render the feature jinja template, appending to final_config string
     def _render_feature_config(self, feature, template, is_empty):
-        file = self.device_vendor + '_feature_config.j2'
+        ffile = self.device_vendor + '_feature_config.j2'
         file_loader = FileSystemLoader('./')
         env = Environment(loader=file_loader, trim_blocks=True,
-                          extensions = (ext.loopcontrols, ext.do))
-        templ = env.get_template('templates/'+file)
-        model = '_'+self.device_model if '[' in template and ']' in template \
+                          extensions=(ext.loopcontrols, ext.do))
+        templ = env.get_template('templates/' + ffile)
+        model = '_' + self.device_model if '[' in template and ']' in template\
             else ''
         feature_config = templ.render(
             feature=feature,
             feature_template=template,
             device_abstract_config=self.abstract_config if not
-                self.is_delete else None,
+            self.is_delete else None,
             input=self.input,
             device_mgmt_ip=self.device_mgmt_ip,
             additional_feature_params=self.additional_feature_params,
@@ -177,7 +178,8 @@ class FilterModule(object):
         # Loop through all the features
         for feature in feature_list:
             feature_template_dir = './roles/cfg_' + feature + '/templates'
-            feature_template_list = self._get_feature_templates(feature_template_dir, feature)
+            feature_template_list = self._get_feature_templates(
+                feature_template_dir, feature)
             # If feature not supported on this platform, skip
             if not feature_template_list:
                 continue
@@ -190,7 +192,7 @@ class FilterModule(object):
                 self._render_feature_config(
                     feature, feature_template,
                     False if feature in self.dev_feature_list else True
-            )
+                )
         self._render_feature_based_config()
         # Write to config file which will be sent to device
         with open(self.combined_config_path, 'w') as f:
@@ -219,11 +221,13 @@ class FilterModule(object):
         # This would cause the delete of already configured feature
         # Identify the common list and remove them from feature_based
         # Then render config
-        common_list = list(set(config_template_list) & set(self.dev_feature_list))
+        common_list = list(set(config_template_list) &
+                           set(self.dev_feature_list))
         final_list = list(set(config_template_list) - set(common_list))
         for feature in final_list:
             config_template_dir = './config_templates/' + feature + '/'
-            feature_template_list = self._get_feature_templates(config_template_dir, feature)
+            feature_template_list = self._get_feature_templates(
+                config_template_dir, feature)
             # If feature not supported on this platform, skip
             if not feature_template_list:
                 errmsg = "No templates found for feature: %s" % (feature)
@@ -234,13 +238,14 @@ class FilterModule(object):
                 continue
             # For each feature template, including model-specific templates,
             # render the jinja template
-            if 'features' not in self.abstract_config and self.feature_based_list:
+            if 'features' not in self.abstract_config and \
+                    self.feature_based_list:
                 continue
             for feature_template in feature_template_list:
                 self._render_feature_config(
                     feature, feature_template,
                     False if feature in self.feature_based_list else True
-            )
+                )
     # end _render_feature_based_config
 
     def render_fabric_config(self, job_ctx):
@@ -265,28 +270,30 @@ def _mock_abstract_config():
     return {
         "comment": "/* Contrail Generated Group Config */",
         "bgp": [
-        {
-            "comment": "/* overlay_bgp: BGP Router: vqfx1-bgp, UUID: 09dbd2bd-4171-46c1-9741-aa2c85ebe803 */",
-            "peers": [
-                {
-                    "comment": "/* overlay_bgp: BGP Router: vqfx4-bgp, UUID: ec8d8fdb-edde-4c6d-9c54-16f794606d4e */",
-                    "ip_address": "20.1.1.251",
-                    "name": "20.1.1.251",
-                    "autonomous_system": 64512
-                }
-            ],
-            "families": [
-                "inet-vpn",
-                "inet6-vpn",
-                "route-target",
-                "evpn"
-            ],
-            "name": "_contrail_asn-64512",
-            "ip_address": "20.1.1.252",
-            "type_": "internal",
-            "hold_time": 90,
-            "autonomous_system": 64512
-        }
+            {
+                "comment": "/* overlay_bgp: BGP Router: vqfx1-bgp, "
+                "UUID: 09dbd2bd-4171-46c1-9741-aa2c85ebe803 */",
+                "peers": [
+                    {
+                        "comment": "/* overlay_bgp: BGP Router: vqfx4-bgp, "
+                        "UUID: ec8d8fdb-edde-4c6d-9c54-16f794606d4e */",
+                        "ip_address": "20.1.1.251",
+                        "name": "20.1.1.251",
+                        "autonomous_system": 64512
+                    }
+                ],
+                "families": [
+                    "inet-vpn",
+                    "inet6-vpn",
+                    "route-target",
+                    "evpn"
+                ],
+                "name": "_contrail_asn-64512",
+                "ip_address": "20.1.1.252",
+                "type_": "internal",
+                "hold_time": 90,
+                "autonomous_system": 64512
+            }
         ],
         "system": {
             "device_family": "junos-qfx",
@@ -325,65 +332,66 @@ def _mock_abstract_config():
 
 def _mock_job_ctx(is_delete, manage_underlay):
     return {
-            "api_server_host": "192.168.3.23",
-            "auth_token": "",
+        "api_server_host": "192.168.3.23",
+        "auth_token": "",
+        "cluster_id": "",
+        "config_args": {
+            "cassandra_ca_certs": "/etc/contrail/ssl/certs/ca-cert.pem",
+            "cassandra_password": None,
+            "cassandra_server_list": ["192.168.3.23:9161"],
+            "cassandra_use_ssl": False,
+            "cassandra_user": None,
             "cluster_id": "",
-            "config_args": {
-                "cassandra_ca_certs": "/etc/contrail/ssl/certs/ca-cert.pem",
-                "cassandra_password": None,
-                "cassandra_server_list": ["192.168.3.23:9161"],
-                "cassandra_use_ssl": False,
-                "cassandra_user": None,
-                "cluster_id": "",
-                "collectors": ["192.168.3.23:8086"],
-                "fabric_ansible_conf_file": [
-                    "/etc/contrail/contrail-keystone-auth.conf",
-                    "/etc/contrail/contrail-fabric-ansible.conf"],
-                "host_ip": "192.168.3.23",
-                "zk_server_ip": "192.168.3.23:2181"
-            },
-            "current_task_index": 1,
-            "db_init_params": {
-                "cassandra_ca_certs": "/etc/contrail/ssl/certs/ca-cert.pem",
-                "cassandra_password": None,
-                "cassandra_server_list": ["192.168.3.23:9161"],
-                "cassandra_use_ssl": False,
-                "cassandra_user": None
-            },
-            "fabric_fqname": "default-global-system-config:fab-ar",
-            "job_execution_id": "1550273845641_70275584-b110-4f15-ac7a-70d1ecf53c49",
-            "job_input": {
-                "additional_feature_params": {
-                    "basic": {
-                        "snmp": {
-                            "communities": [{
-                                "name": "public",
-                                "readonly": True
-                            }]
-                        }
-                    },
-                    "underlay_ip_clos": {
-                        "bgp_hold_time": 90
+            "collectors": ["192.168.3.23:8086"],
+            "fabric_ansible_conf_file": [
+                "/etc/contrail/contrail-keystone-auth.conf",
+                "/etc/contrail/contrail-fabric-ansible.conf"],
+            "host_ip": "192.168.3.23",
+            "zk_server_ip": "192.168.3.23:2181"
+        },
+        "current_task_index": 1,
+        "db_init_params": {
+            "cassandra_ca_certs": "/etc/contrail/ssl/certs/ca-cert.pem",
+            "cassandra_password": None,
+            "cassandra_server_list": ["192.168.3.23:9161"],
+            "cassandra_use_ssl": False,
+            "cassandra_user": None
+        },
+        "fabric_fqname": "default-global-system-config:fab-ar",
+        "job_execution_id":
+            "1550273845641_70275584-b110-4f15-ac7a-70d1ecf53c49",
+        "job_input": {
+            "additional_feature_params": {
+                "basic": {
+                    "snmp": {
+                        "communities": [{
+                            "name": "public",
+                            "readonly": True
+                        }]
                     }
                 },
-                "device_management_ip": "2.2.2.1",
-                "fabric_uuid": "b119e4fe-a0ec-48ba-a204-888ca7216ae5",
-                "is_delete": is_delete,
-                "manage_underlay": manage_underlay
+                "underlay_ip_clos": {
+                    "bgp_hold_time": 90
+                }
             },
-            "job_template_fqname": ["default-global-system-config",
-                                    "fabric_config_template"],
-            "playbook_job_percentage": "95.0",
-            "task_weightage_array": [20, 80],
-            "total_task_count": 2,
-            "unique_pb_id": "57fa5f57-4cdd-4b40-805f-d78decc9b066",
-            "vnc_api_init_params": {
-                "admin_password": "contrail123",
-                "admin_tenant_name": "admin",
-                "admin_user": "admin",
-                "api_server_port": "8082",
-                "api_server_use_ssl": False
-            }
+            "device_management_ip": "2.2.2.1",
+            "fabric_uuid": "b119e4fe-a0ec-48ba-a204-888ca7216ae5",
+            "is_delete": is_delete,
+            "manage_underlay": manage_underlay
+        },
+        "job_template_fqname": ["default-global-system-config",
+                                "fabric_config_template"],
+        "playbook_job_percentage": "95.0",
+        "task_weightage_array": [20, 80],
+        "total_task_count": 2,
+        "unique_pb_id": "57fa5f57-4cdd-4b40-805f-d78decc9b066",
+        "vnc_api_init_params": {
+            "admin_password": "contrail123",
+            "admin_tenant_name": "admin",
+            "admin_user": "admin",
+            "api_server_port": "8082",
+            "api_server_use_ssl": False
+        }
     }
 
 

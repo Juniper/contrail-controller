@@ -2,67 +2,70 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-
-"""
-This file contains implementation for fabric related Ansible filter plugins
-"""
-import logging
-import sys
-import traceback
+# This file contains implementation for fabric related Ansible filter plugins
+#
 import argparse
 import json
-import uuid
-import struct
 import socket
-from netaddr import IPNetwork
-import jsonschema
-
-from job_manager.job_utils import JobVncApi, JobAnnotations
+import struct
+import sys
+import traceback
+import uuid
 
 from cfgm_common.exceptions import (
-    RefsExistError,
-    NoIdError
+    NoIdError,
+    RefsExistError
 )
+import jsonschema
+from netaddr import IPNetwork
 from vnc_api.gen.resource_client import (
+    BgpRouter,
     Fabric,
     FabricNamespace,
-    VirtualNetwork,
-    NetworkIpam,
-    LogicalInterface,
     InstanceIp,
-    BgpRouter,
-    LogicalRouter
+    LogicalInterface,
+    LogicalRouter,
+    NetworkIpam,
+    VirtualNetwork
 )
 from vnc_api.gen.resource_xsd import (
+    FabricNetworkTag,
     IpamSubnets,
     IpamSubnetType,
-    SubnetType,
-    SerialNumListType,
-    VnSubnetsType,
-    VirtualNetworkType,
-    FabricNetworkTag,
+    KeyValuePair,
+    KeyValuePairs,
     NamespaceValue,
     RoutingBridgingRolesType,
+    SerialNumListType,
     SubnetListType,
-    KeyValuePairs,
-    KeyValuePair
+    SubnetType,
+    VirtualNetworkType,
+    VnSubnetsType
 )
+
+from job_manager.job_utils import (
+    JobAnnotations,
+    JobVncApi
+)
+
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import (
-    FilterLog,
-    _task_log,
+from filter_utils import (  # noqa
+    _task_debug_log,
     _task_done,
     _task_error_log,
-    _task_debug_log,
+    _task_log,
     _task_warn_log,
+    FilterLog,
     vnc_bulk_get
 )
+
 
 GSC = 'default-global-system-config'
 
 
 def _compare_fq_names(this_fq_name, that_fq_name):
-    """
+    """Compare FQ names.
+
     :param this_fq_name: list<string>
     :param that_fq_name: list<string>
     :return: True if the two fq_names are the same
@@ -80,7 +83,8 @@ def _compare_fq_names(this_fq_name, that_fq_name):
 
 
 def _fabric_network_name(fabric_name, network_type):
-    """
+    """Fabric network name.
+
     :param fabric_name: string
     :param network_type: string (One of the constants defined in NetworkType)
     :return: string
@@ -90,7 +94,8 @@ def _fabric_network_name(fabric_name, network_type):
 
 
 def _fabric_network_ipam_name(fabric_name, network_type):
-    """
+    """Fabric network IPAM name.
+
     :param fabric_name: string
     :param network_type: string (One of the constants defined in NetworkType)
     :return: string
@@ -120,11 +125,6 @@ def _logical_router_fq_name(fabric_name):
 
 
 def _subscriber_tag(local_mac, remote_mac):
-    """
-    :param local_mac: string
-    :param remote_mac: string
-    :return: string
-    """
     macs = [local_mac, remote_mac]
     macs.sort()
     return "%s-%s" % (macs[0], macs[1])
@@ -140,65 +140,69 @@ def _int2ip(addr):
 
 
 class NetworkType(object):
-    """Pre-defined network types"""
+    """Pre-defined network types."""
+
     MGMT_NETWORK = 'management'
     LOOPBACK_NETWORK = 'loopback'
     FABRIC_NETWORK = 'ip-fabric'
     PNF_SERVICECHAIN_NETWORK = 'pnf-servicechain'
 
     def __init__(self):
+        """Init."""
         pass
 # end NetworkType
 
 
 class FilterModule(object):
-    """Fabric filter plugins"""
+    """Fabric filter plugins."""
 
     @staticmethod
     def _validate_job_ctx(vnc_api, job_ctx, brownfield):
-        """
+        """Validate job context.
+
         :param vnc_api: <vnc_api.VncApi>
         :param job_ctx: Dictionary
-            example:
-            {
-                "auth_token": "EB9ABC546F98",
-                "job_input": {
-                    "fabric_fq_name": [
-                        "default-global-system-config",
-                        "fab01"
-                    ],
-                    "device_auth": {
-                        "root_password": "Embe1mpls"
+        example
+        {
+            "auth_token": "EB9ABC546F98",
+            "job_input": {
+                "fabric_fq_name": [
+                    "default-global-system-config",
+                    "fab01"
+                ],
+                "device_auth": {
+                    "root_password": "Embe1mpls"
+                },
+                "device_count": 1,
+                "fabric_asn_pool": [
+                    {
+                        "asn_max": 65000,
+                        "asn_min": 64000
                     },
-                    "device_count": 1,
-                    "fabric_asn_pool": [
-                        {
-                            "asn_max": 65000,
-                            "asn_min": 64000
-                        },
-                        {
-                            "asn_max": 65100,
-                            "asn_min": 65000
-                        }
-                    ],
-                    "fabric_subnets": [
-                        "30.1.1.1/24"
-                    ],
-                    "loopback_subnets": [
-                        "20.1.1.1/24"
-                    ],
-                    "management_subnets": [
-                        {
-                            "cidr": "10.87.69.0/25",
-                            "gateway": "10.87.69.1"
-                        }
-                    ],
-                    "node_profiles": [
-                        {
-                            "node_profile_name": "juniper-qfx5k"
-                        }
-                    ]
-                }
+                    {
+                        "asn_max": 65100,
+                        "asn_min": 65000
+                    }
+                ],
+                "fabric_subnets": [
+                    "30.1.1.1/24"
+                ],
+                "loopback_subnets": [
+                    "20.1.1.1/24"
+                ],
+                "management_subnets": [
+                    {
+                        "cidr": "10.87.69.0/25",
+                        "gateway": "10.87.69.1"
+                    }
+                ],
+                "node_profiles": [
+                    {
+                        "node_profile_name": "juniper-qfx5k"
+                    }
+                ]
+            }
+        }
         :param brownfield: True if onboarding a brownfield fabric
         :return: job_input (Dictionary)
         """
@@ -240,13 +244,14 @@ class FilterModule(object):
 
     @staticmethod
     def _validate_mgmt_subnets(vnc_api, fab_fq_name, mgmt_subnets, brownfield):
-        """
+        """Validate management subnets.
+
         :param vnc_api: <vnc_api.VncApi>
         :param mgmt_subnets: List<Dict>
-            example:
-            [
-                { "cidr": "10.87.69.0/25", "gateway": "10.87.69.1" }
-            ]
+        example
+        [
+            { "cidr": "10.87.69.0/25", "gateway": "10.87.69.1" }
+        ]
         :return: <boolean>
         """
         if not brownfield:
@@ -279,11 +284,13 @@ class FilterModule(object):
             if _compare_fq_names(namespace_obj.fq_name[:-1], fab_fq_name):
                 continue
 
-            # make sure mgmt subnets not overlapping with other existing fabrics
+            # make sure mgmt subnets not overlapping with other existing
+            # fabrics
             if str(namespace_obj.fabric_namespace_type) == 'IPV4-CIDR':
                 ipv4_cidr = namespace_obj.fabric_namespace_value.ipv4_cidr
                 for sn in ipv4_cidr.subnet:
-                    network = IPNetwork(str(sn.ip_prefix) + '/' + str(sn.ip_prefix_len))
+                    network = IPNetwork(str(sn.ip_prefix) + '/' +
+                                        str(sn.ip_prefix_len))
                     for mgmt_network in mgmt_networks:
                         if network in mgmt_network or mgmt_network in network:
                             _task_done(
@@ -292,12 +299,13 @@ class FilterModule(object):
                                     str(network), namespace_obj.fq_name[-2]
                                 )
                             )
-                            raise ValueError("Overlapping mgmt subnet detected")
+                            raise ValueError("Overlapping mgmt subnet"
+                                             "detected")
         _task_done()
     # end _validate_mgmt_subnets
 
     def filters(self):
-        """Fabric filters"""
+        """Fabric filters."""
         return {
             'onboard_fabric': self.onboard_fabric,
             'onboard_existing_fabric': self.onboard_brownfield_fabric,
@@ -309,7 +317,8 @@ class FilterModule(object):
 
     # ***************** onboard_fabric filter *********************************
     def onboard_fabric(self, job_ctx):
-        """
+        """Onboard fabric.
+
         :param job_ctx: Dictionary
             example:
             {
@@ -394,9 +403,10 @@ class FilterModule(object):
             }
     # end onboard_fabric
 
-    # ***************** onboard_brownfield_fabric filter ***********************
+    # ***************** onboard_brownfield_fabric filter *********************
     def onboard_brownfield_fabric(self, job_ctx):
-        """
+        """Onboard brownfield fabric.
+
         :param job_ctx: Dictionary
             example:
             {
@@ -466,7 +476,8 @@ class FilterModule(object):
     # end onboard_existing_fabric
 
     def _onboard_fabric(self, vnc_api, fabric_info, job_template_fqname):
-        """
+        """Onboard fabric.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: Dictionary
         :param job_template_fqname: job template fqname
@@ -609,7 +620,8 @@ class FilterModule(object):
 
     @staticmethod
     def _carve_out_subnets(subnets, cidr):
-        """
+        """Carve out subnets.
+
         :param subnets: type=list<Dictionary>
         :param cidr: type=int
             example:
@@ -633,7 +645,8 @@ class FilterModule(object):
 
     @staticmethod
     def _create_fabric(vnc_api, fabric_info):
-        """
+        """Create fabric.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_info: dynamic object from job input schema via
                             python_jsonschema_objects
@@ -674,7 +687,8 @@ class FilterModule(object):
 
     @staticmethod
     def _add_cidr_namespace(vnc_api, fab, ns_name, ns_subnets, tag):
-        """
+        """Add CIDR namespace.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fab: <vnc_api.gen.resource_client.Fabric>
         :param ns_name:
@@ -718,7 +732,8 @@ class FilterModule(object):
 
     @staticmethod
     def _add_overlay_asn_namespace(vnc_api, fab, ns_name, asn, tag):
-        """
+        """Add overlay ASN namespace.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fab: <vnc_api.gen.resource_client.Fabric>
         :param ns_name: string, namespace name
@@ -758,7 +773,8 @@ class FilterModule(object):
 
     @staticmethod
     def _add_asn_range_namespace(vnc_api, fab, ns_name, asn_ranges, tag):
-        """
+        """Add ASN range namespace.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fab: <vnc_api.gen.resource_client.Fabric>
         :param ns_name: string, namespace name
@@ -796,7 +812,8 @@ class FilterModule(object):
 
     @staticmethod
     def _add_node_profiles(vnc_api, fabric_obj, node_profiles):
-        """
+        """Add node profiles.
+
         assign node profiles to the fabric
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
@@ -826,7 +843,8 @@ class FilterModule(object):
 
     @staticmethod
     def _add_virtual_network(vnc_api, network_name):
-        """
+        """Add virtual network.
+
         :param vnc_api: <vnc_api.VncApi>
         :param network_name: string
         :return: <vnc_api.gen.resource_client.VirtualNetwork>
@@ -837,7 +855,8 @@ class FilterModule(object):
             name=network_name,
             fq_name=nw_fq_name,
             parent_type='project',
-            virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
+            virtual_network_properties=VirtualNetworkType(
+                forwarding_mode='l3'),
             address_allocation_mode='flat-subnet-only')
         try:
             vnc_api.virtual_network_create(network)
@@ -855,7 +874,8 @@ class FilterModule(object):
 
     @staticmethod
     def _new_subnet(cidr):
-        """
+        """Create a new subnet.
+
         :param cidr: string, example: '10.1.1.1/24'
         :return: <vnc_api.gen.resource_xsd.SubnetType>
         """
@@ -865,7 +885,8 @@ class FilterModule(object):
 
     @staticmethod
     def _add_network_ipam(vnc_api, ipam_name, subnets, subnetting):
-        """
+        """Add network IPAM.
+
         :param vnc_api: <vnc_api.VncApi>
         :param ipam_name: string
         :param subnets: list<Dictionary>
@@ -905,10 +926,11 @@ class FilterModule(object):
 
     def _add_fabric_vn(
             self, vnc_api, fabric_obj, network_type, subnets, subnetting):
-        """
+        """Add fabric VN.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
-        :param network_type: string, one of the constants defined in NetworkType
+        :param network_type: string, one of the NetworkType constants
         :param subnets: list<Dictionary>
             [
                 { 'cidr': '10.1.1.1/24', 'gateway': '10.1.1.1' }
@@ -945,7 +967,8 @@ class FilterModule(object):
     @staticmethod
     def _add_fabric_annotations(
             vnc_api, fabric_obj, onboard_job_template_fqname, job_input):
-        """
+        """Add fabric annotations.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :param onboard_job_template_fqname: string
@@ -968,7 +991,8 @@ class FilterModule(object):
 
     # ***************** delete_fabric filter **********************************
     def delete_fabric(self, job_ctx):
-        """
+        """Delete fabric.
+
         :param job_ctx: Dictionary
             example:
             {
@@ -1094,7 +1118,7 @@ class FilterModule(object):
         vpg_refs = fabric_obj.get_virtual_port_groups() or []
         for vpg_ref in vpg_refs:
             vpg_fq_name = vpg_ref.get('to')
-            vpg_list.add(vpg_fq_name[1]+':'+vpg_fq_name[2])
+            vpg_list.add(vpg_fq_name[1] + ':' + vpg_fq_name[2])
         return vpg_list
     # end _get_virtual_port_group_refs
 
@@ -1106,7 +1130,7 @@ class FilterModule(object):
             get('service-appliances')
         for sa_ref in sa_refs or []:
             svc_fq_name = sa_ref.get('fq_name')
-            svc_name = svc_fq_name[2].replace('-appliance','')
+            svc_name = svc_fq_name[2].replace('-appliance', '')
             pi_refs = sa_ref.get('physical_interface_refs') or []
             for pi_ref in pi_refs:
                 pi_fq_name = pi_ref.get('to')
@@ -1165,7 +1189,8 @@ class FilterModule(object):
     # end _get_vmi_refs
 
     def _validate_fabric_deletion(self, vnc_api, fabric_obj):
-        """
+        """Validate fabric deletion.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :return:
@@ -1230,7 +1255,7 @@ class FilterModule(object):
             return
 
         _task_done('Failed to delete fabric {}. Please delete the following'
-                  ' overlay objects: {}'.format(fabric_obj.name, err_msg))
+                   ' overlay objects: {}'.format(fabric_obj.name, err_msg))
 
         raise ValueError(
             'Failed to delete fabric {} due to references from '
@@ -1240,7 +1265,8 @@ class FilterModule(object):
     # end _validate_fabric_deletion
 
     def _delete_fabric(self, vnc_api, fabric_obj):
-        """
+        """Delete fabric.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
         :return: None
@@ -1278,7 +1304,8 @@ class FilterModule(object):
 
     def _delete_fabric_device(
             self, vnc_api, device_uuid=None, device_fq_name=None):
-        """
+        """Delete fabric device.
+
         :param vnc_api: <vnc_api.VncApi>
         :param device_uuid: string
         :param device_fq_name: list<string>: optional if missing device_uuid
@@ -1373,7 +1400,8 @@ class FilterModule(object):
 
     @staticmethod
     def _delete_bgp_router(vnc_api, device_obj):
-        """
+        """Delete BGP router.
+
         delete corresponding bgp-router for a specific device
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
@@ -1398,7 +1426,8 @@ class FilterModule(object):
 
     @staticmethod
     def _delete_logical_router(vnc_api, device_obj, fabric_name):
-        """
+        """Delete logical router.
+
         delete reference from logical-router and logical-router itself if
         this is the last device
         :param vnc_api: <vnc_api.VncApi>
@@ -1434,7 +1463,8 @@ class FilterModule(object):
 
     @staticmethod
     def _delete_fabric_network(vnc_api, fabric_name, network_type):
-        """
+        """Delete fabric network.
+
         :param vnc_api: type=VncApi
         :param fabric_name: type=string
         :param network_type: type=enum {'management', 'loopback', 'ip-fabric'}
@@ -1446,7 +1476,7 @@ class FilterModule(object):
             vnc_api.virtual_network_delete(fq_name=network_fq_name)
             _task_done()
         except NoIdError:
-            _task_warn_log('Fabric network "%s" not found' %network_name)
+            _task_warn_log('Fabric network "%s" not found' % network_name)
 
         ipam_name = _fabric_network_ipam_name(fabric_name, network_type)
         ipam_fq_name = ['default-domain', 'default-project', ipam_name]
@@ -1458,9 +1488,10 @@ class FilterModule(object):
             _task_done('network ipam "%s" not found' % ipam_name)
     # end _delete_fabric_network
 
-    # ***************** delete_devices filter **********************************
+    # ***************** delete_devices filter ********************************
     def delete_fabric_devices(self, job_ctx):
-        """
+        """Delete fabric devices.
+
         :param job_ctx: Dictionary
             example:
             {
@@ -1494,8 +1525,8 @@ class FilterModule(object):
 
             fabric_info = job_ctx.get('job_input')
             self._validate_fabric_device_deletion(vnc_api, fabric_info)
-            for device_name in job_ctx.get('job_input', {}).get('devices') or[]:
-                device_fq_name = [GSC, device_name]
+            for dev_name in job_ctx.get('job_input', {}).get('devices') or []:
+                device_fq_name = [GSC, dev_name]
                 self._delete_fabric_device(
                     vnc_api, device_fq_name=device_fq_name
                 )
@@ -1515,7 +1546,8 @@ class FilterModule(object):
     # end delete_fabric
 
     def _validate_fabric_device_deletion(self, vnc_api, fabric_info):
-        devices_to_delete = [[GSC, name] for name in fabric_info.get('devices')]
+        devices_to_delete = [[GSC, name]
+                             for name in fabric_info.get('devices')]
         try:
             self._validate_fabric_rr_role_assigned(
                 vnc_api, fabric_info.get('fabric_fq_name'),
@@ -1531,7 +1563,8 @@ class FilterModule(object):
 
     # ***************** assign_roles filter ***********************************
     def assign_roles(self, job_ctx):
-        """
+        """Assign roles.
+
         :param job_ctx: Dictionary
             example:
             {
@@ -1602,8 +1635,9 @@ class FilterModule(object):
                     _task_warn_log(
                         "Capable role info not populated in physical router "
                         "(no node_profiles attached, cannot assign role for "
-                        "device : %s" % device_obj.physical_router_management_ip
-                        )
+                        "device : %s" %
+                        device_obj.physical_router_management_ip
+                    )
                 else:
                     node_profile_fq_name = node_profile_refs[0].get('to')
                     node_profile_obj = vnc_api.node_profile_read(
@@ -1641,7 +1675,8 @@ class FilterModule(object):
             # the devices
             for device_roles in role_assignments:
                 # This is a workaround for the dummy route JUNOS issue
-                self._assign_private_dummy_ip(device_roles.get('device_obj'), vnc_api)
+                self._assign_private_dummy_ip(
+                    device_roles.get('device_obj'), vnc_api)
                 if device_roles.get('supported_roles'):
                     self._assign_device_roles(vnc_api, device_roles)
         except Exception as ex:
@@ -1658,7 +1693,8 @@ class FilterModule(object):
     # end assign_roles
 
     def _read_and_increment_dummy_ip(self, vnc_api):
-        gsc_obj = vnc_api.global_system_config_read(fq_name=[GSC], fields=['annotations'])
+        gsc_obj = vnc_api.global_system_config_read(
+            fq_name=[GSC], fields=['annotations'])
         dummy_ip = None
         kvs = []
         annotations = gsc_obj.get_annotations()
@@ -1667,7 +1703,7 @@ class FilterModule(object):
             for kv in kvs:
                 if kv.get_key() == 'next_dummy_ip':
                     dummy_ip = kv.get_value()
-                    dummy_ip = _int2ip(_ip2int(dummy_ip)+1)
+                    dummy_ip = _int2ip(_ip2int(dummy_ip) + 1)
                     kv.set_value(dummy_ip)
                     break
 
@@ -1695,17 +1731,21 @@ class FilterModule(object):
         annotations = device_obj.get_annotations()
         if not annotations:
             annotations = KeyValuePairs()
-        annotations.add_key_value_pair(KeyValuePair(key='dummy_ip', value=dummy_ip))
+        annotations.add_key_value_pair(
+            KeyValuePair(key='dummy_ip', value=dummy_ip))
         device_obj.set_annotations(annotations)
         vnc_api.physical_router_update(device_obj)
     # end _update_device_dummy_ip
 
     def _assign_private_dummy_ip(self, device_obj, vnc_api):
-        """This method is a hack to workaround the junos issue on type-5 routes.
-        Due to this JUNOS limitation, we need to configure one dummy static route
+        """Assign private dummy.
+
+        This method's a hack to workaround the junos issue on type-5 routes.
+        Due to this JUNOS limitation, we must configure one dummy static route
         per fabric device to resolve the issue. We are allocating a private IP
         from 172.16.0.0/12 subnets and store it as one key-value annotation of
-        the physical-router object"""
+        the physical-router object
+        """
         if vnc_api and device_obj:
             dummy_ip = self._get_device_dummy_ip(device_obj)
             if not dummy_ip:
@@ -1715,7 +1755,8 @@ class FilterModule(object):
 
     @staticmethod
     def _enable_ibgp_auto_mesh(vnc_api, enable):
-        """
+        """Enable iBGP auto mesh.
+
         :param vnc_api: <vnc_api.VncApi>
         :param enable: set to True to enable
         """
@@ -1728,7 +1769,8 @@ class FilterModule(object):
 
     def _validate_role_assignments(
             self, vnc_api, fabric_fq_name, role_assignments):
-        """
+        """Validate role assignments.
+
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_fq_name: list<string>
         :param role_assignments: list<Dictionary>
@@ -1756,7 +1798,8 @@ class FilterModule(object):
 
     @staticmethod
     def _validate_against_supported_roles(role_assignments):
-        """
+        """Validate against supported roles.
+
         This method validates the assigned device roles are supported
         roles on the device according node profile
         :param role_assignments:
@@ -1802,9 +1845,10 @@ class FilterModule(object):
 
     def _validate_rr_role_assigned(
             self, vnc_api, fabric_fq_name, role_assignments):
-        """
-        This method validates at least one device in the fabric is assigned with
-        'Route-Reflector' role
+        """Validate RR role assigned.
+
+        This method validates at least one device in the fabric is assigned
+        with 'Route-Reflector' role
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_fq_name: list<string>
         :param role_assignments:
@@ -1855,9 +1899,9 @@ class FilterModule(object):
             )
     # end _validate_rr_role_assigned
 
-
     def _validate_ucast_mcast_role_exclusive(self, role_assignments):
-        """
+        """Validate ucast mcast role exclusive.
+
         This method validates that both UCAST and MCAST roles are not assigned
         to the same device
         """
@@ -1865,7 +1909,8 @@ class FilterModule(object):
             device_obj = device_roles.get('device_obj')
             rb_roles = device_roles.get('routing_bridging_roles') or []
             if device_obj.get_routing_bridging_roles():
-                assigned_roles = device_obj.get_routing_bridging_roles().get_rb_roles() or []
+                assigned_roles = device_obj.get_routing_bridging_roles().\
+                    get_rb_roles() or []
                 rb_roles += assigned_roles
 
             has_ucast_role = any('ucast' in r.lower() for r in rb_roles)
@@ -1873,13 +1918,15 @@ class FilterModule(object):
 
             if has_ucast_role and has_mcast_role:
                 raise ValueError('Cannot assign a UCAST role and a MCAST role '
-                    'to the same device: %s' % device_obj.get_fq_name()[-1])
+                                 'to the same device: %s' %
+                                 device_obj.get_fq_name()[-1])
     # end _validate_ucast_mcast_role_exclusive
 
     def _validate_fabric_rr_role_assigned(
             self, vnc_api, fabric_fq_name,
             devices_to_exclude, ok_with_no_role_assigned):
-        """
+        """Validate fabric rr role assigned.
+
         This method validates that there exists at least one device assigned
         with Route-Reflector role in the fabric (excluding those devices
         specified in devices_to_exclude)
@@ -1904,7 +1951,7 @@ class FilterModule(object):
             if phys_role or (rb_roles and rb_roles.get_rb_roles()):
                 no_role_assigned = False
             if rb_roles and 'Route-Reflector' in (
-                        rb_roles.get_rb_roles() or []):
+                    rb_roles.get_rb_roles() or []):
                 return
 
         if ok_with_no_role_assigned and no_role_assigned:
@@ -1931,7 +1978,8 @@ class FilterModule(object):
 
     @staticmethod
     def _get_device_network(vnc_api, device_obj, network_type):
-        """
+        """Get device network.
+
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         :param network_type: string (One of constants defined in NetworkType)
@@ -1951,7 +1999,8 @@ class FilterModule(object):
     # end _get_device_network
 
     def _add_loopback_interface(self, vnc_api, device_obj, ar_flag):
-        """
+        """Add loopback interface.
+
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         """
@@ -2028,7 +2077,8 @@ class FilterModule(object):
     # end _add_loopback_interface
 
     def _add_bgp_router(self, vnc_api, device_roles):
-        """
+        """Add BGP router.
+
         Add corresponding bgp-router object for this device. This bgp-router is
         used to model the overlay iBGP mesh
         :param vnc_api: <vnc_api.VncApi>
@@ -2101,7 +2151,8 @@ class FilterModule(object):
 
     def _add_logical_router(
             self, vnc_api, device_obj, device_roles, fabric_name):
-        """
+        """Add logical router.
+
         Add logical-router object for this device if CRB gateway role
         :param vnc_api: <vnc_api.VncApi>
         :param device_roles: Dictionary
@@ -2162,7 +2213,8 @@ class FilterModule(object):
     # end _get_ibgp_asn
 
     def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj):
-        """
+        """Add logical interfaces for fabric links.
+
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         """
@@ -2197,8 +2249,9 @@ class FilterModule(object):
                     logical_interface_type='l3'
                 )
                 _task_log(
-                    'creating logical interface %s for physical link from %s to'
-                    ' %s' % (local_li.name, local_pi.fq_name, remote_pi.fq_name)
+                    'creating logical interface %s for physical link from'
+                    ' %s to %s' % (local_li.name, local_pi.fq_name,
+                                   remote_pi.fq_name)
                 )
                 vnc_api.logical_interface_create(local_li)
                 _task_done()
@@ -2244,14 +2297,16 @@ class FilterModule(object):
     @staticmethod
     def _build_li_name(
             device_obj, physical_interface_name, logical_interface_index):
-        """
+        """Build LI name.
+
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         :param physical_interface_name: string
         :param logical_interface_index: string
         :return:
         """
-        if device_obj.physical_router_vendor_name \
-                and device_obj.physical_router_vendor_name.lower() == 'juniper':
+        if device_obj.physical_router_vendor_name and \
+            device_obj.physical_router_vendor_name.lower() == \
+                'juniper':
             return "%s.%d" % (physical_interface_name, logical_interface_index)
         elif not device_obj.vendor:
             raise ValueError(
@@ -2266,7 +2321,8 @@ class FilterModule(object):
 
     @staticmethod
     def _get_pi_mac(phys_interface):
-        """
+        """Get PI mac.
+
         :param phys_interface: <vnc_api.gen.resource_client.PhysicalInterface>
         :return: physical interface mac address (type: string)
         """
@@ -2279,7 +2335,8 @@ class FilterModule(object):
 
     @staticmethod
     def _get_device_fabric_links(vnc_api, device_obj):
-        """
+        """Get device fabric links.
+
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         :return: list<Dictionary>
@@ -2308,7 +2365,8 @@ class FilterModule(object):
 
     @staticmethod
     def _assign_device_roles(vnc_api, device_roles):
-        """
+        """Assign device roles.
+
         :param vnc_api: VncApi
         :param device_roles: Dictionary
             example:
@@ -2541,7 +2599,8 @@ def _parse_args():
     arg_parser.add_argument('-c', '--create_fabric',
                             action='store_true', help='Onbaord fabric')
     arg_parser.add_argument('-ce', '--create_existing_fabric',
-                            action='store_true', help='Onbaord existing fabric')
+                            action='store_true',
+                            help='Onbaord existing fabric')
     arg_parser.add_argument('-df', '--delete_fabric',
                             action='store_true', help='Delete fabric')
     arg_parser.add_argument('-dd', '--delete_devices',
