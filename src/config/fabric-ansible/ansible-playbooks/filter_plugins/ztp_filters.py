@@ -39,6 +39,7 @@ class FilterModule(object):
             'read_dhcp_leases_using_count': self.read_dhcp_leases_using_count,
             'read_dhcp_leases_using_info': self.read_dhcp_leases_using_info,
             'read_only_dhcp_leases': self.read_only_dhcp_leases,
+            'read_hardware_back_refs': self.read_hardware_back_refs,
         }
 
     @classmethod
@@ -218,3 +219,12 @@ class FilterModule(object):
             payload=contents)
         return { 'status': 'success' }
     # end _publish_file
+
+    @classmethod
+    def read_hardware_back_refs(cls, job_ctx, hardware_fq_name):
+        vncapi = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
+                        auth_token=job_ctx.get('auth_token'))
+        hardware = vncapi.hardware_read(fq_name=hardware_fq_name)
+        hardware_back_refs = hardware.get_device_image_back_refs()
+        return hardware_back_refs
+    #end read_hardware_back_refs

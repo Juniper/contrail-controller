@@ -452,23 +452,34 @@ class VncMod(object):
         results = dict()
         obj_uuid = self.object_dict.get('uuid')
         obj_fq_name = self.object_dict.get('fq_name')
-
+        fields = self.object_dict.get('fields')
         try:
             if obj_uuid:
-                obj = method(id=obj_uuid)
+                obj = method(id=obj_uuid, fields=fields)
             elif obj_fq_name:
                 if isinstance(obj_fq_name, list):
-                    obj = method(fq_name=obj_fq_name)
+                    obj = method(fq_name=obj_fq_name, fields=fields)
                 else:
                     # convert str object to list
-                    obj = method(fq_name=ast.literal_eval(obj_fq_name))
+                    obj = method(fq_name=ast.literal_eval(obj_fq_name),
+                                 fields=fields)
             else:
                 results['failed'] = True
                 results['msg'] = \
                     "Either uuid or fq_name should be present for read"
                 return results
 
-            results['obj'] = self.vnc_lib.obj_to_dict(obj)
+            if fields is not None:
+                complete_dict_obj = obj.__dict__
+                result_obj = self.vnc_lib.obj_to_dict(obj)
+                for item in fields:
+                    append_value = complete_dict_obj[item]
+                    result_obj[item] = append_value
+                results['obj'] = result_obj
+
+            else:
+                results['obj'] = self.vnc_lib.obj_to_dict(obj)
+
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \
@@ -687,3 +698,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
