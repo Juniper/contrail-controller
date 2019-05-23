@@ -1064,15 +1064,15 @@ class VncApiServer(object):
 
     @log_api_stats
     def http_resource_read(self, obj_type, id):
+        db_conn = self._db_conn
         resource_type, r_class = self._validate_resource_type(obj_type)
+
         try:
             self._extension_mgrs['resourceApi'].map_method(
                 'pre_%s_read' %(obj_type), id)
         except Exception as e:
             pass
 
-        etag = get_request().headers.get('If-None-Match')
-        db_conn = self._db_conn
         try:
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
@@ -1087,16 +1087,15 @@ class VncApiServer(object):
         if not ok:
             (code, msg) = result
             self.config_object_error(
-                id, None, obj_type, 'http_get', msg)
+                id, None, obj_type, 'http_resource_read', msg)
             raise cfgm_common.exceptions.HttpError(code, msg)
 
-        db_conn = self._db_conn
+        etag = get_request().headers.get('If-None-Match')
         if etag:
-            (ok, result) = db_conn.dbe_is_latest(id, etag.strip('"'))
+            ok, result = db_conn.dbe_is_latest(id, etag.split(','))
             if not ok:
-                # Not present in DB
                 self.config_object_error(
-                    id, None, obj_type, 'http_get', result)
+                    id, None, obj_type, 'http_resource_read', result)
                 raise cfgm_common.exceptions.HttpError(404, result)
 
             is_latest = result
@@ -1104,7 +1103,6 @@ class VncApiServer(object):
                 # send Not-Modified, caches use this for read optimization
                 bottle.response.status = 304
                 return
-        # end if etag
 
         # Generate field list for db layer
         obj_fields = r_class.prop_fields | r_class.ref_fields
@@ -1129,7 +1127,8 @@ class VncApiServer(object):
             (ok, result) = db_conn.dbe_read(obj_type, id,
                 list(obj_fields), ret_readonly=True)
             if not ok:
-                self.config_object_error(id, None, obj_type, 'http_get', result)
+                self.config_object_error(
+                    id, None, obj_type, 'http_resource_read', result)
         except NoIdError as e:
             # Not present in DB
             raise cfgm_common.exceptions.HttpError(404, str(e))
@@ -1158,7 +1157,7 @@ class VncApiServer(object):
             self.generate_hrefs(resource_type, result)
         rsp_body.update(result)
         id_perms = result['id_perms']
-        bottle.response.set_header('ETag', '"' + id_perms['last_modified'] + '"')
+        bottle.response.set_header('ETag', '"%s"' % id_perms['last_modified'])
         try:
             self._extension_mgrs['resourceApi'].map_method(
                 'post_%s_read' %(obj_type), id, rsp_body)
@@ -1198,6 +1197,24 @@ class VncApiServer(object):
                     obj_dict[link_field].remove(link)
     # end obj_view
 
+    def validate_preconditions(self, obj_type, uuid):
+        expected_etags = get_request().headers.get('If-Match')
+        if expected_etags:
+            expected_etags = expected_etags.split(',')
+            ok, result = self._db_conn.dbe_is_latest(uuid, expected_etags)
+            if not ok:
+                self.config_object_error(
+                    id, None, obj_type, 'http_resource_update', result)
+                raise cfgm_common.exceptions.HttpError(404, result)
+            is_latest = result
+            if not is_latest:
+                # send Precondition-Failed to prevent client resource
+                # representation changed
+                msg = "%s %s representation changed" % (
+                    obj_type.replace('_', ' ').title(), uuid)
+                raise cfgm_common.exceptions.HttpError(412, msg)
+        return expected_etags
+
     @log_api_stats
     def http_resource_update(self, obj_type, id):
         resource_type, r_class = self._validate_resource_type(obj_type)
@@ -1215,6 +1232,9 @@ class VncApiServer(object):
             if 'owner' not in obj_dict['perms2']:
                 raise cfgm_common.exceptions.HttpError(400,
                                     'owner in perms2 must be present')
+
+        # Validate resource did not changed since it was read
+        expected_etags = self.validate_preconditions(obj_type, id)
 
         fields = r_class.prop_fields | r_class.ref_fields
         try:
@@ -1246,7 +1266,7 @@ class VncApiServer(object):
 
         self._put_common(
             'http_put', obj_type, id, db_obj_dict, req_obj_dict=obj_dict,
-            quota_dict=old_quota_dict)
+            quota_dict=old_quota_dict, expected_etags=expected_etags)
 
         rsp_body = {}
         rsp_body['uuid'] = id
@@ -1270,6 +1290,9 @@ class VncApiServer(object):
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'ID %s does not exist' %(id))
+
+        # Validate resource did not changed since it was read
+        expected_etags = self.validate_preconditions(obj_type, id)
 
         try:
             self._extension_mgrs['resourceApi'].map_method(
@@ -1396,7 +1419,8 @@ class VncApiServer(object):
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
 
             get_context().set_state('DBE_DELETE')
-            (ok, del_result) = db_conn.dbe_delete(obj_type, id, read_result)
+            (ok, del_result) = db_conn.dbe_delete(obj_type, id, read_result,
+                                                  expected_etags=expected_etags)
             if not ok:
                 return (ok, del_result)
 
@@ -2744,6 +2768,9 @@ class VncApiServer(object):
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
 
+        # Validate resource did not changed since it was read
+        expected_etags = self.validate_preconditions(obj_type, obj_uuid)
+
         # Get actual resource from DB
         fields = r_class.prop_fields | r_class.ref_fields
         try:
@@ -2774,13 +2801,14 @@ class VncApiServer(object):
 
         self._put_common('prop-collection-update', obj_type, obj_uuid,
                          db_obj_dict,
-                         req_prop_coll_updates=request_params.get('updates'))
+                         req_prop_coll_updates=request_params.get('updates'),
+                         expected_etags=expected_etags)
     # end prop_collection_http_post
 
     def ref_update_http_post(self):
         # grab fields
-        type = get_request().json.get('type')
-        res_type, res_class = self._validate_resource_type(type)
+        obj_type = get_request().json.get('type')
+        res_type, res_class = self._validate_resource_type(obj_type)
         obj_uuid = get_request().json.get('uuid')
         ref_type = get_request().json.get('ref-type')
         ref_field = '%s_refs' %(ref_type.replace('-', '_'))
@@ -2823,6 +2851,9 @@ class VncApiServer(object):
                 ref_fq_name = self._db_conn.uuid_to_fq_name(ref_uuid)
             except NoIdError as e:
                 raise cfgm_common.exceptions.HttpError(404, str(e))
+
+        # Validate resource did not changed since it was read
+        expected_etags = self.validate_preconditions(obj_type, obj_uuid)
 
         # To invoke type specific hook and extension manager
         fields = res_class.prop_fields | res_class.ref_fields
@@ -2875,7 +2906,8 @@ class VncApiServer(object):
                     'operation': operation, 'data': {'attr': attr},
                     'relax_ref_for_delete': relax_ref_for_delete}
         self._put_common('ref-update', obj_type, obj_uuid, db_obj_dict,
-                         req_obj_dict=obj_dict, ref_args=ref_args)
+                         req_obj_dict=obj_dict, ref_args=ref_args,
+                         expected_etags=expected_etags)
 
         return {'uuid': obj_uuid}
     # end ref_update_http_post
@@ -4004,7 +4036,8 @@ class VncApiServer(object):
 
     def _put_common(
             self, api_name, obj_type, obj_uuid, db_obj_dict, req_obj_dict=None,
-            req_prop_coll_updates=None, ref_args=None, quota_dict=None):
+            req_prop_coll_updates=None, ref_args=None, quota_dict=None,
+            expected_etags=None):
 
         obj_fq_name = db_obj_dict.get('fq_name', 'missing-fq-name')
         # ZK and rabbitmq should be functional
@@ -4162,7 +4195,8 @@ class VncApiServer(object):
                     operation,
                     db_obj_dict['id_perms'],
                     attr_to_publish=attr_to_publish,
-                    relax_ref_for_delete=relax_ref_for_delete
+                    relax_ref_for_delete=relax_ref_for_delete,
+                    expected_etags=expected_etags,
                 )
             elif req_obj_dict:
                 (ok, result) = db_conn.dbe_update(
@@ -4170,6 +4204,7 @@ class VncApiServer(object):
                     obj_uuid,
                     req_obj_dict,
                     attr_to_publish=attr_to_publish,
+                    expected_etags=expected_etags,
                 )
                 # Update quota counter
                 if resource_type == 'project' and 'quota' in req_obj_dict:
@@ -4190,6 +4225,7 @@ class VncApiServer(object):
                     obj_uuid,
                     req_prop_coll_updates,
                     attr_to_publish=attr_to_publish,
+                    expected_etags=expected_etags,
                 )
             if not ok:
                 return (ok, result)

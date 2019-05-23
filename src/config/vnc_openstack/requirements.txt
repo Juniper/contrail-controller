@@ -2,3 +2,4 @@ bottle
 requests
 python-keystoneclient>=0.11.0
 contrail-config-common
+tenacity>=5.0.4

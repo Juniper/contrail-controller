@@ -47,6 +47,7 @@ import StringIO
 
 from vnc_openstack.utils import filter_fields
 from vnc_openstack.utils import resource_is_in_use
+import tenacity
 
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
@@ -104,11 +105,13 @@ class LocalVncApi(VncApi):
         # api_server_obj methods directly instead of system call.
         # Always pass contextual user_token aka mux connection to api-server
         orig_user_token = None
+        headers = {}
         started_time = time.time()
         req = get_context().request
         req_context = req.json.get('context', {}) if req.json else {}
         req_id = get_context().request_id
         user_token = get_context().user_token
+        if_match = self._headers.get('If-Match')
         if 'X-AUTH-TOKEN' in self._headers:
             # retain/restore if there was already a token on channel
             orig_user_token = self._headers['X-AUTH-TOKEN']
@@ -132,9 +135,10 @@ class LocalVncApi(VncApi):
             auth_hdrs = vnc_cfg_api_server.auth_context.get_auth_hdrs()
         else:
             auth_hdrs = {}
-
-
         environ.update(auth_hdrs)
+
+        if if_match:
+            environ['HTTP_IF_MATCH'] = if_match
 
         if op == rest.OP_GET:
             if data:
@@ -203,6 +207,8 @@ class LocalVncApi(VncApi):
             elif status == 409:
                 raise vnc_exc.RefsExistError(content)
             elif status == 412:
+                if content.endswith(" representation changed"):
+                    raise vnc_exc.PreconditionFailed(content)
                 raise vnc_exc.OverQuota(content)
             else:
                 raise vnc_exc.HttpError(status, content)
@@ -1133,21 +1139,18 @@ class DBInterface(object):
         return str(network)
     # end _subnet_vnc_get_prefix
 
-    def _subnet_read(self, net_uuid, prefix):
+    def _subnet_read(self, vn, prefix):
         try:
-            net_obj = self._virtual_network_read(net_id=net_uuid)
+            vn = self._virtual_network_read(net_id=vn.uuid)
         except NoIdError:
             return None
 
-        ipam_refs = net_obj.get_network_ipam_refs()
-        for ipam_ref in ipam_refs or []:
-            subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
-            for subnet_vnc in subnet_vncs:
-                if self._subnet_vnc_get_prefix(subnet_vnc) == prefix:
-                    return subnet_vnc
+        for ipam_ref in vn.get_network_ipam_refs() or []:
+            for subnet in ipam_ref['attr'].get_ipam_subnets():
+                if self._subnet_vnc_get_prefix(subnet) == prefix:
+                    return subnet
 
         return None
-    # end _subnet_read
 
     # Returns a list of dicts of subnet-id:cidr for a VN
     def _virtual_network_to_subnets(self, net_obj):
@@ -3308,106 +3311,87 @@ class DBInterface(object):
                                            subnet_id=subnet_id)
         return subnet_key.split()[0]
 
-    def with_zookeper_vn_lock(func):
-
-        def wrapper(self, *args, **kwargs):
-            # Before we can update the rule inside virtual netowrk, get the
-            # lock first. This lock will be released in finally block below.
-            vn_id= args[0]
-            scope_lock = self._zookeeper_client.lock(
-                '%s/%s' % (
-                self.virtual_network_lock_prefix, vn_id
-                ))
-
-            try:
-                acquired_lock = scope_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
-
-                # If this node acquired the lock, continue with creation of
-                # subnet
-                return func(self, *args, **kwargs)
-
-            except LockTimeout:
-                # If the lock was not acquired and timeout of 5 seconds happened, then raise
-                # a bad request error.
-                self._api_server_obj.config_log("Zookeeper lock acquire timed out.",
-                            level=SandeshLevel.SYS_INFO)
-                msg = ("Subnet operation failed, Try again.. ")
-                self._raise_contrail_exception('ServiceUnavailableError',
-                    resource='subnet', msg=msg)
-            finally:
-                scope_lock.release()
-
-        return wrapper
-    # end with_zookeper_vn_lock
-
     @wait_for_api_server_connection
-    @with_zookeper_vn_lock
     def _subnet_create(self, subnet_id,subnet_q):
         net_id = subnet_q['network_id']
-        net_obj = self._virtual_network_read(net_id=net_id)
+        subnet = self._subnet_neutron_to_vnc(subnet_q)
+        prefix = self._subnet_vnc_get_prefix(subnet)
 
+        # read virtual network and its network IPAM refs
+        vn = self._virtual_network_read(
+            net_id=net_id, fields=['network_ipam_refs'])
+
+        # determine network IPAM to use for that subnet
         ipam_fq_name = subnet_q.get('ipam_fq_name')
         if ipam_fq_name:
+            # use user defined network IPAM
             domain_name, project_name, ipam_name = ipam_fq_name
-
-            domain_obj = Domain(domain_name)
-            project_obj = Project(project_name, domain_obj)
-            netipam_obj = NetworkIpam(ipam_name, project_obj)
-        else:  # link with project's default ipam or global default ipam
+            ipam = NetworkIpam(ipam_name,
+                               Project(project_name, Domain(domain_name)))
+        else:
+            # link with project's default network IPAM if exits
             try:
-                ipam_fq_name = net_obj.get_fq_name()[:-1]
+                ipam_fq_name = vn.get_fq_name()[:-1]
                 ipam_fq_name.append('default-network-ipam')
-                netipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+                ipam = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
             except NoIdError:
-                netipam_obj = NetworkIpam()
-            ipam_fq_name = netipam_obj.get_fq_name()
+                # else use the global one
+                ipam = NetworkIpam()
 
-        subnet_vnc = self._subnet_neutron_to_vnc(subnet_q)
-        subnet_prefix = self._subnet_vnc_get_prefix(subnet_vnc)
+        # try to create by updating the virtual network ref to the network IPAM
+        # We retry if virtual network representation changed
+        vn = self._subnet_create_with_retry(ipam, vn, subnet, prefix)
+
+        # Read in subnet to get updated values for gw etc...
+        subnet = self._subnet_read(vn, prefix)
+        return self._subnet_vnc_to_neutron(subnet, vn, ipam_fq_name)
+
+    @tenacity.retry(
+        # wait=tenacity.wait_exponential(multiplier=0.5, max=10),  # 162s gevent/40
+        wait=tenacity.wait_random_exponential(multiplier=0.5, max=10),  # 67s gevent/40
+        # wait=tenacity.wait_fixed(1) + tenacity.wait_random(0, 9),  # 56s gevent/40
+        stop=tenacity.stop_after_attempt(20),
+        retry=tenacity.retry_if_exception_type(vnc_exc.PreconditionFailed),
+        reraise=True)
+    def _subnet_create_with_retry(self, ipam, vn, subnet, prefix):
+        if self._subnet_create_with_retry.retry.statistics['attempt_number'] > 1:
+            # if not the first try, refresh virtual network representation
+            vn = self._virtual_network_read(
+                net_id=vn.uuid, fields=['network_ipam_refs'])
 
         # Locate list of subnets to which this subnet has to be appended
-        net_ipam_ref = None
-        ipam_refs = net_obj.get_network_ipam_refs()
-        if ipam_refs:
-            for ipam_ref in ipam_refs:
-                if ipam_ref['to'] == ipam_fq_name:
-                    net_ipam_ref = ipam_ref
-                    break
+        ipam_ref = None
+        for ref in vn.get_network_ipam_refs() or []:
+            if ipam.fq_name == ref['to']:
+                ipam_ref = ref
+                break
 
-        if not net_ipam_ref:
-            # First link from net to this ipam
-            vnsn_data = VnSubnetsType([subnet_vnc])
-            net_obj.add_network_ipam(netipam_obj, vnsn_data)
-        else:  # virtual-network already linked to this ipam
-            for subnet in net_ipam_ref['attr'].get_ipam_subnets():
-                if subnet_prefix == self._subnet_vnc_get_prefix(subnet):
-                    existing_sn_id = subnet.subnet_uuid
-                    # duplicate !!
-                    msg = "Cidr %s overlaps with another subnet of subnet " \
-                            "%s" % (subnet_q['cidr'], existing_sn_id)
-                    self._raise_contrail_exception('BadRequest',
-                                                   resource='subnet', msg=msg)
-            vnsn_data = net_ipam_ref['attr']
-            vnsn_data.ipam_subnets.append(subnet_vnc)
-            # TODO: Add 'ref_update' API that will set this field
-            net_obj._pending_field_updates.add('network_ipam_refs')
+        if not ipam_ref:
+            # First link from virtual network to this network ipam
+            vn.add_network_ipam(ipam, VnSubnetsType([subnet]))
+        else:
+            # virtual network already linked to this network ipam, append subnet
+            subnets = ipam_ref['attr']
+            # check new subnet does not overlaps to an existing one
+            for s in subnets.get_ipam_subnets():
+                if prefix == self._subnet_vnc_get_prefix(s):
+                    # TODO: this does not validate subnet overlapping, just
+                    # verify exactly same subnet prefix already on the network
+                    msg = ("CIDR %s overlaps with another subnet of subnet %s" %
+                           (prefix, s.subnet_uuid))
+                    self._raise_contrail_exception(
+                        'BadRequest', resource='subnet', msg=msg)
+            subnets.ipam_subnets.append(subnet)
+            vn._pending_ref_updates.add('network_ipam_refs')
+
+        # try to update virtual network, retry if representation changed
         try:
-            self._virtual_network_update(net_obj)
+            self._virtual_network_update(vn)
         except OverQuota as e:
-            self._raise_contrail_exception('OverQuota',
-                overs=['subnet'], msg=str(e))
+            self._raise_contrail_exception(
+                'OverQuota', overs=['subnet'], msg=str(e))
 
-        # Read in subnet from server to get updated values for gw etc.
-        subnet_vnc = self._subnet_read(net_id, subnet_prefix)
-        subnet_info = self._subnet_vnc_to_neutron(subnet_vnc, net_obj,
-                                                  ipam_fq_name)
-
-        return subnet_info
-    #end _subnet_create
-
-    def subnet_create(self, subnet_q):
-        net_id = subnet_q['network_id']
-        return self._subnet_create(net_id,subnet_q)
+        return vn
 
     @wait_for_api_server_connection
     def subnet_read(self, subnet_id):

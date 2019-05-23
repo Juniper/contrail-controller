@@ -10,3 +10,4 @@ bottle
 stevedore
 kazoo>=2.5.0
 pycrypto
+tenacity>=5.0.4

@@ -10,6 +10,7 @@ from gevent import monkey
 monkey.patch_all()
 import gevent
 import gevent.event
+import tenacity
 
 import time
 from pprint import pformat
@@ -28,6 +29,8 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
+from cfgm_common.utils import _DEFAULT_ZK_LOCK_PATH_PREFIX
+from cfgm_common.utils import _DEFAULT_ZK_LOCK_TIMEOUT
 
 import copy
 from cfgm_common import jsonutils as json
@@ -45,6 +48,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
 import functools
+from kazoo.exceptions import LockTimeout
 
 import sys
 
@@ -66,6 +70,13 @@ def trace_msg(trace_objs=[], trace_name='', sandesh_hdl=None, error_msg=None):
             trace_obj.error = error_msg
         trace_obj.trace_msg(name=trace_name, sandesh=sandesh_hdl)
 # end trace_msg
+
+
+def _resource_is_locked(returned):
+    ok, result = returned
+    if not ok and result[0] == 409:
+        return True
+    return False
 
 
 class VncServerCassandraClient(VncCassandraClient):
@@ -98,13 +109,57 @@ class VncServerCassandraClient(VncCassandraClient):
             debug_obj_cache_types=debug_obj_cache_types,
             log_response_time=log_response_time, ssl_enabled=ssl_enabled,
             ca_certs=ca_certs)
-    # end __init__
+        self.update_lock_prefix = '%s/%s/update/%%s' % (
+            db_prefix, _DEFAULT_ZK_LOCK_PATH_PREFIX)
 
     def config_log(self, msg, level):
         self._db_client_mgr.config_log(msg, level)
-    # end config_log
 
-    def prop_collection_update(self, obj_type, obj_uuid, updates):
+    @tenacity.retry(
+        wait=tenacity.wait_random_exponential(exp_base=1.22, multiplier=0.2, max=20),
+        # wait=tenacity.wait_random_exponential(multiplier=0.2, exp_base=1.27),
+        stop=tenacity.stop_after_attempt(30),
+        retry=tenacity.retry_if_result(_resource_is_locked))
+    def update(self, obj_type, obj_uuid, new_obj_dict, attr_to_publish=None,
+               expected_etags=None):
+        bch = self._obj_uuid_cf.batch()
+        ok, result = self.object_update(
+            obj_type, obj_uuid, new_obj_dict, uuid_batch=bch)
+        if not ok:
+            return False, result
+        if expected_etags:
+            identifier = "(%s) update %s" % (get_trace_id(), obj_type)
+            lock = self._db_client_mgr._zk_db._zk_client.lock(
+                self.update_lock_prefix % obj_uuid, identifier)
+            try:
+                lock.acquire(timeout=1)
+                if not self.is_latest(obj_uuid, expected_etags):
+                    msg = ("%s %s representation changed" % (
+                            obj_type.replace('_', ' ').title(), obj_uuid))
+                    return False, (412, msg)
+                self.update_last_modified(bch, obj_type, obj_uuid)
+                try:
+                    bch.send()
+                finally:
+                    self._obj_cache_mgr.evict(obj_type, [obj_uuid])
+            except LockTimeout:
+                msg = ("Cannot update %s %s" % (
+                           obj_type.replace('_', ' ').title(), obj_uuid))
+                return False, (409, msg)
+            finally:
+                lock.release()
+        else:
+            bch.send()
+
+        return True, result
+
+    @tenacity.retry(
+        wait=tenacity.wait_random_exponential(exp_base=1.22, multiplier=0.2, max=20),
+        # wait=tenacity.wait_random_exponential(multiplier=0.2, exp_base=1.27),
+        stop=tenacity.stop_after_attempt(30),
+        retry=tenacity.retry_if_result(_resource_is_locked))
+    def prop_collection_update(self, obj_type, obj_uuid, updates,
+                               expected_etags=None):
         obj_class = self._db_client_mgr.get_resource_class(obj_type)
         bch = self._obj_uuid_cf.batch()
         for oper_param in updates:
@@ -137,14 +192,39 @@ class VncServerCassandraClient(VncCassandraClient):
                     position = oper_param['position']
                     self._delete_from_prop_map(bch, obj_uuid,
                         prop_name, position)
-        # end for all updates
 
-        self.update_last_modified(bch, obj_type, obj_uuid)
-        bch.send()
-    # end prop_collection_update
+        if expected_etags:
+            identifier = "(%s) prop-collection-update on %s" % (
+                get_trace_id(), obj_type)
+            lock = self._db_client_mgr._zk_db._zk_client.lock(
+                self.update_lock_prefix % obj_uuid, identifier)
+            try:
+                lock.acquire(timeout=1)
+                if not self.is_latest(obj_uuid, expected_etags):
+                    msg = ("%s %s representation changed" % (
+                            obj_type.replace('_', ' ').title(), obj_uuid))
+                    return False, (412, msg)
+                self.update_last_modified(bch, obj_type, obj_uuid)
+                bch.send()
+            except LockTimeout:
+                msg = ("Cannot update %s %s" % (
+                           obj_type.replace('_', ' ').title(), obj_uuid))
+                return False, (409, msg)
+            finally:
+                lock.release()
+        else:
+            self.update_last_modified(bch, obj_type, obj_uuid)
+            bch.send()
 
+        return True, ''
+
+    @tenacity.retry(
+        wait=tenacity.wait_random_exponential(exp_base=1.22, multiplier=0.2, max=20),
+        stop=tenacity.stop_after_attempt(30),
+        retry=tenacity.retry_if_result(_resource_is_locked))
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid,
-                   ref_data, operation, id_perms, relax_ref_for_delete=False):
+                   ref_data, operation, id_perms, relax_ref_for_delete=False,
+                   expected_etags=None):
         bch = self._obj_uuid_cf.batch()
         if operation == 'ADD':
             self._create_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
@@ -155,9 +235,29 @@ class VncServerCassandraClient(VncCassandraClient):
             self._delete_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid)
         else:
             pass
-        self.update_last_modified(bch, obj_type, obj_uuid, id_perms)
-        bch.send()
-    # end ref_update
+        if expected_etags:
+            identifier = "(%s) ref-update on %s" % (get_trace_id(), obj_type)
+            lock = self._db_client_mgr._zk_db._zk_client.lock(
+                self.update_lock_prefix % obj_uuid, identifier)
+            try:
+                lock.acquire(timeout=1)
+                if not self.is_latest(obj_uuid, expected_etags):
+                    msg = ("%s %s representation changed" % (
+                            obj_type.replace('_', ' ').title(), obj_uuid))
+                    return False, (412, msg)
+                self.update_last_modified(bch, obj_type, obj_uuid, id_perms)
+                bch.send()
+            except LockTimeout:
+                msg = ("Cannot update %s %s" % (
+                           obj_type.replace('_', ' ').title(), obj_uuid))
+                return False, (409, msg)
+            finally:
+                lock.release()
+        else:
+            self.update_last_modified(bch, obj_type, obj_uuid, id_perms)
+            bch.send()
+
+        return True, ''
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
         bch = self._obj_uuid_cf.batch()
@@ -185,13 +285,8 @@ class VncServerCassandraClient(VncCassandraClient):
         return [col.split(':')[1] for col in relaxed_cols]
     # end get_relaxed_refs
 
-    def is_latest(self, id, tstamp):
-        id_perms = self.uuid_to_obj_perms(id)
-        if id_perms['last_modified'] == tstamp:
-            return True
-        else:
-            return False
-    # end is_latest
+    def is_latest(self, id, tstamps):
+        return self.uuid_to_obj_perms(id)['last_modified'] in tstamps
 
     def uuid_to_obj_dict(self, id):
         obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)
@@ -1569,13 +1664,13 @@ class VncDbClient(object):
         return self._object_db.get_relaxed_refs(obj_id)
     # end dbe_get_relaxed_refs
 
-    def dbe_is_latest(self, obj_id, tstamp):
+    def dbe_is_latest(self, obj_id, tstamps):
+        if '*' in tstamps:
+            return True
         try:
-            is_latest = self._object_db.is_latest(obj_id, tstamp)
-            return (True, is_latest)
-        except Exception as e:
-            return (False, str(e))
-    # end dbe_is_latest
+            return True, self._object_db.is_latest(obj_id, tstamps)
+        except (NoIdError, VncError) as e:
+            return False, str(e)
 
     def _dbe_publish_update_implicit(self, obj_type, uuid_list):
         for ref_uuid in uuid_list:
@@ -1591,23 +1686,23 @@ class VncDbClient(object):
     @dbe_trace('update')
     @build_shared_index('update')
     def dbe_update(self, obj_type, obj_uuid, new_obj_dict,
-                   attr_to_publish=None):
-        (ok, result) = self._object_db.object_update(obj_type, obj_uuid,
-                                                     new_obj_dict)
+                   attr_to_publish=None, expected_etags=None):
+        ok, result = self._object_db.update(obj_type, obj_uuid, new_obj_dict,
+                                            expected_etags=expected_etags)
+        if not ok:
+            return False, result
 
-        if ok:
-            try:
-                # publish to message bus (rabbitmq)
-                fq_name = self.uuid_to_fq_name(obj_uuid)
-                self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
-                                         extra_dict=attr_to_publish)
-                self._dbe_publish_update_implicit(obj_type, result)
-            except NoIdError as e:
-                # Object might have disappeared after the update. Return Success
-                # to the user.
-                return (ok, result)
-        return (ok, result)
-    # end dbe_update
+        try:
+            # publish to message bus (rabbitmq)
+            fq_name = self.uuid_to_fq_name(obj_uuid)
+            self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
+                                        extra_dict=attr_to_publish)
+            self._dbe_publish_update_implicit(obj_type, result)
+        except NoIdError as e:
+            # Object might have disappeared after the update. Return Success
+            # to the user.
+            pass
+        return ok, result
 
     def _owner_id(self):
         env = get_request().headers.environ
@@ -1841,11 +1936,14 @@ class VncDbClient(object):
     # end prop_collection_get
 
     def prop_collection_update(self, obj_type, obj_uuid, updates,
-                               attr_to_publish=None):
+                               attr_to_publish=None, expected_etags=None):
         if not updates:
             return
 
-        self._object_db.prop_collection_update(obj_type, obj_uuid, updates)
+        ok, result = self._object_db.prop_collection_update(
+            obj_type, obj_uuid, updates, expected_etags=expected_etags)
+        if not ok:
+            return False, result
         fq_name = self.uuid_to_fq_name(obj_uuid)
         self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
                                  extra_dict=attr_to_publish)
@@ -1854,17 +1952,25 @@ class VncDbClient(object):
 
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid, ref_data,
                    operation, id_perms, attr_to_publish=None,
-                   relax_ref_for_delete=False):
-        self._object_db.ref_update(obj_type, obj_uuid, ref_obj_type,
-                                   ref_uuid, ref_data, operation, id_perms,
-                                   relax_ref_for_delete)
+                   relax_ref_for_delete=False, expected_etags=None):
+        ok, result = self._object_db.ref_update(
+            obj_type,
+            obj_uuid,
+            ref_obj_type,
+            ref_uuid,
+            ref_data,
+            operation,
+            id_perms,
+            relax_ref_for_delete=relax_ref_for_delete,
+            expected_etags=expected_etags)
+        if not ok:
+            return False, result
         fq_name = self.uuid_to_fq_name(obj_uuid)
         self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
                                  extra_dict=attr_to_publish)
         if obj_type == ref_obj_type:
             self._dbe_publish_update_implicit(obj_type, [ref_uuid])
         return True, ''
-    # ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
         self._object_db.ref_relax_for_delete(obj_uuid, ref_uuid)
