@@ -29,5 +29,6 @@ namespaces:
       - 10.155.67.5/32
 rma:
   fabric: fab01
-  device: WS3718270049
-  serial_number: WS3718270049
+  device_list:
+    - name: Leaf1
+      serial_number: WS3718270049

@@ -5,8 +5,27 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "serial_number": {
-        "type": "string"
+      "rma_devices": {
+        "type": "array",
+        "items": {
+          "title": "RMA Devices",
+          "type": "object",
+          "description": "List of devices and corresponding serial numbers to RMA",
+          "additionalProperties": false,
+          "properties": {
+            "device_uuid": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "serial_number": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "device_uuid",
+            "serial_number"
+          ]
+        }
       }
     }
   },

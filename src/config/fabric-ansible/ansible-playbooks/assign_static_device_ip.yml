@@ -16,11 +16,11 @@
     - set_fact:
         job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
     - set_fact:
-        prouter_dynamic_ip: "{{playbook_input.input.dynamic_mgmt_ip}}"
-      when: playbook_input.input.dynamic_mgmt_ip is defined
+        prouter_dynamic_ip: "{{playbook_input.input.dynamic_mgmt_ip_tbl}}"
+      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
     - set_fact:
         prouter_dynamic_ip: "{{prouter_mgmt_ip}}"
-      when: playbook_input.input.dynamic_mgmt_ip is undefined
+      when: playbook_input.input.dynamic_mgmt_ip_tbl is undefined
     - set_fact:
         device_to_ztp: "{{ playbook_input.input.device_to_ztp }}"
       when: playbook_input.input.device_to_ztp is defined
@@ -62,7 +62,7 @@
             "uuid": "{{ prouter_uuid }}",
             "physical_router_managed_state": "active"
           }
-      when: playbook_input.input.dynamic_mgmt_ip is defined
+      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
