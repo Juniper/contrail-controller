@@ -2,23 +2,23 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-import time
-import os
-import subprocess
-import json
-import signal
 import ast
+import json
+import os
+import signal
+import subprocess
+import time
 import traceback
-import gevent
 
+from cfgm_common.exceptions import NoIdError
+from cfgm_common.exceptions import ResourceExistsError
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
 from cfgm_common.vnc_object_db import VncObjectDBClient
-from job_manager.job_utils import JobStatus
-from job_manager.job_log_utils import JobLogUtils
+import gevent
 from job_manager.job_exception import JobException
-from cfgm_common.exceptions import ResourceExistsError
-from cfgm_common.exceptions import *
+from job_manager.job_log_utils import JobLogUtils
+from job_manager.job_utils import JobStatus
 
 
 class DeviceJobManager(object):
@@ -29,12 +29,13 @@ class DeviceJobManager(object):
     JOB_STATUS_EXCHANGE = "job_status_exchange"
     JOB_STATUS_CONSUMER = "job_status_consumer."
     JOB_STATUS_ROUTING_KEY = "job.status."
-    JOB_STATUS_TTL = 5*60
+    JOB_STATUS_TTL = 5 * 60
     FABRIC_ZK_LOCK = "fabric-job-monitor"
 
     _instance = None
 
     def __init__(self, amqp_client, zookeeper_client, args, dm_logger):
+        """Initialize ZooKeeper, RabbitMQ, Sandesh, DB conn etc."""
         DeviceJobManager._instance = self
         self._amqp_client = amqp_client
         self._zookeeper_client = zookeeper_client
@@ -121,7 +122,7 @@ class DeviceJobManager(object):
                 if retry_count >= max_retries:
                     raise e
                 self._logger.warning("Error while initializing db connection, "
-                    "retrying: %s" % str(e))
+                                     "retrying: %s" % str(e))
                 gevent.sleep(timeout)
             finally:
                 retry_count = retry_count + 1
@@ -146,15 +147,15 @@ class DeviceJobManager(object):
 
     def is_max_job_threshold_reached(self):
         if self._job_mgr_statistics.get('running_job_count') < \
-                    self._job_mgr_statistics.get('max_job_count'):
+                self._job_mgr_statistics.get('max_job_count'):
             return False
         return True
     # end is_max_job_threshold_reached
 
     def publish_job_status_notification(self, job_execution_id, status):
         try:
-            msg = { 'job_execution_id': job_execution_id,
-                    'job_status': status }
+            msg = {'job_execution_id': job_execution_id,
+                   'job_status': status}
             self._amqp_client.publish(
                 msg, self.JOB_STATUS_EXCHANGE,
                 routing_key=self.JOB_STATUS_ROUTING_KEY + job_execution_id,
@@ -164,7 +165,7 @@ class DeviceJobManager(object):
                               'interval_step': 3,
                               'interval_max': 15},
                 expiration=self.JOB_STATUS_TTL)
-        except Exception as e:
+        except Exception:
             self._logger.error("Failed to send job status change notification"
                                " %s %s" % (job_execution_id, status))
     # end publish_job_status_notification
@@ -204,13 +205,11 @@ class DeviceJobManager(object):
         fabric_fq_name = None
         fabric_job_uve_name = ''
         job_input_params['vnc_api_init_params'] = {
-                "admin_user": self._args.admin_user,
-                "admin_password": self._args.admin_password,
-                "admin_tenant_name":
-                    self._args.admin_tenant_name,
-                "api_server_port": self._args.api_server_port,
-                "api_server_use_ssl":
-                    self._args.api_server_use_ssl
+            "admin_user": self._args.admin_user,
+            "admin_password": self._args.admin_password,
+            "admin_tenant_name": self._args.admin_tenant_name,
+            "api_server_port": self._args.api_server_port,
+            "api_server_use_ssl": self._args.api_server_use_ssl
         }
 
         try:
@@ -242,7 +241,7 @@ class DeviceJobManager(object):
             device_fqnames = []
 
             # create the UVE
-            if fabric_fq_name is not "__DEFAULT__" and not device_list:
+            if fabric_fq_name != "__DEFAULT__" and not device_list:
                 self.create_fabric_job_uve(fabric_job_uve_name,
                                            job_input_params.get(
                                                'job_execution_id'),
@@ -288,7 +287,7 @@ class DeviceJobManager(object):
                                                  JobStatus.STARTING.value)
 
             # handle process exit signal
-            signal.signal(signal.SIGCHLD,  self.job_mgr_signal_handler)
+            signal.signal(signal.SIGCHLD, self.job_mgr_signal_handler)
 
             # write the abstract config to file if needed
             self.save_abstract_config(job_input_params)
@@ -383,7 +382,7 @@ class DeviceJobManager(object):
 
         # update the UVE
         if mark_uve:
-            if fabric_fq_name is not "__DEFAULT__" and not device_list:
+            if fabric_fq_name != "__DEFAULT__" and not device_list:
                 self.create_fabric_job_uve(fabric_job_uve_name,
                                            job_execution_id,
                                            JobStatus.FAILURE.value, 100.0)
@@ -409,7 +408,7 @@ class DeviceJobManager(object):
         device_op_results = {}
         failed_devices_list = []
         try:
-            with open("/tmp/"+execution_id, "r") as f_read:
+            with open("/tmp/" + execution_id, "r") as f_read:
                 for line in f_read:
                     if 'PROUTER_LOG##' in line:
                         job_log = self._load_job_log('PROUTER_LOG##', line)
@@ -451,14 +450,13 @@ class DeviceJobManager(object):
             self._logger.notice(msg)
             exec_id = signal_var.get('exec_id')
 
-            status, prouter_info, device_op_results,\
-            failed_devices_list = \
+            status, prouter_info, device_op_results, failed_devices_list = \
                 self._extracted_file_output(exec_id)
             self.job_status[exec_id] = status
             self.publish_job_status_notification(exec_id, status)
 
-            if signal_var.get('fabric_name') is not \
-                    "__DEFAULT__" and not signal_var.get('device_fqnames'):
+            if signal_var.get('fabric_name') != "__DEFAULT__"\
+                    and not signal_var.get('device_fqnames'):
                 job_execution_data = FabricJobExecution(
                     name=signal_var.get('fabric_name'),
                     job_status=status,
@@ -568,20 +566,16 @@ class DeviceJobManager(object):
             if not self._zookeeper_client.get_children(fabric_node_path):
                 self._zookeeper_client.delete_node(fabric_node_path)
                 self._logger.info("Released fabric node"
-                                " for %s " % fabric_node_path)
+                                  " for %s " % fabric_node_path)
         except Exception as zk_error:
             self._logger.error("Exception while releasing the fabric node for "
                                "%s: %s " % (fabric_node_path, str(zk_error)))
     # end _cleanup_job_lock
 
     def save_abstract_config(self, job_params):
-        """
-        Saving device abstract config to a local file as it could be large
-        config. There will be one local file per device and this file gets
-        removed when device is removed from database.
-        :param job_params: dict
-        :return: None
-        """
+        # Saving device abstract config to a local file as it could be large
+        # config. There will be one local file per device and this file gets
+        # removed when device is removed from database.
         dev_abs_cfg = job_params.get('input', {}).get('device_abstract_config')
         if dev_abs_cfg:
             dev_mgt_ip = dev_abs_cfg.get('system', {}).get('management_ip')
@@ -645,26 +639,24 @@ class DeviceJobManager(object):
 
                 device_family = result.get("physical_router_device_family")
                 device_vendor_name = result.get("physical_router_vendor_name")
-                device_product_name = result.get("physical_router_product_name")
+                device_product_name = result.get(
+                    "physical_router_product_name")
 
                 fabric_refs = result.get('fabric_refs')
                 if fabric_refs:
                     fabric_fq_name = result.get('fabric_refs')[0].get('to')
                     fabric_fq_name_str = ':'.join(fabric_fq_name)
                     request_params['fabric_fq_name'] = fabric_fq_name_str
-
-
             else:
-
-                device_mgmt_ip = request_params.get(
-                                       'input', {}).get(
-                                       'device_management_ip')
-                device_abs_cfg = request_params.get(
-                    'input', {}).get('device_abstract_config')
+                device_mgmt_ip = request_params.get('input', {}).get(
+                    'device_management_ip')
+                device_abs_cfg = request_params.get('input', {}).get(
+                    'device_abstract_config')
 
                 system = device_abs_cfg.get('system', {})
                 device_name = system.get('name')
-                device_username = system.get('credentials', {}).get('user_name')
+                device_username = system.get('credentials', {}).get(
+                    'user_name')
                 device_password = system.get('credentials', {}).get('password')
                 user_cred = {
                     "username": device_username,
@@ -711,7 +703,7 @@ class DeviceJobManager(object):
         if request_params.get('input').get('fabric_fq_name'):
             fabric_fq_name = request_params.get('input').get('fabric_fq_name')
         elif request_params.get('input').get('fabric_uuid'):
-            # get the fabric fq_name from the database if fabric_uuid is provided
+            # get the fabric fq_name from the db if fabric_uuid is provided
             fabric_uuid = request_params.get('input').get('fabric_uuid')
             try:
                 fabric_fq_name = self._db_conn.uuid_to_fq_name(fabric_uuid)
@@ -719,7 +711,7 @@ class DeviceJobManager(object):
                 raise JobException(str(e), job_execution_id)
         else:
             if "device_deletion_template" in request_params.get(
-                   'job_template_fq_name'):
+                    'job_template_fq_name'):
                 fabric_fq_name = ["__DEFAULT__"]
             elif not is_delete:
                 err_msg = "Missing fabric details in the job input"
