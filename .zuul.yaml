@@ -1,0 +1,5 @@
+- project:
+    name: Juniper/contrail-controller
+    experimental:
+      jobs:
+        - contrail-vnc-build-package-centos74-isolated
