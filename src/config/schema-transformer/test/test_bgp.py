@@ -435,7 +435,7 @@ class TestBgp(STTestCase, VerifyBgp):
 
     def delete_fabric(self, fab=None):
         if fab:
-            self._vnc_lib.fabric_delete(fq_name=fab.fq_name)
+            self._vnc_lib.fabric_delete(fq_name=fab.get_fq_name())
     # end delete_fabric
 
     def test_ibgp_auto_mesh_sub(self):
@@ -518,10 +518,10 @@ class TestBgp(STTestCase, VerifyBgp):
         bgp_router2_fab2 = self._vnc_lib.bgp_router_read(fq_name=bgp_router2_fab2.fq_name)
 
         self.check_bgp_peering(bgp_router2_fab1, bgp_router1_fab1, 1)
-        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 2)
+        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 1)
 
         self.check_bgp_peering(bgp_router2_fab2, bgp_router1_fab2, 1)
-        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 2)
+        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 1)
 
         self.delete_routers(bgp_router1_fab1, pr1_fab1)
         self.delete_routers(bgp_router2_fab1, pr2_fab1)
@@ -532,7 +532,6 @@ class TestBgp(STTestCase, VerifyBgp):
 
         gevent.sleep(1)
     # end test_ibgp_auto_mesh_fabric_phy_rtr_to_bgp_rtr_dependency
-
 
     def test_ibgp_auto_mesh_fabric_with_different_asn(self):
         # global asn = 64512
@@ -582,13 +581,13 @@ class TestBgp(STTestCase, VerifyBgp):
         # connected to router3
         self.check_bgp_peering(bgp_router2_fab1, bgp_router1_fab1, 1)
         self.check_bgp_peering(bgp_router3_fab1, bgp_router1_fab1, 1)
-        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 3)
-        self.check_bgp_peering(bgp_router1_fab1, bgp_router3_fab1, 3)
+        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 2)
+        self.check_bgp_peering(bgp_router1_fab1, bgp_router3_fab1, 2)
 
         self.check_bgp_peering(bgp_router2_fab2, bgp_router1_fab2, 1)
         self.check_bgp_peering(bgp_router3_fab2, bgp_router1_fab2, 1)
-        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 3)
-        self.check_bgp_peering(bgp_router1_fab2, bgp_router3_fab2, 3)
+        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 2)
+        self.check_bgp_peering(bgp_router1_fab2, bgp_router3_fab2, 2)
 
         self.delete_routers(bgp_router1_fab1, pr1_fab1)
         self.delete_routers(bgp_router2_fab1, pr2_fab1)
@@ -652,13 +651,13 @@ class TestBgp(STTestCase, VerifyBgp):
         # connected to router3
         self.check_bgp_peering(bgp_router2_fab1, bgp_router1_fab1, 1)
         self.check_bgp_peering(bgp_router3_fab1, bgp_router1_fab1, 1)
-        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 3)
-        self.check_bgp_peering(bgp_router1_fab1, bgp_router3_fab1, 3)
+        self.check_bgp_peering(bgp_router1_fab1, bgp_router2_fab1, 2)
+        self.check_bgp_peering(bgp_router1_fab1, bgp_router3_fab1, 2)
 
         self.check_bgp_peering(bgp_router2_fab2, bgp_router1_fab2, 1)
         self.check_bgp_peering(bgp_router3_fab2, bgp_router1_fab2, 1)
-        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 3)
-        self.check_bgp_peering(bgp_router1_fab2, bgp_router3_fab2, 3)
+        self.check_bgp_peering(bgp_router1_fab2, bgp_router2_fab2, 2)
+        self.check_bgp_peering(bgp_router1_fab2, bgp_router3_fab2, 2)
 
         self.delete_routers(bgp_router1_fab1, pr1_fab1)
         self.delete_routers(bgp_router2_fab1, pr2_fab1)
@@ -671,6 +670,7 @@ class TestBgp(STTestCase, VerifyBgp):
 
         gevent.sleep(1)
     #end test_ibgp_auto_mesh_fab
+
     def test_ibgp_auto_route_reflector(self):
         config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
         self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
@@ -892,6 +892,51 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.bgp_router_delete(id=router3.uuid)
         gevent.sleep(1)
     # end test_ibgp_full_mesh_with_route_reflector_change
+
+    def test_ibgp_auto_mesh_redundant_route_reflector(self):
+        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+                         True, "ibgp_auto_mesh_test")
+
+        # create route reflector
+        r3_name = self.id() + 'router3'
+        router3 = self.create_bgp_router(r3_name, 'contrail', None,
+                                         cluster_id=1000)
+
+        # create HA route reflector
+        r4_name = self.id() + 'router4'
+        router4 = self.create_bgp_router(r4_name, 'contrail', None,
+                                         cluster_id=1000)
+
+        # create router1
+        r1_name = self.id() + 'router1'
+        router1 = self.create_bgp_router(r1_name, 'contrail')
+
+        # create router2
+        r2_name = self.id() + 'router2'
+        router2 = self.create_bgp_router(r2_name, 'contrail')
+
+        # router1 and router2 should not be connected, both of them should be
+        # connected to router3 and router4.
+        # router3 and router4 should be connected with each other.
+        self.check_bgp_peering(router1, router3, 2)
+        self.check_bgp_peering(router2, router3, 2)
+        self.check_bgp_peering(router1, router4, 2)
+        self.check_bgp_peering(router2, router4, 2)
+        self.check_bgp_peering(router3, router1, 3)
+        self.check_bgp_peering(router3, router2, 3)
+        self.check_bgp_peering(router4, router1, 3)
+        self.check_bgp_peering(router4, router2, 3)
+        self.check_bgp_peering(router3, router4, 3)
+        self.check_bgp_peering(router4, router3, 3)
+
+        # Cleanup
+        self._vnc_lib.bgp_router_delete(id=router1.uuid)
+        self._vnc_lib.bgp_router_delete(id=router2.uuid)
+        self._vnc_lib.bgp_router_delete(id=router3.uuid)
+        self._vnc_lib.bgp_router_delete(id=router4.uuid)
+        gevent.sleep(1)
+    # test_ibgp_auto_mesh_redundant_route_reflector
 
     def test_asn(self):
         # create  vn1
