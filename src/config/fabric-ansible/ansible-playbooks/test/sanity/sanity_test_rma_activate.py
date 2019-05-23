@@ -122,7 +122,10 @@ class SanityTestRmaActivate(SanityBase):
             'default-global-system-config', 'rma_activate_template']
         job_input = {}
         if self.serial_number:
-            job_input['serial_number'] = self.serial_number
+            job_input['rma_devices'] = [{
+                'device_uuid': self.device_uuid,
+                'serial_number': self.serial_number
+            }]
 
         job_execution_info = self._api.execute_job(
             job_template_fq_name=job_template_fq_name,

@@ -8,7 +8,7 @@
   vars:
     prouter_name: "{{playbook_input.device_fqname[-1]}}"
     device_uuid: "{{playbook_input.device_id}}"
-    new_serial_number: "{{playbook_input.input.serial_number}}"
+    rma_devices: "{{playbook_input.input.rma_devices}}"
     output: {"status":"", "message":""}
 
   tasks:
@@ -23,6 +23,13 @@
 
     - set_fact:
         fabric_name: "{{fabric_fqname[-1]}}"
+
+    - name: Find serial number of the given device
+      set_fact:
+        new_serial_number: "{{item['serial_number']}}"
+      with_items:
+        - "{{rma_devices}}"
+      when: device_uuid == "{{item['device_uuid']}}"
 
     - name: Call vnc to read the fabric object
       vnc_db_mod:
