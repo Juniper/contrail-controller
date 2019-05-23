@@ -27,6 +27,7 @@ struct VirtualDnsRecordTraceData {
     7: string source;
     8: string installed;
     9: i32 flags;
+    10: string rec_source_name;
 }
 
 trace sandesh IpamTrace {

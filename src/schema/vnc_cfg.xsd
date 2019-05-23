@@ -542,6 +542,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="record-ttl-seconds" type="xsd:integer" required='optional'
              description='Time To Live for this DNS record'/>
         <xsd:element name="record-mx-preference" type="xsd:integer" required='optional'/>
+        <xsd:element name="record-source-name" type="xsd:string" required='system-only'
+             description='name of the compute node which sends add for A type or PTR type dns record for vm'/>
     </xsd:all>
 </xsd:complexType>
 

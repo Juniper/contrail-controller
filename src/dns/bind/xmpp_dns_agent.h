@@ -39,15 +39,16 @@ public:
                                           uint8_t *data);
     static bool DnsAgentXmppDecode(const pugi::xml_node dns, 
                                    XmppType &type, uint32_t &xid,
-                                   uint16_t &resp_code, DnsUpdateData *data);
+                                   uint16_t &resp_code, DnsUpdateData *data,
+                                   std::string source_name="");
 
 private:
     static void EncodeDnsData(pugi::xml_node *node, DnsUpdateData *xmpp_data);
     static void EncodeDnsItem(pugi::xml_node *node, DnsItem &entry);
     static bool DecodeDns(const pugi::xml_node node, XmppType &type, 
-                          bool is_resp, DnsUpdateData *data);
+                          bool is_resp, DnsUpdateData *data, std::string source_name);
     static bool DecodeDnsItems(const pugi::xml_node dnsdata, 
-                               DnsUpdateData *data);
+                               DnsUpdateData *data, std::string source_name);
 };
 
 #endif // _xmpp_dns_agent_h_
