@@ -15,10 +15,10 @@ from ansible.executor.playbook_executor import PlaybookExecutor
 
 test_underlay_config = "set cli screen-length 25"
 
-DEFAULT_ZEROIZE_TIMEOUT=10
+DEFAULT_ZEROIZE_TIMEOUT=12
 DEFAULT_DEVICE_PASSWORD='Embe1mpls'
-BOGUS_MGMT_MAC='00:11:22:33:44:55'
-BOGUS_SERIAL_NUMBER='9999999999'
+BOGUS_MGMT_MAC='00:11:22:33:44:0'
+BOGUS_SERIAL_NUMBER='-99999'
 
 # pylint: disable=E1101
 class SanityTestRmaActivate(SanityBase):
@@ -28,49 +28,23 @@ class SanityTestRmaActivate(SanityBase):
         self.api_server_host = cfg['api_server']['host']
         rma = cfg['rma']
         self.fabric = rma['fabric']
-        self.device_name = rma['device']
-        self.serial_number = rma['serial_number']
+        self.device_list = rma['device_list']
         self.zeroize_timeout = rma.get('timeout', DEFAULT_ZEROIZE_TIMEOUT)
-        self.device_password = rma.get('password', DEFAULT_DEVICE_PASSWORD)
-    # end __init__
+        self.job_input = {'rma_devices': []}
+        self.job_device_list = []
+        self.go_green = False
+        self.dev_idx = 0
+        # end __init__
 
     def rma_activate(self):
         self._logger.info("RMA activate ...")
-        fabric_fq_name = ['default-global-system-config', self.fabric]
-        fabric_obj = self._api.fabric_read(fq_name=fabric_fq_name)
+
+        # Read fabric object
+        self.fabric_fq_name = ['default-global-system-config', self.fabric]
+        fabric_obj = self._api.fabric_read(fq_name=self.fabric_fq_name)
         self.fabric_uuid = fabric_obj.uuid
-        device_fq_name = ['default-global-system-config', self.device_name]
-        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
-        self.device_uuid = device_obj.uuid
-        self.managed_state = device_obj.get_physical_router_managed_state()
-        self.underlay_config = device_obj.get_physical_router_underlay_config()
-        self.mac = device_obj.get_physical_router_management_mac()
-        self._logger.info("Device {}: serial_number={}, mac={}, managed_state={}".\
-                           format(self.device_name, self.serial_number,
-                                  self.mac, self.managed_state))
-
-        # Use underlay config if already found, otherwise provide default
-        if self.underlay_config:
-            self._logger.info("Underlay config found: \'{}\'".\
-                               format(self.underlay_config))
-        else:
-            self.underlay_config = test_underlay_config
-            self._logger.info("Underlay config added: \'{}\'".\
-                               format(self.underlay_config))
-            device_obj.set_physical_router_underlay_config(self.underlay_config)
-
-        # Change mac and serial number to bogus values to pretend like this
-        # is another device. Then run update_dhcp_config playbook to install
-        # mac into dnsmasq config file
-        device_obj.set_physical_router_management_mac(BOGUS_MGMT_MAC)
-        device_obj.set_physical_router_serial_number(BOGUS_SERIAL_NUMBER)
-        self._api.physical_router_update(device_obj)
-
-        playbook_input = {
-            "device_management_ip": device_obj.physical_router_management_ip,
-            "device_username": device_obj.physical_router_user_credentials.username,
-            "device_password": self.device_password,
-            "fabric_fq_name": fabric_fq_name,
+        self.playbook_input_base = {
+            "fabric_fq_name": self.fabric_fq_name,
             "fabric_uuid": self.fabric_uuid,
             "input": {"fabric_uuid": self.fabric_uuid},
             "api_server_host": [
@@ -93,65 +67,117 @@ class SanityTestRmaActivate(SanityBase):
             "args": "{\"fabric_ansible_conf_file\": [\"/etc/contrail/contrail-keystone-auth.conf\", \"/etc/contrail/contrail-fabric-ansible.conf\"], \"zk_server_ip\": \"10.87.6.1:2181\", \"cluster_id\": \"\", \"host_ip\": \"10.87.6.1\", \"collectors\": [\"10.87.6.1:8086\"]}",
             "playbook_job_percentage": 28.5,
         }
+        self.execute_playbook('../../update_dhcp_config.yml',
+                                self.playbook_input_base)
 
-        self.execute_playbook('../../update_dhcp_config.yml', playbook_input)
+        # Setup each device to activate
+        for device in self.device_list:
+            self.prepare_device(device['name'], device['serial_number'],
+                                 device.get('password',
+                                            DEFAULT_DEVICE_PASSWORD))
+        # if we zeroized devices, need to update DHCP server and wait
+        if self.go_green:
+            self._logger.info("Wait for {} minutes...".format(self.zeroize_timeout))
+            time.sleep(self.zeroize_timeout*60)
 
-        # Now zeroize the device and wait for it to come back online
-        # Since we don't know what IP address the device will be assigned,
-        # we can't easily poll the device to see if it is back up
-        # So the easiest thing to do is just delay
-        self.execute_playbook('test_zeroize.yml', playbook_input)
-        self._logger.info("Wait for {} minutes...".format(self.zeroize_timeout))
-        time.sleep(self.zeroize_timeout*60)
-
-        # Change to rma state and verify
-        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
-        device_obj.set_physical_router_managed_state('rma')
-        self._api.physical_router_update(device_obj)
-        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
-        self.managed_state = device_obj.get_physical_router_managed_state()
-        if self.managed_state == 'rma':
-            self._logger.info("State set to rma")
-        else:
-            self._logger.info("State is {} instead of rma. Exiting...".\
-                               format(self.managed_state))
-            return
-
-        # Execute rma_activate job
+        # Execute rma_activate job for all devices at once
         job_template_fq_name = [
             'default-global-system-config', 'rma_activate_template']
-        job_input = {}
-        if self.serial_number:
-            job_input['serial_number'] = self.serial_number
 
         job_execution_info = self._api.execute_job(
             job_template_fq_name=job_template_fq_name,
-            job_input=job_input,
-            device_list = [self.device_uuid]
+            job_input=self.job_input,
+            device_list = self.job_device_list
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.info(
             "RMA activate job started with execution id: %s", job_execution_id)
         try:
             self._wait_and_display_job_progress('RMA activate',
-                                            job_execution_id, fabric_fq_name,
-                                            job_template_fq_name)
+                                                job_execution_id,
+                                                self.fabric_fq_name,
+                                                job_template_fq_name)
         except Exception as ex:
             self._exit_with_error(
                 "Activate maintenance mode failed due to unexpected error: %s"
                 % str(ex))
-        # Verify state change to active
-        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
-        self.managed_state = device_obj.get_physical_router_managed_state()
-        if self.managed_state == 'active':
-            self._logger.info("State set to active")
-        else:
-            self._logger.info("State is {} instead of active. Exiting...".\
-                               format(self.managed_state))
-            return
 
         self._logger.info("... RMA activate complete")
     # end rma_activate
+
+    def prepare_device(self, device_name, serial_number, password):
+        device_fq_name = ['default-global-system-config', device_name]
+        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
+        device_uuid = device_obj.uuid
+        managed_state = device_obj.get_physical_router_managed_state()
+        underlay_managed = device_obj.get_physical_router_underlay_managed()
+        mac = device_obj.get_physical_router_management_mac()
+        self._logger.info("Device {}: serial_number={}, mac={}, managed_state={}".\
+                           format(device_name, serial_number,
+                                  mac, managed_state))
+
+        if underlay_managed:
+            self.process_greenfield(device_obj, password)
+        else:
+            self.process_brownfield(device_obj)
+
+        # Change to rma state and verify
+        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
+        device_obj.set_physical_router_managed_state('rma')
+        self._api.physical_router_update(device_obj)
+        device_obj = self._api.physical_router_read(fq_name=device_fq_name)
+        managed_state = device_obj.get_physical_router_managed_state()
+        if managed_state == 'rma':
+            self._logger.info("State set to rma")
+        else:
+            self._logger.info("State is {} instead of rma. Exiting...".\
+                               format(managed_state))
+            return
+
+        self.job_input['rma_devices'].append({
+                'device_uuid': device_uuid,
+                'serial_number': serial_number
+            })
+        self.job_device_list.append(device_uuid)
+
+    def process_brownfield(self, device_obj):
+        # Use underlay config if already found, otherwise provide default
+        underlay_config = device_obj.get_physical_router_underlay_config()
+
+        if underlay_config:
+            self._logger.info("Underlay config found: \'{}\'".\
+                               format(underlay_config))
+        else:
+            underlay_config = test_underlay_config
+            self._logger.info("Underlay config added: \'{}\'".\
+                               format(underlay_config))
+            device_obj.set_physical_router_underlay_config(underlay_config)
+            self._api.physical_router_update(device_obj)
+
+
+    def process_greenfield(self, device_obj, password):
+        # Change mac and serial number to bogus values to pretend like this
+        # is another device. Then run update_dhcp_config playbook to install
+        # mac into dnsmasq config file
+        self.dev_idx += 1
+        device_obj.set_physical_router_management_mac(BOGUS_MGMT_MAC+str(self.dev_idx))
+        device_obj.set_physical_router_serial_number(device_obj.name+BOGUS_SERIAL_NUMBER)
+        self._api.physical_router_update(device_obj)
+
+        playbook_input = self.playbook_input_base
+        playbook_input.update({
+            "device_management_ip": device_obj.physical_router_management_ip,
+            "device_username": device_obj.physical_router_user_credentials.username,
+            "device_password": password
+        })
+        self._logger.info("PLAYBOOK_INPUT={}".format(playbook_input))
+
+        # Now zeroize the device and wait for it to come back online
+        # Since we don't know what IP address the device will be assigned,
+        # we can't easily poll the device to see if it is back up
+        # So the easiest thing to do is just delay
+        self.execute_playbook('test_zeroize.yml', playbook_input)
+        self.go_green = True
 
     def execute_playbook(self, playbook_name, playbook_input):
         try:

@@ -604,7 +604,7 @@
             "playbook_info": [
               {
                 "device_family": "",
-                "multi_device_playbook": true,
+                "multi_device_playbook": false,
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/rma_activate.yml",
                 "vendor": "Juniper",
                 "job_completion_weightage": 30

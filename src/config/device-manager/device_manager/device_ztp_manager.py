@@ -124,6 +124,9 @@ class DeviceZtpManager(object):
                     timeout -= 1
                     gevent.sleep(1)
                 self._restart_dnsmasq_container()
+            elif action == 'read':
+                self._logger.info("Reading leases file")
+                self._read_dhcp_leases(headers.get('fabric_name'), config)
         except Exception as e:
             self._logger.error("Error while handling ztp request %s" % repr(e))
     # end _ztp_request
@@ -157,12 +160,12 @@ class DeviceZtpManager(object):
             for mac, (ip_addr, host_name) in lease_table.iteritems():
                 if self._within_dhcp_subnet(ip_addr, config) and \
                         self._within_ztp_devices(host_name, device_to_ztp):
-                    matched_devices[mac] = ip_addr
+                    matched_devices[mac] = (ip_addr, host_name)
             if len(matched_devices) >= device_count:
                 break
             gevent.sleep(1)
 
-        results['device_list'] = [{'ip_addr': ip_addr, 'mac': mac} for mac, ip_addr in matched_devices.iteritems()]
+        results['device_list'] = [{'ip_addr': ip_addr, 'mac': mac, 'host_name': host_name} for mac, (ip_addr, host_name) in matched_devices.iteritems()]
         if not results['device_list']:
             results['failed'] = True
         results['msg'] = "Found {} devices, expected {} devices. Here are the found devices: {}". \
