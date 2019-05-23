@@ -42,6 +42,7 @@ import StringIO
 
 from vnc_openstack.utils import filter_fields
 from vnc_openstack.utils import resource_is_in_use
+import tenacity
 
 operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 oper = ['NOOP', 'POST', 'GET', 'PUT', 'DELETE']
@@ -99,11 +100,13 @@ class LocalVncApi(VncApi):
         # api_server_obj methods directly instead of system call.
         # Always pass contextual user_token aka mux connection to api-server
         orig_user_token = None
+        headers = {}
         started_time = time.time()
         req = get_context().request
         req_context = req.json.get('context', {}) if req.json else {}
         req_id = get_context().request_id
         user_token = get_context().user_token
+        if_match = self._headers.get('If-Match')
         if 'X-AUTH-TOKEN' in self._headers:
             # retain/restore if there was already a token on channel
             orig_user_token = self._headers['X-AUTH-TOKEN']
@@ -127,9 +130,10 @@ class LocalVncApi(VncApi):
             auth_hdrs = vnc_cfg_api_server.auth_context.get_auth_hdrs()
         else:
             auth_hdrs = {}
-
-
         environ.update(auth_hdrs)
+
+        if if_match:
+            environ['HTTP_IF_MATCH'] = if_match
 
         if op == rest.OP_GET:
             if data:
@@ -198,6 +202,8 @@ class LocalVncApi(VncApi):
             elif status == 409:
                 raise vnc_exc.RefsExistError(content)
             elif status == 412:
+                if content.endswith(" representation changed"):
+                    raise vnc_exc.PreconditionFailed(content)
                 raise vnc_exc.OverQuota(content)
             else:
                 raise vnc_exc.HttpError(status, content)
@@ -3291,6 +3297,10 @@ class DBInterface(object):
 
     # subnet api handlers
     @wait_for_api_server_connection
+    @tenacity.retry(wait=tenacity.wait_random_exponential(multiplier=0.5, max=10),
+                    stop=tenacity.stop_after_attempt(20),
+                    retry=tenacity.retry_if_exception_type(vnc_exc.PreconditionFailed),
+                    reraise=True)
     def subnet_create(self, subnet_q):
         net_id = subnet_q['network_id']
         net_obj = self._virtual_network_read(net_id=net_id)
@@ -3338,13 +3348,12 @@ class DBInterface(object):
                                                    resource='subnet', msg=msg)
             vnsn_data = net_ipam_ref['attr']
             vnsn_data.ipam_subnets.append(subnet_vnc)
-            # TODO: Add 'ref_update' API that will set this field
-            net_obj._pending_field_updates.add('network_ipam_refs')
+            net_obj._pending_ref_updates.add('network_ipam_refs')
         try:
             self._virtual_network_update(net_obj)
         except OverQuota as e:
-            self._raise_contrail_exception('OverQuota',
-                overs=['subnet'], msg=str(e))
+            self._raise_contrail_exception(
+                'OverQuota', overs=['subnet'], msg=str(e))
 
         # Read in subnet from server to get updated values for gw etc.
         subnet_vnc = self._subnet_read(net_id, subnet_prefix)
@@ -3352,7 +3361,6 @@ class DBInterface(object):
                                                   ipam_fq_name)
 
         return subnet_info
-    #end subnet_create
 
     @wait_for_api_server_connection
     def subnet_read(self, subnet_id):

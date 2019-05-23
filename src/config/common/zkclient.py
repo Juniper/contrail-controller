@@ -596,7 +596,7 @@ class ZookeeperClient(object):
     def lock(self, path, identifier=None):
         if not identifier:
             identifier = '%s-%s' % (socket.getfqdn(self.host_ip),
-                    os.getpid())
+                                    os.getpid())
         return self._zk_client.Lock(path, identifier)
 
     def read_lock(self, path, identifier=None):
