@@ -1,0 +1,5 @@
+- project:
+    name: helm-systests
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74-isolated
