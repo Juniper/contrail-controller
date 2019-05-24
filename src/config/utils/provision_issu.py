@@ -260,7 +260,6 @@ class ISSUContrailPostProvisioner(object):
     # end del_node
 
     def delete_tsn_nodes(self):
-        cluster_virtual_routers = []
         PRs = []
         del_virtual_routers = self._args.del_compute_host_info.values()
         PRs = self._vnc_lib.physical_routers_list()['physical-routers']
@@ -270,7 +269,7 @@ class ISSUContrailPostProvisioner(object):
             PR_obj = self._vnc_lib.physical_router_read(id = PR['uuid'])
             virtual_router_refs = PR_obj.get_virtual_router_refs()
             if not virtual_router_refs:
-                return
+                continue
             for ref in virtual_router_refs:
                 vr_name = ref['to'][1]
                 if vr_name in del_virtual_routers:
