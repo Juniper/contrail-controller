@@ -297,11 +297,6 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    if (vhostuser_mode_ != data->vhostuser_mode_) {
-        vhostuser_mode_ = data->vhostuser_mode_;
-        ret = true;
-    }
-
     MirrorDirection mirror_direction = data->mirror_direction_;
     if (mirror_direction_ != mirror_direction) {
         mirror_direction_ = mirror_direction;
