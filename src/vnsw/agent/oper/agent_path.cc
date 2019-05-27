@@ -311,7 +311,11 @@ void AgentPath::ImportPrevActiveNH(Agent *agent, NextHop *nh)
     // will there be a race condition while removing the active path,
     // adding new component nh? 
     // this can be handled by calling reorder composite nh method
-    boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
+    if (composite_nh_key_ == NULL) { 
+        return;
+    }
+    boost::scoped_ptr<CompositeNHKey> composite_nh_key(
+                                    composite_nh_key_->Clone());
     bool comp_nh_policy = false;
     //TODO: optimize here , compare compositenh_key from path and nh?
     ReorderCompositeNH(agent, composite_nh_key.get(), comp_nh_policy, NULL);
