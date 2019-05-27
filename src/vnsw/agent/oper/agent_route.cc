@@ -643,6 +643,7 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
 
     // Store if this was active path
     bool active_path = (GetActivePath() == path);
+    const Peer *old_active_path_peer = path->peer();
     // Remove path from the route
     RemovePath(path);
 
@@ -681,6 +682,8 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
         }
         if (active_path &&
                 cnh && new_cnh &&
+                (old_active_path_peer->GetType() == Peer::BGP_PEER) &&
+                (new_active_path_peer->GetType() == Peer::BGP_PEER) &&
                 (cnh->composite_nh_type() == Composite::ECMP) &&
                 (new_cnh->composite_nh_type() == Composite::ECMP)) {
             new_active_path->ImportPrevActiveNH(table->agent(), cnh);
