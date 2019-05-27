@@ -1620,7 +1620,7 @@ void XmppStateMachine::ProcessEvent(const sc::event_base &event) {
         return;
     }
 
-    set_last_event(TYPE_NAME(event));
+    update_last_event(TYPE_NAME(event));
     in_dequeue_ = true;
     process_event(event);
     in_dequeue_ = false;
@@ -1631,9 +1631,8 @@ void XmppStateMachine::unconsumed_event(const sc::event_base &event) {
               XMPP_PEER_DIR_IN, ChannelType(), TYPE_NAME(event), StateName());
 }
 
-void XmppStateMachine::set_last_event(const std::string &event) {
-    last_event_ = event;
-    last_event_at_ = UTCTimestampUsec();
+void XmppStateMachine::update_last_event(const std::string &event) {
+    set_last_event(event);
 
     if (!logUVE()) return;
 
