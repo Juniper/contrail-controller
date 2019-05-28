@@ -1333,6 +1333,7 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
 
     KSyncEntry::KSyncState state;
     bool dep_reval = false;
+    KSyncEntry::KSyncState from_state = entry->GetState();
 
     if (DoEventTrace()) {
         KSYNC_TRACE(Event, this, entry->ToString(), entry->StateString(),
@@ -1399,6 +1400,8 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     }
 
     entry->SetState(state);
+    entry->RecordTransition(from_state, state, event);
+
     if (dep_reval == true && entry->IsResolved() &&
         entry->ShouldReEvalBackReference()) {
         BackRefReEval(entry);
