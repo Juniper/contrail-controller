@@ -277,7 +277,7 @@ class DBInterface(object):
         self.lock_path_prefix = '%s/%s' % (self._api_server_obj._args.cluster_id,
                                            _DEFAULT_ZK_LOCK_PATH_PREFIX)
         self.security_group_lock_prefix = '%s/security_group' % self.lock_path_prefix
-
+        self.virtual_network_lock_prefix = '%s/virtual_network' % self.lock_path_prefix
         self._zookeeper_client = self._api_server_obj._db_conn._zk_db._zk_client
 
         # Retry till a api-server is up
@@ -3136,6 +3136,11 @@ class DBInterface(object):
             self._resource_delete('virtual_network', net_id)
         except RefsExistError:
             self._raise_contrail_exception('NetworkInUse', net_id=net_id)
+        self._zookeeper_client.delete_node(
+            '%s/%s' % (
+                self.virtual_network_lock_prefix,net_id
+            ))
+
     # end network_delete
 
     # TODO request based on filter contents
@@ -3290,8 +3295,42 @@ class DBInterface(object):
     #end network_count
 
     # subnet api handlers
+
+    def with_zookeper_vn_lock(func):
+
+        def wrapper(self, *args, **kwargs):
+            # Before we can update the rule inside virtual netowrk, get the
+            # lock first. This lock will be released in finally block below.
+            vn_id= args[0]
+            scope_lock = self._zookeeper_client.lock(
+                '%s/%s' % (
+                self.virtual_network_lock_prefix, vn_id
+                ))
+
+            try:
+                acquired_lock = scope_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
+
+                # If this node acquired the lock, continue with creation of
+                # subnet
+                return func(self, *args, **kwargs)
+
+            except LockTimeout:
+                # If the lock was not acquired and timeout of 5 seconds happened, then raise
+                # a bad request error.
+                self._api_server_obj.config_log("Zookeeper lock acquire timed out.",
+                            level=SandeshLevel.SYS_INFO)
+                msg = ("Subnet operation failed, Try again.. ")
+                self._raise_contrail_exception('ServiceUnavailableError',
+                    resource='subnet', msg=msg)
+            finally:
+                scope_lock.release()
+
+        return wrapper
+    # end with_zookeper_vn_lock
+
     @wait_for_api_server_connection
-    def subnet_create(self, subnet_q):
+    @with_zookeper_vn_lock
+    def _subnet_create(self, subnet_id,subnet_q):
         net_id = subnet_q['network_id']
         net_obj = self._virtual_network_read(net_id=net_id)
 
@@ -3352,7 +3391,11 @@ class DBInterface(object):
                                                   ipam_fq_name)
 
         return subnet_info
-    #end subnet_create
+    #end _subnet_create
+
+    def subnet_create(self, subnet_q):
+        net_id = subnet_q['network_id']
+        return self._subnet_create(net_id,subnet_q)
 
     @wait_for_api_server_connection
     def subnet_read(self, subnet_id):
@@ -3469,6 +3512,7 @@ class DBInterface(object):
     # end subnet_update
 
     @wait_for_api_server_connection
+    @with_zookeper_vn_lock
     def subnet_delete(self, subnet_id):
         subnet_key = self._subnet_vnc_read_mapping(id=subnet_id)
         if not subnet_key:
