@@ -277,6 +277,7 @@ class DBInterface(object):
         self.lock_path_prefix = '%s/%s' % (self._api_server_obj._args.cluster_id,
                                            _DEFAULT_ZK_LOCK_PATH_PREFIX)
         self.security_group_lock_prefix = '%s/security_group' % self.lock_path_prefix
+	self.virtual_network_lock_prefix = '%s/virtual_network' % self.lock_path_prefix
 
         self._zookeeper_client = self._api_server_obj._db_conn._zk_db._zk_client
 
@@ -638,20 +639,40 @@ class DBInterface(object):
         except AuthFailed as e:
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
     #end _resource_delete
+    def _virtual_network_lock(self, vn_id):
+        return self._zookeeper_client.lock(
+            '%s/%s' % (
+                self.virtual_network_lock_prefix, vn_id
+            ))
 
     def _virtual_network_read(self, net_id=None, fq_name=None, fields=None):
         net_obj = self._vnc_lib.virtual_network_read(id=net_id,
                                                      fq_name=fq_name,
                                                      fields=fields)
         return net_obj
-    #end _virtual_network_read
+
+    # end _virtual_network_read
 
     def _virtual_network_update(self, net_obj):
+        id = net_obj.get_virtual_network_network_id()
+        vn_lock = self._virtual_network_lock(id)
         try:
-            self._resource_update('virtual_network', net_obj)
-        except RefsExistError as e:
+            vn_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
+            try:
+                self._resource_update('virtual_network', net_obj)
+            except RefsExistError as e:
+                vn_lock.release()
+                self._raise_contrail_exception('BadRequest',
+                                               resource='network', msg=str(e))
+        except LockTimeout:
+            # If the lock was not acquired and timeout of 5 seconds happened, then raise
+            # a bad request error.
+            msg = ("Virtual Network could not be updated, Try again.. ")
             self._raise_contrail_exception('BadRequest',
-                resource='network', msg=str(e))
+                                           resource='virtual_network', msg=msg)
+        finally:
+            vn_lock.release()
+    
     # end _virtual_network_update
 
     def _virtual_network_list(self, parent_id=None, obj_uuids=None,
