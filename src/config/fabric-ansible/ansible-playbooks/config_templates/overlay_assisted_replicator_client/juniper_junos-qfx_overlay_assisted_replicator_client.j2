@@ -1,0 +1,5 @@
+set groups {{cfg_group}} protocols evpn assisted-replication leaf
+{%    set replicator_delay = device_abstract_config.get('features').get('assisted-replicator').get('assisted_replicator').get('replicator_activation_delay', None) %}
+{%    if replicator_delay %}
+set groups {{cfg_group}} protocols evpn assisted-replication leaf replicator-activation-delay {{replicator_delay}}
+{%    endif %}

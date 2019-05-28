@@ -35,7 +35,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
     DataCenterInterconnectDM, VirtualPortGroupDM, PortDM, TagDM, \
     ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM, \
-    NetworkIpamDM, FeatureDM, PhysicalRoleDM, OverlayRoleDM, RoleDefinitionDM
+    NetworkIpamDM, FeatureDM, PhysicalRoleDM, OverlayRoleDM, \
+    RoleDefinitionDM, FeatureConfigDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from ansible_base import AnsibleBase
@@ -362,6 +363,7 @@ class DeviceManager(object):
         PhysicalRoleDM.locate_all()
         OverlayRoleDM.locate_all()
         RoleDefinitionDM.locate_all()
+        FeatureConfigDM.locate_all()
         NodeProfileDM.locate_all()
         RoleConfigDM.locate_all()
         GlobalVRouterConfigDM.locate_all()

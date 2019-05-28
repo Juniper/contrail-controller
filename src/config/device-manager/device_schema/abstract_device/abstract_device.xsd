@@ -33,6 +33,7 @@
         <xsd:element name="security-zones" type="dac:SecurityZone" maxOccurs="unbounded"/>
         <xsd:element name="tunnel-ip" type="xsd:string"/>
         <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
+        <xsd:element name="assisted-replicator" type="dac:AssistedReplicator"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -122,6 +123,13 @@
         <xsd:enumeration value="PasswordBasedAuthentication"/>
     </xsd:restriction>
 </xsd:simpleType>
+
+<xsd:complexType name="AssistedReplicator">
+    <xsd:all>
+       <xsd:element name="ar-loopback-ip" type="xsd:string"/>
+       <xsd:element name="replicator-activation-delay" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:complexType name="PimRp">
     <xsd:all>
