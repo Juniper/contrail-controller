@@ -507,6 +507,10 @@ public:
         DEACTIVATED_IPV4,
         DEACTIVATED_IPV6,
         DEACTIVATED_L2,
+        DELETED_L2,
+        DELETED_L3,
+        DELETED_L3_METADATA,
+        DELETED_BRIDGE,
         FLOATING_IP_CHANGE,
         SERVICE_CHANGE,
     };

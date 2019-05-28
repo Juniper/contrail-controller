@@ -1850,6 +1850,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         vrf_->CreateTableLabel();
     }
 
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     //Update common prameters
     if (IsActive()) {
         UpdateCommonNextHop();
@@ -1870,12 +1871,14 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
                  old_ipv6_active, old_v6_addr,
                  old_subnet, old_subnet_plen, old_ethernet_tag, old_dhcp_addr,
                  (force_update || policy_change));
+        SendTrace(table, DELETED_L3);
     }
 
     // Del L3 Metadata after deleting L3
     if (!metadata_ip_active_ && old_metadata_ip_active) {
         DeleteL3MetadataIp(old_vrf, force_update, policy_change,
                            old_metadata_ip_active, old_need_linklocal_ip);
+        SendTrace(table, DELETED_L3_METADATA);
     }
 
     // Add/Update L2 
@@ -1891,11 +1894,13 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
         DeleteBridgeRoutes(old_l2_active, old_vrf, old_ethernet_tag,
                            old_addr, old_v6_addr, old_layer3_forwarding,
                            (force_update || policy_change));
+        SendTrace(table, DELETED_BRIDGE);
     }
 
     // Delete L2
     if (!l2_active_ && old_l2_active) {
         DeleteL2(old_l2_active);
+        SendTrace(table, DELETED_L2);
     }
 
     UpdateFlowKeyNextHop();
@@ -1909,7 +1914,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     if (!IsActive()) {
         DeleteCommonNextHop();
     }
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+
     if (old_l2_active != l2_active_) {
         if (l2_active_) {
             SendTrace(table, ACTIVATED_L2);
@@ -3366,7 +3371,8 @@ void VmInterface::DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
                             const Ip4Address &old_addr) {
     if ((old_vrf == NULL) || (old_addr.to_ulong() == 0))
         return;
-
+    LOG(DEBUG, "Deleting Interface Route for IPV4" << old_vrf->GetName() << ":"
+            << old_addr);
     DeleteRoute(old_vrf->GetName(), old_addr, 32);
 }
 
@@ -3811,6 +3817,8 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_bridging, VrfEntry *old_vrf,
         (old_vrf->GetEvpnRouteTable());
     if (table == NULL)
         return;
+    LOG(DEBUG, "Delete L2 Interface Route for" << old_vrf->GetName()
+            << ":" << old_v4_addr << ":" << old_v6_addr);
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), mac,
                            this, old_v4_addr,
                            old_ethernet_tag);
@@ -5485,6 +5493,18 @@ void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
         break;
     case DELETE:
         intf_info.set_op("Delete");
+        break;
+    case DELETED_L2:
+        intf_info.set_op("Deleted L2 Routes");
+        break;
+    case DELETED_L3:
+        intf_info.set_op("Deleted L3(IPV4/6) Routes");
+        break;
+    case DELETED_L3_METADATA:
+        intf_info.set_op("Deleted L3 Metadata");
+        break;
+    case DELETED_BRIDGE:
+        intf_info.set_op("Deleted Bridge table");
         break;
 
     case FLOATING_IP_CHANGE: {
