@@ -213,7 +213,7 @@ class FilterModule(object):
         return render_output
 
     def _render_feature_based_config(self):
-        if 'features' not in self.abstract_config or not self.feature_based_list:
+        if (not self.is_delete and 'features' not in self.abstract_config) or not self.feature_based_list:
             return
         config_template_list = os.listdir('./config_templates')
         config_template_list.sort()
