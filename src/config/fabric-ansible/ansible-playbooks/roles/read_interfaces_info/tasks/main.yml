@@ -1,11 +1,11 @@
 - name: Encapsulate all the operations in a block rescue for error handling
   block:
     - set_fact:
-        prouter_dynamic_ip: "{{dynamic_mgmt_ip}}"
-      when: dynamic_mgmt_ip != ''
+        prouter_dynamic_ip: "{{dynamic_mgmt_ip_tbl[prouter_uuid].dynamic_mgmt_ip}}"
+      when: dynamic_mgmt_ip_tbl != ''
     - set_fact:
         prouter_dynamic_ip: "{{prouter_mgmt_ip}}"
-      when: dynamic_mgmt_ip == ''
+      when: dynamic_mgmt_ip_tbl == ''
 
     - name: check to see if the ansible file for the vendor and family exists
       stat:
