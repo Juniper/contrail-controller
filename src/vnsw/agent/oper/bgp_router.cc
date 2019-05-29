@@ -80,20 +80,34 @@ BgpRouterConfig::BgpRouterConfig(Agent *agent) :
     OperIFMapTable(agent), inet_labeled_af_enabled_(false) {
 }
 
-BgpRouterPtr BgpRouterConfig::GetBgpRouterFromIpAddress(
-    const std::string &ip_address) {
+BgpRouterPtr BgpRouterConfig::GetBgpRouterFromXmppServer(
+    const std::string &xmpp_server) {
     boost::system::error_code ec;
-    Ip4Address ipv4_address = Ip4Address::from_string(ip_address, ec);
+    bool xmpp_server_ip_presence = true;
+    Ip4Address ipv4_address = Ip4Address::from_string(xmpp_server, ec);
     if (ec.value() != 0) {
-        return BgpRouterPtr();
+        xmpp_server_ip_presence = false;
     }
     BgpRouterPtr entry;
     tbb::mutex::scoped_lock lock(mutex_);
     BgpRouterTree::const_iterator it = bgp_router_tree_.begin();
     for ( ;it != bgp_router_tree_.end(); it++) {
         entry = it->second;
-        if (entry->ipv4_address() == ipv4_address)
-            return entry;
+        if (xmpp_server_ip_presence) {
+            if (entry->ipv4_address() == ipv4_address)
+                return entry;
+        } else {
+            std::string fqdn_name = entry->name();
+            size_t pos = fqdn_name.rfind(":");
+            if (pos != std::string::npos)
+                pos = pos + 1;
+            else
+                pos = 0;
+            std::string bgp_router_name =
+                fqdn_name.substr(pos, fqdn_name.length());
+            if (bgp_router_name == xmpp_server)
+                return entry;
+        }
     }
     return BgpRouterPtr();
 }

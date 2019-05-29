@@ -596,7 +596,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 xmpp_server = agent_->controller_ifmap_xmpp_server(0);
                 if (xmpp_server.size())
                     bgp_router = bgp_router_cfg->
-                        GetBgpRouterFromIpAddress(xmpp_server);
+                        GetBgpRouterFromXmppServer(xmpp_server);
             }
             bgp_router_name = &it->primary_bgp_peer_;
         } else if (dest == dns) {
@@ -609,7 +609,7 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 xmpp_server = agent_->controller_ifmap_xmpp_server(1);
                 if (xmpp_server.size())
                     bgp_router = bgp_router_cfg->
-                        GetBgpRouterFromIpAddress(xmpp_server);
+                        GetBgpRouterFromXmppServer(xmpp_server);
             }
             bgp_router_name = &it->secondary_bgp_peer_;
         } else {
