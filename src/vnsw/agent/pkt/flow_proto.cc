@@ -440,14 +440,14 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
         //   at this stage as we only enqueue forward flows.
         
         if ((flow->flow_handle() == req->flow_handle()) &&
-                                (flow->gen_id() == req->gen_id())) {
-            assert(flow->is_flags_set(FlowEntry::ReverseFlow) == false);
+            (flow->gen_id() == req->gen_id()) &&
+            (flow->is_flags_set(FlowEntry::ReverseFlow) == false)) {
             FlowTaskMsg *flow_msg = new FlowTaskMsg(flow);
             PktInfoPtr pkt_info(new PktInfo(PktHandler::FLOW, flow_msg));
             FlowHandler *handler = new FlowHandler(agent(), pkt_info, io_,
                                                this, table->table_index());
             RunProtoHandler(handler);
-        }
+         }
         break;
     }
 
