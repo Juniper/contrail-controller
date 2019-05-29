@@ -1566,6 +1566,19 @@ class FirewallDraftModeCommonTestSuite(object):
         with ExpectedException(BadRequest):
             self.api.firewall_policy_update(fp)
 
+    def test_delete_security_resource_in_pending_delete(self):
+        self.set_scope_instance(draft_enable=False)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp)
+        self.draft_mode = True
+
+        self.api.firewall_policy_delete(id=fp.uuid)
+        pending_fp = self.api.firewall_policy_read_draft(id=fp.uuid)
+        self.assertEqual(pending_fp.draft_mode_state, 'deleted')
+
+        self.api.commit_security(self._scope)
+        self.assertRaises(NoIdError, self.api.firewall_policy_read, id=fp.uuid)
+
     def test_list_pending_resources(self):
         self.set_scope_instance(draft_enable=False)
         fr1 = FirewallRule('fr1-%s' % self.id(), parent_obj=self._owner)
