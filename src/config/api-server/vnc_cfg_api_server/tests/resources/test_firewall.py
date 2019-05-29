@@ -1520,6 +1520,38 @@ class FirewallDraftModeCommonTestSuite(object):
         with ExpectedException(BadRequest):
             self.api.firewall_policy_update(fp)
 
+    def test_delete_security_resource_in_pending_delete(self):
+        # First disable draft mode and create two Firewall Policies
+        self.set_scope_instance(draft_enable=False)
+        fp1 = FirewallPolicy('fp-%s-1' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp1)
+        fp2 = FirewallPolicy('fp-%s-2' % self.id(), parent_obj=self._owner)
+        self.api.firewall_policy_create(fp2)
+
+        # Enable draft mode and mark both FP for deletion
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp1.uuid)
+        self.api.firewall_policy_delete(id=fp2.uuid)
+
+        # Verify that both FPs are marked for deletion
+        pending_fp1 = self.api.firewall_policy_read_draft(id=fp1.uuid)
+        pending_fp2 = self.api.firewall_policy_read_draft(id=fp2.uuid)
+        self.assertEqual(pending_fp1.draft_mode_state, 'deleted')
+        self.assertEqual(pending_fp2.draft_mode_state, 'deleted')
+
+        # Now, discard one of the FP from draft mode.
+        self.api.firewall_policy_delete(id=pending_fp1.uuid)
+
+        # After commit, verify the following.
+        # 1. FP1 still exists.
+        # 2. Draft FP1 has been discarded.
+        # 3. FP2 has been deleted.
+        self.api.commit_security(self._scope)
+        fp = self.api.firewall_policy_read(id=fp1.uuid)
+        self.assertEqual(fp.display_name, 'fp-%s-1' % self.id())
+        self.assertRaises(NoIdError, self.api.firewall_policy_read, id=pending_fp1.uuid)
+        self.assertRaises(NoIdError, self.api.firewall_policy_read, id=fp2.uuid)
+
     def test_list_pending_resources(self):
         self.set_scope_instance(draft_enable=False)
         fr1 = FirewallRule('fr1-%s' % self.id(), parent_obj=self._owner)
