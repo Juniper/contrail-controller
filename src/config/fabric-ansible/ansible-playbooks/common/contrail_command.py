@@ -47,7 +47,10 @@ class CreateCCResource(object):
         auth_token=None):
         if not auth_host:
             return
-        self.auth_args['auth_host'] = auth_host
+        auth_host_data = auth_host.split(':')
+        self.auth_args['auth_host'] = auth_host_data[0]
+        if len(auth_host_data) == 2:
+            self.auth_args['auth_port'] = auth_host_data[1]
 
         if cluster_id:
             self.auth_args['cluster_id'] = cluster_id
