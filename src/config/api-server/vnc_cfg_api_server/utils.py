@@ -94,6 +94,10 @@ def parse_args(args_str):
         'config_api_ssl_keyfile': '',
         'config_api_ssl_certfile': '',
         'config_api_ssl_ca_cert': '',
+        'tcp_keepalive_enable': True,
+        'tcp_keepalive_idle_time': 7200,
+        'tcp_keepalive_interval': 75,
+        'tcp_keepalive_probes': 9,
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options

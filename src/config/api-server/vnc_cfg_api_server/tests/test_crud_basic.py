@@ -2557,6 +2557,17 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             api_server._db_conn.dbe_alloc = orig_dbe_alloc
     # end test_create_singleton_entry_with_zk_alloc_exist
 
+    def test_tcp_keepalive_options(self):
+        api_server = self._server_info['api_server']
+        # Check if the TCP keepalive has been set in the api server args
+        self.assertThat(api_server._args.tcp_keepalive_enable, Equals(True))
+
+        # Check if other TCP keepalive options are present in args.
+        self.assertIn('tcp_keepalive_idle_time', api_server._args)
+        self.assertIn('tcp_keepalive_interval', api_server._args)
+        self.assertIn('tcp_keepalive_probes', api_server._args)
+    # end test_tcp_keepalive_options
+
 # end class TestVncCfgApiServer
 
 
