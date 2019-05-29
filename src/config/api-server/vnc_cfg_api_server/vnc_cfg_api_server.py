@@ -127,6 +127,7 @@ from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
 from cfgm_common.vnc_greenlets import VncGreenlet
 from cfgm_common.kombu_amqp import KombuAmqpClient
+import ssl
 
 _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
@@ -5085,7 +5086,8 @@ def main(args_str=None, server=None):
                 raise cfgm_common.exceptions.VncError(msg)
             bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
                        ca_certs=ca_cert, keyfile=keyfile, certfile=certfile,
-                       server=get_bottle_server(server._args.max_requests))
+                       server=get_bottle_server(server._args.max_requests),
+                       ssl_version=ssl.PROTOCOL_TLSv1_2)
         else:
             bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
                        server=get_bottle_server(server._args.max_requests))
