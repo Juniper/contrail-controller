@@ -342,7 +342,7 @@ class SecurityResourceBase(ResourceMixin):
         # update code operated
         if (obj_dict['fq_name'][-2] ==
                 POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
-            if obj_dict['draft_mode_state'] == 'deleted':
+            if obj_dict['draft_mode_state'] == 'deleted' and draft_mode_state != 'deleted':
                 # Cannot update a pending deleted resource
                 msg = ("%s %s is in pending delete, cannot be updated" %
                        (cls.object_type.replace('_', ' ').title(),
