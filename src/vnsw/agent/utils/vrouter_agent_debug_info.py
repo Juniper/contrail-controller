@@ -41,8 +41,12 @@ class Debug(object):
                 except yaml.YAMLError as exc:
                     print(exc)
             if data is not None :
-                self._user = data['provider_config']['bms']['ssh_user']
-                self._pwd = data['provider_config']['bms']['ssh_pwd']
+                try:
+                    self._user = data['provider_config']['bms']['ssh_user']
+                    self._pwd = data['provider_config']['bms']['ssh_pwd']
+                except Exception as e:
+                    print('KeyError: %s while reading user and password from instances.yaml' %e)
+                    sys.exit()
 
         self._ssh_client = self.create_ssh_connection(self._host,
                                                 self._user, self._pwd)
@@ -178,6 +182,10 @@ class Debug(object):
         del cmd_list[0]
         if len(cmd_list) > 0:
             del cmd_list[-1]
+        if not cmd_list:
+            print('\nError running cmd: %s' %cmd)
+            print('Copying introspect logs : Failed')
+            return
         for i in range(len(cmd_list)):
             # remove leading and trailing white spaces if any
             cmd_list[i] = cmd_list[i].strip()
@@ -227,12 +235,16 @@ class Debug(object):
     # end copy_sandesh_traces
 
     def get_controller_ip_list(self):
+        controller_ip_list = []
         # below command will give ip addresses of all the controllers
         cmd = 'docker exec %s %s read xmpp connection status' \
                 %(self._container, self._cli)
         cmd_op = self.get_ssh_cmd_output(cmd)
-        json_data = json.loads(cmd_op)
-        controller_ip_list = []
+        try:
+            json_data = json.loads(cmd_op)
+        except Exception as e:
+            print('\nError: %s' %e)
+            return controller_ip_list
         for item in json_data['AgentXmppConnectionStatus']['peer']['list']:
             controller_ip_list.append(
                 json_data['AgentXmppConnectionStatus']\
@@ -241,6 +253,9 @@ class Debug(object):
     # end get_controller_ip_list
 
     def copy_controller_logs(self):
+        if  not self.get_controller_ip_list():
+             print('Copying controller logs: Failed')
+             return
         for ip in self.get_controller_ip_list():
             # iterate through all the controller in the list
             # and collect logs
