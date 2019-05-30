@@ -53,7 +53,7 @@ class Debug(object):
 
     def create_directories(self):
         sub_dirs = ['logs', 'gcore', 'libraries', 'introspect',
-                        'sandesh_trace', 'controller']
+                        'sandesh_trace', 'controller', 'vrouter_logs']
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self._dir_name = '%s-%s-%s'%(self._dir_name, self._host,
                                         timestr)
@@ -293,6 +293,94 @@ class Debug(object):
         sftp_client.close()
     # end do_ftp
 
+    def get_vrouter_logs(self):
+        print "\nDumping the output of commands to files"
+        commands = ['nh --list', 'vrouter --info', 'dropstats --log 0', 
+                         'dropstats -l 0', 'vif --list', 'mpls --dump',
+                         'vxlan --dump', 'vrfstats --dump', 'vrmemstats',
+                         'qosmap --dump-fc',
+                         'qosmap --dump-qos', 'mirror --dump']
+
+        myCmd = 'mkdir /tmp/vrouter_logs'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+
+        for i in range(len(commands)):
+            str = commands[i]
+            str_file_name =  str.replace(' ','')
+            myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "%s" \
+                    >> /tmp/vrouter_logs/%s.txt'%(str,str_file_name)
+            cmd_op = self.get_ssh_cmd_output(myCmd)
+            source_path = '/tmp/vrouter_logs/%s.txt'%(str_file_name)
+            dest_path = '%s/vrouter_logs/%s.txt'%(self._parent_dir,str_file_name)
+            self.do_ftp(source_path,dest_path)
+
+        self.get_per_vrf_logs()
+    # end get_vrouter_logs 
+
+
+    def get_per_vrf_logs(self):
+        print "\nParsing through the vrfstats dump and getting logs per vrf"
+        
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c \
+            "vrfstats --dump" >> /tmp/VRF_File1.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+
+        source_path = '/tmp/VRF_File1.txt'
+        dest_path = '/tmp/VRF_File2.txt'
+        self.do_ftp(source_path,dest_path)
+
+        with open('/tmp/VRF_File2.txt') as file:
+            data = file.read()
+            values = []
+            index = 0
+            index2 = 0
+
+        while index < len(data):
+            index = data.find('Vrf:', index)
+            if index == -1:
+                break
+
+            value = int(data[index+5])
+            index2 = data.find('\n', index)
+
+            value2 = data[index+5:index2]
+            value3 = int(value2)
+
+            if value3!=None :
+                values.append(value3)
+
+            index += 4
+            index2 += 4
+        
+        family = ['inet', 'inet6', 'bridge']
+
+        for i in range(len(values)):
+            if values[i] != None :
+                var = (values[i])
+
+                for i in range(len(family)):
+                    cmd = family[i]
+
+                    myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c \
+                        "rt --dump %d --family %s" >> \
+                        /tmp/vrouter_logs/VRF_%d_Family%s'%(var,cmd,var,cmd)
+                    cmd_op = self.get_ssh_cmd_output(myCmd)
+                    source_path = '/tmp/vrouter_logs/VRF_%d_Family%s'%(var,cmd)
+                    dest_path = '%s/vrouter_logs/VRF_%d_Family%s' \
+                        %(self._parent_dir,var,cmd)
+                    self.do_ftp(source_path,dest_path)
+        
+        myCmd = 'rm -rf /tmp/VRF_File1.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+
+        myCmd = 'rm -rf /tmp/VRF_File2.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        subprocess.call(myCmd,shell=True)
+
+        myCmd = 'rm -rf /tmp/vrouter_logs'
+        subprocess.call(myCmd,shell=True)
+    #end get_per_vrf_logs
+
     def compress_folder(self):
         print("\nCompressing folder %s" %self._parent_dir)
         self._compress_file =  '/var/log/%s.tar.gz' %self._dir_name
@@ -447,6 +535,7 @@ def main():
     obj.copy_introspect()
     obj.copy_controller_logs()
     obj.copy_sandesh_traces('Snh_SandeshTraceBufferListRequest')
+    obj.get_vrouter_logs()
     obj.compress_folder()
     obj.cleanup()
     print('\nComplete logs copied at %s' %obj._compress_file)
