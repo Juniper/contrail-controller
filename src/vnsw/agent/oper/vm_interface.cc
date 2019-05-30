@@ -2972,6 +2972,9 @@ void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change,
 // Delete MPLS Label for Layer3 routes
 void VmInterface::DeleteL3MplsLabel() {
     if (label_ == MplsTable::kInvalidLabel) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        OPER_TRACE_ENTRY(Trace, table,
+                         "Invalid MPLS label, so Delete L3 MplsLabel failed");
         return;
     }
 
@@ -3365,7 +3368,13 @@ void VmInterface::DeleteResolveRoute(VrfEntry *old_vrf,
 void VmInterface::DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
                             const Ip4Address &old_addr) {
     if ((old_vrf == NULL) || (old_addr.to_ulong() == 0))
+    {
+
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        OPER_TRACE_ENTRY(Trace, table,
+                         "Vrf entry is NULL, so Delete Interface IPV4 failed");
         return;
+    }
 
     DeleteRoute(old_vrf->GetName(), old_addr, 32);
 }
@@ -3697,6 +3706,7 @@ void VmInterface::DeleteSecurityGroup() {
     }
 }
 
+
 void VmInterface::UpdateFatFlow() {
     DeleteFatFlow();
 }
@@ -3801,11 +3811,18 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_bridging, VrfEntry *old_vrf,
                                          const Ip6Address &old_v6_addr,
                                          int old_ethernet_tag,
                                          const MacAddress &mac) const {
-    if (old_bridging == false)
+    InterfaceTable *intf_table = static_cast<InterfaceTable *>(get_table());
+    if (old_bridging == false) {
+        OPER_TRACE_ENTRY(Trace, intf_table,
+                         "Bridge entry is NULL so Delete L2 Interface Route failed");
         return;
+    }
 
-    if (old_vrf == NULL)
+    if (old_vrf == NULL) {
+        OPER_TRACE_ENTRY(Trace, intf_table,
+                         "Vrf entry is NULL so Delete L2 Interface Route failed");
         return;
+    }
 
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (old_vrf->GetEvpnRouteTable());
