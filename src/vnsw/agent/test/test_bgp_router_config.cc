@@ -239,6 +239,16 @@ TEST_F(BgpRouterCfgTest, Test_5) {
     ipv4 = Ipv4Address::from_string("127.0.0.2", ec);
     EXPECT_TRUE(bgp_router->ipv4_address() == ipv4);
 
+    bgp_router_name = "bgp-router-0-127.0.0.3";
+    bgp_router =
+        bgp_router_config->GetBgpRouterFromXmppServer(bgp_router_name);
+    EXPECT_TRUE(bgp_router == NULL);
+
+    bgp_router_ip = "127.0.0.3";
+    bgp_router =
+        bgp_router_config->GetBgpRouterFromXmppServer(bgp_router_ip);
+    EXPECT_TRUE(bgp_router == NULL);
+
     DeleteBgpRouterConfig("127.0.0.1", 0, "ip-fabric");
     DeleteBgpRouterConfig("127.0.0.2", 0, "ip-fabric");
     client->WaitForIdle();
