@@ -1,6 +1,7 @@
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
+import copy
 import os
 import re
 import inspect
@@ -35,12 +36,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.12"
+__version__ = "1.13"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.13
+  - Retrieve Subnet from IPAM if the ipam-method is flat-subnet
+  - PEP8 compliance
 * 1.12
   - Use TLSv1.2 for cassandra's connection
 * 1.11
@@ -114,7 +118,7 @@ def _parse_rt(rt):
 
 
 # All possible errors from audit
-class AuditError(object):
+class AuditError(Exception):
     def __init__(self, msg):
         self.msg = msg
     # end __init__
@@ -132,6 +136,7 @@ exceptions = [
     'FQNMismatchError',
     'MandatoryFieldsMissingError',
     'IpSubnetMissingError',
+    'InvalidIPAMRef',
     'VirtualNetworkMissingError',
     'VirtualNetworkIdMissingError',
     'IpAddressMissingError',
@@ -298,7 +303,8 @@ def _parse_args(args_str):
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + __version__)
     parser.add_argument('operation', help=format_help())
-    help = "Path to contrail-api conf file, default /etc/contrail/contrail-api.conf"
+    help = ("Path to contrail-api conf file, "
+            "default /etc/contrail/contrail-api.conf")
     parser.add_argument(
         "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
     parser.add_argument(
@@ -414,7 +420,8 @@ class DatabaseManager(object):
         # to override ssl version
         def ssl_socket_factory(host, port):
             TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
-            return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
+            return TSSLSocket.TSSLSocket(host, port,
+                                         ca_certs=ca_certs, validate=validate)
         return ssl_socket_factory
 
     def get_autonomous_system(self):
@@ -464,28 +471,17 @@ class DatabaseManager(object):
         vn_row = fq_name_table.xget('virtual_network')
         vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
         for vn_id in vn_uuids:
-            ipam_refs = obj_uuid_table.xget(
-                vn_id,
-                column_start='ref:network_ipam:',
-                column_finish='ref:network_ipam;')
-            if not ipam_refs:
-                continue
-
-            for _, attr_json_dict in ipam_refs:
-                attr_dict = json.loads(attr_json_dict)['attr']
-                for subnet in attr_dict['ipam_subnets']:
-                    try:
-                        sn_id = subnet['subnet_uuid']
-                        vnc_all_subnet_info[sn_id] = '%s %s/%d' % (
-                            vn_id,
-                            subnet['subnet']['ip_prefix'],
-                            subnet['subnet']['ip_prefix_len']
-                        )
-                    except KeyError:
-                        errmsg = "Missing uuid in ipam-subnet for %s %s" \
-                                 % (vn_id, subnet['subnet']['ip_prefix'])
-                        ret_errors.append(SubnetUuidMissingError(errmsg))
-
+            subnets, ua_subnets = self.get_subnets(vn_id)
+            for subnet in ua_subnets:
+                try:
+                    vnc_all_subnet_info[subnet['subnet_uuid']] = '%s %s/%d' % (
+                        vn_id,
+                        subnet['subnet']['ip_prefix'],
+                        subnet['subnet']['ip_prefix_len'])
+                except KeyError as e:
+                    errmsg = ('Missing key (%s) in ipam-subnet (%s) for '
+                              ' vn (%s)' % (e, subnet, vn_id))
+                    ret_errors.append(SubnetUuidMissingError(errmsg))
         return ua_subnet_info, vnc_all_subnet_info, ret_errors
     # end audit_subnet_uuid
 
@@ -737,7 +733,7 @@ class DatabaseManager(object):
                 vn_cols = obj_uuid_table.get(
                     vn_uuid,
                     columns=['prop:virtual_network_properties', 'fq_name',
-                            'prop:virtual_network_network_id'],
+                             'prop:virtual_network_network_id'],
                 )
             except pycassa.NotFoundException:
                 continue
@@ -774,10 +770,82 @@ class DatabaseManager(object):
         return zk_set, cassandra_set, ret_errors, duplicate_vn_ids, missing_ids
     # end audit_virtual_networks_id
 
+    def get_subnets(self, vn_id):
+        """
+        For a given vn_id, retrieve subnets based on IPAM type
+        flat-subnet: Retrieve it from the network-ipam's ipam-subnet
+        User-Agent KeyVal Table: for a flat subnet, User Agent keyval table
+            is setup with 0.0.0.0/0 prefix and prefix-len value.
+        Returns: 
+            subnet_dicts: Subnets derived from VN and IPAM subnets
+            ua_subnet_dicts: Subnets derived from VN plus
+                             Zero prefix (0.0.0.0/0) for IPAM subnets if
+                             ipam method is flat-subnet
+        """
+        subnet_dicts = []
+        ua_subnet_dicts = []
+        obj_uuid_table = self._cf_dict['obj_uuid_table']
+        # find all subnets on this VN and add for later check
+        ipam_refs = obj_uuid_table.xget(vn_id,
+                                        column_start='ref:network_ipam:',
+                                        column_finish='ref:network_ipam;')
+
+        for network_ipam_ref, attr_json_dict in ipam_refs:
+            try:
+                network_ipam_uuid = network_ipam_ref.split(':')[2]
+            except (IndexError, AttributeError) as e:
+                msg = ("Exception (%s)\n"
+                       "Unable to find Network IPAM UUID "
+                       "for (%s). Invalid IPAM?" % (e, network_ipam_ref))
+                raise InvalidIPAMRef(msg)
+
+            try:
+                network_ipam = obj_uuid_table.get(network_ipam_uuid)
+            except pycassa.NotFoundException as e:
+                msg = ("Exception (%s)\n"
+                       "Invalid or non-existing "
+                       "UUID (%s)" % (e, network_ipam_uuid))
+                raise FQNStaleIndexError(msg)
+
+            ipam_method = network_ipam.get('prop:ipam_subnet_method')
+            if isinstance(ipam_method, unicode):
+                ipam_method = json.loads(ipam_method)
+
+            attr_dict = json.loads(attr_json_dict)['attr']
+            zero_prefix = {u'ip_prefix': u'0.0.0.0',
+                           u'ip_prefix_len': 0}
+            for subnet in attr_dict['ipam_subnets']:
+                subnet.update([('ipam_method', ipam_method),
+                               ('nw_ipam_fq',
+                                network_ipam['fq_name'])])
+                if 'subnet' in subnet:
+                    subnet_dicts.append(subnet)
+                if (ipam_method != 'flat-subnet' and
+                        'subnet' in subnet):
+                    ua_subnet_dicts.append(subnet)
+                elif (ipam_method == 'flat-subnet' and
+                      'subnet_uuid' in subnet):
+                    # match fix for LP1646997
+                    subnet.update([('subnet', zero_prefix)])
+                    ua_subnet_dicts.append(subnet)
+            if ipam_method == 'flat-subnet':
+                ipam_subnets = obj_uuid_table.xget(
+                    network_ipam_uuid,
+                    column_start='propl:ipam_subnets:',
+                    column_finish='propl:ipam_subnets;')
+                for _, subnet_unicode in ipam_subnets:
+                    sdict = json.loads(subnet_unicode)
+                    sdict.update([('ipam_method', ipam_method),
+                                  ('nw_ipam_fq',
+                                   network_ipam['fq_name'])])
+                    subnet_dicts.append(sdict)
+        return subnet_dicts, ua_subnet_dicts
+
     def _addr_alloc_process_ip_objects(self, cassandra_all_vns, duplicate_ips,
                                        ip_type, ip_uuids):
         logger = self._logger
         ret_errors = []
+        renamed_keys = []
 
         if ip_type == 'instance-ip':
             addr_prop = 'prop:instance_ip_address'
@@ -802,26 +870,25 @@ class DatabaseManager(object):
                 return
 
             # find all subnets on this VN and add for later check
-            ipam_refs = obj_uuid_table.xget(vn_id,
-                                            column_start='ref:network_ipam:',
-                                            column_finish='ref:network_ipam;')
-            if not ipam_refs:
-                logger.debug('VN %s (%s) has no ipam refs', vn_id, fq_name_str)
-                return
-
+            subnets, _ = self.get_subnets(vn_id)
             cassandra_all_vns[fq_name_str] = {}
-            for _, attr_json_dict in ipam_refs:
-                attr_dict = json.loads(attr_json_dict)['attr']
-                for subnet in attr_dict['ipam_subnets']:
+            for subnet in subnets:
+                try:
                     sn_key = '%s/%s' % (subnet['subnet']['ip_prefix'],
                                         subnet['subnet']['ip_prefix_len'])
                     gw = subnet.get('default_gateway')
                     dns = subnet.get('dns_server_address')
                     cassandra_all_vns[fq_name_str][sn_key] = {
+                        'ipam_method': subnet['ipam_method'],
+                        'nw_ipam_fq': subnet['nw_ipam_fq'],
                         'start': subnet['subnet']['ip_prefix'],
                         'gw': gw,
                         'dns': dns,
                         'addrs': []}
+                except KeyError as e:
+                    errmsg = ('Missing key (%s) in ipam-subnet (%s) for '
+                              'vn (%s)' % (e, subnet, vn_id))
+                    raise SubnetUuidMissingError(errmsg)
         # end set_reserved_addrs_in_cassandra
 
         for fq_name_str_uuid, _ in obj_fq_name_table.xget('virtual_network'):
@@ -899,6 +966,16 @@ class DatabaseManager(object):
                     break
                 else:
                     addrs.append((ip_id, ip_addr))
+                    if ('ipam_method' in
+                            cassandra_all_vns[fq_name_str][sn_key] and
+                        cassandra_all_vns[fq_name_str][sn_key]['ipam_method']
+                            == 'flat-subnet' and
+                        'nw_ipam_fq' in
+                            cassandra_all_vns[fq_name_str][sn_key]):
+                        renamed_fq_name = ':'.join(json.loads(
+                          cassandra_all_vns[fq_name_str][sn_key]['nw_ipam_fq']
+                          ))
+                        renamed_keys.append((fq_name_str, renamed_fq_name))
                     break
             else:
                 errmsg = 'Missing subnet for ip %s %s' % (ip_type, ip_id)
@@ -906,6 +983,13 @@ class DatabaseManager(object):
             # end handled the ip
         # end for all ip_uuids
 
+        # replace VN ID with subnet ID if ipam-method is flat-subnet
+        # and has IIP
+        for (vn_id, sn_id) in renamed_keys:
+            if vn_id in cassandra_all_vns:
+                cassandra_all_vns[sn_id] = copy.deepcopy(
+                    cassandra_all_vns[vn_id])
+                del cassandra_all_vns[vn_id]
         return ret_errors
 
     def _subnet_path_discovery(self, ret_errors, stale_zk_path):
@@ -1352,11 +1436,16 @@ class DatabaseChecker(DatabaseManager):
             ret_errors.append(ZkSubnetPathInvalid(msg))
 
         # check for differences in networks
-        extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
-        if extra_vn:
-            errmsg = 'Extra VN in zookeeper (vs. cassandra) for %s' \
-                     % (str(extra_vn))
-            ret_errors.append(ZkVNExtraError(errmsg))
+        extra_vns = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
+        # for a flat-network, cassandra has VN-ID as key while ZK has subnet
+        # Are these extra VNs are due to flat-subnet?
+        if extra_vns:
+            for sn in extra_vns:
+                # ensure Subnet is found ZK is empty
+                if filter(bool, zk_all_vns[sn].values()):
+                    errmsg = 'Extra VN in zookeeper (vs. cassandra) for %s' \
+                         % (str(sn))
+                    ret_errors.append(ZkVNExtraError(errmsg))
 
         extra_vn = set()
         # Subnet lock path is not created until an IP is allocated into it
@@ -1384,10 +1473,14 @@ class DatabaseChecker(DatabaseManager):
                         continue
                 cassandra_all_vn_sn.extend([(vn_key, sn_key)])
 
-        extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
-        if extra_vn_sn:
-            errmsg = 'Extra VN/SN in zookeeper for %s' % (extra_vn_sn)
-            ret_errors.append(ZkSubnetExtraError(errmsg))
+        extra_vn_sns = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
+        for extra_vn_sn in extra_vn_sns:
+            # ensure the Subnet is found in Cassandra when
+            # ZK keys and Cassandra keys mismatch
+            if not any([extra_vn_sn[1] in sdict
+                       for sdict in cassandra_all_vns.values()]):
+                errmsg = 'Extra VN/SN in zookeeper for %s' % (extra_vn_sn,)
+                ret_errors.append(ZkSubnetExtraError(errmsg))
 
         extra_vn_sn = set(cassandra_all_vn_sn) - set(zk_all_vn_sn)
         if extra_vn_sn:
@@ -1402,7 +1495,8 @@ class DatabaseChecker(DatabaseManager):
                         iip_uuids[0], columns=['type'])
                     type = json.loads(cols['type'])
                     msg = ("%s %s from VN %s and subnet %s is duplicated: %s" %
-                           (type.replace('_', ' ').title(), ip_addr, vn_key, sn_key, iip_uuids))
+                           (type.replace('_', ' ').title(),
+                            ip_addr, vn_key, sn_key, iip_uuids))
                     ret_errors.append(IpAddressDuplicateError(msg))
         # check for differences in ip addresses
         for vn, sn_key in set(zk_all_vn_sn) & set(cassandra_all_vn_sn):
@@ -2112,7 +2206,13 @@ class DatabaseCleaner(DatabaseManager):
 
         # Clean extra net in zk
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
+        # for a flat-network, cassandra has VN-ID as key while ZK has subnet
+        # Are these extra VNs are due to flat-subnet?
         for vn in extra_vn:
+            # Nothing to clean as VN in ZK has empty Subnet
+            if not filter(bool, zk_all_vns[vn].values()):
+                logger.debug('Ignoring Empty VN (%s)' % vn)
+                continue
             for sn_key in zk_all_vns[vn]:
                 path = '%s/%s:%s' % (self.base_subnet_zk_path, vn, sn_key)
                 if not self._args.execute:
@@ -2137,7 +2237,13 @@ class DatabaseCleaner(DatabaseManager):
 
         # Clean extra subnet in zk
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
+        # Are these extra VNs are due to flat-subnet?
         for vn, sn_key in extra_vn_sn:
+            # Ignore if SN is found in Cassandra VN keys
+            if any([sn_key in sdict for sdict in cassandra_all_vns.values()]):
+                logger.debug('Ignoring SN (%s) of VN (%s) '
+                             'found in cassandra' % (sn_key, vn))
+                continue
             path = '%s/%s:%s' % (self.base_subnet_zk_path, vn, sn_key)
             path_no_mask = '%s/%s:%s' % (self.base_subnet_zk_path, vn,
                                          sn_key.partition('/')[0])
@@ -2508,7 +2614,7 @@ class DatabaseHealer(DatabaseManager):
         elif missing_ids and self._args.execute:
             obj_uuid_table = self._cf_dict['obj_uuid_table']
             zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
-                    self._api_args.listen_ip_addr)
+                                        self._api_args.listen_ip_addr)
             id_allocator = IndexAllocator(
                 zk_client, '%s/' % self.base_vn_id_zk_path, 1 << 24)
             bch = obj_uuid_table.batch()
@@ -2542,8 +2648,10 @@ class DatabaseHealer(DatabaseManager):
         elif missing_ids and self._args.execute:
             obj_uuid_table = self._cf_dict['obj_uuid_table']
             zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
-                    self._api_args.listen_ip_addr)
-            id_allocator = IndexAllocator(zk_client, '%s/' % self.base_sg_id_zk_path, 1 << 32)
+                                        self._api_args.listen_ip_addr)
+            id_allocator = IndexAllocator(zk_client,
+                                          '%s/' % self.base_sg_id_zk_path,
+                                          1 << 32)
             bch = obj_uuid_table.batch()
             for uuid, fq_name_str in missing_ids:
                 sg_id = id_allocator.alloc(fq_name_str) + SG_ID_MIN_ALLOC
@@ -2673,6 +2781,8 @@ def db_check(args, api_args):
 
     # db_checker.check_schema_db_mismatch()
 # end db_check
+
+
 db_check.is_checker = True
 
 
