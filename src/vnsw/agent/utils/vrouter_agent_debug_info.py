@@ -53,7 +53,7 @@ class Debug(object):
 
     def create_directories(self):
         sub_dirs = ['logs', 'gcore', 'libraries', 'introspect',
-                        'sandesh_trace', 'controller']
+                        'sandesh_trace', 'controller', 'Vrouter_Agent']
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self._dir_name = '%s-%s-%s'%(self._dir_name, self._host,
                                         timestr)
@@ -293,6 +293,157 @@ class Debug(object):
         sftp_client.close()
     # end do_ftp
 
+    def commands_output(self):
+        print "\nDumping the output of commands to files"
+
+        myCmd = 'mkdir /tmp/Vrouter_Agent'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "nh --list" >> /tmp/Vrouter_Agent/nh--list.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/nh--list.txt'
+        dest_path = '%s/Vrouter_Agent/nh--list.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "vrouter --info" >> /tmp/Vrouter_Agent/vrouter--info.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/vrouter--info.txt'
+        dest_path = '%s/Vrouter_Agent/vrouter--info.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "dropstats --log 0" >> /tmp/Vrouter_Agent/dropstats.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/dropstats.txt'
+        dest_path = '%s/Vrouter_Agent/dropstats.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "dropstats -l 0" >> /tmp/Vrouter_Agent/PacketDrop.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/PacketDrop.txt'
+        dest_path = '%s/Vrouter_Agent/PacketDrop.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "vif --list" >> /tmp/Vrouter_Agent/vif--list.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/vif--list.txt'
+        dest_path = '%s/Vrouter_Agent/vif--list.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "mpls --dump" >> /tmp/Vrouter_Agent/mpls--dump.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/mpls--dump.txt'
+        dest_path = '%s/Vrouter_Agent/mpls--dump.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "vxlan --dump" >> /tmp/Vrouter_Agent/vxlan--dump.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/vxlan--dump.txt'
+        dest_path = '%s/Vrouter_Agent/vxlan--dump.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "vrfstats --dump" >> /tmp/Vrouter_Agent/vrfstats--dump.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/vrfstats--dump.txt'
+        dest_path = '%s/Vrouter_Agent/vrfstats--dump.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "vrmemstats" >> /tmp/Vrouter_Agent/vrmemstats.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/vrmemstats.txt'
+        dest_path = '%s/Vrouter_Agent/vrmemstats.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "qosmap --dump-fc" >> /tmp/Vrouter_Agent/qosmap--dump-fc.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/qosmap--dump-fc.txt'
+        dest_path = '%s/Vrouter_Agent/qosmap--dump-fc.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "qosmap --dump-qos" >> /tmp/Vrouter_Agent/qosmap--dump-qos.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/qosmap--dump-qos.txt'
+        dest_path = '%s/Vrouter_Agent/qosmap--dump-qos.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "mirror --dump" >> /tmp/Vrouter_Agent/mirror--dump.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        source_path = '/tmp/Vrouter_Agent/mirror--dump.txt'
+        dest_path = '%s/Vrouter_Agent/mirror--dump.txt'%(self._parent_dir)
+        self.do_ftp(source_path,dest_path)
+
+    # end commands_output 
+
+
+    def vrfstats_parsing(self):
+        print "\nParsing through the vrstats dump"
+        
+        myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "vrfstats --dump" >> /tmp/VRF_File1.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+
+        source_path = '/tmp/VRF_File1.txt'
+        dest_path = '/tmp/VRF_File2.txt'
+        self.do_ftp(source_path,dest_path)
+
+        with open('/tmp/VRF_File2.txt') as file:
+            data = file.read()
+            values = []
+            index = 0
+            index2 = 0
+
+        while index < len(data):
+            index = data.find('Vrf:', index)
+            if index == -1:
+                break
+
+            value = int(data[index+5])
+            index2 = data.find('\n', index)
+
+            value2 = data[index+5:index2]
+            value3 = int(value2)
+
+            if value3!=None :
+                values.append(value3)
+
+            index += 4
+            index2 += 4
+
+
+        for i in range(len(values)):
+            if values[i] != None :
+                var = (values[i])
+
+                myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "rt --dump %d --family inet" >> /tmp/Vrouter_Agent/VRF_%d_FamilyInet4'%(var,var)
+                cmd_op = self.get_ssh_cmd_output(myCmd)
+                source_path = '/tmp/Vrouter_Agent/VRF_%d_FamilyInet4'%(var)
+                dest_path = '%s/Vrouter_Agent/VRF_%d_FamilyInet4'%(self._parent_dir,var)
+                self.do_ftp(source_path,dest_path)
+
+                myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "rt --dump %d --family inet6" >> /tmp/Vrouter_Agent/VRF_%d_FamilyInet6'%(var,var)
+                cmd_op = self.get_ssh_cmd_output(myCmd)
+                source_path = '/tmp/Vrouter_Agent/VRF_%d_FamilyInet6'%(var)
+                dest_path = '%s/Vrouter_Agent/VRF_%d_FamilyInet6'%(self._parent_dir,var)
+                self.do_ftp(source_path,dest_path)
+
+
+                myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c "rt --dump %d --family bridge" >> /tmp/Vrouter_Agent/VRF_%d_FamilyBridge'%(var,var)
+                cmd_op = self.get_ssh_cmd_output(myCmd)
+                source_path = '/tmp/Vrouter_Agent/VRF_%d_FamilyBridge'%(var)
+                dest_path = '%s/Vrouter_Agent/VRF_%d_FamilyBridge'%(self._parent_dir,var)
+                self.do_ftp(source_path,dest_path)
+
+        myCmd = 'rm -rf /tmp/VRF_File1.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+
+        myCmd = 'rm -rf /tmp/VRF_File2.txt'
+        cmd_op = self.get_ssh_cmd_output(myCmd)
+        subprocess.call(myCmd,shell=True)
+
+        myCmd = 'rm -rf /tmp/Vrouter_Agent'
+        subprocess.call(myCmd,shell=True)
+    #end vrfstats_parsing
+
     def compress_folder(self):
         print("\nCompressing folder %s" %self._parent_dir)
         self._compress_file =  '/var/log/%s.tar.gz' %self._dir_name
@@ -447,6 +598,8 @@ def main():
     obj.copy_introspect()
     obj.copy_controller_logs()
     obj.copy_sandesh_traces('Snh_SandeshTraceBufferListRequest')
+    obj.commands_output()
+    obj.vrfstats_parsing()
     obj.compress_folder()
     obj.cleanup()
     print('\nComplete logs copied at %s' %obj._compress_file)
