@@ -90,7 +90,7 @@ public:
         return control_node_zone_tree_;
     }
 
-    BgpRouterPtr GetBgpRouterFromIpAddress(const std::string &ip4_address);
+    BgpRouterPtr GetBgpRouterFromXmppServer(const std::string &xmpp_server);
     BgpRouterPtr GetBgpRouterFromControlNodeZone(const std::string &cnz_name);
 
     void UpdateControlNodeZoneConfig(IFMapNode *bgp_router_node,

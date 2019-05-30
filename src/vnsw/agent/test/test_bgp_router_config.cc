@@ -201,6 +201,50 @@ TEST_F(BgpRouterCfgTest, Test_4) {
     EXPECT_TRUE(bgp_router_config->GetBgpRouterCount("cnz-c") == 0);
 }
 
+TEST_F(BgpRouterCfgTest, Test_5) {
+    client->Reset();
+    BgpRouterConfig *bgp_router_config =
+        agent_->oper_db()->bgp_router_config();
+
+    AddBgpRouterConfig("127.0.0.1", 0, 179,
+                       1, "ip-fabric", "control-node");
+    AddBgpRouterConfig("127.0.0.2", 0, 179,
+                       2, "ip-fabric", "control-node");
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    typedef boost::asio::ip::address_v4 Ipv4Address;
+
+    std::string bgp_router_name = "bgp-router-0-127.0.0.1";
+    BgpRouterPtr bgp_router =
+        bgp_router_config->GetBgpRouterFromXmppServer(bgp_router_name);
+    Ipv4Address ipv4 = Ipv4Address::from_string("127.0.0.1", ec);
+    EXPECT_TRUE(bgp_router->ipv4_address() == ipv4);
+
+    std::string bgp_router_ip = "127.0.0.1";
+    bgp_router =
+        bgp_router_config->GetBgpRouterFromXmppServer(bgp_router_ip);
+    ipv4 = Ipv4Address::from_string("127.0.0.1", ec);
+    EXPECT_TRUE(bgp_router->ipv4_address() == ipv4);
+
+    bgp_router_name = "bgp-router-0-127.0.0.2";
+    bgp_router =
+        bgp_router_config->GetBgpRouterFromXmppServer(bgp_router_name);
+    ipv4 = Ipv4Address::from_string("127.0.0.2", ec);
+    EXPECT_TRUE(bgp_router->ipv4_address() == ipv4);
+
+    bgp_router_ip = "127.0.0.2";
+    bgp_router =
+        bgp_router_config->GetBgpRouterFromXmppServer(bgp_router_ip);
+    ipv4 = Ipv4Address::from_string("127.0.0.2", ec);
+    EXPECT_TRUE(bgp_router->ipv4_address() == ipv4);
+
+    DeleteBgpRouterConfig("127.0.0.1", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.2", 0, "ip-fabric");
+    client->WaitForIdle();
+    EXPECT_TRUE(bgp_router_config->GetBgpRouterCount() == 0);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
