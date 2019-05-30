@@ -1991,10 +1991,11 @@ class FilterModule(object):
             _task_done()
 
         # update device level properties
-        device_obj.physical_router_loopback_ip \
-            = iip_obj.get_instance_ip_address()
-        device_obj.physical_router_dataplane_ip \
-            = iip_obj.get_instance_ip_address()
+        if device_obj.get_physical_router_underlay_managed():
+            device_obj.physical_router_loopback_ip \
+                = iip_obj.get_instance_ip_address()
+            device_obj.physical_router_dataplane_ip \
+                = iip_obj.get_instance_ip_address()
         if ar_flag:
             device_obj.physical_router_replicator_loopback_ip \
                 = iip_obj.get_instance_ip_address()
