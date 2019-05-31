@@ -42,9 +42,19 @@
     - set_fact:
         physical_role: "{{ prouter_obj.obj.physical_router_role}}"
 
+    - name: Get device info
+      set_fact:
+        device_info: "{{job_ctx | hitless_device_info(pr_uuid)}}"
+
+    - name: Get advanced parameters
+      set_fact:
+        advanced_params: "{{device_info.advanced_parameters}}"
+
     - name: Deactivate maintenance mode
       include_role:
         name: maintenance_mode_deactivate
+      vars:
+        advanced_parameters: "{{advanced_params}}"
 
     - set_fact:
             output: {

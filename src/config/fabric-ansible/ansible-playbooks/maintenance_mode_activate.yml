@@ -36,12 +36,17 @@
       set_fact:
         upgrade_plan: "{{job_ctx | hitless_device_info(pr_uuid)}}"
 
+    - name: Get advanced parameters
+      set_fact:
+        advanced_params: "{{upgrade_plan.advanced_parameters}}"
+
     - block:
         - name: Run health check only
           include_role:
             name: maintenance_mode_validation
           vars:
             pmode: "{{mode}}"
+            advanced_parameters: "{{advanced_params}}"
 
         - set_fact:
             output: {
@@ -59,6 +64,8 @@
         - name: Run health check
           include_role:
             name: maintenance_mode_validation
+          vars:
+            advanced_parameters: "{{advanced_params}}"
 
         - name: Push config
           include_role:
