@@ -166,6 +166,9 @@ class FilterModule(object):
                 }
             }
         }
+        if port_dict.get('dvs_name'):
+            cc_port['data']['esxi_port_info'] = {'dvs_name': port_dict.get('dvs_name') }
+
         return cc_port
 
     def get_cc_node_payload(self, node_dict, node_uuid):
@@ -225,6 +228,7 @@ class FilterModule(object):
             local_link_dict = {k: v for k, v in port_dict.iteritems() if k in
                                ['port_id', 'switch_info', 'switch_id']}
 
+            self._logger.warn("dvs-name:: " + str(port_dict.get('dvs_name')))
             cc_port = self.get_cc_port_payload(port_dict, local_link_dict)
             cc_port_list.append(cc_port)
         return cc_port_list
