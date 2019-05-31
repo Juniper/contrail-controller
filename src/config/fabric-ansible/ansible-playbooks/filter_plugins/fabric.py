@@ -1313,6 +1313,15 @@ class FilterModule(object):
         except NoIdError:
             _task_done("lookback instance-ip not found")
 
+        # delete assisted-replicator loopback iip
+        loopback_iip_name = "%s-assisted-replicator/lo0.0" % device_obj.name
+        try:
+            _task_log("deleting assisted-replicator loopback instance-ip %s" % loopback_iip_name)
+            vnc_api.instance_ip_delete(fq_name=[loopback_iip_name])
+            _task_done()
+        except NoIdError:
+            _task_done("assisted-replicator lookback instance-ip not found")
+
         # delete all interfaces
         for pi_ref in list(device_obj.get_physical_interfaces() or []):
             pi_uuid = str(pi_ref.get('uuid'))
@@ -1996,7 +2005,22 @@ class FilterModule(object):
                 = iip_obj.get_instance_ip_address()
             device_obj.physical_router_dataplane_ip \
                 = iip_obj.get_instance_ip_address()
+
         if ar_flag:
+            # assign assisted replicator IP to the loopback interface
+            iip_name = "%s-assisted-replicator/lo0.0" % device_obj.name
+            try:
+                iip_obj = vnc_api.instance_ip_read(fq_name=[iip_name])
+            except NoIdError:
+                iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4')
+                iip_obj.set_logical_interface(loopback_li_obj)
+                iip_obj.set_virtual_network(loopback_network_obj)
+                _task_log(
+                    'Create assisted replicator IP for lo0.0 on device %s' % device_obj.name
+                )
+                iip_uuid = vnc_api.instance_ip_create(iip_obj)
+                iip_obj = vnc_api.instance_ip_read(id=iip_uuid)
+                _task_done()
             device_obj.physical_router_replicator_loopback_ip \
                 = iip_obj.get_instance_ip_address()
 

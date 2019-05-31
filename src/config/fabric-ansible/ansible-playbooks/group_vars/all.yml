@@ -109,11 +109,6 @@ role_to_feature_mapping:
     - basic
     - underlay_ip_clos
     - underlay_infra_bms_access
-    - overlay_bgp
-    - overlay_evpn
-    - overlay_evpn_erb_access
-    - overlay_evpn_type5
-    - overlay_evpn_ucast_gateway
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
@@ -236,25 +231,22 @@ role_to_feature_mapping:
   PNF-Servicechain@pnf:
     - overlay_pim
     - overlay_service_chain
-  AR-Client@leaf:
-    - basic
-    - overlay_assisted_replicator_client
-  AR-Client@spine:
-    - basic
-    - overlay_assisted_replicator_client
-  AR-Replicator@leaf:
-    - basic
-    - overlay_assisted_replicator
-  AR-Replicator@spine:
-    - basic
-    - overlay_assisted_replicator
 
 feature_based_plugin_roles:
-  - ERB-UCAST-Gateway@leaf
-  - AR-Client@leaf
-  - AR-Client@spine
-  - AR-Replicator@leaf
-  - AR-Replicator@spine
+  ERB-UCAST-Gateway@leaf:
+    - overlay_bgp
+    - overlay_evpn
+    - overlay_evpn_erb_access
+    - overlay_evpn_type5
+    - overlay_evpn_ucast_gateway
+  AR-Client@leaf:
+    - overlay_assisted_replicator_client
+  AR-Client@spine:
+    - overlay_assisted_replicator_client
+  AR-Replicator@leaf:
+    - overlay_assisted_replicator
+  AR-Replicator@spine:
+    - overlay_assisted_replicator
 
 DEVICE_FACTS_TIMEOUT: 120
 DEVICE_COMMAND_TIMEOUT: 600
