@@ -39,7 +39,7 @@ class FilterModule(object):
         role_to_feature_mapping = group_vars['role_to_feature_mapping']
         self.role_to_feature_mapping = dict((k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
         feature_based_plugin_roles = group_vars['feature_based_plugin_roles']
-        self.feature_based_plugin_roles = set([r.lower() for r in feature_based_plugin_roles])
+        self.feature_based_plugin_roles = dict((k.lower(), v) for k, v in feature_based_plugin_roles.iteritems())
 
     # Load the abstract config
     def _load_abstract_config(self):
@@ -101,8 +101,8 @@ class FilterModule(object):
             role = rb_role.lower() + '@' + self.device_phy_role.lower()
             role_features = self.role_to_feature_mapping.get(role, [])
             dev_feature_list |= set(role_features)
-            if role in self.feature_based_plugin_roles:
-                feature_based_list |= set(role_features)
+            role_features = self.feature_based_plugin_roles.get(role, [])
+            feature_based_list |= set(role_features)
         self.dev_feature_list = list(dev_feature_list)
         self.feature_based_list = list(feature_based_list)
 
@@ -213,14 +213,15 @@ class FilterModule(object):
         return render_output
 
     def _render_feature_based_config(self):
-        if (not self.is_delete and 'features' not in self.abstract_config) or not self.feature_based_list:
-            return
         config_template_list = os.listdir('./config_templates')
         config_template_list.sort()
-        # Loop through all the features
-        for feature in config_template_list:
-            if feature not in self.feature_based_list:
-                continue
+        # Certain features are common across both old and new feature_mappings
+        # This would cause the delete of already configured feature
+        # Identify the common list and remove them from feature_based
+        # Then render config
+        common_list = list(set(config_template_list) & set(self.dev_feature_list))
+        final_list = list(set(config_template_list) - set(common_list))
+        for feature in final_list:
             config_template_dir = './config_templates/' + feature + '/'
             feature_template_list = self._get_feature_templates(config_template_dir, feature)
             # If feature not supported on this platform, skip
@@ -233,10 +234,12 @@ class FilterModule(object):
                 continue
             # For each feature template, including model-specific templates,
             # render the jinja template
+            if 'features' not in self.abstract_config and self.feature_based_list:
+                continue
             for feature_template in feature_template_list:
                 self._render_feature_config(
                     feature, feature_template,
-                    False
+                    False if feature in self.feature_based_list else True
             )
     # end _render_feature_based_config
 
@@ -415,4 +418,3 @@ def __main__():
 
 if __name__ == '__main__':
     __main__()
-
