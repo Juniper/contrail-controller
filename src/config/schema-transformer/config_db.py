@@ -3493,9 +3493,9 @@ class BgpRouterST(DBBaseST):
                 router.router_type == 'control-node':
             return False
 
-        # No need to create peeering between RRs in the same cluster.
+        # Always create peeering between RRs in the same cluster for HA.
         if self.cluster_id and router.cluster_id:
-            return self.cluster_id == router.cluster_id
+            return self.cluster_id != router.cluster_id
 
         # Always create peering from/to route-reflector (server).
         if self.cluster_id or router.cluster_id:
