@@ -28,11 +28,12 @@
 #include <base/logging.h>
 #include <base/misc_utils.h>
 #include <base/options_util.h>
-#include <sandesh/sandesh_trace.h>
-
+#include <contrail/pkt0_interface.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
+#include <sandesh/sandesh_trace.h>
 #include <vgw/cfg_vgw.h>
+
 
 using namespace std;
 using namespace boost::property_tree;
@@ -696,6 +697,22 @@ void AgentParam::ParsePlatformArguments
     }
 }
 
+//this has been intentionally seperated from platform to provide an easier mix and match in the future if necessary //sagarc
+void AgentParam::ParseTestFrameworkArguments(const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, AgentMock_, "DEFAULT.agent_mock");
+    if (AgentMock_) {
+     GetOptValue<bool>(var_map, atf_MockDPDK_, "AGENT-TEST-FRAMEWORK.mock_dpdk");
+     GetOptValue<string>(var_map, atf_kernelSocketDir_, "AGENT-TEST-FRAMEWORK.ksocketdir");
+//     Pkt0Socket::InitDirectories(atf_kernelSocketDir_);
+    }
+   if (!AgentMock_ && atf_MockDPDK_){
+        std::cout << "Please fix conf file parameters. If you wish to mock the DPDK you must also mock the agent." << std::endl;
+        exit(1);
+   }
+
+}
+
+
 void AgentParam::ParseServicesArguments
     (const boost::program_options::variables_map &v) {
     GetOptValue<string>(v, bgp_as_a_service_port_range_,
@@ -1029,6 +1046,7 @@ void AgentParam::ProcessArguments() {
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     ParseServicesArguments(var_map_);
+    ParseTestFrameworkArguments(var_map_);
     ParseSandeshArguments(var_map_);
     ParseQueue();
     ParseRestartArguments(var_map_);
@@ -1664,7 +1682,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         min_aap_prefix_len_(Agent::kMinAapPrefixLen),
         vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
         fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize),
-        mvpn_ipv4_enable_(false) {
+        mvpn_ipv4_enable_(false),AgentMock_(false), atf_MockDPDK_(false),
+        atf_kernelSocketDir_("/tmp/") {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -1963,6 +1982,9 @@ AgentParam::AgentParam(bool enable_flow_options,
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
          "Mode in which vrouter is running, option are dpdk or vnic")
+        ("DEFAULT.agent_mock",opt::value<bool>()->default_value(false),"Agent Mocking Mode")
+        ("AGENT-TEST-FRAMEWORK.mock_dpdk", opt::value<bool>()->default_value(false),"mock dpdk in agent mocking mode")
+        ("AGENT-TEST-FRAMEWORK.ksocketdir",  opt::value<string>()->default_value("/tmp/"), "kernel socket directory") 
         ("DEFAULT.subnet_hosts_resolvable",
          opt::bool_switch(&subnet_hosts_resolvable_)->default_value(true))
         ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>()->default_value(default_pkt0_tx_buffers),
