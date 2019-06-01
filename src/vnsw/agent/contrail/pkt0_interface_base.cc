@@ -26,11 +26,19 @@ do {                                                                     \
 } while (false)                                                          \
 
 ///////////////////////////////////////////////////////////////////////////////
-const string Pkt0Socket::kSocketDir = "/var/run/vrouter";
-const string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kSocketDir = "/var/run/vrouter";
+string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
                                             + "/agent_pkt0";
-const string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
                                             + "/dpdk_pkt0";
+
+
+void Pkt0Socket::InitDirectories(const std::string &ksocketdir)
+{
+    kSocketDir = ksocketdir;
+    kAgentSocketPath = kSocketDir + "/agent_pkt0";
+    kVrouterSocketPath = kSocketDir + "/dpdk_pkt0";
+}
 
 Pkt0Interface::Pkt0Interface(const std::string &name,
                              boost::asio::io_service *io) :
