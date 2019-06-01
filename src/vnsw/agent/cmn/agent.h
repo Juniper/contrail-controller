@@ -1166,7 +1166,7 @@ public:
     ConfigManager *config_manager() const;
 
     AgentParam *params() const { return params_; }
-
+    bool isMockMode() const;
     bool isXenMode();
     bool isKvmMode();
     bool isDockerMode();
