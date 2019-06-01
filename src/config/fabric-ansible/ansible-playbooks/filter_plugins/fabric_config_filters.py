@@ -234,8 +234,6 @@ class FilterModule(object):
                 continue
             # For each feature template, including model-specific templates,
             # render the jinja template
-            if 'features' not in self.abstract_config and self.feature_based_list:
-                continue
             for feature_template in feature_template_list:
                 self._render_feature_config(
                     feature, feature_template,
