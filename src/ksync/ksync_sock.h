@@ -590,7 +590,8 @@ public:
     virtual bool Run(void);
 
     static void Init(boost::asio::io_service &ios,
-                     const std::string &cpu_pin_policy);
+                     const std::string &cpu_pin_policy,
+                     const std::string &sockpathvr="");
 private:
 #ifdef _WIN32
     //TODO: Win support?
@@ -603,6 +604,7 @@ private:
     size_t remain_;
     int socket_;
     int connected_;
+    static string sockpath_;
 };
 
 class KSyncSockTcpSessionReader : public TcpMessageReader {

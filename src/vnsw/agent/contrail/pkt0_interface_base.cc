@@ -26,11 +26,30 @@ do {                                                                     \
 } while (false)                                                          \
 
 ///////////////////////////////////////////////////////////////////////////////
-const string Pkt0Socket::kSocketDir = "/var/run/vrouter";
-const string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
-                                            + "/agent_pkt0";
-const string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
-                                            + "/dpdk_pkt0";
+
+//Although C++ may guarantee that the static variables in a compilation unit
+//are initialized in the order of declaration, it is a good practice to not
+//initialize one from the other.
+//warning:  Moving the initialization to different compilation units,
+//although not likely in this case could lead to the "static order initialization fiasco"
+//if the initialization is interdependent.
+//Please see https://isocpp.org/wiki/faq/ctors#static-init-order
+
+string Pkt0Socket::sSocketDir = "/var/run/vrouter";
+string Pkt0Socket::sAgentSocketPath = "/var/run/vrouter/agent_pkt0";
+string Pkt0Socket::sVrouterSocketPath = "/var/run/vrouter/dpdk_pkt0";
+
+
+void Pkt0Socket::MockAgent()
+{
+    std::stringstream stemp;
+    stemp<<getpid();//with c++11 we can just use std::to_string()
+    sSocketDir =  "/tmp/"+ stemp.str()+ Pkt0Socket::sSocketDir ;
+    sAgentSocketPath  = "/tmp/"+ stemp.str()+ Pkt0Socket::sAgentSocketPath ;
+    sVrouterSocketPath  = "/tmp/"+ stemp.str()+ Pkt0Socket::sVrouterSocketPath ;
+}
+
+
 
 Pkt0Interface::Pkt0Interface(const std::string &name,
                              boost::asio::io_service *io) :
@@ -131,15 +150,20 @@ Pkt0Socket::~Pkt0Socket() {
 }
 
 void Pkt0Socket::CreateUnixSocket() {
-    boost::filesystem::create_directory(kSocketDir);
-    boost::filesystem::remove(kAgentSocketPath);
+ 
+    //the create_directories does not require for the parent directories to exist.
+    //They are created recursively if needed
+    //Mock agent needs this
+    boost::filesystem::create_directories(sSocketDir);
+
+    boost::filesystem::remove(sAgentSocketPath);
 
     boost::system::error_code ec;
     socket_.open();
-    local::datagram_protocol::endpoint ep(kAgentSocketPath);
+    local::datagram_protocol::endpoint ep(sAgentSocketPath);
     socket_.bind(ep, ec);
     if (ec) {
-        LOG(DEBUG, "Error binding to the socket " << kAgentSocketPath
+        LOG(DEBUG, "Error binding to the socket " << sAgentSocketPath
                 << ": " << ec.message());
     }
     assert(ec == 0);
@@ -187,7 +211,8 @@ void Pkt0Socket::StartConnectTimer() {
 }
 
 bool Pkt0Socket::OnTimeout() {
-    local::datagram_protocol::endpoint ep(kVrouterSocketPath);
+
+    local::datagram_protocol::endpoint ep(sVrouterSocketPath);
     boost::system::error_code ec;
     socket_.connect(ep, ec);
     if (ec != 0) {
