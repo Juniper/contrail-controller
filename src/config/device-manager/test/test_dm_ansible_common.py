@@ -144,10 +144,13 @@ class TestAnsibleCommonDM(DMTestCase):
         return self._vnc_lib.virtual_network_read(id=vn_uuid)
     # end create_vn
 
-    def attach_vmi(self, vmi_id, pi_name, pr, vn, fabric):
-        pi = PhysicalInterface(pi_name, parent_obj=pr)
-        pi_uuid = self._vnc_lib.physical_interface_create(pi)
-        pi = self._vnc_lib.physical_interface_read(id=pi_uuid)
+    def attach_vmi(self, vmi_id, pi_list, pr_list, vn, fabric, vlan_tag):
+        pi_obj_list = []
+        for idx in range(len(pi_list)):
+            pi = PhysicalInterface(pi_list[idx], parent_obj=pr_list[idx])
+            pi_uuid = self._vnc_lib.physical_interface_create(pi)
+            pi = self._vnc_lib.physical_interface_read(id=pi_uuid)
+            pi_obj_list.append(pi)
 
         vm = VirtualMachine(name='bms' + vmi_id, display_name='bms' + vmi_id,
             fq_name=['bms' + vmi_id], server_type='baremetal-server')
@@ -161,7 +164,11 @@ class TestAnsibleCommonDM(DMTestCase):
             virtual_machine_interface_mac_addresses= {
                    'mac_address': [mac_address]
                 })
-        vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"11:11:11:11:11:11\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (pi_name, pr.get_fq_name()[-1], fabric.get_fq_name()[-1])
+        if len(pi_list) == 1:
+            vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"11:11:11:11:11:11\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (pi_list[0], pr_list[0].get_fq_name()[-1], fabric.get_fq_name()[-1])
+        else:
+            vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"11:11:11:11:11:11\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"},{\"switch_id\":\"11:11:11:11:11:11\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (pi_list[0], pr_list[0].get_fq_name()[-1], fabric.get_fq_name()[-1], pi_list[1], pr_list[1].get_fq_name()[-1], fabric.get_fq_name()[-1])
+
         vmi_bindings = {
             "key_value_pair": [{
                 "key": "vnic_type",
@@ -177,8 +184,9 @@ class TestAnsibleCommonDM(DMTestCase):
                 "value": vm_uuid
             }]
         }
+
         vmi_properties = {
-            "sub_interface_vlan_tag": 100 + int(vmi_id)
+            "sub_interface_vlan_tag": vlan_tag
         }
         vmi.set_virtual_machine_interface_bindings(vmi_bindings)
         vmi.set_virtual_machine_interface_properties(vmi_properties)
@@ -186,7 +194,7 @@ class TestAnsibleCommonDM(DMTestCase):
         vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi)
         vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
 
-        return vmi, vm, pi
+        return vmi, vm, pi_obj_list
     # end attach_vmi
 
     def set_encapsulation_priorities(self, priorities = []):
@@ -232,4 +240,51 @@ class TestAnsibleCommonDM(DMTestCase):
             except NoIdError:
                 pass
     # end wait_for_features_delete
-# end TestAnsibleDM
+
+    def get_phy_interfaces(self, abs_config, name=None):
+        interfaces = abs_config.get('physical_interfaces')
+        if not interfaces:
+            return []
+        intf_list = []
+        for intf in interfaces or []:
+            if name and name == intf.get('name'):
+                return intf
+            else:
+                intf_list.append(intf)
+        return intf_list
+    # end get_phy_interfaces
+
+    def get_logical_interface(self, phy_intf, name=None):
+        log_intf = phy_intf.get('logical_interfaces')
+        if not log_intf:
+            return []
+        intf_list = []
+        for intf in log_intf or []:
+            if name and name == intf.get('name'):
+                return intf
+            else:
+                intf_list.append(intf)
+        return intf_list
+
+
+    def get_lag_members(self, phy_intf):
+        lag = phy_intf.get('link_aggregation_group')
+
+        self.assertTrue(lag.get('lacp_enabled'))
+        return lag.get('link_members')
+
+
+    def get_vlans(self, abs_config, name=None):
+        vlans = abs_config.get('vlans')
+        if not vlans:
+            return []
+        vlan_list = []
+        for vlan in vlan_list or []:
+            if name and name == vlan.get('name'):
+                return vlan
+            else:
+                vlan_list.append(vlan)
+        return vlan_list
+    # end get_vlans
+
+# end TestAnsibleCommonDM
