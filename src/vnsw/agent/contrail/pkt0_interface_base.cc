@@ -26,11 +26,19 @@ do {                                                                     \
 } while (false)                                                          \
 
 ///////////////////////////////////////////////////////////////////////////////
-const string Pkt0Socket::kSocketDir = "/var/run/vrouter";
-const string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kernelSocketDir = "/var/run/vrouter";
+string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kernelSocketDir
                                             + "/agent_pkt0";
-const string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kernelSocketDir
                                             + "/dpdk_pkt0";
+
+
+void Pkt0Socket::InitDirectories(const std::string &ksocketdir)
+{
+    kernelSocketDir = ksocketdir;
+    kAgentSocketPath = kernelSocketDir + "/agent_pkt0";
+    kVrouterSocketPath = kernelSocketDir + "/dpdk_pkt0";
+}
 
 Pkt0Interface::Pkt0Interface(const std::string &name,
                              boost::asio::io_service *io) :
@@ -131,7 +139,7 @@ Pkt0Socket::~Pkt0Socket() {
 }
 
 void Pkt0Socket::CreateUnixSocket() {
-    boost::filesystem::create_directory(kSocketDir);
+    boost::filesystem::create_directory(kernelSocketDir);
     boost::filesystem::remove(kAgentSocketPath);
 
     boost::system::error_code ec;
