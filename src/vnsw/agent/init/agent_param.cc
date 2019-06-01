@@ -28,6 +28,9 @@
 #include <base/logging.h>
 #include <base/misc_utils.h>
 #include <base/options_util.h>
+
+#include <contrail/pkt0_interface.h>
+
 #include <sandesh/sandesh_trace.h>
 
 #include <cmn/agent_cmn.h>
@@ -675,7 +678,6 @@ void AgentParam::ParseNexthopServerArguments
 
 void AgentParam::ParsePlatformArguments
     (const boost::program_options::variables_map &var_map) {
-    boost::system::error_code ec;
     if (var_map.count("DEFAULT.platform") &&
         !var_map["DEFAULT.platform"].defaulted()) {
         if (var_map["DEFAULT.platform"].as<string>() == "nic") {
@@ -695,6 +697,30 @@ void AgentParam::ParsePlatformArguments
         }
     }
 }
+
+//this has been intentionally seperated from platform to provide an easier mix and match in the future if necessary //sagarc
+void AgentParam::ParseTestFrameworkArguments(
+    const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, AgentMock_, "DEFAULT.agent_mock");
+    
+    if (AgentMock_)
+    {
+       GetOptValue<bool>(var_map, atf_MockDPDK_,
+          "AGENT-TEST-FRAMEWORK.mock_dpdk");
+       GetOptValue<string>(var_map, atf_kSocketDir_,
+          "AGENT-TEST-FRAMEWORK.ksocketdir");
+    }
+
+   if (!AgentMock_ && atf_MockDPDK_)
+   {
+      std::cout <<"Please fix conf file parameters."
+          <<" The DPDK cannot be mocked unless the Agent"
+          <<"  is also executed in the Mock mode" << std::endl;
+      exit(1);
+   }
+
+}
+
 
 void AgentParam::ParseServicesArguments
     (const boost::program_options::variables_map &v) {
@@ -1029,6 +1055,7 @@ void AgentParam::ProcessArguments() {
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     ParseServicesArguments(var_map_);
+    ParseTestFrameworkArguments(var_map_);//sagarc
     ParseSandeshArguments(var_map_);
     ParseQueue();
     ParseRestartArguments(var_map_);
@@ -1664,7 +1691,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         min_aap_prefix_len_(Agent::kMinAapPrefixLen),
         vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
         fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize),
-        mvpn_ipv4_enable_(false) {
+        mvpn_ipv4_enable_(false),AgentMock_(false), atf_MockDPDK_(false),
+        atf_kSocketDir_("/tmp/") {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -1679,6 +1707,10 @@ AgentParam::AgentParam(bool enable_flow_options,
     uint32_t default_mac_learning_update_tokens = Agent::kMacLearningDefaultTokens;
     uint32_t default_mac_learning_delete_tokens = Agent::kMacLearningDefaultTokens;
     uint16_t default_fabric_snat_table_size = Agent::kFabricSnatTableSize;
+
+          std::stringstream stemp;
+          stemp<<getpid();//with c++11 we can just use std::to_string()
+          restart_backup_dir_  = "/tmp/"+ stemp.str() + CFG_BACKUP_DIR;
 
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
@@ -1908,7 +1940,7 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Run agent in vrouter / tsn / tor mode")
         ("DEFAULT.gateway_mode", opt::value<string>(),
           "Set gateway mode to server/ vcpe")
-        ("DEFAULT.agent_base_directory", opt::value<string>()->default_value("/var/lib/contrail"),
+        ("DEFAULT.agent_base_directory", opt::value<string>()->default_value("/tmp"),
          "Base directory used by the agent")
         ("DNS.servers",
          opt::value<vector<string> >()->multitoken(),
@@ -1963,6 +1995,14 @@ AgentParam::AgentParam(bool enable_flow_options,
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
          "Mode in which vrouter is running, option are dpdk or vnic")
+        ("DEFAULT.agent_mock",opt::value<bool>()->default_value(false),
+             "Agent Mocking Mode")
+        ("AGENT-TEST-FRAMEWORK.mock_dpdk",
+             opt::value<bool>()->default_value(false),
+             "mock dpdk in agent mocking mode")
+        ("AGENT-TEST-FRAMEWORK.ksocketdir",
+              opt::value<string>()->default_value("/tmp/"),
+             "ksocket directory")
         ("DEFAULT.subnet_hosts_resolvable",
          opt::bool_switch(&subnet_hosts_resolvable_)->default_value(true))
         ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>()->default_value(default_pkt0_tx_buffers),

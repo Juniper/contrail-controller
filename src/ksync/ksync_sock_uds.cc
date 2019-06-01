@@ -8,6 +8,8 @@
 #include <boost/bind.hpp>
 #include <errno.h>
 
+class AgentParam;
+
 using namespace boost::asio;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -33,16 +35,19 @@ private:
 
 };
 
+
+
+string KSyncSockUds::sockpath_= KSYNC_AGENT_VROUTER_SOCK_PATH;
+
 KSyncSockUds::KSyncSockUds(boost::asio::io_service &ios) :
     sock_(ios),
-    server_ep_(KSYNC_AGENT_VROUTER_SOCK_PATH),
+    server_ep_(sockpath_),
     rx_buff_(NULL),
     rx_buff_q_(NULL),
     remain_(0),
     socket_(0),
     connected_(false) {
     boost::system::error_code ec;
-
     reset_use_wait_tree();
     set_process_data_inline();
 retry:;
@@ -134,10 +139,11 @@ retry:;
     return true;
 }
 
-void KSyncSockUds::Init(io_service &ios, const std::string &cpu_pin_policy) {
+void KSyncSockUds::Init(io_service &ios, const std::string &cpu_pin_policy, const std::string& sockpathvr) {
     KSyncSock::SetSockTableEntry(new KSyncSockUds(ios));
     SetNetlinkFamilyId(10);
     KSyncSock::Init(false, cpu_pin_policy);
+    sockpath_ = sockpathvr;
 }
 
 uint32_t KSyncSockUds::GetSeqno(char *data) {
