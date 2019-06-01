@@ -375,6 +375,7 @@ class DeviceManager(object):
         RoutingInstanceDM.locate_all()
         FloatingIpPoolDM.locate_all()
         BgpRouterDM.locate_all()
+        InstanceIpDM.locate_all()
         PhysicalInterfaceDM.locate_all()
         LogicalInterfaceDM.locate_all()
         PhysicalRouterDM.locate_all()
@@ -391,7 +392,6 @@ class DeviceManager(object):
         ServiceApplianceDM.locate_all()
         ServiceTemplateDM.locate_all()
         PortTupleDM.locate_all()
-        InstanceIpDM.locate_all()
         FloatingIpDM.locate_all()
 
         for vn in VirtualNetworkDM.values():
