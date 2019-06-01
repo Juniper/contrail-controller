@@ -1158,6 +1158,7 @@ class LogicalInterfaceDM(DBBaseDM):
         self.virtual_machine_interface = None
         self.vlan_tag = 0
         self.li_type = None
+        self.instance_ips = set()
         self.instance_ip = None
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
@@ -1181,7 +1182,18 @@ class LogicalInterfaceDM(DBBaseDM):
         self.vlan_tag = obj.get('logical_interface_vlan_tag', 0)
         self.li_type = obj.get('logical_interface_type', 0)
         self.update_single_ref('virtual_machine_interface', obj)
-        self.update_single_ref('instance_ip', obj)
+        self.update_multiple_refs('instance_ip', obj)
+
+        if self.instance_ips:
+            if len(self.instance_ips) > 1 and self.fq_name[-1] == 'lo0.0':
+                iip_name = self.fq_name[1]+'/lo0.0'
+                for iip_uuid in self.instance_ips:
+                    iip_obj = InstanceIpDM.get(iip_uuid)
+                    if iip_obj and iip_obj.fq_name[0] == iip_name:
+                        self.instance_ip = iip_uuid
+                        break
+            else:
+                self.instance_ip = list(self.instance_ips)[0]
         return obj
     # end update
 
@@ -1226,7 +1238,7 @@ class LogicalInterfaceDM(DBBaseDM):
         if parent:
             parent.logical_interfaces.discard(self.uuid)
         self.update_single_ref('virtual_machine_interface', {})
-        self.update_single_ref('instance_ip', {})
+        self.update_multiple_refs('instance_ip', {})
         self.remove_from_parent()
     # end delete_obj
 # end LogicalInterfaceDM
