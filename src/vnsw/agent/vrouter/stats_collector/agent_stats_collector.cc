@@ -74,6 +74,9 @@ void AgentStatsCollector::SendDropStatsBulkGet() {
 }
 
 bool AgentStatsCollector::SendRequest(Sandesh &encoder, StatsType type) {
+    if (agent_->params()->atf_is_dpdk_mocked())
+       return true;
+
     int encode_len;
     int error;
     uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);

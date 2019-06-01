@@ -4,6 +4,8 @@
 
 #include <string>
 #include <vector>
+#include<iostream>
+#include<fstream>
 #include <algorithm>
 #include <base/logging.h>
 #include <base/lifetime.h>
@@ -104,7 +106,7 @@ const string &Agent::vhost_interface_name() const {
 };
 
 bool Agent::is_vhost_interface_up() const {
-    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()) {
+    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()|| isMockMode()) {
         return true;
     }
 
@@ -135,7 +137,6 @@ bool Agent::is_vhost_interface_up() const {
     }
     close(sock);
 #endif
-
     return true;
 }
 
@@ -149,6 +150,10 @@ bool Agent::isKvmMode() {
 
 bool Agent::isDockerMode() {
     return params_->isDockerMode();
+}
+
+bool Agent::isMockMode() const {
+    return params_->atf_is_agent_mocked();
 }
 
 static void SetTaskPolicyOne(const char *task, const char *exclude_list[],
@@ -568,6 +573,27 @@ void Agent::InitCollector() {
                 NULL, params_->derived_stats_map(),
                 params_->sandesh_config());
     }
+
+    if (params_->atf_is_agent_mocked())
+    {
+        std::cout<<"introspect port: " << Sandesh::http_port()<<std::endl;
+        std::cout<<"Agent Name: " << params_->agent_name()<<std::endl;
+        std::string sub("{\"introspectport\":" );
+        std::string  pidstring;
+
+        std::ostringstream ss;
+        ss<<getpid();
+        pidstring= ss.str();
+        pidstring += ".json";
+        ss.str("");
+        ss.clear();
+        ss << Sandesh::http_port() <<"}";
+        sub += ss.str();
+
+        std::ofstream outfile(pidstring.c_str(), std::ofstream::out);
+        outfile << sub;
+        outfile.close();
+     }
 
 }
 

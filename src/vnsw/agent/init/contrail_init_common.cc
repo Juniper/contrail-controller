@@ -93,6 +93,14 @@ void ContrailInitCommon::RegisterDBClients() {
 }
 
 void ContrailInitCommon::InitModules() {
+
+    //ksync_enable may be set to false by an external test - 
+    // in a non-Mock mode, hence we cannot have 
+    //ksync_enable = !agent()->params->atf_is_dpdk_mocked()
+    if(agent()->params()->atf_is_dpdk_mocked()) {
+        ksync_enable_= false;
+    }
+
     if (agent()->pkt()) {
         agent()->pkt()->Init(ksync_enable());
     }

@@ -557,6 +557,13 @@ public:
     bool mvpn_ipv4_enable() const { return mvpn_ipv4_enable_; }
     void set_mvpn_ipv4_enable(bool val) { mvpn_ipv4_enable_ = val; }
 
+    //ATF stands for Agent Test Framework
+    bool atf_is_agent_mocked() const { return AgentMock_; }
+
+    bool atf_is_dpdk_mocked() const { return atf_MockDPDK_; }
+
+    std::string aft_ksocketdir() const { return atf_kSocketDir_; }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -592,6 +599,8 @@ protected:
     (const boost::program_options::variables_map &var_map, Ip4Address *server1,
      uint16_t *port1, Ip4Address *server2, uint16_t *port2,
      const std::string &key);
+    void ParseTestFrameworkArguments
+    (const boost::program_options::variables_map &var_map);
 
 private:
     friend class AgentParamTest;
@@ -820,6 +829,10 @@ private:
     uint16_t vmi_vm_vn_uve_interval_;
     uint16_t fabric_snat_hash_table_size_;
     bool mvpn_ipv4_enable_;
+    //test framework parameters
+    bool AgentMock_;
+    bool atf_MockDPDK_;
+    std::string atf_kSocketDir_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

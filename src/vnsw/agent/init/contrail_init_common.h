@@ -38,6 +38,8 @@ public:
     virtual void ModulesShutdown();
     void PktShutdown();
 
+    //ksync_enable() should always return false if agent is mocked and dpdk is mocked
+    //because ksync_enable_ will be set to false
     bool ksync_enable() const { return ksync_enable_; }
     bool services_enable() const { return services_enable_; }
     bool packet_enable() const { return packet_enable_; }
