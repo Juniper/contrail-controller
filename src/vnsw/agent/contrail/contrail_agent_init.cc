@@ -113,8 +113,12 @@ void ContrailAgentInit::CreateModules() {
     flow_stats_manager_.reset(new FlowStatsManager(agent()));
     agent()->set_flow_stats_manager(flow_stats_manager_.get());
 
-    ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
-    agent()->set_ksync(ksync_.get());
+   if(!agent_param()->atf_is_dpdk_mocked()) {
+       ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
+       agent()->set_ksync(ksync_.get());
+    }
+    else 
+       agent()->set_ksync(NULL);
 
     port_ipc_handler_.reset(new PortIpcHandler(agent(),
                                                PortIpcHandler::kPortsDir));
