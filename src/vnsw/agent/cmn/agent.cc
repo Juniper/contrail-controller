@@ -843,7 +843,10 @@ KSync *Agent::ksync() const {
 }
 
 void Agent::set_ksync(KSync *ksync) {
-    ksync_ = ksync;
+    if(params_ && params_->atf_is_dpdk_mocked())
+        ksync_ = NULL;
+    else
+        ksync_ = ksync;
 }
 
 AgentUveBase *Agent::uve() const {

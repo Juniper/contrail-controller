@@ -66,9 +66,11 @@ protected:
 class Pkt0Socket : public VrouterControlInterface {
 public:
     static const uint32_t kConnectTimeout = 1000; // 1 second
-    static const string kSocketDir;
-    static const string kAgentSocketPath;
-    static const string kVrouterSocketPath;
+    static string kernelSocketDir;
+    static string kAgentSocketPath;
+    static string kVrouterSocketPath;
+    static void InitDirectories(const std::string &ksocketdir);
+
     Pkt0Socket(const std::string &name,
                boost::asio::io_service *io);
     ~Pkt0Socket();

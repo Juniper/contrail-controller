@@ -93,6 +93,9 @@ void ContrailInitCommon::RegisterDBClients() {
 }
 
 void ContrailInitCommon::InitModules() {
+
+    ksync_enable_ = !agent()->params()->atf_is_dpdk_mocked();
+
     if (agent()->pkt()) {
         agent()->pkt()->Init(ksync_enable());
     }
