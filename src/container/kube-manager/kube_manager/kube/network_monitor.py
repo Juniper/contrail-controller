@@ -23,10 +23,12 @@ class NetworkMonitor(KubeMonitor):
                   %(self.name, crd_info))
             return
         else:
-            current_crds = [x['metadata']['name'].lower() \
+            current_crds = []
+            if 'items' in crd_info:
+                current_crds = [x['metadata']['name'].lower() \
                                             for x in crd_info['items']]
-            self.logger.debug("%s - Retrieved following CRD list = %s"
-                  %(self.name, current_crds))
+                self.logger.debug("%s - Retrieved following CRD list = %s"
+                    %(self.name, current_crds))
             if 'network-attachment-definitions.k8s.cni.cncf.io' \
                                                     not in current_crds:
                 # Create Networks CRD - networks.kubernetes.cni.cncf.io
