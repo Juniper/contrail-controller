@@ -279,12 +279,34 @@ void AgentRouteTable::AddChangeInput(DBTablePartition *part, VrfEntry *vrf,
     // Route changed, trigger change on dependent routes
     if (notify) {
         bool active_path_changed = (path == rt->GetActivePath());
+        const AgentPath *prev_active_path = rt->GetActivePath();
+        CompositeNH *cnh = NULL;
+        if (prev_active_path) {
+            cnh = dynamic_cast<CompositeNH *>(prev_active_path->nexthop());
+        }
         const Path *prev_front = rt->front();
         if (prev_front) {
             rt->Sort(&AgentRouteTable::PathSelection, prev_front);
         }
         if (rt->GetActiveNextHop() != nh) {
             active_path_changed = true;
+        }
+        // for flow stickiness , maintain same component NH grid
+        // if the newly insterted path becomes active,
+        // if peer type is same, and it is composite NH
+        // then import previous active NH to current active path
+        // Note: Change is limited to BGP peer paths
+        if ( (path == rt->GetActivePath()) &&
+            (path != prev_active_path)) {
+            CompositeNH *new_cnh =
+                dynamic_cast<CompositeNH *>(path->nexthop());
+            if (cnh && new_cnh &&
+                (path->peer()->GetType() == Peer::BGP_PEER) &&
+                (prev_active_path->peer()->GetType() == Peer::BGP_PEER) &&
+                (cnh->composite_nh_type() == Composite::ECMP) &&
+                (new_cnh->composite_nh_type() == Composite::ECMP)) {
+                path->ImportPrevActiveNH(agent_, cnh);
+            }
         }
         part->Notify(rt);
         rt->UpdateDependantRoutes();
@@ -643,6 +665,7 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
 
     // Store if this was active path
     bool active_path = (GetActivePath() == path);
+    const Peer *old_active_path_peer = path->peer();
     // Remove path from the route
     RemovePath(path);
 
@@ -681,6 +704,8 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
         }
         if (active_path &&
                 cnh && new_cnh &&
+                (old_active_path_peer->GetType() == Peer::BGP_PEER) &&
+                (new_active_path_peer->GetType() == Peer::BGP_PEER) &&
                 (cnh->composite_nh_type() == Composite::ECMP) &&
                 (new_cnh->composite_nh_type() == Composite::ECMP)) {
             new_active_path->ImportPrevActiveNH(table->agent(), cnh);
