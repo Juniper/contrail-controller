@@ -1,0 +1,361 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f5c4f37_598ea2d0",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "Please add a commit description",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_39bf6e62",
+        "filename": "src/ksync/ksync_sock.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 593,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "Please do not exceed 80 columns. Also do not put a space after \"\u0026\"",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_19c26aea",
+        "filename": "src/ksync/ksync_sock_uds.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 147,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "space after \"\u003d\"",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_b9b23e93",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "left branch should be on the same line as if",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_99ad3a33",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "remove trailing space",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_79acc633",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 123,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "remove this commented line",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_59a7c250",
+        "filename": "src/vnsw/agent/contrail/main.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 98,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "space around \"||\"",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_39640e22",
+        "filename": "src/vnsw/agent/contrail/pkt0_interface.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "variables that start with k... should be const",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_9972dae2",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "pls keep this list sorted",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_7981668f",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 702,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "wrap and remove blank lines",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_597c62b4",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 706,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "please indent correctly",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_394d2e9a",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 713,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "is the error message correct ?",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_19502a32",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 1689,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "space after , please.\nplease wrap before 81st column",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_19670a28",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 559,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "what is atf ?",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_d97052df",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 561,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "ca you keep these small routines in a single line ?",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_b977ded4",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 606,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "wrap",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_f946767c",
+        "filename": "src/vnsw/agent/init/contrail_init_common.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "Remove these",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_d949728b",
+        "filename": "src/vnsw/agent/init/contrail_init_common.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 104,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "Indent",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_b960fe02",
+        "filename": "src/vnsw/agent/init/contrail_init_common.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 105,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "Why not just do ksync_enable \u003d !agent()-\u003eparams()-\u003eatf_is_dpdk_mocked()",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_995bfa52",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 545,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "wrap and remove trailing space",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_795a864f",
+        "filename": "src/vnsw/agent/vrouter/stats_collector/agent_stats_collector.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-06-03T23:44:55Z",
+      "side": 1,
+      "message": "pls indent correctly. or better yet reverse if and return",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
