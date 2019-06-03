@@ -14,5 +14,5 @@ timeout-decorator
 docker
 inflection>=0.3.1
 jsonschema
-pyhash
+pyhash==0.6.2
 vine==1.1.3
