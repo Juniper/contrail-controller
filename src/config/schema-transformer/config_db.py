@@ -678,7 +678,7 @@ class VirtualNetworkST(DBBaseST):
         iip_uuid = iip_obj.get_uuid()
         iip_address = iip_obj.get_instance_ip_address()
         return iip_uuid, iip_address
-    # end create_instance_ip
+    # end create_instance_ip #yijie
 
     def allocate_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
