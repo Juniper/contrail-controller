@@ -203,7 +203,11 @@ KSyncDBObject *InterfaceKSyncEntry::GetObject() const {
 bool InterfaceKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const InterfaceKSyncEntry &entry = static_cast
         <const InterfaceKSyncEntry &>(rhs);
-    return interface_name_ < entry.interface_name_;
+    if (interface_name_ != entry.interface_name_ ) {
+        return interface_name_ < entry.interface_name_;
+    } else {
+        return interface_id_ < entry.interface_id_;
+    }
 }
 
 std::string InterfaceKSyncEntry::ToString() const {
