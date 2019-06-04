@@ -3,47 +3,48 @@
 #
 
 """
+Physical router configuration implementation.
+
 This file contains implementation of managing physical router configuration
+based on intent configuration.
 """
 
-import gevent
-# Import kazoo.client before monkey patching
-from gevent import monkey
-monkey.patch_all()
-import requests
 import ConfigParser
-import time
 import hashlib
-import signal
 import random
+import time
 import traceback
 
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from ansible_base import AnsibleBase
 from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
-from vnc_api.vnc_api import VncApi
-from db import DMCassandraDB
-from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
-    ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
-    VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, PortTupleDM, \
-    ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
-    NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM, \
-    SecurityGroupDM, AccessControlListDM, NodeProfileDM, FabricNamespaceDM, \
-    RoleConfigDM, FabricDM, LinkAggregationGroupDM, FloatingIpPoolDM, \
-    DataCenterInterconnectDM, VirtualPortGroupDM, PortDM, TagDM, \
-    ServiceApplianceDM, ServiceApplianceSetDM, ServiceTemplateDM, \
-    NetworkIpamDM, FeatureDM, PhysicalRoleDM, OverlayRoleDM, \
-    RoleDefinitionDM, FeatureConfigDM
+from db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
+    DBBaseDM, DMCassandraDB, E2ServiceProviderDM, FabricDM, \
+    FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
+    FloatingIpPoolDM, GlobalSystemConfigDM, GlobalVRouterConfigDM, \
+    InstanceIpDM, LinkAggregationGroupDM, LogicalInterfaceDM, \
+    LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
+    OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
+    PhysicalRouterDM, PortDM, PortTupleDM, RoleConfigDM, RoleDefinitionDM, \
+    RoutingInstanceDM, SecurityGroupDM, ServiceApplianceDM, \
+    ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
+    ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, TagDM, \
+    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
+from device_conf import DeviceConf
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
-from ansible_base import AnsibleBase
-from device_conf import DeviceConf
 from fabric_manager import FabricManager
 from feature_base import FeatureBase
+import gevent
+from gevent import monkey
 from logger import DeviceManagerLogger
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+# Import kazoo.client before monkey patching
+import requests
+from vnc_api.vnc_api import VncApi
+monkey.patch_all()
 
 
 class DeviceManager(object):
@@ -118,7 +119,8 @@ class DeviceManager(object):
             'logical_interface': ['physical_interface', 'physical_router'],
             'physical_interface': ['physical_router'],
             'virtual_port_group': ['physical_router'],
-            'virtual_machine_interface': ['physical_interface', 'physical_router'],
+            'virtual_machine_interface': ['physical_interface',
+                                          'physical_router'],
             'service_appliance': ['physical_router'],
             'port': ['physical_router'],
         },
@@ -180,7 +182,8 @@ class DeviceManager(object):
         'port_tuple': {
             'self': ['virtual_machine_interface', 'service_instance'],
             'logical_router': ['service_instance'],
-            'service_instance': ['virtual_machine_interface', 'service_template'],
+            'service_instance': ['virtual_machine_interface',
+                                 'service_template'],
             'virtual_machine_interface': ['service_instance']
         },
         'virtual_network': {
@@ -273,6 +276,7 @@ class DeviceManager(object):
 
     def __init__(self, dm_logger=None, args=None, zookeeper_client=None,
                  amqp_client=None):
+        """Physical Router init routine."""
         DeviceManager._instance = self
         self._args = args
         self._amqp_client = amqp_client
@@ -354,7 +358,8 @@ class DeviceManager(object):
         self._vnc_amqp.establish()
 
         # Initialize cassandra
-        self._object_db = DMCassandraDB.get_instance(zookeeper_client, self._args, self.logger)
+        self._object_db = DMCassandraDB.get_instance(zookeeper_client,
+                                                     self._args, self.logger)
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
@@ -455,7 +460,7 @@ class DeviceManager(object):
     @classmethod
     def get_instance(cls):
         return cls._instance
-     # end get_instance
+    # end get_instance
 
     @classmethod
     def destroy_instance(cls):
@@ -487,16 +492,18 @@ class DeviceManager(object):
             config = ConfigParser.SafeConfigParser()
             config.read(self._args.conf_file)
             if 'DEFAULTS' in config.sections():
-               try:
-                   collectors = config.get('DEFAULTS', 'collectors')
-                   if type(collectors) is str:
-                       collectors = collectors.split()
-                       new_chksum = hashlib.md5("".join(collectors)).hexdigest()
-                       if new_chksum != self._chksum:
-                           self._chksum = new_chksum
-                           config.random_collectors = random.sample(collectors, len(collectors))
-                       # Reconnect to achieve load-balance irrespective of list
-                       self.logger.sandesh_reconfig_collectors(config)
-               except ConfigParser.NoOptionError as _:
-                   pass
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5(
+                            "".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            config.random_collectors = random.sample(
+                                collectors, len(collectors))
+                        # Reconnect to achieve loadbalance irrespective of list
+                        self.logger.sandesh_reconfig_collectors(config)
+                except ConfigParser.NoOptionError as _:
+                    pass
     # end sighup_handler
