@@ -1,16 +1,15 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains implementation of job api handler code
+#
 
-"""
-This file contains implementation of job api handler code
-"""
-import gevent
-import uuid
+from enum import Enum
 import time
+import uuid
 
 from attrdict import AttrDict
-from enum import Enum
+import gevent
 
 
 class JobStatus(Enum):
