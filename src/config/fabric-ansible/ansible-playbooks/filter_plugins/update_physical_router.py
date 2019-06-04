@@ -1,27 +1,26 @@
 #!/usr/bin/python
 
-import traceback
-import sys
 import json
+import sys
+import traceback
 
-from job_manager.job_utils import JobVncApi
+from filter_utils import _task_done, _task_error_log, _task_log, \
+    FilterLog
 from vnc_api.exceptions import NoIdError
 
+from job_manager.job_utils import JobVncApi
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 
-from filter_utils import FilterLog, _task_log, _task_done, \
-    _task_error_log
-
 
 class FilterModule(object):
-
     """
-    This filter is used to consolidate all the physical router update
-    operations in a single role. For instance, we update at present
-    the loopback ip, dataplane ip, os_version and annotations. Instead
-    of having to read the prouter object every time, consolidating all
-    the device update operation into a single filter functionality.
+    Filter used to consolidate all the physical router updates.
+
+    For instance, we update at present the loopback ip, dataplane ip,
+    os_version and annotations. Instead of having to read the prouter
+    object every time, consolidating all the device update operation
+    into a single filter functionality.
     """
 
     def filters(self):
@@ -31,7 +30,8 @@ class FilterModule(object):
     # end filters
 
     @staticmethod
-    def _parse_additional_prop_and_upd_payload(obj_dict_payload, prouter_vendor):
+    def _parse_additional_prop_and_upd_payload(
+            obj_dict_payload, prouter_vendor):
         if obj_dict_payload.get("additional_properties"):
             annotations = {
                 "key_value_pair": [
@@ -45,13 +45,14 @@ class FilterModule(object):
             obj_dict_payload.update({"annotations": annotations})
         obj_dict_payload.pop("additional_properties")
 
-
     # end _parse_additional_prop_and_upd_payload
 
     def update_physical_router(self, job_ctx, prouter_name,
                                obj_dict_payload, prouter_vendor):
         """
-        :param job_ctx: Dictionary
+        Updating the physical router object.
+
+        :param job_ctx: Dictionary.
             example:
             {
                 "auth_token": "EB9ABC546F98",
@@ -88,7 +89,8 @@ class FilterModule(object):
             {
               'status': 'success',
               'upd_pr_log': <String: upd_pr_log>,
-              'physical_router_upd_resp': <Dictionary: physical_router_upd_resp>
+              'physical_router_upd_resp':
+                      <Dictionary: physical_router_upd_resp>
             }
         if failure, returns
             {
@@ -138,7 +140,7 @@ class FilterModule(object):
             return {'status': 'failure',
                     'error_msg': str(ex),
                     'upd_pr_log': FilterLog.instance().dump()
-                   }
+                    }
     # end update_physical_router
 
     def _update_physical_router_object(self, obj_dict_payload, prouter_name):
@@ -154,9 +156,9 @@ class FilterModule(object):
             job_log_msg = "- loopback_ip: %s\n   - OS Version: %s\n" \
                           % (
                               physical_router_obj.
-                                  get_physical_router_loopback_ip(),
+                              get_physical_router_loopback_ip(),
                               physical_router_obj.
-                                  get_physical_router_os_version()
+                              get_physical_router_os_version()
                           )
 
         except NoIdError as exc:
@@ -174,7 +176,7 @@ class FilterModule(object):
             _task_error_log(str(ex))
             _task_error_log(traceback.format_exc())
             job_log_msg = "There was a problem while updating the" \
-                       " device"
+                " device"
             warning_info = {
                 "device_name": prouter_name,
                 "obj_dict_payload": obj_dict_payload,
@@ -187,4 +189,3 @@ class FilterModule(object):
         }
 
     # end _update_physical_router_object
-

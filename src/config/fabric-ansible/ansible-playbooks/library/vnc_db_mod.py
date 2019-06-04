@@ -3,31 +3,34 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains implementation of wrapper module for VNC operations
+# such as add, delete, update, read, list, ref-update, ref-delete,
+# fqname_to_id, id_to_fqname
+#
 
-"""
-This file contains implementation of wrapper module for VNC operations
-such as add, delete, update, read, list, ref-update, ref-delete,
-fqname_to_id, id_to_fqname
-"""
-import time
 import ast
-from inflection import camelize
-from job_manager.job_utils import JobVncApi
-from vnc_api.vnc_api import VncApi
-import vnc_api
+import time
+
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
+from inflection import camelize
+import vnc_api
+
+from job_manager.job_utils import JobVncApi
 
 DOCUMENTATION = '''
 ---
-Performs CRUD operation for the objects in database. Following operations are
-supported - ADD, DELETE, UPDATE, READ, LIST, REF-UPDATE, REF-DELETE,
-FQNAME_TO_ID, ID_TO_FQNAME
+Performs CRUD operation for the objects in database.
+Following operations are supported - ADD, DELETE, UPDATE,
+READ, LIST, REF-UPDATE, REF-DELETE, FQNAME_TO_ID,
+ID_TO_FQNAME
 
-For CREATE operation, if 'object_obj_if_present' flag is set to True (default value),
-module tries to update the existing object. If this flag is set to False, module
+For CREATE operation, if 'object_obj_if_present' flag is
+set to True (default value), module tries to update the
+existing object. If this flag is set to False, module
 will return SUCCESS with existing uuid
 
-LIST operation is supported with filters/fields/back_ref_id and detail clause
+LIST operation is supported with filters/fields/back_ref_id
+and detail clause
 '''
 
 EXAMPLES = '''
@@ -159,7 +162,8 @@ LIST with filters and detail operation:
         object_op: "list"
         object_dict: |
           {
-              "filters": {"physical_router_management_ip":"{{ item.hostname }}"},
+              "filters":
+               {"physical_router_management_ip":"{{ item.hostname }}"},
               "detail": "True",
           }
 BULK QUERY operation:
@@ -173,13 +177,10 @@ BULK QUERY operation:
 
 
 class VncMod(object):
-    """
-    This class encaptulates vnc crud apis and some action apis in the Ansible
-    module to make it easy for Ansible playbook to invoke vnc apis
-    """
     JOB_IN_PROGRESS = "IN_PROGRESS"
 
     def __init__(self, module):
+        """Initialising module parameters."""
         self.cls = None
 
         # Fetch module params
@@ -228,9 +229,7 @@ class VncMod(object):
     # end __init_vnc_lib
 
     def do_oper(self):
-        """
-        vnc db crud operations
-        """
+        """Vnc db crud operations."""
         # Get the class name from object type
         cls_name = camelize(self.object_type)
 
@@ -295,7 +294,7 @@ class VncMod(object):
         if method is None:
             raise ValueError(
                 "Operation '%s' is not supported on '%s'"
-                %(self.object_op, self.object_type))
+                % (self.object_op, self.object_type))
 
         return method
     # end _obtain_vnc_method
@@ -313,7 +312,7 @@ class VncMod(object):
 
             read_obj = self._read_oper()
 
-            if read_obj.get('failed') == True:
+            if read_obj.get('failed'):
                 # object is not already created; create now
                 instance_obj = self.cls.from_dict(**obj_dict)
                 obj_uuid = method(instance_obj)
@@ -341,8 +340,8 @@ class VncMod(object):
                     # object. Set failed to True to let caller decide
                     results['failed'] = True
                     results['msg'] = \
-                        "Failed to create object in database as object exists "\
-                        "with same uuid '%s' or fqname '%s'" % \
+                        "Failed to create object in database as object "\
+                        "exists with same uuid '%s' or fqname '%s'" % \
                         (obj_dict.get('uuid'), obj_dict.get('fq_name'))
 
         except Exception as ex:
@@ -565,13 +564,15 @@ class VncMod(object):
 
         try:
             obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'ADD')
+                              ref_uuid, ref_fqname, 'ADD')
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \
-                "Failed to update ref (%s, %s) -> (%s, %s, %s) due to error: %s"\
-                % (obj_type, obj_uuid, ref_type, ref_uuid, ref_fqname, str(ex))
+                "Failed to update ref (%s, %s) -> (%s, %s, %s) " \
+                "due to error: %s"\
+                % (obj_type, obj_uuid, ref_type, ref_uuid,
+                   ref_fqname, str(ex))
         return results
     # _ref_update_oper
 
@@ -589,13 +590,15 @@ class VncMod(object):
         try:
 
             obj_uuid = method(obj_type, obj_uuid, ref_type,
-                                  ref_uuid, ref_fqname, 'DELETE')
+                              ref_uuid, ref_fqname, 'DELETE')
             results['uuid'] = obj_uuid
         except Exception as ex:
             results['failed'] = True
             results['msg'] = \
-                "Failed to delete ref (%s, %s) -> (%s, %s, %s) due to error: %s"\
-                % (obj_type, obj_uuid, ref_type, ref_uuid, ref_fqname, str(ex))
+                "Failed to delete ref (%s, %s) -> (%s, %s, %s) " \
+                "due to error: %s"\
+                % (obj_type, obj_uuid, ref_type, ref_uuid,
+                   ref_fqname, str(ex))
         return results
     # _ref_delete_oper
 
@@ -650,8 +653,7 @@ def module_process(module, args):
 
 
 def main():
-    """ module main """
-
+    """Module main."""
     # Create the module instance
     module = FabricAnsibleModule(
         argument_spec=dict(
@@ -698,4 +700,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
