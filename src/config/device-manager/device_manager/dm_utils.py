@@ -1,13 +1,12 @@
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains  utility methods used by device manager module
+#
 
-"""
-This file contains  utility methods used by device manager module
-"""
-
-from netaddr import IPNetwork
 from bitarray import bitarray
+from netaddr import IPNetwork
+
 
 class PushConfigState(object):
     PUSH_MODE = 0  # Global Push Mode - 0: python plugin, 1 : ansible plugin
@@ -86,6 +85,7 @@ class PushConfigState(object):
 
 # end PushConfigState
 
+
 class DMUtils(object):
 
     MAX_VRF_NAME_LENGTH = 127
@@ -115,16 +115,22 @@ class DMUtils(object):
         if not vrf_type:
             if is_nat:
                 post_len = len(network_id_str) + len(nat_postfix)
-                return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + network_id_str + nat_postfix
+                return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH -
+                                post_len] + network_id_str + nat_postfix
             post_len = len(network_id_str)
-            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + network_id_str
+            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH -
+                            post_len] + network_id_str
         else:
             if is_nat:
-                post_len = len(network_id_str) + len(nat_postfix) + len(vrf_type_str)
-                return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + vrf_type_str + network_id_str + nat_postfix
+                post_len = len(network_id_str) + \
+                    len(nat_postfix) + len(vrf_type_str)
+                return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH -
+                                post_len] + vrf_type_str + \
+                    network_id_str + nat_postfix
             post_len = len(network_id_str) + len(vrf_type_str)
-            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + vrf_type_str + network_id_str
-    #end make_vrf_name
+            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH -
+                            post_len] + vrf_type_str + network_id_str
+    # end make_vrf_name
 
     @staticmethod
     def dynamic_tunnel_name(asn):
@@ -151,11 +157,11 @@ class DMUtils(object):
         server_discovery_params = []
         for subnet in subnets:
             server_discovery_params.append(
-                { "vlan_tag": subnet.get('vlan_tag', ''),
-                  "dhcp_relay_server": subnet.get('dhcp_relay_server', []),
-                  "default_gateway": subnet.get('default_gateway'),
-                  "ip_prefix_len": subnet.get('subnet', {}).get(
-                      'ip_prefix_len', 32)})
+                {"vlan_tag": subnet.get('vlan_tag', ''),
+                 "dhcp_relay_server": subnet.get('dhcp_relay_server', []),
+                 "default_gateway": subnet.get('default_gateway'),
+                 "ip_prefix_len": subnet.get('subnet', {}).get(
+                    'ip_prefix_len', 32)})
         return server_discovery_params
     # end get_server_discovery_parameters
 
@@ -176,7 +182,7 @@ class DMUtils(object):
 
     @staticmethod
     def get_service_ports(network_id):
-        service_port_id = 2*network_id - 1
+        service_port_id = 2 * network_id - 1
         return (service_port_id, service_port_id + 1)
     # end find_service_ports
 
@@ -198,7 +204,8 @@ class DMUtils(object):
 
     @staticmethod
     def make_private_vrf_filter_name(ri_name):
-        ri_prefix = ri_name[:DMUtils.MAX_FILTER_NAME_LENGTH - len('redirect-to-') - len('-vrf')]
+        ri_prefix = ri_name[:DMUtils.MAX_FILTER_NAME_LENGTH -
+                            len('redirect-to-') - len('-vrf')]
         return 'redirect-to-' + ri_prefix + '-vrf'
     # end make_private_vrf_filter_name
 
@@ -223,7 +230,8 @@ class DMUtils(object):
 
     @staticmethod
     def make_vrf_term_name(ri_name):
-        ri_prefix = ri_name[:DMUtils.MAX_FILTER_TERM_NAME_LENGTH - len('term-')]
+        ri_prefix = ri_name[:DMUtils.MAX_FILTER_TERM_NAME_LENGTH -
+                            len('term-')]
         return 'term-' + ri_prefix
     # end make_vrf_term_name
 
@@ -260,12 +268,14 @@ class DMUtils(object):
 
     @staticmethod
     def get_ipv6_prefixes(prefixes=[]):
-        return [prefix for prefix in prefixes or [] if IPNetwork(prefix).version == 6]
+        return [prefix for prefix in prefixes or []
+                if IPNetwork(prefix).version == 6]
     # end get_ipv6_prefixes
 
     @staticmethod
     def get_ipv4_prefixes(prefixes=[]):
-        return [prefix for prefix in prefixes or [] if IPNetwork(prefix).version == 4]
+        return [prefix for prefix in prefixes or []
+                if IPNetwork(prefix).version == 4]
     # end get_ipv4_prefixes
 
     @staticmethod
@@ -281,18 +291,18 @@ class DMUtils(object):
     @staticmethod
     def get_ip_cs_column_name(ip_type):
         m = {
-              "irb": "ip_address",
-              "lo0": "lo0_ip_address"
-            }
+            "irb": "ip_address",
+            "lo0": "lo0_ip_address"
+        }
         return m.get(ip_type)
     # end get_ip_cs_column_name
 
     @staticmethod
     def get_ip_used_for_str(cs_name):
         m = {
-              "ip_address": "irb",
-              "lo0_ip_address": "lo0"
-            }
+            "ip_address": "irb",
+            "lo0_ip_address": "lo0"
+        }
         return m.get(cs_name)
     # end get_ip_used_for_str
 
@@ -302,7 +312,8 @@ class DMUtils(object):
 
     @staticmethod
     def si_ri_comment(si):
-        return "/* Service Instance: %s, UUID: %s */"%(si.fq_name[-1], si.uuid)
+        return "/* Service Instance: %s, UUID: %s */" % (
+            si.fq_name[-1], si.uuid)
 
     @staticmethod
     def vn_ri_comment(vn, is_l2, is_l2_l3, is_nat, router_external):
@@ -318,10 +329,11 @@ class DMUtils(object):
             vn_type = "Public"
         if not is_nat:
             return "/* %s Virtual Network: %s, UUID: %s, VRF Type: %s," \
-                " Forwarding Mode: %s */"%(vn_type, vn.fq_name[-1], vn.uuid,
-                                                           vrf_type, fwd_mode)
+                " Forwarding Mode: %s */" % (vn_type, vn.fq_name[-1], vn.uuid,
+                                             vrf_type, fwd_mode)
         return "/* Virtual Network: %s, UUID: %s, VRF Type: %s (NAT)," \
-            " Forwarding Mode: %s */"%(vn.fq_name[-1], vn.uuid, vrf_type, fwd_mode)
+            " Forwarding Mode: %s */" % (vn.fq_name[-1], vn.uuid,
+                                         vrf_type, fwd_mode)
 
     @staticmethod
     def bgp_group_comment(bgp_obj):
@@ -330,7 +342,7 @@ class DMUtils(object):
 
     @staticmethod
     def dci_bgp_group_comment(bgp):
-        return "/* overlay_bgp: DCI BGP Router: %s */" %(bgp.name)
+        return "/* overlay_bgp: DCI BGP Router: %s */" % (bgp.name)
 
     @staticmethod
     def public_vrf_filter_comment():
@@ -342,27 +354,31 @@ class DMUtils(object):
 
     @staticmethod
     def vn_ps_comment(vn, target_type):
-        return "/* Virtual Network: %s, UUID: %s, Route Targets Type: %s */"%(
-                                          vn.fq_name[-1], vn.uuid, target_type)
+        return "/* Virtual Network: %s, UUID: %s," \
+            " Route Targets Type: %s */" % (
+                vn.fq_name[-1], vn.uuid, target_type)
+
     @staticmethod
     def si_ps_comment(si, target_type):
-        return "/* Service Instance: %s, UUID: %s, Route Targets Type: %s */"%(
-                                          si.fq_name[-1], si.uuid, target_type)
+        return "/* Service Instance: %s, UUID: %s," \
+            " Route Targets Type: %s */" % (
+                si.fq_name[-1], si.uuid, target_type)
 
     @staticmethod
     def vn_firewall_comment(vn, mode):
-        return "/* fip: Virtual Network: %s, UUID: %s, Filter Type: %s */" %\
-               (vn.fq_name[-1], vn.uuid, mode)
+        return "/* fip: Virtual Network: %s, UUID: %s," \
+            " Filter Type: %s */" %\
+            (vn.fq_name[-1], vn.uuid, mode)
 
     @staticmethod
     def vn_bd_comment(vn, encap):
-        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */"%(
-                                            vn.fq_name[-1], vn.uuid, encap)
+        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */" % (
+            vn.fq_name[-1], vn.uuid, encap)
 
     @staticmethod
     def vn_evpn_comment(vn, encap):
-        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */"%(
-                                            vn.fq_name[-1], vn.uuid, encap)
+        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */" % (
+            vn.fq_name[-1], vn.uuid, encap)
 
     @staticmethod
     def vn_irb_comment(vn, is_l2, is_l2_l3):
@@ -371,17 +387,18 @@ class DMUtils(object):
             vrf_type = "L2"
         if is_l2_l3:
             vrf_type = "L2-L3"
-        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */"%(vn.fq_name[-1],
-                                                                 vn.uuid, vrf_type)
+        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */" % (
+            vn.fq_name[-1], vn.uuid, vrf_type)
 
     @staticmethod
     def service_set_comment(vn):
-        return "/* Virtual Network: %s, UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+        return "/* Virtual Network: %s, UUID: %s */" % (
+            vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def service_set_nat_rule_comment(vn, nat_type):
-        return "/* %s Rules for Virtual Network: %s, UUID: %s */"%(nat_type,
-                                                      vn.fq_name[-1], vn.uuid)
+        return "/* %s Rules for Virtual Network: %s, UUID: %s */" % (
+            nat_type, vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def nat_comment():
@@ -416,13 +433,13 @@ class DMUtils(object):
         return "/* Firewalls Configuration */"
 
     @staticmethod
-    def make_sg_filter_name(sg_name, ether_type_match, rule_uuid):
-        return "sg-filter-" + ether_type_match + "-" + sg_name + "-" + rule_uuid
+    def make_sg_filter_name(sg_name, ether_match, rule_uuid):
+        return "sg-filter-" + ether_match + "-" + sg_name + "-" + rule_uuid
 
     @staticmethod
     def sg_firewall_comment(sg_name, ether_type_match, rule_uuid):
         return "/* Firewall Filter for : Ether Type: " + ether_type_match + \
-                   ", Security Group: " + sg_name + ", Rule UUID: "+ rule_uuid
+            ", Security Group: " + sg_name + ", Rule UUID: " + rule_uuid
 
     @staticmethod
     def make_sg_firewall_name(sg_name, acl_uuid):
@@ -431,7 +448,7 @@ class DMUtils(object):
     @staticmethod
     def make_sg_firewall_comment(sg_name, acl_uuid):
         return "/* Firewall Filter for : Security Group: " + sg_name + \
-                   ", ACL UUID: "+ acl_uuid
+            ", ACL UUID: " + acl_uuid
 
     @staticmethod
     def interfaces_comment():
@@ -452,25 +469,26 @@ class DMUtils(object):
     @staticmethod
     def vn_irb_fip_inet_comment(vn):
         return "/* fip: Routing Interface For Floating IPs, " \
-               "Virtual Network: %s, UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+               "Virtual Network: %s, UUID: %s */" % (vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def l2_evpn_intf_unit_comment(vn, is_tagged, tag=None):
         if is_tagged:
             return "/* L2 EVPN Tagged Interface, Virtual Network: %s, "\
-                   "UUID: %s, VLAN Tag: %s */"%(vn.fq_name[-1], vn.uuid, str(tag))
+                "UUID: %s, VLAN Tag: %s */" % (vn.fq_name[-1],
+                                               vn.uuid, str(tag))
         return "/* L2 EVPN Untagged Interface, Virtual Network: %s, "\
-               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+               "UUID: %s */" % (vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def l3_lo_intf_comment(vn):
         return "/* L3 Gateway Interface, Virtual Network: %s, "\
-               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+               "UUID: %s */" % (vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def l3_bogus_lo_intf_comment(vn):
-        return "/* Bogus lo0 interface (PFE limitation), Virtual Network: %s, "\
-               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+        return "/* Bogus lo0 intf (PFE limitation), Virtual Network: %s, "\
+               "UUID: %s */" % (vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def service_ifd_comment():
@@ -478,24 +496,24 @@ class DMUtils(object):
 
     @staticmethod
     def service_intf_comment(direction):
-        return "/* Service %s Interface */"%(direction)
+        return "/* Service %s Interface */" % (direction)
 
     @staticmethod
     def irb_ip_comment(irb_ip):
         ip = IPNetwork(irb_ip)
-        return "/* Allocated IPv%s Address from Subnet: %s/%s */"%(str(ip.version),
-                                                    ip.network, str(ip.prefixlen))
+        return "/* Allocated IPv%s Address from Subnet: %s/%s */" % (
+            str(ip.version), ip.network, str(ip.prefixlen))
 
     @staticmethod
     def lo0_ip_comment(lo_ip):
         ip = IPNetwork(lo_ip)
-        return "/* Allocated IPv%s Address from Subnet: %s/%s */"%(str(ip.version),
-                                                    ip.network, str(ip.prefixlen))
+        return "/* Allocated IPv%s Address from Subnet: %s/%s */" % (
+            str(ip.version), ip.network, str(ip.prefixlen))
 
     @staticmethod
     def lo0_ri_intf_comment(vn):
         return "/* Routing Interface for lo0 IPs of L3 Virtual Network: %s, "\
-               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+               "UUID: %s */" % (vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def lo0_unit_0_comment():
@@ -507,7 +525,7 @@ class DMUtils(object):
 
     @staticmethod
     def bgp_router_subnet_comment(name):
-        return "/* BGP Router : %s */"%(name)
+        return "/* BGP Router : %s */" % (name)
 
     @staticmethod
     def public_vrf_route_comment():
@@ -614,9 +632,10 @@ class DMIndexer(object):
     ALLOC_DECREMENT = -1
 
     def __init__(self, max_count, order=1):
+        """Initialize index_allocation, order, max_count etc."""
         self.max_count = max_count
         self.allocation_order = order
-        self.index_allocator = bitarray([0]*max_count)
+        self.index_allocator = bitarray([0] * max_count)
     # end __init__
 
     def reserve_index(self, index):

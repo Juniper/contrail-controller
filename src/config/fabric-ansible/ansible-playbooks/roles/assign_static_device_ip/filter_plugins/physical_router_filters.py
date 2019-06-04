@@ -3,7 +3,9 @@
 #
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
-from netaddr import IPNetwork, IPAddress
+
+from cfgm_common.exceptions import NoIdError
+from netaddr import IPAddress, IPNetwork
 from vnc_api.vnc_api import VncApi
 
 
@@ -53,24 +55,34 @@ class FilterModule(object):
             ip_addr = IPAddress(ip)
             for subnet in subnets:
                 inner_subnet = subnet.get('subnet')
-                cidr = inner_subnet.get('ip_prefix') + '/' + str(inner_subnet.get('ip_prefix_len'))
-                if ip_addr in IPNetwork(cidr) and subnet.get('default_gateway'):
+                cidr = inner_subnet.get(
+                    'ip_prefix') + '/' + str(inner_subnet.get('ip_prefix_len'))
+                if ip_addr in IPNetwork(
+                        cidr) and subnet.get('default_gateway'):
                     gateway = subnet.get('default_gateway')
                     break
         if cidr and gateway:
-            return { 'cidr': cidr, 'gateway': gateway }
+            return {'cidr': cidr, 'gateway': gateway}
 
-        raise Error("Cannot find cidr and gateway for device: %s" % str(device_fq_name))
+        raise NoIdError(
+            "Cannot find cidr and gateway for device: %s" %
+            str(device_fq_name))
     # end get_pr_subnet
 
     @classmethod
-    def get_supplemental_config(cls, device_name, device_to_ztp, supplemental_configs):
+    def get_supplemental_config(
+            cls,
+            device_name,
+            device_to_ztp,
+            supplemental_configs):
         supplemental_config = ""
         if device_name and device_to_ztp and supplemental_configs:
-            device_map = dict((d.get('serial_number'), d) for d in device_to_ztp)
+            device_map = dict((d.get('serial_number'), d)
+                              for d in device_to_ztp)
             config_map = dict((c.get('name'), c) for c in supplemental_configs)
             if device_name in device_map:
-                config_name = device_map[device_name].get('supplemental_day_0_cfg')
+                config_name = device_map[device_name].get(
+                    'supplemental_day_0_cfg')
                 if config_name in config_map:
                     supplemental_config = config_map[config_name].get('cfg')
         return supplemental_config

@@ -1,20 +1,19 @@
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains implementation of abstract config generation for PNFs
+#
 
-"""
-This file contains implementation of abstract config generation for PNFs
-"""
-from db import *
-from dm_utils import DMUtils
-from ansible_role_common import AnsibleRoleCommon
 from abstract_device_api.abstract_device_xsd import *
+from ansible_role_common import AnsibleRoleCommon
+from db import *
 
 
 class PnfConf(AnsibleRoleCommon):
     _roles = ['pnf']
 
     def __init__(self, logger, params={}):
+        """Initialize PnfConf init params."""
         super(PnfConf, self).__init__(logger, params)
     # end __init__
 
@@ -230,75 +229,100 @@ class PnfConf(AnsibleRoleCommon):
                             if attr == 'left':
                                 left_li_name = pi_obj.name + '.' + \
                                     str(svc_params['left_vlan'])
-                                left_li_fq_name = pi_obj.fq_name + [left_li_name.replace(":", "_")]
-                                left_li_obj = LogicalInterfaceDM.find_by_fq_name(left_li_fq_name)
+                                left_li_fq_name = pi_obj.fq_name + \
+                                    [left_li_name.replace(":", "_")]
+                                left_li_obj = \
+                                    LogicalInterfaceDM.find_by_fq_name(
+                                        left_li_fq_name)
                                 if left_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         left_li_obj.instance_ip)
                                     if instance_ip:
-                                        left_li_ip = instance_ip.instance_ip_address
+                                        left_li_ip = \
+                                            instance_ip.instance_ip_address
                                         svc_params['left_li'] = left_li_name
                                         svc_params['left_li_ip'] = left_li_ip
                                 lo0_li_name = 'lo0' + '.' + \
                                     str(svc_params['left_vlan'])
                                 lo0_fq_name = pr.fq_name + ['lo0', lo0_li_name]
-                                lo0_li_obj = LogicalInterfaceDM.find_by_fq_name(lo0_fq_name)
+                                lo0_li_obj = \
+                                    LogicalInterfaceDM.find_by_fq_name(
+                                        lo0_fq_name)
                                 if lo0_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         lo0_li_obj.instance_ip)
                                     if instance_ip:
-                                        lo0_li_ip = instance_ip.instance_ip_address
+                                        lo0_li_ip = \
+                                            instance_ip.instance_ip_address
                                         svc_params['lo0_li'] = lo0_li_name
                                         svc_params['lo0_li_ip'] = lo0_li_ip
                                 peer_left_intfs_ip = []
                                 for pi_ref in pi_obj.physical_interfaces or []:
                                     pi_ref_obj = PhysicalInterfaceDM.get(
                                         pi_ref)
-                                    svc_params['left_peer_asn'] = self.get_peer_asn(pi_ref_obj)
+                                    svc_params['left_peer_asn'] = \
+                                        self.get_peer_asn(pi_ref_obj)
                                     peer_li_name = pi_ref_obj.name + \
                                         '.' + str(svc_params['left_vlan'])
-                                    peer_li_fq_name = pi_ref_obj.fq_name + [peer_li_name.replace(":", "_")]
-                                    peer_li_obj = LogicalInterfaceDM.find_by_fq_name(peer_li_fq_name)
+                                    peer_li_fq_name = pi_ref_obj.fq_name + \
+                                        [peer_li_name.replace(":", "_")]
+                                    peer_li_obj = \
+                                        LogicalInterfaceDM.find_by_fq_name(
+                                            peer_li_fq_name)
                                     if peer_li_obj:
                                         instance_ip = InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
                                         if instance_ip:
-                                            peer_li_ip = instance_ip.instance_ip_address
+                                            peer_li_ip = \
+                                                instance_ip.instance_ip_address
                                             peer_left_intfs_ip.append(
                                                 peer_li_ip)
-                                svc_params['peer_left_li_ips'] = peer_left_intfs_ip
+                                svc_params['peer_left_li_ips'] = \
+                                    peer_left_intfs_ip
                             elif attr == 'right':
                                 right_li_name = pi_obj.name + '.' + \
                                     str(svc_params['right_vlan'])
-                                right_li_fq_name = pi_obj.fq_name + [right_li_name.replace(":", "_")]
-                                right_li_obj = LogicalInterfaceDM.find_by_fq_name(right_li_fq_name)
+                                right_li_fq_name = pi_obj.fq_name + \
+                                    [right_li_name.replace(":", "_")]
+                                right_li_obj = \
+                                    LogicalInterfaceDM.find_by_fq_name(
+                                        right_li_fq_name)
                                 if right_li_obj:
                                     instance_ip = InstanceIpDM.get(
                                         right_li_obj.instance_ip)
                                     if instance_ip:
-                                        right_li_ip = instance_ip.instance_ip_address
+                                        right_li_ip = \
+                                            instance_ip.instance_ip_address
                                         svc_params['right_li'] = right_li_name
                                         svc_params['right_li_ip'] = right_li_ip
                                 peer_right_intfs_ip = []
                                 for pi_ref in pi_obj.physical_interfaces or []:
                                     pi_ref_obj = PhysicalInterfaceDM.get(
                                         pi_ref)
-                                    svc_params['right_peer_asn'] = self.get_peer_asn(pi_ref_obj)
+                                    svc_params['right_peer_asn'] = \
+                                        self.get_peer_asn(pi_ref_obj)
                                     peer_li_name = pi_ref_obj.name + \
                                         '.' + str(svc_params['right_vlan'])
-                                    peer_li_fq_name = pi_ref_obj.fq_name + [peer_li_name.replace(":", "_")]
-                                    peer_li_obj = LogicalInterfaceDM.find_by_fq_name(peer_li_fq_name)
+                                    peer_li_fq_name = pi_ref_obj.fq_name + \
+                                        [peer_li_name.replace(":", "_")]
+                                    peer_li_obj = \
+                                        LogicalInterfaceDM.find_by_fq_name(
+                                            peer_li_fq_name)
                                     if peer_li_obj:
                                         instance_ip = InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
                                         if instance_ip:
-                                            peer_li_ip = instance_ip.instance_ip_address
+                                            peer_li_ip = \
+                                                instance_ip.instance_ip_address
                                             peer_right_intfs_ip.append(
                                                 peer_li_ip)
-                                svc_params['peer_right_li_ips'] = peer_right_intfs_ip
-                        self._logger.debug("PR: %s svc params: %s" %(pr.name, svc_params))
-                        # Make sure all required parameters are present before creating the
-                        # abstract config
+                                svc_params['peer_right_li_ips'] = \
+                                    peer_right_intfs_ip
+                        self._logger.debug(
+                            "PR: %s svc params: %s" %
+                            (pr.name, svc_params))
+                        # Make sure all required parameters are present,
+                        # before creating the abstract config
                         if self.build_pnf_required_params(svc_params):
                             self.build_pnf_svc_ri_config(svc_params)
                             self.build_pnf_svc_intfs_config(svc_params)
