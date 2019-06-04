@@ -3,28 +3,24 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Device Manager monitor logger
-"""
 
-from sandesh_common.vns.ttypes import Module
 from cfgm_common.vnc_logger import ConfigServiceLogger
-
-from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
-     LogicalInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-     VirtualMachineInterfaceDM, FloatingIpDM, InstanceIpDM, PortTupleDM, \
-     LogicalRouterDM
+from db import BgpRouterDM, FloatingIpDM, InstanceIpDM, LogicalInterfaceDM, \
+    LogicalRouterDM, PhysicalInterfaceDM, PhysicalRouterDM, PortTupleDM, \
+    RoutingInstanceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
 from sandesh.dm_introspect import ttypes as sandesh
+from sandesh_common.vns.ttypes import Module
 
 
 class DeviceManagerLogger(ConfigServiceLogger):
 
     def __init__(self, args=None, http_server_port=None):
+        """Initialize logger parameters."""
         module = Module.DEVICE_MANAGER
         module_pkg = "device_manager"
         self.context = "device_manager"
         super(DeviceManagerLogger, self).__init__(
-                module, module_pkg, args, http_server_port)
+            module, module_pkg, args, http_server_port)
 
     def sandesh_init(self, http_server_port=None):
         super(DeviceManagerLogger, self).sandesh_init(http_server_port)
@@ -76,11 +72,13 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_bgp_handle_request
 
     def sandesh_pr_build(self, pr):
-        return sandesh.PhysicalRouter(name=pr.name, uuid=pr.uuid,
-                                 bgp_router=pr.bgp_router,
-                                 physical_interfaces=pr.physical_interfaces,
-                                 logical_interfaces=pr.logical_interfaces,
-                                 virtual_networks=pr.virtual_networks)
+        return sandesh.PhysicalRouter(
+            name=pr.name,
+            uuid=pr.uuid,
+            bgp_router=pr.bgp_router,
+            physical_interfaces=pr.physical_interfaces,
+            logical_interfaces=pr.logical_interfaces,
+            virtual_networks=pr.virtual_networks)
 
     def sandesh_pr_handle_request(self, req):
         # Return the list of PR routers
@@ -98,8 +96,10 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_pr_handle_request
 
     def sandesh_pi_build(self, pi):
-        return sandesh.PhysicalInterface(name=pi.name, uuid=pi.uuid,
-                                 logical_interfaces=pi.logical_interfaces)
+        return sandesh.PhysicalInterface(
+            name=pi.name,
+            uuid=pi.uuid,
+            logical_interfaces=pi.logical_interfaces)
 
     def sandesh_pi_handle_request(self, req):
         # Return the list of PR routers
@@ -117,9 +117,11 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_pi_handle_request
 
     def sandesh_li_build(self, li):
-        return sandesh.LogicalInterface(name=li.name, uuid=li.uuid,
-                                 physical_interface=li.physical_interface,
-                                 virtual_machine_interface=li.virtual_machine_interface)
+        return sandesh.LogicalInterface(
+            name=li.name,
+            uuid=li.uuid,
+            physical_interface=li.physical_interface,
+            virtual_machine_interface=li.virtual_machine_interface)
 
     def sandesh_li_handle_request(self, req):
         # Return the list of PR routers
@@ -137,10 +139,12 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_li_handle_request
 
     def sandesh_vn_build(self, vn):
-        return sandesh.VirtualNetwork(name=vn.name, uuid=vn.uuid,
-                                 routing_instances=vn.routing_instances,
-                                 virtual_machine_interfaces=vn.virtual_machine_interfaces,
-                                 physical_routers=vn.physical_routers)
+        return sandesh.VirtualNetwork(
+            name=vn.name,
+            uuid=vn.uuid,
+            routing_instances=vn.routing_instances,
+            virtual_machine_interfaces=vn.virtual_machine_interfaces,
+            physical_routers=vn.physical_routers)
 
     def sandesh_vn_handle_request(self, req):
         # Return the vnst of PR routers
@@ -158,19 +162,23 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_vn_handle_request
 
     def sandesh_vmi_build(self, vmi):
-        return sandesh.VirtualMachineInterface(name=vmi.name, uuid=vmi.uuid,
-                                 logical_interface=vmi.logical_interface,
-                                 virtual_network=vmi.virtual_network)
+        return sandesh.VirtualMachineInterface(
+            name=vmi.name,
+            uuid=vmi.uuid,
+            logical_interface=vmi.logical_interface,
+            virtual_network=vmi.virtual_network)
 
     def sandesh_vmi_handle_request(self, req):
         # Return the set of VMIs
-        resp = sandesh.VirtualMachineInterfaceListResp(virtual_machine_interfaces=[])
+        resp = sandesh.VirtualMachineInterfaceListResp(
+            virtual_machine_interfaces=[])
         if req.name_or_uuid is None:
             for vmi in VirtualMachineInterfaceDM.values():
                 sandesh_vmi = self.sandesh_vmi_build(vmi)
                 resp.virtual_machine_interfaces.append(sandesh_vmi)
         else:
-            vmi = VirtualMachineInterfaceDM.find_by_name_or_uuid(req.name_or_uuid)
+            vmi = VirtualMachineInterfaceDM.find_by_name_or_uuid(
+                req.name_or_uuid)
             if vmi:
                 sandesh_vmi = self.sandesh_vmi_build(vmi)
                 resp.virtual_machine_interfaces.append(sandesh_vmi)
@@ -179,7 +187,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
 
     def sandesh_ri_build(self, ri):
         return sandesh.RoutingInstance(name=ri.name, uuid=ri.uuid,
-                                 virtual_network=ri.virtual_network)
+                                       virtual_network=ri.virtual_network)
 
     def sandesh_ri_handle_request(self, req):
         # Return the set of VMIs
@@ -197,10 +205,12 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_ri_handle_request
 
     def sandesh_lr_build(self, lr):
-        return sandesh.LogicalRouter(name=lr.name, uuid=lr.uuid,
-                                 physical_routers=lr.physical_routers,
-                                 virtual_machine_interfaces=lr.virtual_machine_interfaces,
-                                 virtual_network=lr.virtual_network)
+        return sandesh.LogicalRouter(
+            name=lr.name,
+            uuid=lr.uuid,
+            physical_routers=lr.physical_routers,
+            virtual_machine_interfaces=lr.virtual_machine_interfaces,
+            virtual_network=lr.virtual_network)
 
     def sandesh_lr_handle_request(self, req):
         # Return the set of VMIs
@@ -218,9 +228,11 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_lr_handle_request
 
     def sandesh_fip_build(self, fip):
-        return sandesh.FloatingIp(name=fip.name, uuid=fip.uuid,
-                                 floating_ip_address=fip.floating_ip_address,
-                                 virtual_machine_interface=fip.virtual_machine_interface)
+        return sandesh.FloatingIp(
+            name=fip.name,
+            uuid=fip.uuid,
+            floating_ip_address=fip.floating_ip_address,
+            virtual_machine_interface=fip.virtual_machine_interface)
 
     def sandesh_fip_handle_request(self, req):
         # Return the set of FIPs
@@ -238,28 +250,34 @@ class DeviceManagerLogger(ConfigServiceLogger):
     # end sandesh_fip_handle_request
 
     def sandesh_instance_ip_build(self, instance_ip):
-        return sandesh.InstanceIp(name=instance_ip.name, uuid=instance_ip.uuid,
-                                 instance_ip_address=instance_ip.instance_ip_address,
-                                 virtual_machine_interface=instance_ip.virtual_machine_interface)
+        return sandesh.InstanceIp(
+            name=instance_ip.name,
+            uuid=instance_ip.uuid,
+            instance_ip_address=instance_ip.instance_ip_address,
+            virtual_machine_interface=instance_ip.virtual_machine_interface)
 
     def sandesh_instance_ip_handle_request(self, req):
         # Return the set of Instance IPs
         resp = sandesh.InstanceIpListResp(instance_ips=[])
         if req.name_or_uuid is None:
             for instance_ip in InstanceIpDM.values():
-                sandesh_instance_ip = self.sandesh_instance_ip_build(instance_ip)
+                sandesh_instance_ip = self.sandesh_instance_ip_build(
+                    instance_ip)
                 resp.instance_ips.append(sandesh_instance_ip)
         else:
             instance_ip = InstanceIpDM.find_by_name_or_uuid(req.name_or_uuid)
             if instance_ip:
-                sandesh_instance_ip = self.sandesh_instance_ip_build(instance_ip)
+                sandesh_instance_ip = self.sandesh_instance_ip_build(
+                    instance_ip)
                 resp.instance_ips.append(sandesh_instance_ip)
         resp.response(req.context())
     # end sandesh_instance_ip_handle_request
 
     def sandesh_port_tuple_build(self, port_tuple):
-        return sandesh.PortTuple(name=port_tuple.name, uuid=port_tuple.uuid,
-                                 virtual_machine_interfaces=port_tuple.virtual_machine_interfaces)
+        return sandesh.PortTuple(
+            name=port_tuple.name,
+            uuid=port_tuple.uuid,
+            virtual_machine_interfaces=port_tuple.virtual_machine_interfaces)
 
     def sandesh_port_tuple_handle_request(self, req):
         # Return the set of Port Tuples

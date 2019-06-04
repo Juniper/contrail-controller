@@ -1,22 +1,23 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains generic plugin implementation device configuration
+# using ansible
+#
 
-"""
-This file contains generic plugin implementation device configuration using ansible
-"""
-
-import time
 import datetime
-import json
 from hashlib import md5
-from dm_utils import DMUtils
-from ansible_base import AnsibleBase
-from dm_utils import PushConfigState
-from db import *
+import json
+import time
+
 from abstract_device_api.abstract_device_xsd import *
-from device_manager import DeviceManager
+from ansible_base import AnsibleBase
+from db import *
+from dm_utils import DMUtils
+from dm_utils import PushConfigState
 from job_handler import JobHandler
+
+from device_manager import DeviceManager
 
 
 class AnsibleConf(AnsibleBase):
@@ -80,8 +81,10 @@ class AnsibleConf(AnsibleBase):
         self.system_config.set_uuid(self.physical_router.uuid)
         self.system_config.set_vendor_name(self.physical_router.vendor)
         self.system_config.set_product_name(self.physical_router.product)
-        self.system_config.set_device_family(self.physical_router.device_family)
-        self.system_config.set_management_ip(self.physical_router.management_ip)
+        self.system_config.set_device_family(
+            self.physical_router.device_family)
+        self.system_config.set_management_ip(
+            self.physical_router.management_ip)
         self.system_config.set_dummy_ip(self.physical_router.dummy_ip)
         self.system_config.set_encapsulation_priorities(
             GlobalVRouterConfigDM.global_encapsulation_priorities)
@@ -94,8 +97,10 @@ class AnsibleConf(AnsibleBase):
         if self.physical_router.user_credentials:
             self.system_config.set_credentials(Credentials(
                 authentication_method="PasswordBasedAuthentication",
-                user_name=self.physical_router.user_credentials.get('username'),
-                password=self.physical_router.user_credentials.get('password')))
+                user_name=self.physical_router.user_credentials.get(
+                    'username'),
+                password=self.physical_router.user_credentials.get(
+                    'password')))
         if self.physical_router.loopback_ip is not None:
             already_added = False
             for loopback_ip in self.system_config.get_loopback_ip_list():
@@ -138,13 +143,14 @@ class AnsibleConf(AnsibleBase):
                 for li_uuid in pi_obj.logical_interfaces:
                     li_obj = LogicalInterfaceDM.get(li_uuid)
                     if li_obj is None:
-                        self._logger.error("unable to read logical interface %s"
-                                           % li_uuid)
+                        self._logger.error(
+                            "unable to read logical interface %s" % li_uuid)
                     elif li_obj.instance_ip is not None:
                         iip_obj = InstanceIpDM.get(li_obj.instance_ip)
                         if iip_obj is None:
-                            self._logger.error("unable to read instance ip %s" %
-                                               li_obj.instance_ip)
+                            self._logger.error(
+                                "unable to read instance ip %s" %
+                                li_obj.instance_ip)
                         else:
                             yield pi_obj, li_obj, iip_obj
     # end fetch_pi_li_iip
@@ -173,8 +179,8 @@ class AnsibleConf(AnsibleBase):
                                                           pi_obj.uuid))
                 # Add this bgp object only if it has a peer
                 underlay_asn = self.physical_router.allocated_asn
-                bgp_name = DMUtils.make_underlay_bgp_group_name(underlay_asn,
-                    li_obj.name, is_external=True)
+                bgp_name = DMUtils.make_underlay_bgp_group_name(
+                    underlay_asn, li_obj.name, is_external=True)
                 bgp = Bgp(name=bgp_name,
                           ip_address=iip_obj.instance_ip_address,
                           autonomous_system=underlay_asn,
@@ -198,10 +204,11 @@ class AnsibleConf(AnsibleBase):
                                 "peer physical router %s does not have"
                                 " asn allocated" % peer_pi_obj.physical_router)
                         elif peer_pr != self.physical_router:
-                            peer = Bgp(name=peer_pr.name,
-                                       ip_address=peer_iip_obj.instance_ip_address,
-                                       autonomous_system=peer_pr.allocated_asn,
-                                       comment=peer_pr.name)
+                            peer = Bgp(
+                                name=peer_pr.name,
+                                ip_address=peer_iip_obj.instance_ip_address,
+                                autonomous_system=peer_pr.allocated_asn,
+                                comment=peer_pr.name)
                             peers[peer_pr.name] = peer
 
                 if peers:
@@ -218,31 +225,38 @@ class AnsibleConf(AnsibleBase):
         try:
             config_size = len(config_str)
             current_config_hash = md5(config_str).hexdigest()
-            if self.last_config_hash is None or\
-                    (current_config_hash != self.last_config_hash or forced_cfg_push):
-                self._logger.info("Config push for %s(%s) using job template %s, forced_push %s" %
-                          (self.physical_router.name, self.physical_router.uuid,
-                           str(job_template), forced_cfg_push))
+            if self.last_config_hash is None or (
+                    current_config_hash != self.last_config_hash or
+                    forced_cfg_push):
+                self._logger.info(
+                    "Config push for %s(%s) using job template %s, "
+                    "forced_push %s" %
+                    (self.physical_router.name,
+                     self.physical_router.uuid,
+                     str(job_template),
+                        forced_cfg_push))
                 self._logger.debug("Abstract config: %s" %
                                    json.dumps(job_input, indent=4,
                                               sort_keys=True))
                 device_manager = DeviceManager.get_instance()
-                job_handler = JobHandler(job_template, job_input,
-                                         [self.physical_router.uuid],
-                                         device_manager.get_api_server_config(),
-                                         self._logger,
-                                         device_manager._amqp_client,
-                                         device_manager._args)
+                job_handler = JobHandler(
+                    job_template,
+                    job_input,
+                    [self.physical_router.uuid],
+                    device_manager.get_api_server_config(),
+                    self._logger,
+                    device_manager._amqp_client,
+                    device_manager._args)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()
                 job_handler.push(**device_manager.get_job_status_config())
                 end_time = time.time()
                 self.commit_stats['commit_status_message'] = 'success'
                 self.commit_stats['last_commit_time'] = \
-                        datetime.datetime.fromtimestamp(
-                        end_time).strftime('%Y-%m-%d %H:%M:%S')
+                    datetime.datetime.fromtimestamp(
+                    end_time).strftime('%Y-%m-%d %H:%M:%S')
                 self.commit_stats['last_commit_duration'] = str(
-                        end_time - start_time)
+                    end_time - start_time)
                 self.last_config_hash = current_config_hash
             else:
                 self._logger.debug("not pushing since no config change"
@@ -255,14 +269,14 @@ class AnsibleConf(AnsibleBase):
                                json.dumps(job_input, indent=4,
                                           sort_keys=True))
             self.commit_stats[
-                    'commit_status_message'] = 'failed to apply config,\
+                'commit_status_message'] = 'failed to apply config,\
                                                 router response: ' + e.message
             if start_time is not None:
                 self.commit_stats['last_commit_time'] = \
-                        datetime.datetime.fromtimestamp(
-                            start_time).strftime('%Y-%m-%d %H:%M:%S')
+                    datetime.datetime.fromtimestamp(
+                    start_time).strftime('%Y-%m-%d %H:%M:%S')
                 self.commit_stats['last_commit_duration'] = str(
-                        time.time() - start_time)
+                    time.time() - start_time)
             self.push_config_state = PushConfigState.PUSH_STATE_RETRY if retry\
                 else PushConfigState.PUSH_STATE_FAILED
         return config_size
@@ -285,7 +299,8 @@ class AnsibleConf(AnsibleBase):
 
     @staticmethod
     def add_to_list(lst, value):
-        if value not in lst: lst.append(value)
+        if value not in lst:
+            lst.append(value)
     # end add_to_list
 
     @staticmethod
@@ -330,12 +345,18 @@ class AnsibleConf(AnsibleBase):
             pis.append(pi)
 
         device.set_physical_interfaces(pis)
-        device.set_routing_instances(self.get_values_sorted_by_key(self.ri_map))
+        device.set_routing_instances(
+            self.get_values_sorted_by_key(
+                self.ri_map))
         device.set_vlans(self.get_values_sorted_by_key(self.vlan_map))
         device.set_forwarding_options(self.forwarding_options_config)
         device.set_firewall(self.firewall_config)
-        device.set_security_zones(self.get_values_sorted_by_key(self.sc_zone_map))
-        device.set_security_policies(self.get_values_sorted_by_key(self.sc_policy_map))
+        device.set_security_zones(
+            self.get_values_sorted_by_key(
+                self.sc_zone_map))
+        device.set_security_policies(
+            self.get_values_sorted_by_key(
+                self.sc_policy_map))
         if feature_configs:
             device.features = feature_configs
         return device
@@ -485,14 +506,18 @@ class AnsibleConf(AnsibleBase):
                         self.add_families(nbr, session_attr)
                         self.add_bgp_auth_config(nbr, session_attr)
                         break
-            peer_as = params.get('local_autonomous_system') or params.get('autonomous_system')
+            peer_as = params.get('local_autonomous_system') or params.get(
+                'autonomous_system')
             nbr.set_autonomous_system(peer_as)
         if peer_map:
-            bgp_config.set_peers(self.get_values_sorted_by_key(peer_map))
+            bgp_config.set_peers(
+                self.get_values_sorted_by_key(peer_map))
     # end get_peer_bgp_config
 
     def get_asn(self):
-        return self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
+        return self.bgp_params.get(
+            'local_autonomous_system') or \
+            self.bgp_params.get('autonomous_system')
     # end get_asn
 
     def set_bgp_group_config(self):
@@ -543,21 +568,22 @@ class AnsibleConf(AnsibleBase):
             if not tunnel_ip and bgp_router.params:
                 tunnel_ip = bgp_router.params.get('address')
             if tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip):
-                self.add_dynamic_tunnels(tunnel_ip,
-                                         GlobalSystemConfigDM.ip_fabric_subnets)
+                self.add_dynamic_tunnels(
+                    tunnel_ip, GlobalSystemConfigDM.ip_fabric_subnets)
 
         self.set_bgp_group_config()
     # end build_bgp_config
 
     def ensure_bgp_config(self):
         if not self.physical_router.bgp_router:
-            self._logger.info("bgp router not configured for pr: " + \
-                                                 self.physical_router.name)
+            self._logger.info("bgp router not configured for pr: " +
+                              self.physical_router.name)
             return False
         bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
-        if not bgp_router or not bgp_router.params or not bgp_router.params.get("address"):
-            self._logger.info("bgp router parameters not configured for pr: " + \
-                                                 bgp_router.name)
+        if not bgp_router or not bgp_router.params or \
+                not bgp_router.params.get("address"):
+            self._logger.info("bgp router parameters not configured for pr: " +
+                              bgp_router.name)
             return False
         return True
     # end ensure_bgp_config
@@ -581,11 +607,15 @@ class AnsibleConf(AnsibleBase):
         if isinstance(obj, set):
             return list(obj)
         if hasattr(obj, '__dict__'):
-            return dict((k, v) for k, v in obj.__dict__.iteritems() if AnsibleConf.do_export(v))
-        raise TypeError('Object of type %s is not JSON serializable' % obj.__class__.__name__)
+            return dict((k, v) for k, v in obj.__dict__.iteritems()
+                        if AnsibleConf.do_export(v))
+        raise TypeError(
+            'Object of type %s is not JSON serializable' %
+            obj.__class__.__name__)
     # end export_default
 
 # end AnsibleConf
+
 
 class JunosInterface(object):
 
