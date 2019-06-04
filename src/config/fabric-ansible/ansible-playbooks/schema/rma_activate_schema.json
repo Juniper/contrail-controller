@@ -5,6 +5,10 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+      "fabric_uuid": {
+        "type": "string",
+        "description": "Fabric UUID"
+      },
       "rma_devices": {
         "type": "array",
         "items": {

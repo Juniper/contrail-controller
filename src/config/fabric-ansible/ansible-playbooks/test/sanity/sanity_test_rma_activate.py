@@ -43,6 +43,7 @@ class SanityTestRmaActivate(SanityBase):
         self.fabric_fq_name = ['default-global-system-config', self.fabric]
         fabric_obj = self._api.fabric_read(fq_name=self.fabric_fq_name)
         self.fabric_uuid = fabric_obj.uuid
+        self.job_input['fabric_uuid'] = self.fabric_uuid
         self.playbook_input_base = {
             "fabric_fq_name": self.fabric_fq_name,
             "fabric_uuid": self.fabric_uuid,
@@ -86,8 +87,7 @@ class SanityTestRmaActivate(SanityBase):
 
         job_execution_info = self._api.execute_job(
             job_template_fq_name=job_template_fq_name,
-            job_input=self.job_input,
-            device_list = self.job_device_list
+            job_input=self.job_input
         )
         job_execution_id = job_execution_info.get('job_execution_id')
         self._logger.info(
