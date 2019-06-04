@@ -200,7 +200,8 @@
             },
             "hostname": {
               "title": "Device hostname can be optionally specified.",
-              "type": "string"
+              "type": "string",
+              "pattern": "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
             },
             "supplemental_day_0_cfg": {
               "title": "Name of the supplemental day-0 config that can be optionally specified for this device",
