@@ -1,0 +1,174 @@
+{%- set regex_list = []                                                                 %}
+{%- for filter in input_params.get('conditional').get('interface_filters', [])          %}
+{%-     if filter.get('op') == "regex"                                                  %}
+{%-         set x=regex_list.append(filter.get('expr', None))                           %}
+{%-     endif                                                                           %}
+{%- endfor                                                                              %}
+
+{%- set regex_str='|'.join(regex_list)                                                  %}
+{%- set interface_type=input_params.get('interface_details').get('interface_type', 'physical') %}
+{%- set sub_op = input_params.get('conditional').get('sub_operation')                   %}
+
+{%- if command_resp is mapping and sub_op != "Show interfaces by names"                 %}
+{%-     set command_resp = [command_resp]                                               %}
+{%- endif                                                                               %}
+
+{%- if sub_op == "Show runtime interfaces"                                              %}
+{%-     set interface_stats_list = []                                                   %}
+{%-     for physical_interface in command_resp                                          %}
+{%-         if interface_type == "physical"                                             %}
+{%-             if physical_interface.name | regex_search(regex_str|default(".*",true)) %}
+{%-                 set interface_stat = {}                                             %}
+{%-                 set x = interface_stat.update({
+                                "name":physical_interface.name,
+                                "op_status":physical_interface.get('oper-status', ""),
+                                "admin_status": physical_interface.get('admin-status', ""),
+                                "input_rate": physical_interface.get('traffic-statistics', {}).get('input-bps', ""),
+                                "output_rate": physical_interface.get('traffic-statistics', {}).get('output-bps', "")
+                                                   })                                   %}
+{%-                 set y = interface_stats_list.append(interface_stat)                 %}
+{%-             endif                                                                   %}
+{%-         elif interface_type == "logical"                                            %}
+{%-             if 'logical-interface' in physical_interface                            %}
+{%-                 if physical_interface.get('logical-interface') is mapping           %}
+{%-                     set log_units = [physical_interface['logical-interface']]       %}
+{%-                 else                                                                %}
+{%-                     set log_units = physical_interface['logical-interface']         %}
+{%-                 endif                                                               %}
+{%-                 for log_interface in log_units                                      %}
+{%-                     if log_interface.name | regex_search(regex_str|default(".*",true)) %}
+{%-                         set interface_stat = {}                                     %}
+{%-                         set add_fmly_list  = []                                     %}
+{%-                         set x = interface_stat.update({
+                                        "name":log_interface.name
+                                                           })                           %}
+{%-                         set add_fmly = log_interface.get('address-family', "")      %}
+{%-                         if add_fmly                                                 %}
+{%-                             if add_fmly is mapping                                  %}
+{%-                                 set add_fmly = [add_fmly]                           %}
+{%-                             endif                                                   %}
+{%-                             for add_fam in add_fmly                                 %}
+{%-                                 set x = add_fmly_list.append(add_fam['address-family-name']) %}
+{%-                             endfor                                                  %}
+{%-                             set x = interface_stat.update({
+                                            "address_family": ','.join(add_fmly_list|unique)
+                                                              })                        %}
+{%-                         endif                                                       %}
+{%-                         set y = interface_stats_list.append(interface_stat)         %}
+{%-                     endif                                                           %}
+{%-                 endfor                                                              %}
+{%-             endif                                                                   %}
+{%-         endif                                                                       %}
+{%-     endfor                                                                          %}
+{%- elif sub_op == "Show configured interfaces"                                         %}
+{%-     set interface_stats_list = []                                                   %}
+{%-     for physical_interface in command_resp                                          %}
+{%-         if interface_type == "physical"                                             %}
+{%-             if physical_interface.name | regex_search(regex_str|default(".*",true)) %}
+{%-                 set interface_stat = {}                                             %}
+{%-                 set x = interface_stat.update({
+                                "name":physical_interface.name
+                                                   })                                   %}
+{%-                 set y = interface_stats_list.append(interface_stat)                 %}
+{%-             endif                                                                   %}
+{%-         elif interface_type == "logical"                                            %}
+{%-             if 'unit' in physical_interface                                         %}
+{%-                 if physical_interface.get('unit') is mapping                        %}
+{%-                     set log_units = [physical_interface['unit']]                    %}
+{%-                 else                                                                %}
+{%-                     set log_units = physical_interface['unit']                      %}
+{%-                 endif                                                               %}
+{%-                 for log_interface in log_units                                      %}
+{%-                     set log_intf_name = physical_interface.name+'.'+log_interface.name %}
+{%-                     if log_intf_name | regex_search(regex_str|default(".*",true))   %}
+{%-                         set interface_stat = {}                                     %}
+{%-                         set x = interface_stat.update({
+                                        "name": log_intf_name
+                                                           })                           %}
+{%-                         set add_fmly = log_interface.get('family', "")              %}
+{%-                         if add_fmly                                                 %}
+{%-                             set x = interface_stat.update({
+                                            "address_family": ','.join(add_fmly.keys()|unique)
+                                                              })                        %}
+{%-                         endif                                                       %}
+{%-                         set y = interface_stats_list.append(interface_stat)         %}
+{%-                     endif                                                           %}
+{%-                 endfor                                                              %}
+{%-             endif                                                                   %}
+{%-         endif                                                                       %}
+{%-     endfor                                                                          %}
+{%- elif sub_op == "Show interfaces by names"                                           %}
+{%-     set interface_stats_list = []                                                   %}
+{%-     for physical_interface in command_resp.get('physical_intf_list')                %}
+{%-         if interface_type == "physical"                                             %}
+{%-             set interface_stat = {}                                                 %}
+{%-             set x = interface_stat.update({
+                            "name":physical_interface.name,
+                            "op_status":physical_interface.get('oper-status', ""),
+                            "admin_status": physical_interface.get('admin-status', ""),
+                            "input_rate": physical_interface.get('traffic-statistics', {}).get('input-bps', ""),
+                            "output_rate": physical_interface.get('traffic-statistics', {}).get('output-bps', "")
+                                               })                                       %}
+{%-             set y = interface_stats_list.append(interface_stat)                     %}
+{%-         elif interface_type == "logical"                                            %}
+{%-             if 'logical-interface' in physical_interface                            %}
+{%-                 if physical_interface.get('logical-interface') is mapping           %}
+{%-                     set log_units = [physical_interface['logical-interface']]       %}
+{%-                 else                                                                %}
+{%-                     set log_units = physical_interface['logical-interface']         %}
+{%-                 endif                                                               %}
+{%-                 for log_interface in log_units                                      %}
+{%-                     set interface_stat = {}                                         %}
+{%-                     set add_fmly_list = []                                          %}
+{%-                     set x = interface_stat.update({
+                                "name":log_interface.name
+                                                       })                               %}
+{%-                     set add_fmly = log_interface.get('address-family', "")          %}
+{%-                     if add_fmly                                                     %}
+{%-                         if add_fmly is mapping                                      %}
+{%-                             set add_fmly = [add_fmly]                               %}
+{%-                         endif                                                       %}
+{%-                         for add_fam in add_fmly                                     %}
+{%-                             set x = add_fmly_list.append(add_fam['address-family-name']) %}
+{%-                         endfor                                                      %}
+{%-                         set x = interface_stat.update({
+                                        "address_family": ','.join(add_fmly_list|unique)
+                                                          })                            %}
+{%-                     endif                                                           %}
+{%-                     set y = interface_stats_list.append(interface_stat)             %}
+{%-                 endfor                                                              %}
+{%-             endif                                                                   %}
+{%-         endif                                                                       %}
+{%-     endfor                                                                          %}
+
+{%-     for logical_interface in command_resp.get('logical_intf_list')                  %}
+{%-         if interface_type == "logical"                                              %}
+{%-             set interface_stat = {}                                                 %}
+{%-             set add_fmly_list = []                                                  %}
+{%-             set x = interface_stat.update({
+                            "name":logical_interface.name
+                                               })                                       %}
+{%-             set add_fmly = logical_interface.get('address-family', "")              %}
+{%-             if add_fmly                                                             %}
+{%-                 if add_fmly is mapping                                              %}
+{%-                     set add_fmly = [add_fmly]                                       %}
+{%-                 endif                                                               %}
+{%-                 for add_fam in add_fmly                                             %}
+{%-                     set x = add_fmly_list.append(add_fam['address-family-name'])    %}
+{%-                 endfor                                                              %}
+{%-                 set x = interface_stat.update({
+                                "address_family": ','.join(add_fmly_list|unique)
+                                                   })                                   %}
+{%-             endif                                                                   %}
+{%-             set y = interface_stats_list.append(interface_stat)                     %}
+{%-         endif                                                                       %}
+{%-     endfor                                                                          %}
+{%- endif                                                                               %}
+
+{%- if interface_type == 'logical'                                                      %}
+{"interface_stats_log": {{interface_stats_list | to_json}} }
+{%- elif sub_op == "Show configured interfaces"                                         %}
+{"interface_stats_cf_phy": {{interface_stats_list | to_json}} }
+{%- else                                                                                %}
+{"interface_stats_rt_phy": {{interface_stats_list | to_json}} }
+{%- endif                                                                               %}
