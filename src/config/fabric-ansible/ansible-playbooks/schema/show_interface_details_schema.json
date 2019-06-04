@@ -1,0 +1,287 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "interface_details": {
+        "src": "https://spacetelescope.github.io/understanding-json-schema/reference/object.html#dependencies",
+        "title": "Interface Details",
+        "type": "object",
+        "properties": {
+          "interface_type": {
+            "type": "string",
+            "title": "Interface Type",
+            "enum": [
+              "physical",
+              "logical"
+            ],
+            "default": "physical"
+          }
+        },
+        "required": [
+          "interface_type"
+        ]
+      },
+      "conditional": {
+        "title": "Sub Operation Type",
+        "$ref": "#/definitions/sub_command"
+      }
+    },
+    "definitions": {
+      "sub_command": {
+        "title": "Sub Operation Type",
+        "type": "object",
+        "properties": {
+          "sub_operation": {
+            "title": "Choose a sub-operation",
+            "type": "string",
+            "enum": [
+              "Show runtime interfaces",
+              "Show configured interfaces",
+              "Show interfaces by names"
+            ],
+            "default": "Show runtime interfaces"
+          }
+        },
+        "required": [
+          "sub_operation"
+        ],
+        "dependencies": {
+          "sub_operation": {
+            "oneOf": [
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "Show runtime interfaces"
+                    ]
+                  },
+                  "interface_filters": {
+                    "$id": "/properties/interface_filters",
+                    "title": "Interface Filters",
+                    "type": "array",
+                    "items": {
+                      "$id": "/properties/interface_filters/items",
+                      "type": "object",
+                      "title": "Filter",
+                      "maxProperties": 2,
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "enum": [
+                            "regex"
+                          ],
+                          "title": "Filter Type"
+                        },
+                        "expr": {
+                          "type": "string",
+                          "title": "Filter Expression"
+                        }
+                      },
+                      "default": {},
+                      "examples": [
+                        {
+                          "op": "regex",
+                          "expr": "^ge-"
+                        },
+                        {
+                          "op": "regex",
+                          "expr": "^xe"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "Show configured interfaces"
+                    ]
+                  },
+                  "interface_filters": {
+                    "$id": "/properties/interface_filters",
+                    "title": "Interface Filters",
+                    "type": "array",
+                    "items": {
+                      "$id": "/properties/interface_filters/items",
+                      "type": "object",
+                      "title": "Filter",
+                      "maxProperties": 2,
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "enum": [
+                            "regex"
+                          ],
+                          "title": "Filter Type"
+                        },
+                        "expr": {
+                          "type": "string",
+                          "title": "Filter Expression"
+                        }
+                      },
+                      "default": {},
+                      "examples": [
+                        {
+                          "op": "regex",
+                          "expr": "^ge-"
+                        },
+                        {
+                          "op": "regex",
+                          "expr": "^xe"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "Show interfaces by names"
+                    ]
+                  },
+                  "interface_names": {
+                    "$id": "/properties/interface_names",
+                    "title": "Interface Names",
+                    "type": "array",
+                    "items": {
+                      "$id": "/properties/interface_names/items",
+                      "type": "string",
+                      "pattern": "^([a-z]{1,}[0-9]{0,}(-[0-9]{1,}/[0-9]{1,}/[0-9]{1,})?(\\.[0-9]{1,})?)$",
+                      "title": "Interface Name"
+                    },
+                    "examples": [
+                      "ge-0/0/1",
+                      "xe-0/0/0"
+                    ]
+                  }
+                },
+                "required": [
+                  "interface_names"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Show Interface Details Output",
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Array holding the specific output details in case of success. Each object of the array would be command_output and device name pair.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "device_name": {
+              "type": "string",
+              "title": "Device Name",
+              "description": "name of the device for which results are displayed"
+            },
+            "command_output": {
+              "type": "object",
+              "title": "Each playbook's command_output for this specific command.",
+              "description": "Results of the show interfaces details sub-command executed on the device. The jinja template matching this command, vendor and family would give output of the below format. This command_output translates to device_op_results in the PR uve",
+              "oneOf": [
+                {
+                  "properties": {
+                    "interface_stats_rt_phy": {
+                      "type": "array",
+                      "title": "Runtime Physical Interfaces Statistics",
+                      "description": "Display statistics and detailed output",
+                      "items": {
+                        "type":"object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "title": "Interface",
+                            "description": "Interface name"
+                          },
+                          "op_status": {
+                            "type": "string",
+                            "title": "Operational Status",
+                            "description": "Operational status of the interface"
+                          },
+                          "admin_status": {
+                            "type": "string",
+                            "title": "Admin Status",
+                            "description": "Admin status of the interface"
+                          },
+                          "input_rate": {
+                            "type": "string",
+                            "title": "InputRate (bps)",
+                            "description": "Input packets rate in bits per second if present"
+                          },
+                          "output_rate": {
+                            "type": "string",
+                            "title": "OutputRate (bps)",
+                            "description": "Output packets rate in bits per second if present"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "interface_stats_log": {
+                      "type": "array",
+                      "title": "Logical Interfaces Statistics",
+                      "description": "Display statistics and detailed output",
+                      "items": {
+                        "type":"object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "title": "Interface",
+                            "description": "Interface name"
+                          },
+                          "address_family": {
+                            "type": "string",
+                            "title": "Address Family",
+                            "description": "Address family if present"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "interface_stats_cf_phy": {
+                      "type": "array",
+                      "title": "Configured Physical Interfaces Statistics",
+                      "description": "Display statistics and detailed output",
+                      "items": {
+                        "type":"object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "title": "Interface",
+                            "description": "Interface name"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
