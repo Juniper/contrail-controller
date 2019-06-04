@@ -41,34 +41,41 @@
       Now starting image upgrade with image name {{filename}} on the device
       {{prouter_name}}. It may take 10 to 15 mins.
 
-- name: Vendor specific image upgrade and device bring up
-  include_tasks: "{{pr_vendor}}_upgrade.yml"
+# continue workflow even if upgrade fails
+- name: Vendor specific image upgrade and device bring up for ztp
+  include_tasks: "ztp_{{pr_vendor}}_upgrade.yml"
+  when: continue_workflow
 
-- name: Vendor specific OS version check
-  include_tasks: "{{pr_vendor}}_check_version_rpc.yml"
+- block:
+    - name: Vendor specific image upgrade and device bring up
+      include_tasks: "{{pr_vendor}}_upgrade.yml"
 
-- name: Update physical device with os version
-  vnc_db_mod:
-    job_ctx: "{{ job_ctx }}"
-    object_type: "physical_router"
-    object_op: "update"
-    object_dict: |
-      {
-       "uuid": "{{pr_uuid}}",
-       "physical_router_os_version": "{{device_version}}"
-      }
-  register: prouter_obj
+    - name: Vendor specific OS version check
+      include_tasks: "{{pr_vendor}}_check_version_rpc.yml"
 
-- name: PR objectlog update for OS version
-  prouter_objectlog:
-    prouter_fqname: "{{pr_fqname}}"
-    onboarding_state: "{{ DEVICE_STATE.IMAGE_UPGRADED }}"
-    job_ctx: "{{job_ctx}}"
-    os_version: "{{device_version}}"
+    - name: Update physical device with os version
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+           "uuid": "{{pr_uuid}}",
+           "physical_router_os_version": "{{device_version}}"
+          }
+      register: prouter_obj
 
-# Initialize job data
-- name: Job logs for version validation status with percentage
-  include_tasks: percentage_update.yml
-  vars:
-    jl_message: Image upgrade version validated. The device OS version is now {{device_version}}.
+    - name: PR objectlog update for OS version
+      prouter_objectlog:
+        prouter_fqname: "{{pr_fqname}}"
+        onboarding_state: "{{ DEVICE_STATE.IMAGE_UPGRADED }}"
+        job_ctx: "{{job_ctx}}"
+        os_version: "{{device_version}}"
+
+    # Initialize job data
+    - name: Job logs for version validation status with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        jl_message: Image upgrade version validated. The device OS version is now {{device_version}}.
+  when: task_fail is not defined
 
