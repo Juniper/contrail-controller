@@ -35,7 +35,9 @@ class SNATAgent(Agent):
         for si in ServiceInstanceSM.values():
             si_name = si.fq_name[-1]
             st_obj = ServiceTemplateSM.get(si.service_template)
-            if st_obj == None or st_obj.params['service_type'] != "source-nat":
+            if st_obj == None or \
+                'service_type' not in st_obj.params or \
+                st_obj.params['service_type'] != "source-nat":
                 continue
             lr_uuid = si.logical_router
             lr = LogicalRouterSM.get(lr_uuid)
