@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_860ef62f",
+        "filename": "src/ksync/ksync_sock.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 593,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_39bf6e62",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_19c26aea",
         "filename": "src/ksync/ksync_sock_uds.cc",
         "patchSetId": 1
@@ -47,6 +65,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "space after \"\u003d\"",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_661d4265",
+        "filename": "src/ksync/ksync_sock_uds.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 147,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_19c26aea",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_4618fe73",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_b9b23e93",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_99ad3a33",
         "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
         "patchSetId": 1
@@ -81,6 +135,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "remove trailing space",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_26298a89",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_99ad3a33",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -104,6 +176,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_062c4697",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 123,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_79acc633",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_59a7c250",
         "filename": "src/vnsw/agent/contrail/main.cc",
         "patchSetId": 1
@@ -115,6 +205,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "space around \"||\"",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_e62252a4",
+        "filename": "src/vnsw/agent/contrail/main.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 98,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_59a7c250",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -138,6 +246,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_c6250ead",
+        "filename": "src/vnsw/agent/contrail/pkt0_interface.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "changed to kernel, will change the other two variables in the next patch",
+      "parentUuid": "9f5c4f37_39640e22",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_9972dae2",
         "filename": "src/vnsw/agent/init/agent_param.cc",
         "patchSetId": 1
@@ -155,6 +281,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_663662e9",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_9972dae2",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_7981668f",
         "filename": "src/vnsw/agent/init/agent_param.cc",
         "patchSetId": 1
@@ -166,6 +310,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "wrap and remove blank lines",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_46311eec",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 702,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_7981668f",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -206,6 +368,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_264e2a6f",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 713,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_394d2e9a",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_19502a32",
         "filename": "src/vnsw/agent/init/agent_param.cc",
         "patchSetId": 1
@@ -240,6 +420,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_a63c5ac8",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 559,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Agent Test Framework",
+      "parentUuid": "9f5c4f37_19670a28",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_d97052df",
         "filename": "src/vnsw/agent/init/agent_param.h",
         "patchSetId": 1
@@ -251,6 +449,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "ca you keep these small routines in a single line ?",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_863716e4",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 561,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "ok..will do that in next patch",
+      "parentUuid": "9f5c4f37_d97052df",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -285,6 +501,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "Remove these",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_0651e60e",
+        "filename": "src/vnsw/agent/init/contrail_init_common.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_f946767c",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -342,6 +576,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_e657f201",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 545,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_995bfa52",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_795a864f",
         "filename": "src/vnsw/agent/vrouter/stats_collector/agent_stats_collector.cc",
         "patchSetId": 1
@@ -353,6 +605,24 @@
       "writtenOn": "2019-06-03T23:44:55Z",
       "side": 1,
       "message": "pls indent correctly. or better yet reverse if and return",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_a641fa3b",
+        "filename": "src/vnsw/agent/vrouter/stats_collector/agent_stats_collector.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-06-05T23:39:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9f5c4f37_795a864f",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
