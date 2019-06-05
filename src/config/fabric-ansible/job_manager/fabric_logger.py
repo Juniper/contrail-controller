@@ -2,10 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Contains common logger initialization to be used in ansible internals
-as well as ansible modules.
-"""
+"""Contains common logger initialization to be used in ansible internals as well as ansible modules."""
 
 import logging
 import os

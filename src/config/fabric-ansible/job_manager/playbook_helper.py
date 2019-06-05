@@ -2,20 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Contains functions that invoke the playbook.
-"""
-import sys
-import json
-import traceback
-import argparse
-from collections import namedtuple
-import errno
-from ansible.module_utils._text import to_bytes, to_text
-from ansible.utils.color import stringc
-
-from ansible import constants as CONST
-verbosity = CONST.DEFAULT_VERBOSITY or 0
+"""Contains functions that invoke the playbook."""
 
 # Overrides the default logger from ansible/utils/display.py.
 # fabric_ansible_logger customizes log message formatting
@@ -23,25 +10,42 @@ verbosity = CONST.DEFAULT_VERBOSITY or 0
 # which is this file.
 # Also note that CONST is from ansible.cfg
 #
+
+import argparse
+from collections import namedtuple
+import errno
+import json
+import sys
+import traceback
+
+from ansible import constants as CONST
+from ansible.executor.playbook_executor import PlaybookExecutor
+from ansible.inventory.manager import InventoryManager
+from ansible.module_utils._text import to_bytes, to_text
+from ansible.parsing.dataloader import DataLoader
+from ansible.utils.color import stringc
+import ansible.utils.display as default_display
+from ansible.utils.display import Display
+from ansible.vars.manager import VariableManager
+
 from job_manager.fabric_logger import fabric_ansible_logger
+from job_manager.job_manager_logger import job_mgr_logger
+from job_manager.job_messages import MsgBundle
 from job_manager.job_utils import (
     JobFileWrite, PLAYBOOK_EOL_PATTERN
 )
 
+verbosity = CONST.DEFAULT_VERBOSITY or 0
 logger = fabric_ansible_logger("ansible")
+
 
 # Overrides the default display processing from ansible/utils/display.py
 # The default display method supresses certain output for remote hosts
 # while we want this information sent to the logs
-#
-
-
 def fabric_ansible_display(self, msg, color=None, stderr=False,
                            screen_only=False, log_only=False):
-    """ Display a message to the user
-
-    Note: msg *must* be a unicode string to prevent UnicodeError tracebacks.
-    """
+    # Display a message to the user
+    # Note: msg *must* be a unicode string to prevent UnicodeError traceback
 
     nocolor = msg
     if color:
@@ -95,26 +99,17 @@ def fabric_ansible_display(self, msg, color=None, stderr=False,
             logger.info(msg2)
 
 
-import ansible.utils.display as default_display
+# Use custom display function
 default_display.logger = logger
-default_display.Display.display = fabric_ansible_display
-
-from ansible.utils.display import Display
 display = Display(verbosity)
-
-from ansible.parsing.dataloader import DataLoader
-from ansible.vars.manager import VariableManager
-from ansible.inventory.manager import InventoryManager
-from ansible.executor.playbook_executor import PlaybookExecutor
-
-from job_manager.job_messages import MsgBundle
-from job_manager.job_manager_logger import job_mgr_logger
 JM_LOGGER = job_mgr_logger("FabricAnsible")
+default_display.Display.display = fabric_ansible_display
 
 
 class PlaybookHelper(object):
 
     def __init__(self):
+        """Playbook helper initializer. Creates the playbook log util class."""
         self._job_file_write = JobFileWrite(logger)
 
     def get_plugin_output(self, pbex):
@@ -197,7 +192,7 @@ class PlaybookHelper(object):
                 JobFileWrite.PLAYBOOK_OUTPUT,
                 json.dumps(output)
             )
-            with open("/tmp/"+exec_id, "a") as f:
+            with open("/tmp/" + exec_id, "a") as f:
                 f.write(unique_pb_id + 'END' + PLAYBOOK_EOL_PATTERN)
             sys.exit(msg)
 
@@ -219,8 +214,8 @@ if __name__ == "__main__":
         if playbook_input_json is None:
             sys.exit(MsgBundle.getMessage(MsgBundle.NO_PLAYBOOK_INPUT_DATA))
     except Exception as exp:
-        ERR_MSG = "Failed to start playbook due "\
-              "to Exception: %s" % traceback.print_stack()
+        ERR_MSG = "Failed to start playbook due to Exception: %s" %\
+                  traceback.print_stack()
         JM_LOGGER.error(ERR_MSG)
         sys.exit(MsgBundle.getMessage(MsgBundle.PLAYBOOK_INPUT_PARSING_ERROR,
                                       exc_msg=repr(exp)))
@@ -248,5 +243,5 @@ if __name__ == "__main__":
         # not stopping execution just because of  parsing error
         # no sys.exit therefore
     finally:
-        with open("/tmp/"+exec_id, "a") as f:
+        with open("/tmp/" + exec_id, "a") as f:
             f.write(unique_pb_id + 'END' + PLAYBOOK_EOL_PATTERN)
