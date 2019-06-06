@@ -60,7 +60,7 @@ class FilterModule(object):
                 'status': 'failure',
                 'error_msg': errmsg,
             }
-    # end
+    # end rma_devices_to_ztp
 
     def _rma_devices_to_ztp(self, rma_devices_list):
         devices_to_ztp = []
@@ -85,7 +85,7 @@ class FilterModule(object):
                 'status': 'failure',
                 'error_msg': errmsg,
             }
-    # end
+    # end rma_activate_devices
 
     def _get_rma_device_info(self, rma_devices_list, lease_tbl):
         device_info = {'dynamic_mgmt_ip_tbl': {}}
@@ -102,7 +102,6 @@ class FilterModule(object):
             )
         return device_info
 
-
     def _rma_activate_devices(self, rma_devices_list, lease_tbl):
         device_info = {}
         ip_tbl = {}
@@ -117,6 +116,12 @@ class FilterModule(object):
             if not underlay_managed:
                 raise("Device {} not underlay managed".format(device_obj.display_name))
 
+            # if serial number not found, go into error state on this device
+            if not mgmt_ip:
+                device_obj.set_physical_router_managed_state('error')
+                self.vncapi.physical_router_update(device_obj)
+                continue
+
             temp = {}
             temp['device_management_ip'] = device_obj.get_physical_router_management_ip()
             temp['device_fqname'] = device_obj.fq_name
@@ -129,8 +134,7 @@ class FilterModule(object):
             temp['device_dynamic_mgmt_ip'] = mgmt_ip
             device_info.update({device_uuid: temp})
 
-            # Update state and serial number on object and save
-            device_obj.set_physical_router_managed_state('activating')
+            # Update serial number on object and save
             device_obj.set_physical_router_serial_number(new_serial_number)
             self.vncapi.physical_router_update(device_obj)
 
