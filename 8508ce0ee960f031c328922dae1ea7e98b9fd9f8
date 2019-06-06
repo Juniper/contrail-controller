@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_b15ff270",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_perms2.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 793,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-06-06T23:24:13Z",
+      "side": 1,
+      "message": "Édouard, I think the is_shared does get applied. If you see this: https://github.com/Juniper/contrail-controller/blob/7c09b63c48d53e8078dcaa0e580ec9ce302a0d70/src/config/api-server/vnc_cfg_api_server/vnc_db.py#L1627-L1638\n\nHere, \u0027is_shared\u0027 is applied at line 1627. The shared\u003dTrue is then applied for line 1638",
+      "parentUuid": "9f5c4f37_3dc1992f",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_bdea29a9",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 2
@@ -30,6 +48,24 @@
       "writtenOn": "2019-06-04T08:50:52Z",
       "side": 1,
       "message": "So the solution you propose is to do fetch shared resource with both format of the owner UUID (with and without hyphens)?",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_91562e5c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1602,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-06-06T23:24:13Z",
+      "side": 1,
+      "message": "Yes. Exactly. Do you think we could do it better in any ways ?",
+      "parentUuid": "9f5c4f37_bdea29a9",
       "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
