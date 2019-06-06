@@ -33,6 +33,7 @@ class KombuAmqpClient(object):
         self._heartbeat = float(heartbeat)
         self._connection_lock = Semaphore()
         self._consumer_event = Event()
+        self._consumers_created_event = Event()
         self._publisher_queue = Queue()
         self._connection = kombu.Connection(urls, ssl=ssl_params,
             heartbeat=heartbeat, transport_options={'confirm_publish': True})
@@ -60,7 +61,7 @@ class KombuAmqpClient(object):
     # end add_exchange
 
     def add_consumer(self, name, exchange, routing_key='', callback=None,
-                     durable=False, **kwargs):
+                     durable=False, wait=False, **kwargs):
         if name in self._consumers:
             raise ValueError("Consumer with name '%s' already exists" % name)
         exchange_obj = self.get_exchange(exchange)
@@ -68,8 +69,11 @@ class KombuAmqpClient(object):
                             durable=durable, **kwargs)
         consumer = AttrDict(queue=queue, callback=callback)
         self._consumers[name] = consumer
+        self._consumers_created_event.clear()
         self._consumer_event.set()
         self._consumers_changed = True
+        if wait:
+            self._consumers_created_event.wait()
         msg = 'KombuAmqpClient: Added consumer: %s' % name
         self._logger(msg, level=SandeshLevel.SYS_DEBUG)
         return consumer
@@ -158,6 +162,7 @@ class KombuAmqpClient(object):
                 self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                 self._consumers_changed = False
                 with nested(*consumers):
+                    self._consumers_created_event.set()
                     while self._running and not self._consumers_changed:
                         try:
                             self._connection.drain_events(timeout=1)
