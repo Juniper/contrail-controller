@@ -103,7 +103,7 @@ test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap',
 test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', flaky_agent_suite)
 test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', agent_suite)
 test_dummy = AgentEnv.MakeTestCmd(env, 'test_dummy', flaky_agent_suite)
-test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', flaky_agent_suite)
+test_multicast = AgentEnv.MakeTestCmd(env, 'test_multicast', agent_suite)
 test_service_chain_cfg = AgentEnv.MakeTestCmd(env, 'test_service_chain_cfg',
                                               agent_suite)
 test_route_mock = AgentEnv.MakeTestCmd(env, 'test_route_mock',
