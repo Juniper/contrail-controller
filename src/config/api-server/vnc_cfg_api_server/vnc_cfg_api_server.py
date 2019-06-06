@@ -565,7 +565,7 @@ class VncApiServer(object):
         self._amqp_client.add_consumer(consumer, body.get('exchange'),
             routing_key=body.get('response_key'),
             callback=amqp_worker.handle_message,
-            auto_delete=True)
+            wait=True, auto_delete=True)
 
         self._amqp_client.publish(body.get('payload'),
                                   body.get('exchange'),
