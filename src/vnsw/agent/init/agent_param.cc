@@ -538,6 +538,19 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.vmi_vm_vn_uve_interval")) {
         vmi_vm_vn_uve_interval_ = Agent::kDefaultVmiVmVnUveInterval;
     }
+
+    if (!GetValueFromTree<uint16_t>(unicast_stale_timer_,
+                                    "DEFAULT.unicast_stale_timer")) {
+        unicast_stale_timer_ = Agent::kDefaultUnicastStaleTimer;
+    }
+    if (!GetValueFromTree<uint16_t>(multicast_stale_timer_,
+                                    "DEFAULT.multicast_stale_timer")) {
+        multicast_stale_timer_ = Agent::kDefaultMulticastStaleTimer;
+    }
+    if (!GetValueFromTree<uint16_t>(config_cleanup_timeout_,
+                                    "DEFAULT.config_cleanup_timeout")) {
+        config_cleanup_timeout_ = Agent::kDefaultConfigCleanupTimeout;
+    }
 }
 
 void AgentParam::ParseTaskSection() {

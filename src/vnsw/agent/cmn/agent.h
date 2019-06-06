@@ -295,6 +295,9 @@ public:
     static const uint32_t kFlowKSyncTokens = 25;
     static const uint32_t kFlowDelTokens = 16;
     static const uint32_t kFlowUpdateTokens = 16;
+    static const uint16_t kDefaultUnicastStaleTimer = (2 * 60);
+    static const uint16_t kDefaultMulticastStaleTimer = (5 * 60);
+    static const uint16_t kDefaultConfigCleanupTimeout = (15 * 60);
 
     enum ForwardingMode {
         NONE,
