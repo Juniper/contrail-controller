@@ -49,16 +49,16 @@
           set_fact:
             leases_result: "{{ devices_to_ztp | read_only_dhcp_leases(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
 
-        - name: Perform the necessary error handling
-          include_tasks: error_handler.yml
-          vars:
-            op_err_message: "Device not found in DHCP leases file"
-            jl_err_message: "Device not found in DHCP leases file"
-          when: leases_result.failed == True
-
         - name: Process RMA
           set_fact:
             rma_device_info: "{{ job_ctx | rma_activate_devices(rma_devices, leases_result) }}"
+
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "No devices found in DHCP leases file"
+            jl_err_message: "No devices found in DHCP leases file"
+          when: leases_result.failed == True
 
         - name: Return dynamic DHCP mgmt_ip in output for use in next playbook
           set_fact:

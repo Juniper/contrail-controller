@@ -901,10 +901,10 @@ class PhysicalRouterDM(DBBaseDM):
                                      str(self.product), self.management_ip))
             return
 
-        if self.managed_state == 'rma':
+        if self.managed_state in ('rma', 'error'):
             # do not push any config to this device
-            self._logger.debug("No config push for PR(%s) in RMA state" % (
-                                self.name))
+            self._logger.debug("No config push for PR(%s) in %s state" % (
+                                self.name, self.managed_state))
             return
 
         if self.delete_config() or not self.is_vnc_managed():

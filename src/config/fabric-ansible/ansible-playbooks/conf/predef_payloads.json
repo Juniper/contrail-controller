@@ -605,7 +605,7 @@
           ],
           "name": "rma_activate_template",
           "parent_type": "global-system-config",
-          "job_template_concurrency_level": "device",
+          "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
           "job_template_playbooks": {
             "playbook_info": [
