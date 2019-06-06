@@ -10,4 +10,4 @@ sandesh
 sandesh_common
 junitxml
 timeout-decorator
-requests
+requests>=2.20.0
