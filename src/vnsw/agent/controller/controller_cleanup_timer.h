@@ -8,6 +8,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include "init/agent_param.h"
 
 class AgentXmppChannel;
 
@@ -49,26 +50,24 @@ struct CleanupTimer {
 };
 
 struct UnicastCleanupTimer : public CleanupTimer {
-    static const uint32_t kUnicastStaleTimer = (2 * 60 * 1000); 
     UnicastCleanupTimer(Agent *agent)
         : CleanupTimer(agent, "Agent Unicast Stale cleanup timer", 
-                       kUnicastStaleTimer) { };
+                       agent->params()->unicast_stale_timer_msecs()) { };
     virtual ~UnicastCleanupTimer() { }
 
     virtual uint32_t GetTimerInterval() const {
-        return kUnicastStaleTimer;}
+        return stale_timer_interval_;}
     virtual void TimerExpirationDone();
     virtual uint64_t GetTimerExtensionValue(AgentXmppChannel *ch);
 };
 
 struct MulticastCleanupTimer : public CleanupTimer {
-    static const uint32_t kMulticastStaleTimer = (5 * 60 * 1000); 
     MulticastCleanupTimer(Agent *agent) 
         : CleanupTimer(agent, "Agent Multicast Stale cleanup timer",
-                       kMulticastStaleTimer) { }
+                       agent->params()->multicast_stale_timer_msecs()) { }
     virtual ~MulticastCleanupTimer() { }
 
-    virtual uint32_t GetTimerInterval() const {return kMulticastStaleTimer;}
+    virtual uint32_t GetTimerInterval() const {return stale_timer_interval_;}
     virtual void TimerExpirationDone();
     virtual uint64_t GetTimerExtensionValue(AgentXmppChannel *ch);
 
@@ -76,13 +75,12 @@ struct MulticastCleanupTimer : public CleanupTimer {
 };
 
 struct ConfigCleanupTimer : public CleanupTimer {
-    static const int timeout_ = (15 * 60 * 1000); // In milli seconds5
     ConfigCleanupTimer(Agent *agent)
         : CleanupTimer(agent, "Agent Config Stale cleanup timer",
-                       timeout_) { }
+                       agent->params()->config_cleanup_timeout_msecs()) { }
     virtual ~ConfigCleanupTimer() { }
 
-    virtual uint32_t GetTimerInterval() const {return timeout_;}
+    virtual uint32_t GetTimerInterval() const {return stale_timer_interval_;}
     virtual void TimerExpirationDone();
     virtual uint64_t GetTimerExtensionValue(AgentXmppChannel *ch);
 };

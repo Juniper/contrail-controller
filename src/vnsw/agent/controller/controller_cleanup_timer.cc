@@ -92,7 +92,7 @@ bool CleanupTimer::TimerExpiredCallback() {
 uint64_t UnicastCleanupTimer::GetTimerExtensionValue(AgentXmppChannel *ch) {
     uint64_t ch_setup_time = agent_->controller_xmpp_channel_setup_time(ch->
                                                      GetXmppServerIdx());
-    return (kUnicastStaleTimer - ((UTCTimestampUsec() - ch_setup_time) / 1000));
+    return (GetTimerInterval() - ((UTCTimestampUsec() - ch_setup_time) / 1000));
 }
 
 void UnicastCleanupTimer::TimerExpirationDone() {
@@ -100,7 +100,7 @@ void UnicastCleanupTimer::TimerExpirationDone() {
 }
 
 uint64_t MulticastCleanupTimer::GetTimerExtensionValue(AgentXmppChannel *ch) {
-    return (kMulticastStaleTimer - ((UTCTimestampUsec() - 
+    return (GetTimerInterval() - ((UTCTimestampUsec() - 
                                      last_restart_time_) / 1000));
 }
 
@@ -109,7 +109,7 @@ void MulticastCleanupTimer::TimerExpirationDone() {
 }
 
 uint64_t ConfigCleanupTimer::GetTimerExtensionValue(AgentXmppChannel *ch) {
-    return (timeout_ - ((UTCTimestampUsec() - last_restart_time_) / 1000));
+    return (GetTimerInterval() - ((UTCTimestampUsec() - last_restart_time_) / 1000));
 }
 
 void ConfigCleanupTimer::TimerExpirationDone() {

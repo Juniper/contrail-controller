@@ -298,6 +298,19 @@ public:
         return (vmi_vm_vn_uve_interval_ * 1000);
     }
 
+    uint16_t unicast_stale_timer() const { return unicast_stale_timer_; }
+    uint32_t unicast_stale_timer_msecs() const {
+        return (unicast_stale_timer_ * 1000);
+    }
+    uint16_t multicast_stale_timer() const { return multicast_stale_timer_; }
+    uint32_t multicast_stale_timer_msecs() const {
+        return (multicast_stale_timer_ * 1000);
+    }
+    uint16_t config_cleanup_timeout() const { return config_cleanup_timeout_; }
+    uint32_t config_cleanup_timeout_msecs() const {
+        return (config_cleanup_timeout_ * 1000);
+    }
+
     // pkt0 tx buffer
     uint32_t pkt0_tx_buffer_count() const { return pkt0_tx_buffer_count_; }
     void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
@@ -538,6 +551,9 @@ private:
     // Monitor task library and assert if inactivity detected
     uint32_t task_monitor_timeout_msec_;
     uint16_t vmi_vm_vn_uve_interval_;
+    uint16_t unicast_stale_timer_;
+    uint16_t multicast_stale_timer_;
+    uint16_t config_cleanup_timeout_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
