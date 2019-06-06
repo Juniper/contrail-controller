@@ -1,0 +1,157 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f5c4f37_71e29a03",
+        "filename": "src/ksync/ksync_sock.h",
+        "patchSetId": 4
+      },
+      "lineNbr": 594,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "use _ for variables sock_path_ and sock_path_vr or vr_sock_path",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_51f1d6cc",
+        "filename": "src/ksync/ksync_sock.h",
+        "patchSetId": 4
+      },
+      "lineNbr": 607,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "use _ for variables sock_path_ and sock_path_vr or vr_sock_path",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_91e74e13",
+        "filename": "src/ksync/ksync_sock_uds.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "use _ for variables sock_path_ and sock_path_vr or vr_sock_path",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_311782f0",
+        "filename": "src/ksync/ksync_sock_uds.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 143,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "use _ for variables sock_path_ and sock_path_vr or vr_sock_path",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_b1e012fc",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 846,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "do you need this? i see the set_ksync is already called with NULL if dpdk is mocked from contrail_agent_init.cc",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_f1d68a27",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 1987,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "would this work if you run multiple agents? can you add a TODO comment in case it doesnt work?",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_d1ddc642",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 4
+      },
+      "lineNbr": 835,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "remove \" \" at end of the line.",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_11d47e1f",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 545,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "remove spaces at the end of the line.",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_511c3611",
+        "filename": "src/vnsw/agent/vrouter/stats_collector/agent_stats_collector.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 62
+      },
+      "writtenOn": "2019-06-06T17:37:48Z",
+      "side": 1,
+      "message": "move this below the variable declaration. have the buf malloc after this.",
+      "revId": "29c7f1a3bbcf598a3a4edd7f0493fde22a9fc364",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
