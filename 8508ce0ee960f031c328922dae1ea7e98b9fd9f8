@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "9f5c4f37_8c13b55c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_perms2.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 793,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-07T08:17:13Z",
+      "side": 1,
+      "message": "Agree but here in that test, VN is owned by Alice and shared with Bob. That VN have property \u0027is_shared\u0027 to false (default value). Then network list done by Bob with filter \u0027is_shared\u003dFalse\u0027 should not return the VN. But as you said filter on properties is only applied on owned resources and not on shared ones. This is another bug.\n\nMy comment is why did you add that test for that patch?\n\nBtw, did you see that code https://github.com/Juniper/contrail-controller/blob/master/src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py#L494-L515 I think it could compete for obfuscated code contest :)",
+      "parentUuid": "9f5c4f37_b15ff270",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_bdea29a9",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 2
@@ -66,6 +84,24 @@
       "side": 1,
       "message": "Yes. Exactly. Do you think we could do it better in any ways ?",
       "parentUuid": "9f5c4f37_bdea29a9",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_8c3cd5c8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1602,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-07T08:17:13Z",
+      "side": 1,
+      "message": "I think we should decide which format we like to use and save in the DB and fix the code to respects it and adds a migration path to update existing resources. We have to status on that.",
+      "parentUuid": "9f5c4f37_91562e5c",
       "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
