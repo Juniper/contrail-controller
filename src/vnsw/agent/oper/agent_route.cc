@@ -300,6 +300,8 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         }
         if (deleted_path_was_active_path &&
                 cnh && new_cnh &&
+                (peer->GetType() == Peer::BGP_PEER) &&
+                (new_active_path_peer->GetType() == Peer::BGP_PEER) &&
                 (cnh->composite_nh_type() == Composite::ECMP) &&
                 (new_cnh->composite_nh_type() == Composite::ECMP)) {
             new_active_path->ImportPrevActiveNH(agent_, cnh);
@@ -520,6 +522,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             CompositeNH *new_cnh =
                 dynamic_cast<CompositeNH *>(path->nexthop());
             if (cnh && new_cnh &&
+                (path->peer()->GetType() == Peer::BGP_PEER) &&
+                (prev_active_path->peer()->GetType() == Peer::BGP_PEER) &&
                 (cnh->composite_nh_type() == Composite::ECMP) &&
                 (new_cnh->composite_nh_type() == Composite::ECMP)) {
                 path->ImportPrevActiveNH(agent_, cnh);
