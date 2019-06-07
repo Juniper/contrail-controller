@@ -1,13 +1,13 @@
 #!/usr/bin/python
 
-import traceback
 import sys
+import traceback
+
+from filter_utils import _task_done, _task_error_log, _task_log, FilterLog
 
 from job_manager.job_utils import JobVncApi
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog, _task_log, _task_done, \
-    _task_error_log
 
 
 class FilterModule(object):
@@ -24,7 +24,7 @@ class FilterModule(object):
 
     def topology_discovery(self, job_ctx, prouter_fqname,
                            lldp_neighbors_payload):
-        """
+        """Topology discovery.
 
         :param job_ctx: Dictionary
             example:
@@ -192,7 +192,7 @@ class FilterModule(object):
                 parent_fq_name=remote_neighbor_info[0].split(":"),
                 filters={"physical_interface_port_id":
                          remote_neighbor_info[1]}
-                )
+            )
             if list_resp['physical-interfaces']:
                 topology_disc_payload.append([neighbor_info[0],
                                               list_resp['physical-interfaces']
@@ -226,9 +226,9 @@ class FilterModule(object):
                 _task_error_log(traceback.format_exc())
                 lldp_neighbor_failed_obj = {
                     "lldp_neighbor": object_fqname[-2] + " : " +
-                                     object_fqname[-1] + " --> " +
-                                     ref_fqname[-2] + " : " +
-                                     ref_fqname[-1],
+                    object_fqname[-1] + " --> " +
+                    ref_fqname[-2] + " : " +
+                    ref_fqname[-1],
                     "warning_message": str(ex)
                 }
                 lldp_neighbors_failed_info.append(lldp_neighbor_failed_obj)
@@ -237,4 +237,3 @@ class FilterModule(object):
             'lldp_neighbors_failed_info': lldp_neighbors_failed_info
         }
     # end _create_physical_interface_refs
-

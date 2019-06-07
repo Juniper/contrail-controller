@@ -4,19 +4,21 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
+"""Dicover device utility.
+
 This file contains untility functions for device discovery
 """
-import subprocess
-import paramiko
-import xml.etree.ElementTree as etree
 import ast
-import json
+import subprocess
+import xml.etree.ElementTree as etree
+
 from cfgm_common.exceptions import (
     RefsExistError
 )
-from vnc_api.vnc_api import VncApi
+import paramiko
 from vnc_api.gen.resource_client import PhysicalRouter
+from vnc_api.vnc_api import VncApi
+
 from job_manager.job_utils import JobFileWrite, JobVncApi
 
 REF_EXISTS_ERROR = 3
@@ -27,6 +29,7 @@ class DeviceInfo(object):
     output = {}
 
     def __init__(self, module):
+        """Discover device utility initialization."""
         self.module = module
         self.logger = module.logger
         self.job_ctx = module.job_ctx
@@ -117,7 +120,8 @@ class DeviceInfo(object):
         for cred in self.credentials:
             if cred.get('credential', {}).get('password'):
                 cred['credential']['password'] = JobVncApi.decrypt_password(
-                    encrypted_password=cred.get('credential', {}).get('password'),
+                    encrypted_password=cred.get('credential', {}).get(
+                        'password'),
                     admin_password=self.job_ctx.get('vnc_api_init_params').get(
                         'admin_password'))
 
@@ -369,11 +373,11 @@ class DeviceInfo(object):
                     pr_uuid = pr_obj_dict['physical-router']['uuid']
                     msg = "Discovered %s:\n   Host name: %s\n   Vendor: %s\n" \
                           "   Model: %s" % (
-                        oid_mapped.get('host'),
-                        fq_name[1],
-                        oid_mapped.get('vendor'),
-                        oid_mapped.get('product')
-                    )
+                              oid_mapped.get('host'),
+                              fq_name[1],
+                              oid_mapped.get('vendor'),
+                              oid_mapped.get('product')
+                          )
                     self.logger.info("Discovered {} : {}".format(
                         oid_mapped.get('host'), pr_uuid
                     ))
@@ -470,8 +474,8 @@ class DeviceInfo(object):
                 physicalrouter = self.vncapi.physical_router_read(
                     fq_name=fq_name)
                 phy_router = self.vncapi.obj_to_dict(physicalrouter)
-                if (phy_router.get('physical_router_management_ip')
-                        == oid_mapped.get('host')):
+                if (phy_router.get('physical_router_management_ip') ==
+                        oid_mapped.get('host')):
                     self.logger.info(
                         "Device with same mgmt ip already exists {}".format(
                             phy_router.get('physical_router_management_ip')))

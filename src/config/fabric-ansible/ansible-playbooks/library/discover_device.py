@@ -4,18 +4,23 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
+"""Device discovery.
+
 This file contains implementation of checking for successful SSH connections
 """
-import socket
-from netaddr import IPNetwork
+
+
 from datetime import datetime
 import logging
-from gevent import Greenlet, monkey, pool, queue
-monkey.patch_all()
+import socket
+
 from ansible.module_utils.device_info import DeviceInfo
 from ansible.module_utils.fabric_pysnmp import snmp_walk
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
+from gevent import Greenlet, monkey, pool, queue
+from netaddr import IPNetwork
+
+monkey.patch_all()
 
 logging.getLogger(
     'requests.packages.urllib3.connectionpool').setLevel(logging.ERROR)
@@ -116,7 +121,7 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
 
             # this is the time when 'host_params' is put into the retry_queue
             # after it fails the first time.
-            if host_params.get('time') is not 0:
+            if host_params.get('time') != 0:
                 current_time = datetime.now()
                 time_diff = current_time - host_params.get('time')
                 elapsed_time = time_diff.total_seconds()
@@ -296,8 +301,8 @@ def module_process(module):
     if not module.results.get('device_info'):
         module.results['msg'] = "NO HOSTS DISCOVERED"
     else:
-        module.results['msg'] = "Discovered "+str(len(module.results.get(
-            'device_info')))+" device(s)"
+        module.results['msg'] = "Discovered " + str(len(module.results.get(
+            'device_info'))) + " device(s)"
     module.job_ctx['current_task_index'] = 3
     module.send_job_object_log(
         module.results.get('msg'),
@@ -309,7 +314,6 @@ def module_process(module):
 
 
 def main():
-    """module main"""
     module = FabricAnsibleModule(
         argument_spec=dict(
             fabric_uuid=dict(required=True),
