@@ -112,7 +112,7 @@ define dump_route_paths
        printf "Number of paths : %d\n", $__count
        set $__path = (AgentPath *)((size_t)$__path_list->data_.root_plus_size_.root_ - 8)
        while $__count >= 1
-           printf "Path : %p  Peer : %p  NH : %p Label : %d\n", $__path, $__path->peer_, $__path->nh_.px, $__path->label_
+           printf "Path : %p  Peer : %p  NH : %p Label : %d\n", $__path, $__path->peer_.px, $__path->nh_.px, $__path->label_
            set $__path = (AgentPath *)((size_t)$__path->node_->next_ - 8)
            set $__count--
        end
