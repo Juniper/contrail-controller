@@ -1,5 +1,5 @@
 cfgm_common
-contrail-api-client
+contrail-api-client<5.1.0
 sandesh
 sandesh-common
 psutil>=0.6.0

@@ -21,7 +21,7 @@ stevedore
 testscenarios
 kazoo
 cfgm_common
-contrail-api-client
+contrail-api-client<5.1.0
 contrail-api-server
 sandesh
 sandesh-common
