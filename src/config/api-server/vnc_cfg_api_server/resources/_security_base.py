@@ -333,6 +333,10 @@ class SecurityResourceBase(ResourceMixin):
     @classmethod
     def _pending_update(cls, draft_pm, obj_dict, draft_mode_state,
                         delta_obj_dict=None, prop_collection_updates=None):
+        uuid = obj_dict['uuid']
+        orig_obj_dict = copy.deepcopy(obj_dict)
+        relaxed_refs = set(cls.db_conn.dbe_get_relaxed_refs(uuid))
+
         if not delta_obj_dict:
             delta_obj_dict = {}
         delta_obj_dict.pop('uuid', None)
@@ -409,6 +413,48 @@ class SecurityResourceBase(ResourceMixin):
                 draft_obj_dict['uuid'],
                 {'draft_mode_state': 'deleted'},
             )
+
+        if draft_mode_state == 'deleted':
+            for backref_field in cls.backref_fields:
+                ref_type, _, is_derived = cls.backref_field_types[backref_field]
+                if is_derived:
+                    continue
+                exist_refs = {(ref_type, backref['uuid'])
+                              for backref in obj_dict.get(backref_field, [])
+                              if backref['uuid'] not in relaxed_refs}
+
+            for ref_type, ref_uuid in exist_refs:
+                ref_class = cls.server.get_resource_class(ref_type)
+                ref_field = '%s_refs' % cls.object_type
+                ok, ref_result = ref_class.locate(
+                    uuid=ref_uuid,
+                    create_it=False,
+                    fields=['fq_name',ref_field],
+                )
+                if not ok:
+                    return False, ref_result
+                ref = ref_result
+                if (ref['fq_name'][-2] ==
+                        POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT and ref_field in ref):
+                    for individual_ref in ref[ref_field]:
+                        if individual_ref['to'] == orig_obj_dict['fq_name']:
+                            attr_dict = individual_ref['attr']
+                            cls.server.internal_request_ref_update(
+                            ref_type,
+                            ref_uuid,
+                            'DELETE',
+                            cls.object_type,
+                            orig_obj_dict['uuid'],
+                            orig_obj_dict['fq_name'])
+
+                            cls.server.internal_request_ref_update(
+                            ref_type,
+                            ref_uuid,
+                            'ADD',
+                            cls.object_type,
+                            draft_obj_dict['uuid'],
+                            draft_obj_dict['fq_name'],
+                            attr=attr_dict)
 
         draft_obj_dict.update(delta_obj_dict)
         return True, (202, draft_obj_dict)
