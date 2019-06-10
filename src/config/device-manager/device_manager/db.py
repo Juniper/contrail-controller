@@ -51,6 +51,18 @@ class DBBaseDM(DBBase):
             kvps = AttrDict(dict((kvp['key'], kvp['value']) for kvp in kvps))
         return kvps
     # end _read_key_value_pair
+
+    def _get_single_ref(self, ref_type, obj):
+        if isinstance(obj, dict):
+            refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
+        else:
+            refs = (getattr(obj, ref_type+'_refs', None) or
+                    getattr(obj, ref_type+'_back_refs', None))
+        if refs:
+            return self._get_ref_key(refs[0], ref_type)
+        else:
+            return None
+    # end _get_single_ref
 # end DBBaseDM
 
 
@@ -1331,7 +1343,12 @@ class InstanceIpDM(DBBaseDM):
         self.name = self.fq_name[-1]
         self.instance_ip_address = obj.get("instance_ip_address")
         self.update_single_ref('virtual_machine_interface', obj)
-        self.update_single_ref('logical_interface', obj)
+
+        # Not using update_single_ref to update logical interface uuid,
+        # because update_single_ref internally updates the
+        # LogicalInterfaceDM.instance_ip property as well. We want to do a
+        # conditional set only which this code takes care of.
+        self.logical_interface = self._get_single_ref('logical_interface', obj)
 
         if self.logical_interface:
             li_obj = LogicalInterfaceDM.get(self.logical_interface)
@@ -1345,7 +1362,7 @@ class InstanceIpDM(DBBaseDM):
 
     def delete_obj(self):
         self.update_single_ref('virtual_machine_interface', {})
-        self.update_single_ref('logical_interface', {})
+        self.logical_interface = None
     # end delete_obj
 
 # end InstanceIpDM
