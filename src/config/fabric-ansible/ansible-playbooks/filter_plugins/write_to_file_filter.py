@@ -1,10 +1,12 @@
 #!/usr/bin/python
 import argparse
 import sys
+
 from job_manager.job_utils import JobFileWrite
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import FilterLog
+
 
 class FilterModule(object):
 
@@ -15,7 +17,7 @@ class FilterModule(object):
         }
 
     def get_job_ctx_details(self, job_ctx):
-        return job_ctx.get('job_execution_id'),job_ctx.get('unique_pb_id')
+        return job_ctx.get('job_execution_id'), job_ctx.get('unique_pb_id')
 
     def report_percentage_completion(self, job_ctx, percentage):
         logger = FilterLog.instance("WritePercentToFileFilter").logger()
@@ -26,8 +28,7 @@ class FilterModule(object):
         )
         return {
             'status': 'success',
-            'write_to_file_log': 'Successfully wrote progress to streaming file'
-        }
+            'write_to_file_log': 'Successfully wrote progress to streaming file'}
 
     def report_playbook_results(self, job_ctx, pb_results):
         logger = FilterLog.instance("WritePbResultsToFileFilter").logger()
@@ -38,8 +39,8 @@ class FilterModule(object):
         )
         return {
             'status': 'success',
-            'write_to_file_log': 'Successfully wrote command results to streaming file'
-        }
+            'write_to_file_log': 'Successfully wrote command results to streaming file'}
+
 
 def _parse_args():
     parser = argparse.ArgumentParser(description='fabric filters tests')
@@ -58,6 +59,6 @@ if __name__ == '__main__':
     if parser.percentage_complete:
         results = fabric_filter.report_percentage_completion(
             {"sample_exec_id_filename": "sample_exec_id",
-            "sample_unique_pb_id": "sample_unique_pb_id"},
+             "sample_unique_pb_id": "sample_unique_pb_id"},
             10)
     print results

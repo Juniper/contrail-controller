@@ -4,22 +4,20 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains code to support the hitless image upgrade feature
-"""
+"""This file contains code to support the hitless image upgrade feature."""
 
-import json
-import sys
-import traceback
 import argparse
 import copy
-import re
+import json
 from datetime import timedelta
+import sys
+import re
+import traceback
 
 from job_manager.job_utils import JobAnnotations, JobVncApi
 
-#sys.path.append("..")
-#from test_hitless_filters import JobVncApi, mock_job_ctx, \
+# sys.path.append("..")
+# from test_hitless_filters import JobVncApi, mock_job_ctx, \
 #    mock_image_upgrade_list,mock_upgrade_plan,JobAnnotations, \
 #    FilterLog, _task_error_log,mock_device_uuid,mock_device_json
 
@@ -30,9 +28,9 @@ ordered_role_groups = [
 ]
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog, _task_error_log
+from filter_utils import _task_error_log, FilterLog
 
-IMAGE_UPGRADE_DURATION = 30 # minutes
+IMAGE_UPGRADE_DURATION = 30  # minutes
 
 
 class FilterModule(object):
@@ -90,7 +88,7 @@ class FilterModule(object):
         job_template_fqname = self.job_ctx.get('job_template_fqname')
         def_json = self.ja.generate_default_json(job_template_fqname)
         adv_params = def_json.get("advanced_parameters")
-        job_input_adv_params = self.job_input.get('advanced_parameters',{})
+        job_input_adv_params = self.job_input.get('advanced_parameters', {})
         adv_params = self.ja.dict_update(adv_params, job_input_adv_params)
         return adv_params
     # end _get_advanced_params
@@ -210,9 +208,9 @@ class FilterModule(object):
     # devices and their physical interfaces
     def _generate_vpg_table(self):
         vpg_table = {}
-        vpg_refs = self.vncapi.virtual_port_groups_list \
-            (parent_id=self.fabric_uuid).\
-            get('virtual-port-groups', [])
+        vpg_refs = self.vncapi.virtual_port_groups_list(
+            parent_id=self.fabric_uuid). get(
+            'virtual-port-groups', [])
         for vpg_ref in vpg_refs:
             vpg_uuid = vpg_ref.get('uuid')
             vpg_table[vpg_uuid] = {"device_table": {}}
@@ -253,7 +251,7 @@ class FilterModule(object):
                 vpg_dev_table = vpg_entry['device_table']
                 for vpg_dev_uuid, pi_list in vpg_dev_table.iteritems():
                     if vpg_dev_uuid not in vpg_info['buddies'] and \
-                                    vpg_dev_uuid != device_uuid:
+                            vpg_dev_uuid != device_uuid:
                         buddy_entry = self._get_buddy_entry(vpg_dev_uuid,
                                                             pi_list)
                         vpg_info['buddies'].append(buddy_entry)
@@ -262,7 +260,7 @@ class FilterModule(object):
     # Create entry for peer, including ip_addr, username, password
     def _get_buddy_entry(self, device_uuid, pi_list):
         if device_uuid in self.device_table or \
-                        device_uuid in self.skipped_device_table:
+                device_uuid in self.skipped_device_table:
             if device_uuid in self.device_table:
                 device_info = self.device_table[device_uuid]
             else:
@@ -361,7 +359,8 @@ class FilterModule(object):
         # Add batch index to device info
         for batch in batches:
             for device_uuid in batch['device_list']:
-                self.device_table[device_uuid]['batch_index'] = batches.index(batch)
+                self.device_table[device_uuid]['batch_index'] = batches.index(
+                    batch)
 
         return batches
     # end _generate_batches
@@ -372,7 +371,7 @@ class FilterModule(object):
         vpg_info = device_info['vpg_info']
         batch_index = device_info.get('batch_index')
         batch_name = self.batches[batch_index]['name'] \
-            if batch_index != None else "N/A"
+            if batch_index is not None else "N/A"
         details += "\n  - {}\n".format(device_name)
         details += \
             "    uuid             : {}\n"\
@@ -401,7 +400,7 @@ class FilterModule(object):
                 basic.get('device_serial_number'),
                 basic.get('device_management_ip'),
                 basic.get('device_username'),
-                "** hidden **", #basic.get('device_password'),
+                "** hidden **",  # basic.get('device_password'),
                 device_info.get('image_version'),
                 device_info.get('current_image_version'),
                 device_info.get('image_family'),
@@ -434,7 +433,8 @@ class FilterModule(object):
         report += "\n*************************** Summary ***************************\n"
 
         # Dump summary of batches
-        total_time = str(timedelta(minutes=IMAGE_UPGRADE_DURATION*len(self.batches)))
+        total_time = str(
+            timedelta(minutes=IMAGE_UPGRADE_DURATION * len(self.batches)))
         if len(self.batches) > 0:
             report += "\nTotal estimated duration is {}.\n".format(total_time)
             report += "\nNote that this time estimate may vary depending on network speeds and system capabilities.\n"
@@ -448,10 +448,8 @@ class FilterModule(object):
                     hitless_upgrade = device_info['basic']['device_hitless_upgrade']
                     is_hitless = "" if hitless_upgrade else "(not hitless)"
                     workflow_info = self._check_for_downgrade(device_info)
-                    report += "  {}  {} --> {}  {}{}\n".format(device_name,
-                                                         current_version,
-                                                         new_version,
-                                                         is_hitless,workflow_info)
+                    report += "  {}  {} --> {}  {}{}\n".format(
+                        device_name, current_version, new_version, is_hitless, workflow_info)
         else:
             report += "\n   NO DEVICES TO UPGRADE!"
 
@@ -461,7 +459,8 @@ class FilterModule(object):
         if len(sdevices) > 0:
             report += "\nThe following devices will not be upgraded for the reasons listed:\n"
             for device_name, device_info in sorted(sdevices.iteritems()):
-                report += "\n  {} ({})".format(device_name, device_info.get('skip_reason', "unknown reason"))
+                report += "\n  {} ({})".format(device_name,
+                                               device_info.get('skip_reason', "unknown reason"))
 
             report += "\n NOTE: \n Incompatible device-image platform with " \
                       "the same versions could also lead to a device being " \
@@ -470,7 +469,6 @@ class FilterModule(object):
 
         # Now dump the details
         report += "\n*************************** Details ***************************\n"
-
 
         # Dump device info
         if len(devices) > 0:
@@ -499,8 +497,7 @@ class FilterModule(object):
             return self._get_next_batch(upgrade_plan, device_uuid)
         except Exception as ex:
             errmsg = "Unexpected error attempting to get next batch: %s\n%s" % (
-                str(ex), traceback.format_exc()
-            )
+                str(ex), traceback.format_exc())
             _task_error_log(errmsg)
             return {
                 'status': 'failure',
@@ -532,17 +529,23 @@ class FilterModule(object):
         else:
             n_idx = 0
 
-        if c_idx != None:
+        if c_idx is not None:
             batch = upgrade_plan['batches'][c_idx]
             for device_uuid in batch['device_list']:
                 current_batch[device_uuid] = upgrade_plan['device_table'][device_uuid]['basic']
-            batch_info['current'] = {'batch_name': batch['name'], 'batch_index': c_idx, 'batch_devices': current_batch}
+            batch_info['current'] = {
+                'batch_name': batch['name'],
+                'batch_index': c_idx,
+                'batch_devices': current_batch}
 
         if n_idx < len(upgrade_plan['batches']):
             batch = upgrade_plan['batches'][n_idx]
             for device_uuid in batch['device_list']:
                 next_batch[device_uuid] = upgrade_plan['device_table'][device_uuid]['basic']
-            batch_info['next'] = {'batch_name': batch['name'], 'batch_index': n_idx, 'batch_devices': next_batch}
+            batch_info['next'] = {
+                'batch_name': batch['name'],
+                'batch_index': n_idx,
+                'batch_devices': next_batch}
 
         return batch_info
     # end _get_next_batch
@@ -553,8 +556,7 @@ class FilterModule(object):
             return self._get_all_devices(upgrade_plan)
         except Exception as ex:
             errmsg = "Unexpected error attempting to get all devices: %s\n%s" % (
-                str(ex), traceback.format_exc()
-            )
+                str(ex), traceback.format_exc())
             _task_error_log(errmsg)
             return {
                 'status': 'failure',
@@ -579,7 +581,7 @@ class FilterModule(object):
             all_devices[device_uuid] = device_table[device_uuid]['basic']
         batch_info['next']['batch_devices'] = all_devices
         return batch_info
-    #end get_all_devices
+    # end get_all_devices
 
     # Get info for a single device
     def get_device_info(self, job_ctx, device_uuid):
@@ -593,7 +595,7 @@ class FilterModule(object):
             self.advanced_parameters = self._get_advanced_params()
             self._cache_job_input()
             self.device_uuid = device_uuid
-            device_info =  self._get_device_info()
+            device_info = self._get_device_info()
             return device_info
         except Exception as ex:
             errmsg = "Unexpected error getting device info: %s\n%s" % (
@@ -680,11 +682,15 @@ class FilterModule(object):
         if device_info['image_version'] == device_info['current_image_version']:
             return True, "Upgrade image version matches current image version"
         return False, ""
-    #end _check_skip_device_upgrade
+    # end _check_skip_device_upgrade
 
     def _check_for_downgrade(self, device_info):
-        new_image_int = int(re.sub("\D", "", device_info['image_version']))
-        current_image_int = int(re.sub("\D", "", device_info['current_image_version']))
+        new_image_int = int(re.sub(r"\D", "", device_info['image_version']))
+        current_image_int = int(
+            re.sub(
+                r"\D",
+                "",
+                device_info['current_image_version']))
         if new_image_int > current_image_int:
             return ""
         else:
@@ -693,10 +699,11 @@ class FilterModule(object):
     # Get device password
     def _get_password(self, device_obj):
         return JobVncApi.decrypt_password(
-            encrypted_password=device_obj.physical_router_user_credentials.\
-                get_password(),
-            admin_password=self.job_ctx.get('vnc_api_init_params').\
-                get('admin_password'))
+            encrypted_password=device_obj.physical_router_user_credentials.
+            get_password(),
+            admin_password=self.job_ctx.get('vnc_api_init_params').
+            get('admin_password'))
+
 
 def _parse_args():
     arg_parser = argparse.ArgumentParser(description='fabric filters tests')
@@ -717,8 +724,8 @@ def __main__():
     hitless_filter = FilterModule()
 
     if parser.generate_plan:
-        upgrade_plan = hitless_filter.get_hitless_upgrade_plan(mock_job_ctx,
-                        mock_image_upgrade_list, {})
+        upgrade_plan = hitless_filter.get_hitless_upgrade_plan(
+            mock_job_ctx, mock_image_upgrade_list, {})
         print json.dumps(upgrade_plan)
     elif parser.next_batch:
         batch = hitless_filter.get_next_batch(mock_job_ctx,
@@ -736,4 +743,3 @@ def __main__():
 
 if __name__ == '__main__':
     __main__()
-
