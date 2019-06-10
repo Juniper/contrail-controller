@@ -75,6 +75,8 @@ FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
     Address::INET, ServiceChainMgrInet);
 FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
     Address::INET6, ServiceChainMgrInet6);
+FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
+    Address::EVPN, ServiceChainMgrEvpn);
 
 #include "bgp/routing-instance/static_route.h"
 FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IStaticRouteMgr,
