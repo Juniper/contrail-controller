@@ -46,10 +46,11 @@
   include_tasks: "ztp_{{pr_vendor}}_upgrade.yml"
   when: continue_workflow
 
-- block:
-    - name: Vendor specific image upgrade and device bring up
-      include_tasks: "{{pr_vendor}}_upgrade.yml"
+- name: Vendor specific image upgrade and device bring up
+  include_tasks: "{{pr_vendor}}_upgrade.yml"
+  when: continue_workflow is not defined
 
+- block:
     - name: Vendor specific OS version check
       include_tasks: "{{pr_vendor}}_check_version_rpc.yml"
 
