@@ -111,12 +111,6 @@ class ResourceMixin(object):
                 draft_ref = result
             else:
                 draft_ref = ref
-            if draft_ref.get('draft_mode_state') == 'deleted':
-                msg = ("Referenced %s resource '%s' (%s) is in pending delete "
-                       "state, it cannot be referenced" %
-                       (ref_type.replace('_', ' ').title(),
-                        ':'.join(ref['fq_name']), ref_uuid))
-                return False, (400, msg)
         return True, ''
 
     @classmethod
