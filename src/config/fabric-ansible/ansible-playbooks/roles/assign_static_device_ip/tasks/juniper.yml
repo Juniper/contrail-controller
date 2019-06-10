@@ -10,6 +10,7 @@
             comment: "Applied by Ansible"
             ignore_warning: "True"
             format: "{{ format }}"
+            config_mode: private
             provider:
               host: "{{ prouter_dynamic_ip }}"
               username: "{{ username }}"
