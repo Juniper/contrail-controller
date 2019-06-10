@@ -1146,9 +1146,12 @@ bool AgentXmppChannel::IsEcmp(const std::vector<autogen::NextHopType> &nexthops)
         return false;
 
     std::string address = nexthops[0].address;
+    uint32_t label = nexthops[0].label;
     for (uint32_t index = 1; index < nexthops.size(); index++) {
-        if (nexthops[index].address != address)
+        if (nexthops[index].address != address ||
+            (uint32_t)nexthops[index].label != label) {
             return true;
+        }
     }
 
     return false;
