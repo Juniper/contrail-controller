@@ -25,7 +25,7 @@
     - name: Set version
       set_fact:
         ztp_os_version: "{{playbook_input.input.os_version}}"
-      when: os_defined
+      when: os_defined is defined and os_defined
 
     - block:
         - name: Set variable to continue workflow
