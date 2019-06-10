@@ -4,11 +4,12 @@
 
 """
 Contains common logger initialization to be used in ansible internals
-as well as ansible modules
+as well as ansible modules.
 """
 
-import os
 import logging
+import os
+
 from ansible import constants as CONST
 
 DEFAULT_ANSIBLE_LOG_PATH = '/var/log/contrail/contrail-fabric-ansible-playbooks.log'
@@ -61,4 +62,3 @@ def fabric_ansible_logger(name, ctx=None):
         raise Exception("Cannot write to log file at {}".format(logfile))
 
     return logger
-

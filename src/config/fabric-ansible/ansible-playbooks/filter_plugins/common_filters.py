@@ -1,5 +1,5 @@
-import random
 import crypt
+import random
 
 
 class FilterModule(object):
