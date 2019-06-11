@@ -5,12 +5,22 @@
 {%-         set lldp_neighbor_information = [ lldp_neighbor_information]                                                          %}
 {%-     endif                                                                                                                     %}
 {%-     for lldp_neighbor_info in lldp_neighbor_information                                                                       %}
-{%-         if lldp_neighbor_info.get('lldp-remote-system-name') is none                                                          %}
-{%-             continue                                                                                                          %}
-{%-         else                                                                                                                  %}
+{%-         set remote_phy_int = lldp_neighbor_info.get('lldp-remote-port-id')                                                    %}
+{%-         set local_phy_int = lldp_neighbor.get('item')                                                                         %}
+{%-         if lldp_neighbor_info.get('lldp-remote-chassis-id')                                                                   %}
+{%-             set remote_prouter_chassis_id = lldp_neighbor_info.get('lldp-remote-chassis-id')                                  %}
+{%-             if '.' not in local_phy_int                                                                                       %}
+{%-                 set x = neighbor_info_list.append({
+                                                     "local_physical_interface_name":
+                                                     local_phy_int,
+                                                     "remote_device_chassis_id":
+                                                     remote_prouter_chassis_id,
+                                                     "remote_physical_interface_port_id":
+                                                     remote_phy_int
+                                                })                                                                                %}
+{%-             endif                                                                                                             %}
+{%-         elif lldp_neighbor_info.get('lldp-remote-system-name')                                                                %}
 {%-             set remote_prouter_name = lldp_neighbor_info.get('lldp-remote-system-name')                                       %}
-{%-             set remote_phy_int = lldp_neighbor_info.get('lldp-remote-port-id')                                                %}
-{%-             set local_phy_int = lldp_neighbor.get('item')                                                                     %}
 {%-             if '.' not in local_phy_int                                                                                       %}
 {%-                 set x = neighbor_info_list.append({
                                                      "local_physical_interface_name":
@@ -27,3 +37,4 @@
 {
   "neighbor_info_list": {{ neighbor_info_list }}
 }
+

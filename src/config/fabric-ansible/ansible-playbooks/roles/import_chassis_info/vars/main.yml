@@ -1,0 +1,4 @@
+---
+# vars file for import_chassis_info
+timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"
+schema_file: "{{playbook_dir}}/schema/import_chassis_info_schema.json"

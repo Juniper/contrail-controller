@@ -1,0 +1,12 @@
+---
+# defaults file for import_chassis_info
+output: {
+              "status": "Success",
+              "message": "Chassis info update for device: {{prouter_name}} successful"
+        }
+execute_command_resp: {}
+device_info: {}
+parser_output: {}
+chassis_payload: {}
+chassis_info_import_result: {}
+schema_validation_resp: {}

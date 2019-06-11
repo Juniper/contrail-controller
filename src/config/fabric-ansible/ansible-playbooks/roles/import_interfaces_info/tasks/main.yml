@@ -52,7 +52,7 @@
     # Call the vnc filter plugin for device import
     - name: Call the vnc filter plugin for device import
       set_fact:
-        device_import_result: "{{job_ctx | device_import(prouter_name, interfaces_payload) }}"
+        device_import_result: "{{job_ctx | import_interfaces_info(prouter_name, interfaces_payload) }}"
 
     - name: Set the device_import response
       set_fact:
