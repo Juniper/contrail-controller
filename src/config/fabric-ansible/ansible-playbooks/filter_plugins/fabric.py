@@ -1850,7 +1850,7 @@ class FilterModule(object):
             )
         except ValueError as ex:
             raise ValueError(
-                '%s Please assign "Route-Reflector" role to at lease one '
+                '%s Please assign "Route-Reflector" role to at least one '
                 'device and retry the role assignment' % str(ex)
             )
     # end _validate_rr_role_assigned
