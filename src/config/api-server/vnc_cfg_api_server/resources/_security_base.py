@@ -333,6 +333,12 @@ class SecurityResourceBase(ResourceMixin):
     @classmethod
     def _pending_update(cls, draft_pm, obj_dict, draft_mode_state,
                         delta_obj_dict=None, prop_collection_updates=None):
+        # If this function is invoked for a delete call
+        # we need these two fields later in code. Initialize them here.
+        if draft_mode_state == 'deleted':
+            uuid = obj_dict['uuid']
+            old_fq_name = obj_dict['fq_name']
+
         if not delta_obj_dict:
             delta_obj_dict = {}
         delta_obj_dict.pop('uuid', None)
@@ -410,6 +416,70 @@ class SecurityResourceBase(ResourceMixin):
                 {'draft_mode_state': 'deleted'},
             )
 
+        if draft_mode_state == 'deleted':
+            # In case of deletion of a firewall resource, we need to
+            # handle special cases where draft firewall resources
+            # have references to committed firewall resources.
+            relaxed_refs = set(cls.db_conn.dbe_get_relaxed_refs(uuid))
+            for backref_field in cls.backref_fields:
+                ref_type, _, is_derived = cls.backref_field_types[
+                    backref_field]
+
+                if is_derived:
+                    continue
+
+                ok, back_ref_result = cls.locate(
+                    uuid=uuid,
+                    create_it=False,
+                    fields=[backref_field],
+                )
+
+                exist_refs = {(ref_type, backref['uuid'])
+                              for backref in back_ref_result.get(backref_field,
+                                                                 [])
+                              if backref['uuid'] not in relaxed_refs}
+
+            # Once we have all the existing back refs, traverse them to find
+            # if there are back refs are in draft version.
+            # For all these draft back refs, do the following.
+            # 1. Remove reference from draft firewall resource to this
+            #    committed firewall resource.
+            # 2. Add reference from draft firewall resource to the draft
+            #    firewall resource that we created earlier.
+            for ref_type, ref_uuid in exist_refs:
+                ref_class = cls.server.get_resource_class(ref_type)
+                ref_field = '%s_refs' % cls.object_type
+                ok, ref_result = ref_class.locate(
+                    uuid=ref_uuid,
+                    create_it=False,
+                    fields=['fq_name', ref_field],
+                )
+
+                if not ok:
+                    return False, ref_result
+                ref = ref_result
+                if (ref['fq_name'][-2] ==
+                        POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT and
+                        ref_field in ref):
+                    for individual_ref in ref[ref_field]:
+                        if individual_ref['to'] == old_fq_name:
+                            attr_dict = individual_ref['attr']
+                            cls.server.internal_request_ref_update(
+                                ref_type,
+                                ref_uuid,
+                                'DELETE',
+                                cls.object_type,
+                                uuid,
+                                old_fq_name)
+
+                            cls.server.internal_request_ref_update(
+                                ref_type,
+                                ref_uuid,
+                                'ADD',
+                                cls.object_type,
+                                draft_obj_dict['uuid'],
+                                draft_obj_dict['fq_name'],
+                                attr=attr_dict)
         draft_obj_dict.update(delta_obj_dict)
         return True, (202, draft_obj_dict)
 
