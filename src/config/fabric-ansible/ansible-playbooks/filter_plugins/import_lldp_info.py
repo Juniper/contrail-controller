@@ -14,7 +14,7 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'topology_discovery': self.topology_discovery,
+            'import_lldp_info': self.import_lldp_info,
         }
     # end filters
 
@@ -22,7 +22,7 @@ class FilterModule(object):
         FilterLog.instance("TopologyDiscoveryFilter", device_name)
     # end _instantiate_filter_log_instance
 
-    def topology_discovery(self, job_ctx, prouter_fqname,
+    def import_lldp_info(self, job_ctx, prouter_fqname,
                            lldp_neighbors_payload):
         """
 
@@ -135,7 +135,7 @@ class FilterModule(object):
             return {'status': 'failure',
                     'error_msg': str(ex),
                     'topology_discovery_log': FilterLog.instance().dump()}
-    # end topology_discovery
+    # end import_lldp_info
 
     def get_vnc_payload(self, prouter_fqname, lldp_neighbors_info):
 
