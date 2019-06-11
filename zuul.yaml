@@ -1,0 +1,14 @@
+- project:
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - test-unattended-upgrades
+
+- job:
+    name: test-unattended-upgrades
+    pre-run: play.yaml
+    run: play.yaml
+    roles:
+      - zuul: Juniper/zuul-jobs
+      - zuul: Juniper/contrail-zuul-jobs
+      - zuul: Juniper/contrail-project-config
