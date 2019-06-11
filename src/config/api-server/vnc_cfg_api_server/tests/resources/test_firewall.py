@@ -1566,6 +1566,55 @@ class FirewallDraftModeCommonTestSuite(object):
         with ExpectedException(BadRequest):
             self.api.firewall_policy_update(fp)
 
+    def test_discard_security_resources(self):
+        # First disable draft mode
+        # and a Firewall Rule, Link them together.
+        self.set_scope_instance(draft_enable=False)
+
+        # Create firewall rule
+        fr1 = FirewallRule('fr1-%s' % self.id(), parent_obj=self._owner)
+        fr1.set_service(FirewallServiceType())
+        self.api.firewall_rule_create(fr1)
+
+        # Add reference to Firewall rule and create Firewall Policy
+        fp1 = FirewallPolicy('fp-%s-1' % self.id(), parent_obj=self._owner)
+        fp1.add_firewall_rule(fr1, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_create(fp1)
+
+        # Enable draft mode and mark both FP and FR for deletion
+        self.draft_mode = True
+        self.api.firewall_policy_delete(id=fp1.uuid)
+        self.api.firewall_rule_delete(id=fr1.uuid)
+
+        # Verify that both FP and FR are marked for deletion
+        pending_fp1 = self.api.firewall_policy_read_draft(id=fp1.uuid)
+        pending_fr1 = self.api.firewall_rule_read_draft(id=fr1.uuid)
+        self.assertEqual(pending_fp1.draft_mode_state, 'deleted')
+        self.assertEqual(pending_fr1.draft_mode_state, 'deleted')
+
+        # Verify that the draft FP has reference to draft FR.
+        firewall_rule_refs = pending_fp1.firewall_rule_refs
+        self.assertEqual(firewall_rule_refs[0]['to'][-2],
+                         'draft-policy-management')
+
+        # Now, discard FP and FR from draft mode.
+        self.api.firewall_policy_delete(id=pending_fp1.uuid)
+        self.api.firewall_rule_delete(id=pending_fr1.uuid)
+
+        # After commit, verify that draft version of both FP and FR
+        # are discarded. But, both committed version of both exists
+        self.api.commit_security(self._scope)
+
+        self.assertRaises(NoIdError, self.api.firewall_policy_read,
+                          id=pending_fp1.uuid)
+        self.assertRaises(NoIdError, self.api.firewall_rule_read,
+                          id=pending_fr1.uuid)
+
+        fp = self.api.firewall_policy_read(id=fp1.uuid)
+        self.assertEqual(fp.display_name, 'fp-%s-1' % self.id())
+        fr = self.api.firewall_rule_read(id=fr1.uuid)
+        self.assertEqual(fr.display_name, 'fr1-%s' % self.id())
+
     def test_delete_security_resource_in_pending_delete(self):
         # First disable draft mode and create two Firewall Policies
         self.set_scope_instance(draft_enable=False)

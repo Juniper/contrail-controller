@@ -12,6 +12,7 @@ from sandesh_common.vns import constants
 from vnc_api.gen.resource_xsd import QuotaType
 
 from vnc_cfg_api_server.vnc_quota import QuotaHelper
+from vnc_cfg_api_server.context import is_internal_request
 
 
 class ResourceMixin(object):
@@ -78,7 +79,7 @@ class ResourceMixin(object):
     @classmethod
     def no_pending_deleted_resource_in_refs(cls, obj_dict):
         # Check if any reference points to a pending deleted resource
-        if not obj_dict:
+        if not obj_dict or is_internal_request():
             return True, ''
 
         refs = [(ref_type, ref.get('to'), ref.get('uuid'))
