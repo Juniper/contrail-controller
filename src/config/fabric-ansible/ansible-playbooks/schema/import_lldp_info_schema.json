@@ -31,12 +31,28 @@
                         "type": "string",
                         "description": "port id (stringified number) of the remote physical interface",
                         "examples": ["542", "538"]
+                    },
+                    "remote_device_chassis_id": {
+                        "type": "string",
+                        "description": "Remote system chassis mac address",
+                        "examples": ["11:22:33:44:55:66", "a1:d3:ce:22:12:4f"]
                     }
                 },
-                "required": [
-                    "local_physical_interface_name",
-                    "remote_device_name",
-                    "remote_physical_interface_port_id"
+                "anyOf": [
+                  {
+                    "required": [
+                        "local_physical_interface_name",
+                        "remote_device_name",
+                        "remote_physical_interface_port_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                        "local_physical_interface_name",
+                        "remote_device_chassis_id",
+                        "remote_physical_interface_port_id"
+                    ]
+                  }
                 ]
             }
          }
@@ -44,4 +60,3 @@
       "required": ["neighbor_info_list"]
    }
 }
-
