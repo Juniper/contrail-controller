@@ -1,0 +1,18 @@
+- import_role:
+    name: Juniper.junos
+
+- name: IMPORT CHASSIS INFO
+  juniper_junos_command:
+    commands:
+      - show chassis mac-addresses
+    display: xml
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: execute_command_resp
+
+- set_fact:
+    device_info: "{{execute_command_resp}}"

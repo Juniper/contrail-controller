@@ -1,9 +1,3 @@
----
-# vendor agnostic tasks file for import_lldp_info
-
-- set_fact:
-    job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
-
 - name: Encapsulate all the operations in a block rescue for error handling
   block:
     - name: check to see if the ansible file for the vendor and family exists
@@ -40,15 +34,15 @@
         op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
         jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-    - name: parse lldp info obtained to get remote system information. Ensure Jinja template does not have any new lines
+    - name: parse output info obtained to get appropriate chassis payload format. Ensure Jinja template does not have any new lines
       set_fact:
-        lldp_neighbors_payload: "{{lookup('template', jinja_file_path)}}"
+        chassis_payload: "{{lookup('template', jinja_file_path)}}"
       register: parser_output
 
-    # validate schema to check if the lldp_neighbors payload is of the correct output schema
-    - name: Validate Output Schema -- lldp_neighbors_payload
+    # validate schema to check if the interfaces payload is of the correct output schema
+    - name: Validate Output Schema -- chassis_payload
       set_fact:
-        schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, lldp_neighbors_payload, prouter_name)}}"
+        schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, chassis_payload, prouter_name)}}"
 
     - name: Perform the necessary error handling when there is a schema validation error
       include_tasks: error_handler.yml
@@ -57,29 +51,30 @@
         op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
         jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-    # Call the vnc filter plugin for topology discovery
-    - name: Call the vnc filter plugin for topology discovery
+    # Call the vnc filter plugin for chassis import
+    - name: Call the vnc filter plugin for chassis import
       set_fact:
-        topology_discovery_result: "{{job_ctx | import_lldp_info(prouter_fqname, prouter_vendor, lldp_neighbors_payload) }}"
+        chassis_info_import_result: "{{job_ctx | import_chassis_info(prouter_name, chassis_payload, prouter_vendor) }}"
+
+    - name: Set the chassis_import response
+      set_fact:
+        chassis_import_resp: "{{chassis_info_import_result.chassis_import_resp}}"
 
     - name: Handle any exception or error cases
       include_tasks: error_handler.yml
-      when: "'status' in topology_discovery_result and topology_discovery_result.status == 'failure'"
+      when: "'status' in chassis_info_import_result and chassis_info_import_result.status == 'failure'"
       vars:
-        op_err_message: "Unable to discover topology due to the following error on {{prouter_vendor}} device, {{prouter_name}}: {{ topology_discovery_result.error_msg }}"
-        jl_err_message: "Failed to discover topology due to error on {{prouter_vendor}} device, {{prouter_name}}: {{ topology_discovery_result.error_msg }}. Here is the topology_discovery_log: {{topology_discovery_result.topology_discovery_log}}"
-
-    - name: Set the topology_discovery response
-      set_fact:
-        topology_discovery_resp: "{{topology_discovery_result.topology_discovery_resp}}"
+        op_err_message: "Unable to import chassis info due to the following error: {{ chassis_info_import_result.error_msg }}"
+        jl_err_message: "Failed to import chassis info due to error: {{ chassis_info_import_result.error_msg }}. Here is the chassis_import_log: {{chassis_info_import_result.chassis_import_log}}"
 
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
-        current_index: 1
-        jl_message: "Created physical interfaces link(s) from {{prouter_vendor}} device, {{prouter_name}}:\n   - {{topology_discovery_resp.lldp_neighbors_success_names|length}}"
-        jl_details: {"discovered_neighbors": "{{topology_discovery_resp.lldp_neighbors_success_names}}",
-                     "skipped_neighbors": "{{topology_discovery_resp.lldp_neighbors_failed_info}}"}
+        current_index: 3
+        jl_message: "Imported chassis mac address(es) for {{prouter_vendor}} device, {{prouter_name}}:\n   - {{chassis_import_resp.chassis_mac_ids }} "
+        jl_details: {
+                      "warning_info": "{{chassis_import_resp.warning_info}}"
+                    }
 
   rescue:
     - name: Perform the necessary error handling while trying to execute command
@@ -93,8 +88,8 @@
       include_tasks: error_handler.yml
       when: "'failed' in parser_output and parser_output.failed == true"
       vars:
-        op_err_message: "Error while parsing the neighbor information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
-        jl_err_message: "Error while parsing the neighbor information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        op_err_message: "Error while parsing the chassis information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        jl_err_message: "Error while parsing the chassis information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
 
     # this is when the playbook has to end for other unhandled failures
     - meta: end_play

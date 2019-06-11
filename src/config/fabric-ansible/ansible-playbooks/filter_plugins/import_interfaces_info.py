@@ -14,18 +14,19 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'device_import': self.device_import,
+            'import_interfaces_info': self.import_interfaces_info,
         }
     # end filters
 
     def _instantiate_filter_log_instance(self, device_name):
-        FilterLog.instance("DeviceImportFilter", device_name)
+        FilterLog.instance("Import_interfaces_infoFilter", device_name)
     # end _instantiate_filter_log_instance
 
-    def device_import(self, job_ctx, prouter_name, interfaces_payload):
-        """
-        :param job_ctx: Dictionary.
+    def import_interfaces_info(self, job_ctx, prouter_name,
+                               interfaces_payload):
+        """Import Interfaces.
 
+        :param job_ctx: Dictionary
             example:
             {
                 "auth_token": "EB9ABC546F98",
@@ -130,11 +131,13 @@ class FilterModule(object):
         except Exception as ex:
             _task_error_log(str(ex))
             _task_error_log(traceback.format_exc())
-            return {'status': 'failure',
-                    'error_msg': str(ex),
-                    'device_import_log': FilterLog.instance().dump(),
-                    'device_import_resp': device_import_resp}
-    # end device_import
+            return {
+                'status': 'failure',
+                'error_msg': str(ex),
+                'device_import_log': FilterLog.instance().dump(),
+                'device_import_resp': device_import_resp
+            }
+    # end import_interfaces_info
 
     def get_create_interfaces_payload(self, device_name,
                                       physical_interfaces_list,
@@ -177,10 +180,12 @@ class FilterModule(object):
 
             log_intfs_payload = {
                 "parent_type": "physical-interface",
-                "fq_name": ["default-global-system-config",
-                            device_name,
-                            phy_interface_name.replace(':', '_'),
-                            log_interface_name.replace(':', '_')],
+                "fq_name": [
+                    "default-global-system-config",
+                    device_name,
+                    phy_interface_name.replace(':', '_'),
+                    log_interface_name.replace(':', '_')
+                ],
                 "display_name": log_interface_name
             }
 

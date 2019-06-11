@@ -3,27 +3,27 @@
 import sys
 import traceback
 
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import _task_done, _task_error_log, _task_log, FilterLog
 
 from job_manager.job_utils import JobVncApi
-
-sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 
 
 class FilterModule(object):
 
     def filters(self):
         return {
-            'topology_discovery': self.topology_discovery,
+            'import_lldp_info': self.import_lldp_info,
         }
     # end filters
 
     def _instantiate_filter_log_instance(self, device_name):
-        FilterLog.instance("TopologyDiscoveryFilter", device_name)
+        FilterLog.instance("Import_lldp_info_Filter", device_name)
     # end _instantiate_filter_log_instance
 
-    def topology_discovery(self, job_ctx, prouter_fqname,
-                           lldp_neighbors_payload):
+    def import_lldp_info(self, job_ctx, prouter_fqname,
+                         prouter_vendor,
+                         lldp_neighbors_payload):
         """Topology discovery.
 
         :param job_ctx: Dictionary
@@ -59,6 +59,8 @@ class FilterModule(object):
               "default-global-system-config",
               "5c3-qfx2"
             ]
+        :param prouter_vendor: String
+            example: "juniper"
         :param lldp_neighbors_payload: Dictionary
             example:
             {
@@ -68,6 +70,11 @@ class FilterModule(object):
                   "local_physical_interface_name": "xe-0/0/0",
                   "remote_device_name": "5b5-qfx11",
                   "remote_physical_interface_port_id": "536"
+                },
+                {
+                  "local_physical_interface_name": "xe-0/0/2",
+                  "remote_device_chassis_id": "00:1a:53:46:7b:9e",
+                  "remote_physical_interface_port_id": "538"
                 }
               ]
             }
@@ -88,8 +95,6 @@ class FilterModule(object):
                   <String: topology_discovery_log>,
               'topology_discovery_resp':
                   <Dictionary: topology_discovery_resp>
-
-
             }
         :param topology_discovery_resp: Dictionary
             example:
@@ -99,7 +104,6 @@ class FilterModule(object):
               "lldp_neighbors_failed_info":
                   <List: <Dictionary: lldp_neighbor_failed_obj> >
             }
-
             :param lldp_neighbors_success_names: List
             example:
                 ["bng-contrail-qfx51-15 : ge-0/0/36 --> dhawan : ge-2/3/1"]
@@ -121,7 +125,8 @@ class FilterModule(object):
             topology_discovery_resp = self._create_neighbor_links(
                 job_ctx,
                 lldp_neighbors_payload,
-                prouter_fqname)
+                prouter_fqname,
+                prouter_vendor)
 
             _task_done()
             return {
@@ -135,11 +140,15 @@ class FilterModule(object):
             return {'status': 'failure',
                     'error_msg': str(ex),
                     'topology_discovery_log': FilterLog.instance().dump()}
-    # end topology_discovery
+    # end import_lldp_info
 
-    def get_vnc_payload(self, prouter_fqname, lldp_neighbors_info):
+    def get_vnc_payload(self, vnc_lib, prouter_fqname,
+                        prouter_vendor,
+                        lldp_neighbors_info):
 
         vnc_payload = []
+        chassis_id_device_name_map = self.get_chassis_id_to_device_name(
+            vnc_lib, prouter_vendor)
         for lldp_neighbor_info in lldp_neighbors_info or []:
             local_phy_int = lldp_neighbor_info.get(
                 'local_physical_interface_name')
@@ -147,19 +156,53 @@ class FilterModule(object):
             phy_int_fqname.extend(prouter_fqname)
             phy_int_fqname.append(local_phy_int.replace(":", "_"))
 
-            remote_phy_int_fqname_str = \
-                lldp_neighbor_info['remote_device_name'].replace(":", "_") + \
-                ":" +\
-                lldp_neighbor_info.get('remote_physical_interface_port_id')
+            remote_device_chassis_id = lldp_neighbor_info.get(
+                'remote_device_chassis_id')
+            remote_device_name = chassis_id_device_name_map.get(
+                remote_device_chassis_id)
 
-            vnc_payload.append((phy_int_fqname, remote_phy_int_fqname_str))
+            if not remote_device_name:
+                remote_device_name = lldp_neighbor_info.get(
+                    'remote_device_name')
+
+            if remote_device_name:
+                remote_phy_int_fqname_str = \
+                    lldp_neighbor_info['remote_device_name'].replace(
+                        ":", "_") + ":" +\
+                    lldp_neighbor_info.get(
+                        'remote_physical_interface_port_id')
+
+                vnc_payload.append((phy_int_fqname, remote_phy_int_fqname_str))
         return vnc_payload
     # end get_vnc_payload
+
+    # get chassis mac id to physical router name map
+    # for all the physical routers in the fabric
+
+    def get_chassis_id_to_device_name(self, vnc_lib, prouter_vendor):
+
+        chassis_id_to_device_name_map = {}
+
+        phy_routers_list = vnc_lib.physical_routers_list(
+            fields=['device_chassis_refs']).get('physical-routers')
+        for phy_router in phy_routers_list or []:
+            if phy_router.get('device_chassis_refs'):
+                device_chassis_id_info = phy_router.get(
+                    'device_chassis_refs')
+                for chassis_id_info in device_chassis_id_info or []:
+                    chassis_mac = chassis_id_info['to'][-1].split(
+                        prouter_vendor + '_')[1].replace('_', ':')
+                    chassis_id_to_device_name_map[chassis_mac] = \
+                        phy_router['fq_name'][-1]
+
+        return chassis_id_to_device_name_map
+    # end get_chassis_id_to_device_name
 
     # group vnc functions
     def _create_neighbor_links(self, job_ctx,
                                lldp_neighbors_payload,
-                               prouter_fqname):
+                               prouter_fqname,
+                               prouter_vendor):
 
         if not lldp_neighbors_payload.get('neighbor_info_list'):
             _task_log("No neighbors found")
@@ -171,7 +214,10 @@ class FilterModule(object):
         vnc_lib = JobVncApi.vnc_init(job_ctx)
 
         vnc_topology_disc_payload = self.get_vnc_payload(
-            prouter_fqname, lldp_neighbors_payload['neighbor_info_list'])
+            vnc_lib,
+            prouter_fqname,
+            prouter_vendor,
+            lldp_neighbors_payload['neighbor_info_list'])
         topology_disc_payload = self._do_further_parsing(
             vnc_lib, vnc_topology_disc_payload)
 
