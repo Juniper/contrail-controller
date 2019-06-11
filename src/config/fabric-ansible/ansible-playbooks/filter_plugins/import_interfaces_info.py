@@ -16,7 +16,7 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'device_import': self.device_import,
+            'import_interfaces_info': self.import_interfaces_info,
         }
     # end filters
 
@@ -24,7 +24,7 @@ class FilterModule(object):
         FilterLog.instance("DeviceImportFilter", device_name)
     # end _instantiate_filter_log_instance
 
-    def device_import(self, job_ctx, prouter_name, interfaces_payload):
+    def import_interfaces_info(self, job_ctx, prouter_name, interfaces_payload):
         """
         :param job_ctx: Dictionary
             example:
@@ -136,7 +136,7 @@ class FilterModule(object):
                     'device_import_log': FilterLog.instance().dump(),
                     'device_import_resp': device_import_resp
                    }
-    # end device_import
+    # end import_interfaces_info
 
     def get_create_interfaces_payload(self, device_name,
                                       physical_interfaces_list,
