@@ -1,22 +1,22 @@
 #!/usr/bin/python
 
-import traceback
 import sys
+import traceback
 
-from job_manager.job_utils import JobVncApi
+from filter_utils import _task_done, _task_error_log, _task_log, \
+    FilterLog
 from vnc_api.exceptions import NoIdError
 
-sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from job_manager.job_utils import JobVncApi
 
-from filter_utils import FilterLog, _task_log, _task_done, \
-    _task_error_log
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 
 
 class FilterModule(object):
 
     def filters(self):
         return {
-            'device_import': self.device_import,
+            'import_interfaces_info': self.import_interfaces_info,
         }
     # end filters
 
@@ -24,8 +24,10 @@ class FilterModule(object):
         FilterLog.instance("DeviceImportFilter", device_name)
     # end _instantiate_filter_log_instance
 
-    def device_import(self, job_ctx, prouter_name, interfaces_payload):
-        """
+    def import_interfaces_info(self, job_ctx, prouter_name,
+                               interfaces_payload):
+        """Import Interfaces.
+
         :param job_ctx: Dictionary
             example:
             {
@@ -131,12 +133,13 @@ class FilterModule(object):
         except Exception as ex:
             _task_error_log(str(ex))
             _task_error_log(traceback.format_exc())
-            return {'status': 'failure',
-                    'error_msg': str(ex),
-                    'device_import_log': FilterLog.instance().dump(),
-                    'device_import_resp': device_import_resp
-                   }
-    # end device_import
+            return {
+                'status': 'failure',
+                'error_msg': str(ex),
+                'device_import_log': FilterLog.instance().dump(),
+                'device_import_resp': device_import_resp
+            }
+    # end import_interfaces_info
 
     def get_create_interfaces_payload(self, device_name,
                                       physical_interfaces_list,
@@ -175,15 +178,16 @@ class FilterModule(object):
             if phy_interface_name not in log_interface_name:
                 # implies log_interface_name is actually a unit no.
                 log_interface_name = phy_interface_name + "." + \
-                                     log_interface_name
+                    log_interface_name
 
             log_intfs_payload = {
                 "parent_type": "physical-interface",
-                "fq_name": ["default-global-system-config",
-                            device_name,
-                            phy_interface_name.replace(':', '_'),
-                            log_interface_name.replace(':', '_')
-                           ],
+                "fq_name": [
+                    "default-global-system-config",
+                    device_name,
+                    phy_interface_name.replace(':', '_'),
+                    log_interface_name.replace(':', '_')
+                ],
                 "display_name": log_interface_name
             }
 
@@ -305,5 +309,3 @@ class FilterModule(object):
                 })
         return success_intfs_names, log_intf_failed_info
     # end _create_logical_interfaces
-
-

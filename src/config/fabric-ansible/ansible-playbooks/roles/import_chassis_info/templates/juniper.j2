@@ -1,0 +1,54 @@
+{%- set raw_chassis_info = device_info.parsed_output %}
+{%- set chassis_mac_ids = [] %}
+{%- set priv_base_adds = [] %}
+{%- set pub_base_adds = [] %}
+{%- set fpc_base_adds = [] %}
+{%- macro add_mac_address_info(chassis_str, chassis_type="") %}
+{%-     set match_groups = chassis_str | regex_findall('([A-Fa-f0-9]{2}(:{1}[A-Fa-f0-9]{2}){5})') %}
+{%-     for match_group in match_groups %}
+{%-         set chassis_mac_add_info = {"device_chassis_id": match_group[0] } %}
+{%-         if chassis_type %}
+{%-             set x = chassis_mac_add_info.update({"chassis_id_type": chassis_type}) %}
+{%-         endif %}
+{%-         set x = chassis_mac_ids.append(chassis_mac_add_info) %}
+{%-     endfor %}
+{%- endmacro%}
+{%- if 'output' in raw_chassis_info %}
+{#      If output key is present, it is assumed it is of type string #}
+{{      add_mac_address_info(raw_chassis_info.output) }}
+{%- elif 'chassis-mac-addresses' in raw_chassis_info %}
+{#      If chassis-mac-addresses key is present, it is assumed it is of type dict #}
+{%-     set chassis_mac_info = raw_chassis_info['chassis-mac-addresses'] %}
+{%-     if 'mac-address-information' in chassis_mac_info %}
+{%-         set mac_add_info = chassis_mac_info['mac-address-information'] %}
+{%-         if mac_add_info is mapping %}
+{%-             set mac_add_info = [mac_add_info] %}
+{%-         endif %}
+{%-         for mac_add in mac_add_info %}
+{%-             set x = priv_base_adds.append(mac_add['private-base-address']) %}
+{%-             set y = pub_base_adds.append(mac_add['public-base-address']) %}
+{%-         endfor %}
+{{          add_mac_address_info(priv_base_adds | join(" "), "private") }}{{add_mac_address_info(pub_base_adds | join(" "), "public") }}
+{%-     elif 'chassis-mac-addresses-edge-info' in chassis_mac_info %}
+{%-         set chassis_fpc_info = chassis_mac_info['chassis-mac-addresses-edge-info']['fpc-mac-address'] %}
+{%-         if chassis_fpc_info is mapping %}
+{%-             set chassis_fpc_info = [chassis_fpc_info] %}
+{%-         endif %}
+{%-         for chassis_fpc in chassis_fpc_info %}
+{%-             set x = fpc_base_adds.append(chassis_fpc['fpc-mac-base']) %}
+{%-         endfor %}
+{{          add_mac_address_info(fpc_base_adds | join(" "), "fpc") }}
+{%-     endif %}
+{%- elif 'chassis-mac-information' in raw_chassis_info %}
+{%-     set fpc_mac_info = raw_chassis_info['chassis-mac-information']['fpc-mac-information'] %}
+{%-     if fpc_mac_info is mapping %}
+{%-         set fpc_mac_info = [fpc_mac_info] %}
+{%-     endif %}
+{%-     for fpc_mac in fpc_mac_info %}
+{%-         set x = fpc_base_adds.append(fpc_mac['mac-address']) %}
+{%-     endfor %}
+{{      add_mac_address_info(fpc_base_adds | join(" "), "fpc") }}
+{%- endif%}
+{
+    "device_chassis_id_info": {{chassis_mac_ids}}
+}
