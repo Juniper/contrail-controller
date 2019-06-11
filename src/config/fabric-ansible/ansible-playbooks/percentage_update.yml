@@ -1,10 +1,6 @@
 - block:
     - set_fact:
        current_index: "{{current_index | int + 1}}"
-
-    - name: Print the current index
-      debug:
-        msg: "{{current_index}}"
   when: percentage_auto_increment is defined and percentage_auto_increment
 
 - set_fact:

@@ -1,4 +1,4 @@
-i- name: Execute a basic Junos software upgrade.
+- name: Execute a basic Junos software upgrade.
   block:
     - juniper_junos_software:
         provider:
