@@ -113,7 +113,7 @@ class OverlayBgpFeature(FeatureBase):
         ebgp_peers = OrderedDict()
 
         local_asn = self._get_asn(bgp_router)
-        for peer_uuid, attr in bgp_router.bgp_routers:
+        for peer_uuid, attr in bgp_router.bgp_routers.iteritems():
             peer = db.BgpRouterDM.get(peer_uuid)
             if not self._is_valid(peer):
                 continue
