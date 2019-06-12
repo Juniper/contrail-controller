@@ -27,7 +27,7 @@ class PnfConf(AnsibleRoleCommon):
         return super(PnfConf, cls).register(qconf)
     # end register
 
-    def push_conf(self, is_delete=False):
+    def push_conf(self, is_delete=False, **kwargs):
         if not self.physical_router:
             return 0
         if is_delete:
