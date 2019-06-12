@@ -2,8 +2,70 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-""" python vrouter_agent_debug_info.py --host <ip>
-           --port <port> --user <user> --pw <password> -file <path> -c """
+"""
+Synopsis:
+    Collect logs, gcore(optional), introspect logs, sandesh traces and
+    docker logs from vrouter node.
+    Collect logs specific to control node.
+Usage:
+    python vrouter_agent_debug_info.py -i <input_file>
+Options:
+    -h, --help          Display this help information.
+    -i                  Input file which has vrouter and control node details.
+                        This file should be a yaml file.
+                        Template and a sample input_file is shown below.
+                        You need to mention ip, ssh_user and ssh_pwd
+                        required to login to vrouter/control node.
+                        You can add multiple vrouter or control node details.
+                        Specify gcode_needed as true if you want to collect gcore.
+Template for input file:
+------------------------
+provider_config:
+  vrouter:
+    node1:
+      ip: <ip-address>
+      ssh_user: <user should be root>
+      ssh_pwd: <password>
+    node2:
+    .
+    .
+    .
+    noden:
+  control:
+    node1:
+      ip: <ip-address>
+      ssh_user: <user should be root>
+      ssh_pwd: <password>
+    node2:
+    .
+    .
+    .
+    noden:
+  gcode_needed: <true/false>
+
+sample_input.yaml
+-----------------
+provider_config:
+  vrouter:
+    node1:
+      ip: 10.204.216.10
+      ssh_user: root
+      ssh_pwd: c0ntrail123
+    node2:
+      ip: 10.204.216.11
+      ssh_user: root
+      ssh_pwd: c0ntrail123
+  control:
+    node1:
+      ip: 10.204.216.12
+      ssh_user: root
+      ssh_pwd: c0ntrail123
+    node2:
+      ip: 10.204.216.13
+      ssh_user: root
+      ssh_pwd: c0ntrail123
+  gcode_needed: true
+"""
 
 import subprocess
 import time
@@ -17,10 +79,11 @@ from urllib2 import urlopen, URLError, HTTPError
 import xml.etree.ElementTree as ET
 
 class Debug(object):
-    def __init__(self, dir_name, process_name, container_name,
-                log_path, lib_path, cli, config_file, host, port, user, pw):
+    _base_dir = None
+    _compress_file = None
+    def __init__(self, dir_name, sub_dirs, process_name, container_name,
+                log_path, lib_path, cli, host, port, user, pw):
         self._dir_name = dir_name
-        self._parent_dir = None
         self._tmp_dir = None
         self._process_name = process_name
         self._container = container_name
@@ -32,21 +95,7 @@ class Debug(object):
         self._introspect = Introspect(host, port)
         self._user = user
         self._pwd = pw
-
-        if self._user is None and self._pwd is None:
-            # populate user and password from instance.yaml
-            with open(config_file) as stream:
-                try:
-                    data = yaml.safe_load(stream)
-                except yaml.YAMLError as exc:
-                    print(exc)
-            if data is not None :
-                try:
-                    self._user = data['provider_config']['bms']['ssh_user']
-                    self._pwd = data['provider_config']['bms']['ssh_pwd']
-                except Exception as e:
-                    print('Error while reading username/password from instances.yaml')
-                    sys.exit()
+        self._sub_dirs = sub_dirs
 
         self._ssh_client = self.create_ssh_connection(self._host,
                                                 self._user, self._pwd)
@@ -55,21 +104,27 @@ class Debug(object):
             sys.exit()
     # end __init__
 
-    def create_directories(self):
-        sub_dirs = ['logs', 'gcore', 'libraries', 'introspect',
-                        'sandesh_trace', 'controller', 'vrouter_logs']
+    @staticmethod
+    def create_base_dir(name):
+        Debug._base_dir = '/var/log/%s-%s'%(name,
+                time.strftime("%Y%m%d-%H%M%S"))
+        cmd = 'mkdir %s' %(Debug._base_dir)
+        subprocess.call(cmd, shell=True)
+    # end create_base_dir
+
+    def create_sub_dirs(self):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self._dir_name = '%s-%s-%s'%(self._dir_name, self._host,
                                         timestr)
         self._tmp_dir = '/tmp/%s'%(self._dir_name)
-        self._parent_dir = '/var/log/%s' %(self._dir_name)
+        self._parent_dir = '%s/%s' %(Debug._base_dir, self._dir_name)
         cmd = 'mkdir %s' %(self._tmp_dir)
         ssh_stdin,ssh_stdout,ssh_stderr = self._ssh_client.exec_command(cmd)
         cmd = 'mkdir %s' %(self._parent_dir)
         subprocess.call(cmd, shell=True)
         # create sub-directories
-        for i in range(len(sub_dirs)):
-            cmd = 'mkdir %s/%s' %(self._parent_dir, sub_dirs[i])
+        for item in self._sub_dirs:
+            cmd = 'mkdir %s/%s' %(self._parent_dir, item)
             subprocess.call(cmd, shell=True)
     # end create_directories
 
@@ -146,11 +201,14 @@ class Debug(object):
         cmd = 'docker cp %s:%s %s'%(self._container, core_file_name,
                                     self._tmp_dir)
         ssh_stdin, ssh_stdout, ssh_stderr = self._ssh_client.exec_command(cmd)
-        time.sleep(10)
+        time.sleep(5)
         src_file = '%s/%s'%(self._tmp_dir, core_file_name)
+
         dest_file = '%s/gcore/%s'%(self._parent_dir, core_file_name)
-        self.do_ftp(src_file, dest_file)
-        print('\nCopying gcore file : Success')
+        if self.do_ftp(src_file, dest_file):
+            print('\nCopying gcore file : Success')
+        else:
+            print('\nCopying gcore file : Failed')
     # end copy_gcore
 
     def copy_libraries(self, lib_list):
@@ -168,8 +226,10 @@ class Debug(object):
             time.sleep(5)
             src_file = '%s/%s'%(self._tmp_dir, lib_name)
             dest_file = '%s/libraries/%s'%(self._parent_dir, lib_name)
-            self.do_ftp(src_file, dest_file)
-            print('\nCopying library %s : Success' %lib_name)
+            if self.do_ftp(src_file, dest_file):
+                print('\nCopying library %s : Success' %lib_name)
+            else:
+                print('\nCopying library %s : Failed' %lib_name)
     # end copy_libraries
 
     def copy_introspect(self):
@@ -234,49 +294,22 @@ class Debug(object):
         print('\nCopying sandesh traces : Success')
     # end copy_sandesh_traces
 
-    def get_controller_ip_list(self):
-        controller_ip_list = []
-        # below command will give ip addresses of all the controllers
-        cmd = 'docker exec %s %s read xmpp connection status' \
-                %(self._container, self._cli)
-        cmd_op = self.get_ssh_cmd_output(cmd)
-        try:
-            json_data = json.loads(cmd_op)
-        except Exception as e:
-            print('\nError retrieving controller ip from cmd %s' %cmd)
-            return controller_ip_list
-        for item in json_data['AgentXmppConnectionStatus']['peer']['list']:
-            controller_ip_list.append(
-                json_data['AgentXmppConnectionStatus']\
-                        ['peer']['list'][item]['controller_ip'])
-        return controller_ip_list
-    # end get_controller_ip_list
-
-    def copy_controller_logs(self):
-        if  not self.get_controller_ip_list():
-             print('Copying controller logs: Failed')
-             return
-        for ip in self.get_controller_ip_list():
-            # iterate through all the controller in the list
-            # and collect logs
-            cntr_dir_path = '%s/controller/controller-%s'%(self._parent_dir, ip)
-            cmd = 'mkdir %s' %cntr_dir_path
-            subprocess.call(cmd, shell=True)
-            if self._ssh_client is None:
-                print('\nCopying controller logs: Failed')
-                return
-            # open ftp connection and copy logs
-            sftp_client = self._ssh_client.open_sftp()
-            remote_dir = '/var/log/contrail/'
-            for filename in sftp_client.listdir(remote_dir):
-                if '.log' not in filename:
-                    continue
-                src_file = '%s%s'%(remote_dir, filename)
-                dest_file = '%s/%s'%(cntr_dir_path, filename)
-                sftp_client.get(src_file, dest_file)
-            sftp_client.close()
+    def copy_control_node_logs(self):
+        if self._ssh_client is None:
+            print('\nCopying controller logs: Failed')
+            return
+        # open ftp connection and copy logs
+        sftp_client = self._ssh_client.open_sftp()
+        remote_dir = '/var/log/contrail/'
+        for filename in sftp_client.listdir(remote_dir):
+            if '.log' not in filename:
+                continue
+            src_file = '%s%s'%(remote_dir, filename)
+            dest_file = '%s/%s'%(self._parent_dir, filename)
+            sftp_client.get(src_file, dest_file)
+        sftp_client.close()
         print('\nCopying controller logs: Success')
-    # end copy_controller_logs
+    # end copy_control_node_logs
 
     def create_ssh_connection(self, ip, user, pw):
         try:
@@ -304,8 +337,22 @@ class Debug(object):
 
     def do_ftp(self, src_file, dest_file):
         sftp_client = self._ssh_client.open_sftp()
-        sftp_client.get(src_file, dest_file)
+        max_count = 10
+        count = 0
+        while count < max_count:
+            count = count + 1
+            try:
+                sftp_client.get(src_file, dest_file)
+            except Exception as e:
+                print('\n%s while copying file %s. Retry attempt %s of %s '\
+                        %(e, src_file, count, max_count))
+                time.sleep(5)
+                continue
+            else:
+                sftp_client.close()
+                return 1
         sftp_client.close()
+        return 0
     # end do_ftp
 
     def get_vrouter_logs(self):
@@ -333,7 +380,8 @@ class Debug(object):
                 cmd_op = self.get_ssh_cmd_output(myCmd)
                 source_path = '/tmp/vrouter_logs/%s.txt'%(str_file_name)
                 dest_path = '%s/vrouter_logs/%s.txt'%(self._parent_dir,str_file_name)
-                self.do_ftp(source_path,dest_path)
+                if not self.do_ftp(source_path,dest_path):
+                     print('\nCopying file %s : Failed'%source_path)
 
         self.get_per_vrf_logs()
         self.get_virsh_individual_stats()
@@ -349,7 +397,8 @@ class Debug(object):
 
         source_path = '/tmp/VRF_File1.txt'
         dest_path = '/tmp/VRF_File2.txt'
-        self.do_ftp(source_path,dest_path)
+        if not self.do_ftp(source_path,dest_path):
+            print('\nCopying file %s : Failed'%source_path)
 
         with open('/tmp/VRF_File2.txt') as file:
             data = file.read()
@@ -390,7 +439,8 @@ class Debug(object):
                     source_path = '/tmp/vrouter_logs/VRF_%d_Family%s'%(var,cmd)
                     dest_path = '%s/vrouter_logs/VRF_%d_Family%s' \
                         %(self._parent_dir,var,cmd)
-                    self.do_ftp(source_path,dest_path)
+                    if not self.do_ftp(source_path,dest_path):
+                        print('\nCopying file %s : Failed'%source_path)
 
         myCmd = 'rm -rf /tmp/VRF_File1.txt'
         cmd_op = self.get_ssh_cmd_output(myCmd)
@@ -410,7 +460,8 @@ class Debug(object):
 
         source_path = '/tmp/VIRSH_File1.txt'
         dest_path = '/tmp/VIRSH_File2.txt'
-        self.do_ftp(source_path,dest_path)
+        if not self.do_ftp(source_path,dest_path):
+            print('\nCopying file %s : Failed'%source_path)
 
         with open('/tmp/VIRSH_File2.txt', 'r') as file:
             data = file.read()
@@ -451,7 +502,8 @@ class Debug(object):
                     source_path = '/tmp/vrouter_logs/virsh_%s_%s'%(cmd,var)
                     dest_path = '%s/vrouter_logs/virsh_%s_%s' \
                         %(self._parent_dir,cmd,var)
-                    self.do_ftp(source_path,dest_path)
+                    if not self.do_ftp(source_path,dest_path):
+                        print('\nCopying file %s : Failed'%source_path)
 
         myCmd = 'rm -rf /tmp/VIRSH_File1.txt'
         cmd_op = self.get_ssh_cmd_output(myCmd)
@@ -476,24 +528,33 @@ class Debug(object):
             time.sleep(2)
             source_path = '/tmp/vrouter_logs/%s_%d.txt'%(str_file_name,file_num)
             dest_path = '%s/vrouter_logs/%s_%d.txt'%(self._parent_dir,str_file_name,file_num)
-            self.do_ftp(source_path,dest_path)
+            if not self.do_ftp(source_path,dest_path):
+                print('\nCopying file %s : Failed'%source_path)
    #end run_command_interval_times
-    def compress_folder(self):
-        print("\nCompressing folder %s" %self._parent_dir)
-        self._compress_file =  '/var/log/%s.tar.gz' %self._dir_name
+
+    @staticmethod
+    def compress_folder(name):
+        print("\nCompressing folder %s" %Debug._base_dir)
+        Debug._compress_file =  '/var/log/%s-%s.tar.gz'\
+                %(name, time.strftime("%Y%m%d-%H%M%S"))
         cmd = 'tar -zcf %s %s > /dev/null 2>&1' \
-                %(self._compress_file, self._parent_dir)
+                %(Debug._compress_file, Debug._base_dir)
         subprocess.call(cmd, shell=True)
+        print('\nComplete logs copied at %s' %Debug._compress_file)
     #end compress_folder
 
-    def cleanup(self):
+    def delete_tmp_dir(self):
         # delete tmp directory
         cmd = 'rm -rf %s' %self._tmp_dir
         ssh_stdin, ssh_stdout, ssh_stderr = self._ssh_client.exec_command(cmd)
-        # delete this directory as we have zipped it now
-        cmd = 'rm -rf %s' %self._parent_dir
-        subprocess.call(cmd, shell=True)
     # end cleanup
+
+    @staticmethod
+    def delete_base_dir():
+        # delete this directory as we have zipped it now
+        cmd = 'rm -rf %s' %Debug._base_dir
+        subprocess.call(cmd, shell=True)
+    # end delete_base_dir
 
 class Introspect:
     def __init__ (self, host, port):
@@ -561,81 +622,111 @@ class Introspect:
         return elementStr
     # end elementToStr
 
-def help_str():
-    print('\npython vrouter_agent_debug_info.py --host <ip> '+ \
-            '--port <port> --user <user> --pw <password> -file <path> -c')
-    print('\n--host  : agent node ip [mandatory]')
-    print('--port  : agent introspect port [optional]')
-    print('--user  : username required to ssh to node running agent [optional]')
-    print('--pw    : password required to ssh to node runnig agent  [optional]')
-    print('--file  : path of instance.yaml file. ' + \
-            'Required if user and pw is not provided [optional]')
-    print('-c      : generate and copy gcore if provided [optional]\n')
+USAGE_TEXT = __doc__
 
+def usage():
+    print USAGE_TEXT
+    sys.exit(1)
+# end usage
 
-def main():
-    argv = sys.argv[1:]
+def parse_yaml_file(file_path):
+    with open(file_path) as stream:
+        try:
+            yaml_data = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print('Error[%s] while parsing file %s' %(exc, file_path))
+            return None
+        else:
+            return yaml_data
+# end parse_yaml_file
 
+def collect_vrouter_node_logs(data):
     try:
-        host = argv[argv.index('--host') + 1]
-    except ValueError:
-        help_str()
-        sys.exit()
-
-    try:
-        port = argv[argv.index('--port') + 1]
-    except ValueError:
+        gcore = data['provider_config']['gcode_needed']
+    except Exception as e:
+         gcore = False
+    sub_dirs = ['logs', 'gcore', 'libraries', 'introspect',
+                    'sandesh_trace', 'vrouter_logs']
+    for item in data['provider_config']['vrouter']:
+        host = data['provider_config']['vrouter'][item]['ip']
+        user = data['provider_config']['vrouter'][item]['ssh_user']
+        pw = data['provider_config']['vrouter'][item]['ssh_pwd']
         port = 8085
-
-    try:
-        conf_file = argv[argv.index('--file') + 1]
-    except ValueError:
-        conf_file = '/root/contrail-ansible-deployer/config/instances.yaml'
-
-    gcore = False
-    try:
-        if argv[argv.index('-c')]:
-            gcore = True
-    except ValueError:
-        pass
-
-    try:
-        user = argv[argv.index('--user') + 1]
-    except ValueError:
-        user = None
-
-    try:
-        pw = argv[argv.index('--pw') + 1]
-    except ValueError:
-        pw = None
-
-    obj = Debug(dir_name='vrouter-agent-debug-info',
+        print('\nCollecting vrouter-agent logs for node : %s' %host)
+        obj = Debug(dir_name='vrouter',
+                sub_dirs=sub_dirs,
                 process_name='contrail-vrouter-agent',
                 container_name='vrouter_vrouter-agent_1',
                 log_path='/var/log/contrail/',
                 lib_path='/usr/lib64/',
                 cli='contrail-vrouter-agent-cli',
-                config_file=conf_file,
                 host=host,
                 port=port,
                 user=user,
                 pw=pw)
-    obj.create_directories()
-    obj.copy_logs()
-    obj.copy_docker_logs()
-    obj.copy_contrail_status()
-    lib_list = ['libc', 'libstdc++']
-    obj.copy_libraries(lib_list)
-    if gcore:
-        obj.generate_gcore()
-        obj.copy_gcore()
-    obj.copy_introspect()
-    obj.copy_controller_logs()
-    obj.copy_sandesh_traces('Snh_SandeshTraceBufferListRequest')
-    obj.get_vrouter_logs()
-    obj.compress_folder()
-    obj.cleanup()
-    print('\nComplete logs copied at %s' %obj._compress_file)
+        obj.create_sub_dirs()
+        obj.copy_logs()
+        obj.copy_docker_logs()
+        obj.copy_contrail_status()
+        lib_list = ['libc', 'libstdc++']
+        obj.copy_libraries(lib_list)
+        if gcore:
+            obj.generate_gcore()
+            obj.copy_gcore()
+        obj.copy_introspect()
+        obj.copy_sandesh_traces('Snh_SandeshTraceBufferListRequest')
+        obj.get_vrouter_logs()
+        obj.delete_tmp_dir()
+# end collect_vrouter_node_logs
+
+def collect_control_node_logs(data):
+    sub_dirs = ['logs']
+    for item in data['provider_config']['control']:
+        host = data['provider_config']['control'][item]['ip']
+        user = data['provider_config']['control'][item]['ssh_user']
+        pw = data['provider_config']['control'][item]['ssh_pwd']
+        print('\nCollecting controller logs for control node : %s' %host)
+        obj = Debug(dir_name='control',
+                sub_dirs=sub_dirs,
+                process_name=None,
+                container_name=None,
+                log_path='/var/log/contrail/',
+                lib_path=None,
+                cli=None,
+                host=host,
+                port=None,
+                user=user,
+                pw=pw)
+        obj.create_sub_dirs()
+        obj.copy_control_node_logs()
+        obj.delete_tmp_dir()
+# end collect_control_node_logs
+
+def main():
+    argv = sys.argv[1:]
+    try:
+        input_file = argv[argv.index('-i') + 1]
+    except ValueError:
+        usage()
+        return
+    yaml_data = parse_yaml_file(input_file)
+    if yaml_data is None:
+        return
+    name = 'vrouter-agent-debug-info'
+    Debug.create_base_dir(name)
+    try:
+        if yaml_data['provider_config']['vrouter']:
+            collect_vrouter_node_logs(yaml_data)
+    except Exception as e:
+        pass
+    try:
+        if yaml_data['provider_config']['control']:
+            collect_control_node_logs(yaml_data)
+    except Exception as e:
+        pass
+    Debug.compress_folder(name)
+    Debug.delete_base_dir()
+# end main
 
 if __name__ == '__main__':
     main()
