@@ -778,10 +778,14 @@ TEST_F(IgmpTest, V2_VxlanRoutingEnabled) {
 
     IgmpGlobalEnable(true);
 
-    CfgVxlanRouting(true);
-    AddRoutingVrf(1);
-    AddBridgeVrf("vn1", 1);
-    AddBridgeVrf("vn2", 1);
+    AddLrVmiPort("lr-vmi-vn1", 91, "10.2.1.250", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    AddLrVmiPort("lr-vmi-vn2", 92, "10.2.2.250", "vrf2", "vn2",
+            "instance_ip_2", 2);
+    AddLrRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
+    AddLrBridgeVrf("vn2", 1);
+    client->WaitForIdle(5);
 
     using boost::uuids::nil_uuid;
 
@@ -915,9 +919,9 @@ TEST_F(IgmpTest, V2_VxlanRoutingEnabled) {
     cnh = dynamic_cast<const CompositeNH *>(nh);
     EXPECT_EQ(2, cnh->ActiveComponentNHCount());
 
-    DelBridgeVrf("vn1", 1);
-    DelBridgeVrf("vn2", 1);
-    DelRoutingVrf(1);
+    DelLrBridgeVrf("vn1", 1);
+    DelLrBridgeVrf("vn2", 1);
+    DelLrRoutingVrf(1);
     DeleteVxlanRouting();
 
     IgmpGlobalClear();

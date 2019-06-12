@@ -3629,10 +3629,8 @@ struct VxlanRoutingMap {
  * Also displays the vxlan routing state in project.
  */
 response sandesh VxlanRoutingResp {
-    /** Vxlan enabled */
-    1: bool enable;
     /** VRF mapping from routing to bridge vrfs */
-    2: list<VxlanRoutingMap> vr_map;
+    1: list<VxlanRoutingMap> vr_map;
 }
 
 /**

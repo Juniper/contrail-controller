@@ -264,7 +264,6 @@ private:
     bool EvpnType2RouteNotify(DBTablePartBase *partition, DBEntryBase *e);
 
     Agent *agent_;
-    bool vxlan_routing_enabled_;
     AgentRouteWalkerPtr walker_;
     DBTable::ListenerId vn_listener_id_;
     DBTable::ListenerId vrf_listener_id_;

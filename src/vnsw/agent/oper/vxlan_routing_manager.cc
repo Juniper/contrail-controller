@@ -14,7 +14,6 @@
 #include <oper/evpn_route.h>
 #include <oper/agent_route.h>
 #include <oper/agent_route_walker.h>
-#include <oper/project_config.h>
 #include <oper/vn.h>
 #include <oper/vrf.h>
 #include <oper/vxlan_routing_manager.h>
@@ -233,20 +232,14 @@ void VxlanRoutingVrfMapper::TryDeleteLogicalRouter(LrVrfInfoMapIter &it) {
  * VxlanRoutingManager
  */
 VxlanRoutingManager::VxlanRoutingManager(Agent *agent) :
-    agent_(agent), vxlan_routing_enabled_(false), walker_(),
-    vn_listener_id_(), vrf_listener_id_(), vmi_listener_id_(),
-    vrf_mapper_(this) {
+    agent_(agent), walker_(), vn_listener_id_(),
+    vrf_listener_id_(), vmi_listener_id_(), vrf_mapper_(this) {
 }
 
 VxlanRoutingManager::~VxlanRoutingManager() {
 }
 
 void VxlanRoutingManager::Register() {
-    //Register for project config changes which provides vxlan routing enable
-    //knob.
-    agent_->oper_db()->project_config()->Register(
-          boost::bind(&VxlanRoutingManager::Config, this));
-
     //Walker to go through routes in bridge evpn tables.
     walker_.reset(new VxlanRoutingRouteWalker("VxlanRoutingManager", this,
                                               agent_));
@@ -269,27 +262,6 @@ void VxlanRoutingManager::Shutdown() {
     agent_->oper_db()->agent_route_walk_manager()->
         ReleaseWalker(walker_.get());
     walker_.reset(NULL);
-}
-
-//Listens to enabling of vxlan routing
-void VxlanRoutingManager::Config() {
-    if (agent_->oper_db()->project_config()->vxlan_routing() ==
-        vxlan_routing_enabled_) {
-        return;
-    }
-
-    if (vxlan_routing_enabled_ !=
-        agent_->oper_db()->project_config()->vxlan_routing()) {
-        vxlan_routing_enabled_ =
-            agent_->oper_db()->project_config()->vxlan_routing();
-        walker_->StartVrfWalk();
-        agent_->vn_table()->
-            AllocWalker(boost::bind(&VxlanRoutingManager::VnWalkNotify,
-                                    this, _1, _2),
-                        boost::bind(&VxlanRoutingManager::VnWalkDone,
-                                    this, _1, _2));
-
-    }
 }
 
 /**
@@ -586,12 +558,12 @@ void VxlanRoutingManager::VmiNotify(DBTablePartBase *partition,
         return;
     }
 
-    //Without VN no point of update
-    if (!vn) {
+    if (vmi->logical_router_uuid() == boost::uuids::nil_uuid()) {
         return;
     }
 
-    if (vmi->logical_router_uuid() == boost::uuids::nil_uuid()) {
+    //Without VN no point of update
+    if (!vn) {
         return;
     }
 
@@ -904,17 +876,16 @@ void VxlanRoutingManager::UpdateDefaultRoute(const VrfEntry *bridge_vrf,
  * sandesh request
  */
 void VxlanRoutingManager::FillSandeshInfo(VxlanRoutingResp *resp) {
-    resp->set_enable(agent_->oper_db()->project_config()->vxlan_routing());
     VxlanRoutingVrfMapper::LrVrfInfoMapIter it1 =
        vrf_mapper_.lr_vrf_info_map_.begin();
     std::vector<VxlanRoutingMap> vr_map;
     while (it1 != vrf_mapper_.lr_vrf_info_map_.end()) {
         VxlanRoutingMap vxlan_routing_map;
+        vxlan_routing_map.set_logical_router_uuid(UuidToString(it1->first));
         vxlan_routing_map.set_routing_vrf(it1->second.routing_vrf_->
                                             GetName());
-        vxlan_routing_map.set_logical_router_uuid(UuidToString(it1->first));
-        vxlan_routing_map.set_parent_routing_vn(it1->
-                                     second.parent_vn_entry_->GetName());
+        vxlan_routing_map.set_parent_routing_vn(it1->second.parent_vn_entry_->
+                                            GetName());
         VxlanRoutingVrfMapper::RoutedVrfInfo::BridgeVnListIter it2 =
             it1->second.bridge_vn_list_.begin();
         while (it2 != it1->second.bridge_vn_list_.end()) {

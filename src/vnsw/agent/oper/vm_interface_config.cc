@@ -1570,8 +1570,18 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
 
     // Logical Router attached node
     if (logical_router) {
-        data->device_type_ = VmInterface::VMI_ON_LR;
-        data->vmi_type_ = VmInterface::ROUTER;
+        /*
+         * since logical-router type "snat-routing" is handled
+         * via service-instances, vmi update should happen only
+         * for logical-router type "vxlan-routing".
+         */
+        autogen::LogicalRouter *lr_obj =
+            static_cast <autogen::LogicalRouter *>
+            (logical_router->GetObject());
+        if (lr_obj->type() == "vxlan-routing") {
+            data->device_type_ = VmInterface::VMI_ON_LR;
+            data->vmi_type_ = VmInterface::ROUTER;
+        }
         return;
     }
 

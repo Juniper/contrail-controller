@@ -32,7 +32,6 @@
 #include <oper/global_vrouter.h>
 #include <oper/path_preference.h>
 #include <oper/tsn_elector.h>
-#include <oper/project_config.h>
 #include <oper/vxlan_routing_manager.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
@@ -303,7 +302,6 @@ void OperDB::CreateDBTables(DB *db) {
     virtual_dns_ = std::auto_ptr<OperVirtualDns>
         (new OperVirtualDns(agent_, domain_config_.get()));
     tsn_elector_ = std::auto_ptr<TsnElector>(new TsnElector(agent_));
-    project_config_ = std::auto_ptr<ProjectConfig>(new ProjectConfig(agent_));
     vxlan_routing_manager_= std::auto_ptr<VxlanRoutingManager>
         (new VxlanRoutingManager(agent_));
 }
