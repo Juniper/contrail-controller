@@ -435,17 +435,35 @@ bool VnEntry::HandleIpamChange(Agent *agent, VnIpam *old_ipam,
     new_ipam->installed = install;
     bool changed = false;
     bool policy = (agent->tsn_enabled()) ? false : true;
-    if (old_ipam->default_gw != new_ipam->default_gw) {
-        changed = true;
-        if (IsGwHostRouteRequired(agent)) {
-            UpdateHostRoute(agent, old_ipam->default_gw, new_ipam->default_gw,
-                            policy);
+    // CEM-4646:don't delete route if is used by DNS/GW
+    // Update: GW changed?NO, DNS changed?YES
+    // action: check if old DNS address is same as GW address
+    // Update: GW changed?YES, DNS changed?NO
+    // action: check if old GW address is same as DNS address
+    // Update: GW changed?YES, DNS changed?YES
+    // action: check if new DNS server address is same as old GW address
+
+    if (vrf_.get() && (vrf_->GetName() != agent->linklocal_vrf_name())) {
+        if (old_ipam->default_gw != new_ipam->default_gw) {
+            changed = true;
+            if (IsGwHostRouteRequired(agent)) {
+                if (old_ipam->default_gw != new_ipam->dns_server) {
+                    UpdateHostRoute(agent, old_ipam->default_gw,
+                            new_ipam->default_gw, policy);
+                } else {
+                    AddHostRoute(new_ipam->default_gw, policy);
+                }
+            }
         }
     }
 
     if (old_ipam->dns_server != new_ipam->dns_server) {
-        UpdateHostRoute(agent, old_ipam->dns_server, new_ipam->dns_server,
-                        policy);
+        if (old_ipam->dns_server != new_ipam->default_gw) {
+            UpdateHostRoute(agent, old_ipam->dns_server,
+                    new_ipam->dns_server, policy);
+        } else {
+            AddHostRoute(new_ipam->dns_server, policy);
+        }
         changed = true;
     }
 
@@ -462,10 +480,8 @@ bool VnEntry::HandleIpamChange(Agent *agent, VnIpam *old_ipam,
 void VnEntry::UpdateHostRoute(Agent *agent, const IpAddress &old_address, 
                               const IpAddress &new_address,
                               bool policy) {
-    if (vrf_.get() && (vrf_->GetName() != agent->linklocal_vrf_name())) {
-        AddHostRoute(new_address, policy);
-        DelHostRoute(old_address);
-    }
+    AddHostRoute(new_address, policy);
+    DelHostRoute(old_address);
 }
 
 // Add all routes derived from IPAM. IPAM generates following routes,
