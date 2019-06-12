@@ -17,6 +17,9 @@
       "fabric_display_name": {
         "type": "string"
       },
+      "fabric_cluster_id": {
+        "type": "integer"
+      },
       "management_subnets": {
         "type": "array",
         "items": {
