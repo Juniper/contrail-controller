@@ -2,11 +2,11 @@
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             set name = phy_int.get('name') %}
 {%             set unit = li.get('unit') %}
+{%             set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
-{%             if li.get('is_tagged', false) == false %}
-set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode access
-{%             else %}
 set groups {{cfg_group}} interfaces {{name}} unit 0 family ethernet-switching interface-mode trunk
+{%             if li.get('is_tagged', false) == false %}
+set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
