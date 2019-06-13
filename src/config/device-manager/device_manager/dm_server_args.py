@@ -16,7 +16,7 @@ def default_options():
         'certfile': '',
         'ca_certs': '',
         'admin_user': 'user1',
-        'admin_password': 'password1',
+        'admin_password': '',
         'admin_tenant_name': 'default-domain',
         'cassandra_user': None,
         'cassandra_password': None,
