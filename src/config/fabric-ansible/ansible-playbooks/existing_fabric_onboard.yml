@@ -6,6 +6,9 @@
   connection: local
 
   tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
     - name: onboard fabric
       set_fact:
         output: "{{ job_ctx | onboard_existing_fabric }}"
