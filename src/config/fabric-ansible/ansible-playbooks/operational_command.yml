@@ -20,6 +20,9 @@
     command_dir: "generic_device_operations/{{device_op}}"
 
   pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
     - set_fact:
         job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[30, 70] })}}"
 

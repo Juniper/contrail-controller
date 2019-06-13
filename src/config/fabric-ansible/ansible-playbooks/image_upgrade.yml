@@ -3,6 +3,10 @@
   gather_facts: no
   connection: local
 
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
   roles:
     - Juniper.junos
     - image_upgrade_role
