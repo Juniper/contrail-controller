@@ -2,4 +2,4 @@ cfgm_common
 contrail-api-client
 sandesh
 sandesh-common
-ansible==2.4.3
+ansible==2.6.13

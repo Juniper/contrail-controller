@@ -5,6 +5,10 @@
   gather_facts: no
   connection: local
 
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
   roles:
     - import_lldp_info
 
