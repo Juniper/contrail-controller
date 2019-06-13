@@ -4,6 +4,8 @@
   gather_facts: no
   connection: local
   tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
 
     - name: Initialize weights
       set_fact:
