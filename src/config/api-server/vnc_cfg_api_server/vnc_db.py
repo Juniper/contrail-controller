@@ -1216,8 +1216,12 @@ class VncDbClient(object):
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
+        if obj_type == 'project':
+            obj_fields.append('logical_routers')
+
         (ok, obj_dicts) = self._object_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
+
         uve_trace_list = []
         for obj_dict in obj_dicts:
             try:
@@ -1271,6 +1275,29 @@ class VncDbClient(object):
                         ApplicationPolicySet(parent_obj=Project(**obj_dict),
                                              all_applications=True),
                     )
+
+                    vxlan_routing = obj_dict.get('vxlan_routing', False)
+
+                    logical_routers = obj_dict.get('logical_routers', [])
+                    lr_uuid_list = [lr['uuid'] for lr in logical_routers]
+                    if lr_uuid_list:
+                        (ok, lr_list) = self._object_db.object_read(
+                                            'logical_router',
+                                            obj_uuids=lr_uuid_list,
+                                            field_names=['logical_router_type'])
+                        for lr in lr_list:
+                            if 'logical_router_type' not in lr:
+                                self._object_db.object_update(
+                                'logical_router',
+                                lr['uuid'],
+                                {'logical_router_type': 'vxlan-routing'
+                                 if vxlan_routing else 'snat-routing'})
+
+                    if vxlan_routing:
+                        obj_dict['vxlan_routing'] = False
+                        self._object_db.object_update('project',
+                                                      obj_uuid, obj_dict)
+
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
                 update_obj = False
