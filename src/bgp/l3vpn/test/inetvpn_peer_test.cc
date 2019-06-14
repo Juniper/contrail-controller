@@ -47,7 +47,8 @@ static void Replace(string *str, const char *substr, T content) {
     }
 }
 
-class L3VPNPeerTest : public ::testing::TestWithParam<const char *> {
+typedef std::tr1::tuple<const char *, bool> TestParams;
+class L3VPNPeerTest : public ::testing::TestWithParam<TestParams> {
 protected:
     L3VPNPeerTest()
         : thread_(&evm_),
@@ -192,12 +193,17 @@ protected:
     }
 
     virtual void SetUp() {
-        peer_type_ = GetParam();
+        peer_type_ = std::tr1::get<0>(GetParam());
+        server_as4_supported_ = std::tr1::get<1>(GetParam());
         vpn_notify_count_ = 1;
         a_.reset(new BgpServerTest(&evm_, "A"));
         b_.reset(new BgpServerTest(&evm_, "B"));
         a_->set_mvpn_ipv4_enable(true);
         b_->set_mvpn_ipv4_enable(true);
+        if (server_as4_supported_) {
+            a_->set_disable_4byte_as(false);
+            b_->set_disable_4byte_as(false);
+        }
         a_->session_manager()->Initialize(0);
         b_->session_manager()->Initialize(0);
         thread_.Start();
@@ -382,6 +388,7 @@ protected:
     }
 
     string peer_type_;
+    bool server_as4_supported_;
     EventManager evm_;
     ServerThread thread_;
 
@@ -495,13 +502,22 @@ TEST_P(L3VPNPeerTest, AsPathLoop) {
     //       Verify that path is not replicated to VRF table                 //
     //       Verify that path in bgp.l3vpn.0 is marked as infeasible         //
     ///////////////////////////////////////////////////////////////////////////
-    AsPathSpec path_spec;
-    AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
-    path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
-    path_seg->path_segment.push_back(peer_type_ == "EBGP" ? 101 : 100);
-    path_spec.path_segments.push_back(path_seg);
     BgpAttrSpec asloop_attrs;
-    asloop_attrs.push_back(&path_spec);
+    if (a_->disable_4byte_as()) {
+        AsPathSpec *path_spec = new AsPathSpec;
+        AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
+        path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        path_seg->path_segment.push_back(peer_type_ == "EBGP" ? 101 : 100);
+        path_spec->path_segments.push_back(path_seg);
+        asloop_attrs.push_back(path_spec);
+    } else {
+        AsPath4ByteSpec *path_spec = new AsPath4ByteSpec;
+        AsPath4ByteSpec::PathSegment *path_seg = new AsPath4ByteSpec::PathSegment;
+        path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
+        path_seg->path_segment.push_back(peer_type_ == "EBGP" ? 101 : 100);
+        path_spec->path_segments.push_back(path_seg);
+        asloop_attrs.push_back(path_spec);
+    }
 
     BgpAttrPtr asloop_attr = a_->attr_db()->Locate(asloop_attrs);
     AddRoute(a_blue_inet_, "192.168.26.0/24", a_peer_blue_, asloop_attr);
@@ -778,7 +794,9 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 INSTANTIATE_TEST_CASE_P(InetVpnPeerTestWithParams, L3VPNPeerTest,
-                        ::testing::Values("IBGP", "EBGP"));
+                   ::testing::Combine(
+                        ::testing::Values("IBGP", "EBGP"),
+                        ::testing::Bool()));
 
 int main(int argc, char **argv) {
     bgp_log_test::init();

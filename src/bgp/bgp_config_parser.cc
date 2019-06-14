@@ -730,6 +730,18 @@ bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
                     "bgp-always-compare-med", requests);
             }
         }
+        if (strcmp(child.name(), "disable-4byte-as") == 0) {
+            auto_ptr<autogen::GlobalSystemConfig::OolProperty> property(
+                new autogen::GlobalSystemConfig::OolProperty);
+            property->data = (string(child.child_value()) == "true");
+            if (add_change) {
+                MapObjectSetProperty("global-system-config", "",
+                    "disable-4byte-as", property.release(), requests);
+            } else {
+                MapObjectClearProperty("global-system-config", "",
+                    "disable-4byte-as", requests);
+            }
+        }
         if (strcmp(child.name(), "rd-cluster-seed") == 0) {
             auto_ptr<autogen::GlobalSystemConfig::NtProperty> property(
                 new autogen::GlobalSystemConfig::NtProperty);
