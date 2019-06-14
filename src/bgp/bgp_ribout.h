@@ -323,6 +323,7 @@ public:
     bool as_override() const { return policy_.as_override; }
     bool llgr() const { return policy_.llgr; }
     bool as4_supported() const { return policy_.as4_supported; }
+    void set_as4_supported(bool as4) { policy_.as4_supported = as4; }
     const IpAddress &nexthop() const { return policy_.nexthop; }
     bool IsEncodingXmpp() const {
         return (policy_.encoding == RibExportPolicy::XMPP);
