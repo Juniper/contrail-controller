@@ -340,7 +340,7 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
-    void SetAttrAsPath4(as4_t as_number) {
+    void SetAttrAsPath4(as_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const AsPath4ByteSpec &path_spec = attr_ptr_->aspath_4byte()->path();
         AsPath4ByteSpec *path_spec_ptr = path_spec.Add(as_number);
@@ -349,7 +349,7 @@ protected:
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
-    void SetAttrAs4Path(as4_t as_number) {
+    void SetAttrAs4Path(as_t as_number) {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         const As4PathSpec &path_spec = attr_ptr_->as4_path()->path();
         As4PathSpec *path_spec_ptr = path_spec.Add(as_number);
@@ -361,12 +361,6 @@ protected:
     void ResetAttrAsPath() {
         BgpAttr *attr = new BgpAttr(*attr_ptr_);
         attr->set_as_path(NULL);
-        attr_ptr_ = server_.attr_db()->Locate(attr);
-    }
-
-    void ResetAttrAs4Path() {
-        BgpAttr *attr = new BgpAttr(*attr_ptr_);
-        attr->set_as4_path(NULL);
         attr_ptr_ = server_.attr_db()->Locate(attr);
     }
 
@@ -496,35 +490,26 @@ protected:
         EXPECT_EQ(count, attr->aspath_4byte_count());
     }
 
-    void VerifyAttrAsPrepend(as_t local_as = 0, int size = 0) {
+    void VerifyAttrAsPrepend(as_t local_as = 0) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
-        const AsPath4Byte *as4_path = attr->aspath_4byte();
-        assert(!as4_path);
         const AsPath *as_path = attr->as_path();
         as_t my_as = server_.autonomous_system();
         as_t my_local_as = local_as ?: server_.local_autonomous_system();
         EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
         if (my_as != my_local_as)
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
-        if (size != 0)
-            EXPECT_TRUE(as_path->AsCount() == size);
     }
 
-    void VerifyAttrAs4Prepend(as_t local_as = 0, int size = 0) {
+    void VerifyAttrAs4Prepend(as_t local_as = 0) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
-        const AsPath *as2_path = attr->as_path();
-        assert(!as2_path);
         const AsPath4Byte *as_path = attr->aspath_4byte();
         as_t my_as = server_.autonomous_system();
         as_t my_local_as = local_as ?: server_.local_autonomous_system();
         EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
         if (my_as != my_local_as)
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
-        if (size != 0) {
-            EXPECT_TRUE(as_path->AsCount() == size);
-        }
     }
 
     void VerifyAttrAs4BytePrepend(as_t local_as = 0) {
@@ -1019,7 +1004,6 @@ TEST_P(BgpTableExportParamTest1, NoRemovePrivate) {
         VerifyAttrAsPathAsCount(PeerAsNumber(), 1);
 }
 
-#if 0
 TEST_P(BgpTableExportParamTest1, NoRemovePrivateAs4) {
     CreateRibOut(BgpProto::EBGP, RibExportPolicy::BGP, 300, true, IpAddress(),
                  0, true);
@@ -1036,7 +1020,6 @@ TEST_P(BgpTableExportParamTest1, NoRemovePrivateAs4) {
     if (!PeerIsInternal())
         VerifyAttrAs4BytePathAsCount(PeerAsNumber(), 1);
 }
-#endif
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest1,
     ::testing::Combine(

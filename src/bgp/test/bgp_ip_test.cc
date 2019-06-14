@@ -282,10 +282,10 @@ protected:
         BgpAttrOrigin origin_spec(BgpAttrOrigin::IGP);
         attr_spec.push_back(&origin_spec);
 
-        AsPathSpec path_spec;
-        AsPathSpec::PathSegment *path_seg =
-                            new AsPathSpec::PathSegment;
-        path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        AsPath4ByteSpec path_spec;
+        AsPath4ByteSpec::PathSegment *path_seg =
+                            new AsPath4ByteSpec::PathSegment;
+        path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
         path_seg->path_segment.push_back(64513);
         path_seg->path_segment.push_back(64514);
         path_seg->path_segment.push_back(64515);

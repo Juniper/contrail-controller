@@ -604,13 +604,13 @@ TEST_F(RoutingPolicyTest, PolicyNoMatchUpdateAsPath) {
     ASSERT_TRUE(rt != NULL);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     const BgpAttr *attr = rt->BestPath()->GetAttr();
-    ASSERT_EQ(1, attr->as_path()->path().path_segments.size());
+    ASSERT_EQ(1, attr->aspath_4byte()->path().path_segments.size());
     ASSERT_EQ(2,
-        attr->as_path()->path().path_segments[0]->path_segment.size());
+        attr->aspath_4byte()->path().path_segments[0]->path_segment.size());
     ASSERT_EQ(1000,
-        attr->as_path()->path().path_segments[0]->path_segment[0]);
+        attr->aspath_4byte()->path().path_segments[0]->path_segment[0]);
     ASSERT_EQ(2000,
-        attr->as_path()->path().path_segments[0]->path_segment[1]);
+        attr->aspath_4byte()->path().path_segments[0]->path_segment[1]);
 
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
 }

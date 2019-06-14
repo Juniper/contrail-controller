@@ -244,7 +244,7 @@ AsPathDB::AsPathDB(BgpServer *server) {
 //
 // Return the left most AS.
 //
-as4_t AsPath4ByteSpec::AsLeftMost() const {
+as_t AsPath4ByteSpec::AsLeftMost() const {
     if (path_segments.empty())
         return 0;
     if (path_segments[0]->path_segment_type == PathSegment::AS_SET)
@@ -257,7 +257,7 @@ as4_t AsPath4ByteSpec::AsLeftMost() const {
 //
 // Return true if left most AS matches the input.
 //
-bool AsPath4ByteSpec::AsLeftMostMatch(as4_t as) const {
+bool AsPath4ByteSpec::AsLeftMostMatch(as_t as) const {
     if (path_segments.empty())
         return false;
     if (path_segments[0]->path_segment.empty())
@@ -268,7 +268,7 @@ bool AsPath4ByteSpec::AsLeftMostMatch(as4_t as) const {
 //
 // Return the left most public AS.
 //
-as4_t AsPath4ByteSpec::AsLeftMostPublic() const {
+as_t AsPath4ByteSpec::AsLeftMostPublic() const {
     for (size_t i = 0; i < path_segments.size(); ++i) {
         PathSegment *ps = path_segments[i];
         for (size_t j = 0; j < path_segments[i]->path_segment.size(); ++j) {
@@ -337,7 +337,7 @@ size_t AsPath4ByteSpec::EncodeLength() const {
 // Check AsPath4ByteSpec for loops for the given as.
 // Return true if the number of occurrences of as exceeds given max loop count.
 //
-bool AsPath4ByteSpec::AsPathLoop(as4_t as, uint8_t max_loop_count) const {
+bool AsPath4ByteSpec::AsPathLoop(as_t as, uint8_t max_loop_count) const {
     uint8_t loop_count = 0;
     for (size_t i = 0; i < path_segments.size(); ++i) {
         for (size_t j = 0; j < path_segments[i]->path_segment.size(); ++j) {
@@ -353,8 +353,8 @@ bool AsPath4ByteSpec::AsPathLoop(as4_t as, uint8_t max_loop_count) const {
 //
 // Create a new AsPath4ByteSpec by prepending the given asn at the beginning.
 //
-AsPath4ByteSpec *AsPath4ByteSpec::Add(as4_t asn) const {
-    vector<as4_t> asn_list = list_of(asn);
+AsPath4ByteSpec *AsPath4ByteSpec::Add(as_t asn) const {
+    vector<as_t> asn_list = list_of(asn);
     return Add(asn_list);
 }
 
@@ -362,7 +362,7 @@ AsPath4ByteSpec *AsPath4ByteSpec::Add(as4_t asn) const {
 // Create a new AsPath4ByteSpec by prepending the given vector of asns at the
 // beginning.
 //
-AsPath4ByteSpec *AsPath4ByteSpec::Add(const vector<as4_t> &asn_list) const {
+AsPath4ByteSpec *AsPath4ByteSpec::Add(const vector<as_t> &asn_list) const {
     AsPath4ByteSpec *new_spec = new AsPath4ByteSpec;
     PathSegment *ps = new PathSegment;
     ps->path_segment_type = PathSegment::AS_SEQUENCE;
@@ -393,7 +393,7 @@ AsPath4ByteSpec *AsPath4ByteSpec::Add(const vector<as4_t> &asn_list) const {
 //
 // Create a new AsPath4ByteSpec by replacing the old asn with given asn.
 //
-AsPath4ByteSpec *AsPath4ByteSpec::Replace(as4_t old_asn, as4_t asn) const {
+AsPath4ByteSpec *AsPath4ByteSpec::Replace(as_t old_asn, as_t asn) const {
     AsPath4ByteSpec *new_spec = new AsPath4ByteSpec(*this);
     for (size_t i = 0; i < new_spec->path_segments.size(); ++i) {
         PathSegment *ps = new_spec->path_segments[i];
@@ -415,7 +415,7 @@ AsPath4ByteSpec *AsPath4ByteSpec::Replace(as4_t old_asn, as4_t asn) const {
 // asn, then use the given asn.
 // If peer asn is non-zero, do not remove/replace it.
 //
-AsPath4ByteSpec *AsPath4ByteSpec::RemovePrivate(bool all, as4_t asn, as4_t peer_asn) const {
+AsPath4ByteSpec *AsPath4ByteSpec::RemovePrivate(bool all, as_t asn, as_t peer_asn) const {
     bool remove_replace_done = false;
     AsPath4ByteSpec *new_spec = new AsPath4ByteSpec;
     for (size_t i = 0; i < path_segments.size(); ++i) {
@@ -470,7 +470,7 @@ AsPath4ByteDB::AsPath4ByteDB(BgpServer *server) {
 //
 // Return the left most AS.
 //
-as4_t As4PathSpec::AsLeftMost() const {
+as_t As4PathSpec::AsLeftMost() const {
     if (path_segments.empty())
         return 0;
     if (path_segments[0]->path_segment_type == PathSegment::AS_SET)
@@ -483,7 +483,7 @@ as4_t As4PathSpec::AsLeftMost() const {
 //
 // Return true if left most AS matches the input.
 //
-bool As4PathSpec::AsLeftMostMatch(as4_t as) const {
+bool As4PathSpec::AsLeftMostMatch(as_t as) const {
     if (path_segments.empty())
         return false;
     if (path_segments[0]->path_segment.empty())
@@ -494,7 +494,7 @@ bool As4PathSpec::AsLeftMostMatch(as4_t as) const {
 //
 // Return the left most public AS.
 //
-as4_t As4PathSpec::AsLeftMostPublic() const {
+as_t As4PathSpec::AsLeftMostPublic() const {
     for (size_t i = 0; i < path_segments.size(); ++i) {
         PathSegment *ps = path_segments[i];
         for (size_t j = 0; j < path_segments[i]->path_segment.size(); ++j) {
@@ -563,7 +563,7 @@ size_t As4PathSpec::EncodeLength() const {
 // Check As4PathSpec for loops for the given as.
 // Return true if the number of occurrences of as exceeds given max loop count.
 //
-bool As4PathSpec::AsPathLoop(as4_t as, uint8_t max_loop_count) const {
+bool As4PathSpec::AsPathLoop(as_t as, uint8_t max_loop_count) const {
     uint8_t loop_count = 0;
     for (size_t i = 0; i < path_segments.size(); ++i) {
         for (size_t j = 0; j < path_segments[i]->path_segment.size(); ++j) {
@@ -579,8 +579,8 @@ bool As4PathSpec::AsPathLoop(as4_t as, uint8_t max_loop_count) const {
 //
 // Create a new As4PathSpec by prepending the given asn at the beginning.
 //
-As4PathSpec *As4PathSpec::Add(as4_t asn) const {
-    vector<as4_t> asn_list = list_of(asn);
+As4PathSpec *As4PathSpec::Add(as_t asn) const {
+    vector<as_t> asn_list = list_of(asn);
     return Add(asn_list);
 }
 
@@ -588,7 +588,7 @@ As4PathSpec *As4PathSpec::Add(as4_t asn) const {
 // Create a new As4PathSpec by prepending the given vector of asns at the
 // beginning.
 //
-As4PathSpec *As4PathSpec::Add(const vector<as4_t> &asn_list) const {
+As4PathSpec *As4PathSpec::Add(const vector<as_t> &asn_list) const {
     As4PathSpec *new_spec = new As4PathSpec;
     PathSegment *ps = new PathSegment;
     ps->path_segment_type = PathSegment::AS_SEQUENCE;
@@ -619,7 +619,7 @@ As4PathSpec *As4PathSpec::Add(const vector<as4_t> &asn_list) const {
 //
 // Create a new As4PathSpec by replacing the old asn with given asn.
 //
-As4PathSpec *As4PathSpec::Replace(as4_t old_asn, as4_t asn) const {
+As4PathSpec *As4PathSpec::Replace(as_t old_asn, as_t asn) const {
     As4PathSpec *new_spec = new As4PathSpec(*this);
     for (size_t i = 0; i < new_spec->path_segments.size(); ++i) {
         PathSegment *ps = new_spec->path_segments[i];
@@ -641,7 +641,7 @@ As4PathSpec *As4PathSpec::Replace(as4_t old_asn, as4_t asn) const {
 // asn, then use the given asn.
 // If peer asn is non-zero, do not remove/replace it.
 //
-As4PathSpec *As4PathSpec::RemovePrivate(bool all, as4_t asn, as4_t peer_asn) const {
+As4PathSpec *As4PathSpec::RemovePrivate(bool all, as_t asn, as_t peer_asn) const {
     bool remove_replace_done = false;
     As4PathSpec *new_spec = new As4PathSpec;
     for (size_t i = 0; i < path_segments.size(); ++i) {
@@ -649,14 +649,14 @@ As4PathSpec *As4PathSpec::RemovePrivate(bool all, as4_t asn, as4_t peer_asn) con
         PathSegment *new_ps = new PathSegment;
 
         // We've already removed/replaced all private asns that we can.
-        // Copy the entire segment instead of copying one as4_t at a time.
+        // Copy the entire segment instead of copying one as_t at a time.
         if (remove_replace_done) {
             *new_ps = *ps;
             new_spec->path_segments.push_back(new_ps);
             continue;
         }
 
-        // Examine each as4_t in the path segment to build a modified version.
+        // Examine each as_t in the path segment to build a modified version.
         // Note down that we're done removing/replacing when we see a public
         // asn or the peer asn.
         new_ps->path_segment_type = ps->path_segment_type;
