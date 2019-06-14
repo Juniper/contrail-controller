@@ -959,7 +959,7 @@ public:
     typedef BgpAttr4ByteAggregator ContextType;
     typedef BgpContextSwap<BgpAttr4ByteAggregator> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
-            BgpAttributeValue<4, BgpAttr4ByteAggregator, as4_t,
+            BgpAttributeValue<4, BgpAttr4ByteAggregator, as_t,
                                   &BgpAttr4ByteAggregator::as_num>,
             BgpAttributeValue<4, BgpAttr4ByteAggregator, uint32_t,
                                   &BgpAttr4ByteAggregator::address>
@@ -972,7 +972,7 @@ public:
     typedef BgpAttrAs4Aggregator ContextType;
     typedef BgpContextSwap<BgpAttrAs4Aggregator> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
-            BgpAttributeValue<4, BgpAttrAs4Aggregator, as4_t,
+            BgpAttributeValue<4, BgpAttrAs4Aggregator, as_t,
                                   &BgpAttrAs4Aggregator::as_num>,
             BgpAttributeValue<4, BgpAttrAs4Aggregator, uint32_t,
                                   &BgpAttrAs4Aggregator::address>
@@ -1055,7 +1055,7 @@ class BgpPathAttrAsPath4ByteSegmentValue :
     public ProtoElement<BgpPathAttrAsPath4ByteSegmentValue> {
 public:
     static const int kSize = -1;
-    typedef VectorAccessor<AsPath4ByteSpec::PathSegment, as4_t,
+    typedef VectorAccessor<AsPath4ByteSpec::PathSegment, as_t,
                            &AsPath4ByteSpec::PathSegment::path_segment> Setter;
 };
 
@@ -1063,7 +1063,7 @@ class BgpPathAttrAs4PathSegmentValue :
     public ProtoElement<BgpPathAttrAs4PathSegmentValue> {
 public:
     static const int kSize = -1;
-    typedef VectorAccessor<As4PathSpec::PathSegment, as4_t,
+    typedef VectorAccessor<As4PathSpec::PathSegment, as_t,
                            &As4PathSpec::PathSegment::path_segment> Setter;
 };
 

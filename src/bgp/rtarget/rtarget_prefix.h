@@ -19,7 +19,7 @@ public:
 
     RTargetPrefix();
     explicit RTargetPrefix(const BgpProtoPrefix &prefix);
-    RTargetPrefix(as4_t as, RouteTarget rtarget)
+    RTargetPrefix(as_t as, RouteTarget rtarget)
         : as_(as), rtarget_(rtarget) {
     }
 
@@ -37,7 +37,7 @@ public:
 
     std::string ToString() const;
     RouteTarget rtarget() const { return rtarget_; }
-    as4_t as() const { return as_; }
+    as_t as() const { return as_; }
     void BuildProtoPrefix(BgpProtoPrefix *prefix) const;
     int CompareTo(const RTargetPrefix &rhs) const;
     bool operator==(const RTargetPrefix &rhs) const {
@@ -45,7 +45,7 @@ public:
     }
 
 private:
-    as4_t as_;
+    as_t as_;
     RouteTarget rtarget_;
 };
 

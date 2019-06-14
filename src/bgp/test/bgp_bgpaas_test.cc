@@ -390,9 +390,9 @@ protected:
         if (nexthop_str != nexthop.to_string())
             return false;
         if (!as_path.empty()) {
-            if (!path->GetAttr()->as_path())
+            if (!path->GetAttr()->aspath_4byte())
                 return false;
-            if (as_path != path->GetAttr()->as_path()->path().ToString())
+            if (as_path != path->GetAttr()->aspath_4byte()->path().ToString())
                 return false;
         }
         return true;
@@ -447,9 +447,9 @@ protected:
         if (nexthop_str != nexthop.to_string())
             return false;
         if (!as_path.empty()) {
-            if (!path->GetAttr()->as_path())
+            if (!path->GetAttr()->aspath_4byte())
                 return false;
-            if (as_path != path->GetAttr()->as_path()->path().ToString())
+            if (as_path != path->GetAttr()->aspath_4byte()->path().ToString())
                 return false;
         }
         return true;

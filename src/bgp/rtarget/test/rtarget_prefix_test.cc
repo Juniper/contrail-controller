@@ -22,7 +22,6 @@ TEST_F(RTargetPrefixTest, Build) {
     EXPECT_EQ(prefix.as(), 100);
 }
 
-#if 0
 TEST_F(RTargetPrefixTest, Parse) {
     RTargetPrefix prefix(
         RTargetPrefix::FromString("80000:target:80000:1"));
@@ -210,7 +209,6 @@ TEST_F(RTargetPrefixTest, GetDBRequestKey2) {
         static_cast<RTargetTable::RequestKey *>(keyptr.get());
     EXPECT_EQ(prefix, key->prefix);
 }
-#endif
 
 
 int main(int argc, char **argv) {
