@@ -140,7 +140,7 @@ struct BgpAttrAs4Aggregator : public BgpAttribute {
     }
     explicit BgpAttrAs4Aggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(As4Aggregator, kFlags), as_num(as_num), address(address) {}
-    as4_t as_num;
+    as_t as_num;
     uint32_t address;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -176,7 +176,7 @@ struct BgpAttr4ByteAggregator : public BgpAttribute {
     }
     explicit BgpAttr4ByteAggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(Aggregator, kFlags), as_num(as_num), address(address) {}
-    as4_t as_num;
+    as_t as_num;
     uint32_t address;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -842,6 +842,10 @@ public:
         aggregator_as_num_ = as_num;
         aggregator_address_ = address;
     }
+    void set_as4_aggregator(as_t as_num, IpAddress address) {
+        aggregator_as4_num_ = as_num;
+        aggregator_address_ = address;
+    }
     void set_originator_id(Ip4Address originator_id) {
         originator_id_ = originator_id;
     }
@@ -885,6 +889,7 @@ public:
     uint32_t local_pref() const { return local_pref_; }
     bool atomic_aggregate() const { return atomic_aggregate_; }
     as_t aggregator_as_num() const { return aggregator_as_num_; }
+    as_t aggregator_as4_num() const { return aggregator_as4_num_; }
     as_t neighbor_as() const;
     const IpAddress &aggregator_adderess() const { return aggregator_address_; }
     const Ip4Address &originator_id() const { return originator_id_; }
@@ -941,6 +946,7 @@ private:
     uint32_t local_pref_;
     bool atomic_aggregate_;
     as_t aggregator_as_num_;
+    as_t aggregator_as4_num_;
     IpAddress aggregator_address_;
     Ip4Address originator_id_;
     RouteDistinguisher source_rd_;

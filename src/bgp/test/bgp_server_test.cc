@@ -181,12 +181,12 @@ protected:
                 bool admin_down1, bool admin_down2,
                 bool nbr_admin_down1, bool nbr_admin_down2,
                 bool nbr_passive1, bool nbr_passive2,
-                as_t as_num1, as_t as_num2,
-                as_t local_as_num1, as_t local_as_num2);
+                uint32_t as_num1, uint32_t as_num2,
+                uint32_t local_as_num1, uint32_t local_as_num2);
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
-                as_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                as_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -199,13 +199,14 @@ protected:
                 uint16_t nbr_hold_time2 = 0, uint32_t cluster_id = 0);
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
-                as_t as_num1, as_t as_num2,
-                as_t local_as_num1, as_t local_as_num2);
+                uint32_t as_num1, uint32_t as_num2,
+                uint32_t local_as_num1, uint32_t local_as_num2,
+                bool enable_4byte_as = false);
     void SetupPeers(BgpServerTest *server, int peer_count,
                 unsigned short port_a, unsigned short port_b,
                 bool verify_keepalives,
-                as_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                as_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -217,8 +218,8 @@ protected:
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
                 vector<ConfigUTAuthKeyItem> auth_keys,
-                as_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                as_t s_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -232,8 +233,8 @@ protected:
                 unsigned short port_a, unsigned short port_b,
                 bool verify_keepalives,
                 vector<ConfigUTAuthKeyItem> auth_keys,
-                as_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-                as_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint32_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
                 string peer_address1 = "127.0.0.1",
                 string peer_address2 = "127.0.0.1",
                 string bgp_identifier1 = "192.168.0.10",
@@ -242,15 +243,15 @@ protected:
                 vector<string> families2 = vector<string>(),
                 bool delete_config = false);
     void VerifyPeers(int peer_count, size_t verify_keepalives_count = 0,
-           as_t local_as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-           as_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
+           uint32_t local_as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+           uint32_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
     string GetConfigStr(int peer_count,
                         unsigned short port_a, unsigned short port_b,
                         bool admin_down1, bool admin_down2,
                         bool nbr_admin_down1, bool nbr_admin_down2,
                         bool nbr_passive1, bool nbr_passive2,
-                        as_t as_num1, as_t as_num2,
-                        as_t local_as_num1, as_t local_as_num2,
+                        uint32_t as_num1, uint32_t as_num2,
+                        uint32_t local_as_num1, uint32_t local_as_num2,
                         string peer_address1, string peer_address2,
                         string bgp_identifier1, string bgp_identifier2,
                         vector<string> families1, vector<string> families2,
@@ -259,7 +260,7 @@ protected:
                         bool delete_config,
                         vector<ConfigUTAuthKeyItem> auth_keys =
                                 vector<ConfigUTAuthKeyItem>(),
-                        uint32_t cluster_id = 0);
+                        uint32_t cluster_id = 0, bool enable_4byte = false);
     void GRTestCommon(bool hard_reset, size_t expected_stale_count,
                       size_t expected_llgr_stale_count);
 
@@ -349,7 +350,8 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         uint16_t hold_time1, uint16_t hold_time2,
         uint16_t nbr_hold_time1, uint16_t nbr_hold_time2,
         bool delete_config,
-        vector<ConfigUTAuthKeyItem> auth_keys, uint32_t cluster_id) {
+        vector<ConfigUTAuthKeyItem> auth_keys, uint32_t cluster_id,
+        bool enable_4byte_as) {
     ostringstream config;
 
     if (families1.empty()) families1.push_back("inet");
@@ -367,8 +369,11 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
                        <end-of-rib-timeout>120</end-of-rib-timeout>\
                        <bgp-helper-enable>true</bgp-helper-enable>\
                        <xmpp-helper-enable>true</xmpp-helper-enable>\
-                   </graceful-restart-parameters>\
-               </global-system-config>";
+                   </graceful-restart-parameters></global-system-config>";
+    } else {
+        config << "<global-system-config>\
+            <enable-4byte-as>" << (enable_4byte_as ? "true" : "false")\
+            << "</enable-4byte-as></global-system-config>";
     }
 
     config << "<bgp-router name=\'A\'>"
@@ -605,7 +610,8 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
 
 void BgpServerUnitTest::SetupPeers(int peer_count,
         unsigned short port_a, unsigned short port_b, bool verify_keepalives,
-        as_t as_num1, as_t as_num2, as_t local_as_num1, as_t local_as_num2) {
+        as_t as_num1, as_t as_num2, as_t local_as_num1, as_t local_as_num2,
+        bool enable_4byte_as) {
     string config = GetConfigStr(peer_count, port_a, port_b,
                                  false, false, false, false, false, false,
                                  as_num1, as_num2,
@@ -615,7 +621,8 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  vector<string>(), vector<string>(),
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
-                                 0, 0, false);
+                                 0, 0, false, vector<ConfigUTAuthKeyItem>(),
+                                 0, enable_4byte_as);
     a_->Configure(config);
     task_util::WaitForIdle();
     b_->Configure(config);
@@ -703,6 +710,122 @@ TEST_P(BgpServerUnitTest, LotsOfKeepAlives) {
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(3, 30);
     StateMachineTest::set_keepalive_time_msecs(0);
+}
+
+TEST_P(BgpServerUnitTest, ChangeDisable4ByteAsn) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    // Disable 4 byte asn initially
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Enable 4 byte asn support and apply
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem, true);
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
+}
+
+TEST_P(BgpServerUnitTest, ChangeEnable4ByteAsn2) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    // Enable 4 byte asn initially
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem, true);
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Disable 4 byte asn support and apply
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
 }
 
 TEST_P(BgpServerUnitTest, ChangeAsNumber1) {
@@ -915,11 +1038,11 @@ TEST_P(BgpServerUnitTest, ChangeLocalAsNumber1) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               BgpConfigManager::kDefaultAutonomousSystem + 101,
-               BgpConfigManager::kDefaultAutonomousSystem + 101);
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff,
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
     VerifyPeers(peer_count, 0,
-                BgpConfigManager::kDefaultAutonomousSystem + 101,
-                BgpConfigManager::kDefaultAutonomousSystem + 101);
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff,
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
 
     //
     // Make sure that the peers did flap
@@ -973,10 +1096,10 @@ TEST_P(BgpServerUnitTest, ChangeLocalAsNumber2) {
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 100,
-               BgpConfigManager::kDefaultAutonomousSystem + 101);
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 100,
-                BgpConfigManager::kDefaultAutonomousSystem + 101);
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
 
     //
     // Make sure that the peers did flap
@@ -1001,10 +1124,10 @@ TEST_P(BgpServerUnitTest, ChangeLocalAsNumber3) {
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 100,
-               BgpConfigManager::kDefaultAutonomousSystem + 101);
+               BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 100,
-                BgpConfigManager::kDefaultAutonomousSystem + 101);
+                BgpConfigManager::kDefaultAutonomousSystem + 0xffff);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -2754,21 +2877,22 @@ void BgpServerUnitTest::GRTestCommon(bool hard_reset,
     BgpAttrOrigin origin(BgpAttrOrigin::IGP);
     attr_spec.push_back(&origin);
 
-    AsPathSpec path_spec1;
-    AsPathSpec::PathSegment *path_seg1 = new AsPathSpec::PathSegment;
-    path_seg1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
-    path_seg1->path_segment.push_back(65534);
-    path_spec1.path_segments.push_back(path_seg1);
-    attr_spec.push_back(&path_spec1);
-
-#if 0
-    AsPath4ByteSpec path_spec;
-    AsPath4ByteSpec::PathSegment *path_seg = new AsPath4ByteSpec::PathSegment;
-    path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
-    path_seg->path_segment.push_back(65534);
-    path_spec.path_segments.push_back(path_seg);
-    attr_spec.push_back(&path_spec);
-#endif
+    if (a_->enable_4byte_as() && b_->enable_4byte_as()) {
+        AsPath4ByteSpec *path_spec = new AsPath4ByteSpec;
+        AsPath4ByteSpec::PathSegment *path_seg =
+                             new AsPath4ByteSpec::PathSegment;
+        path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
+        path_seg->path_segment.push_back(65534);
+        path_spec->path_segments.push_back(path_seg);
+        attr_spec.push_back(path_spec);
+    } else {
+        AsPathSpec *path_spec = new AsPathSpec;
+        AsPathSpec::PathSegment *path_seg = new AsPathSpec::PathSegment;
+        path_seg->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        path_seg->path_segment.push_back(65534);
+        path_spec->path_segments.push_back(path_seg);
+        attr_spec.push_back(path_spec);
+    }
 
     BgpAttrNextHop nexthop(0x7f00007f);
     attr_spec.push_back(&nexthop);
@@ -3553,21 +3677,12 @@ TEST_P(BgpServerUnitTest, BasicAdvertiseWithdraw) {
     BgpAttrOrigin origin(BgpAttrOrigin::IGP);
     attr_spec.push_back(&origin);
 
-    AsPathSpec path_spec1;
-    AsPathSpec::PathSegment *path_seg1 = new AsPathSpec::PathSegment;
-    path_seg1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
-    path_seg1->path_segment.push_back(65534);
-    path_spec1.path_segments.push_back(path_seg1);
-    attr_spec.push_back(&path_spec1);
-
-#if 0
     AsPath4ByteSpec path_spec;
     AsPath4ByteSpec::PathSegment *path_seg = new AsPath4ByteSpec::PathSegment;
     path_seg->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
     path_seg->path_segment.push_back(65534);
     path_spec.path_segments.push_back(path_seg);
     attr_spec.push_back(&path_spec);
-#endif
 
     BgpAttrNextHop nexthop(0x7f00007f);
     attr_spec.push_back(&nexthop);

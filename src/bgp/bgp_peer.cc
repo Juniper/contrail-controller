@@ -1700,13 +1700,13 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
 
     as4_supported_ = false;
     if (server_->enable_4byte_as()) {
-        vector<BgpProto::OpenMessage::Capability *>::iterator c_it;
-        for (c_it = capabilities_.begin(); c_it < capabilities_.end(); ++c_it) {
-            if ((*c_it)->code ==BgpProto::OpenMessage::Capability::AS4Support) {
-                as4_supported_ = true;
-                break;
-            }
+    vector<BgpProto::OpenMessage::Capability *>::iterator c_it;
+    for (c_it = capabilities_.begin(); c_it < capabilities_.end(); ++c_it) {
+        if ((*c_it)->code == BgpProto::OpenMessage::Capability::AS4Support) {
+            as4_supported_ = true;
+            break;
         }
+    }
     }
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());

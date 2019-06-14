@@ -28,7 +28,7 @@ struct AsPathSpec : public BgpAttribute {
     static const int kSize = -1;
     static const uint8_t kFlags = Transitive;
     static const as2_t kMinPrivateAs = 64512;
-    static const as2_t kMaxPrivateAs = 65535;
+    static const as2_t kMaxPrivateAs = 65534;
 
     AsPathSpec() : BgpAttribute(BgpAttribute::AsPath, kFlags) {}
     explicit AsPathSpec(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
@@ -72,6 +72,7 @@ struct AsPathSpec : public BgpAttribute {
     virtual std::string ToString() const;
     AsPathSpec *Add(as2_t asn) const;
     AsPathSpec *Add(const std::vector<as2_t> &asn_list) const;
+    AsPathSpec *Add(const std::vector<as_t> &asn_list) const;
     AsPathSpec *Replace(as2_t old_asn, as2_t asn) const;
     AsPathSpec *RemovePrivate(bool all, as2_t asn, as2_t peer_as) const;
 
@@ -180,10 +181,10 @@ private:
 struct AsPath4ByteSpec : public BgpAttribute {
     static const int kSize = -1;
     static const uint8_t kFlags = Transitive;
-    static const as4_t kMinPrivateAs = 64512;
-    static const as4_t kMaxPrivateAs = 65535;
-    static const as4_t kMinPrivateAs4 = 4200000000;
-    static const as4_t kMaxPrivateAs4 = 4294967294;
+    static const as_t kMinPrivateAs = 64512;
+    static const as_t kMaxPrivateAs = 65534;
+    static const as_t kMinPrivateAs4 = 4200000000;
+    static const as_t kMaxPrivateAs4 = 4294967294;
 
     AsPath4ByteSpec() : BgpAttribute(BgpAttribute::AsPath, kFlags) {}
     explicit AsPath4ByteSpec(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
@@ -210,14 +211,14 @@ struct AsPath4ByteSpec : public BgpAttribute {
             AS_SEQUENCE = 2
         };
         int path_segment_type;
-        std::vector<as4_t> path_segment;
+        std::vector<as_t> path_segment;
     };
 
-    as4_t AsLeftMost() const;
-    bool AsLeftMostMatch(as4_t as) const;
-    as4_t AsLeftMostPublic() const;
-    bool AsPathLoop(as4_t as, uint8_t max_loop_count = 0) const;
-    static bool AsIsPrivate(as4_t as) {
+    as_t AsLeftMost() const;
+    bool AsLeftMostMatch(as_t as) const;
+    as_t AsLeftMostPublic() const;
+    bool AsPathLoop(as_t as, uint8_t max_loop_count = 0) const;
+    static bool AsIsPrivate(as_t as) {
         return ((as >= kMinPrivateAs && as <= kMaxPrivateAs) ||
             (as >= kMinPrivateAs4 && as <= kMaxPrivateAs4));
     }
@@ -226,10 +227,10 @@ struct AsPath4ByteSpec : public BgpAttribute {
     virtual void ToCanonical(BgpAttr *attr);
     virtual size_t EncodeLength() const;
     virtual std::string ToString() const;
-    AsPath4ByteSpec *Add(as4_t asn) const;
-    AsPath4ByteSpec *Add(const std::vector<as4_t> &asn_list) const;
-    AsPath4ByteSpec *Replace(as4_t old_asn, as4_t asn) const;
-    AsPath4ByteSpec *RemovePrivate(bool all, as4_t asn, as4_t peer_as) const;
+    AsPath4ByteSpec *Add(as_t asn) const;
+    AsPath4ByteSpec *Add(const std::vector<as_t> &asn_list) const;
+    AsPath4ByteSpec *Replace(as_t old_asn, as_t asn) const;
+    AsPath4ByteSpec *RemovePrivate(bool all, as_t asn, as_t peer_as) const;
 
     std::vector<PathSegment *> path_segments;
 };
@@ -283,7 +284,7 @@ public:
     }
     const AsPath4ByteSpec &path() const { return path_; }
     bool empty() const { return path_.path_segments.empty(); }
-    as4_t neighbor_as() const { return path_.AsLeftMost(); }
+    as_t neighbor_as() const { return path_.AsLeftMost(); }
 
     friend std::size_t hash_value(const AsPath4Byte &as_path) {
         size_t hash = 0;
@@ -340,10 +341,10 @@ typedef boost::intrusive_ptr<const AsPath4Byte> AsPath4BytePtr;
 struct As4PathSpec : public BgpAttribute {
     static const int kSize = -1;
     static const uint8_t kFlags = Transitive|Optional;
-    static const as2_t kMinPrivateAs = 64512;
-    static const as2_t kMaxPrivateAs = 65535;
-    static const as4_t kMinPrivateAs4 = 4200000000;
-    static const as4_t kMaxPrivateAs4 = 4294967294;
+    static const as_t kMinPrivateAs = 64512;
+    static const as_t kMaxPrivateAs = 65534;
+    static const as_t kMinPrivateAs4 = 4200000000;
+    static const as_t kMaxPrivateAs4 = 4294967294;
 
     As4PathSpec() : BgpAttribute(BgpAttribute::As4Path, kFlags) {}
     explicit As4PathSpec(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
@@ -370,14 +371,14 @@ struct As4PathSpec : public BgpAttribute {
             AS_SEQUENCE = 2
         };
         int path_segment_type;
-        std::vector<as4_t> path_segment;
+        std::vector<as_t> path_segment;
     };
 
-    as4_t AsLeftMost() const;
-    bool AsLeftMostMatch(as4_t as) const;
-    as4_t AsLeftMostPublic() const;
-    bool AsPathLoop(as4_t as, uint8_t max_loop_count = 0) const;
-    static bool AsIsPrivate(as4_t as) {
+    as_t AsLeftMost() const;
+    bool AsLeftMostMatch(as_t as) const;
+    as_t AsLeftMostPublic() const;
+    bool AsPathLoop(as_t as, uint8_t max_loop_count = 0) const;
+    static bool AsIsPrivate(as_t as) {
         return ((as >= kMinPrivateAs && as <= kMaxPrivateAs) ||
             (as >= kMinPrivateAs4 && as <= kMaxPrivateAs4));
     }
@@ -386,10 +387,10 @@ struct As4PathSpec : public BgpAttribute {
     virtual void ToCanonical(BgpAttr *attr);
     virtual size_t EncodeLength() const;
     virtual std::string ToString() const;
-    As4PathSpec *Add(as4_t asn) const;
-    As4PathSpec *Add(const std::vector<as4_t> &asn_list) const;
-    As4PathSpec *Replace(as4_t old_asn, as4_t asn) const;
-    As4PathSpec *RemovePrivate(bool all, as4_t asn, as4_t peer_as) const;
+    As4PathSpec *Add(as_t asn) const;
+    As4PathSpec *Add(const std::vector<as_t> &asn_list) const;
+    As4PathSpec *Replace(as_t old_asn, as_t asn) const;
+    As4PathSpec *RemovePrivate(bool all, as_t asn, as_t peer_as) const;
 
     std::vector<PathSegment *> path_segments;
 };
@@ -441,7 +442,7 @@ public:
     }
     const As4PathSpec &path() const { return path_; }
     bool empty() const { return path_.path_segments.empty(); }
-    as4_t neighbor_as() const { return path_.AsLeftMost(); }
+    as_t neighbor_as() const { return path_.AsLeftMost(); }
 
     friend std::size_t hash_value(As4Path const &as_path) {
         size_t hash = 0;

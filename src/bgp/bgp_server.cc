@@ -102,6 +102,12 @@ public:
                 new_config->gr_bgp_helper());
             clear_peers = true;
         }
+        if (server_->global_config()->enable_4byte_as() !=
+                new_config->enable_4byte_as()) {
+            server_->global_config()->set_enable_4byte_as(
+                new_config->enable_4byte_as());
+            clear_peers = true;
+        }
 
         // Clear peers if there's a change in always-compare-med knob.
         if (server_->global_config()->always_compare_med() !=

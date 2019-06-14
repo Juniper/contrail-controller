@@ -505,7 +505,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate1) {
     ops1->path_segment.push_back(100);
     ops1->path_segment.push_back(65000);
     ops1->path_segment.push_back(200);
-    ops1->path_segment.push_back(65535);
+    ops1->path_segment.push_back(65534);
 
     AsPathSpec expected;
     AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
@@ -519,7 +519,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate1) {
     eps1->path_segment.push_back(100);
     eps1->path_segment.push_back(65000);
     eps1->path_segment.push_back(200);
-    eps1->path_segment.push_back(65535);
+    eps1->path_segment.push_back(65534);
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 0; peer_asn = 0;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -561,7 +561,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate2) {
     ops1->path_segment.push_back(64512);
     ops1->path_segment.push_back(65000);
     ops1->path_segment.push_back(200);
-    ops1->path_segment.push_back(65535);
+    ops1->path_segment.push_back(65534);
 
     AsPathSpec expected;
     AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
@@ -576,7 +576,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate2) {
     eps1->path_segment.push_back(64512);
     eps1->path_segment.push_back(65000);
     eps1->path_segment.push_back(200);
-    eps1->path_segment.push_back(65535);
+    eps1->path_segment.push_back(65534);
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 0; peer_asn = 0;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -617,7 +617,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate3) {
     ops1->path_segment.push_back(100);
     ops1->path_segment.push_back(65000);
     ops1->path_segment.push_back(200);
-    ops1->path_segment.push_back(65535);
+    ops1->path_segment.push_back(65534);
 
     AsPathSpec expected;
     AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
@@ -632,7 +632,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate3) {
     eps1->path_segment.push_back(100);
     eps1->path_segment.push_back(65000);
     eps1->path_segment.push_back(200);
-    eps1->path_segment.push_back(65535);
+    eps1->path_segment.push_back(65534);
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 0; peer_asn = 64512;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -674,7 +674,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate4) {
     ops1->path_segment.push_back(65000);
     ops1->path_segment.push_back(100);
     ops1->path_segment.push_back(200);
-    ops1->path_segment.push_back(65535);
+    ops1->path_segment.push_back(65534);
 
     AsPathSpec expected;
     AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
@@ -688,7 +688,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate4) {
     eps1->path_segment.push_back(65000);
     eps1->path_segment.push_back(100);
     eps1->path_segment.push_back(200);
-    eps1->path_segment.push_back(65535);
+    eps1->path_segment.push_back(65534);
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 0; peer_asn = 65000;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -731,7 +731,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate5) {
     ops1->path_segment.push_back(100);
     ops1->path_segment.push_back(65000);
     ops1->path_segment.push_back(200);
-    ops1->path_segment.push_back(65535);
+    ops1->path_segment.push_back(65534);
 
     AsPathSpec expected;
     AsPathSpec::PathSegment *eps1 = new AsPathSpec::PathSegment;
@@ -745,7 +745,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate5) {
     eps1->path_segment.push_back(100);
     eps1->path_segment.push_back(65000);
     eps1->path_segment.push_back(200);
-    eps1->path_segment.push_back(65535);
+    eps1->path_segment.push_back(65534);
     boost::scoped_ptr<AsPathSpec> result;
     all = false; asn = 0; peer_asn = 100;
     result.reset(original.RemovePrivate(all, asn, peer_asn));
@@ -973,7 +973,7 @@ TEST_F(BgpAttrTest, AsPathRemovePrivate10) {
     ops1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     ops1->path_segment.push_back(64512);
     ops1->path_segment.push_back(65000);
-    ops1->path_segment.push_back(65535);
+    ops1->path_segment.push_back(65534);
 
     AsPathSpec expected;
     bool all;
