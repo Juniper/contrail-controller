@@ -1,7 +1,7 @@
 {% for pi in device_abstract_config.get('physical_interfaces', []) %}
 {%     if (pi.get('interface_type') == 'loopback') %}
 {%         for li in pi.get('logical_interfaces',[]) %}
-set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family {{li.get('family', 'inet')}} address {{li.ip_list[0]}}
+set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family {{li.get('family', 'inet')}} address {{li.ip_addresses[0].address}}
 {%         endfor %}{# pi.get('logical_interfaces',[]) #}
 {%     endif %}
 {% endfor %}{# for device_abstract_config.get('physical_interfaces', []) #}
