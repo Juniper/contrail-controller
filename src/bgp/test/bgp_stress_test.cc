@@ -1130,7 +1130,7 @@ void BgpStressTest::AddBgpInetRouteInternal(int family, int peer_id,
     AsPath4ByteSpec aspath_4byte_spec;
     AsPathSpec aspath_spec;
     As4PathSpec as4path_spec;
-    if (peer_servers_[peer_id]->enable_4byte_as()) {
+    if (!peer_servers_[peer_id]->disable_4byte_as()) {
         AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
         aspath_4byte_spec.path_segments.push_back(ps);
         ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
@@ -2111,7 +2111,7 @@ void BgpStressTest::AddBgpPeer(int peer_id, bool verify_state) {
         peer_servers_[peer_id] = new BgpServerTest(&evm_,
                                                    GetRouterName(peer_id));
         if (peer_id % 2)
-            peer_servers_[peer_id]->set_enable_4byte_as(true);
+            peer_servers_[peer_id]->set_disable_4byte_as(true);
         peer_servers_[peer_id]->session_manager()->Initialize(0);
     }
 

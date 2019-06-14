@@ -946,6 +946,26 @@ TEST_F(BgpProtoTest, UpdateScale) {
     BgpAttrAtomicAggregate *aa = new BgpAttrAtomicAggregate;
     update.path_attributes.push_back(aa);
 
+    BgpAttr4ByteAggregator *agg = new BgpAttr4ByteAggregator(0xface, 0xcafebabe);
+    update.path_attributes.push_back(agg);
+
+    AsPath4ByteSpec *path4_spec = new AsPath4ByteSpec;
+    AsPath4ByteSpec::PathSegment *ps3 = new AsPath4ByteSpec::PathSegment;
+    ps3->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SET;
+    ps3->path_segment.push_back(20);
+    ps3->path_segment.push_back(21);
+    path4_spec->path_segments.push_back(ps3);
+    update.path_attributes.push_back(path4_spec);
+
+    As4PathSpec *path_spec4 = new As4PathSpec;
+    As4PathSpec::PathSegment *ps4 = new As4PathSpec::PathSegment;
+    ps4->path_segment_type = As4PathSpec::PathSegment::AS_SET;
+    ps4->path_segment.push_back(20);
+    ps4->path_segment.push_back(21);
+    ps4->path_segment.push_back(22);
+    path_spec4->path_segments.push_back(ps4);
+    update.path_attributes.push_back(path_spec4);
+
     CommunitySpec *community = new CommunitySpec;
     community->communities.push_back(0x87654321);
     update.path_attributes.push_back(community);
