@@ -25,13 +25,13 @@ int RTargetPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
         return 0;
     }
 
-    size_t expected_nlri_size = sizeof(as4_t) + RouteTarget::kSize;
+    size_t expected_nlri_size = sizeof(as_t) + RouteTarget::kSize;
     if (nlri_size != expected_nlri_size)
         return -1;
 
     size_t as_offset = 0;
-    prefix->as_ = get_value(&proto_prefix.prefix[as_offset], sizeof(as4_t));
-    size_t rtarget_offset = as_offset + sizeof(as4_t);
+    prefix->as_ = get_value(&proto_prefix.prefix[as_offset], sizeof(as_t));
+    size_t rtarget_offset = as_offset + sizeof(as_t);
     RouteTarget::bytes_type bt = { { 0 } };
     copy(proto_prefix.prefix.begin() + rtarget_offset,
         proto_prefix.prefix.end(), bt.begin());
@@ -57,12 +57,12 @@ void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix) const {
         return;
     }
 
-    size_t nlri_size = sizeof(as4_t) + RouteTarget::kSize;
+    size_t nlri_size = sizeof(as_t) + RouteTarget::kSize;
     proto_prefix->prefix.resize(nlri_size);
     proto_prefix->prefixlen = nlri_size * 8;
     size_t as_offset = 0;
-    put_value(&proto_prefix->prefix[as_offset], sizeof(as4_t), as_);
-    size_t rtarget_offset = as_offset + sizeof(as4_t);
+    put_value(&proto_prefix->prefix[as_offset], sizeof(as_t), as_);
+    size_t rtarget_offset = as_offset + sizeof(as_t);
     put_value(&proto_prefix->prefix[rtarget_offset], RouteTarget::kSize,
         rtarget_.GetExtCommunityValue());
 }
@@ -81,7 +81,7 @@ RTargetPrefix RTargetPrefix::FromString(const string &str, error_code *errorp) {
         return prefix;
     }
 
-    as4_t as;
+    as_t as;
     string asstr = str.substr(0, pos);
     stringToInteger(asstr, as);
 

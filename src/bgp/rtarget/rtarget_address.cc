@@ -7,7 +7,7 @@
 #include <algorithm>
 
 #include "base/parse_object.h"
-#include "base/address.h"
+#include "bgp/bgp_common.h"
 
 using std::copy;
 using std::string;
@@ -71,7 +71,13 @@ RouteTarget RouteTarget::FromString(const string &str,
     int offset = 6;
     char *endptr;
     if (ec.value() != 0) {
+        bool is_as4 = false;
         // Not an IP address, try ASN.
+        if (second.c_str()[pos - 1] == 'L') {
+            is_as4 = true;
+            second = second.substr(0, pos - 1);
+        }
+
         int64_t asn = strtol(second.c_str(), &endptr, 10);
         if (asn == 0 || asn > 0xFFFFFFFF || *endptr != '\0') {
             if (errorp != NULL) {
@@ -81,7 +87,7 @@ RouteTarget RouteTarget::FromString(const string &str,
             return RouteTarget::null_rtarget;
         }
 
-        if (asn > 0xFFFF) {
+        if (asn > 0xFFFF || is_as4) {
             data[0] = 0x2;
             put_value(&data[2], 4, asn);
         } else {
@@ -140,7 +146,10 @@ string RouteTarget::ToString() const {
         uint32_t asn = get_value(data + 2, 4);
         uint16_t num = get_value(data + 6, 2);
         char temp[50];
-        snprintf(temp, sizeof(temp), "target:%u:%u", asn, num);
+        if (asn > AS2_MAX)
+            snprintf(temp, sizeof(temp), "target:%u:%u", asn, num);
+        else
+            snprintf(temp, sizeof(temp), "target:%uL:%u", asn, num);
         return string(temp);
     } else {
         Ip4Address addr(get_value(data + 2, 4));

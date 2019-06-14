@@ -22,7 +22,7 @@ RibExportPolicy::RibExportPolicy()
       as_override(false),
       affinity(-1),
       llgr(false),
-      as4_supported(true),
+      as4_supported(false),
       cluster_id(0) {
 }
 
@@ -34,7 +34,7 @@ RibExportPolicy::RibExportPolicy(uint32_t cluster_id)
       as_override(false),
       affinity(-1),
       llgr(false),
-      as4_supported(true),
+      as4_supported(false),
       cluster_id(cluster_id) {
 }
 
@@ -47,7 +47,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
       as_override(false),
       affinity(affinity),
       llgr(false),
-      as4_supported(true),
+      as4_supported(false),
       cluster_id(cluster_id) {
     if (encoding == XMPP)
         assert(type == BgpProto::XMPP);
