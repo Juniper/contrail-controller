@@ -421,13 +421,24 @@ int BgpProto::Update::Validate(const BgpPeer *peer, string *data) {
             nh = true;
         } else if ((*it)->code == BgpAttribute::AsPath) {
             as_path = true;
-            AsPathSpec *asp = static_cast<AsPathSpec *>(*it);
-            // Check segments size for ebgp.
-            // IBGP can have empty path for routes that are originated.
-            if (!ibgp) {
-                if (!asp->path_segments.size() ||
-                    !asp->path_segments[0]->path_segment.size())
-                    return BgpProto::Notification::MalformedASPath;
+            if (peer && peer->IsAs4Supported()) {
+                AsPath4ByteSpec *asp = static_cast<AsPath4ByteSpec *>(*it);
+                // Check segments size for ebgp.
+                // IBGP can have empty path for routes that are originated.
+                if (!ibgp) {
+                    if (!asp->path_segments.size() ||
+                        !asp->path_segments[0]->path_segment.size())
+                        return BgpProto::Notification::MalformedASPath;
+                }
+            } else {
+                AsPathSpec *asp = static_cast<AsPathSpec *>(*it);
+                // Check segments size for ebgp.
+                // IBGP can have empty path for routes that are originated.
+                if (!ibgp) {
+                    if (!asp->path_segments.size() ||
+                        !asp->path_segments[0]->path_segment.size())
+                        return BgpProto::Notification::MalformedASPath;
+                }
             }
         } else if ((*it)->code == BgpAttribute::MPReachNlri) {
             mp_reach_nlri = true;
@@ -959,7 +970,7 @@ public:
     typedef BgpAttr4ByteAggregator ContextType;
     typedef BgpContextSwap<BgpAttr4ByteAggregator> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
-            BgpAttributeValue<4, BgpAttr4ByteAggregator, as4_t,
+            BgpAttributeValue<4, BgpAttr4ByteAggregator, as_t,
                                   &BgpAttr4ByteAggregator::as_num>,
             BgpAttributeValue<4, BgpAttr4ByteAggregator, uint32_t,
                                   &BgpAttr4ByteAggregator::address>
@@ -972,7 +983,7 @@ public:
     typedef BgpAttrAs4Aggregator ContextType;
     typedef BgpContextSwap<BgpAttrAs4Aggregator> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
-            BgpAttributeValue<4, BgpAttrAs4Aggregator, as4_t,
+            BgpAttributeValue<4, BgpAttrAs4Aggregator, as_t,
                                   &BgpAttrAs4Aggregator::as_num>,
             BgpAttributeValue<4, BgpAttrAs4Aggregator, uint32_t,
                                   &BgpAttrAs4Aggregator::address>
@@ -1055,7 +1066,7 @@ class BgpPathAttrAsPath4ByteSegmentValue :
     public ProtoElement<BgpPathAttrAsPath4ByteSegmentValue> {
 public:
     static const int kSize = -1;
-    typedef VectorAccessor<AsPath4ByteSpec::PathSegment, as4_t,
+    typedef VectorAccessor<AsPath4ByteSpec::PathSegment, as_t,
                            &AsPath4ByteSpec::PathSegment::path_segment> Setter;
 };
 
@@ -1063,7 +1074,7 @@ class BgpPathAttrAs4PathSegmentValue :
     public ProtoElement<BgpPathAttrAs4PathSegmentValue> {
 public:
     static const int kSize = -1;
-    typedef VectorAccessor<As4PathSpec::PathSegment, as4_t,
+    typedef VectorAccessor<As4PathSpec::PathSegment, as_t,
                            &As4PathSpec::PathSegment::path_segment> Setter;
 };
 

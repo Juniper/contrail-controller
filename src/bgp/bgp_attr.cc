@@ -157,7 +157,7 @@ int BgpAttrAs4Aggregator::CompareTo(const BgpAttribute &rhs_attr) const {
     return 0;
 }
 void BgpAttrAs4Aggregator::ToCanonical(BgpAttr *attr) {
-    attr->set_aggregator(as_num, Ip4Address(address));
+    attr->set_as4_aggregator(as_num, Ip4Address(address));
 }
 
 string BgpAttrAs4Aggregator::ToString() const {
@@ -901,14 +901,14 @@ string BgpAttrSubProtocol::ToString() const {
 BgpAttr::BgpAttr()
     : attr_db_(NULL), origin_(BgpAttrOrigin::INCOMPLETE), nexthop_(),
       med_(0), local_pref_(0), atomic_aggregate_(false),
-      aggregator_as_num_(0), params_(0) {
+      aggregator_as_num_(0), aggregator_as4_num_(0), params_(0) {
     refcount_ = 0;
 }
 
 BgpAttr::BgpAttr(BgpAttrDB *attr_db)
     : attr_db_(attr_db), origin_(BgpAttrOrigin::INCOMPLETE),
       nexthop_(), med_(0), local_pref_(0), atomic_aggregate_(false),
-      aggregator_as_num_(0), params_(0) {
+      aggregator_as_num_(0), aggregator_as4_num_(0), params_(0) {
     refcount_ = 0;
 }
 
@@ -917,7 +917,8 @@ BgpAttr::BgpAttr(BgpAttrDB *attr_db, const BgpAttrSpec &spec)
       nexthop_(), med_(0),
       local_pref_(BgpAttrLocalPref::kDefault),
       atomic_aggregate_(false),
-      aggregator_as_num_(0), aggregator_address_(), params_(0) {
+      aggregator_as_num_(0), aggregator_as4_num_(0), 
+      aggregator_address_(), params_(0) {
     refcount_ = 0;
     for (vector<BgpAttribute *>::const_iterator it = spec.begin();
          it < spec.end(); it++) {
@@ -930,6 +931,7 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       med_(rhs.med_), local_pref_(rhs.local_pref_),
       atomic_aggregate_(rhs.atomic_aggregate_),
       aggregator_as_num_(rhs.aggregator_as_num_),
+      aggregator_as4_num_(rhs.aggregator_as4_num_),
       aggregator_address_(rhs.aggregator_address_),
       originator_id_(rhs.originator_id_),
       source_rd_(rhs.source_rd_), esi_(rhs.esi_), params_(rhs.params_),
@@ -1210,6 +1212,7 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(local_pref_, rhs.local_pref_);
     KEY_COMPARE(atomic_aggregate_, rhs.atomic_aggregate_);
     KEY_COMPARE(aggregator_as_num_, rhs.aggregator_as_num_);
+    KEY_COMPARE(aggregator_as4_num_, rhs.aggregator_as4_num_);
     KEY_COMPARE(aggregator_address_, rhs.aggregator_address_);
     KEY_COMPARE(originator_id_, rhs.originator_id_);
     KEY_COMPARE(pmsi_tunnel_.get(), rhs.pmsi_tunnel_.get());
@@ -1241,6 +1244,7 @@ std::size_t hash_value(BgpAttr const &attr) {
     boost::hash_combine(hash, attr.local_pref_);
     boost::hash_combine(hash, attr.atomic_aggregate_);
     boost::hash_combine(hash, attr.aggregator_as_num_);
+    boost::hash_combine(hash, attr.aggregator_as4_num_);
     boost::hash_combine(hash, attr.aggregator_address_.to_string());
     boost::hash_combine(hash, attr.originator_id_.to_string());
     boost::hash_combine(hash, attr.params_);
