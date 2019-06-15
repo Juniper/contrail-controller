@@ -557,6 +557,27 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "vcenter_import"
+          ],
+          "name": "vcenter_import",
+          "parent_type": "global-system-config",
+          "job_template_type": "executable",
+          "job_template_concurrency_level": "fabric",
+          "job_template_executables": {
+            "executable_info": [
+              {
+                "executable_path": "/opt/contrail/bin/vcenter_import",
+                "executable_args": "",
+                "job_completion_weightage": 100
+              }
+            ]
+          },
+          "job_template_input_schema": "",
+          "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "discover_server_template"
           ],
           "name": "discover_server_template",
