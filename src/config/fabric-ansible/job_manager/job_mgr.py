@@ -9,6 +9,7 @@ import time
 import sys
 import json
 import jsonschema
+import subprocess32
 import argparse
 import traceback
 import socket
@@ -21,13 +22,205 @@ from job_manager.job_utils import JobUtils, JobStatus
 from job_manager.job_result_handler import JobResultHandler
 from job_manager.job_messages import MsgBundle
 from job_manager.sandesh_utils import SandeshUtils
+from job_manager.job_utils import (
+    JobFileWrite 
+)
 
 from vnc_api.vnc_api import VncApi
 from gevent.greenlet import Greenlet
 from gevent.pool import Pool
 from gevent import monkey
+import gevent
 monkey.patch_socket()
 
+class ExecutableManager(object):
+    def __init__(self, logger, vnc_api, job_input, job_log_utils ):
+        self._logger = logger
+        self.vnc_api = vnc_api
+        self.vnc_api_init_params = None
+        self.api_server_host = None
+        self.auth_token = None
+        self.contrail_cluster_id = None
+        self.sandesh_args = None
+        self.job_log_utils = job_log_utils
+        self.job_input = job_input
+        self.job_utils = None
+        self.job_template = None
+        self.job_execution_id = None
+        self.job_template_id = None
+        self.result_handler = None
+        self.parse_job_input(job_input)
+        self.job_utils = JobUtils(self.job_execution_id,
+                                  self.job_template_id,
+                                  self._logger, self.vnc_api)
+        self.job_template = self.job_utils.read_job_template()
+        self._job_file_write = JobFileWrite(self._logger)
+
+    def parse_job_input(self, job_input_json):
+        # job input should have job_template_id and execution_id field
+        if job_input_json.get('job_template_id') is None:
+            msg = MsgBundle.getMessage(MsgBundle.JOB_TEMPLATE_MISSING)
+            raise Exception(msg)
+
+        if job_input_json.get('job_execution_id') is None:
+            msg = MsgBundle.getMessage(
+                MsgBundle.JOB_EXECUTION_ID_MISSING)
+            raise Exception(msg)
+
+        self.job_template_id = job_input_json.get('job_template_id')
+        self.job_execution_id = job_input_json.get('job_execution_id')
+        self.job_data = job_input_json.get('input')
+        self.fabric_fq_name = job_input_json.get('fabric_fq_name')
+        self.auth_token = job_input_json.get('auth_token')
+        self.contrail_cluster_id = job_input_json.get('contrail_cluster_id')
+        self.sandesh_args = job_input_json.get('args')
+        self.vnc_api_init_params = job_input_json.get('vnc_api_init_params')
+        self.api_server_host = job_input_json.get('api_server_host')
+
+    def _validate_job_input(self, input_schema, ip_json):
+        if ip_json is None:
+            msg = MsgBundle.getMessage(
+                MsgBundle.INPUT_SCHEMA_INPUT_NOT_FOUND)
+            raise JobException(msg,
+                               self.job_execution_id)
+        try:
+            ip_schema_json = input_schema
+            if isinstance(input_schema, basestring):
+                ip_schema_json = json.loads(input_schema)
+            jsonschema.validate(ip_json, ip_schema_json)
+            self._logger.debug("Input Schema Validation Successful"
+                               "for template %s" % self.job_template_id)
+        except Exception as exp:
+            msg = MsgBundle.getMessage(MsgBundle.INVALID_SCHEMA,
+                                       job_template_id=self.job_template_id,
+                                       exc_obj=exp)
+            raise JobException(msg, self.job_execution_id)
+
+    def gather_job_args(self):
+            extra_vars = {
+                'input': self.job_data,
+                'job_template_id': self.job_template.get_uuid(),
+                'job_template_fqname': self.job_template.fq_name,
+                'fabric_fq_name': self.fabric_fq_name,
+                'auth_token': self.auth_token,
+                'contrail_cluster_id': self.contrail_cluster_id,
+                'api_server_host': self.api_server_host,
+                'job_execution_id': self.job_execution_id ,
+                'sandesh_args': self.sandesh_args,
+                'vnc_api_init_params': self.vnc_api_init_params,
+            }
+            return extra_vars
+
+    def start_job(self):
+        self._logger.error("Starting Executable")
+        job_error_msg = None
+        job_template = self.job_template
+        try:
+            # create job UVE and log
+            self.result_handler = JobResultHandler(self.job_template_id,
+                                                   self.job_execution_id,
+                                                   self.fabric_fq_name,
+                                                   self._logger,
+                                                   self.job_utils,
+                                                   self.job_log_utils)
+
+
+            msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
+                                       job_execution_id=self.job_execution_id,
+                                       job_template_name=\
+                                           job_template.fq_name[-1])
+            self._logger.debug(msg)
+
+            timestamp = int(round(time.time() * 1000))
+            self.job_log_utils.send_job_log(job_template.fq_name,
+                                            self.job_execution_id,
+                                            self.fabric_fq_name,
+                                            msg,
+                                            JobStatus.STARTING.value,
+                                            timestamp=timestamp)
+
+            # validate job input if required by job_template input_schema
+            input_schema = job_template.get_job_template_input_schema()
+            if input_schema:
+                self._validate_job_input(input_schema, self.job_data)
+
+            executable_list = job_template.get_job_template_executables()\
+                .get_executable_info()
+            for executable in executable_list:
+                exec_path = executable.get_executable_path()
+                exec_args = executable.get_executable_args()
+                job_input_args = self.gather_job_args()
+                try:
+                    exec_process = subprocess32.Popen([exec_path,
+                                                   exec_args,
+                                                   "-i",
+                                                   json.dumps(job_input_args)],
+                                                  close_fds=True, cwd='/')
+                    file_write_data = {
+                        "job_status": "STARTED",
+                    }
+                    self._job_file_write.write_to_file(
+                        self.job_execution_id,
+                        "job_summary",
+                        JobFileWrite.JOB_LOG,
+                        file_write_data)
+                    exec_process.wait(120)
+                    outs, errs = exec_process.communicate()
+                except subprocess32.TimeoutExpired as timeout_exp:
+                    if exec_process is not None:
+                        os.kill(exec_process.pid, 9)
+                        msg = MsgBundle.getMessage(
+                                  MsgBundle.RUN_PLAYBOOK_PROCESS_TIMEOUT,
+                                  exec_path=exec_path,
+                                  exc_msg=repr(timeout_exp))
+                        raise JobException(msg, self.job_execution_id)
+
+                self._logger.error(exec_process.returncode)
+                self._logger.error("Executable Completed")
+                self._job_file_write.write_to_file(
+                        self.job_execution_id,
+                        "job_summary",
+                        JobFileWrite.JOB_LOG,
+                        {"job_status": "COMPLETED"})
+                if exec_process.returncode != 0:
+                     self._job_file_write.write_to_file(
+                         self.job_execution_id,
+                         "job_summary",
+                         JobFileWrite.JOB_LOG,
+                         {"job_status": "FAILED"})
+                     msg = MsgBundle.getMessage(MsgBundle.
+                                   PLAYBOOK_RETURN_WITH_ERROR,
+                                   exec_uri=exec_path)
+
+                     raise JobException(msg, self.job_execution_id)
+
+
+        except JobException as exp:
+            err_msg = "Job Exception recieved: %s " % repr(exp)
+            self._logger.error(err_msg)
+            self._logger.error("%s" % traceback.format_exc())
+            self.result_handler.update_job_status(JobStatus.FAILURE,
+                                                  err_msg)
+            if job_template:
+                self.result_handler.create_job_summary_log(
+                    job_template.fq_name)
+            job_error_msg = err_msg
+        except Exception as exp:
+            err_msg = "Error while executing job %s " % repr(exp)
+            self._logger.error(err_msg)
+            self._logger.error("%s" % traceback.format_exc())
+            self.result_handler.update_job_status(JobStatus.FAILURE,
+                                                  err_msg)
+            self.result_handler.create_job_summary_log(job_template.fq_name)
+            job_error_msg = err_msg
+        finally:
+            # need to wait for the last job log and uve update to complete
+            # via sandesh and then close sandesh connection
+            sandesh_util = SandeshUtils(self._logger)
+            sandesh_util.close_sandesh_connection()
+            self._logger.info("Closed Sandesh connection")
+            if job_error_msg is not None:
+                sys.exit(job_error_msg)
 
 class JobManager(object):
 
@@ -458,12 +651,30 @@ if __name__ == "__main__":
         handle_init_failure(job_input_json, MsgBundle.ZK_INIT_FAILURE,
                             repr(exp))
 
+    job_utils = JobUtils(job_input_json.get('job_execution_id'), job_input_json.get('job_template_id'), logger, vnc_api)
+    logger.error("EXECUTABLE-1")
+    job_template = job_utils.read_job_template()
+    logger.error("EXECUTABLE-2")
+    template_type = job_template.get_job_template_type()
+    logger.error("EXECUTABLE-3")
+    logger.error(template_type)
+    #input_schema = job_template.get_job_template_input_schema()
+    #if input_schema:
+        #self._validate_job_input(input_schema, self.job_data)
+
+    logger.error(job_input_json.get("input"))
     # invoke job manager
     try:
-        workflow_manager = WFManager(logger, vnc_api, job_input_json,
-                                     job_log_utils, zk_client)
-        logger.info("Job Manager is initialized. Starting job.")
-        workflow_manager.start_job()
+        if template_type == "executable":
+            logger.error("Executable-4")
+            exec_manager = ExecutableManager(logger, vnc_api, job_input_json, job_log_utils)
+            exec_manager.start_job()
+        else:
+            workflow_manager = WFManager(logger, vnc_api, job_input_json,
+                                         job_log_utils, zk_client)
+            logger.info("Job Manager is initialized. Starting job.")
+            workflow_manager.start_job()
+
     except Exception as exp:
         handle_init_failure(job_input_json, MsgBundle.JOB_ERROR,
                             repr(exp))
