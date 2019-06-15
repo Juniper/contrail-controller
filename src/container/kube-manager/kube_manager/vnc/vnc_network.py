@@ -30,8 +30,6 @@ class VncNetwork(VncCommon):
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
         self._queue = vnc_kube_config.queue()
-        self.ip_fabric_snat = False
-        self.ip_fabric_forwarding = False
 
     def process(self, event):
         event_type = event['type']
@@ -52,10 +50,22 @@ class VncNetwork(VncCommon):
             # nothing here as network already exists
             if 'opencontrail.org/cidr' in annotations:
                 subnets = annotations.get('opencontrail.org/cidr', None)
-                self.ip_fabric_snat = annotations.get(\
-                                'opencontrail.org/ip_fabric_snat', False)
-                self.ip_fabric_forwarding = annotations.get(\
-                                'opencontrail.org/ip_fabric_forwarding', False)
+                ann_val = annotations.get(\
+                                'opencontrail.org/ip_fabric_forwarding', 'false')
+                if ann_val.lower() == 'true':
+                    ip_fabric_forwarding = True
+                elif ann_val.lower() == 'false':
+                    ip_fabric_forwarding = False
+                else:
+                    ip_fabric_forwarding = None
+                ann_val = annotations.get(\
+                                'opencontrail.org/ip_fabric_snat', 'false')
+                if ann_val.lower() == 'true':
+                    ip_fabric_snat = True
+                elif ann_val.lower() == 'false':
+                    ip_fabric_snat = False
+                else:
+                    ip_fabric_snat = None
 
                 # Get Newtork object associated with the namespace
                 # and network name
@@ -85,7 +95,7 @@ class VncNetwork(VncCommon):
                     self._create_ipam(ipam_name=ipam_name, proj_obj=proj_obj)
 
                 provider = None
-                if self.ip_fabric_forwarding:
+                if ip_fabric_forwarding == True:
                     ip_fabric_fq_name = vnc_kube_config.\
                             cluster_ip_fabric_network_fq_name()
                     provider = self._vnc_lib.\
@@ -95,7 +105,8 @@ class VncNetwork(VncCommon):
                 cluster_pod_vn_obj = self._create_virtual_network(\
                     vn_name=vn_name, proj_obj=proj_obj, provider=provider, \
                     ipam_obj=pod_ipam_obj, ipam_update=pod_ipam_update, \
-                    subnets=subnet_data, type='user-defined-subnet-only')
+                    subnets=subnet_data, type='user-defined-subnet-only', \
+                    ip_fabric_snat=ip_fabric_snat)
 
         elif event['type'] == 'DELETED':
             vn_name = self._get_network_pod_vn_name(name)
@@ -202,7 +213,7 @@ class VncNetwork(VncCommon):
 
     def _create_virtual_network(self, vn_name, proj_obj, ipam_obj, \
                 ipam_update, provider=None, subnets=None, \
-                type='flat-subnet-only'):
+                type='flat-subnet-only', ip_fabric_snat=None):
         vn_exists = False
         vn = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
                  address_allocation_mode=type)
@@ -231,18 +242,13 @@ class VncNetwork(VncCommon):
                vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
         vn_obj.set_virtual_network_properties(
-             VirtualNetworkType(forwarding_mode='l3'))
-
-        fabric_snat = False
-        if self.ip_fabric_snat:
-            fabric_snat = True
+             VirtualNetworkType(forwarding_mode='l2_l3'))
 
         if not vn_exists:
-            if self.ip_fabric_forwarding:
-                if provider:
-                    #enable ip_fabric_forwarding
-                    vn_obj.add_virtual_network(provider)
-            elif fabric_snat:
+            if provider:
+                #enable ip_fabric_forwarding
+                vn_obj.add_virtual_network(provider)
+            elif ip_fabric_snat:
                 #enable fabric_snat
                 vn_obj.set_fabric_snat(True)
             else:
