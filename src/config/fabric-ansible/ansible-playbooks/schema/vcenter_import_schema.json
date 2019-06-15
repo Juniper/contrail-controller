@@ -1,0 +1,87 @@
+{
+  "input_schema": {
+    "title": "vCenter Import",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "fabric_fq_name": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "contrail_command":{
+        "$id": "/properties/contrail_command",
+        "description": "The Contrail Command details",
+        "type": "object",
+        "properties": {
+          "username": {
+            "$id":"/properties/contrail_command/username",
+            "description":"The Contrail Command Login Username",
+            "type":"string"
+          },
+          "password":{
+            "$id":"/properties/contrail_command/password",
+            "description":"The Contrail Command Login Password",
+            "type":"string"
+          },
+          "host":{
+            "$id":"/properties/contrail_command/host",
+            "description":"The Contrail Command IP and/or port",
+            "type":"string"
+          }
+        }
+      },
+      "vcenter":{
+        "$id": "/properties/vcenter",
+        "description": "vCenter details",
+        "type": "object",
+        "properties": {
+          "username" :{
+            "$id":"/properties/vcenter/username",
+            "description":"Username of vCenter Server",
+            "type":"string"
+          },
+          "password" :{
+            "$id":"/properties/vcenter/password",
+            "description":"Password of vCenter Server",
+            "type":"string"
+          },
+          "datacenter" :{
+            "$id":"/properties/vcenter/datacenter",
+            "description":"vCenter DataCenter name to Import ESXi Hosts",
+            "type":"string"
+          },
+          "host" :{
+            "$id":"/properties/vcenter/host",
+            "description":"vCenter Hostname/IP-Address including port",
+            "type":"string"
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+       "status": {
+          "type": "string",
+          "enum": [ "Success", "Failure", "Timeout" ],
+          "description": "Result status of the job"
+       },
+       "message": {
+          "type": "string",
+          "description": "Should capture a summarized error message in case of Failures."
+       },
+       "results": {
+          "type": "object",
+          "description": "JSON object holding the job specific output details"
+       }
+    },
+    "required": [ "status" ]
+  }
+}
+

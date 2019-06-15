@@ -45,7 +45,9 @@ class MsgBundle(object):
     EMPTY_DEVICE_LIST = 43,
     PRODUCT_NAME_MISSING = 44,
     DEVICE_LOCK_FAILURE = 45,
-    ZK_INIT_FAILURE = 46
+    ZK_INIT_FAILURE = 46,
+    RUN_EXECUTABLE_PROCESS_TIMEOUT = 47,
+    EXECUTABLE_RETURN_WITH_ERROR = 48,
     _msgs = {
         'en': {
             JOB_TEMPLATE_MISSING: 'job_template_id is missing '
@@ -164,7 +166,11 @@ class MsgBundle(object):
             EXC_JOB_ERR_HDR: 'Error while executing job ',
             EMPTY_DEVICE_LIST: 'Need to pass a valid device list ',
             DEVICE_LOCK_FAILURE: 'Failed to acquire device level lock ',
-            ZK_INIT_FAILURE: 'Failed to initialize zoo keeper client'
+            ZK_INIT_FAILURE: 'Failed to initialize zoo keeper client',
+            RUN_EXECUTABLE_PROCESS_TIMEOUT: 'Timeout while executing'
+                                          ' the playbook for "{exec_path}" : '
+                                          '{exc_msg}. Execution is aborted.',
+            EXECUTABLE_RETURN_WITH_ERROR: 'Playbook returned with error',
         }
     }
 
