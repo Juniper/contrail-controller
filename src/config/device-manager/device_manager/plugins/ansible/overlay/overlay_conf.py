@@ -2,22 +2,26 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of abstract config generation for leafs
-"""
+"""This file implements abstract config generation."""
 
-from ansible_role_common import AnsibleRoleCommon
 from abstract_device_api.abstract_device_xsd import *
 
+from ansible_role_common import AnsibleRoleCommon
+
+
 class OverlayConf(AnsibleRoleCommon):
+    """Public class for Overlay config."""
+
     _roles = ['leaf', 'spine']
 
     def __init__(self, logger, params={}):
+        """Init routine for overlay config."""
         super(OverlayConf, self).__init__(logger, params)
     # end __init__
 
     @classmethod
     def register(cls):
+        """."""
         qconf = {
               "roles": cls._roles,
               "class": cls
@@ -26,6 +30,7 @@ class OverlayConf(AnsibleRoleCommon):
     # end register
 
     def push_conf(self, feature_configs=None, is_delete=False):
+        """."""
         if not self.physical_router:
             return 0
         if is_delete:
