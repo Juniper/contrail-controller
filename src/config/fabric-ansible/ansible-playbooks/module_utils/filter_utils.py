@@ -2,11 +2,15 @@ import logging
 import os
 from functools import wraps
 
+
 class FilterLog(object):
+    """Pulbic class for filter logging."""
+
     _instance = None
 
     @staticmethod
     def instance(loggername=None, device_name=None):
+        """Filter log instance."""
         if not FilterLog._instance:
             FilterLog._instance = FilterLog(loggername, device_name)
         return FilterLog._instance
@@ -14,15 +18,14 @@ class FilterLog(object):
 
     @staticmethod
     def cleanup_filterlog_instance():
+        """Instance cleanup."""
         if FilterLog._instance:
             FilterLog._instance = None
     # end cleanup_filterlog_instance
 
     @staticmethod
     def _init_logging(loggername):
-        """
-        :return: type=<logging.Logger>
-        """
+        """return: type=<logging.Logger>."""
         logger = logging.getLogger(loggername)
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
@@ -34,21 +37,24 @@ class FilterLog(object):
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
         return logger
-      # end _init_logging
+    # end _init_logging
 
     def __init__(self, loggername, device_name):
+        """Init routine for filter logging."""
         self._msg = None
         self._logs = []
-        if device_name != None:
+        if device_name is not None:
             loggername = loggername + " : " + device_name
         self._logger = FilterLog._init_logging(loggername)
     # end __init__
 
     def logger(self):
+        """."""
         return self._logger
     # end logger
 
     def msg_append(self, msg):
+        """."""
         if msg:
             if not self._msg:
                 self._msg = msg + ' ... '
@@ -57,6 +63,7 @@ class FilterLog(object):
     # end log
 
     def msg_end(self):
+        """."""
         if self._msg:
             self._msg += 'done'
             self._logs.append(self._msg)
@@ -65,22 +72,27 @@ class FilterLog(object):
     # end msg_end
 
     def msg_info(self, msg):
+        """."""
         self._logger.info(msg)
     # end msg_error
 
     def msg_error(self, msg):
+        """."""
         self._logger.error(msg)
     # end msg_error
 
     def msg_debug(self, msg):
+        """."""
         self._logger.debug(msg)
     # end msg_debug
 
     def msg_warn(self, msg):
+        """."""
         self._logger.warn(msg)
     # end msg_warn
 
     def dump(self):
+        """."""
         retval = ""
         for msg in self._logs:
             retval += msg + '\n'
@@ -124,6 +136,7 @@ def _task_warn_log(msg):
 # Get list of VNC objects given a object UUID list or parent UUID list
 def vnc_bulk_get(vnc_api, obj_name, obj_uuids=None, parent_uuids=None,
                  fields=None):
+    """Get bulk VNC object."""
     # search using object uuid list or parent uuid list
     chunk_size = 20
     obj_list = []

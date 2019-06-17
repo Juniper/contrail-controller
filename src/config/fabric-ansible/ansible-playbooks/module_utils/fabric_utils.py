@@ -4,22 +4,23 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains general utility functions for fabric ansible modules
-"""
+"""This file contains general functions for fabric ansible modules."""
 
-import uuid
 import json
 import traceback
+import uuid
 from functools import wraps
+
 from ansible.module_utils.basic import AnsibleModule
+
 from job_manager.fabric_logger import fabric_ansible_logger
 from job_manager.job_log_utils import JobLogUtils
-from job_manager.sandesh_utils import SandeshUtils
 from job_manager.job_utils import JobFileWrite
+from job_manager.sandesh_utils import SandeshUtils
 
 
 def handle_sandesh(function):
+    """Handle sandesh."""
     @wraps(function)
     def wrapper(*args, **kwargs):
         module = args[0]
@@ -51,7 +52,10 @@ def handle_sandesh(function):
 # Sub-class to provide additional functionality to custom ansible modules
 #
 class FabricAnsibleModule(AnsibleModule):
+    """Class for fabricansiblemodule."""
+
     def __init__(self, argument_spec={}, **kwargs):
+        """Init routine for custom ansible module."""
         super(FabricAnsibleModule, self).__init__(argument_spec=argument_spec,
                                                   **kwargs)
         self.module_name = self._name
@@ -73,10 +77,12 @@ class FabricAnsibleModule(AnsibleModule):
 
     @handle_sandesh
     def execute(self, function, *args, **kwargs):
+        """Handle Sandesh for fabric ansible module."""
         return function(self, *args, **kwargs)
 
     def send_prouter_object_log(self, prouter_fqname, onboarding_state,
                                 os_version, serial_num):
+        """Prouter object log."""
         exec_id = self.job_ctx.get('job_execution_id')
         pb_id = self.job_ctx.get('unique_pb_id')
         prouter_log = {
@@ -96,6 +102,7 @@ class FabricAnsibleModule(AnsibleModule):
                             log_error_percent=False, job_success_percent=None,
                             job_error_percent=None, device_name=None,
                             details=None):
+        """Job object log."""
         if job_success_percent is None or (log_error_percent
                                            and job_error_percent is None):
             try:
@@ -118,10 +125,10 @@ class FabricAnsibleModule(AnsibleModule):
                         task_seq_number=self.job_ctx.get('current_task_index'),
                         total_percent=total_percent,
                         task_weightage_array=
-                        self.job_ctx.get('task_weightage_array'))
+                            self.job_ctx.get('task_weightage_array'))
             except Exception as e:
                 self.logger.error("Exception while calculating the job "
-                              "percentage %s", str(e))
+                                  "percentage %s", str(e))
         if log_error_percent:
             job_percentage = job_error_percent
         else:
@@ -150,7 +157,7 @@ class FabricAnsibleModule(AnsibleModule):
     def calculate_job_percentage(self, num_tasks, buffer_task_percent=False,
                                  task_seq_number=None, total_percent=100,
                                  task_weightage_array=None):
+        """Job stats."""
         return self.job_log_util.calculate_job_percentage(
             num_tasks, buffer_task_percent, task_seq_number, total_percent,
             task_weightage_array)
-
