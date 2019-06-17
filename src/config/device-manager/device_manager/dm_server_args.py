@@ -5,8 +5,8 @@
 import argparse
 import ConfigParser
 
-from pysandesh.sandesh_base import Sandesh, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
 
 def default_options():
@@ -184,21 +184,22 @@ def add_parser_arguments(parser):
 
 
 def parse_args(args_str):
-    '''
-    Eg. python dm_server.py
-            --rabbit_server localhost
-            --rabbit_port 5672
-            --cassandra_server_list 10.1.2.3:9160
-            --api_server_ip 10.1.2.3
-            --api_server_use_ssl False
-            --analytics_server_ip 10.1.2.3
-            --zk_server_ip 10.1.2.3
-            --zk_server_port 2181
-            --collectors 127.0.0.1:8086
-            --http_server_port 8090
-            [--reset_config]
-    '''
+    """
+    Example.
 
+    python dm_server.py
+    --rabbit_server localhost
+    --rabbit_port 5672
+    --cassandra_server_list 10.1.2.3:9160
+    --api_server_ip 10.1.2.3
+    --api_server_use_ssl False
+    --analytics_server_ip 10.1.2.3
+    --zk_server_ip 10.1.2.3
+    --zk_server_port 2181
+    --collectors 127.0.0.1:8086
+    --http_server_port 8090
+    [--reset_config]
+    """
     # Source any specified config/ini file
     # Turn off help, so we see all options in response to -h
     conf_parser = argparse.ArgumentParser(add_help=False)

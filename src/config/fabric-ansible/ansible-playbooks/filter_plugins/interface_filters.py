@@ -12,7 +12,6 @@ class FilterModule(object):
 
     def junos_rt_intf_filter(self, interface_list_new,
                              prouter_name, regex_str=".*"):
-
         """This filter takes the inputs as the prouter_name
          and the list of runtime interfaces obtained by running
          the show interfaces junos command.
@@ -113,7 +112,8 @@ class FilterModule(object):
                         prouter_name,
                         phy_interface_name
                     ],
-                    "physical_interface_port_id": phy_interface.get('snmp-index'),
+                    "physical_interface_port_id": phy_interface.get(
+                        'snmp-index'),
                     "display_name": physical_intf_name}
                 phy_int_mac_address = phy_interface.get(
                     'current-physical-address')

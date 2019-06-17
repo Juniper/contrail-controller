@@ -5,8 +5,10 @@
 #
 
 """
-This file contains code to gather entries from the DHCP lease table and form a list
-of device addresses for use in ZTP
+Library for reading DHCP leases.
+
+This file contains code to gather entries from the DHCP lease table and form
+a list of device addresses for use in ZTP
 """
 import re
 import time
@@ -31,9 +33,9 @@ requirements:
 options:
     device_count:
         description:
-            - Number of devices to gather information. Module will wait <timeout>
-              seconds for this many devices to come up. IP addresses are read from
-              the DHCP lease table
+            - Number of devices to gather information. Module will wait
+              <timeout> seconds for this many devices to come up. IP addresses
+              are read from the DHCP lease table
         required: true
     ztp_config:
         description:
@@ -42,7 +44,8 @@ options:
         required: true
     timeout:
         description:
-            - Number of seconds to wait for devices to come up. Default 300 sec.
+            - Number of seconds to wait for devices to come up.
+              Default 300 sec.
         required: false
 '''
 
@@ -63,8 +66,8 @@ EXAMPLES = '''
 RETURN = '''
 device_list:
   description:
-    - A list of IP/MAC address pairs. Only those devices falling within the IPAM
-      subnets are returned
+    - A list of IP/MAC address pairs. Only those devices falling within the
+      IPAM subnets are returned
   returned: on success always
   type: list
 
@@ -79,7 +82,8 @@ DEFAULT_TIMEOUT = 300
 DHCPD_LEASES_PATH = "/var/lib/dhcpd/dhcpd.leases"
 
 
-# Check whether an IP host address is within the list of subnets configured in the IPAM
+# Check whether an IP host address is within the list of subnets configured in
+# the IPAM
 def within_dhcp_subnet(ip_addr, ztp_config):
     if 'ipam_subnets' not in ztp_config:
         return False
@@ -98,8 +102,9 @@ def within_dhcp_subnet(ip_addr, ztp_config):
 def process_dhcp_entries(module):
     results = {}
     results['failed'] = True
-    pattern = re.compile(r"lease ([0-9.]+) {.*?hardware ethernet ([:a-f0-9]+);.*?}",
-                         re.MULTILINE | re.DOTALL)
+    pattern = re.compile(
+        r"lease ([0-9.]+) {.*?hardware ethernet ([:a-f0-9]+);.*?}",
+        re.MULTILINE | re.DOTALL)
 
     device_count = module.params['device_count']
     ztp_config = module.params['ztp_config']
@@ -118,8 +123,8 @@ def process_dhcp_entries(module):
                 mac = match.group(2)
                 lease_table[mac] = ip_addr
 
-        # Now verify that the IP address is inside one of the subnets from the IPAM
-        # and store IP/MAC entries in a simple list
+        # Now verify that the IP address is inside one of the subnets from the
+        # IPAM and store IP/MAC entries in a simple list
         for mac, ip_addr in lease_table.iteritems():
             if within_dhcp_subnet(ip_addr, ztp_config):
                 results['device_list'].append({"ip_addr": ip_addr, "mac": mac})
@@ -133,7 +138,7 @@ def process_dhcp_entries(module):
         time.sleep(1)
 
     results['msg'] = "Found {} devices, expected {} devices".\
-	format(len(results['device_list']), device_count)
+        format(len(results['device_list']), device_count)
     return results
 
 
@@ -143,7 +148,7 @@ def main():
             device_count=dict(type=int, required=True),
             ztp_config=dict(type=dict, required=True),
             timeout=dict(type=int, required=False, default=DEFAULT_TIMEOUT),
-            ),
+        ),
         supports_check_mode=False)
 
     results = process_dhcp_entries(module)
