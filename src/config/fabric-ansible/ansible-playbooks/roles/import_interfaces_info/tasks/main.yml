@@ -2,7 +2,7 @@
   block:
     - name: check to see if the ansible file for the vendor and family exists
       stat:
-        path: "../templates/{{prouter_vendor}}_{{prouter_family}}.j2"
+        path: "{{role_path}}/templates/{{prouter_vendor}}_{{prouter_family}}.j2"
       register: p
 
     - name: Use vendor and family specific template
@@ -23,7 +23,7 @@
     # validate schema including to check if the device_info is set as part of the ansible file
     - name: Validate Input Schema -- device_info
       set_fact:
-        schema_validation_resp: "{{'input_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/import_interfaces_info_schema.json', device_info, prouter_name)}}"
+        schema_validation_resp: "{{'input_schema' | validate_schema(schema_file, device_info, prouter_name)}}"
 
     - name: Perform the necessary error handling when there is a schema validation error
       include_tasks: error_handler.yml
@@ -40,7 +40,7 @@
     # validate schema to check if the interfaces payload is of the correct output schema
     - name: Validate Output Schema -- interfaces_payload
       set_fact:
-        schema_validation_resp: "{{'output_schema' | validate_schema('/opt/contrail/fabric_ansible_playbooks/schema/import_interfaces_info_schema.json', interfaces_payload, prouter_name)}}"
+        schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, interfaces_payload, prouter_name)}}"
 
     - name: Perform the necessary error handling when there is a schema validation error
       include_tasks: error_handler.yml

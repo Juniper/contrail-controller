@@ -1,0 +1,1 @@
+schema_file: "{{playbook_dir}}/schema/update_physical_router_properties_schema.json"

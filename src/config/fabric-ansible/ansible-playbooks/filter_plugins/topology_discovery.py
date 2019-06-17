@@ -148,8 +148,7 @@ class FilterModule(object):
             phy_int_fqname.append(local_phy_int.replace(":", "_"))
 
             remote_phy_int_fqname_str = \
-                "default-global-system-config" + \
-                ":" + lldp_neighbor_info['remote_device_name'] + \
+                lldp_neighbor_info['remote_device_name'].replace(":", "_") + \
                 ":" +\
                 lldp_neighbor_info.get('remote_physical_interface_port_id')
 
@@ -187,9 +186,10 @@ class FilterModule(object):
     def _do_further_parsing(self, vnc_lib, neighbor_info_list):
         topology_disc_payload = []
         for neighbor_info in neighbor_info_list or []:
-            remote_neighbor_info = neighbor_info[1].rsplit(":", 1)
+            remote_neighbor_info = neighbor_info[1].split(":", 1)
             list_resp = vnc_lib.physical_interfaces_list(
-                parent_fq_name=remote_neighbor_info[0].split(":"),
+                parent_fq_name=["default-global-system-config",
+                                remote_neighbor_info[0] ],
                 filters={"physical_interface_port_id":
                          remote_neighbor_info[1]}
                 )
