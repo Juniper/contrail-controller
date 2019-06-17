@@ -94,9 +94,6 @@ public:
     RouteLeakManager *route_leak_manager() const {
         return route_leak_manager_.get();
     }
-    ProjectConfig* project_config() const {
-        return project_config_.get();
-    }
     VxlanRoutingManager *vxlan_routing_manager() const {
         return vxlan_routing_manager_.get();
     }
@@ -125,7 +122,6 @@ private:
     std::auto_ptr<AgentRouteWalkerManager> route_walk_manager_;
     std::auto_ptr<RouteLeakManager> route_leak_manager_;
     std::auto_ptr<TsnElector> tsn_elector_;
-    std::auto_ptr<ProjectConfig> project_config_;
     std::auto_ptr<VxlanRoutingManager> vxlan_routing_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(OperDB);

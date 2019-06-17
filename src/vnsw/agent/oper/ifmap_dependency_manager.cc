@@ -31,7 +31,6 @@
 #include "cfg/cfg_init.h"
 #include "oper/security_logging_object.h"
 #include "oper/multicast_policy.h"
-#include "oper/project_config.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
@@ -995,8 +994,6 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
 
     // Register callback for ifmap node not having corresponding oper-dbtable
     RegisterConfigHandler(this, "virtual-router", agent->oper_db()->vrouter());
-    RegisterConfigHandler(this, "project",
-                          agent->oper_db()->project_config());
     RegisterConfigHandler(this, "global-qos-config",
                           agent->oper_db()->global_qos_config());
     RegisterConfigHandler(this, "global-system-config",

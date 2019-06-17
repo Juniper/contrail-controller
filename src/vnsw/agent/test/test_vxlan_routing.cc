@@ -74,27 +74,18 @@ protected:
     virtual void TearDown() {
     }
 
-    void SetupEnvironment(bool vxlan_routing_enabled) {
+    void SetupEnvironment() {
         bgp_peer_ = CreateBgpPeer("127.0.0.1", "remote");
         client->WaitForIdle();
         AddIPAM("vn1", ipam_1, 1);
         AddIPAM("vn2", ipam_2, 1);
-        std::stringstream vxlan_routing_enabled_str;
-        if (vxlan_routing_enabled) {
-            vxlan_routing_enabled_str << "<vxlan-routing>true</vxlan-routing>";
-        } else {
-            vxlan_routing_enabled_str << "<vxlan-routing>false</vxlan-routing>";
-        }
-        AddNode("project", "project-admin", 1,
-                vxlan_routing_enabled_str.str().c_str());
-        client->WaitForIdle();
         CreateVmportEnv(input1, 2);
         CreateVmportEnv(input2, 1);
         AddLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
                     "instance_ip_1", 1);
         AddLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
                     "instance_ip_2", 2);
-        client->WaitForIdle(5);
+        client->WaitForIdle();
     }
 
     void DeleteEnvironment(bool vxlan_enabled) {
@@ -115,94 +106,6 @@ protected:
                     IsEmpty());
         EXPECT_TRUE(agent_->oper_db()->vxlan_routing_manager()->vrf_mapper().
                     IsEmpty());
-    }
-
-    void AddRoutingVrf(int lr_id) {
-        std::stringstream name_ss;
-        name_ss << "l3evpn_" << lr_id;
-        AddVrf(name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
-        AddVn(name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
-        AddNode("logical-router", name_ss.str().c_str(), lr_id);
-        std::stringstream node_str;
-        node_str << "<logical-router-virtual-network-type>"
-            << "InternalVirtualNetwork"
-            << "</logical-router-virtual-network-type>";
-        AddLinkNode("logical-router-virtual-network",
-                    name_ss.str().c_str(),
-                    node_str.str().c_str());
-        AddLink("logical-router-virtual-network",
-                name_ss.str().c_str(),
-                "logical-router",
-                name_ss.str().c_str(),
-                "logical-router-virtual-network");
-        AddLink("logical-router-virtual-network",
-                name_ss.str().c_str(),
-                "virtual-network",
-                name_ss.str().c_str(),
-                "logical-router-virtual-network");
-        AddLink("virtual-network",
-                name_ss.str().c_str(),
-                "routing-instance",
-                name_ss.str().c_str());
-        client->WaitForIdle();
-    }
-
-    void DelRoutingVrf(int lr_id) {
-        std::stringstream name_ss;
-        name_ss << "l3evpn_" << lr_id;
-        DelLink("logical-router-virtual-network",
-                name_ss.str().c_str(),
-                "logical-router",
-                name_ss.str().c_str(),
-                "logical-router-virtual-network");
-        DelLink("logical-router-virtual-network",
-                name_ss.str().c_str(),
-                "virtual-network",
-                name_ss.str().c_str(),
-                "logical-router-virtual-network");
-        DelLink("virtual-network",
-                name_ss.str().c_str(),
-                "routing-instance",
-                name_ss.str().c_str());
-        DelVrf(name_ss.str().c_str());
-        DelVn(name_ss.str().c_str());
-        DelNode("logical-router", name_ss.str().c_str());
-        DelNode("logical-router-virtual-network",
-                    name_ss.str().c_str());
-        client->WaitForIdle();
-        EXPECT_TRUE(VrfGet(name_ss.str().c_str()) == NULL);
-    }
-
-    void AddBridgeVrf(const std::string &vmi_name,
-                      int lr_id) {
-        std::stringstream name_ss;
-        std::string metadata = "logical-router-interface";
-        name_ss << "l3evpn_" << lr_id;
-        AddNode("logical-router", name_ss.str().c_str(), lr_id);
-        std::stringstream lr_vmi_name;
-        lr_vmi_name << "lr-vmi-" << vmi_name;
-        AddLink("logical-router",
-                name_ss.str().c_str(),
-                "virtual-machine-interface",
-                lr_vmi_name.str().c_str(),
-                "logical-router-interface");
-        client->WaitForIdle();
-    }
-
-    void DelBridgeVrf(const std::string &vmi_name,
-                      int lr_id) {
-        std::stringstream name_ss;
-        std::string metadata = "logical-router-interface";
-        name_ss << "l3evpn_" << lr_id;
-        DelNode("logical-router", name_ss.str().c_str());
-        std::stringstream lr_vmi_name;
-        lr_vmi_name << "lr-vmi-" << vmi_name;
-        DelLink("logical-router",
-                name_ss.str().c_str(),
-                "virtual-machine-interface",
-                lr_vmi_name.str().c_str(),
-                "logical-router-interface");
-        client->WaitForIdle();
     }
 
     void ValidateBridge(const std::string &bridge_vrf,
@@ -288,8 +191,8 @@ protected:
 TEST_F(VxlanRoutingTest, Basic) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -307,16 +210,16 @@ TEST_F(VxlanRoutingTest, Basic) {
                    Ip4Address::from_string("1.1.1.11"), 32, false);
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, false);
-    DelRoutingVrf(1);
+    DelLrRoutingVrf(1);
     DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_1) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
-    AddBridgeVrf("vn1", 1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -335,17 +238,17 @@ TEST_F(VxlanRoutingTest, Route_1) {
                    Ip4Address::from_string("1.1.1.11"), 32, true);
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, false);
-    DelBridgeVrf("vn1", 1);
-    DelRoutingVrf(1);
+    DelLrBridgeVrf("vn1", 1);
+    DelLrRoutingVrf(1);
     DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_2) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
-    AddBridgeVrf("vn1", 1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -364,18 +267,18 @@ TEST_F(VxlanRoutingTest, Route_2) {
                    Ip4Address::from_string("1.1.1.11"), 32, true);
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, false);
-    DelBridgeVrf("vn1", 1);
-    DelRoutingVrf(1);
+    DelLrBridgeVrf("vn1", 1);
+    DelLrRoutingVrf(1);
     DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_3) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
-    AddBridgeVrf("vn1", 1);
-    AddBridgeVrf("vn2", 1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
+    AddLrBridgeVrf("vn2", 1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -397,20 +300,20 @@ TEST_F(VxlanRoutingTest, Route_3) {
                    Ip4Address::from_string("1.1.1.11"), 32, true);
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, true);
-    DelBridgeVrf("vn1", 1);
-    DelBridgeVrf("vn2", 1);
-    DelRoutingVrf(1);
+    DelLrBridgeVrf("vn1", 1);
+    DelLrBridgeVrf("vn2", 1);
+    DelLrRoutingVrf(1);
     DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_4) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
-    AddRoutingVrf(2);
-    AddBridgeVrf("vn1", 2);
-    AddBridgeVrf("vn2", 1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
+    AddLrRoutingVrf(2);
+    AddLrBridgeVrf("vn1", 2);
+    AddLrBridgeVrf("vn2", 1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -434,19 +337,19 @@ TEST_F(VxlanRoutingTest, Route_4) {
                    Ip4Address::from_string("1.1.1.11"), 32, true);
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, true);
-    DelBridgeVrf("vn1", 2);
-    DelBridgeVrf("vn2", 1);
-    DelRoutingVrf(1);
-    DelRoutingVrf(2);
+    DelLrBridgeVrf("vn1", 2);
+    DelLrBridgeVrf("vn2", 1);
+    DelLrRoutingVrf(1);
+    DelLrRoutingVrf(2);
     DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_5) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
-    AddBridgeVrf("vn1", 1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -477,18 +380,18 @@ TEST_F(VxlanRoutingTest, Route_5) {
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "l3evpn_1",
                                    MacAddress(),
                                    Ip4Address::from_string("1.1.1.20"), 32, 0, NULL);
-    DelBridgeVrf("vn1", 1);
-    DelRoutingVrf(1);
+    DelLrBridgeVrf("vn1", 1);
+    DelLrRoutingVrf(1);
     DeleteEnvironment(true);
 }
 
 TEST_F(VxlanRoutingTest, Route_6) {
     using boost::uuids::nil_uuid;
 
-    SetupEnvironment(true);
-    AddRoutingVrf(1);
-    AddRoutingVrf(2);
-    AddBridgeVrf("vn1", 1);
+    SetupEnvironment();
+    AddLrRoutingVrf(1);
+    AddLrRoutingVrf(2);
+    AddLrBridgeVrf("vn1", 1);
     EXPECT_TRUE(VmInterfaceGet(10)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(11)->logical_router_uuid() == nil_uuid());
     EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
@@ -513,9 +416,24 @@ TEST_F(VxlanRoutingTest, Route_6) {
     ValidateBridge("vrf2", "l3evpn_1",
                    Ip4Address::from_string("2.2.2.20"), 32, false);
 #endif
-    DelBridgeVrf("vn1", 1);
-    DelRoutingVrf(1);
-    DelRoutingVrf(2);
+    DelLrBridgeVrf("vn1", 1);
+    DelLrRoutingVrf(1);
+    DelLrRoutingVrf(2);
+    DeleteEnvironment(true);
+}
+
+TEST_F(VxlanRoutingTest, Route_7) {
+    using boost::uuids::nil_uuid;
+
+    SetupEnvironment();
+    std::stringstream name_ss;
+    int lr_id = 1;
+    name_ss << "l3evpn_" << lr_id;
+    AddNode("logical-router", name_ss.str().c_str(), lr_id);
+    AddLrBridgeVrf("vn1", 1, "snat-routing");
+    EXPECT_TRUE(VmInterfaceGet(91) == NULL);
+    DelLrBridgeVrf("vn1", 1);
+    DelNode("logical-router", "l3evpn_1");
     DeleteEnvironment(true);
 }
 

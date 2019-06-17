@@ -113,6 +113,7 @@ test_scale_walk = AgentEnv.MakeTestCmd(env, 'test_scale_walk',
 service_instance_test = AgentEnv.MakeTestCmd(env, 'service_instance_test',
                                              agent_suite)
 test_vxlan_routing = AgentEnv.MakeTestCmd(env, 'test_vxlan_routing', agent_suite)
+env.Alias('vnsw/agent/test_vxlan_routing', test_vxlan_routing)
 
 test_xmpp_hv2 = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv2', flaky_agent_suite)
 test_xmpp_non_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_non_hv', flaky_agent_suite)

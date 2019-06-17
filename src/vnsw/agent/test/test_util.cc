@@ -5628,22 +5628,6 @@ void SetVmiMaxFlows(std::string intf_name, int intf_id, uint32_t max_flows) {
          client->WaitForIdle();
 }
 
-void CfgVxlanRouting(bool vxlan_routing_enabled) {
-    std::stringstream vxlan_routing_enabled_str;
-    if (vxlan_routing_enabled) {
-        vxlan_routing_enabled_str << "<vxlan-routing>true</vxlan-routing>";
-    } else {
-        vxlan_routing_enabled_str << "<vxlan-routing>false</vxlan-routing>";
-    }
-    AddNode("project", "project-admin", 1,
-            vxlan_routing_enabled_str.str().c_str());
-    AddLrVmiPort("lr-vmi-vn1", 91, "10.2.1.250", "vrf1", "vn1",
-            "instance_ip_1", 1);
-    AddLrVmiPort("lr-vmi-vn2", 92, "10.2.2.250", "vrf2", "vn2",
-            "instance_ip_2", 2);
-    client->WaitForIdle(5);
-}
-
 void DeleteVxlanRouting() {
     DelLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
             "instance_ip_1", 1);
@@ -5657,7 +5641,7 @@ void DeleteVxlanRouting() {
 
 #define L3_VRF_OFFSET 100
 
-void AddRoutingVrf(int lr_id) {
+void AddLrRoutingVrf(int lr_id) {
     std::stringstream name_ss;
     name_ss << "l3evpn_" << lr_id;
     AddVrf(name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
@@ -5687,7 +5671,7 @@ void AddRoutingVrf(int lr_id) {
     client->WaitForIdle();
 }
 
-void DelRoutingVrf(int lr_id) {
+void DelLrRoutingVrf(int lr_id) {
     std::stringstream name_ss;
     name_ss << "l3evpn_" << lr_id;
     DelLink("logical-router-virtual-network",
@@ -5713,11 +5697,19 @@ void DelRoutingVrf(int lr_id) {
     EXPECT_TRUE(VrfGet(name_ss.str().c_str()) == NULL);
 }
 
-void AddBridgeVrf(const std::string &vmi_name, int lr_id) {
-    std::stringstream name_ss;
+void AddLrBridgeVrf(const std::string &vmi_name, int lr_id,
+                    const char *lr_type) {
     std::string metadata = "logical-router-interface";
+    std::stringstream name_ss;
     name_ss << "l3evpn_" << lr_id;
-    AddNode("logical-router", name_ss.str().c_str(), lr_id);
+    std::stringstream buf;
+    if (lr_type == NULL)
+        lr_type = "vxlan-routing";
+    buf << "<logical-router-type>";
+    buf << lr_type;
+    buf << "</logical-router-type>";
+    AddNode("logical-router", name_ss.str().c_str(),
+            lr_id, buf.str().c_str());
     std::stringstream lr_vmi_name;
     lr_vmi_name << "lr-vmi-" << vmi_name;
     AddLink("logical-router",
@@ -5728,7 +5720,7 @@ void AddBridgeVrf(const std::string &vmi_name, int lr_id) {
     client->WaitForIdle();
 }
 
-void DelBridgeVrf(const std::string &vmi_name,
+void DelLrBridgeVrf(const std::string &vmi_name,
                     int lr_id) {
     std::stringstream name_ss;
     std::string metadata = "logical-router-interface";
