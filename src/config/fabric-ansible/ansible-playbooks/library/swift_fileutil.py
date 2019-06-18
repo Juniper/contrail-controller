@@ -4,9 +4,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of getting the swift download URL for the uploaded image file
-"""
+"""This file contains implementation of getting the swift download URL for the uploaded image file."""
 
 DOCUMENTATION = '''
 ---
@@ -95,14 +93,15 @@ error_msg:
 '''
 
 import logging
-import requests
 import re
+from threading import RLock
 import time
 from urlparse import urlparse
+
+import requests
 import swiftclient
 import swiftclient.utils
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
-from threading import RLock
 
 connection_lock = RLock()
 
@@ -133,14 +132,15 @@ class FileSvcUtil(object):  # pragma: no cover
         while retry_count <= self.connection_retry_count:
             try:
                 acquired = connection_lock.acquire()
-                swiftconn = swiftclient.client.Connection(authurl=self.authurl,
-                                                          user=self.user,
-                                                          key=self.key,
-                                                          preauthtoken=self.preauthtoken,
-                                                          tenant_name=self.tenant_name,
-                                                          auth_version=self.auth_version,
-                                                          timeout=self.conn_timeout_sec,
-                                                          insecure=True)
+                swiftconn = swiftclient.client.Connection(
+                    authurl=self.authurl,
+                    user=self.user,
+                    key=self.key,
+                    preauthtoken=self.preauthtoken,
+                    tenant_name=self.tenant_name,
+                    auth_version=self.auth_version,
+                    timeout=self.conn_timeout_sec,
+                    insecure=True)
                 self.swift_conn = swiftconn
                 swiftconn.get_account()
                 self.storageurl = swiftconn.url
@@ -150,8 +150,11 @@ class FileSvcUtil(object):  # pragma: no cover
                 err_msg = e.message
                 logging.error(err_msg)
                 if retry_count == self.connection_retry_count:
-                    raise Exception("Connection failed with swift file server: " + str(err_msg))
-                logging.error("Connection failed with swift file server, retrying to connect")
+                    raise Exception(
+                        "Connection failed with swift file server: " +
+                        str(err_msg))
+                logging.error(
+                    "Connection failed with swift file server, retrying to connect")
                 incr_sleep *= 2
                 time.sleep(incr_sleep)
             finally:
@@ -166,7 +169,9 @@ class FileSvcUtil(object):  # pragma: no cover
             self.swift_conn.post_account(headers)
         except Exception as err:
             logging.error(str(err))
-            raise Exception("Update account failed with swift file server: " + str(err))
+            raise Exception(
+                "Update account failed with swift file server: " +
+                str(err))
 
     def getobjectFileUri(self, filename):
         return self.getFileObjUri(self.container_name, filename)
@@ -181,7 +186,8 @@ class FileSvcUtil(object):  # pragma: no cover
             return image_url
         except Exception as e:
             logging.error(str(e))
-            raise Exception("Get object url failed with swift file server: " + str(e))
+            raise Exception(
+                "Get object url failed with swift file server: " + str(e))
 
     def getPublicDownloadUrl(self, image_path):
         return '%s/%s' % (
@@ -191,6 +197,7 @@ class FileSvcUtil(object):  # pragma: no cover
     def close(self):
         if self.swift_conn:
             self.swift_conn.close()
+
 
 def main():
     module = FabricAnsibleModule(
@@ -226,9 +233,18 @@ def main():
     url = None
     error_msg = ''
     try:
-        fileutil = FileSvcUtil(authtoken, authurl, user, key, tenant_name,
-                               auth_version, container_name, temp_url_key,
-                               temp_url_key_2, connection_retry_count, chosen_temp_url_key)
+        fileutil = FileSvcUtil(
+            authtoken,
+            authurl,
+            user,
+            key,
+            tenant_name,
+            auth_version,
+            container_name,
+            temp_url_key,
+            temp_url_key_2,
+            connection_retry_count,
+            chosen_temp_url_key)
 
         url = fileutil.getObjUrl(filename)
 
