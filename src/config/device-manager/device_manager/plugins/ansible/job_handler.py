@@ -1,16 +1,15 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains implementation of job api handler code
+#
 
-"""
-This file contains implementation of job api handler code
-"""
-import gevent
-import uuid
+from enum import Enum
 import time
+import uuid
 
 from attrdict import AttrDict
-from enum import Enum
+import gevent
 
 
 class JobStatus(Enum):
@@ -44,6 +43,7 @@ class JobHandler(object):
 
     def __init__(self, job_template_name, job_input, device_list,
                  api_server_config, logger, amqp_client, args):
+        """Initialize JobHandler init params."""
         self._job_template_name = job_template_name
         self._job_input = job_input
         self._device_list = device_list
