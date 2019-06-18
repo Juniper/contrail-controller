@@ -34,6 +34,7 @@
         <xsd:element name="tunnel-ip" type="xsd:string"/>
         <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
         <xsd:element name="assisted-replicator" type="dac:AssistedReplicator"/>
+        <xsd:element name="storm-control" type="dac:StormControl" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -128,6 +129,16 @@
     <xsd:all>
        <xsd:element name="ar-loopback-ip" type="xsd:string"/>
        <xsd:element name="replicator-activation-delay" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="StormControl">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="comment" type="xsd:string"/>
+        <xsd:element name="bandwidth-percent" type="xsd:integer"/>
+        <xsd:element name="traffic-type" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="actions" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -275,6 +286,7 @@
        <!-- Deprecated - Use ip-addresses -->
        <xsd:element name="interface-mode" type="xsd:string"/>
        <xsd:element name="vlans" type="dac:Vlan" maxOccurs="unbounded"/>
+       <xsd:element name="storm-control-profile" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
