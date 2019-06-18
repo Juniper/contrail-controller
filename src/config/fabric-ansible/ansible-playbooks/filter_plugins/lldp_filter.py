@@ -10,12 +10,13 @@ class FilterModule(object):
         }
 
     def lldp_neighbormap_filter(self, lldp_neighbor_info, prouter_fqname):
-        """This filter takes inputs as the local prouter_fqname
+        """Finds neighbours based on lldp output.
+
+        This filter takes inputs as the local prouter_fqname
         and the output of the
         show lldp neighbors command (lldp_neighbor_info).
         The lldp_neighbor_info can be
         of the following two formats:
-
         Format A:
         "lldp_neighbor_info": [
                 {
@@ -37,7 +38,6 @@ class FilterModule(object):
                     "lldp-remote-system-name": "nsmsw2"
                 }
             ]
-
         Format B:
         "lldp_neighbor_info": [
                 {
@@ -56,9 +56,7 @@ class FilterModule(object):
                     "lldp-remote-port-description": "ge-0/0/38",
                     "lldp-remote-system-name": "5b11-qfx1"
                 }]
-
         If the lldp_neighbor_info is of format A, then the filter returns:
-
         {
                   "do_more_parsing": True,
                   "remote_neighbors_list":[remote_prouter_fqname1,
@@ -80,7 +78,6 @@ class FilterModule(object):
                                              }
                                             ]
         }
-
         else returns this format:
         {
                   "do_more_parsing": False,
@@ -95,7 +92,6 @@ class FilterModule(object):
                                               <remote_phy_int_fqname>]
                                             ]
         }
-
         The field: neighbor_map_info maintains the mapping of the
         local_interface_fqname to the remote_interface_info
         and the field: remote_neigbors_list will maintain
@@ -105,7 +101,6 @@ class FilterModule(object):
         physical-interfaces on the corresponding (remote neighboring)
         prouters from a bulk query to vnc-db if lldp_neighbor_info is
         of format A.
-
         """
         remote_neighbors_list = []
         neighbor_map_info_list = []
@@ -113,10 +108,10 @@ class FilterModule(object):
 
         for lldp_neighbor in lldp_neighbor_info.get('results') or []:
             try:
-                lldp_neighbor_information = lldp_neighbor['parsed_output']\
-                                                ['lldp-neighbors-information']\
-                                                ['lldp-neighbor-information']
-                if lldp_neighbor_information.get('lldp-remote-system-name') is None:
+                lldp_neighbor_information = lldp_neighbor['parsed_output'][
+                    'lldp-neighbors-information']['lldp-neighbor-information']
+                if lldp_neighbor_information.get(
+                        'lldp-remote-system-name') is None:
                     continue
                 remote_prouter_fqname = ["default-global-system-config",
                                          lldp_neighbor_information.get(
@@ -131,13 +126,13 @@ class FilterModule(object):
                 # won't be imported
                 if '.' not in phy_int_fqname[-1]:
                     neighbor_map_info_list.append({
-                                            "local_phy_int_fqname":
-                                            phy_int_fqname,
-                                            "remote_phy_int_port_id":
-                                            remote_prouter_fqname[-1] +
-                                            ":" + lldp_neighbor_information.get(
-                                                'lldp-remote-port-id')
-                                          })
+                        "local_phy_int_fqname":
+                        phy_int_fqname,
+                        "remote_phy_int_port_id":
+                        remote_prouter_fqname[-1] +
+                        ":" + lldp_neighbor_information.get(
+                            'lldp-remote-port-id')
+                    })
                 remote_neighbors_list.append(remote_prouter_fqname)
             except Exception as ex:
                 err_msg_list.append(str(ex))
@@ -148,16 +143,16 @@ class FilterModule(object):
                 "err_msg_list": err_msg_list}
 
     def get_port_id_fqname_mapping(self, bulk_query_prouter_resp):
-        """This filter takes input from the vnc_db_mod bulk_query response
+        """Port to fq_name mapping.
+
+        This filter takes input from the vnc_db_mod bulk_query response
         and parses it to give a port-id:fqname mapping for all
         physical interfaces of the neighboring routers.
-
         returns: {"<prouter_name>": {"<port-id1>": [<fq_name>],
                                      "<port-id2>": [<fq_name>]},
                   "<prouter_name>": {"<port-id1>": [<fq_name>],
                                      "<port-id2>": [<fq_name>]}
                  }
-
         """
         all_remote_phy_intfs = bulk_query_prouter_resp['list_objects']
         port_id_fqname_prouter_map = dict()
@@ -175,19 +170,18 @@ class FilterModule(object):
 
     def bulk_ref_payload_filter(self, port_id_fqname_prouter_map,
                                 neighbor_map_info_list):
-        """This filter takes inputs as the port_id_fqname_prouter_map
+        """VNC bulk ref update.
+
+        This filter takes inputs as the port_id_fqname_prouter_map
         and neighbor_map_info_list and returns the payload for
         bulk-ref-update (in vnc-module).
-
         The port_id_fqname_prouter_map is of the format:
-
         {
          "<prouter_name>": {"<port-id1>": [<fq_name>],
                             "<port-id2>": [<fq_name>]},
          "<prouter_name>": {"<port-id1>": [<fq_name>],
                             "<port-id2>": [<fq_name>]}
         }
-
         The neighbor_map_info_list will be of the format:
         "neighbor_map_info_list": [{
                                      "local_phy_int_fqname":[],
@@ -208,14 +202,11 @@ class FilterModule(object):
         The payload is a list of tuples that has the local_phy_int_fqname
         and the remote_phy_int_fqname (fq_name has been chosen to maintain
         uniformity).
-
         returns: [(<local_phy_int_fqname>, <remote_phy_int_fqname>),
                    (<local_phy_int_fqname>, <remote_phy_int_fqname>),
                    (<local_phy_int_fqname>, <remote_phy_int_fqname>)
                  ]
-
         """
-
         bulk_ref_payload_list = []
 
         for lldp_neighbor in neighbor_map_info_list:
@@ -233,7 +224,7 @@ class FilterModule(object):
                 if lldp_neighbor_fqname:
                     neighbor_pair = (lldp_neighbor.get(
                         'local_phy_int_fqname'),
-                                     lldp_neighbor_fqname)
+                        lldp_neighbor_fqname)
                     bulk_ref_payload_list.append(neighbor_pair)
 
         return bulk_ref_payload_list

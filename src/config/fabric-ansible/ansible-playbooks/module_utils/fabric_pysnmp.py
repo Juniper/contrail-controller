@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
-from collections import defaultdict
-from ansible.module_utils._text import to_text
 import binascii
+from collections import defaultdict
+
+from ansible.module_utils._text import to_text
+
 try:
     from pysnmp.entity.rfc3413.oneliner import cmdgen
     has_pysnmp = True
@@ -15,6 +17,7 @@ if not has_pysnmp:
 
 class DefineOid(object):
     def __init__(self, dotprefix=False):
+        """__init__."""
         if dotprefix:
             dp = "."
         else:
@@ -66,7 +69,8 @@ def snmp_walk(host, version, community):
     # Use v without a prefix to use with return values
     v = DefineOid(dotprefix=False)
 
-    def Tree(): return defaultdict(Tree)
+    def Tree():
+        return defaultdict(Tree)
 
     results = Tree()
     results['error'] = False
