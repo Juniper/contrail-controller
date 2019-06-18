@@ -22,7 +22,7 @@ PLAYBOOK_BASE = 'opt/contrail/fabric_ansible_playbooks'
 
 sys.path.append(PLAYBOOK_BASE+"/module_utils")
 from filter_utils import FilterLog, _task_log, _task_done,\
-     _task_error_log, _task_debug_log, _task_warn_log, vnc_bulk_get
+     _task_error_log, _task_warn_log, vnc_bulk_get
 
 
 class FilterModule(object):
@@ -40,6 +40,7 @@ class FilterModule(object):
         self.role_to_feature_mapping = dict((k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
         feature_based_plugin_roles = group_vars['feature_based_plugin_roles']
         self.feature_based_plugin_roles = dict((k.lower(), v) for k, v in feature_based_plugin_roles.iteritems())
+        self.feature_apply_order = group_vars['feature_apply_order']
 
     # Load the abstract config
     def _load_abstract_config(self):
@@ -169,29 +170,34 @@ class FilterModule(object):
 
     # Render all jinja templates for all supported features for this model
     def _render_config(self):
-        # Get list of all config feature directories
-        feature_dir_list = \
-            [name for name in os.listdir("./roles") if name.startswith("cfg_")]
-        feature_list = [feature_dir[4:] for feature_dir in feature_dir_list]
-        feature_list.sort()
+        # Get list of all legacy feature directories
+        legacy_feature_list = \
+             [name[4:] for name in os.listdir('./roles') \
+                if name.startswith('cfg_')]
+        feature_list = [name for name in os.listdir('./config_templates')]
         # Loop through all the features
-        for feature in feature_list:
-            feature_template_dir = './roles/cfg_' + feature + '/templates'
-            feature_template_list = self._get_feature_templates(feature_template_dir, feature)
-            # If feature not supported on this platform, skip
-            if not feature_template_list:
-                continue
+        for feature in self.feature_apply_order:
             # If not managing underlay for this feature, skip
             if 'underlay' in feature and not self.manage_underlay:
                 continue
+            feature_based_only = feature not in legacy_feature_list
+            apply_feature_based = feature in self.feature_based_list
+            if feature in feature_list and \
+                    (apply_feature_based or feature_based_only):
+                is_empty = not apply_feature_based
+                feature_template_dir = './config_templates/' + feature
+            else:
+                feature_template_dir = './roles/cfg_' + feature + '/templates'
+                is_empty = feature not in self.dev_feature_list
+            feature_template_list = self._get_feature_templates(
+                feature_template_dir, feature)
+            # If feature not supported on this platform, skip
+            if not feature_template_list:
+                continue
             # For each feature template, including model-specific templates,
             # render the jinja template
-            for feature_template in feature_template_list:
-                self._render_feature_config(
-                    feature, feature_template,
-                    False if feature in self.dev_feature_list else True
-            )
-        self._render_feature_based_config()
+            for template in feature_template_list:
+                self._render_feature_config(feature, template, is_empty)
         # Write to config file which will be sent to device
         with open(self.combined_config_path, 'w') as f:
             f.write(self.final_config)
@@ -211,35 +217,6 @@ class FilterModule(object):
             'status': "success"
         }
         return render_output
-
-    def _render_feature_based_config(self):
-        config_template_list = os.listdir('./config_templates')
-        config_template_list.sort()
-        # Certain features are common across both old and new feature_mappings
-        # This would cause the delete of already configured feature
-        # Identify the common list and remove them from feature_based
-        # Then render config
-        common_list = list(set(config_template_list) & set(self.dev_feature_list))
-        final_list = list(set(config_template_list) - set(common_list))
-        for feature in final_list:
-            config_template_dir = './config_templates/' + feature + '/'
-            feature_template_list = self._get_feature_templates(config_template_dir, feature)
-            # If feature not supported on this platform, skip
-            if not feature_template_list:
-                errmsg = "No templates found for feature: %s" % (feature)
-                _task_error_log(errmsg)
-                continue
-            # If not managing underlay for this feature, skip
-            if 'underlay' in feature and not self.manage_underlay:
-                continue
-            # For each feature template, including model-specific templates,
-            # render the jinja template
-            for feature_template in feature_template_list:
-                self._render_feature_config(
-                    feature, feature_template,
-                    False if feature in self.feature_based_list else True
-            )
-    # end _render_feature_based_config
 
     def render_fabric_config(self, job_ctx):
         try:
