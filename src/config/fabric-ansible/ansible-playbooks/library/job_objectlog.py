@@ -3,11 +3,9 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
-
-"""
-This file contains implementation of creating JOB objectlogs
-via sandesh
-"""
+# This file contains implementation of creating JOB objectlogs
+# via sandesh
+#
 
 DOCUMENTATION = '''
 ---
@@ -35,7 +33,8 @@ options:
         required: true
     result:
         description:
-            - 'result' field to capture the job result if job is completed with success
+            - 'result' field to capture the job result if job is completed
+              with success
         required: false
     device_name:
         description:
@@ -52,7 +51,8 @@ EXAMPLES = '''
     - name: Appending job log on failure to generate common config
       job_objectlog:
         job_ctx: "{{ job_ctx }}"
-        message: "Failed to generate configuration 'common_config':\n{{ cmd_res.msg }}"
+        message: "Failed to generate configuration
+                 'common_config':\n{{ cmd_res.msg }}"
         status: "{{ JOBLOG_STATUS.IN_PROCESS }}"
 '''
 
