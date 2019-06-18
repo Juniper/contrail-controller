@@ -7,7 +7,6 @@ pyaml
 python-keystoneclient
 python-novaclient
 webtest
-cfgm_common
 sandesh
 sandesh_common
 contrail-api-client
