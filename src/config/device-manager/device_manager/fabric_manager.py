@@ -44,41 +44,28 @@ class FabricManager(object):
     # Load init data for job playbooks like JobTemplates, Tags, etc
     def _load_init_data(self):
         """
+        Load init data for job playbooks.
+
         This function loads init data from a data file specified by the
         argument '--fabric_ansible_dir' to the database. The data file
-        must be in JSON format and follow the format below:
-        {
-          "data": [
-            {
-              "object_type": "<vnc object type name>",
-              "objects": [
-                {
-                  <vnc object payload>
-                },
-                ...
-              ]
-            },
-            ...
-          ]
-        }
+        must be in JSON format and follow the format below
 
-        Here is an example:
-        {
-          "data": [
-            {
-              "object_type": "tag",
-              "objects": [
+        "my payload": {
+            "object_type": "tag"
+            "objects": [
                 {
-                  "fq_name": [
-                    "fabric=management_ip"
-                  ],
-                  "name": "fabric=management_ip",
-                  "tag_type_name": "fabric",
-                  "tag_value": "management_ip"
+                    "fq_name": [
+                        "fabric=management_ip"
+
+                    ],
+                    "name": "fabric=management_ip",
+                    "tag_type_name": "fabric",
+                    "tag_value": "management_ip"
+
                 }
-              ]
-            }
-          ]
+
+            ]
+
         }
         """
         try:
@@ -102,7 +89,8 @@ class FabricManager(object):
                     # create/update the object
                     fq_name = instance_obj.get_fq_name()
                     try:
-                        uuid = self._vnc_api.fq_name_to_id(object_type, fq_name)
+                        uuid = self._vnc_api.fq_name_to_id(
+                            object_type, fq_name)
                         if object_type == "tag":
                             continue
                         instance_obj.set_uuid(uuid)
@@ -113,7 +101,8 @@ class FabricManager(object):
             for item in json_data.get("refs"):
                 from_type = item.get("from_type")
                 from_fq_name = item.get("from_fq_name")
-                from_uuid = self._vnc_api.fq_name_to_id(from_type, from_fq_name)
+                from_uuid = self._vnc_api.fq_name_to_id(
+                    from_type, from_fq_name)
 
                 to_type = item.get("to_type")
                 to_fq_name = item.get("to_fq_name")
@@ -142,19 +131,19 @@ class FabricManager(object):
         # Loop through the json
         for item in input_json.get("data"):
             if item.get("object_type") == "job-template":
-                for object in item.get("objects"):
-                    fq_name = object.get("fq_name")[-1]
+                for obj in item.get("objects"):
+                    fq_name = obj.get("fq_name")[-1]
                     schema_name = fq_name.replace('template', 'schema.json')
                     with open(os.path.join(self._fabric_ansible_dir +
-                            '/schema/', schema_name), 'r+') as schema_file:
+                              '/schema/', schema_name), 'r+') as schema_file:
                         schema_json = json.load(schema_file)
-                        object["job_template_input_schema"] = json.dumps(
+                        obj["job_template_input_schema"] = json.dumps(
                             schema_json.get("input_schema"))
-                        object["job_template_output_schema"] = json.dumps(
+                        obj["job_template_output_schema"] = json.dumps(
                             schema_json.get("output_schema"))
-                        object["job_template_input_ui_schema"] = json.dumps(
+                        obj["job_template_input_ui_schema"] = json.dumps(
                             schema_json.get("input_ui_schema"))
-                        object["job_template_output_ui_schema"] = json.dumps(
+                        obj["job_template_output_ui_schema"] = json.dumps(
                             schema_json.get("output_ui_schema"))
         return input_json
     # end _load_json_data

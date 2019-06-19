@@ -3,36 +3,40 @@
 #
 
 """
-This file contains implementation of data model for physical router
-configuration manager
+This file contains implementation of data model for physical router.
+
+for device specific configuration manager
 """
-from attrdict import AttrDict
-from device_conf import DeviceConf
-from ansible_base import AnsibleBase
-from dm_utils import PushConfigState
-from dm_utils import DMUtils
-from dm_utils import DMIndexer
-from cfgm_common.vnc_db import DBBase
-from cfgm_common.uve.physical_router.ttypes import *
-from cfgm_common.exceptions import ResourceExistsError
-from vnc_api.vnc_api import *
-import struct
+
+import json
+import re
 import socket
-import gevent
-import traceback
-from gevent import queue
-from cfgm_common.vnc_object_db import VncObjectDBClient
-from netaddr import IPAddress
-from cfgm_common.zkclient import IndexAllocator
-from cfgm_common import vnc_greenlets
-from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
+import struct
 from time import gmtime, strftime
+import traceback
+
+from ansible_base import AnsibleBase
+from attrdict import AttrDict
+from cfgm_common import vnc_greenlets
+from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.uve.physical_router.ttypes import *
 from cfgm_common.uve.physical_router_config.ttypes import *
 from cfgm_common.uve.service_status.ttypes import *
+from cfgm_common.vnc_db import DBBase
+from cfgm_common.vnc_object_db import VncObjectDBClient
+from cfgm_common.zkclient import IndexAllocator
+from device_conf import DeviceConf
+from dm_utils import DMIndexer
+from dm_utils import DMUtils
+from dm_utils import PushConfigState
 from feature_base import FeatureBase
-import re
-import json
+import gevent
+from gevent import queue
+from netaddr import IPAddress
 import pyhash
+from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
+from vnc_api.vnc_api import *
+
 
 class DBBaseDM(DBBase):
     obj_type = __name__
@@ -54,10 +58,11 @@ class DBBaseDM(DBBase):
 
     def _get_single_ref(self, ref_type, obj):
         if isinstance(obj, dict):
-            refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
+            refs = (obj.get(ref_type + '_refs') or
+                    obj.get(ref_type + '_back_refs'))
         else:
-            refs = (getattr(obj, ref_type+'_refs', None) or
-                    getattr(obj, ref_type+'_back_refs', None))
+            refs = (getattr(obj, ref_type + '_refs', None) or
+                    getattr(obj, ref_type + '_back_refs', None))
         if refs:
             return self._get_ref_key(refs[0], ref_type)
         else:
@@ -194,10 +199,10 @@ class FeatureConfigDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.additional_params = self._read_key_value_pair(obj,
-                                    'feature_config_additional_params')
-        self.vendor_config = self._read_key_value_pair(obj,
-                                    'feature_config_vendor_config')
+        self.additional_params = self._read_key_value_pair(
+            obj, 'feature_config_additional_params')
+        self.vendor_config = self._read_key_value_pair(
+            obj, 'feature_config_vendor_config')
         self.add_to_parent(obj)
     # end update
 # end class FeatureDM
@@ -284,7 +289,8 @@ class PhysicalRouterDM(DBBaseDM):
     # end __init__
 
     def use_ansible_plugin(self):
-        return PushConfigState.is_push_mode_ansible() and not self.is_ec2_role()
+        return (PushConfigState.is_push_mode_ansible() and not
+                self.is_ec2_role())
     # end use_ansible_plugin
 
     def reinit_device_plugin(self):
@@ -299,15 +305,15 @@ class PhysicalRouterDM(DBBaseDM):
             plugin_base = DeviceConf
 
         if not self.config_manager:
-            self.config_manager = plugin_base.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
-        elif self.config_manager.verify_plugin(self.vendor,
-                self.product, self.physical_router_role):
+            self.config_manager = plugin_base.plugin(
+                self.vendor, self.product, plugin_params, self._logger)
+        elif self.config_manager.verify_plugin(
+                self.vendor, self.product, self.physical_router_role):
             self.config_manager.update()
         else:
             self.config_manager.clear()
-            self.config_manager = plugin_base.plugin(self.vendor,
-                self.product, plugin_params, self._logger)
+            self.config_manager = plugin_base.plugin(
+                self.vendor, self.product, plugin_params, self._logger)
     # end reinit_device_plugin
 
     def is_ec2_role(self):
@@ -323,7 +329,8 @@ class PhysicalRouterDM(DBBaseDM):
 
     def _any_rb_role_matches(self, sub_str):
         if self.routing_bridging_roles and sub_str:
-            return any(sub_str.lower() in r.lower() for r in self.routing_bridging_roles)
+            return any(sub_str.lower() in r.lower()
+                       for r in self.routing_bridging_roles)
         return False
     # end _any_rb_role_matches
 
@@ -333,8 +340,12 @@ class PhysicalRouterDM(DBBaseDM):
 
     def is_erb_only(self):
         if self.routing_bridging_roles:
-            erb_gateway_role = any('erb' in r.lower() and 'gateway' in r.lower() for r in self.routing_bridging_roles)
-            non_erb_gateway_role = any('erb' not in r.lower() and 'gateway' in r.lower() for r in self.routing_bridging_roles)
+            erb_gateway_role = any('erb' in r.lower() and
+                                   'gateway' in r.lower()
+                                   for r in self.routing_bridging_roles)
+            non_erb_gateway_role = any('erb' not in r.lower() and
+                                       'gateway' in r.lower()
+                                       for r in self.routing_bridging_roles)
             return erb_gateway_role and not non_erb_gateway_role
         return False
     # end is_erb_only
@@ -346,12 +357,14 @@ class PhysicalRouterDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip')
-        self.replicator_ip = obj.get('physical_router_replicator_loopback_ip') or None
+        self.replicator_ip = obj.get(
+            'physical_router_replicator_loopback_ip') or None
         self.dummy_ip = self.get_dummy_ip(obj)
         self.dataplane_ip = obj.get(
             'physical_router_dataplane_ip') or self.loopback_ip
         self.vendor = obj.get('physical_router_vendor_name') or ''
-        self.managed_state = obj.get('physical_router_managed_state') or 'active'
+        self.managed_state = obj.get(
+            'physical_router_managed_state') or 'active'
         if self.managed_state == 'activating':
             self.forced_cfg_push = True
         else:
@@ -363,7 +376,8 @@ class PhysicalRouterDM(DBBaseDM):
         self.physical_router_role = obj.get('physical_router_role')
         routing_bridging_roles = obj.get('routing_bridging_roles')
         if routing_bridging_roles is not None:
-            self.routing_bridging_roles = routing_bridging_roles.get('rb_roles')
+            self.routing_bridging_roles = routing_bridging_roles.get(
+                'rb_roles')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.physical_router_snmp = obj.get('physical_router_snmp')
         self.physical_router_lldp = obj.get('physical_router_lldp')
@@ -393,7 +407,8 @@ class PhysicalRouterDM(DBBaseDM):
         if self.physical_role:
             self.physical_role = PhysicalRoleDM.get(self.physical_role)
         if self.overlay_roles:
-            self.overlay_roles = [OverlayRoleDM.get(o) for o in self.overlay_roles]
+            self.overlay_roles = [OverlayRoleDM.get(o)
+                                  for o in self.overlay_roles]
 
         self.reinit_device_plugin()
         self.allocate_asn()
@@ -418,7 +433,8 @@ class PhysicalRouterDM(DBBaseDM):
                 continue
             for feature in rd.features:
                 if feature.name not in features:
-                    features[feature.name] = AttrDict(feature=feature, configs=[])
+                    features[feature.name] = AttrDict(feature=feature,
+                                                      configs=[])
             for feature_config in rd.feature_configs:
                 feature_config = FeatureConfigDM.get(feature_config)
                 if feature_config.name in features:
@@ -447,7 +463,8 @@ class PhysicalRouterDM(DBBaseDM):
             if lr and lr.data_center_interconnect:
                 dci = DataCenterInterconnectDM.get(lr.data_center_interconnect)
                 if dci:
-                    dcis.append({"from": lr_uuid, "dci": lr.data_center_interconnect})
+                    dcis.append({"from": lr_uuid,
+                                 "dci": lr.data_center_interconnect})
         return dcis
     # end get_lr_dci_map
 
@@ -486,8 +503,9 @@ class PhysicalRouterDM(DBBaseDM):
                     continue
                 if namespace.as_numbers is not None:
                     if self.allocated_asn in namespace.as_numbers:
-                        self._logger.debug("physical router: asn %d is allocated"
-                                           % self.allocated_asn)
+                        self._logger.debug(
+                            "physical router: asn %d is allocated" %
+                            self.allocated_asn)
                         return True
                 if namespace.asn_ranges is not None:
                     for asn_range in namespace.asn_ranges:
@@ -501,8 +519,8 @@ class PhysicalRouterDM(DBBaseDM):
     # end verify_allocated_asn
 
     def allocate_asn(self):
-        if not self.fabric or not self.underlay_managed or not self.fabric_obj \
-                or not self.config_manager:
+        if not self.fabric or not self.underlay_managed \
+           or not self.fabric_obj or not self.config_manager:
             return
         if self.verify_allocated_asn(self.fabric_obj):
             return
@@ -590,8 +608,8 @@ class PhysicalRouterDM(DBBaseDM):
     # end reset
 
     def is_junos_service_ports_enabled(self):
-        if (self.junos_service_ports is not None
-                and self.junos_service_ports.get('service_port') is not None):
+        if (self.junos_service_ports is not None and
+                self.junos_service_ports.get('service_port') is not None):
             return True
         return False
     # end is_junos_service_ports_enabled
@@ -680,11 +698,12 @@ class PhysicalRouterDM(DBBaseDM):
                     ips[ip_used_for][vn_uuid] = set()
                 ips[ip_used_for][vn_uuid].add(
                     (ip_addr,
-                    vn.gateways[subnet_prefix].get('default_gateway')))
+                     vn.gateways[subnet_prefix].get('default_gateway')))
         return ips
     # end get_vn_irb_ip_map
 
-    def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for, ignore_external=False):
+    def evaluate_vn_irb_ip_map(self, vn_set, fwd_mode, ip_used_for,
+                               ignore_external=False):
         new_vn_ip_set = set()
         if not self.use_ansible_plugin() or self.is_gateway():
             for vn_uuid in vn_set:
@@ -700,10 +719,12 @@ class PhysicalRouterDM(DBBaseDM):
                     new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
 
         self.evaluate_vn_ip_map(new_vn_ip_set, self.vn_ip_map[ip_used_for],
-            ip_used_for, use_gateway_ip=self.is_erb_only())
+                                ip_used_for,
+                                use_gateway_ip=self.is_erb_only())
     # end evaluate_vn_irb_ip_map
 
-    def evaluate_vn_ip_map(self, vn_set, ip_map, ip_used_for, use_gateway_ip=False):
+    def evaluate_vn_ip_map(self, vn_set, ip_map, ip_used_for,
+                           use_gateway_ip=False):
         old_set = set(ip_map.keys())
         delete_set = old_set.difference(vn_set)
         create_set = vn_set.difference(old_set)
@@ -729,14 +750,15 @@ class PhysicalRouterDM(DBBaseDM):
                                                        self.uuid))
 
             ret = self._object_db.delete_ip(
-                       self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for)
+                self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for)
             if ret == False:
-                self._logger.error("Unable to free ip from db for vn/subnet/pr "
-                                   "(%s/%s/%s)" % (vn_uuid, subnet_prefix,
-                                                   self.uuid))
+                self._logger.error("Unable to free ip from db for vn/subnet/pr"
+                                   " (%s/%s/%s)" % (vn_uuid, subnet_prefix,
+                                                    self.uuid))
                 continue
 
-            self._object_db.delete_from_pr_map(self.uuid, vn_subnet, ip_used_for)
+            self._object_db.delete_from_pr_map(self.uuid, vn_subnet,
+                                               ip_used_for)
             del ip_map[vn_subnet]
 
         for vn_subnet in create_set:
@@ -753,8 +775,9 @@ class PhysicalRouterDM(DBBaseDM):
                                    "(%s/%s/%s)" % (vn_uuid, subnet_prefix,
                                                    self.uuid))
                 continue
-            ret = self._object_db.add_ip(self.uuid + ':' + vn_uuid + ':' + subnet_prefix,
-                                         ip_used_for, ip_addr + '/' + length)
+            ret = self._object_db.add_ip(
+                self.uuid + ':' + vn_uuid + ':' + subnet_prefix, ip_used_for,
+                ip_addr + '/' + length)
             if ret == False:
                 self._logger.error("Unable to store ip for vn/subnet/pr "
                                    "(%s/%s/%s)" % (vn_uuid, subnet_prefix,
@@ -781,7 +804,7 @@ class PhysicalRouterDM(DBBaseDM):
 
         irb_ip_map = self.vn_ip_map['irb']
         self.evaluate_vn_ip_map(new_vns, irb_ip_map, 'irb',
-            use_gateway_ip=use_gateway_ip)
+                                use_gateway_ip=use_gateway_ip)
         return self.get_ip_map_for(irb_ip_map)
     # end allocate_irb_ips_for
 
@@ -794,14 +817,16 @@ class PhysicalRouterDM(DBBaseDM):
                 ips[vn_uuid] = set()
             ips[vn_uuid].add(
                 (ip_addr,
-                vn.gateways[subnet_prefix].get('default_gateway')))
+                 vn.gateways[subnet_prefix].get('default_gateway')))
         return ips
     # end get_ip_map_for
 
     def is_vnc_managed(self):
         if not self.vnc_managed:
-            self._logger.info("vnc managed property must be set for a physical router to get auto "
-                "configured, ip: %s, not pushing config" % (self.management_ip))
+            self._logger.info(
+                "vnc managed property must be set for a physical router to get"
+                " auto configured, ip: %s, not pushing config"
+                % (self.management_ip))
             return False
         return True
     # end is_vnc_managed
@@ -815,7 +840,9 @@ class PhysicalRouterDM(DBBaseDM):
     # end is_conf_sent
 
     def delete_config(self):
-        if self.is_conf_sent() and (not self.is_vnc_managed() or (not self.bgp_router and self.physical_router_role != 'pnf')):
+        if (self.is_conf_sent() and
+            (not self.is_vnc_managed() or
+             (not self.bgp_router and self.physical_router_role != 'pnf'))):
             if not self.config_manager:
                 self.uve_send()
                 return False
@@ -823,8 +850,9 @@ class PhysicalRouterDM(DBBaseDM):
             self.config_manager.push_conf(is_delete=True)
             if self.config_manager.retry():
                 # failed commit: set repush interval upto max value
-                self.config_repush_interval = min([2 * self.config_repush_interval,
-                                                   PushConfigState.get_repush_max_interval()])
+                self.config_repush_interval = min(
+                    [2 * self.config_repush_interval,
+                     PushConfigState.get_repush_max_interval()])
                 self.block_and_set_config_state(self.config_repush_interval)
                 return True
             # succesful commit: reset repush interval
@@ -840,8 +868,8 @@ class PhysicalRouterDM(DBBaseDM):
         if not first_tag:
             return '_contrail-' + si_obj.name + '-' + interface_type
         else:
-            return ('_contrail-' + si_obj.name + '-' + interface_type
-                    + '-sc-entry-point')
+            return ('_contrail-' + si_obj.name + '-' + interface_type +
+                    '-sc-entry-point')
     # end get_pnf_vrf_name
 
     def allocate_pnf_resources(self, vmi):
@@ -849,9 +877,9 @@ class PhysicalRouterDM(DBBaseDM):
             vmi, self.uuid)
         network_id = int(resources['network_id'])
         if vmi.service_interface_type == "left":
-            ip = str(IPAddress(network_id*4+1))
+            ip = str(IPAddress(network_id * 4 + 1))
         if vmi.service_interface_type == "right":
-            ip = str(IPAddress(network_id*4+2))
+            ip = str(IPAddress(network_id * 4 + 2))
         ip = ip + "/30"
         return {
             "ip_address": ip,
@@ -861,7 +889,8 @@ class PhysicalRouterDM(DBBaseDM):
 
     def compute_pnf_static_route(self, ri_obj, pnf_dict):
         """
-        Compute all the static route for the pnfs on the device
+        Compute all the static route for the pnfs on the device.
+
         Args:
             ri_obj: The routing instance need to added the static routes
             pnf_dict: The pnf mapping dict
@@ -871,10 +900,12 @@ class PhysicalRouterDM(DBBaseDM):
                     "service_chain_address":{
                         "next-hop":"ip_address",
                         "preference": int #use for the load balance
+
                     }
+
                 ]
         """
-        prefrence = 0
+        preference = 0
         static_routes = {}
 
         for vmi_uuid in ri_obj.virtual_machine_interfaces:
@@ -908,15 +939,18 @@ class PhysicalRouterDM(DBBaseDM):
 
     def push_config(self):
         if not self.config_manager:
-            self._logger.info("Plugin not found for vendor family(%s:%s), "
-                  "ip: %s, not pushing config" % (str(self.vendor),
-                                     str(self.product), self.management_ip))
+            self._logger.info(
+                "Plugin not found for vendor family(%s:%s), "
+                "ip: %s, not pushing config" % (str(self.vendor),
+                                                str(self.product),
+                                                self.management_ip))
             return
 
         if self.managed_state in ('rma', 'error'):
             # do not push any config to this device
-            self._logger.debug("No config push for PR(%s) in %s state" % (
-                                self.name, self.managed_state))
+            self._logger.debug(
+                "No config push for PR(%s) in %s state" % (self.name,
+                                                           self.managed_state))
             return
 
         if self.delete_config() or not self.is_vnc_managed():
@@ -924,9 +958,10 @@ class PhysicalRouterDM(DBBaseDM):
 
         self.config_manager.initialize()
         if not self.config_manager.validate_device():
-            self._logger.error("physical router: %s, device config validation failed. "
-                  "device configuration=%s" % (self.uuid, \
-                           str(self.config_manager.get_device_config())))
+            self._logger.error(
+                "physical router: %s, device config validation failed. "
+                "device configuration=%s"
+                % (self.uuid, str(self.config_manager.get_device_config())))
             return
 
         if self.use_ansible_plugin():
@@ -935,7 +970,8 @@ class PhysicalRouterDM(DBBaseDM):
                 feature_config = plugin.feature_config()
                 if feature_config:
                     feature_configs[feature_config.name] = feature_config
-            config_size = self.config_manager.push_conf(feature_configs=feature_configs)
+            config_size = self.config_manager.push_conf(
+                feature_configs=feature_configs)
         else:
             config_size = self.config_manager.push_conf()
 
@@ -945,8 +981,9 @@ class PhysicalRouterDM(DBBaseDM):
         self.uve_send()
         if self.config_manager.retry():
             # failed commit: set repush interval upto max value
-            self.config_repush_interval = min([2 * self.config_repush_interval,
-                                               PushConfigState.get_repush_max_interval()])
+            self.config_repush_interval = min(
+                [2 * self.config_repush_interval,
+                 PushConfigState.get_repush_max_interval()])
             self.block_and_set_config_state(self.config_repush_interval)
         else:
             # successful commit: reset repush interval to base
@@ -958,7 +995,8 @@ class PhysicalRouterDM(DBBaseDM):
 
     def get_push_config_interval(self, last_config_size):
         config_delay = int(
-            (last_config_size/1000) * PushConfigState.get_push_delay_per_kb())
+            (last_config_size / 1000) *
+            PushConfigState.get_push_delay_per_kb())
         delay = min([PushConfigState.get_push_delay_max(), config_delay])
         return delay
 
@@ -990,14 +1028,14 @@ class PhysicalRouterDM(DBBaseDM):
 
         if self.is_vnc_managed():
             pr_trace.netconf_enabled_status = True
-            pr_trace.last_commit_time = \
-                   commit_stats.get('last_commit_time', '')
-            pr_trace.last_commit_duration = \
-                   commit_stats.get('last_commit_duration', '0')
-            pr_trace.commit_status_message = \
-                   commit_stats.get('commit_status_message', '')
-            pr_trace.total_commits_sent_since_up = \
-                   commit_stats.get('total_commits_sent_since_up', 0)
+            pr_trace.last_commit_time = commit_stats.get(
+                'last_commit_time', '')
+            pr_trace.last_commit_duration = commit_stats.get(
+                'last_commit_duration', '0')
+            pr_trace.commit_status_message = commit_stats.get(
+                'commit_status_message', '')
+            pr_trace.total_commits_sent_since_up = commit_stats.get(
+                'total_commits_sent_since_up', 0)
         else:
             pr_trace.netconf_enabled_status = False
 
@@ -1030,17 +1068,19 @@ class GlobalVRouterConfigDM(DBBaseDM):
         new_global_encapsulation_priorities = []
         encapsulation_priorities = obj.get('encapsulation_priorities')
         if encapsulation_priorities:
-            new_global_encapsulation_priorities = encapsulation_priorities.get("encapsulation")
+            new_global_encapsulation_priorities = encapsulation_priorities.get(
+                "encapsulation")
             if new_global_encapsulation_priorities:
-                new_global_encapsulation_priority = new_global_encapsulation_priorities[0]
+                new_global_encapsulation_priority = \
+                    new_global_encapsulation_priorities[0]
         new_global_forwarding_mode = obj.get('forwarding_mode')
         if (GlobalVRouterConfigDM.global_vxlan_id_mode !=
                 new_global_vxlan_id_mode or
             GlobalVRouterConfigDM.global_forwarding_mode !=
                 new_global_forwarding_mode or
-             GlobalVRouterConfigDM.global_encapsulation_priorities !=
+            GlobalVRouterConfigDM.global_encapsulation_priorities !=
                 new_global_encapsulation_priorities or
-             GlobalVRouterConfigDM.global_encapsulation_priority !=
+            GlobalVRouterConfigDM.global_encapsulation_priority !=
                 new_global_encapsulation_priority):
             GlobalVRouterConfigDM.global_vxlan_id_mode = \
                 new_global_vxlan_id_mode
@@ -1064,14 +1104,8 @@ class GlobalVRouterConfigDM(DBBaseDM):
                 cls.global_vxlan_id_mode == 'automatic'):
             return True
         return False
-
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-    # end delete
 # end GlobalVRouterConfigDM
+
 
 class GlobalSystemConfigDM(DBBaseDM):
     _dict = {}
@@ -1100,13 +1134,6 @@ class GlobalSystemConfigDM(DBBaseDM):
     @classmethod
     def get_global_asn(cls):
         return cls.global_asn
-
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-    # end delete
 # end GlobalSystemConfigDM
 
 
@@ -1273,7 +1300,8 @@ class FloatingIpDM(DBBaseDM):
 
     def get_private_network(self):
         if self.virtual_machine_interface:
-            vmi_obj = VirtualMachineInterfaceDM.get(self.virtual_machine_interface)
+            vmi_obj = VirtualMachineInterfaceDM.get(
+                self.virtual_machine_interface)
             return vmi_obj.virtual_network if vmi_obj else None
         return None
     # end get_private_network
@@ -1289,6 +1317,7 @@ class FloatingIpDM(DBBaseDM):
     # end delete
 
 # end FloatingIpDM
+
 
 class FloatingIpPoolDM(DBBaseDM):
     _dict = {}
@@ -1354,7 +1383,8 @@ class InstanceIpDM(DBBaseDM):
             li_obj = LogicalInterfaceDM.get(self.logical_interface)
             if li_obj:
                 if li_obj.fq_name[-1] == 'lo0.0':
-                    if self.fq_name[-1] == li_obj.fq_name[1]+'/'+li_obj.fq_name[-1]:
+                    if self.fq_name[-1] == (li_obj.fq_name[1] +
+                                            '/' + li_obj.fq_name[-1]):
                         li_obj.instance_ip = self.uuid
                 else:
                     li_obj.instance_ip = self.uuid
@@ -1364,8 +1394,8 @@ class InstanceIpDM(DBBaseDM):
         self.update_single_ref('virtual_machine_interface', {})
         self.logical_interface = None
     # end delete_obj
-
 # end InstanceIpDM
+
 
 class AccessControlListDM(DBBaseDM):
     _dict = {}
@@ -1398,8 +1428,8 @@ class AccessControlListDM(DBBaseDM):
             obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
-
 # end AccessControlListDM
+
 
 class SecurityGroupDM(DBBaseDM):
     _dict = {}
@@ -1430,6 +1460,7 @@ class SecurityGroupDM(DBBaseDM):
         del cls._dict[uuid]
     # end delete
 # end SecurityGroupDM
+
 
 class VirtualMachineInterfaceDM(DBBaseDM):
     _dict = {}
@@ -1471,7 +1502,8 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         kvps = self.bindings.get('key_value_pair') or []
         kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
         self.port_vlan_tag = kvp_dict.get('tor_port_vlan_id') or 4094
-        self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
+        self.device_owner = obj.get(
+            "virtual_machine_interface_device_owner") or ''
         self.update_multiple_refs('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
@@ -1490,8 +1522,9 @@ class VirtualMachineInterfaceDM(DBBaseDM):
     # end update
 
     def is_device_owner_bms(self):
-        if self.logical_interfaces and len(self.logical_interfaces) >= 1 and \
-                 self.device_owner.lower() in ['physicalrouter', 'physical-router']:
+        if self.logical_interfaces and \
+           len(self.logical_interfaces) >= 1 and \
+           self.device_owner.lower() in ['physicalrouter', 'physical-router']:
             return True
         kvps = self.bindings.get('key_value_pair') or []
         kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
@@ -1518,8 +1551,8 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_single_ref('virtual_port_group', {})
         del cls._dict[uuid]
     # end delete
-
 # end VirtualMachineInterfaceDM
+
 
 class LogicalRouterDM(DBBaseDM):
     _dict = {}
@@ -1545,7 +1578,8 @@ class LogicalRouterDM(DBBaseDM):
             if vn_obj:
                 self.virtual_network = vn_obj.uuid
                 vn_obj.logical_router = self.uuid
-        self.logical_router_gateway_external = obj.get("logical_router_gateway_external")
+        self.logical_router_gateway_external = obj.get(
+            "logical_router_gateway_external")
         self.update_multiple_refs('physical_router', obj)
         self.update_single_ref('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
@@ -1589,8 +1623,8 @@ class LogicalRouterDM(DBBaseDM):
         obj.update_single_ref('data_center_interconnect', None)
         del cls._dict[uuid]
     # end delete
-
 # end LogicalRouterDM
+
 
 class NetworkIpamDM(DBBaseDM):
     _dict = {}
@@ -1616,7 +1650,8 @@ class NetworkIpamDM(DBBaseDM):
         self.ipam_subnets = obj.get('ipam_subnets')
         if self.ipam_subnets:
             self.server_discovery_params = \
-                DMUtils.get_server_discovery_parameters(self.ipam_subnets.get('subnets', []))
+                DMUtils.get_server_discovery_parameters(self.ipam_subnets.get(
+                                                        'subnets', []))
         self.update_multiple_refs('virtual_network', obj)
     # end update
 
@@ -1628,8 +1663,8 @@ class NetworkIpamDM(DBBaseDM):
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
     # end delete
-
 # end NetworkIpamDM
+
 
 class VirtualNetworkDM(DBBaseDM):
     _dict = {}
@@ -1651,7 +1686,6 @@ class VirtualNetworkDM(DBBaseDM):
         self.update(obj_dict)
     # end __init__
 
-
     def get_route_targets(self):
         export_set, import_set = None, None
         vn_obj = self
@@ -1662,8 +1696,10 @@ class VirtualNetworkDM(DBBaseDM):
                     continue
                 if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
                     if vn_obj.route_targets:
-                        export_set = vn_obj.route_targets & ri_obj.export_targets
-                        import_set = vn_obj.route_targets & ri_obj.import_targets
+                        export_set = (vn_obj.route_targets &
+                                      ri_obj.export_targets)
+                        import_set = (vn_obj.route_targets &
+                                      ri_obj.import_targets)
                     else:
                         export_set = copy.copy(ri_obj.export_targets)
                         import_set = copy.copy(ri_obj.import_targets)
@@ -1701,7 +1737,8 @@ class VirtualNetworkDM(DBBaseDM):
         self.virtual_machine_interfaces = set(
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
-        self.gateways = DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
+        self.gateways = DMUtils.get_network_gateways(obj.get(
+            'network_ipam_refs', []))
         self.route_targets = None
         route_target_list = obj.get('route_target_list')
         if route_target_list:
@@ -1729,7 +1766,7 @@ class VirtualNetworkDM(DBBaseDM):
         return prefix_set
     # end get_prefixes
 
-    def get_vxlan_vni(self, is_internal_vn = False, is_dci_vn = False):
+    def get_vxlan_vni(self, is_internal_vn=False, is_dci_vn=False):
         if is_internal_vn or is_dci_vn:
             props = self.virtual_network_properties or {}
             return props.get("vxlan_network_identifier") or self.vn_network_id
@@ -1766,15 +1803,16 @@ class VirtualNetworkDM(DBBaseDM):
             if vmi.floating_ip is not None and vmi.instance_ip is not None:
                 fip = FloatingIpDM.get(vmi.floating_ip)
                 inst_ip = InstanceIpDM.get(vmi.instance_ip)
-                if fip is None or inst_ip is None or fip.get_public_network() is None:
+                if (fip is None or inst_ip is None or
+                        fip.get_public_network() is None):
                     continue
                 instance_ip = inst_ip.instance_ip_address
                 floating_ip = fip.floating_ip_address
                 public_vn = VirtualNetworkDM.get(fip.get_public_network())
                 if public_vn is None or public_vn.vn_network_id is None:
                     continue
-                public_vrf_name = DMUtils.make_vrf_name(public_vn.fq_name[-1],
-                                                   public_vn.vn_network_id, 'l3')
+                public_vrf_name = DMUtils.make_vrf_name(
+                    public_vn.fq_name[-1], public_vn.vn_network_id, 'l3')
                 self.instance_ip_map[instance_ip] = {
                     'floating_ip': floating_ip,
                     'vrf_name': public_vrf_name
@@ -1792,23 +1830,23 @@ class VirtualNetworkDM(DBBaseDM):
                 fip_obj = FloatingIpDM.get(fip)
                 if not fip_obj or not fip_obj.virtual_machine_interface:
                     continue
-                vmi = VirtualMachineInterfaceDM.get(fip_obj.virtual_machine_interface)
+                vmi = VirtualMachineInterfaceDM.get(
+                    fip_obj.virtual_machine_interface)
                 if vmi is None or vmi.is_device_owner_bms() == False:
                     continue
                 if vmi.floating_ip is not None and vmi.instance_ip is not None:
                     fip = FloatingIpDM.get(vmi.floating_ip)
                     inst_ip = InstanceIpDM.get(vmi.instance_ip)
-                    if fip is None or inst_ip is None or fip.get_private_network() is None:
+                    if (fip is None or inst_ip is None or
+                            fip.get_private_network() is None):
                         continue
-                    instance_ip = inst_ip.instance_ip_address
-                    floating_ip = fip.floating_ip_address
-                    private_vn = VirtualNetworkDM.get(fip.get_private_network())
+                    private_vn = VirtualNetworkDM.get(
+                        fip.get_private_network())
                     if private_vn is None or private_vn.vn_network_id is None:
                         continue
                     vn_list.add(private_vn.uuid)
         return list(vn_list)
     # end get_connected_private_networks:w
-
 
     @classmethod
     def delete(cls, uuid):
@@ -1881,6 +1919,7 @@ class RoutingInstanceDM(DBBaseDM):
     # end delete
 # end RoutingInstanceDM
 
+
 class ServiceTemplateDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_template'
@@ -1901,12 +1940,13 @@ class ServiceTemplateDM(DBBaseDM):
         self.params = obj.get('service_template_properties')
         if self.params:
             self.virtualization_type = self.params.get(
-                                            'service_virtualization_type')
+                'service_virtualization_type')
             intf_type = self.params.get('interface_type')
             if intf_type is not None:
                 for svc_intf_type in intf_type:
-                     if svc_intf_type.get('service_interface_type'):
-                         self.port_tuple_order.append(svc_intf_type.get('service_interface_type'))
+                    if svc_intf_type.get('service_interface_type'):
+                        self.port_tuple_order.append(
+                            svc_intf_type.get('service_interface_type'))
         self.update_multiple_refs('service_instance', obj)
         self.update_single_ref('service_appliance_set', obj)
     # end update
@@ -1915,8 +1955,8 @@ class ServiceTemplateDM(DBBaseDM):
         self.update_multiple_refs('service_instance', {})
         self.update_single_ref('service_appliance_set', {})
     # end delete_obj
-
 # end class ServiceTemplateDM
+
 
 class ServiceApplianceDM(DBBaseDM):
     _dict = {}
@@ -1950,6 +1990,7 @@ class ServiceApplianceDM(DBBaseDM):
     # end delete_obj
 # end ServiceApplianceDM
 
+
 class ServiceApplianceSetDM(DBBaseDM):
     _dict = {}
     obj_type = 'service_appliance_set'
@@ -1978,9 +2019,10 @@ class ServiceApplianceSetDM(DBBaseDM):
     # end update
 
     def delete_obj(self):
-        self.update_single_ref("service_template",{})
+        self.update_single_ref("service_template", {})
     # end delete_obj
 # end ServiceApplianceSetDM
+
 
 class ServiceInstanceDM(DBBaseDM):
     _dict = {}
@@ -2007,8 +2049,10 @@ class ServiceInstanceDM(DBBaseDM):
         if annotations:
             kvps = annotations.get('key_value_pair') or []
             kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
-            self.left_svc_asns = kvp_dict.get('left-svc-asns').split(',') or []
-            self.right_svc_asns = kvp_dict.get('right-svc-asns').split(',') or []
+            self.left_svc_asns = \
+                kvp_dict.get('left-svc-asns').split(',') or []
+            self.right_svc_asns = \
+                kvp_dict.get('right-svc-asns').split(',') or []
             self.left_svc_vlan = kvp_dict.get('left-svc-vlan') or None
             self.right_svc_vlan = kvp_dict.get('right-svc-vlan') or None
             self.rp_ip_addr = kvp_dict.get('rp-ip-addr') or None
@@ -2027,6 +2071,7 @@ class ServiceInstanceDM(DBBaseDM):
         self.update_single_ref('service_template', {})
         self._object_db.delete_pnf_resources(uuid)
     # end
+
 
 class PortTupleDM(DBBaseDM):
     _dict = {}
@@ -2071,9 +2116,10 @@ class PortTupleDM(DBBaseDM):
             if si_obj.service_template is not None:
                 svc_tmpl_obj = ServiceTemplateDM.get(si_obj.service_template)
                 if svc_tmpl_obj.service_appliance_set is not None:
-                    svc_appliance_set_obj = ServiceApplianceSetDM.get(svc_tmpl_obj.service_appliance_set)
+                    svc_appliance_set_obj = ServiceApplianceSetDM.get(
+                        svc_tmpl_obj.service_appliance_set)
                     for sa in svc_appliance_set_obj.service_appliances or []:
-                        svc_appliance_obj =  ServiceApplianceDM.get(sa)
+                        svc_appliance_obj = ServiceApplianceDM.get(sa)
 
         return svc_appliance_obj
 
@@ -2081,32 +2127,34 @@ class PortTupleDM(DBBaseDM):
         sa_obj = self.get_sa_obj()
         if sa_obj is not None:
             for pi in sa_obj.physical_interfaces or {}:
-                 pi_obj = PhysicalInterfaceDM.get(pi)
-                 pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
-                 if self.uuid not in pr_obj.port_tuples:
-                     pr_obj.set_associated_port_tuples(self.uuid)
+                pi_obj = PhysicalInterfaceDM.get(pi)
+                pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+                if self.uuid not in pr_obj.port_tuples:
+                    pr_obj.set_associated_port_tuples(self.uuid)
 
-                 for pi_ref in pi_obj.physical_interfaces or []:
-                      pi_ref_obj = PhysicalInterfaceDM.get(pi_ref)
-                      pr_ref_obj = PhysicalRouterDM.get(pi_ref_obj.get_pr_uuid())
-                      if self.uuid not in pr_ref_obj.port_tuples:
-                          pr_ref_obj.set_associated_port_tuples(self.uuid)
+                for pi_ref in pi_obj.physical_interfaces or []:
+                    pi_ref_obj = PhysicalInterfaceDM.get(pi_ref)
+                    pr_ref_obj = PhysicalRouterDM.get(
+                        pi_ref_obj.get_pr_uuid())
+                    if self.uuid not in pr_ref_obj.port_tuples:
+                        pr_ref_obj.set_associated_port_tuples(self.uuid)
     # end build_pr_pt_map
 
     def delete_obj(self):
         sa_obj = self.get_sa_obj()
         if sa_obj is not None:
             for pi in sa_obj.physical_interfaces or {}:
-                 pi_obj = PhysicalInterfaceDM.get(pi)
-                 pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
-                 if self.uuid in pr_obj.port_tuples:
-                     pr_obj.remove_associated_port_tuples(self.uuid)
+                pi_obj = PhysicalInterfaceDM.get(pi)
+                pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
+                if self.uuid in pr_obj.port_tuples:
+                    pr_obj.remove_associated_port_tuples(self.uuid)
 
-                 for pi_ref in pi_obj.physical_interfaces or []:
-                      pi_ref_obj = PhysicalInterfaceDM.get(pi_ref)
-                      pr_ref_obj = PhysicalRouterDM.get(pi_ref_obj.get_pr_uuid())
-                      if self.uuid in pr_ref_obj.port_tuples:
-                          pr_ref_obj.remove_associated_port_tuples(self.uuid)
+                for pi_ref in pi_obj.physical_interfaces or []:
+                    pi_ref_obj = PhysicalInterfaceDM.get(pi_ref)
+                    pr_ref_obj = PhysicalRouterDM.get(
+                        pi_ref_obj.get_pr_uuid())
+                    if self.uuid in pr_ref_obj.port_tuples:
+                        pr_ref_obj.remove_associated_port_tuples(self.uuid)
 
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('logical_router', {})
@@ -2148,6 +2196,7 @@ class ServiceEndpointDM(DBBaseDM):
         obj.update_single_ref('virtual_machine_interface', {})
         del cls._dict[uuid]
 # end class ServiceEndpointDM
+
 
 class ServiceConnectionModuleDM(DBBaseDM):
     _dict = {}
@@ -2236,9 +2285,9 @@ class ServiceObjectDM(DBBaseDM):
                     pr_uuid = sep.physical_router
                     pr = PhysicalRouterDM.get(pr_uuid)
                     if pr is not None and pr.vendor.lower() == "juniper" \
-                                                       and found != True:
+                       and found != True:
                         self.management_ip = pr.management_ip
-                        self.user_creds    = pr.user_credentials
+                        self.user_creds = pr.user_credentials
                         self.service_type = scm.service_type
                         found = True
                     elif pr is not None:
@@ -2247,25 +2296,24 @@ class ServiceObjectDM(DBBaseDM):
                         neigbor_id = bgp_entry.params.get('address')
                 if found == True:
                     service_params = {
-                            "service_type": self.service_type,
-                            "circuit_id": circuit_id,
-                            "neigbor_id": neigbor_id,
+                        "service_type": self.service_type,
+                        "circuit_id": circuit_id,
+                        "neigbor_id": neigbor_id,
                     }
-                    self.service_status = \
-                    pr.config_manager.get_service_status(service_params)
+                    self.service_status = pr.config_manager.get_service_status(
+                        service_params)
                     self.uve_send()
 
     def uve_send(self):
-        mydata=self.service_status
+        mydata = self.service_status
         if self.service_status is not None:
             last_timestamp = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-            pr_trace = UveServiceStatus(
-                    name=self.name,
-                    ip_address=self.management_ip,
-                    service_name=self.name,
-                    status_data=str(mydata),
-                    operational_status="None",
-                    last_get_time=last_timestamp)
+            pr_trace = UveServiceStatus(name=self.name,
+                                        ip_address=self.management_ip,
+                                        service_name=self.name,
+                                        status_data=str(mydata),
+                                        operational_status="None",
+                                        last_get_time=last_timestamp)
 
             pr_msg = UveServiceStatusTrace(
                 data=pr_trace, sandesh=DBBaseDM._sandesh)
@@ -2312,10 +2360,10 @@ class NetworkDeviceConfigDM(DBBaseDM):
         if mydata:
             last_timestamp = strftime("%Y-%m-%d %H:%M:%S", gmtime())
             pr_trace = UvePhysicalRouterConfiguration(
-                    name=self.name,
-                    ip_address=self.management_ip,
-                    config_data=mydata,
-                    last_get_time=last_timestamp)
+                name=self.name,
+                ip_address=self.management_ip,
+                config_data=mydata,
+                last_get_time=last_timestamp)
 
             pr_msg = UvePhysicalRouterConfigurationTrace(
                 data=pr_trace, sandesh=DBBaseDM._sandesh)
@@ -2330,6 +2378,7 @@ class NetworkDeviceConfigDM(DBBaseDM):
         obj.update_single_ref('physical_router', {})
         del cls._dict[uuid]
 # end class NetworkDeviceConfigDM
+
 
 class DataCenterInterconnectDM(DBBaseDM):
     _dict = {}
@@ -2432,8 +2481,8 @@ class DataCenterInterconnectDM(DBBaseDM):
         obj.update_multiple_refs('logical_router', {})
         del cls._dict[uuid]
     # end delete
-
 # end class DataCenterInterconnectDM
+
 
 class FabricDM(DBBaseDM):
     _dict = {}
@@ -2604,6 +2653,7 @@ class PortDM(DBBaseDM):
     # end delete_obj
 # end class PortDM
 
+
 class TagDM(DBBaseDM):
     _dict = {}
     obj_type = 'tag'
@@ -2625,6 +2675,7 @@ class TagDM(DBBaseDM):
         self.update_multiple_refs('virtual_network', {})
     # end delete_obj
 # end class TagDM
+
 
 class LinkAggregationGroupDM(DBBaseDM):
     _dict = {}
@@ -2686,12 +2737,13 @@ class VirtualPortGroupDM(DBBaseDM):
             return
         for pi in pi_refs:
             if pi.get('attr') is not None:
-                self.pi_ae_map.update({pi.get('uuid'): pi.get('attr').get('ae_num')})
+                self.pi_ae_map.update(
+                    {pi.get('uuid'): pi.get('attr').get('ae_num')})
 
     def get_esi(self):
         hash_obj = pyhash.city_64()
         unpacked = struct.unpack('>8B', struct.pack('>Q', hash_obj(self.uuid)))
-        self.esi = '00:%s:00'%(':'.join('%02x' % i for i in unpacked))
+        self.esi = '00:%s:00' % (':'.join('%02x' % i for i in unpacked))
 
     def build_lag_pr_map(self):
         for pi in self.physical_interfaces or []:
@@ -2706,7 +2758,9 @@ class VirtualPortGroupDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
             if not vmi_obj:
                 return sg_list
-            if vmi_obj.vlan_tag == int(vlan_tag) or (not vmi_obj.vlan_tag and int(vlan_tag) == int(vmi_obj.port_vlan_tag)):
+            if vmi_obj.vlan_tag == \
+                int(vlan_tag) or (not vmi_obj.vlan_tag and
+                                  int(vlan_tag) == int(vmi_obj.port_vlan_tag)):
                 for sg in vmi_obj.security_groups or []:
                     sg = SecurityGroupDM.get(sg)
                     if sg and sg not in sg_list:
@@ -2726,6 +2780,7 @@ class VirtualPortGroupDM(DBBaseDM):
         self.remove_from_parent()
     # end delete_obj
 # end class VirtualPortGroupDM
+
 
 class RoleConfigDM(DBBaseDM):
     _dict = {}
@@ -2786,6 +2841,7 @@ class E2ServiceProviderDM(DBBaseDM):
         obj.update_multiple_refs('physical_router', {})
         del cls._dict[uuid]
 # end class E2ServiceProviderDM
+
 
 class PeeringPolicyDM(DBBaseDM):
     _dict = {}
@@ -2858,7 +2914,7 @@ class DMCassandraDB(VncObjectDBClient):
         cass_server_list = self._args.cassandra_server_list
         cred = None
         if (self._args.cassandra_user is not None and
-            self._args.cassandra_password is not None):
+                self._args.cassandra_password is not None):
             cred = {'username': self._args.cassandra_user,
                     'password': self._args.cassandra_password}
 
@@ -2877,7 +2933,7 @@ class DMCassandraDB(VncObjectDBClient):
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
         self.pnf_network_allocator = IndexAllocator(
-            zkclient, self._zk_path_pfx+self._PNF_NETWORK_ALLOC_PATH,
+            zkclient, self._zk_path_pfx + self._PNF_NETWORK_ALLOC_PATH,
             self._PNF_MAX_NETWORK_ID)
 
         self.pnf_cf = self.get_cf(self._PNF_RESOURCE_CF)
@@ -2901,7 +2957,7 @@ class DMCassandraDB(VncObjectDBClient):
             pr_id,
             IndexAllocator(
                 self._zkclient,
-                self._zk_path_pfx+self._PNF_VLAN_ALLOC_PATH+pr_id+'/',
+                self._zk_path_pfx + self._PNF_VLAN_ALLOC_PATH + pr_id + '/',
                 self._PNF_MAX_VLAN)
         )
 
@@ -2910,7 +2966,7 @@ class DMCassandraDB(VncObjectDBClient):
             pi_id,
             IndexAllocator(
                 self._zkclient,
-                self._zk_path_pfx+self._PNF_UNIT_ALLOC_PATH+pi_id+'/',
+                self._zk_path_pfx + self._PNF_UNIT_ALLOC_PATH + pi_id + '/',
                 self._PNF_MAX_UNIT)
         )
 
@@ -2972,7 +3028,8 @@ class DMCassandraDB(VncObjectDBClient):
             for vmi_uuid in pt_obj.virtual_machine_interfaces:
                 vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
                 if vmi_obj.physical_interface:
-                    self.get_pnf_unit_allocator(vmi_obj.physical_interface).delete(
+                    self.get_pnf_unit_allocator(
+                        vmi_obj.physical_interface).delete(
                         int(pnf_resources['unit_id']))
 
         del self.pnf_resources_map[si_id]
@@ -3012,7 +3069,7 @@ class DMCassandraDB(VncObjectDBClient):
 
     def get_ip(self, key, ip_used_for):
         return self.get_one_col(self._PR_VN_IP_CF, key,
-                      DMUtils.get_ip_cs_column_name(ip_used_for))
+                                DMUtils.get_ip_cs_column_name(ip_used_for))
     # end
 
     def get_asn_for_pr(self, pr_uuid):
@@ -3024,7 +3081,8 @@ class DMCassandraDB(VncObjectDBClient):
     # end get_pr_for_asn
 
     def add_ip(self, key, ip_used_for, ip):
-        self.add(self._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
+        self.add(self._PR_VN_IP_CF, key,
+                 {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
     # end
 
     def add_asn(self, pr_uuid, asn):
@@ -3034,7 +3092,8 @@ class DMCassandraDB(VncObjectDBClient):
     # end add_asn
 
     def delete_ip(self, key, ip_used_for):
-        self.delete(self._PR_VN_IP_CF, key, [DMUtils.get_ip_cs_column_name(ip_used_for)])
+        self.delete(self._PR_VN_IP_CF, key,
+                    [DMUtils.get_ip_cs_column_name(ip_used_for)])
     # end
 
     def add_to_pr_map(self, pr_uuid, vn_subnet, ip_used_for):
@@ -3060,8 +3119,9 @@ class DMCassandraDB(VncObjectDBClient):
             ret = self.delete(self._PR_VN_IP_CF, pr_uuid + ':' + vn_subnet,
                               [DMUtils.get_ip_cs_column_name(ip_used_for)])
             if ret == False:
-                self._logger.error("Unable to free ip from db for vn/pr/subnet/ip_used_for "
-                                   "(%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
+                self._logger.error(
+                    "Unable to free ip from db for vn/pr/subnet/ip_used_for "
+                    "(%s/%s/%s)" % (pr_uuid, vn_subnet, ip_used_for))
         asn = self.pr_asn_map.pop(pr_uuid, None)
         if asn is not None:
             self.asn_pr_map.pop(asn, None)
