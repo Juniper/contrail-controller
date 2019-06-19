@@ -33,4 +33,5 @@ def import_feature_plugins():
     from l3_gateway_feature import L3GatewayFeature
     from vn_interconnect_feature import VnInterconnectFeature
     from assisted_replicator_feature import AssistedReplicatorFeature
+    from storm_control_feature import StormControlFeature
 # end import_feature_plugins
