@@ -1448,6 +1448,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.port_tuple = None
         self.routing_instances = set()
         self.security_groups = set()
+        self.port_profiles = set()
         self.service_instance = None
         self.service_endpoint = None
         self.virtual_port_group = None
@@ -1479,6 +1480,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.update_single_ref('physical_interface', obj)
         self.update_multiple_refs('routing_instance', obj)
         self.update_multiple_refs('security_group', obj)
+        self.update_multiple_refs('port_profile', obj)
         self.update_single_ref('port_tuple', obj)
         self.service_instance = None
         if self.port_tuple:
@@ -1513,6 +1515,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_single_ref('physical_interface', {})
         obj.update_multiple_refs('routing_instance', {})
         obj.update_multiple_refs('security_group', {})
+        obj.update_multiple_refs('port_profile', {})
         obj.update_single_ref('port_tuple', {})
         obj.update_single_ref('service_endpoint', {})
         obj.update_single_ref('virtual_port_group', {})
@@ -2626,6 +2629,63 @@ class TagDM(DBBaseDM):
     # end delete_obj
 # end class TagDM
 
+class PortProfileDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'port_profile'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.storm_control_profiles = set()
+        self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('storm_control_profile', obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs('storm_control_profile', {})
+        self.update_multiple_refs('virtual_machine_interface', {})
+    # end delete_obj
+# end class PortProfileDM
+
+class StormControlProfileDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'storm_control_profile'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.port_profiles = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.bandwidth_percent = obj.get('storm_control_bandwidth')
+        self.recovery_timeout = obj.get('recovery_timeout') or 1800
+        self.no_bcast = obj.get('no_broadcast', False)
+        self.no_mcast = obj.get('no_multicast', False)
+        self.no_unknown_ucast = obj.get('no_unknown_unicast', False)
+        self.no_registered_mcast = obj.get('no_registered_multicast', False)
+        self.no_unregistered_mcast = obj.get('no_unnregistered_multicast', False)
+        self.actions = obj.get('storm_control_actions')
+        self.update_multiple_refs('port_profile', obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs('port_profile', {})
+    # end delete_obj
+# end class StormControlProfileDM
+
 class LinkAggregationGroupDM(DBBaseDM):
     _dict = {}
     obj_type = 'link_aggregation_group'
@@ -2713,6 +2773,20 @@ class VirtualPortGroupDM(DBBaseDM):
                         sg_list.append(sg)
         return sg_list
     # end get_attached_sgs
+
+    def get_attached_port_profiles(self, vlan_tag):
+        pp_list = []
+        for vmi_uuid in self.virtual_machine_interfaces:
+            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if not vmi_obj:
+                return pp_list
+            if vmi_obj.vlan_tag == int(vlan_tag) or (not vmi_obj.vlan_tag and int(vlan_tag) == int(vmi_obj.port_vlan_tag)):
+                for pp in vmi_obj.port_profiles or []:
+                    pp = PortProfileGroupDM.get(pp)
+                    if pp and pp not in pp_list:
+                        pp_list.append(pp)
+        return pp_list
+    # end get_attached_port_profiles
 
     def delete_obj(self):
         for pi in self.physical_interfaces or []:
