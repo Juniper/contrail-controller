@@ -190,26 +190,27 @@ class Debug(object):
         cmd = 'docker exec %s gcore $(pidof %s)' %(self._container,
                 self._process_name)
         ssh_stdin, ssh_stdout, ssh_stderr = self._ssh_client.exec_command(cmd)
+        # Core generation takes some time, hence wait.
+        time.sleep(15)
+        cmd = 'docker exec %s ls core.$(pidof %s)' %(self._container, self._process_name)
+        ssh_stdin, ssh_stdout, ssh_stderr = self._ssh_client.exec_command(cmd)
+        core_name = ssh_stdout.readline().strip('\n')
+        if 'core' not in core_name:
+            print('\nGenerating %s gcore : Failed. Taking too much time' %(self._process_name))
+            return 0
+        self._core_file_name = core_name
         print('\nGenerating %s gcore : Success' %(self._process_name))
+        return 1
     # end generate_gcore
 
     def copy_gcore(self):
         print('\nTASK : copy gcore')
-        # since pid is appended to the core file,
-        # we need to find pid of process
-        cmd = 'echo $(pidof %s)'%self._process_name
-        ssh_stdin, ssh_stdout, ssh_stderr = self._ssh_client.exec_command(cmd)
-        proc_id = ssh_stdout.readline()
-        proc_id = proc_id.rstrip('\n')
-        # append pid to get file name
-        core_file_name = 'core.%s'%proc_id
-        cmd = 'docker cp %s:%s %s'%(self._container, core_file_name,
+        cmd = 'docker cp %s:%s %s'%(self._container, self._core_file_name,
                                     self._tmp_dir)
         ssh_stdin, ssh_stdout, ssh_stderr = self._ssh_client.exec_command(cmd)
         time.sleep(5)
-        src_file = '%s/%s'%(self._tmp_dir, core_file_name)
-
-        dest_file = '%s/gcore/%s'%(self._parent_dir, core_file_name)
+        src_file = '%s/%s'%(self._tmp_dir, self._core_file_name)
+        dest_file = '%s/gcore/%s'%(self._parent_dir, self._core_file_name)
         if self.do_ftp(src_file, dest_file):
             print('\nCopying gcore file : Success')
         else:
@@ -674,12 +675,11 @@ def collect_vrouter_node_logs(data):
         obj.copy_contrail_status()
         lib_list = ['libc', 'libstdc++']
         obj.copy_libraries(lib_list)
-        if gcore:
-            obj.generate_gcore()
-            obj.copy_gcore()
         obj.copy_introspect()
         obj.copy_sandesh_traces('Snh_SandeshTraceBufferListRequest')
         obj.get_vrouter_logs()
+        if gcore and obj.generate_gcore():
+            obj.copy_gcore()
         obj.delete_tmp_dir()
 # end collect_vrouter_node_logs
 
