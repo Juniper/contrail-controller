@@ -1,0 +1,12 @@
+---
+prouter_uuid: "{{playbook_input.device_id}}"
+prouter_name: "{{playbook_input.device_fqname[-1]}}"
+prouter_vendor: "{{playbook_input.vendor | lower}}"
+prouter_family: "{{playbook_input.device_family | lower}}"
+prouter_product: "{{playbook_input.product_name}}"
+prouter_os_version: "{{playbook_input.device_os_version}}"
+dynamic_mgmt_ip_tbl: "{{playbook_input.input.get('dynamic_mgmt_ip_tbl')}}"
+prouter_mgmt_ip: "{{playbook_input.device_management_ip}}"
+username: "{{playbook_input.device_username}}"
+password: "{{playbook_input.device_password}}"
+timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"

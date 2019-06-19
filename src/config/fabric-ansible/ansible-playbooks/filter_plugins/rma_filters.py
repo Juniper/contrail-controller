@@ -130,6 +130,7 @@ class FilterModule(object):
             temp['device_family'] = device_obj.get_physical_router_device_family()
             temp['device_vendor'] = device_obj.get_physical_router_vendor_name()
             temp['device_product'] = device_obj.get_physical_router_product_name()
+            temp['device_os_version'] = device_obj.get_physical_router_os_version()
             temp['device_serial_number'] = new_serial_number
             temp['device_dynamic_mgmt_ip'] = mgmt_ip
             device_info.update({device_uuid: temp})
