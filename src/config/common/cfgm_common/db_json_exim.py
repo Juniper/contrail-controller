@@ -58,6 +58,8 @@ class DatabaseExim(object):
     # end __init__
 
     def init_cassandra(self, ks_cf_info=None):
+        ssl_enabled = (self._api_args.cassandra_use_ssl
+                       if 'cassandra_use_ssl' in self._api_args else False)
         self._cassandra = VncCassandraClient(
             self._api_args.cassandra_server_list, self._api_args.cluster_id,
             rw_keyspaces=ks_cf_info, ro_keyspaces=None, logger=self.log,
@@ -197,7 +199,8 @@ class DatabaseExim(object):
             cassandra_contents[ks_name] = {}
 
             socket_factory = pycassa.connection.default_socket_factory
-            if self._api_args.cassandra_use_ssl:
+            if ('cassandra_use_ssl' in self._api_args and
+                self._api_args.cassandra_use_ssl):
                 socket_factory = self._make_ssl_socket_factory(
                     self._api_args.cassandra_ca_certs, validate=False)
 
@@ -211,7 +214,7 @@ class DatabaseExim(object):
                 pool_timeout=120, max_retries=-1, timeout=5,
                 socket_factory=socket_factory, credentials=creds)
             sys_mgr = SystemManager(self._api_args.cassandra_server_list[0],
-                credentials=creds)
+                credentials=creds, socket_factory=socket_factory)
             for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
                 cassandra_contents[ks_name][cf_name] = {}
                 cf = pycassa.ColumnFamily(pool, cf_name)

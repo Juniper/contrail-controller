@@ -38,12 +38,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.13"
+__version__ = "1.14"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.14
+  - Fix CEM-6463
 * 1.13
   - Retrieve Subnet from IPAM if the ipam-method is flat-subnet
   - PEP8 compliance
@@ -384,7 +386,8 @@ class DatabaseManager(object):
                 'password': self._api_args.cassandra_password,
             }
         socket_factory = pycassa.connection.default_socket_factory
-        if self._api_args.cassandra_use_ssl:
+        if ('cassandra_use_ssl' in self._api_args and
+            self._api_args.cassandra_use_ssl):
             socket_factory = self._make_ssl_socket_factory(
                 self._api_args.cassandra_ca_certs, validate=False)
         for ks_name, cf_name_list in self._db_info:
@@ -1222,9 +1225,17 @@ class DatabaseChecker(DatabaseManager):
         ret_errors = []
         logger = self._logger
 
+        socket_factory = pycassa.connection.default_socket_factory
+        if ('cassandra_use_ssl' in self._api_args and
+            self._api_args.cassandra_use_ssl):
+            socket_factory = self._make_ssl_socket_factory(
+                self._api_args.cassandra_ca_certs, validate=False)
+
         for server in self._cassandra_servers:
             try:
-                sys_mgr = pycassa.SystemManager(server, credentials=self.creds)
+                sys_mgr = pycassa.SystemManager(server,
+                                                socket_factory=socket_factory,
+                                                credentials=self.creds)
             except Exception as e:
                 msg = "Cannot connect to cassandra node %s: %s" % (server,
                                                                    str(e))
