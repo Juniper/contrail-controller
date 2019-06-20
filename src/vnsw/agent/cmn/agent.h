@@ -663,6 +663,10 @@ public:
         compute_node_ip_ = addr;
     }
 
+    void set_dns_list(std::vector<std::string> &dns_list) {
+         dns_list_ = dns_list;
+    }
+
     AgentSignal *agent_signal() const { return agent_signal_.get(); }
 
     std::vector<string> &GetControllerlist() {
