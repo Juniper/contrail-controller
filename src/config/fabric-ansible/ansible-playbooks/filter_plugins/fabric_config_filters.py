@@ -146,10 +146,39 @@ class FilterModule(object):
 
     # Render the feature jinja template, appending to final_config string
     def _render_feature_config(self, feature, template, is_empty):
+        def rtfilter(value):
+            rt_dict = value.split(':')
+            if rt_dict[0] == 'target':
+                asn = value.split(':')[-2]
+                id = value.split(':')[-1]
+                # It is already in 4-Byte ASN format
+                if asn[len(asn) - 1] == 'L':
+                    return value
+                # It is not in ASN (int) format.
+                # It maybe in IP format, so just return
+                if not asn.isdigit():
+                    return value
+                # If ASN > 64K, append 'L'
+                if int(asn) > 65535:
+                    return "target:" + asn + "L:"+ id
+            return value
+        # end rtfilter
+
+        def asnfilter(value):
+            asn = value
+            if not asn.isdigit():
+                return value
+            if int(asn) > 65535:
+                return asn + "L"
+            return asn
+        # end asnfilter
+
         ffile = self.device_vendor + '_feature_config.j2'
         file_loader = FileSystemLoader('./')
         env = Environment(loader=file_loader, trim_blocks=True,
                           extensions=(ext.loopcontrols, ext.do))
+        env.filters['rtfilter'] = rtfilter
+        env.filters['asnfilter'] = asnfilter
         templ = env.get_template('templates/' + ffile)
         model = '_' + self.device_model if '[' in template and ']' in template\
             else ''
