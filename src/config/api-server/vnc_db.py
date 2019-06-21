@@ -200,7 +200,8 @@ class VncServerCassandraClient(VncCassandraClient):
             perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
                                for k, v in o.__dict__.iteritems()))
             perms2 = json.loads(perms2_json)
-        if ((obj_dict.get('is_shared') == True) and (perms2['global_access'] == 0)):
+        if ((obj_dict.get('is_shared') == True) and
+                (perms2.get('global_access', 0) == 0)):
             perms2['global_access'] = PERMS_RWX
             skip_update = False
         if skip_update:
@@ -215,7 +216,7 @@ class VncServerCassandraClient(VncCassandraClient):
             'tenant': 'domain:%s' % obj_uuid,
             'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
         }
-        perms2['share'].append(share_item)
+        perms2.setdefault('share', []).append(share_item)
         bch = self._obj_uuid_cf.batch()
         self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
         bch.send()
@@ -984,7 +985,7 @@ class VncDbClient(object):
 
                 # create new perms if upgrading
                 perms2 = self._cassandra_db.update_perms2(obj_uuid, obj_dict)
-                if obj_type == 'domain' and len(perms2['share']) == 0:
+                if obj_type == 'domain' and len(perms2.get('share', [])) == 0:
                     self._cassandra_db.enable_domain_sharing(obj_uuid, perms2)
 
                 if (obj_type == 'bgp_router' and
@@ -1171,22 +1172,26 @@ class VncDbClient(object):
                 if not new_perms2:
                     return (ok, result)
 
-                share_perms = new_perms2.get('share', cur_perms2['share'])
-                global_access = new_perms2.get('global_access', cur_perms2['global_access'])
+                share_perms = new_perms2.get(
+                    'share', cur_perms2.get('share', []))
+                global_access = new_perms2.get(
+                    'global_access', cur_perms2.get('global_access', 0))
 
                 # msg = 'RBAC: BSL perms new %s, cur %s' % (new_perms2, cur_perms2)
                 # self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
                 # change in global access?
-                if cur_perms2['global_access'] != global_access:
+                if cur_perms2.get('global_access', 0) != global_access:
                     if global_access:
                         self._cassandra_db.set_shared(obj_type, obj_uuid, rwx = global_access)
                     else:
                         self._cassandra_db.del_shared(obj_type, obj_uuid)
 
                 # change in shared list? Construct temporary sets to compare
-                cur_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in cur_perms2['share'])
-                new_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in share_perms)
+                cur_shared_list = set(item['tenant'] + ':' + str(item['tenant_access']) for item in
+                                      cur_perms2.get('share', []))
+                new_shared_list = set(item['tenant'] + ':' + str(item['tenant_access']) for item in
+                                      share_perms)
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
