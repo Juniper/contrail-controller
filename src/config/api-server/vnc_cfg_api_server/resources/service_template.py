@@ -22,5 +22,5 @@ class ServiceTemplateServer(ResourceMixin, ServiceTemplate):
             'tenant': 'domain:%s' % domain_uuid,
             'tenant_access': PERMS_RX
         }
-        obj_dict['perms2']['share'].append(share_item)
+        obj_dict['perms2'].get('share', []).append(share_item)
         return True, ''
