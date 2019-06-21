@@ -1307,10 +1307,11 @@ class VncDbClient(object):
                 elif perms2['owner'] is None:
                     perms2['owner'] = 'cloud-admin'
                     update_obj = True
-                if ((obj_dict.get('is_shared') == True) and (perms2['global_access'] == 0)):
+                if (obj_dict.get('is_shared') == True and
+                        perms2.get('global_access', 0) == 0):
                     perms2['global_access'] = PERMS_RWX
                     update_obj = True
-                if obj_type == 'domain' and len(perms2['share']) == 0:
+                if obj_type == 'domain' and len(perms2.get('share', [])) == 0:
                     update_obj = True
                     perms2 = self.enable_domain_sharing(obj_uuid, perms2)
                 if update_obj:
@@ -1477,22 +1478,29 @@ class VncDbClient(object):
                 if not new_perms2:
                     return (ok, result)
 
-                share_perms = new_perms2.get('share', cur_perms2['share'])
-                global_access = new_perms2.get('global_access', cur_perms2['global_access'])
+                share_perms = new_perms2.get('share',
+                                             cur_perms2.get('share', []))
+                global_access = new_perms2.get('global_access',
+                                               cur_perms2.get('global_access',
+                                                              0))
 
                 # msg = 'RBAC: BSL perms new %s, cur %s' % (new_perms2, cur_perms2)
                 # self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
                 # change in global access?
-                if cur_perms2['global_access'] != global_access:
+                if cur_perms2.get('global_access', 0) != global_access:
                     if global_access:
                         self._object_db.set_shared(obj_type, obj_id, rwx = global_access)
                     else:
                         self._object_db.del_shared(obj_type, obj_id)
 
                 # change in shared list? Construct temporary sets to compare
-                cur_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in cur_perms2['share'])
-                new_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in share_perms)
+                cur_shared_list = set(
+                    item['tenant'] + ':' + str(item['tenant_access'])
+                    for item in cur_perms2.get('share', []))
+                new_shared_list = set(
+                    item['tenant'] + ':' + str(item['tenant_access'])
+                    for item in share_perms)
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
@@ -1939,7 +1947,7 @@ class VncDbClient(object):
             'tenant': 'domain:%s' % obj_uuid,
             'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
         }
-        perms2['share'].append(share_item)
+        perms2.get('share', []).append(share_item)
         return perms2
 
 # end class VncDbClient
