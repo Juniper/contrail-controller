@@ -234,12 +234,17 @@ role_to_feature_mapping:
     - overlay_service_chain
 
 feature_based_plugin_roles:
+  CRB-Access@leaf:
+    - overlay_storm_control
+  CRB-Access@spine:
+    - overlay_storm_control
   ERB-UCAST-Gateway@leaf:
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_erb_access
     - overlay_evpn_type5
     - overlay_evpn_ucast_gateway
+    - overlay_storm_control
   AR-Client@leaf:
     - overlay_assisted_replicator_client
   AR-Client@spine:
@@ -270,6 +275,7 @@ feature_apply_order:
   - overlay_service_chain
   - overlay_assisted_replicator
   - overlay_assisted_replicator_client
+  - overlay_storm_control
 
 DEVICE_FACTS_TIMEOUT: 120
 DEVICE_COMMAND_TIMEOUT: 600
