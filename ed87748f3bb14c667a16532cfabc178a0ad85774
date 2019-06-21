@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f5c4f37_2c1cb7bf",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 10
+      },
+      "lineNbr": 520,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-06-21T17:37:23Z",
+      "side": 1,
+      "message": "majority of the code for abort_job_http_port look like doing the same things that execute_job_http_post() is doing. It will good if we move the common code to a different function.",
+      "revId": "ed87748f3bb14c667a16532cfabc178a0ad85774",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_4c1febb6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 10
+      },
+      "lineNbr": 571,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-06-21T17:37:23Z",
+      "side": 1,
+      "message": "code for publish_job_abort looks pretty much same as publish_job_request(). Why not to make use of existing function instead of adding a new function.",
+      "revId": "ed87748f3bb14c667a16532cfabc178a0ad85774",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
