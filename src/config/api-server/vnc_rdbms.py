@@ -35,7 +35,7 @@ class VncServerRDBMSClient(VncRDBMSClient):
             'tenant': 'domain:%s' % obj_uuid,
             'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
         }
-        perms2['share'].append(share_item)
+        perms2.setdefault('share', []).append(share_item)
         res_type = self.uuid_to_obj_type(obj_uuid)
         self.object_update(res_type, obj_uuid, {"perms2": perms2})
 
