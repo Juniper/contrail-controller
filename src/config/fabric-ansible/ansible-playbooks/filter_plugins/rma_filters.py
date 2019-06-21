@@ -1,27 +1,17 @@
 #!/usr/bin/python
-
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+# This file contains code to support the RMA devices feature
+#
 
-"""
-This file contains code to support the RMA devices feature
-"""
-
-import json
 import sys
 import traceback
-import argparse
-import copy
-import re
-from datetime import timedelta
 
-from job_manager.job_utils import JobAnnotations, JobVncApi
-
+from job_manager.job_utils import JobVncApi
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog, _task_error_log
-
+from filter_utils import FilterLog, _task_error_log  # noqa
 
 
 class FilterModule(object):
@@ -65,7 +55,8 @@ class FilterModule(object):
     def _rma_devices_to_ztp(self, rma_devices_list):
         devices_to_ztp = []
         for dev_info in rma_devices_list:
-            devices_to_ztp.append({'serial_number': dev_info.get('serial_number')})
+            devices_to_ztp.append(
+                {'serial_number': dev_info.get('serial_number')})
         return devices_to_ztp
 
     # Wrapper to call main routine
@@ -92,7 +83,8 @@ class FilterModule(object):
         for rma_dev in rma_devices_list:
             device_uuid = rma_dev['device_uuid']
             serial_number = rma_dev['serial_number']
-            mgmt_ip = self._get_mgmt_ip(lease_tbl['device_list'], serial_number)
+            mgmt_ip = self._get_mgmt_ip(lease_tbl['device_list'],
+                                        serial_number)
             device_info['dynamic_mgmt_ip_tbl'].update(
                 {
                     device_uuid: {
@@ -108,13 +100,16 @@ class FilterModule(object):
         for dev_info in rma_devices_list:
             device_uuid = dev_info['device_uuid']
             new_serial_number = dev_info.get('serial_number')
-            mgmt_ip = self._get_mgmt_ip(lease_tbl['device_list'], new_serial_number)
+            mgmt_ip = self._get_mgmt_ip(lease_tbl['device_list'],
+                                        new_serial_number)
             device_obj = self.vncapi.physical_router_read(id=device_uuid)
-            underlay_managed = device_obj.get_physical_router_underlay_managed()
+            underlay_managed = \
+                device_obj.get_physical_router_underlay_managed()
 
             # Only handle greenfield devices
             if not underlay_managed:
-                raise("Device {} not underlay managed".format(device_obj.display_name))
+                raise("Device {} not underlay managed".format(
+                    device_obj.display_name))
 
             # if serial number not found, go into error state on this device
             if not mgmt_ip:
@@ -123,13 +118,18 @@ class FilterModule(object):
                 continue
 
             temp = {}
-            temp['device_management_ip'] = device_obj.get_physical_router_management_ip()
+            temp['device_management_ip'] = \
+                device_obj.get_physical_router_management_ip()
             temp['device_fqname'] = device_obj.fq_name
-            temp['device_username'] = device_obj.physical_router_user_credentials.username
+            temp['device_username'] = \
+                device_obj.physical_router_user_credentials.username
             temp['device_password'] = self._get_password(device_obj)
-            temp['device_family'] = device_obj.get_physical_router_device_family()
-            temp['device_vendor'] = device_obj.get_physical_router_vendor_name()
-            temp['device_product'] = device_obj.get_physical_router_product_name()
+            temp['device_family'] = \
+                device_obj.get_physical_router_device_family()
+            temp['device_vendor'] = \
+                device_obj.get_physical_router_vendor_name()
+            temp['device_product'] = \
+                device_obj.get_physical_router_product_name()
             temp['device_serial_number'] = new_serial_number
             temp['device_dynamic_mgmt_ip'] = mgmt_ip
             device_info.update({device_uuid: temp})
@@ -155,7 +155,7 @@ class FilterModule(object):
     # Get device password
     def _get_password(self, device_obj):
         return JobVncApi.decrypt_password(
-            encrypted_password=device_obj.physical_router_user_credentials.\
-                get_password(),
-            admin_password=self.job_ctx.get('vnc_api_init_params').\
-                get('admin_password'))
+            encrypted_password=device_obj.physical_router_user_credentials.
+            get_password(),
+            admin_password=self.job_ctx.get('vnc_api_init_params').
+            get('admin_password'))

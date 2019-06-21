@@ -16,6 +16,10 @@ from cfgm_common.exceptions import (
     NoIdError,
     RefsExistError
 )
+from job_manager.job_utils import (
+    JobAnnotations,
+    JobVncApi
+)
 import jsonschema
 from netaddr import IPNetwork
 from vnc_api.gen.resource_client import (
@@ -41,11 +45,6 @@ from vnc_api.gen.resource_xsd import (
     SubnetType,
     VirtualNetworkType,
     VnSubnetsType
-)
-
-from job_manager.job_utils import (
-    JobAnnotations,
-    JobVncApi
 )
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
@@ -1343,7 +1342,8 @@ class FilterModule(object):
         # delete assisted-replicator loopback iip
         loopback_iip_name = "%s-assisted-replicator/lo0.0" % device_obj.name
         try:
-            _task_log("deleting assisted-replicator loopback instance-ip %s" % loopback_iip_name)
+            _task_log("deleting assisted-replicator loopback instance-ip %s"
+                      % loopback_iip_name)
             vnc_api.instance_ip_delete(fq_name=[loopback_iip_name])
             _task_done()
         except NoIdError:
@@ -1661,12 +1661,15 @@ class FilterModule(object):
                 # this check ensures that roles are assigned
                 # to the device only if node_profile_refs are present
                 # in the device
-                if "AR-Replicator" in device_roles.get('routing_bridging_roles'):
+                if "AR-Replicator" in device_roles.get(
+                        'routing_bridging_roles'):
                     ar_flag = True
                 if device_roles.get('supported_roles'):
                     device_obj = device_roles.get('device_obj')
-                    if device_obj.get_physical_router_underlay_managed() or ar_flag:
-                        self._add_loopback_interface(vnc_api, device_obj, ar_flag)
+                    if device_obj.get_physical_router_underlay_managed() \
+                            or ar_flag:
+                        self._add_loopback_interface(vnc_api, device_obj,
+                                                     ar_flag)
                         self._add_logical_interfaces_for_fabric_links(
                             vnc_api, device_obj
                         )
@@ -2081,15 +2084,14 @@ class FilterModule(object):
                 iip_obj.set_logical_interface(loopback_li_obj)
                 iip_obj.set_virtual_network(loopback_network_obj)
                 _task_log(
-                    'Create assisted replicator IP for lo0.0 on device %s' % device_obj.name
+                    'Create assisted replicator IP for lo0.0 on device %s'
+                    % device_obj.name
                 )
                 iip_uuid = vnc_api.instance_ip_create(iip_obj)
                 iip_obj = vnc_api.instance_ip_read(id=iip_uuid)
                 _task_done()
             device_obj.physical_router_replicator_loopback_ip \
                 = iip_obj.get_instance_ip_address()
-
-
     # end _add_loopback_interface
 
     def _add_bgp_router(self, vnc_api, device_roles, fabric_cluster_id):
