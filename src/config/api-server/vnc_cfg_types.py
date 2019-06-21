@@ -2927,10 +2927,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             return True,  ""
 
         # neutron <-> vnc sharing
-        try:
-            global_access =  obj_dict['perms2']['global_access']
-        except KeyError:
-            global_access = None
+        global_access =  obj_dict.get('perms2', {}).get('global_access')
         is_shared = obj_dict.get('is_shared')
         if global_access is not None or is_shared is not None:
             if global_access is not None and is_shared is not None:
@@ -3444,7 +3441,7 @@ class DomainServer(Resource, Domain):
             'tenant': 'domain:%s' % obj_dict.get('uuid'),
             'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
         }
-        obj_dict['perms2']['share'].append(share_item)
+        obj_dict['perms2'].setdefault('share', []).append(share_item)
         return (True, "")
     # end pre_dbe_create
 
@@ -3462,7 +3459,7 @@ class ServiceTemplateServer(Resource, ServiceTemplate):
             'tenant': 'domain:%s' % domain_uuid,
             'tenant_access': PERMS_RX
         }
-        obj_dict['perms2']['share'].append(share_item)
+        obj_dict['perms2'].setdefault('share', []).append(share_item)
         return (True, "")
     # end pre_dbe_create
 
@@ -3477,7 +3474,7 @@ class VirtualDnsServer(Resource, VirtualDns):
             'tenant': 'domain:%s' % domain_uuid,
             'tenant_access': PERMS_RX
         }
-        obj_dict['perms2']['share'].append(share_item)
+        obj_dict['perms2'].setdefault('share', []).append(share_item)
         return cls.validate_dns_server(obj_dict, db_conn)
     # end pre_dbe_create
 
