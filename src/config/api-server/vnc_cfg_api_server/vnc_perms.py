@@ -125,14 +125,14 @@ class VncPermissions(object):
 
         owner = perms2['owner'].replace('-','')
         perms = perms2['owner_access'] << 6
-        perms |= perms2['global_access']
+        perms |= perms2.get('global_access', 0)
 
         # build perms
         mask = 07
         if project_id == owner:
             mask |= 0700
 
-        share_items = perms2['share']
+        share_items = perms2.get('share', [])
         shares = [item['tenant'] for item in share_items]
         for item in share_items:
             # item['tenant'] => [share-type, uuid]
