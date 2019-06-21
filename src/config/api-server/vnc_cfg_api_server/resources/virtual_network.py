@@ -359,7 +359,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
 
         is_shared = obj_dict.get('is_shared')
         # neutron <-> vnc sharing
-        if obj_dict['perms2']['global_access'] == PERMS_RWX:
+        if obj_dict['perms2'].get('global_access', 0) == PERMS_RWX:
             obj_dict['is_shared'] = True
         elif is_shared:
             obj_dict['perms2']['global_access'] = PERMS_RWX
@@ -492,10 +492,7 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
             return True, ""
 
         # neutron <-> vnc sharing
-        try:
-            global_access = obj_dict['perms2']['global_access']
-        except KeyError:
-            global_access = None
+        global_access = obj_dict['perms2'].get('global_access')
         is_shared = obj_dict.get('is_shared')
         if global_access is not None or is_shared is not None:
             if global_access is not None and is_shared is not None:
