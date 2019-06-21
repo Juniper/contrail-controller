@@ -2561,8 +2561,9 @@ class VncApiServer(object):
                              obj_fields=['perms2', 'is_shared'])
         obj_perms = obj_dict['perms2']
         old_perms = '%s/%d %d %s' % (obj_perms['owner'],
-            obj_perms['owner_access'], obj_perms['global_access'],
-            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+            obj_perms['owner_access'], obj_perms.get('global_access', 0),
+            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in
+             obj_perms.get('share', [])])
 
         if owner:
             if self.invalid_uuid(owner):
@@ -2596,8 +2597,9 @@ class VncApiServer(object):
             obj_dict['is_shared'] = (global_access != 0)
 
         new_perms = '%s/%d %d %s' % (obj_perms['owner'],
-            obj_perms['owner_access'], obj_perms['global_access'],
-            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
+            obj_perms['owner_access'], obj_perms.get('global_access', 0),
+            ['%s:%d' % (item['tenant'], item['tenant_access']) for item in
+             obj_perms.get('share', [])])
 
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
         msg = "chmod: %s perms old=%s, new=%s" % (obj_uuid, old_perms, new_perms)
