@@ -8,9 +8,10 @@
 # Utility functions for Operational State Server for VNC
 #
 
-import random
-import requests
 import json
+import random
+
+import requests
 from requests.auth import HTTPBasicAuth
 
 
@@ -54,11 +55,13 @@ class OpServerUtils(object):
 
     @staticmethod
     def opserver_query_url(opserver_ips, opserver_port):
-        return "http://" + random.choice(opserver_ips) + ":" + opserver_port + \
-               "/analytics/query"
+        return "http://" + random.choice(opserver_ips) + ":" + \
+               opserver_port + "/analytics/query"
     # end opserver_query_url
 
     class Query(object):
+        """Nested Query Class."""
+
         table = None
         start_time = None
         end_time = None
@@ -67,8 +70,8 @@ class OpServerUtils(object):
         sort = None
         sort_fields = None
         limit = None
-        filter = None
-        dir = None
+        local_filter = None
+        local_dir = None
         is_service_instance = None
         session_type = None
 
@@ -81,7 +84,7 @@ class OpServerUtils(object):
             self.end_time = end_time
             self.select_fields = select_fields
             if dir is not None:
-                self.dir = dir
+                self.local_dir = dir
             if where is not None:
                 self.where = where
             if sort_fields is not None:
@@ -91,7 +94,7 @@ class OpServerUtils(object):
             if limit is not None:
                 self.limit = limit
             if filter is not None:
-                self.filter = filter
+                self.local_filter = filter
             if is_service_instance is not None:
                 self.is_service_instance = is_service_instance
             if session_type is not None:
@@ -106,6 +109,8 @@ class OpServerUtils(object):
     SortOp = enum(ASCENDING=1, DESCENDING=2)
 
     class Match(object):
+        """Nested Match Class."""
+
         name = None
         value = None
         op = None
@@ -115,13 +120,13 @@ class OpServerUtils(object):
             self.name = name
             try:
                 self.value = json.loads(value)
-            except:
+            except Exception:
                 self.value = value
 
             self.op = op
             try:
                 self.value2 = json.loads(value2)
-            except:
+            except Exception:
                 self.value2 = value2
 
             if suffix:
