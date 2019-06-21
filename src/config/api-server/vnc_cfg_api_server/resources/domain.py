@@ -16,7 +16,7 @@ class DomainServer(ResourceMixin, Domain):
             'tenant': 'domain:%s' % obj_dict.get('uuid'),
             'tenant_access': DOMAIN_SHARING_PERMS
         }
-        obj_dict['perms2']['share'].append(share_item)
+        obj_dict['perms2'].get('share', []).append(share_item)
         return True, ""
 
     @classmethod

@@ -23,7 +23,7 @@ class VirtualDnsServer(ResourceMixin, VirtualDns):
             'tenant': 'domain:%s' % domain_uuid,
             'tenant_access': PERMS_RX
         }
-        obj_dict['perms2']['share'].append(share_item)
+        obj_dict['perms2'].get('share', []).append(share_item)
         return cls.validate_dns_server(obj_dict, db_conn)
 
     @classmethod
