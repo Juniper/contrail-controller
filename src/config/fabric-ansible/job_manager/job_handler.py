@@ -252,6 +252,7 @@ class JobHandler(object):
                 device_management_ip = device_data.get('device_management_ip')
                 image_uuid = device_data.get('device_image_uuid')
                 hitless_upgrade = device_data.get('device_hitless_upgrade')
+                device_os_version = device_data.get('device_os_version')
                 extra_vars.update({
                     'device_id': device_id,
                     'device_fqname': device_fqname,
@@ -262,6 +263,7 @@ class JobHandler(object):
                     'device_username': device_username,
                     'device_password': device_password,
                     'product_name': device_product,
+                    'device_os_version': device_os_version,
                     'device_image_uuid': image_uuid,
                     'device_hitless_upgrade': hitless_upgrade
                 })
