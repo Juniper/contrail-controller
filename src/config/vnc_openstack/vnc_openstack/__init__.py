@@ -1259,6 +1259,10 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         self.route('/neutron/virtual_router',
                      'POST', self._npi.plugin_http_post_virtual_router)
 
+        # Bottle callbacks for trunk operations
+        self.route('/neutron/trunk',
+                     'POST', self._npi.plugin_http_post_trunk)
+
         if self._neutron_fwaas_enabled:
             # Bottle callbacks for firewall_group operations
             self.route('/neutron/firewall_group',
