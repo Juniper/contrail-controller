@@ -1136,3 +1136,92 @@ class NeutronPluginInterface(object):
                                               firewall_rule['resource'])
         elif context['operation'] == 'DELETE':
             return cfgdb.firewall_rule_delete(context, firewall_rule['id'])
+
+    def plugin_http_post_trunk(self):
+        """
+        Bottle callback for Trunk POST
+        """
+        context, trunk = self._get_requests_data()
+        if context['operation'] == 'READ':
+            return self.plugin_get_trunk(context, trunk)
+        elif context['operation'] == 'CREATE':
+            return self.plugin_create_trunk(context, trunk)
+        elif context['operation'] == 'DELETE':
+            return self.plugin_delete_trunk(context, trunk)
+        elif context['operation'] == 'UPDATE':
+            return self.plugin_update_trunk(context, trunk)
+        elif context['operation'] == 'READALL':
+            return self.plugin_get_trunks(context, trunk)
+        elif context['operation'] == 'ADD_SUBPORTS':
+            return self.plugin_add_subports(context, trunk)
+        elif context['operation'] == 'REMOVE_SUBPORTS':
+            return self.plugin_remove_subports(context, trunk)
+
+
+    # Trunk API Handling
+    def plugin_get_trunk(self, context, trunk):
+        """
+        Trunk get request
+        """
+
+        cfgdb = self._get_user_cfgdb(context)
+        trunk_info = cfgdb.trunk_read(trunk['id'])
+        return trunk_info
+
+    def plugin_create_trunk(self, context, trunk):
+        """
+        Trunk create request
+        """
+
+        cfgdb = self._get_user_cfgdb(context)
+        trunk_info = cfgdb.trunk_create(context, trunk['resource'])
+        return trunk_info
+
+    def plugin_update_trunk(self, context, trunk):
+        """
+        Trunk update request
+        """
+
+        cfgdb = self._get_user_cfgdb(context)
+        trunk_info = cfgdb.trunk_update(context,
+                                        trunk['id'],
+                                        trunk['resource'])
+        return trunk_info
+
+    def plugin_delete_trunk(self, context, trunk):
+        """
+        Trunk delete request
+        """
+
+        cfgdb = self._get_user_cfgdb(context)
+        cfgdb.trunk_delete(context, trunk['id'])
+
+    def plugin_get_trunks(self, context, trunk):
+        """
+        Ports get request
+        """
+
+        filters = trunk['filters']
+        fields = trunk['fields']
+
+        cfgdb = self._get_user_cfgdb(context)
+        trunk_info = cfgdb.trunk_list(context, filters, fields)
+        return json.dumps(trunk_info)
+
+    def plugin_add_subports(self, context, trunk):
+        """
+        Add subports to a trunk
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        trunk_info = cfgdb.trunk_add_subports(
+            context, trunk['id'], trunk['resource'])
+        return trunk_info
+
+    def plugin_remove_subports(self, context, trunk):
+        """
+        Add subports to a trunk
+        """
+        cfgdb = self._get_user_cfgdb(context)
+        trunk_info = cfgdb.trunk_remove_subports(
+            context, trunk['id'], trunk['resource'])
+        return trunk_info

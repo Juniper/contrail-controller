@@ -17,6 +17,23 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                   "can only be created internally"\
                   % (obj_dict['uuid'])
             return False, (400, msg)
+
+        if obj_dict.get('virtual_port_group_trunk_port_id'):
+            primary_vmi_id = obj_dict.get('virtual_port_group_trunk_port_id')
+            ok, result = db_conn.dbe_read(
+                obj_type='virtual_machine_interface',
+                obj_id=primary_vmi_id,
+                obj_fields=['virtual_port_group_back_refs'])
+
+            if not ok:
+                return (ok, 400, result)
+
+            if result.get('virtual_port_group_back_refs'):
+                vpg = result.get('virtual_port_group_back_refs')[0]['to'][-1]
+                msg = "Trunk Port(%s) already belongs to another VPG (%s)"\
+                      % (primary_vmi_id, vpg)
+                return (False, (409, msg))
+
         return True, ''
 
     @classmethod

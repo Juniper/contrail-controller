@@ -1601,10 +1601,15 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
         try:
             attr_obj = VpgInterfaceParametersType(ae_num=1)
             vpg = mock_virtual_port_group_db[id]
+            try:
+                fabric_obj = self._vnc_lib.fabric_read(id=FAB_UUID1)
+            except Exception as ex:
+                logger.error("ERROR creating vpg, fabric not found {}: {}".format(id, ex))
+
             vpg_obj = VirtualPortGroup(
-                name=vpg['name']
+                name=vpg['name'],
+                parent_obj=fabric_obj
             )
-            vpg_obj.parent_uuid = FAB_UUID1
             vpg_obj.uuid = id
             vpg_obj.fq_name = vpg['fq_name']
             self._vnc_lib.virtual_port_group_create(vpg_obj)
