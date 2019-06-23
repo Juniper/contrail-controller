@@ -8,27 +8,22 @@
 
 import argparse
 import copy
-import json
 from datetime import timedelta
-import sys
 import re
+import sys
 import traceback
+
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import _task_error_log, FilterLog
 
 from job_manager.job_utils import JobAnnotations, JobVncApi
 
-# sys.path.append("..")
-# from test_hitless_filters import JobVncApi, mock_job_ctx, \
-#    mock_image_upgrade_list,mock_upgrade_plan,JobAnnotations, \
-#    FilterLog, _task_error_log,mock_device_uuid,mock_device_json
 
 ordered_role_groups = [
     ["leaf"],
     ["spine"],
     ["default"]
 ]
-
-sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import _task_error_log, FilterLog
 
 IMAGE_UPGRADE_DURATION = 30  # minutes
 
@@ -159,19 +154,26 @@ class FilterModule(object):
                 device_info = {
                     "basic": {
                         "device_fqname": device_obj.fq_name,
-                        "device_vendor": device_obj.physical_router_vendor_name,
-                        "device_family": device_obj.physical_router_device_family,
-                        "device_product": device_obj.physical_router_product_name,
-                        "device_serial_number": device_obj.physical_router_serial_number,
-                        "device_management_ip": device_obj.physical_router_management_ip,
-                        "device_username": device_obj.physical_router_user_credentials.username,
+                        "device_vendor":
+                            device_obj.physical_router_vendor_name,
+                        "device_family":
+                            device_obj.physical_router_device_family,
+                        "device_product":
+                            device_obj.physical_router_product_name,
+                        "device_serial_number":
+                            device_obj.physical_router_serial_number,
+                        "device_management_ip":
+                            device_obj.physical_router_management_ip,
+                        "device_username":
+                            device_obj.physical_router_user_credentials.username,
                         "device_password": self._get_password(device_obj),
                         "device_image_uuid": image_uuid,
                         "device_hitless_upgrade": is_hitless_upgrade
                     },
                     'image_family': image_obj.device_image_device_family,
                     'image_version': image_obj.device_image_os_version,
-                    'current_image_version': device_obj.physical_router_os_version,
+                    'current_image_version':
+                        device_obj.physical_router_os_version,
                     'name': device_obj.fq_name[-1],
                     'uuid': device_uuid,
                     'physical_role': device_obj.physical_router_role,
@@ -235,7 +237,8 @@ class FilterModule(object):
                 if device_uuid in self.device_table:
                     device_info = self.device_table[device_uuid]
                     if_name = pi_obj.fq_name[2]
-                    if if_name not in device_info['target_multihomed_interface']:
+                    if if_name not in \
+                            device_info['target_multihomed_interface']:
                         device_info['target_multihomed_interface'].\
                             append(if_name)
         return vpg_table
@@ -430,26 +433,33 @@ class FilterModule(object):
             sdevices[device_name] = self.skipped_device_table[device_uuid]
 
         # First dump summary
-        report += "\n*************************** Summary ***************************\n"
+        report += "\n********** Summary *************\n"
 
         # Dump summary of batches
         total_time = str(
             timedelta(minutes=IMAGE_UPGRADE_DURATION * len(self.batches)))
         if len(self.batches) > 0:
-            report += "\nTotal estimated duration is {}.\n".format(total_time)
-            report += "\nNote that this time estimate may vary depending on network speeds and system capabilities.\n"
-            report += "The following batches of devices will be upgraded in the order listed:\n"
+            report += "\nTotal estimated " \
+                      "duration is {}.\n".format(total_time)
+            report += "\nNote that this time " \
+                      "estimate may vary depending on " \
+                      "network speeds and system capabilities.\n"
+            report += "The following batches " \
+                      "of devices will be upgraded in the order listed:\n"
             for batch in self.batches:
                 report += "\n{}:\n".format(batch.get('name'))
                 for device_name in batch.get('device_names', []):
                     device_info = devices[device_name]
-                    current_version = device_info['current_image_version'] or ""
+                    current_version = \
+                        device_info['current_image_version'] or ""
                     new_version = device_info['image_version']
-                    hitless_upgrade = device_info['basic']['device_hitless_upgrade']
+                    hitless_upgrade = \
+                        device_info['basic']['device_hitless_upgrade']
                     is_hitless = "" if hitless_upgrade else "(not hitless)"
                     workflow_info = self._check_for_downgrade(device_info)
                     report += "  {}  {} --> {}  {}{}\n".format(
-                        device_name, current_version, new_version, is_hitless, workflow_info)
+                        device_name, current_version, new_version,
+                        is_hitless, workflow_info)
         else:
             report += "\n   NO DEVICES TO UPGRADE!"
 
@@ -457,22 +467,27 @@ class FilterModule(object):
 
         # Dump summary of skipped devices
         if len(sdevices) > 0:
-            report += "\nThe following devices will not be upgraded for the reasons listed:\n"
+            report += "\nThe following devices will not be upgraded " \
+                      "for the reasons listed:\n"
             for device_name, device_info in sorted(sdevices.iteritems()):
                 report += "\n  {} ({})".format(device_name,
-                                               device_info.get('skip_reason', "unknown reason"))
+                                               device_info.get
+                                               ('skip_reason',
+                                                "unknown reason"))
 
             report += "\n NOTE: \n Incompatible device-image platform with " \
                       "the same versions could also lead to a device being " \
-                      "skipped for image upgrade. Please recheck the platform compatibility " \
+                      "skipped for image upgrade. " \
+                      "Please recheck the platform compatibility " \
                       "for the above skipped devices."
 
         # Now dump the details
-        report += "\n*************************** Details ***************************\n"
+        report += "\n******** Details ************\n"
 
         # Dump device info
         if len(devices) > 0:
-            report += "\nDetailed information for the devices to be upgraded is listed below:\n"
+            report += "\nDetailed information for the " \
+                      "devices to be upgraded is listed below:\n"
             # Spill out sorted list
             for device_name, device_info in sorted(devices.iteritems()):
                 details = self._spill_device_details(device_name, device_info)
@@ -480,12 +495,12 @@ class FilterModule(object):
 
         # Dump skipped device info
         if len(sdevices) > 0:
-            report += "\nDetailed information for the devices to be skipped is listed below:\n"
+            report += "\nDetailed information for " \
+                      "the devices to be skipped is listed below:\n"
             # Spill out sorted list
             for device_name, device_info in sorted(sdevices.iteritems()):
                 details = self._spill_device_details(device_name, device_info)
                 report += details
-        #print report
         return report
 
     def _generate_results(self):
@@ -496,8 +511,9 @@ class FilterModule(object):
         try:
             return self._get_next_batch(upgrade_plan, device_uuid)
         except Exception as ex:
-            errmsg = "Unexpected error attempting to get next batch: %s\n%s" % (
-                str(ex), traceback.format_exc())
+            errmsg = "Unexpected error attempting to " \
+                     "get next batch: %s\n%s" %\
+                     (str(ex), traceback.format_exc())
             _task_error_log(errmsg)
             return {
                 'status': 'failure',
@@ -532,7 +548,8 @@ class FilterModule(object):
         if c_idx is not None:
             batch = upgrade_plan['batches'][c_idx]
             for device_uuid in batch['device_list']:
-                current_batch[device_uuid] = upgrade_plan['device_table'][device_uuid]['basic']
+                current_batch[device_uuid] = \
+                    upgrade_plan['device_table'][device_uuid]['basic']
             batch_info['current'] = {
                 'batch_name': batch['name'],
                 'batch_index': c_idx,
@@ -541,7 +558,8 @@ class FilterModule(object):
         if n_idx < len(upgrade_plan['batches']):
             batch = upgrade_plan['batches'][n_idx]
             for device_uuid in batch['device_list']:
-                next_batch[device_uuid] = upgrade_plan['device_table'][device_uuid]['basic']
+                next_batch[device_uuid] = \
+                    upgrade_plan['device_table'][device_uuid]['basic']
             batch_info['next'] = {
                 'batch_name': batch['name'],
                 'batch_index': n_idx,
@@ -555,8 +573,9 @@ class FilterModule(object):
         try:
             return self._get_all_devices(upgrade_plan)
         except Exception as ex:
-            errmsg = "Unexpected error attempting to get all devices: %s\n%s" % (
-                str(ex), traceback.format_exc())
+            errmsg = "Unexpected error attempting " \
+                     "to get all devices: %s\n%s" % \
+                     (str(ex), traceback.format_exc())
             _task_error_log(errmsg)
             return {
                 'status': 'failure',
@@ -636,13 +655,20 @@ class FilterModule(object):
         device_info = {
             "basic": {
                 "device_fqname": device_obj.fq_name,
-                "device_vendor": device_obj.physical_router_vendor_name,
-                "device_family": device_obj.physical_router_device_family,
-                "device_product": device_obj.physical_router_product_name,
-                "device_serial_number": device_obj.physical_router_serial_number,
-                "device_management_ip": device_obj.physical_router_management_ip,
-                "device_username": device_obj.physical_router_user_credentials.username,
-                "device_password": self._get_password(device_obj),
+                "device_vendor":
+                    device_obj.physical_router_vendor_name,
+                "device_family":
+                    device_obj.physical_router_device_family,
+                "device_product":
+                    device_obj.physical_router_product_name,
+                "device_serial_number":
+                    device_obj.physical_router_serial_number,
+                "device_management_ip":
+                    device_obj.physical_router_management_ip,
+                "device_username":
+                    device_obj.physical_router_user_credentials.username,
+                "device_password":
+                    self._get_password(device_obj),
                 "device_hitless_upgrade": is_hitless_upgrade
             },
             'name': device_obj.fq_name[-1],
@@ -679,7 +705,8 @@ class FilterModule(object):
 
     # If old and new image versions match, don't upgrade
     def _check_skip_device_upgrade(self, device_info):
-        if device_info['image_version'] == device_info['current_image_version']:
+        if device_info['image_version'] == \
+                device_info['current_image_version']:
             return True, "Upgrade image version matches current image version"
         return False, ""
     # end _check_skip_device_upgrade
@@ -716,30 +743,3 @@ def _parse_args():
     arg_parser.add_argument('-d', '--device_info',
                             action='store_true', help='Get Device Info')
     return arg_parser.parse_args()
-
-
-# testing
-def __main__():
-    parser = _parse_args()
-    hitless_filter = FilterModule()
-
-    if parser.generate_plan:
-        upgrade_plan = hitless_filter.get_hitless_upgrade_plan(
-            mock_job_ctx, mock_image_upgrade_list, {})
-        print json.dumps(upgrade_plan)
-    elif parser.next_batch:
-        batch = hitless_filter.get_next_batch(mock_job_ctx,
-                                              mock_upgrade_plan, '')
-        print json.dumps(batch)
-    elif parser.all_devices:
-        all_devices = hitless_filter.get_all_devices(mock_job_ctx,
-                                                     mock_upgrade_plan)
-    elif parser.device_info:
-        device_info = hitless_filter.get_device_info(mock_job_ctx,
-                                                     mock_device_uuid)
-        print json.dumps(device_info)
-# end __main__
-
-
-if __name__ == '__main__':
-    __main__()

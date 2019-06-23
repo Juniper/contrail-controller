@@ -4,7 +4,11 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""This file contains implementation of getting the swift download URL for the uploaded image file."""
+"""
+This file contains implementation of getting 
+swift download URL for the uploaded image file.
+"""
+
 
 DOCUMENTATION = '''
 ---
@@ -13,7 +17,7 @@ module: Swift file util
 author: Juniper Networks
 short_description: Private module to get swift download url of the image file
 description:
-    - Pass the required swift config info and get the download url of the image file
+    - Pass the required swift config info get the download url of image file.
 requirements:
     -
 options:
@@ -82,7 +86,7 @@ EXAMPLES = '''
 RETURN = '''
 url:
   description:
-    - An image file url that can be used to download the file without authentication.
+    - An image file url used to download the file without authentication.
   returned: on success always
   type: str
 error_msg:
@@ -98,10 +102,10 @@ from threading import RLock
 import time
 from urlparse import urlparse
 
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
 import requests
 import swiftclient
 import swiftclient.utils
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
 
 connection_lock = RLock()
 
@@ -151,10 +155,10 @@ class FileSvcUtil(object):  # pragma: no cover
                 logging.error(err_msg)
                 if retry_count == self.connection_retry_count:
                     raise Exception(
-                        "Connection failed with swift file server: " +
+                        "Connection failed with swift server: " +
                         str(err_msg))
                 logging.error(
-                    "Connection failed with swift file server, retrying to connect")
+                    "Connection failed with swift server, retrying..")
                 incr_sleep *= 2
                 time.sleep(incr_sleep)
             finally:
@@ -210,10 +214,12 @@ def main():
             auth_version=dict(required=False, default='3.0'),
             temp_url_key=dict(required=True),
             temp_url_key_2=dict(required=True),
-            chosen_temp_url_key=dict(required=False, default="temp_url_key"),
+            chosen_temp_url_key=dict(required=False,
+                                     default="temp_url_key"),
             container_name=dict(required=True),
             filename=dict(required=True),
-            connection_retry_count=dict(required=False, default=5, type='int')),
+            connection_retry_count=dict(required=False,
+                                        default=5, type='int')),
         supports_check_mode=False)
 
     m_args = module.params
