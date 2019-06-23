@@ -599,11 +599,20 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     iip_class.is_gateway_ip(db_conn, iip_ref['uuid'])):
                 return (False, (400, 'Gateway IP cannot be used by VM port'))
 
+        if read_result.get('virtual_port_group_back_refs'):
+            vpg_refs = read_result.get('virtual_port_group_back_refs')
+            vpg_id = vpg_refs[0].get('uuid')
+            ok, vpg = cls.dbe_read(
+                db_conn, 'virtual_port_group',
+                vpg_id, obj_fields=['virtual_port_group_trunk_port_id'])
+
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_refs' in read_result):
             for ref in read_result['virtual_machine_interface_refs']:
-                if ref not in obj_dict['virtual_machine_interface_refs']:
-                    # Dont allow remove of vmi ref during update
+                if (ref not in obj_dict['virtual_machine_interface_refs'] and
+                    vpg and vpg['virtual_port_group_trunk_port_id'] != id):
+                    # Dont allow remove of vmi ref during update if it's
+                    # a sub port
                     msg = "VMI ref delete not allowed during update"
                     return (False, (409, msg))
 
