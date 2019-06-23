@@ -6180,3 +6180,97 @@ class DBInterface(object):
         except RefsExistError:
             self._raise_contrail_exception(
                 'FirewallRuleInUse', firewall_rule_id=id)
+
+    def _trunk_neutron_to_vnc(self, trunk_q, oper):
+        """Convert Neutron Trunk Port to Contrail Virtual Port Group
+
+        :param trunk_q: Trunk Port dictionary to convert
+        :param oper: operation i.e CRUD to perform on trunk port
+        :returns: vnc_api.gen.resource_client.VirtualPortGroup
+        """
+        if oper == CREATE:
+            name = trunk_q.get('name') or str(uuid.uuid4())
+            project = self._get_project_obj(trunk_q)
+            port_id = trunk_q.get('port_id')
+            trunk = VirtualPortGroup(name=name, parent_obj=project,
+                                  virtual_port_group_trunk_port_id=port_id)
+            if trunk_q.get('sub_ports'):
+                trunk.set_virtual_machine_interface_list(trunk_q.get('sub_ports'))
+
+            trunk.set_id_perms(IdPermsType(enable=True))
+            trunk.set_perms2(PermType2(owner=project.uuid))
+
+        elif oper == UPDATE:
+            # add late
+	    pass
+
+	return trunk
+
+    @catch_convert_exception
+    def _trunk_vnc_to_neutron(self, trunk_obj, context=None):
+        trunk_q_dict = {}
+        extra_dict = {}
+
+        port_id = trunk_obj.virtual_port_group_trunk_port_id
+        port_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
+        trunk_q_dict = {
+            'id': trunk_obj.uuid,
+            'description': trunk_obj.get_id_perms().get_description(),
+            'admin_state_up': trunk_obj.get_id_perms().get_enable(),
+            'project_id': trunk_obj.get_perms2().get_owner().replace('-', ''),
+            'tenant_id': trunk_obj.get_perms2().get_owner().replace('-', ''),
+	    'created_at': trunk_obj.get_id_perms().get_created(),
+	    'updated_at': trunk_obj.get_id_perms().get_last_modified(),
+	    'port_id': port_id,
+	    'sub_ports': trunk_obj.get_virtual_machine_interface_refs(),
+	    'status': self._port_get_interface_status(port_obj)
+            }
+
+        if not trunk_obj.display_name:
+            # for nets created directly via vnc_api
+            trunk_q_dict['name'] = trunk_obj.get_fq_name()[-1]
+        else:
+            trunk_q_dict['name'] = trunk_obj.display_name
+
+        return trunk_q_dict
+
+    @wait_for_api_server_connection
+    def trunk_create(self, context, trunk_q):
+
+        trunk_obj = self._trunk_neutron_to_vnc(trunk_q, CREATE)
+        try:
+            id = self._resource_create('virtual_port_group', trunk_obj)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='virtual_port_group', msg=str(e))
+        except RefsExistError:
+            self._raise_contrail_exception('TrunkPortInUse',
+                                           port_id=trunk_q.get('port_id'))
+
+        ret_trunk_q = self._trunk_vnc_to_neutron(trunk_obj, context=context)
+        return ret_trunk_q
+
+    @wait_for_api_server_connection
+    def trunk_read(self, id, fields=None, context=None):
+
+        try:
+            trunk = self._vnc_lib.virtual_port_group_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('TrunkNotFound',
+                                           trunk_id=id)
+
+        return self._trunk_vnc_to_neutron(trunk, fields)
+
+    @wait_for_api_server_connection
+    def trunk_delete(self, context, id):
+        """Delete Trunk
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Trunk object to delete
+        """
+        try:
+            self._vnc_lib.virtual_port_group_delete(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('TrunkNotFound', trunk_id=id)
+        except RefsExistError:
+            self._raise_contrail_exception('TrunkInUse', trunk_id=id)
