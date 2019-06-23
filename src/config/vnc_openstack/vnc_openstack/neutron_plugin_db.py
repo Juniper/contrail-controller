@@ -6180,3 +6180,281 @@ class DBInterface(object):
         except RefsExistError:
             self._raise_contrail_exception(
                 'FirewallRuleInUse', firewall_rule_id=id)
+
+    def _trunk_neutron_to_vnc(self, trunk_q, oper, id=None):
+        """Convert Neutron Trunk Port to Contrail Virtual Port Group
+
+        :param trunk_q: Trunk Port dictionary to convert
+        :param oper: operation i.e CRUD to perform on trunk port
+        :returns: vnc_api.gen.resource_client.VirtualPortGroup
+        """
+
+        def _set_sub_ports(trunk, trunk_port, sp_id):
+
+            if sp_id == trunk_port.uuid:
+                self._raise_contrail_exception('PortInUseAsTrunkParent',
+                                               port_id=sp_id,
+                                               trunk_id=id)
+            try:
+                sub_port = self._vnc_lib.virtual_machine_interface_read(
+                    id=sp_id)
+            except NoIdError:
+                self._raise_contrail_exception('SubPortNotFound',
+                                               trunk_id=id,
+                                               port_id=sp_id)
+
+            trunk.add_virtual_machine_interface(sub_port)
+            trunk_port.add_virtual_machine_interface(sub_port)
+            self._vnc_lib.virtual_machine_interface_update(trunk_port)
+
+        def _add_or_remove_sub_ports(trunk, sub_ports):
+            sub_port_ids = []
+            for sp in sub_ports:
+                sub_port_ids.append(sp['port_id'])
+
+            vmi_refs = trunk.get_virtual_machine_interface_refs()
+            for vmi_ref in vmi_refs:
+                  if vmi_ref['uuid'] in sub_port_ids:
+                      return False
+            return True
+
+        if oper == CREATE:
+            if 'name' in trunk_q:
+                name = trunk_q.get('name')
+            project = self._get_project_obj(trunk_q)
+            port_id = trunk_q.get('port_id')
+            trunk = VirtualPortGroup(name=name, parent_obj=project,
+                                  virtual_port_group_trunk_port_id=port_id)
+            try:
+                trunk_port = self._vnc_lib.virtual_machine_interface_read(
+                id=port_id)
+            except:
+                self._raise_contrail_exception('PortNotFound',
+                                               port_id=port_id)
+
+            trunk.add_virtual_machine_interface(trunk_port)
+            if trunk_q.get('sub_ports'):
+                for sp in trunk_q['sub_ports']:
+                    _set_sub_ports(trunk, trunk_port, sp['port_id'])
+
+            trunk.set_id_perms(IdPermsType(enable=True))
+            trunk.set_perms2(PermType2(owner=project.uuid))
+
+        elif oper == UPDATE:
+            try:
+                trunk = self._vnc_lib.virtual_port_group_read(id=id)
+            except NoIdError:
+                self._raise_contrail_exception('TrunkNotFound',
+                                               trunk_id=id)
+            if 'name' in trunk_q:
+                trunk.display_name = trunk_q['name']
+
+            id_perms = trunk.get_id_perms()
+            if 'admin_state_up' in trunk_q:
+                id_perms.enable = trunk_q['admin_state_up']
+                trunk.set_id_perms(id_perms)
+
+            if 'sub_ports' in trunk_q:
+                try:
+                    trunk_port = self._vnc_lib.virtual_machine_interface_read(
+                        id=trunk.virtual_port_group_trunk_port_id)
+                except:
+                    self._raise_contrail_exception(
+                        'PortNotFound',
+                        port_id=trunk.virtual_port_group_trunk_port_id)
+
+                add_or_remove = _add_or_remove_sub_ports(
+                                trunk,
+                                trunk_q.get('sub_ports'))
+
+                if add_or_remove: # Add
+                    for sp in trunk_q['sub_ports']:
+                        _set_sub_ports(trunk, trunk_port, sp['port_id'])
+                else: # Remove
+                    for sp in trunk_q['sub_ports']:
+                        try:
+                            sub_port = self._vnc_lib.virtual_machine_interface_read(
+                                id=sp['port_id'])
+                        except NoIdError:
+                            self._raise_contrail_exception('SubPortNotFound',
+                                                           trunk_id=id,
+                                                           port_id=sp_id)
+                        trunk.del_virtual_machine_interface(sub_port)
+                        trunk_port.del_virtual_machine_interface(sub_port)
+                        self._vnc_lib.virtual_machine_interface_update(
+                            trunk_port)
+
+        elif oper == DELETE:
+            try:
+                trunk = self._vnc_lib.virtual_port_group_read(id=id)
+            except NoIdError:
+                self._raise_contrail_exception('TrunkNotFound',
+                                               trunk_id=id)
+
+            try:
+                trunk_port = self._vnc_lib.virtual_machine_interface_read(
+                    id=trunk.virtual_port_group_trunk_port_id)
+            except:
+                self._raise_contrail_exception(
+                    'PortNotFound',
+                    port_id=trunk.virtual_port_group_trunk_port_id)
+
+            if trunk_port.get_virtual_machine_refs():
+                self._raise_contrail_exception('TrunkInUse', trunk_id=id)
+
+            trunk.del_virtual_machine_interface(trunk_port)
+            self._vnc_lib.virtual_port_group_update(trunk)
+            self._vnc_lib.virtual_machine_interface_delete(id=trunk_port.uuid)
+
+	return trunk
+
+    @catch_convert_exception
+    def _trunk_vnc_to_neutron(self, trunk_obj, fields=None):
+        trunk_q_dict = {}
+        extra_dict = {}
+
+        port_id = trunk_obj.virtual_port_group_trunk_port_id
+        port_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
+        sub_ports = []
+        if trunk_obj.get_virtual_machine_interface_refs():
+            for sub_port in trunk_obj.get_virtual_machine_interface_refs():
+                # To not include parent/trunk port from a sub port list
+                if sub_port['uuid'] == port_id:
+                    continue
+                sub_ports.append({'port_id': sub_port['uuid']})
+
+        trunk_q_dict = {
+            'id': trunk_obj.uuid,
+            'description': trunk_obj.get_id_perms().get_description(),
+            'admin_state_up': trunk_obj.get_id_perms().get_enable(),
+            'project_id': trunk_obj.get_perms2().get_owner().replace('-', ''),
+            'tenant_id': trunk_obj.get_perms2().get_owner().replace('-', ''),
+	    'created_at': trunk_obj.get_id_perms().get_created(),
+	    'updated_at': trunk_obj.get_id_perms().get_last_modified(),
+	    'port_id': port_id,
+	    'sub_ports': sub_ports,
+	    'status': self._port_get_interface_status(port_obj),
+            'name': trunk_obj.display_name
+            }
+
+        return filter_fields(trunk_q_dict, fields)
+
+    @wait_for_api_server_connection
+    def trunk_create(self, context, trunk_q):
+
+        trunk_obj = self._trunk_neutron_to_vnc(trunk_q, CREATE)
+        try:
+            id = self._resource_create('virtual_port_group', trunk_obj)
+        except BadRequest as e:
+            self._raise_contrail_exception(
+                'BadRequest', resource='virtual_port_group', msg=str(e))
+        except RefsExistError:
+            self._raise_contrail_exception('TrunkPortInUse',
+                                           port_id=trunk_q.get('port_id'))
+
+        ret_trunk_q = self._trunk_vnc_to_neutron(trunk_obj)
+        return ret_trunk_q
+
+    @wait_for_api_server_connection
+    def trunk_read(self, id, fields=None, context=None):
+
+        try:
+            trunk = self._vnc_lib.virtual_port_group_read(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('TrunkNotFound',
+                                           trunk_id=id)
+
+        return self._trunk_vnc_to_neutron(trunk, fields=fields)
+
+    @wait_for_api_server_connection
+    def trunk_update(self, context, id, trunk_q):
+        """Update value of Trunk
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Trunk to update
+        :param trunk_q: dictionary with keys indicating fields to update
+        :returns: Trunk dictionary updated
+        """
+        trunk_obj = self._trunk_neutron_to_vnc(trunk_q, UPDATE, id)
+        self._resource_update('virtual_port_group', trunk_obj)
+        ret_trunk_q = self._trunk_vnc_to_neutron(
+            self._vnc_lib.virtual_port_group_read(id=id))
+        return ret_trunk_q
+
+    @wait_for_api_server_connection
+    def trunk_delete(self, context, id):
+        """Delete Trunk
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Trunk object to delete
+        """
+        try:
+            self._trunk_neutron_to_vnc({}, DELETE, id=id)
+            self._vnc_lib.virtual_port_group_delete(id=id)
+        except NoIdError:
+            self._raise_contrail_exception('TrunkNotFound', trunk_id=id)
+        except RefsExistError:
+            self._raise_contrail_exception('TrunkInUse', trunk_id=id)
+
+    @wait_for_api_server_connection
+    def trunk_list(self, context, filters, fields):
+        """Retrieve a list of Trunk
+
+        :param context: Neutron api request context
+        :param filters: a dictionary with keys that are valid keys for a
+            Trunk
+        :param fields: a list of strings that are valid keys in a Trunk
+            dictionary. Only these fields will be returned.
+        :returns: Trunk dictionary
+        """
+        results = []
+        if 'name' in filters:
+            filters['display_name'] = filters.pop('name')
+        shared = filters.pop('shared', [False])[0]
+        parent_ids = self._validate_project_ids(context, filters)
+        filters.pop('tenant_id', None)
+        filters.pop('project_id', None)
+        trunks = self._vnc_lib.virtual_port_groups_list(
+            detail=True,
+            shared=shared,
+            parent_id=parent_ids,
+            obj_uuids=filters.pop('id', None),
+            filters=filters)
+        for trunk in trunks:
+            if (shared and trunk.get_perms2().owner.replace('-', '') ==
+                    context['tenant_id']):
+                continue
+            results.append(self._trunk_vnc_to_neutron(trunk, fields))
+
+        return results
+
+
+    @wait_for_api_server_connection
+    def trunk_add_subports(self, context, id, sub_ports):
+        """Add sub port to a trunk
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Trunk object
+        :param sub_ports: sub ports info that needs to be added
+        to trunk object.
+        """
+        trunk_obj = self._trunk_neutron_to_vnc(sub_ports, UPDATE, id)
+        self._resource_update('virtual_port_group', trunk_obj)
+        ret_trunk_q = self._trunk_vnc_to_neutron(
+            self._vnc_lib.virtual_port_group_read(id=id))
+        return ret_trunk_q
+
+    @wait_for_api_server_connection
+    def trunk_remove_subports(self, context, id, sub_ports):
+        """Remove sub port from a trunk
+
+        :param context: Neutron api request context
+        :param id: UUID representing the Trunk object
+        :param sub_ports: sub ports info that needs to be removed from a
+         trunk object.
+        """
+        trunk_obj = self._trunk_neutron_to_vnc(sub_ports, UPDATE, id)
+        self._resource_update('virtual_port_group', trunk_obj)
+        ret_trunk_q = self._trunk_vnc_to_neutron(
+            self._vnc_lib.virtual_port_group_read(id=id))
+        return ret_trunk_q
