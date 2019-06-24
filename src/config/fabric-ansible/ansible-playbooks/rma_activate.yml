@@ -27,6 +27,16 @@
             object_dict: { "fq_name": "{{fabric_fqname}}" }
           register: fabric_obj
 
+        - name: Set os version only if defined
+          set_fact:
+            os_defined: true
+          when: fabric_obj.obj.fabric_os_version is defined
+
+        - name: Set version
+          set_fact:
+            os_version: "{{fabric_obj.obj.fabric_os_version }}"
+          when: os_defined is defined and os_defined
+
         - name: Activate devices and return device_to_ztp list for all devices
           set_fact:
              devices_to_ztp: "{{ job_ctx | rma_devices_to_ztp(rma_devices) }}"
@@ -70,9 +80,10 @@
             current_index: 2
             jl_message: "Done reading DHCP leases file"
 
+
         - name: Exit if successful
           set_fact:
-            output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating'})}}"
+            output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating', os_version: os_version})}}"
 
       rescue:
         - name: Perform the necessary error handling
@@ -80,4 +91,5 @@
           vars:
             op_err_message: "Failed to RMA greenfield devices"
             jl_err_message: "Failed to RMA greenfield devices"
+
 
