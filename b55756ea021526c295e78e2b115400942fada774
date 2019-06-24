@@ -22,6 +22,30 @@
       "revId": "b55756ea021526c295e78e2b115400942fada774",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_60fbd346",
+        "filename": "src/vnsw/agent/controller/controller_route_path.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 161,
+      "author": {
+        "id": 694
+      },
+      "writtenOn": "2019-06-24T08:34:16Z",
+      "side": 1,
+      "message": "The nexthops are processed in a for loop in this function. Once we are done processing a next hop (depending on the next hop type) we need to move on to the next item in the nexthop list. This continue follows the other two \"continue\"s already available in the code above this change.\n\nWhy there was a return in first place?\nThis is a re-factored code.Before refactoring this condition was in a function  which took only one nexthop as argument which returned once the processing was over. But now we process all the nexthops in one function, it is essential to continue with other nexthops once this processing is done.",
+      "parentUuid": "9f5c4f37_401c4fc0",
+      "range": {
+        "startLine": 161,
+        "startChar": 20,
+        "endLine": 161,
+        "endChar": 29
+      },
+      "revId": "b55756ea021526c295e78e2b115400942fada774",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
