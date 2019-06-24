@@ -1,10 +1,9 @@
 import sys
-import uuid
-
 from gevent import sleep
-from gevent import spawn
 
-from cfgm_common.tests import test_common
+sys.path.append("../common/tests")
+from test_utils import *
+import test_common
 sys.path.insert(0, '../../../../build/production/config/schema-transformer/')
 
 from vnc_api.vnc_api import *
@@ -74,9 +73,9 @@ class STTestCase(test_common.TestCase):
     def setUp(self, extra_config_knobs=None):
         super(STTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
         cluster_id = self._cluster_id
-        self._svc_mon_greenlet = spawn(test_common.launch_svc_monitor,
+        self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
             cluster_id, self.id(), self._api_server_ip, self._api_server_port)
-        self._st_greenlet = spawn(test_common.launch_schema_transformer,
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             cluster_id, self.id(), self._api_server_ip, self._api_server_port,
             extra_config_knobs)
         test_common.wait_for_schema_transformer_up()
