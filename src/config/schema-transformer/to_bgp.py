@@ -14,6 +14,7 @@ from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 import sys
+import os
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import requests
@@ -27,8 +28,34 @@ import argparse
 
 from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
-from config_db import *
+from cfgm_common.vnc_db import DBBase
+from db_base import DBBaseST
+from resources.virtual_network import VirtualNetworkST
+from resources.virtual_machine import VirtualMachineST
+from resources.port_tuple import PortTupleST
+from resources.routing_instance import RoutingInstanceST
+from resources.route_target import RouteTargetST
+from resources.network_policy import NetworkPolicyST
+from resources.service_instance import ServiceInstanceST
+from resources.bgp_vpn import BgpvpnST
+from resources.physical_router import PhysicalRouterST
+from resources.security_group import SecurityGroupST
+from resources.logical_router import LogicalRouterST
+from resources.routing_policy import RoutingPolicyST
+from resources.global_system_config import GlobalSystemConfigST
+from resources.virtual_machine_interface import VirtualMachineInterfaceST
+from resources.service_chain import ServiceChain
+from resources.bgp_router import BgpRouterST
+from resources.bgp_as_a_service import BgpAsAServiceST
+from resources.instance_ip import InstanceIpST
+from resources.floating_ip import FloatingIpST
+from resources.security_logging_object import SecurityLoggingObjectST
+from resources.alias_ip import AliasIpST
+from resources.route_aggregate import RouteAggregateST
+from resources.route_table import RouteTableST
 
+
+from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
