@@ -36,10 +36,6 @@ try:
     import to_bgp
 except ImportError:
     from schema_transformer import to_bgp
-try:
-    import config_db
-except ImportError:
-    from schema_transformer import config_db
 
 from gevent import sleep
 

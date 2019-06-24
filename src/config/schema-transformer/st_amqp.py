@@ -10,7 +10,8 @@ Sechmatransformer  amqp handler
 import socket
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
-from config_db import DBBaseST, VirtualNetworkST, BgpRouterST
+from schema_transformer.db_base import DBBaseST
+from schema_transformer.resources.virtual_network import VirtualNetworkST
 
 
 class STAmqpHandle(VncAmqpHandle):
