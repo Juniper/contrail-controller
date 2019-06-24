@@ -607,6 +607,10 @@ class FilterModule(object):
                 'label=fabric-as-number'
             )
 
+        # Add os_version
+        if fabric_info.get('os_version'):
+            self._add_fabric_os_version(vnc_api,fabric_obj,fabric_info.get('os_version'))
+
         # add node profiles
         self._add_node_profiles(
             vnc_api,
@@ -769,6 +773,15 @@ class FilterModule(object):
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
         return namespace
     # end _add_overlay_asn_namespace
+
+    @staticmethod
+    def _add_fabric_os_version(vnc_api, fab, os_version):
+        _task_log(
+            'adding fabric os version "%s" to fabric "%s"'
+            % (os_version,fab.name )
+        )
+        fab.set_fabric_os_version(os_version)
+        vnc_api.fabric_update(fab)
 
     @staticmethod
     def _add_asn_range_namespace(vnc_api, fab, ns_name, asn_ranges, tag):
