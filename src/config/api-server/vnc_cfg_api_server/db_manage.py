@@ -47,6 +47,9 @@ in that header:
 * 1.15
   - Fix CEM-6463, handle cassandra_use_ssl properly
 * 1.14
+  - The heal_fq_name_index does not properly extract resource UUID from the
+    FQ name index table
+* 1.14
   - Fix get_subnet to fetch only necessary IPAM properties to prevent case
     where IPAM have a large number of ref/back-ref/children
 * 1.13
@@ -2503,7 +2506,7 @@ class DatabaseHealer(DatabaseManager):
                         fq_name_table.insert(type, cols)
                     continue
                 # FQ name already there, check if it's a stale entry
-                uuid = fq_name_uuid_str.rpartition(':')[-1]
+                uuid = fq_name_uuid_str.popitem()[0].rpartition(':')[-1]
                 try:
                     uuid_table.get(uuid, columns=['type'])
                     # FQ name already use by an object, remove stale object
