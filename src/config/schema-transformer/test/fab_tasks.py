@@ -17,7 +17,7 @@ def setup_venv(build_top="../../../../build"):
         with prefix("source %s/bin/activate" % (venv_dir)):
             local(
                 "pip install --upgrade "
-                "../../common/dist/contrail-config-common-0.1dev.tar.gz")
+                "../../common/dist/cfgm_common-0.1dev.tar.gz")
             local(
                 "pip install --upgrade "
                 "../dist/schema_transformer-0.1dev.tar.gz")

@@ -5,6 +5,7 @@ from gevent import sleep
 from gevent import spawn
 
 from cfgm_common.tests import test_common
+
 sys.path.insert(0, '../../../../build/production/config/schema-transformer/')
 
 from vnc_api.vnc_api import *
