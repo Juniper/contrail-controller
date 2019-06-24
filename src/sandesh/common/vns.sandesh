@@ -39,6 +39,7 @@ const string SERVICE_KAFKA = "kafka"
 const string SERVICE_IRONIC_NOTIF_MANAGER = "ironic-notification-manager"
 const string SERVICE_FABRIC_ANSIBLE = "contrail-fabric-ansible"
 const string SERVICE_VCENTER_MANAGER = "contrail-vcenter-manager"
+const string SERVICE_VCENTER_FABRIC_MANAGER = "contrail-vcenter-fabric-manager"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
@@ -67,6 +68,7 @@ const u16 HttpPortConfigDatabaseNodemgr = 8112
 const u16 HttpPortAnalyticsAlarmNodemgr = 8113
 const u16 HttpPortAnalyticsSNMPNodemgr = 8114
 const u16 HttpPortvCenterManager = 9090
+const u16 HttpPortvCenterFabricManager = 9099
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
@@ -152,6 +154,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_IRONIC_NOTIF_MANAGER: HttpPortIronicNotifManager,
     SERVICE_FABRIC_ANSIBLE: HttpPortFabricAnsible,
     SERVICE_VCENTER_MANAGER: HttpPortvCenterManager,
+    SERVICE_VCENTER_FABRIC_MANAGER: HttpPortvCenterFabricManager,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -183,6 +186,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_KUBE_MANAGER,
     SERVICE_MESOS_MANAGER,
     SERVICE_VCENTER_MANAGER,
+    SERVICE_VCENTER_FABRIC_MANAGER,
 ]
 
 const list<string> BackupImplementedServices = [
@@ -225,6 +229,7 @@ const map<string, list<string> > ServicesDefaultConfigurationFiles = {
     SERVICE_KUBE_MANAGER : ['/etc/contrail/contrail-kubernetes.conf'],
     SERVICE_MESOS_MANAGER : ['/etc/contrail/contrail-mesos.conf'],
     SERVICE_VCENTER_MANAGER: ['/etc/contrail/contrail-vcenter-manager/config.yaml'],
+    SERVICE_VCENTER_FABRIC_MANAGER: ['/etc/contrail/contrail-vcenter-fabric-manager/config.yaml'],
 }
 
 enum Module {
@@ -264,6 +269,7 @@ enum Module {
     FABRIC_ANSIBLE,
     CONFIG_DATABASE_NODE_MGR,
     VCENTER_MANAGER,
+    VCENTER_FABRIC_MANAGER,
 }
 
 enum VrouterAgentType {
@@ -353,6 +359,7 @@ const string MODULE_MESOS_MANAGER_NAME = SERVICE_MESOS_MANAGER
 const string MODULE_IRONIC_NOTIF_MANAGER_NAME = SERVICE_IRONIC_NOTIF_MANAGER
 const string MODULE_FABRIC_ANSIBLE_NAME = "FabricAnsible"
 const string MODULE_VCENTER_MANAGER_NAME = SERVICE_VCENTER_MANAGER
+const string MODULE_VCENTER_FABRIC_MANAGER_NAME = SERVICE_VCENTER_FABRIC_MANAGER
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -390,6 +397,7 @@ const map<Module, string> ModuleNames = {
     Module.IRONIC_NOTIF_MANAGER    : MODULE_IRONIC_NOTIF_MANAGER_NAME,
     Module.FABRIC_ANSIBLE    : MODULE_FABRIC_ANSIBLE_NAME,
     Module.VCENTER_MANAGER    : MODULE_VCENTER_MANAGER_NAME,
+    Module.VCENTER_FABRIC_MANAGER    : MODULE_VCENTER_FABRIC_MANAGER_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -428,6 +436,7 @@ const map<string, Module> ModuleIds = {
     MODULE_IRONIC_NOTIF_MANAGER_NAME   : Module.IRONIC_NOTIF_MANAGER,
     MODULE_FABRIC_ANSIBLE_NAME         : Module.FABRIC_ANSIBLE,
     MODULE_VCENTER_MANAGER_NAME        : Module.VCENTER_MANAGER,
+    MODULE_VCENTER_FABRIC_MANAGER_NAME        : Module.VCENTER_FABRIC_MANAGER,
 }
 
 
@@ -524,6 +533,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.FABRIC_ANSIBLE    : NodeType.CONFIG,
     Module.IRONIC_NOTIF_MANAGER    : NodeType.CONFIG,
     Module.VCENTER_MANAGER    : NodeType.COMPUTE,
+    Module.VCENTER_FABRIC_MANAGER    : NodeType.COMPUTE,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"
@@ -625,6 +635,8 @@ const map<Module, list<Category>> ModuleCategoryMap = {
     Module.MESOS_MANAGER      : [Category.DEFAULT,
                                 ],
     Module.VCENTER_MANAGER    : [Category.DEFAULT
+                                ],
+    Module.VCENTER_FABRIC_MANAGER : [Category.DEFAULT
                                 ],
 }
 
