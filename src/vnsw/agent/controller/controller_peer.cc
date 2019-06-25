@@ -1541,7 +1541,7 @@ bool AgentXmppChannel::IsEcmp(const TYPE &nexthops) {
     uint32_t label = nexthops[0].label;
     for (uint32_t index = 1; index < nexthops.size(); index++) {
         if (nexthops[index].address != address ||
-            nexthops[index].label != label) {
+            (uint32_t)nexthops[index].label != label) {
             return true;
         }
     }
