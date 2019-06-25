@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f5c4f37_99051e49",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_security_base.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 431,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-25T14:43:09Z",
+      "side": 1,
+      "message": "check if it return true else return the error",
+      "range": {
+        "startLine": 431,
+        "startChar": 16,
+        "endLine": 431,
+        "endChar": 18
+      },
+      "revId": "73d2c369ba0750ffa9a960d0128b0583131d507c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_79026a3f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_security_base.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 482,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-25T14:43:09Z",
+      "side": 1,
+      "message": "Internal call can raise an HttpError exception, can you catch it and return error in that case (seems also miss on line 413)",
+      "range": {
+        "startLine": 467,
+        "startChar": 27,
+        "endLine": 482,
+        "endChar": 47
+      },
+      "revId": "73d2c369ba0750ffa9a960d0128b0583131d507c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_59fb2646",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_firewall.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1602,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-25T14:43:09Z",
+      "side": 1,
+      "message": "Did you try to discard the FR only and check if draft FP reference to FR comes back to the committed FR?",
+      "range": {
+        "startLine": 1600,
+        "startChar": 9,
+        "endLine": 1602,
+        "endChar": 58
+      },
+      "revId": "73d2c369ba0750ffa9a960d0128b0583131d507c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
