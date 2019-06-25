@@ -67,7 +67,8 @@ class FilterModule(object):
     def get_supplemental_config(cls, device_name, device_to_ztp, supplemental_configs):
         supplemental_config = ""
         if device_name and device_to_ztp and supplemental_configs:
-            device_map = dict((d.get('serial_number'), d) for d in device_to_ztp)
+            device_map = dict((d.get('hostname', d.get('serial_number')), d)
+                              for d in device_to_ztp)
             config_map = dict((c.get('name'), c) for c in supplemental_configs)
             if device_name in device_map:
                 config_name = device_map[device_name].get('supplemental_day_0_cfg')
