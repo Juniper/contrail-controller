@@ -105,10 +105,10 @@ public:
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
 
-        Agent::GetInstance()->set_dns_server("127.0.0.1", 0);
-        Agent::GetInstance()->set_dns_server_port(53, 0);
-        Agent::GetInstance()->set_dns_server("127.0.0.2", 1);
-        Agent::GetInstance()->set_dns_server_port(53, 1);
+        std::vector<std::string> dns_server_list;
+        dns_server_list.push_back("127.0.0.1:53");
+        dns_server_list.push_back("127.0.0.2:53");
+        Agent::GetInstance()->set_dns_list(dns_server_list);
 
         rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&DnsTest::ItfUpdate, this, _2));
