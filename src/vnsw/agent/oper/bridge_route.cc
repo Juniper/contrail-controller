@@ -504,6 +504,7 @@ bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     BridgeRouteResp *resp = static_cast<BridgeRouteResp *>(sresp);
     RouteL2SandeshData data;
     data.set_mac(ToString());
+    data.set_src_vrf(vrf()->GetName());
 
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
