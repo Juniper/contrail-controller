@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f5c4f37_94260515",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 157,
+      "author": {
+        "id": 35
+      },
+      "writtenOn": "2019-06-26T00:08:11Z",
+      "side": 1,
+      "message": "we will be enabling pep8 in fabric-ansible, this will fail due to white spaces. I will wait for acceptance test results before reviewing functionality",
+      "revId": "24d71d072bf81a565d7363acbf924922e0114d28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
