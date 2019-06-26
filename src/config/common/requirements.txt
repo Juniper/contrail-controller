@@ -4,6 +4,6 @@ kazoo
 bitarray
 bottle
 attrdict
-requests
+requests >= 2.20.0
 sandesh
 contrail-api-client

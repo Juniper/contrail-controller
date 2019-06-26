@@ -1,4 +1,4 @@
 contrail-vrouter-api
 eventlet
 netaddr
-requests
+requests >= 2.20.0
