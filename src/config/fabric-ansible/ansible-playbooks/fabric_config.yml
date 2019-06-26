@@ -6,6 +6,9 @@
   gather_facts: no
 
   pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
     - name: Calculate config templates and render config
       set_fact:
         render_output: "{{ job_ctx | render_fabric_config() }}"

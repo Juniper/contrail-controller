@@ -14,6 +14,9 @@
       task_weightage_array: [50, 50]
 
   tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
     - set_fact:
         job_ctx: "{{job_ctx|combine(final_task_array)}}"
         standalone: true
