@@ -607,6 +607,11 @@ class FilterModule(object):
                 'label=fabric-as-number'
             )
 
+        # Add enterprise style
+        if fabric_info.get('enterprise_style'):
+            self._add_fabric_enterprise_style(
+                vnc_api, fabric_obj, fabric_info.get('enterprise_style'))
+
         # add node profiles
         self._add_node_profiles(
             vnc_api,
@@ -808,6 +813,15 @@ class FilterModule(object):
         namespace = vnc_api.fabric_namespace_read(fq_name=ns_fq_name)
         return namespace
     # end _add_asn_range_namespace
+
+    @staticmethod
+    def _add_fabric_enterprise_style(vnc_api, fab, enterprise_style):
+        _task_log(
+            'adding enterprise style "%s" to fabric "%s"'
+            % (enterprise_style, fab.name )
+        )
+        fab.set_fabric_enterprise_style(enterprise_style)
+        vnc_api.fabric_update(fab)
 
     @staticmethod
     def _add_node_profiles(vnc_api, fabric_obj, node_profiles):
