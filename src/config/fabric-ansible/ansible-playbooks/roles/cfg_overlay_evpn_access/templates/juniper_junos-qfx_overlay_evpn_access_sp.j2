@@ -1,0 +1,51 @@
+{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         if phy_int.get('interface_type') != 'irb' %}
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 if 'EVPN' in li.get('comment', '') %}
+{%                     set name = phy_int.get('name') %}
+{%                     set unit = li.get('unit') %}
+{%                     set vlan_id = li.get('vlan_tag') %}
+set groups {{cfg_group}} interfaces {{name}} mtu 9192
+set groups {{cfg_group}} interfaces {{name}} flexible-vlan-tagging
+set groups {{cfg_group}} interfaces {{name}} encapsulation extended-vlan-bridge
+set groups {{cfg_group}} interfaces {{name}} unit {{unit}} vlan-id {{vlan_id}}
+{%                     if li.get('is_tagged', false) == false %}
+set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
+{%                     endif %}
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+
+{%     for vlan in device_abstract_config.get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vni = vlan.get('vxlan_id') %}
+{%         set intfs = vlan.get('interfaces',[]) %}
+{%         for each in intfs %}
+{%             set int_name = each.get('name', '') %}
+{%             if 'irb' in int_name %}
+{%                 continue %}
+{%             endif %}
+{%             for phy_intf in device_abstract_config.get('physical_interfaces', []) %}
+{%                 for li in phy_intf.get('logical_interfaces', []) %}
+{%                     if li.get('name', '') == int_name %}
+{%                         if li.get('is_tagged', false) != false %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+{%                         endif %}
+set groups {{cfg_group}} vlans {{vlan_name}} interface {{int_name}}
+set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%                     endif %}
+{%                 endfor %}
+{%             endfor %}
+{%         endfor %}
+{%     endfor %}
+set groups {{cfg_group}} protocols igmp-snooping vlan all proxy
+{%     for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%         set families = bgp_elem.get('families', []) %}
+{%         for fam in families %}
+{%             if fam == 'evpn' %}
+set groups {{cfg_group}} protocols evpn multicast-mode ingress-replication
+set groups {{cfg_group}} switch-options vrf-target auto
+{%             endif %}
+{%         endfor %}
+{%     endfor %}
