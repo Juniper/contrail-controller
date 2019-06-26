@@ -223,6 +223,11 @@
       },
       "os_version": {
         "type": "string"
+      },
+      "enterprise_style": {
+        "type": "boolean",
+        "default": true,
+        "description": "True if enterprise style, false if sp-style configuration"
       }
     }
   },
