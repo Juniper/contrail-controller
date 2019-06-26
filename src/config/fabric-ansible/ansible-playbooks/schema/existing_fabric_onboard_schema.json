@@ -162,6 +162,11 @@
         "title": "Number of fabric devices",
         "type": "integer",
         "description": "Total number of devices in the fabric that needs to be zero-touch provisioned"
+      },
+      "enterprise_style": {
+        "type": "boolean",
+        "default": true,
+        "description": "True if enterprise style, false if sp-style configuration"
       }
     }
   },

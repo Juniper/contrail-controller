@@ -21,6 +21,7 @@
         device_username: "{{ render_output.device_username }}"
         device_password: "{{ render_output.device_password }}"
         is_delete: "{{ render_output.is_delete }}"
+        enterprise_style: "{{ render_output.enterprise_style }}"
         conf_dir: "{{ render_output.conf_dir }}"
         source_file: "{{ render_output.combined_config }}"
 
