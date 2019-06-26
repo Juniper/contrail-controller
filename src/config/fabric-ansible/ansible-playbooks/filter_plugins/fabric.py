@@ -1681,8 +1681,6 @@ class FilterModule(object):
                 vnc_api, fabric_fq_name, role_assignments
             )
 
-            fabric_cluster_id = self._get_fabric_cluster_id(vnc_api,
-                                                            fabric_fq_name)
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
             for device_roles in role_assignments:
@@ -1702,8 +1700,7 @@ class FilterModule(object):
                         self._add_logical_interfaces_for_fabric_links(
                             vnc_api, device_obj
                         )
-                    self._add_bgp_router(vnc_api, device_roles,
-                                         fabric_cluster_id)
+                    self._add_bgp_router(vnc_api, device_roles)
 
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
@@ -1726,19 +1723,6 @@ class FilterModule(object):
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
-
-    def _get_fabric_cluster_id(self, vnc_api, fabric_fq_name):
-        fabric = vnc_api.fabric_read(fq_name=fabric_fq_name,
-                                     fields=['annotations'])
-        annotations = fabric.get_annotations()
-        if annotations and annotations.get_key_value_pair():
-            for kv in annotations.get_key_value_pair():
-                if kv.get_key() == 'user_input':
-                    user_input = json.loads(kv.get_value())
-                    if 'fabric_cluster_id' in user_input:
-                        return user_input['fabric_cluster_id']
-        return 100
-    # end _get_fabric_cluster_id
 
     def _read_and_increment_dummy_ip(self, vnc_api):
         gsc_obj = vnc_api.global_system_config_read(
@@ -2123,7 +2107,7 @@ class FilterModule(object):
                 = iip_obj.get_instance_ip_address()
     # end _add_loopback_interface
 
-    def _add_bgp_router(self, vnc_api, device_roles, fabric_cluster_id):
+    def _add_bgp_router(self, vnc_api, device_roles):
         """Add BGP router.
 
         Add corresponding bgp-router object for this device. This bgp-router is
@@ -2150,7 +2134,7 @@ class FilterModule(object):
             bgp_router_name = bgp_router_fq_name[-1]
             cluster_id = None
             if 'Route-Reflector' in rb_roles:
-                cluster_id = fabric_cluster_id
+                cluster_id = device_obj.physical_router_loopback_ip
             try:
                 bgp_router_obj = vnc_api.bgp_router_read(
                     fq_name=bgp_router_fq_name
