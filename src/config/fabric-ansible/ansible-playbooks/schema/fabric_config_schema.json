@@ -148,6 +148,11 @@
         "description": "Set to true to manage underlay config",
         "default": true
       },
+      "enterprise_style": {
+        "type": "boolean",
+        "description": "Set to true to if enterprise-style config",
+        "default": true
+      },
       "fabric_fq_name": {
         "type": "array",
         "items": {
