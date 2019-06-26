@@ -11,6 +11,9 @@
     output: {"status":"", "message":""}
 
   tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
     - set_fact:
         job_ctx: "{{job_ctx|combine({'total_task_count':1, 'task_weightage_array':[100] })}}"
 

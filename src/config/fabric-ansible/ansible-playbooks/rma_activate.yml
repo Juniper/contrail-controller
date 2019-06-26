@@ -10,6 +10,9 @@
     output: {"status":"", "message":""}
 
   tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
     - set_fact:
         job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[50, 50] })}}"
         fabric_fqname: "{{playbook_input.fabric_fq_name.split(':')}}"
