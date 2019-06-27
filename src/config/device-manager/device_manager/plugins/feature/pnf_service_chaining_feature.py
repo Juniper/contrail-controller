@@ -11,6 +11,7 @@ from abstract_device_api.abstract_device_xsd import *
 from dm_utils import DMUtils
 from feature_base import FeatureBase
 
+
 class PNFSrvcChainingFeature(FeatureBase):
 
     @classmethod
@@ -136,7 +137,8 @@ class PNFSrvcChainingFeature(FeatureBase):
         if svc_params.get('lo0_li') and svc_params.get('lo0_li_ip'):
             lo0_intf = svc_params.get('lo0_li')
             ip = svc_params.get('lo0_li_ip')
-            intf, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
+            intf, li_map = self._add_or_lookup_pi(
+                self.pi_map, 'lo0', 'loopback')
             intf_unit = self._add_or_lookup_li(
                 li_map, lo0_intf, lo0_intf.split('.')[1])
             intf_unit.set_comment("PNF loopback interface")
@@ -147,8 +149,8 @@ class PNFSrvcChainingFeature(FeatureBase):
         if svc_params.get('left_li') and svc_params.get('left_li_ip'):
             left_intf = svc_params.get('left_li')
             ip = svc_params.get('left_li_ip')
-            intf, li_map = self._add_or_lookup_pi(self.pi_map, 
-                left_intf.split('.')[0], 'service')
+            intf, li_map = self._add_or_lookup_pi(
+                self.pi_map, left_intf.split('.')[0], 'service')
             intf_unit = self._add_or_lookup_li(
                 li_map, left_intf, left_intf.split('.')[1])
             intf_unit.set_comment("PNF left svc interface")
@@ -159,8 +161,8 @@ class PNFSrvcChainingFeature(FeatureBase):
         if svc_params.get('right_li') and svc_params.get('right_li_ip'):
             right_intf = svc_params.get('right_li')
             ip = svc_params.get('right_li_ip')
-            intf, li_map = self._add_or_lookup_pi(self.pi_map, 
-                right_intf.split('.')[0], 'service')
+            intf, li_map = self._add_or_lookup_pi(
+                self.pi_map, right_intf.split('.')[0], 'service')
             intf_unit = self._add_or_lookup_li(
                 li_map, right_intf, right_intf.split('.')[1])
             intf_unit.set_comment("PNF right svc interface")
@@ -215,8 +217,7 @@ class PNFSrvcChainingFeature(FeatureBase):
                     if sa_obj:
                         right_li_name = left_li_name = lo0_li_name = None
                         right_li_ip = left_li_ip = lo0_li_ip = None
-                        for pi, intf_type in (
-                            sa_obj.physical_interfaces).iteritems():
+                        for pi, intf_type in sa_obj.physical_interfaces.iteritems():
                             pi_obj = db.PhysicalInterfaceDM.get(pi)
                             attr = intf_type.get('interface_type')
                             if attr == 'left':
@@ -366,8 +367,8 @@ class PNFSrvcChainingFeature(FeatureBase):
         for vn in left_vrf_info.get('tenant_vn') or []:
             vn_obj = db.VirtualNetworkDM.get(vn)
             if vn_obj:
-                vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                             vn_obj.vn_network_id, 'l3')
+                vrf_name = DMUtils.make_vrf_name(
+                    vn_obj.fq_name[-1], vn_obj.vn_network_id, 'l3')
                 if self.ri_map_leafspine.get(vrf_name):
                     ri = self.ri_map_leafspine.get(vrf_name)
 
@@ -393,7 +394,8 @@ class PNFSrvcChainingFeature(FeatureBase):
                 right_ri = RoutingInstance(name=vrf_name)
                 self.ri_map_leafspine[vrf_name] = right_ri
 
-            self._add_ref_to_list(right_ri.get_routing_interfaces(), 'irb.'+right_vrf_info.get('right_svc_unit'))
+            self._add_ref_to_list(
+                right_ri.get_routing_interfaces(), 'irb.'+right_vrf_info.get('right_svc_unit'))
 
             if right_vrf_info.get('srx_right_interface') and left_vrf_info.get('loopback_ip'):
                 protocols = RoutingInstanceProtocols()
@@ -423,8 +425,8 @@ class PNFSrvcChainingFeature(FeatureBase):
         for vn in right_vrf_info.get('tenant_vn') or []:
             vn_obj = db.VirtualNetworkDM.get(vn)
             if vn_obj:
-                vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                             vn_obj.vn_network_id, 'l3')
+                vrf_name = DMUtils.make_vrf_name(
+                    vn_obj.fq_name[-1], vn_obj.vn_network_id, 'l3')
                 if self.ri_map_leafspine.get(vrf_name):
                     ri = self.ri_map_leafspine.get(vrf_name)
 
@@ -463,15 +465,13 @@ class PNFSrvcChainingFeature(FeatureBase):
                         if iip_obj:
                             irb_addr = iip_obj.instance_ip_address
                             irb_unit = left_svc_unit
-                            left_irb_intf, li_map = self._add_or_lookup_pi('irb',
-                                                                    'irb')
-                            intf_unit = self._add_or_lookup_li(li_map,
-                                'irb.' + str(irb_unit),
-                                irb_unit)
+                            left_irb_intf, li_map = self._add_or_lookup_pi('irb', 'irb')
+                            intf_unit = self._add_or_lookup_li(
+                                li_map, 'irb.' + str(irb_unit), irb_unit)
                             self._add_ip_address(intf_unit, irb_addr+'/29')
                             # build BD config
                             left_bd_vlan = Vlan(name=DMUtils.make_bridge_name(left_svc_unit),
-                                        vxlan_id=left_svc_unit)
+                                                vxlan_id=left_svc_unit)
                             left_bd_vlan.set_vlan_id(left_svc_vlan)
                             left_bd_vlan.set_comment("PNF-Service-Chaining")
                             self._add_ref_to_list(
@@ -480,9 +480,8 @@ class PNFSrvcChainingFeature(FeatureBase):
                             # create logical interfaces for the aggregated interfaces
                             left_svc_intf, li_map = self._add_or_lookup_pi(
                                 spine_pi_obj.name, 'service')
-                            left_svc_intf_unit = self._add_or_lookup_li(li_map,
-                                                          left_fq_name[-1] + '.0',
-                                                          "0")
+                            left_svc_intf_unit = self._add_or_lookup_li(
+                                li_map, left_fq_name[-1] + '.0', "0")
                             left_svc_intf_unit.set_comment("PNF-Service-Chaining")
                             left_svc_intf_unit.set_family("ethernet-switching")
                             vlan_left = Vlan(name="bd-"+left_svc_unit)
@@ -500,9 +499,8 @@ class PNFSrvcChainingFeature(FeatureBase):
                             irb_unit = right_svc_unit
                             right_irb_intf, li_map = self._add_or_lookup_pi(
                                 'irb', 'irb')
-                            intf_unit = self._add_or_lookup_li(li_map,
-                                'irb.' + str(irb_unit),
-                                irb_unit)
+                            intf_unit = self._add_or_lookup_li(
+                                li_map, 'irb.' + str(irb_unit), irb_unit)
                             self._add_ip_address(intf_unit, irb_addr+'/29')
                             # build BD config
                             right_bd_vlan = Vlan(
@@ -516,9 +514,8 @@ class PNFSrvcChainingFeature(FeatureBase):
                             # create logical interfaces for the aggregated interfaces
                             right_svc_intf, li_map = self._add_or_lookup_pi(
                                 spine_pi_obj.name, 'service')
-                            right_svc_intf_unit = self._add_or_lookup_li(li_map,
-                                                          right_fq_name[-1] + '.0',
-                                                          "0")
+                            right_svc_intf_unit = self._add_or_lookup_li(
+                                li_map, right_fq_name[-1] + '.0', "0")
                             right_svc_intf_unit.set_comment("PNF-Service-Chaining")
                             right_svc_intf_unit.set_family(
                                 "ethernet-switching")
@@ -662,12 +659,9 @@ class PNFSrvcChainingFeature(FeatureBase):
                                                                                      right_vrf_info))
                 # Make sure all required parameters are present before creating the
                 # abstract config
-                if self.check_svc_chaining_required_params(left_vrf_info,
-                                                            right_vrf_info):
+                if self.check_svc_chaining_required_params(left_vrf_info, right_vrf_info):
                     self.build_svc_chaining_irb_bd_config(svc_app_obj, left_right_params)
-                    self.build_svc_chaining_ri_config(left_vrf_info,
-                                                       right_vrf_info)
-
+                    self.build_svc_chaining_ri_config(left_vrf_info, right_vrf_info)
 
     def feature_config(self, **kwargs):
         pr = self._physical_router
