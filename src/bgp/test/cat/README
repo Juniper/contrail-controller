@@ -1,0 +1,30 @@
+
+---------------------CAT(Control-node Agent Testing) FRAMEWORK---------------------
+
+Example Test File:
+
+The example test file to run the CAT tool is present in the below location:
+
+        dir/controller/src/bgp/test/cat/tests/test_xmpp_peers.py
+
+Run the Framework:
+
+You can run the tool from the parent directory of the scon using the below command.
+
+        ## python controller/src/bgp/test/cat/tests/{test_file}.py
+
+NOTE: Please run the tool from the top level sandbox directory/ only.
+
+NOTE: The tool can only be run on the build-server build-04(for now).
+
+Required installs:
+
+To run the tool, we need to install the below extra module(s).
+
+        ##pip install PyUnitReport
+
+Check reports:
+
+We can check the report of the runs in an HTML format in the below location:
+
+        ## http://10.84.5.100/cs-shared/CAT/reports/{user-id}/
