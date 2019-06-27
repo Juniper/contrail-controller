@@ -6,10 +6,10 @@
 
 """This file contains general functions for fabric ansible modules."""
 
+from functools import wraps
 import json
 import traceback
 import uuid
-from functools import wraps
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -103,8 +103,8 @@ class FabricAnsibleModule(AnsibleModule):
                             job_error_percent=None, device_name=None,
                             details=None):
         """Job object log."""
-        if job_success_percent is None or (log_error_percent
-                                           and job_error_percent is None):
+        if (job_success_percent is None or
+                (log_error_percent and job_error_percent is None)):
             try:
                 total_percent = self.job_ctx.get('playbook_job_percentage')
                 if total_percent:
@@ -124,8 +124,8 @@ class FabricAnsibleModule(AnsibleModule):
                         buffer_task_percent=False,
                         task_seq_number=self.job_ctx.get('current_task_index'),
                         total_percent=total_percent,
-                        task_weightage_array=
-                            self.job_ctx.get('task_weightage_array'))
+                        task_weightage_array=self.job_ctx.get(
+                            'task_weightage_array'))
             except Exception as e:
                 self.logger.error("Exception while calculating the job "
                                   "percentage %s", str(e))

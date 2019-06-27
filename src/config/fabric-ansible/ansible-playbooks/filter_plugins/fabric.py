@@ -16,10 +16,6 @@ from cfgm_common.exceptions import (
     NoIdError,
     RefsExistError
 )
-from job_manager.job_utils import (
-    JobAnnotations,
-    JobVncApi
-)
 import jsonschema
 from netaddr import IPNetwork
 from vnc_api.gen.resource_client import (
@@ -45,6 +41,11 @@ from vnc_api.gen.resource_xsd import (
     SubnetType,
     VirtualNetworkType,
     VnSubnetsType
+)
+
+from job_manager.job_utils import (
+    JobAnnotations,
+    JobVncApi
 )
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")

@@ -165,7 +165,8 @@ class FilterModule(object):
                         "device_management_ip":
                             device_obj.physical_router_management_ip,
                         "device_username":
-                            device_obj.physical_router_user_credentials.username,
+                            device_obj.physical_router_user_credentials.
+                            username,
                         "device_password": self._get_password(device_obj),
                         "device_image_uuid": image_uuid,
                         "device_hitless_upgrade": is_hitless_upgrade
