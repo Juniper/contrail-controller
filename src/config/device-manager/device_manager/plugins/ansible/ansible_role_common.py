@@ -1316,7 +1316,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     if intf_type.get('interface_type') == "right":
                         pnf_pi_obj = PhysicalInterfaceDM(pnf_pi)
                         for li in pnf_pi_obj.logical_interfaces:
-                            li_obj = LogicalInterfaceDM(li)
+                            li_obj = LogicalInterfaceDM.get(li)
                             if li_obj:
                                 vlan = li_obj.fq_name[-1].split('.')[-1]
                                 if right_svc_vlan == vlan:
