@@ -40,7 +40,7 @@ class PNFSrvcChainingFeature(FeatureBase):
         return None
     # end get_peer_asn
 
-    def build_pnf_required_params(self, svc_params):
+    def check_pnf_svc_required_params(self, svc_params):
         if svc_params.get('peer_right_li_ips') and \
            svc_params.get('right_li') and \
            svc_params.get('right_li_ip') and \
@@ -54,7 +54,7 @@ class PNFSrvcChainingFeature(FeatureBase):
             return True
 
         return False
-    # end build_pnf_required_params
+    # end check_pnf_svc_required_params
 
     def build_pnf_svc_ri_config(self, svc_params):
         if svc_params.get('svc_inst_name'):
@@ -200,7 +200,7 @@ class PNFSrvcChainingFeature(FeatureBase):
         for pt in pt_list or []:
             pt_obj = db.PortTupleDM.get(pt)
             if pt_obj:
-                si = pt_obj.svc_isntance
+                si = pt_obj.svc_instance
                 si_obj = db.ServiceInstanceDM.get(si)
                 if si_obj:
                     svc_params = {}
@@ -316,14 +316,14 @@ class PNFSrvcChainingFeature(FeatureBase):
                             (pr.name, svc_params))
                         # Make sure all required parameters are present,
                         # before creating the abstract config
-                        if self.build_pnf_required_params(svc_params):
+                        if self.check_pnf_svc_required_params(svc_params):
                             self.build_pnf_svc_ri_config(svc_params)
                             self.build_pnf_svc_intfs_config(svc_params)
                             self.build_pnf_svc_sc_zone_policy_config(
                                 svc_params)
-    # end build_pnf_config
+    # end build_pnf_svc_config
 
-    def build_service_chain_ri_config(self, left_vrf_info, right_vrf_info):
+    def build_svc_chaining_ri_config(self, left_vrf_info, right_vrf_info):
         # left vrf
         vn_obj = db.VirtualNetworkDM.get(left_vrf_info.get('vn_id'))
         if vn_obj:
@@ -439,7 +439,7 @@ class PNFSrvcChainingFeature(FeatureBase):
                         self._add_to_list(vni_ri_right.get_export_targets(), target)
     # end build_service_chain_ri_config
 
-    def build_service_chain_irb_bd_config(self, svc_app_obj, left_right_params):
+    def build_svc_chaining_irb_bd_config(self, svc_app_obj, left_right_params):
         left_fq_name = left_right_params['left_qfx_fq_name']
         right_fq_name = left_right_params['right_qfx_fq_name']
         left_svc_vlan = left_right_params['left_svc_vlan']
@@ -526,7 +526,7 @@ class PNFSrvcChainingFeature(FeatureBase):
                             right_svc_intf_unit.add_vlans(vlan_right)
     # end build_service_chain_irb_bd_config
 
-    def build_service_chain_required_params(self, left_vrf_info, right_vrf_info):
+    def check_svc_chaining_required_params(self, left_vrf_info, right_vrf_info):
         if left_vrf_info.get('left_svc_unit') and \
            right_vrf_info.get('right_svc_unit'):
             return True
@@ -534,7 +534,7 @@ class PNFSrvcChainingFeature(FeatureBase):
         return False
     # end build_service_chain_required_params
 
-    def build_service_chaining_config(self):
+    def build_svc_chaining_config(self):
         pr = self._physical_router
         if not pr:
             return
@@ -577,12 +577,12 @@ class PNFSrvcChainingFeature(FeatureBase):
                     lr_obj = db.LogicalRouterDM.get(lr_uuid)
                     if pr.uuid not in lr_obj.physical_routers:
                         continue
-                    if pt_obj.left_lr == lr_uuid:
+                    if lr_uuid == pt_obj.left_lr:
                         left_vrf_info['vn_id'] = lr_obj.virtual_network
                         left_vrf_info[
                             'tenant_vn'] = lr_obj.get_connected_networks(
                             include_internal=False)
-                    if pt_obj.right_lr == lr_uuid:
+                    if lr_uuid == pt_obj.right_lr:
                         right_vrf_info[
                             'vn_id'] = lr_obj.virtual_network
                         right_vrf_info[
@@ -662,10 +662,10 @@ class PNFSrvcChainingFeature(FeatureBase):
                                                                                      right_vrf_info))
                 # Make sure all required parameters are present before creating the
                 # abstract config
-                if self.build_service_chain_required_params(left_vrf_info,
+                if self.check_svc_chaining_required_params(left_vrf_info,
                                                             right_vrf_info):
-                    self.build_service_chain_irb_bd_config(svc_app_obj, left_right_params)
-                    self.build_service_chain_ri_config(left_vrf_info,
+                    self.build_svc_chaining_irb_bd_config(svc_app_obj, left_right_params)
+                    self.build_svc_chaining_ri_config(left_vrf_info,
                                                        right_vrf_info)
 
 
@@ -696,7 +696,7 @@ class PNFSrvcChainingFeature(FeatureBase):
                     self.sc_policy_map))
 
         elif pr.physical_router_role in ['leaf', 'spine']:
-            self.build_service_chaining_config()
+            self.build_svc_chaining_config()
 
             feature_config.set_vlans(
                 self._get_values_sorted_by_key(
