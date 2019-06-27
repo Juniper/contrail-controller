@@ -61,19 +61,19 @@ class PNFSrvcChainingFeature(FeatureBase):
             ri_name = svc_params.get('svc_inst_name') + '_left_right'
             ri = RoutingInstance(name=ri_name)
             pim = Pim()
-            protocol = db.RoutingInstanceProtocols()
+            protocol = RoutingInstanceProtocols()
             self.ri_map[ri_name] = ri
             ri.set_comment("PNF svc routing instance")
             ri.set_routing_instance_type('virtual-router')
             if svc_params.get('lo0_li') and svc_params.get('lo0_li_ip'):
                 ri.add_loopback_interfaces(
-                    db.LogicalInterface(
+                    LogicalInterface(
                         name=svc_params.get('lo0_li')))
                 pimrp = PimRp(ip_address=svc_params.get('lo0_li_ip'))
                 pim.set_rp(pimrp)
             if svc_params.get('left_li'):
                 ri.add_routing_interfaces(
-                    db.LogicalInterface(
+                    LogicalInterface(
                         name=svc_params.get('left_li')))
                 pim_intf = PimInterface(
                     LogicalInterface(
