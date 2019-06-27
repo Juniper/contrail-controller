@@ -152,6 +152,29 @@ protected:
         task_util::WaitForIdle();
         db_util::Clear(&db_);
     }
+    VirtualDnsRecordTraceData GetRecord(std::string vdns_server,
+        std::string rec_name) {
+        VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+
+    std::vector<VirtualDnsRecordTraceData> rec_list_sandesh;
+    VirtualDnsConfig::VDnsRec::iterator rec_it;
+    VirtualDnsConfig::DataMap::iterator vdns_it = vdns.find(vdns_server);
+    VirtualDnsRecordTraceData rec_trace_data;
+    if (vdns_it != vdns.end()) {
+        VirtualDnsConfig *vdns_config = vdns_it->second;
+
+        for(rec_it = vdns_config->virtual_dns_records_.begin();
+             rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
+            (*rec_it)->VirtualDnsRecordTrace(rec_trace_data);
+            if ( rec_name != rec_trace_data.name )
+                continue;
+            else
+                return rec_trace_data;
+            }
+        }
+    return rec_trace_data;
+    }
+
     DB db_;
     DBGraph db_graph_;
     DnsManager dns_manager_;
@@ -1250,6 +1273,53 @@ TEST_F(DnsBindTest, DnsResponseTxtParse) {
     EXPECT_TRUE(BindUtil::ParseDnsResponse(buf, len, xid, flags,
                 ques, ans, auth, add));
     EXPECT_TRUE(ans == ans_in);
+}
+
+TEST_F(DnsBindTest, RecordMigration) {
+    // UT to check record add/del with source name field set in dns record
+    // Create vdns: test-DNS with record name: record1
+    string content = FileRead("controller/src/dns/testdata/config_test_record_migration.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that record is added with correct record-source-name
+    VirtualDnsRecordTraceData rec = GetRecord("test-DNS", "record1");
+    EXPECT_EQ("localhost", rec.rec_source_name);
+
+    // Start vm migration, add record request is send by compute where vm is migrated
+    DnsItem a_items, update_items;
+    a_items.name = "host1";
+    a_items.eclass = DNS_CLASS_IN;
+    a_items.type = DNS_A_RECORD;
+    a_items.ttl = 25;
+    a_items.data = "1.2.3.4";
+    a_items.source_name = "newhost";
+    Dns::GetDnsManager()->ProcessAgentUpdate(BindUtil::ADD_UPDATE, "record1", "test-DNS", a_items);
+    task_util::WaitForIdle();
+
+    // On receiving add record1 will be updated, with record-source-name updated to new compute node
+    VirtualDnsRecordTraceData rec2 = GetRecord("test-DNS", "record1");
+    EXPECT_EQ("newhost", rec2.rec_source_name);
+
+    // Delete is send from compute from where vm is migrated
+    update_items.name = "host1";
+    update_items.eclass = DNS_CLASS_IN;
+    update_items.type = DNS_A_RECORD;
+    update_items.ttl = 0;
+    update_items.data = "1.2.3.4";
+    update_items.source_name = "localhost";
+    Dns::GetDnsManager()->ProcessAgentUpdate(BindUtil::DELETE_UPDATE, "record1", "test-DNS", update_items);
+    task_util::WaitForIdle();
+
+    // since delete comes from different compute which sent add record is not deleted
+    VirtualDnsRecordTraceData rec3 = GetRecord("test-DNS", "record1");
+    EXPECT_EQ("newhost", rec3.rec_source_name);
+
+   // Cleanup
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
 }
 
 }  // namespace

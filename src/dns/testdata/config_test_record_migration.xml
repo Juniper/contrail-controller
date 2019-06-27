@@ -24,7 +24,7 @@
         <record-class>IN</record-class>
         <record-data>1.2.3.4</record-data>
         <record-ttl-seconds>25</record-ttl-seconds>
-        <record-source-name>node9.englab.juniper.net/dns</record-source-name>
+        <record-source-name>localhost</record-source-name>
     </virtual-DNS-record>
 
     <virtual-DNS name='test-DNS' domain='default-domain'>
