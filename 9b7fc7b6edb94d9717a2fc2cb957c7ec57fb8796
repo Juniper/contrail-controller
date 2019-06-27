@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f5c4f37_a5c79596",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 9
+      },
+      "lineNbr": 540,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "let the name and the fqname[-1] be the same for consistency.",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_85c49192",
+        "filename": "src/config/fabric-ansible/job_manager/job_mgr.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "JobFileWrite can be included in the same import as -\nfrom job_manager.job_utils import JobStatus, JobUtils",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_45ba190a",
+        "filename": "src/config/fabric-ansible/job_manager/job_mgr.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "this check is already done before ExecutableManager is called. add exception handling there.",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_253965a3",
+        "filename": "src/config/fabric-ansible/job_manager/job_mgr.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "this check is already done before ExecutableManager is called. add exception handling there.",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_053e618b",
+        "filename": "src/config/fabric-ansible/job_manager/job_mgr.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "status cannot be \u0027COMPLETED\u0027 here. It should say \u0027INPROGRESS\u0027. We have just spawned the process. Need a sig handler to detect the end of process.",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_c543a912",
+        "filename": "src/config/fabric-ansible/job_manager/job_mgr.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "we dont need to wait for a hardcoded value of time. Can be handled in sig handler. Time can vary for different executables.",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_e53ead89",
+        "filename": "src/config/fabric-ansible/job_manager/job_mgr.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 177,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-06-27T03:33:29Z",
+      "side": 1,
+      "message": "code from here on should be handled in the sig handler.",
+      "revId": "9b7fc7b6edb94d9717a2fc2cb957c7ec57fb8796",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
