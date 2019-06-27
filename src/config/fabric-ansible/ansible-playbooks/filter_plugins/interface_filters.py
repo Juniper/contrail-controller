@@ -12,8 +12,9 @@ class FilterModule(object):
 
     def junos_rt_intf_filter(self, interface_list_new,
                              prouter_name, regex_str=".*"):
-        """This filter takes the inputs as the prouter_name
-         and the list of runtime interfaces obtained by running
+        """This filter takes the inputs as the prouter_name.
+
+         The list of runtime interfaces obtained by running
          the show interfaces junos command.
 
         interface_list_new:
@@ -159,7 +160,8 @@ class FilterModule(object):
     def junos_cf_intf_filter(self, interface_list,
                              prouter_name, regex_str=".*"):
         """
-        This filter takes the inputs as the prouter_name and
+        This filter takes the inputs as the prouter_name.
+
         the list of configured interfaces obtained by running
         the show configuration interfaces junos command.
 

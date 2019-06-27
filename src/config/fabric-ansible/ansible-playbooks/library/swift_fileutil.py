@@ -5,8 +5,10 @@
 #
 
 """
-This file contains implementation of getting 
-swift download URL for the uploaded image file.
+Swift upload image file.
+
+This file contains implementation of gett
+swift download URL for the uploaded image file
 """
 
 
@@ -114,6 +116,7 @@ class FileSvcUtil(object):  # pragma: no cover
     def __init__(self, authtoken, authurl, user, key, tenant_name,
                  auth_version, container_name, temp_url_key,
                  temp_url_key2, connection_retry_count, chosen_temp_url_key):
+        """Init routine."""
         self.requests = requests
         self.authurl = authurl
         self.preauthtoken = authtoken

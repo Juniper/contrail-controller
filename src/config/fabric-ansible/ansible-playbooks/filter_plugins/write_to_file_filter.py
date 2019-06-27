@@ -2,10 +2,11 @@
 import argparse
 import sys
 
+from filter_utils import FilterLog
+
 from job_manager.job_utils import JobFileWrite
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog
 
 
 class FilterModule(object):
@@ -28,7 +29,8 @@ class FilterModule(object):
         )
         return {
             'status': 'success',
-            'write_to_file_log': 'Successfully wrote progress to streaming file'}
+            'write_to_file_log':
+            'Successfully wrote progress to streaming file'}
 
     def report_playbook_results(self, job_ctx, pb_results):
         logger = FilterLog.instance("WritePbResultsToFileFilter").logger()
@@ -39,7 +41,8 @@ class FilterModule(object):
         )
         return {
             'status': 'success',
-            'write_to_file_log': 'Successfully wrote command results to streaming file'}
+            'write_to_file_log':
+            'Successfully wrote command results to streaming file'}
 
 
 def _parse_args():

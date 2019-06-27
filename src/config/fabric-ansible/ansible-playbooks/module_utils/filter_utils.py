@@ -1,6 +1,6 @@
+from functools import wraps
 import logging
 import os
-from functools import wraps
 
 
 class FilterLog(object):
@@ -154,8 +154,8 @@ def vnc_bulk_get(vnc_api, obj_name, obj_uuids=None, parent_uuids=None,
         return []
 
     while chunk_idx < num_uuids:
-        chunk_uuids = uuid_list[chunk_idx:chunk_idx+chunk_size]
-        chunk_obj_list = getattr(vnc_api, obj_name +"_list")(
+        chunk_uuids = uuid_list[chunk_idx:chunk_idx + chunk_size]
+        chunk_obj_list = getattr(vnc_api, obj_name + "_list")(
             obj_uuids=chunk_uuids if search_by_obj else None,
             parent_id=chunk_uuids if not search_by_obj else None,
             fields=fields).get(obj_name.replace('_', '-'))

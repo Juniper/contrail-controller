@@ -12,8 +12,9 @@ a list of device addresses for use in ZTP
 """
 import re
 import time
-from netaddr import IPAddress, IPNetwork
+
 from ansible.module_utils.basic import AnsibleModule
+from netaddr import IPAddress, IPNetwork
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
