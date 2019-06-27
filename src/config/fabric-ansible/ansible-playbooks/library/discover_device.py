@@ -15,11 +15,11 @@ import logging
 import socket
 
 from gevent import Greenlet, monkey, pool, queue
-from netaddr import IPNetwork
 monkey.patch_all()
-from ansible.module_utils.device_info import DeviceInfo
-from ansible.module_utils.fabric_pysnmp import snmp_walk
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
+from ansible.module_utils.device_info import DeviceInfo # noqa
+from ansible.module_utils.fabric_pysnmp import snmp_walk # noqa
+from ansible.module_utils.fabric_utils import FabricAnsibleModule # noqa
+from netaddr import IPNetwork
 
 logging.getLogger(
     'requests.packages.urllib3.connectionpool').setLevel(logging.ERROR)

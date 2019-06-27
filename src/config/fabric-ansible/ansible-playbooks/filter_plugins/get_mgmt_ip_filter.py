@@ -1,13 +1,12 @@
 #!/usr/bin/python
 
-from filter_utils import FilterLog, _task_log, _task_done, \
-    _task_error_log
-import traceback
 import sys
-
-from job_manager.job_utils import JobVncApi
+import traceback
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import _task_done, _task_error_log, _task_log, FilterLog
+
+from job_manager.job_utils import JobVncApi
 
 
 class FilterModule(object):

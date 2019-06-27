@@ -173,7 +173,7 @@ class FilterModule(object):
     def _render_config(self):
         # Get list of all legacy feature directories
         legacy_feature_list = \
-             [name[4:] for name in os.listdir('./roles') \
+            [name[4:] for name in os.listdir('./roles')
                 if name.startswith('cfg_')]
         feature_list = [name for name in os.listdir('./config_templates')]
         # Loop through all the features
