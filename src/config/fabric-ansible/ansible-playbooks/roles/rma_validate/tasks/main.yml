@@ -30,13 +30,6 @@
         op_err_message: "New device hardware type {{device_hardware_model}} does not match old device hardware type {{prouter_product}}"
         jl_err_message: "New device hardware type {{device_hardware_model}} does not match old device hardware type {{prouter_product}}"
 
-    - name: Validate OS versions are the same
-      include_tasks: error_handler.yml
-      when: device_os_version != prouter_os_version
-      vars:
-        op_err_message: "New device OS version {{device_os_version}} does not match old device OS version {{prouter_os_version}}"
-        jl_err_message: "New device OS version {{device_os_version}} does not match old device OS version {{prouter_os_version}}"
-
   rescue:
     - name: Perform the necessary error handling while trying to execute command
       include_tasks: error_handler.yml
