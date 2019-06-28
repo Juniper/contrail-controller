@@ -1,0 +1,174 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1f485f77_635fe2e5",
+        "filename": "src/config/schema-transformer/db_base.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "we should move that base class in the resource repo with the name \u0027_resource_base.py\u0027 like we did in API server",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_630482c7",
+        "filename": "src/config/schema-transformer/db_utils.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "You should move that util fuction in \u0027resources/_access_control_list.py\u0027",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_8369be8c",
+        "filename": "src/config/schema-transformer/resources/acl_rule_list.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "AclRuleList is not a Contrail resources, you should no create a file for it so we will have only file for a resource type. We can define file for common/util code but we should prefix them with \u0027_\u0027. Btw, AclRuleList class seems to be only used by VN resource, you could move all that class in the VN resource file.",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_83509ed6",
+        "filename": "src/config/schema-transformer/test/fab_tasks.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "Pleas",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_c3c1f682",
+        "filename": "src/config/schema-transformer/test/fab_tasks.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "cfgm_common renamed contrail-config-common, probably a rebase issue",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_a3befafc",
+        "filename": "src/config/schema-transformer/test/test_bgp.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "why trying to import resource class from two different module? I recommend to use full path module import format",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_0345ce17",
+        "filename": "src/config/schema-transformer/test/test_policy.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "why trying to import resource class from two different module? I recommend to use full path module import format",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_e3499232",
+        "filename": "src/config/schema-transformer/test/test_route_target.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "why trying to import resource class from two different module? I recommend to use full path module import format",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_c3469622",
+        "filename": "src/config/schema-transformer/test/test_security_group.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "why trying to import resource class from two different module? I recommend to use full path module import format",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1f485f77_a3539ae2",
+        "filename": "src/config/schema-transformer/test/test_service_policy.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-06-28T14:27:42Z",
+      "side": 1,
+      "message": "why trying to import resource class from two different module? I recommend to use full path module import format",
+      "revId": "e00d810f72b5dff8e75c5285fb8562d21916db81",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
