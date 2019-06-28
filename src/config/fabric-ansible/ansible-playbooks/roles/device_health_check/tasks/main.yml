@@ -43,3 +43,9 @@
         jl_err_message: "{{errors_list}}"
         upgrade_error_state: "{{DEVICE_STATE.HEALTH_CHECK_FAILED}}"
   when: snap_action == "check_peer"
+
+- name: Update the prouter logs with success status
+  prouter_objectlog:
+    prouter_fqname: "{{device_fqname}}"
+    onboarding_state: "{{DEVICE_STATE.HEALTH_CHECK_SUCCESSFUL}}"
+    job_ctx: "{{job_ctx}}"
