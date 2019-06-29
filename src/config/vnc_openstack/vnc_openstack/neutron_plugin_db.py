@@ -29,7 +29,7 @@ except ImportError:
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
-from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
+from cfgm_common import SG_NO_RULE_FQ_NAME, UUID_PATTERN
 import vnc_openstack
 import vnc_cfg_api_server.context
 from context import get_context, use_context
@@ -4665,7 +4665,7 @@ class DBInterface(object):
             (sg_obj.get_fq_name_str(), sg_obj.uuid) for sg_obj in all_sgs)
         # prune phase
         for sg_obj in all_sgs:
-            if sg_obj.get_fq_name()[-1] == '__no_rule__':
+            if sg_obj.get_fq_name() == SG_NO_RULE_FQ_NAME:
                 continue
             name = sg_obj.get_display_name() or sg_obj.name
             if not self._filters_is_present(filters, 'name', name):
