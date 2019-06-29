@@ -189,7 +189,7 @@ class FilterModule(object):
             remote_neighbor_info = neighbor_info[1].split(":", 1)
             list_resp = vnc_lib.physical_interfaces_list(
                 parent_fq_name=["default-global-system-config",
-                                remote_neighbor_info[0] ],
+                                remote_neighbor_info[0]],
                 filters={"physical_interface_port_id":
                          remote_neighbor_info[1]}
             )

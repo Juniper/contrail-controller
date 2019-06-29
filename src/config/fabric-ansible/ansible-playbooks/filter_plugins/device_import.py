@@ -1,15 +1,13 @@
 #!/usr/bin/python
 
-import traceback
 import sys
-
-from job_manager.job_utils import JobVncApi
-from vnc_api.exceptions import NoIdError
+import traceback
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+from filter_utils import _task_done, _task_error_log, _task_log, FilterLog
+from vnc_api.exceptions import NoIdError
 
-from filter_utils import FilterLog, _task_log, _task_done, \
-    _task_error_log
+from job_manager.job_utils import JobVncApi
 
 
 class FilterModule(object):
@@ -26,7 +24,8 @@ class FilterModule(object):
 
     def device_import(self, job_ctx, prouter_name, interfaces_payload):
         """
-        :param job_ctx: Dictionary
+        :param job_ctx: Dictionary.
+
             example:
             {
                 "auth_token": "EB9ABC546F98",
@@ -134,8 +133,7 @@ class FilterModule(object):
             return {'status': 'failure',
                     'error_msg': str(ex),
                     'device_import_log': FilterLog.instance().dump(),
-                    'device_import_resp': device_import_resp
-                   }
+                    'device_import_resp': device_import_resp}
     # end device_import
 
     def get_create_interfaces_payload(self, device_name,
@@ -175,15 +173,14 @@ class FilterModule(object):
             if phy_interface_name not in log_interface_name:
                 # implies log_interface_name is actually a unit no.
                 log_interface_name = phy_interface_name + "." + \
-                                     log_interface_name
+                    log_interface_name
 
             log_intfs_payload = {
                 "parent_type": "physical-interface",
                 "fq_name": ["default-global-system-config",
                             device_name,
                             phy_interface_name.replace(':', '_'),
-                            log_interface_name.replace(':', '_')
-                           ],
+                            log_interface_name.replace(':', '_')],
                 "display_name": log_interface_name
             }
 
@@ -305,5 +302,3 @@ class FilterModule(object):
                 })
         return success_intfs_names, log_intf_failed_info
     # end _create_logical_interfaces
-
-
