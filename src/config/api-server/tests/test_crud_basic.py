@@ -42,6 +42,7 @@ from cfgm_common import vnc_plugin_base
 from cfgm_common import imid
 from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
+from cfgm_common import SG_NO_RULE_FQ_NAME
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
@@ -2303,6 +2304,34 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(sg_obj.get_fq_name_str(),
                          mock_zk.get_sg_from_id(allocated_sg_id))
         self.assertEqual(configured_sg_id, 0)
+
+    def test_singleton_no_rule_sg_for_openstack_created(self):
+        try:
+            no_rule_sg = self._vnc_lib.security_group_read(SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            self.fail("Cannot read singleton security '%s' for OpenStack" %
+                      ':'.join(SG_NO_RULE_FQ_NAME))
+
+        self.assertIsNotNone(no_rule_sg.security_group_id)
+        self.assertIsInstance(no_rule_sg.security_group_id, int)
+        self.assertGreater(no_rule_sg.security_group_id, 0)
+
+    def test_singleton_no_rule_sg(self):
+        try:
+            no_rule_sg = self._vnc_lib.security_group_read(SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            self.fail("Cannot read singleton security '%s' for OpenStack" %
+                      ':'.join(SG_NO_RULE_FQ_NAME))
+
+        sg_obj = SecurityGroup(name=SG_NO_RULE_FQ_NAME[-1])
+        self._api_server._create_singleton_entry(sg_obj)
+        try:
+            no_rule_sg_2 = self._vnc_lib.security_group_read(SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            self.fail("Cannot read singleton security '%s' for OpenStack" %
+                      ':'.join(SG_NO_RULE_FQ_NAME))
+        self.assertEqual(no_rule_sg.security_group_id,
+                         no_rule_sg_2.security_group_id)
 
     def test_qos_config(self):
         qc = QosConfig('qos-config-%s' %(self.id()), Project())
