@@ -78,18 +78,6 @@ if platform.system() != 'Windows':
     env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-dns.conf'))
     env.Alias('install', env.Install(env['INSTALL_CONF'] +
         '/dns', 'applynamedconfig.py'))
-    env.Alias('install', env.Install(env['INSTALL_CONF'] +
-        '/supervisord_control_files/', 'contrail-dns.ini'))
-    env.Alias('install', env.Install(env['INSTALL_CONF'] +
-        '/supervisord_control_files/', 'contrail-named.ini'))
-    env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
-        '/contrail-dns', 'contrail-dns.initd.supervisord'))
-    env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
-        '/contrail-named', 'contrail-named.initd.supervisord'))
-    env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-        '/contrail-dns.service', 'systemd/contrail-dns.service'))
-    env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-        '/contrail-named.service', 'systemd/contrail-named.service'))
     env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
         '/contrail-dns/', doc_files))
 
