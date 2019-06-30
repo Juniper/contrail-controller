@@ -9,10 +9,10 @@ env = CfgmEnv.Clone()
 setup_sources = [
            'setup.py',
            #'MANIFEST.in',
-           'run_tests.sh',
            'requirements.txt',
            'test-requirements.txt',
-           '.testr.conf',
+           '.stestr.conf',
+           'tox.ini',
            '.coveragerc',
           ]
 
@@ -60,7 +60,8 @@ if 'install' in BUILD_TARGETS:
 if False:
     test_target = env.SetupPyTestSuite(sdist_gen,
                                        '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
-                                       '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz')
+                                       '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
+                                       use_tox=True)
 else:
     test_target = env.Command('test.log', sdist_gen, 'touch $TARGET')
 

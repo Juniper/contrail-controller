@@ -1,5 +1,10 @@
 [run]
 branch = True
 omit =
-       */sandesh/*
-       */tests/*
+    *__init__*
+    */tests/*
+    */sandesh/*
+    */gen/*
+
+[report]
+ignore_errors = True
