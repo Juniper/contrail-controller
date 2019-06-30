@@ -266,17 +266,7 @@ doc_files += env['SANDESH_DOC_FILES']
 
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 
+env.Alias('install', env.Install(env['INSTALL_CONF'],
     'contrail-control.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 
-    'supervisord_control.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] + 
-    '/supervisord_control_files', 'contrail-control.ini'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] + 
-    '/supervisord_control_files', 'contrail-control.rules'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
-    '/contrail-control', 'contrail-control.initd.supervisord'))
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-    '/contrail-control.service', 'systemd/contrail-control.service'))
 env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
     '/contrail-control/', doc_files))

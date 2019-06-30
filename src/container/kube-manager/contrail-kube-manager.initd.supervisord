@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-# chkconfig: 2345 99 01
-# description: Juniper Kubernetes Network Manager
-
-supervisorctl -s unix:///var/run/supervisord_kubernetes.sock ${1} `basename ${0}`
