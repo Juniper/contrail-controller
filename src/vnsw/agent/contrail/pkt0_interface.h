@@ -40,7 +40,8 @@ protected:
     std::string name_;
     int tap_fd_;
     unsigned char mac_address_[ETHER_ADDR_LEN];
-
+    int dummyval;
+    int getdummyval(){return 0;}
 #ifdef _WIN32
     boost::asio::windows::stream_handle input_;
 #else

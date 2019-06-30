@@ -24,7 +24,8 @@ public:
     static const int kEorTxInactivityTime = 15;
     static const int kEorRxFallbackTime = 60;
     static const int kLlgrStaleTime = 2592000; //One month
-
+    static const int dummyval = 12345;
+    int getdummyval(){ return dummyval;}
     LlgrParams();
     virtual ~LlgrParams() { }
 
