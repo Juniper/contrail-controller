@@ -11,14 +11,13 @@ env = CfgmEnv.Clone()
 setup_sources = [
            'setup.py',
            'MANIFEST.in',
-           'run_tests.sh',
            'requirements.txt',
            'test-requirements.txt',
-           '.testr.conf',
+           '.stestr.conf',
+           'tox.ini',
            '.coveragerc',
            'test',
           ]
-
 
 setup_sources_rules = []
 for file in setup_sources:
@@ -77,7 +76,8 @@ env.Alias('install', env.Install(
 
 env.SetupPyTestSuite(sdist_gen,
                      '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',
-                     '/../noarch/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz')
+                     '/../noarch/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
+                     use_tox=True)
 
 # Local Variables:
 # mode: python
