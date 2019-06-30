@@ -28,6 +28,6 @@ webtest
 pyaml
 keystonemiddleware!=4.19.0
 pyOpenSSL
-schema_transformer
 vine==1.1.3
+../../config/schema-transformer
 ../../../noarch/config/svc-monitor

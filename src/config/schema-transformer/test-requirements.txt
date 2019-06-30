@@ -8,7 +8,6 @@ python-keystoneclient
 keystonemiddleware!=4.19.0
 webtest
 kazoo
-jsonpickle
 sandesh
 sandesh-common
 contrail-api-client
