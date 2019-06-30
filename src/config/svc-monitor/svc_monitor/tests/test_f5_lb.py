@@ -325,12 +325,12 @@ OpencontrailLoadbalancerDriver")
            mock.call(folder='tenant', ip_address='10.1.1.0%0',
                 name='test-lb-pool', no_checks=True, port=80)]
         call_list = self._mock_BigIp.return_value.pool.add_member.call_args_list
-        self.assertEqual(call_list, expected_calls_to_add_member)
+        self.assertItemsEqual(call_list, expected_calls_to_add_member)
 
         expected_calls_to_enable_member = expected_calls_to_add_member
         call_list = \
            self._mock_BigIp.return_value.pool.enable_member.call_args_list
-        self.assertEqual(call_list, expected_calls_to_enable_member)
+        self.assertItemsEqual(call_list, expected_calls_to_enable_member)
 
 
         expected_calls_to_set_member_ratio = \
@@ -346,7 +346,7 @@ OpencontrailLoadbalancerDriver")
                 name='test-lb-pool', no_checks=True, port=80, ratio=1)]
         call_list = \
             self._mock_BigIp.return_value.pool.set_member_ratio.call_args_list
-        self.assertEqual(call_list, expected_calls_to_set_member_ratio)
+        self.assertItemsEqual(call_list, expected_calls_to_set_member_ratio)
 
         self._mock_BigIp.return_value.virtual_server.create.assert_called_with(
             folder='tenant', ip_address='1.1.1.1%0', mask='255.255.255.255',
@@ -381,7 +381,7 @@ OpencontrailLoadbalancerDriver")
            mock.call(folder='tenant', ip_address='10.1.1.0%0',
                 name='test-lb-pool', port=80)]
         call_list = self._mock_BigIp.return_value.pool.remove_member.call_args_list
-        self.assertEqual(call_list, expected_calls_to_remove_member)
+        self.assertItemsEqual(call_list, expected_calls_to_remove_member)
         self._mock_BigIp.return_value.pool.delete.assert_called_with(
             folder='tenant', name='test-lb-pool')
         self.assertEqual(len(self._db), 0)
@@ -480,7 +480,7 @@ OpencontrailLoadbalancerDriver")
            mock.call(folder='tenant', ip_address='10.1.1.0%0',
                 name='test-lb-pool', port=80)]
         call_list = self._mock_BigIp.return_value.pool.remove_member.call_args_list
-        self.assertEqual(call_list, expected_calls_to_remove_member)
+        self.assertItemsEqual(call_list, expected_calls_to_remove_member)
         self._mock_BigIp.return_value.pool.delete.assert_called_with(
             folder='tenant', name='test-lb-pool')
         self.assertEqual(len(self._db), 1)
@@ -532,7 +532,7 @@ OpencontrailLoadbalancerDriver")
            mock.call(folder='tenant', ip_address='10.1.1.1%0',
                 name='test-lb-pool', port=80)]
         call_list = self._mock_BigIp.return_value.pool.remove_member.call_args_list
-        self.assertEqual(call_list, expected_calls_to_remove_member)
+        self.assertItemsEqual(call_list, expected_calls_to_remove_member)
 
         # Cleanup
         config_db.LoadbalancerMemberSM.delete('member_0')
