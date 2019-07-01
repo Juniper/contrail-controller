@@ -3,7 +3,7 @@
 #
 import logging
 
-from cfgm_common import BGP_RTGT_MIN_ID
+from cfgm_common import get_bgp_rtgt_min_id
 
 from vnc_cfg_api_server.resources import RouteTargetServer
 from vnc_cfg_api_server.tests import test_case
@@ -59,7 +59,7 @@ class TestRouteTargetBase(test_case.ApiServerTestCase):
         tested_values = [
             ('target:1:1', 42, True),
             ('target:42:1', 42, True),
-            ('target:42:%d' % (BGP_RTGT_MIN_ID + 1000), 42, False),
+            ('target:42:%d' % (get_bgp_rtgt_min_id(42) + 1000), 42, False),
         ]
 
         for rt_name, global_asn, expected_result in tested_values:
