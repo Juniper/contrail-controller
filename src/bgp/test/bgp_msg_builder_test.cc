@@ -81,6 +81,18 @@ TEST_F(BgpMsgBuilderTest, Build) {
     BgpAttrAtomicAggregate *aa = new BgpAttrAtomicAggregate;
     attr.push_back(aa);
 
+    BgpAttrAggregator *agg = new BgpAttrAggregator(0xface, 0xcafebabe);
+    attr.push_back(agg);
+
+    AsPathSpec *path_spec = new AsPathSpec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    ps->path_segment.push_back(20);
+    ps->path_segment.push_back(21);
+    ps->path_segment.push_back(22);
+    path_spec->path_segments.push_back(ps);
+    attr.push_back(path_spec);
+
     CommunitySpec *community = new CommunitySpec;
     community->communities.push_back(0x87654321);
     attr.push_back(community);
@@ -174,6 +186,140 @@ TEST_F(BgpMsgBuilderTest, Build) {
     delete med;
     delete lp;
     delete aa;
+    delete agg;
+    delete path_spec;
+    delete community;
+    delete ext_community;
+    delete result;
+}
+
+TEST_F(BgpMsgBuilderTest, BuildAs4) {
+    server_.set_enable_4byte_as(true);
+    BgpAttrSpec attr;
+    BgpAttrNextHop *nexthop = new BgpAttrNextHop(0xabcdef01);
+    attr.push_back(nexthop);
+
+    BgpAttrOrigin *origin = new BgpAttrOrigin(BgpAttrOrigin::INCOMPLETE);
+    attr.push_back(origin);
+
+    BgpAttrMultiExitDisc *med = new BgpAttrMultiExitDisc(1);
+    attr.push_back(med);
+
+    BgpAttrLocalPref *lp = new BgpAttrLocalPref(2);
+    attr.push_back(lp);
+
+    BgpAttrAtomicAggregate *aa = new BgpAttrAtomicAggregate;
+    attr.push_back(aa);
+
+    BgpAttr4ByteAggregator *agg = new BgpAttr4ByteAggregator(0xface, 0xcafebabe);
+    attr.push_back(agg);
+
+    AsPath4ByteSpec *path_spec = new AsPath4ByteSpec;
+    AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
+    ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SET;
+    ps->path_segment.push_back(20);
+    ps->path_segment.push_back(21);
+    ps->path_segment.push_back(22);
+    path_spec->path_segments.push_back(ps);
+    attr.push_back(path_spec);
+
+    CommunitySpec *community = new CommunitySpec;
+    community->communities.push_back(0x87654321);
+    attr.push_back(community);
+
+    ExtCommunitySpec *ext_community = new ExtCommunitySpec;
+    ext_community->communities.push_back(0x1020304050607080);
+    attr.push_back(ext_community);
+
+    RibOutAttr rib_out_attr;
+    rib_out_attr.set_attr(NULL, server_.attr_db()->Locate(attr));
+
+    InetVpnPrefix p1 = InetVpnPrefix::FromString("12345:2:1.1.1.1/24");
+    InetVpnRoute route(p1);
+    BgpPath *path =
+        new BgpPath(peer_, BgpPath::BGP_XMPP, rib_out_attr.attr(), 0, 0);
+    route.InsertPath(path);
+    BgpMessage message;
+    DB db;
+    InetVpnTable table(&db, "bgp.l3vpn.0");
+    RibOut ribout(static_cast<BgpTable *>(&table), NULL, RibExportPolicy());
+    ribout.set_as4_supported(true);
+    message.Start(&ribout, false, &rib_out_attr, &route);
+
+    size_t length;
+    const string *msg_str;
+    string temp;
+    const uint8_t *data = message.GetData(NULL, &length, &msg_str, &temp);
+    for (size_t i = 0; i < length; i++) {
+        printf("%02x ", data[i]);
+    }
+    printf("\n");
+
+    const BgpProto::Update *result;
+    result = static_cast<const BgpProto::Update *>(
+                   BgpProto::Decode(data, length, NULL, true));
+    ASSERT_TRUE(result != NULL);
+    EXPECT_EQ(attr.size(), result->path_attributes.size());
+    for (size_t i = 0; i < attr.size()-1; i++) {
+        int ret = attr[i+1]->CompareTo(*result->path_attributes[i]);
+        EXPECT_EQ(0, ret);
+        if (ret != 0) {
+            cout << "Unequal " << TYPE_NAME(*attr[i]) << " "
+                    << TYPE_NAME(*result->path_attributes[i])<< endl;
+        }
+    }
+
+    BgpMpNlri *nlri = static_cast<BgpMpNlri *>(*(result->path_attributes.end() - 1));
+    EXPECT_TRUE(nlri != NULL);
+    EXPECT_EQ(1, nlri->nlri.size());
+    BgpProtoPrefix prefix;
+    route.BuildProtoPrefix(&prefix, 0);
+    EXPECT_EQ(prefix.prefixlen, nlri->nlri[0]->prefixlen);
+    EXPECT_EQ(prefix.prefix, nlri->nlri[0]->prefix);
+    route.RemovePath(peer_);
+
+    p1 = InetVpnPrefix::FromString("64.64.64.64:2:1.1.1.1/24");
+    InetVpnRoute route2(p1);
+    BgpPath *path2 =
+        new BgpPath(peer_, BgpPath::BGP_XMPP, rib_out_attr.attr(), 0, 0);
+    route2.InsertPath(path2);
+    message.AddRoute(&route2, &rib_out_attr);
+
+    data = message.GetData(NULL, &length, &msg_str, &temp);
+    for (size_t i = 0; i < length; i++) {
+        printf("%02x ", data[i]);
+    }
+    printf("\n");
+
+    delete result;
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data,
+                         length, NULL, true));
+    EXPECT_TRUE(result != NULL);
+    EXPECT_EQ(attr.size(), result->path_attributes.size());
+    for (size_t i = 0; i < attr.size()-1; i++) {
+        int ret = attr[i+1]->CompareTo(*result->path_attributes[i]);
+        EXPECT_EQ(0, ret);
+        if (ret != 0) {
+            cout << "Unequal " << TYPE_NAME(*attr[i]) << " "
+                    << TYPE_NAME(*result->path_attributes[i])<< endl;
+        }
+    }
+
+    nlri = static_cast<BgpMpNlri *>(*(result->path_attributes.end() - 1));
+    EXPECT_TRUE(nlri != NULL);
+    EXPECT_EQ(2, nlri->nlri.size());
+    route2.BuildProtoPrefix(&prefix, 0);
+    EXPECT_EQ(prefix.prefixlen, nlri->nlri[1]->prefixlen);
+    EXPECT_EQ(prefix.prefix, nlri->nlri[1]->prefix);
+
+    route2.RemovePath(peer_);
+    delete nexthop;
+    delete origin;
+    delete med;
+    delete lp;
+    delete aa;
+    delete agg;
+    delete path_spec;
     delete community;
     delete ext_community;
     delete result;

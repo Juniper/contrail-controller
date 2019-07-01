@@ -178,7 +178,7 @@ TEST_F(RouteTargetTest, ByteArrayType2_1) {
     EXPECT_FALSE(rtarget.IsNull());
     EXPECT_EQ(2, rtarget.Type());
     EXPECT_EQ(2, rtarget.Subtype());
-    EXPECT_EQ("target:65412:772", rtarget.ToString());
+    EXPECT_EQ("target:65412L:772", rtarget.ToString());
 }
 
 // Does not contain a colon.

@@ -152,24 +152,68 @@ TEST_F(UpdateAsPathTest, UpdateNull) {
     EXPECT_EQ(2000, as_path_spec.path_segments[0]->path_segment[1]);
 }
 
+TEST_F(UpdateAsPathTest, UpdateNullAs4) {
+    attr_db_->server()->set_enable_4byte_as(true);
+    vector<as_t> asn_list = list_of(1000)(2000);
+    UpdateAsPath action(asn_list);
+    EXPECT_EQ(asn_list, action.asn_list());
+
+    BgpAttr attr(attr_db_);
+    action(&attr);
+    const AsPath4Byte *as_path = attr.aspath_4byte();
+    EXPECT_TRUE(as_path != NULL);
+    const AsPath4ByteSpec &as_path_spec = as_path->path();
+    EXPECT_EQ(1, as_path_spec.path_segments.size());
+    EXPECT_EQ(2, as_path_spec.path_segments[0]->path_segment.size());
+    EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);
+    EXPECT_EQ(2000, as_path_spec.path_segments[0]->path_segment[1]);
+}
+
 TEST_F(UpdateAsPathTest, UpdateNonNull) {
     vector<as_t> asn_list = list_of(1000)(2000);
     UpdateAsPath action(asn_list);
     EXPECT_EQ(asn_list, action.asn_list());
 
     BgpAttrSpec spec;
-    AsPathSpec path;
+    AsPathSpec *path = new AsPathSpec;
     AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
     ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
     ps->path_segment = list_of(3000)(4000);
-    path.path_segments.push_back(ps);
-    spec.push_back(&path);
+    path->path_segments.push_back(ps);
+    spec.push_back(path);
 
     BgpAttr attr(attr_db_, spec);
     action(&attr);
     const AsPath *as_path = attr.as_path();
     EXPECT_TRUE(as_path != NULL);
     const AsPathSpec &as_path_spec = as_path->path();
+    EXPECT_EQ(1, as_path_spec.path_segments.size());
+    EXPECT_EQ(4, as_path_spec.path_segments[0]->path_segment.size());
+    EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);
+    EXPECT_EQ(2000, as_path_spec.path_segments[0]->path_segment[1]);
+    EXPECT_EQ(3000, as_path_spec.path_segments[0]->path_segment[2]);
+    EXPECT_EQ(4000, as_path_spec.path_segments[0]->path_segment[3]);
+}
+
+TEST_F(UpdateAsPathTest, UpdateNonNullAs4) {
+    attr_db_->server()->set_enable_4byte_as(true);
+    vector<as_t> asn_list = list_of(1000)(2000);
+    UpdateAsPath action(asn_list);
+    EXPECT_EQ(asn_list, action.asn_list());
+
+    BgpAttrSpec spec;
+    AsPath4ByteSpec *path = new AsPath4ByteSpec;
+    AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
+    ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
+    ps->path_segment = list_of(3000)(4000);
+    path->path_segments.push_back(ps);
+    spec.push_back(path);
+
+    BgpAttr attr(attr_db_, spec);
+    action(&attr);
+    const AsPath4Byte *as_path = attr.aspath_4byte();
+    EXPECT_TRUE(as_path != NULL);
+    const AsPath4ByteSpec &as_path_spec = as_path->path();
     EXPECT_EQ(1, as_path_spec.path_segments.size());
     EXPECT_EQ(4, as_path_spec.path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, as_path_spec.path_segments[0]->path_segment[0]);

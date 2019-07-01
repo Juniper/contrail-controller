@@ -41,7 +41,7 @@ private:
     bool state_machine_restart_;
 };
 
-typedef std::tr1::tuple<bool, bool, bool> TestParams;
+typedef std::tr1::tuple<bool, bool, bool, bool> TestParams;
 class BGPaaSTest : public ::testing::TestWithParam<TestParams>{
 public:
     // Allow IBGP bgpaas sessions for this test.
@@ -61,10 +61,17 @@ protected:
         set_local_as_ = std::tr1::get<0>(GetParam());
         ebgp_ = std::tr1::get<1>(GetParam());
         set_auth_ = std::tr1::get<2>(GetParam());
+        server_as4_supported_ = std::tr1::get<3>(GetParam());
         server_.reset(new BgpServerTest(&evm_, "local"));
         server2_.reset(new BgpServerTest(&evm_, "remote"));
         vm1_.reset(new BgpServerTest(&evm_, "vm1"));
         vm2_.reset(new BgpServerTest(&evm_, "vm2"));
+        if (server_as4_supported_) {
+            server_->set_enable_4byte_as(true);
+            server2_->set_enable_4byte_as(true);
+            vm1_->set_enable_4byte_as(true);
+            vm2_->set_enable_4byte_as(true);
+        }
         thread_.reset(new ServerThread(&evm_));
 
         server_session_manager_ = server_->session_manager();
@@ -390,10 +397,19 @@ protected:
         if (nexthop_str != nexthop.to_string())
             return false;
         if (!as_path.empty()) {
-            if (!path->GetAttr()->as_path())
-                return false;
-            if (as_path != path->GetAttr()->as_path()->path().ToString())
-                return false;
+            if (!server->enable_4byte_as()) {
+                if (!path->GetAttr()->as_path())
+                    return false;
+                if (as_path != path->GetAttr()->as_path()->path().ToString())
+                    return false;
+            } else {
+                if (!path->GetAttr()->aspath_4byte())
+                    return false;
+                if (as_path != path->GetAttr()->aspath_4byte()->
+                               path().ToString()) {
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -447,10 +463,19 @@ protected:
         if (nexthop_str != nexthop.to_string())
             return false;
         if (!as_path.empty()) {
-            if (!path->GetAttr()->as_path())
-                return false;
-            if (as_path != path->GetAttr()->as_path()->path().ToString())
-                return false;
+            if (!server->enable_4byte_as()) {
+                if (!path->GetAttr()->as_path())
+                    return false;
+                if (as_path != path->GetAttr()->as_path()->path().ToString())
+                    return false;
+            } else {
+                if (!path->GetAttr()->aspath_4byte())
+                    return false;
+                if (as_path != path->GetAttr()->aspath_4byte()->
+                               path().ToString()) {
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -573,6 +598,7 @@ protected:
     string vm1_as_;
     string vm2_as_;
     bool set_auth_;
+    bool server_as4_supported_;
     string auth_config_;
 };
 
@@ -1371,7 +1397,7 @@ TEST_P(BGPaaSTest, Basic) {
 
 INSTANTIATE_TEST_CASE_P(BGPaaSTestWithParam, BGPaaSTest,
                         testing::Combine(::testing::Bool(), ::testing::Bool(),
-                                         ::testing::Bool()));
+                                         ::testing::Bool(), ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

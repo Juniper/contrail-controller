@@ -18,24 +18,41 @@ using std::ostringstream;
 using std::string;
 using std::vector;
 
-UpdateAsPath::UpdateAsPath(const vector<as_t> &asn_list)
+UpdateAsPath::UpdateAsPath(const vector<uint32_t> &asn_list)
     : asn_list_(asn_list) {
 }
 
 void UpdateAsPath::operator()(BgpAttr *attr) const {
     if (!attr)
         return;
-    const AsPath *as_path = attr->as_path();
-    if (as_path) {
-        const AsPathSpec &as_path_spec = as_path->path();
-        AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
-        attr->set_as_path(as_path_spec_ptr);
-        delete as_path_spec_ptr;
+    BgpAttrDB *attr_db = attr->attr_db();
+    BgpServer *server = attr_db->server();
+    if (!server->enable_4byte_as()) {
+        const AsPath *as_path = attr->as_path();
+        if (as_path) {
+            const AsPathSpec &as_path_spec = as_path->path();
+            AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+            attr->set_as_path(as_path_spec_ptr);
+            delete as_path_spec_ptr;
+        } else {
+            AsPathSpec as_path_spec;
+            AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+            attr->set_as_path(as_path_spec_ptr);
+            delete as_path_spec_ptr;
+        }
     } else {
-        AsPathSpec as_path_spec;
-        AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
-        attr->set_as_path(as_path_spec_ptr);
-        delete as_path_spec_ptr;
+        const AsPath4Byte *as_path = attr->aspath_4byte();
+        if (as_path) {
+            const AsPath4ByteSpec &as_path_spec = as_path->path();
+            AsPath4ByteSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+            attr->set_aspath_4byte(as_path_spec_ptr);
+            delete as_path_spec_ptr;
+        } else {
+            AsPath4ByteSpec as_path_spec;
+            AsPath4ByteSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+            attr->set_aspath_4byte(as_path_spec_ptr);
+            delete as_path_spec_ptr;
+        }
     }
 }
 
