@@ -1,0 +1,90 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "226cfe70_2e8f0233",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-02T08:06:55Z",
+      "side": 1,
+      "message": "Perhaps to prevent to read the GSC we can cache it in the server instance as we do for the ASN (cls.server.global_autonomous_system). We could probably cache all the GSC resource?",
+      "range": {
+        "startLine": 37,
+        "startChar": 8,
+        "endLine": 43,
+        "endChar": 32
+      },
+      "revId": "73bb59195b41dcf741bcdcdbe5f93bbd5deb43be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "207cc09d_8029f29b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-02T08:06:55Z",
+      "side": 1,
+      "message": "You should factorize that code in the GlobalSystemConfigServer class and use it here like this:\n\n ok, result \u003d GlobalSystemConfigServer.check_asn(obj_dict.get(\u0027autonomous_system))\n if not ok:\n     return False, result",
+      "range": {
+        "startLine": 32,
+        "startChar": 0,
+        "endLine": 60,
+        "endChar": 23
+      },
+      "revId": "73bb59195b41dcf741bcdcdbe5f93bbd5deb43be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "16aabeac_aece3472",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_router.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-02T08:06:55Z",
+      "side": 1,
+      "message": "Same as for BGPaaS class",
+      "revId": "73bb59195b41dcf741bcdcdbe5f93bbd5deb43be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "99dd9f0f_e668cf3f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 100,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-02T08:06:55Z",
+      "side": 1,
+      "message": "Move that in a public method that could be use by any other resource class",
+      "range": {
+        "startLine": 82,
+        "startChar": 8,
+        "endLine": 100,
+        "endChar": 78
+      },
+      "revId": "73bb59195b41dcf741bcdcdbe5f93bbd5deb43be",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
