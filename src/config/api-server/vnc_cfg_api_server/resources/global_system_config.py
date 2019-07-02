@@ -68,9 +68,36 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
 
     @classmethod
     def _check_asn(cls, obj_dict):
+        # For the case of simplicity, we won't allow edit of both
+        # enable_4byte_as and autonomous_system in same request
+        if ('enable_4byte_as' in obj_dict and
+                'autonomous_system' in obj_dict):
+            return False, (400, 'Cannot edit both ASN and enable_4byte_as '
+                                'in same request')
+
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
             return True, ''
+
+        fields = ['enable_4byte_as']
+        ok, result = cls._get_global_system_config(fields)
+        if not ok:
+            return False, result
+        enable_4byte_as = result['enable_4byte_as']
+
+        if enable_4byte_as:
+            # 4 Byte AS is allowed. So the range should be
+            # between 1-0xffFFffFF
+            if global_asn < 1 or global_asn > 0xFFFFFFFF:
+                return (False,
+                        (400, 'ASN out of range, should be between '
+                              '1-0xFFFFFFFF'))
+        else:
+            # Only 2 Byte AS allowed. The range should be
+            # between 1-0xffFF
+            if global_asn < 1 or global_asn > 0xFFFF:
+                return (False,
+                        (400, 'ASN out of range, should be between 1-0xFFFF'))
 
         # If the ASN has changed from 2 byte to 4 byte, we need to make sure
         # that there is enough space to reallocate the RT values in new
