@@ -31,6 +31,224 @@ class TestBgpRouter(test_case.ApiServerTestCase):
     def api(self):
         return self._vnc_lib
 
+    def test_bgp_router_create_with_valid_2_byte_asn(self):
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+        self.api.bgp_router_delete(id=bgp_router_uuid)
+
+    def test_bgp_router_create_with_valid_4_byte_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=700000,
+                                            local_autonomous_system=700001)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        # Now delete the bgp router object and disable 4 byte ASN flag
+        self.api.bgp_router_delete(id=bgp_router_uuid)
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+    def test_bgp_router_create_with_invalid_2_byte_asn(self):
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=70000,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        self.assertRaises(BadRequest, self.api.bgp_router_create,
+                          bgp_router_obj)
+
+    def test_bgp_router_create_with_invalid_2_byte_local_asn(self):
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=700000)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        self.assertRaises(BadRequest, self.api.bgp_router_create,
+                          bgp_router_obj)
+
+    def test_bgp_router_create_with_invalid_4_byte_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=0x1FFFFFFFF,
+                                            local_autonomous_system=700000)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        self.assertRaises(BadRequest, self.api.bgp_router_create,
+                          bgp_router_obj)
+
+        # Now disable 4 byte ASN flag
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+    def test_bgp_router_create_with_invalid_4_byte_local_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(
+            router_type='control-node',
+            autonomous_system=700000,
+            local_autonomous_system=0x1FFFFFFFF)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        self.assertRaises(BadRequest, self.api.bgp_router_create,
+                          bgp_router_obj)
+
+        # Now disable 4 byte ASN flag
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+    def test_bgp_router_update_with_valid_2_byte_asn(self):
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        # Read back the bgp_router object
+        bgp_router_obj = self.api.bgp_router_read(id=bgp_router_uuid)
+
+        # update asn numbers to valid 2 byte value
+        new_bgp_router_params = BgpRouterParams(
+            router_type='control-node',
+            autonomous_system=1234,
+            local_autonomous_system=4321)
+        bgp_router_obj.set_bgp_router_parameters(new_bgp_router_params)
+        self.api.bgp_router_update(bgp_router_obj)
+
+        # Delete the bgp router
+        self.api.bgp_router_delete(id=bgp_router_uuid)
+
+    def test_bgp_router_update_with_valid_4_byte_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        # Read back the bgp_router object
+        bgp_router_obj = self.api.bgp_router_read(id=bgp_router_uuid)
+
+        # update asn numbers to valid 4 byte value
+        new_bgp_router_params = BgpRouterParams(
+            router_type='control-node',
+            autonomous_system=0xFFFFF,
+            local_autonomous_system=0xFFFFF)
+        bgp_router_obj.set_bgp_router_parameters(new_bgp_router_params)
+        self.api.bgp_router_update(bgp_router_obj)
+
+        # Now delete the bgp router object and disable 4 byte ASN flag
+        self.api.bgp_router_delete(id=bgp_router_uuid)
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+    def test_bgp_router_update_with_invalid_2_byte_asn(self):
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        # Read back the bgp_router object
+        bgp_router_obj = self.api.bgp_router_read(id=bgp_router_uuid)
+
+        # update asn numbers to invalid 2 byte value
+        new_bgp_router_params = BgpRouterParams(
+            router_type='control-node',
+            autonomous_system=0x1FFFF,
+            local_autonomous_system=0x1FFFF)
+        bgp_router_obj.set_bgp_router_parameters(new_bgp_router_params)
+
+        self.assertRaises(BadRequest, self.api.bgp_router_update,
+                          bgp_router_obj)
+
+        # Delete the bgp router
+        self.api.bgp_router_delete(id=bgp_router_uuid)
+
+    def test_bgp_router_update_with_invalid_4_byte_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name='bgprouter1', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        # Read back the bgp_router object
+        bgp_router_obj = self.api.bgp_router_read(id=bgp_router_uuid)
+
+        # update asn numbers to invalid 4 byte value
+        new_bgp_router_params = BgpRouterParams(
+            router_type='control-node',
+            autonomous_system=0x1FFFFFFFFF,
+            local_autonomous_system=0x1FFFFFFFFF)
+        bgp_router_obj.set_bgp_router_parameters(new_bgp_router_params)
+
+        self.assertRaises(BadRequest, self.api.bgp_router_update,
+                          bgp_router_obj)
+
+        # Now delete the bgp router object and disable 4 byte ASN flag
+        self.api.bgp_router_delete(id=bgp_router_uuid)
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
     def test_control_node_zone(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
         cnz = []
