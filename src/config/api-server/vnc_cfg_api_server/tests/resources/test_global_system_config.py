@@ -76,6 +76,67 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         self.assertEqual(self.NEW_ASN,
                          self._api_server.global_autonomous_system)
 
+    def test_update_global_asn_with_valid_4_byte(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+
+        # First, enable 4byte AS flag.
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        # Read back the GSC
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        self.assertEqual(True, gsc.enable_4byte_as)
+
+        # Update global ASN to a 4 byte value
+        gsc.autonomous_system = 700000
+        self.api.global_system_config_update(gsc)
+
+        # Read back the GSC
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        self.assertEqual(700000, gsc.autonomous_system)
+
+        # Set the DEFAULT ASN and enable_4byte_as flag back to default as in
+        # CI, the order of test cases can change
+        gsc.autonomous_system = self.DEFAULT_ASN
+        self.api.global_system_config_update(gsc)
+
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+    def test_update_both_global_asn_and_asn_flag(self):
+        # For simplicity, we don't allow update of both autonomous_system
+        # and enable_4byte_as in the same request.
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+
+        # First, enable 4byte AS flag.
+        gsc.enable_4byte_as = True
+        gsc.autonomous_system = 61450
+        self.assertRaises(BadRequest, self.api.global_system_config_update,
+                          gsc)
+
+    def test_update_2_byte_asn_range_check(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.autonomous_system = 70000
+        self.assertRaises(BadRequest, self.api.global_system_config_update,
+                          gsc)
+
+    def test_update_4_byte_asn_range_check(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+
+        # First, enable 4byte AS flag.
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        # Update ASN to greater than 0xFFffFFff
+        gsc.autonomous_system = 0x1FFFFFFFF
+        self.assertRaises(BadRequest, self.api.global_system_config_update,
+                          gsc)
+
+        # Set enable_4byte_as flag back to default
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
     def test_cannot_update_global_asn_if_used_by_user(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
 
