@@ -15,8 +15,8 @@
 
   - name: Set next_set
     set_fact:
-      next_set: "{{next_batch.next.batch_devices}}" and next_batch is defined
-  when: upgrade_mode == 'upgrade'
+      next_set: "{{next_batch.next.batch_devices}}"
+  when: upgrade_mode == 'upgrade' and next_batch is defined
 
 - set_fact:
     output: {
