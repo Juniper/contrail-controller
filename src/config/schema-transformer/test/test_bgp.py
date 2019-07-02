@@ -957,9 +957,14 @@ class TestBgp(STTestCase, VerifyBgp):
 
         ri_target = self.check_ri_target(self.get_ri_name(vn1_obj))
 
-        #change ASN, but to a new 2 byte ASN.
         gs = self._vnc_lib.global_system_config_read(
             fq_name=['default-global-system-config'])
+
+        # first, enable 4 byte ASN flag
+        gs.enable_4byte_as = True
+        self._vnc_lib.global_system_config_update(gs)
+
+        # change ASN, but to a new 2 byte ASN.
         gs.set_autonomous_system(5000)
         self._vnc_lib.global_system_config_update(gs)
 
