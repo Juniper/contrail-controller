@@ -3049,11 +3049,10 @@ void DelLinkLocalConfig() {
     char buf[4096];
     int len = 0;
     memset(buf, 0, 4096);
-    AddXmlHdr(buf, len);
-    AddNodeString(buf, len, "global-vrouter-config",
-                  "default-global-system-config:default-global-vrouter-config",
-                  1024, "");
-    AddXmlTail(buf, len);
+    DelXmlHdr(buf, len);
+    DelNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config");
+    DelXmlTail(buf, len);
     ApplyXmlString(buf);
 }
 
