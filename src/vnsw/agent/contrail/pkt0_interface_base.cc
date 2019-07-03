@@ -26,11 +26,19 @@ do {                                                                     \
 } while (false)                                                          \
 
 ///////////////////////////////////////////////////////////////////////////////
-const string Pkt0Socket::kSocketDir = "/var/run/vrouter";
-const string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kSocketDir = "/var/run/vrouter";
+string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
                                             + "/agent_pkt0";
-const string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
                                             + "/dpdk_pkt0";
+
+
+void Pkt0Socket::InitDirectories(const std::string &ksocketdir)
+{
+    kSocketDir = ksocketdir;
+    kAgentSocketPath = kSocketDir + "/agent_pkt0";
+    kVrouterSocketPath = kSocketDir + "/dpdk_pkt0";
+}
 
 Pkt0Interface::Pkt0Interface(const std::string &name,
                              boost::asio::io_service *io) :
@@ -131,15 +139,22 @@ Pkt0Socket::~Pkt0Socket() {
 }
 
 void Pkt0Socket::CreateUnixSocket() {
-    boost::filesystem::create_directory(kSocketDir);
-    boost::filesystem::remove(kAgentSocketPath);
+std::stringstream stemp;
+stemp<<getpid();//with c++11 we can just use std::to_string()
+std::string newAgentSocketPath = "/tmp/"+ stemp.str() + kAgentSocketPath;
+
+std::string newkSocketDir = "/tmp/" + stemp.str()+kSocketDir;
+ 
+   boost::filesystem::create_directory(newkSocketDir);
+
+    boost::filesystem::remove(newAgentSocketPath);
 
     boost::system::error_code ec;
     socket_.open();
-    local::datagram_protocol::endpoint ep(kAgentSocketPath);
+    local::datagram_protocol::endpoint ep(newAgentSocketPath);
     socket_.bind(ep, ec);
     if (ec) {
-        LOG(DEBUG, "Error binding to the socket " << kAgentSocketPath
+        LOG(DEBUG, "Error binding to the socket " << newAgentSocketPath
                 << ": " << ec.message());
     }
     assert(ec == 0);
@@ -187,7 +202,11 @@ void Pkt0Socket::StartConnectTimer() {
 }
 
 bool Pkt0Socket::OnTimeout() {
-    local::datagram_protocol::endpoint ep(kVrouterSocketPath);
+    std::stringstream stemp;
+stemp<<getpid();//with c++11 we can just use std::to_string()
+std::string newvroutersocketpath = "/tmp/"+ stemp.str() + kVrouterSocketPath;
+
+    local::datagram_protocol::endpoint ep(newvroutersocketpath);
     boost::system::error_code ec;
     socket_.connect(ep, ec);
     if (ec != 0) {

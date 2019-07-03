@@ -4,6 +4,8 @@
 
 #include <string>
 #include <vector>
+#include<iostream>
+#include<fstream>
 #include <algorithm>
 #include <base/logging.h>
 #include <base/lifetime.h>
@@ -568,7 +570,24 @@ void Agent::InitCollector() {
                 NULL, params_->derived_stats_map(),
                 params_->sandesh_config());
     }
-
+   std::cout<< "introspect port" << Sandesh::http_port()<<"\n";
+   std::string sub("{\"introspectport\":" );
+   std::string  pidstring;
+   
+   std::ostringstream ss;
+   int i = getpid();
+   ss<< i;
+   pidstring= ss.str();
+   pidstring += ".json"; 
+   ss.str(""); 
+   ss.clear();
+   ss << Sandesh::http_port() <<"}";
+   sub += ss.str();
+ 
+   std::ofstream outfile(pidstring.c_str(), std::ofstream::out);
+   outfile << sub;
+   outfile.close();
+  
 }
 
 void Agent::ReConnectCollectors() {
@@ -843,7 +862,10 @@ KSync *Agent::ksync() const {
 }
 
 void Agent::set_ksync(KSync *ksync) {
-    ksync_ = ksync;
+    if(params_ && params_->atf_is_dpdk_mocked())
+        ksync_ = ksync;
+    else
+        ksync_ = ksync;
 }
 
 AgentUveBase *Agent::uve() const {
