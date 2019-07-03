@@ -3131,7 +3131,8 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
                              SandeshLevel::SYS_INFO, BGP_LOG_FLAG_SYSLOG,
                              BGP_PEER_DIR_IN,
                              "No BGP configuration for self - closing channel");
-                channel->Close();
+                if (!bgp_log_test::unit_test())
+                    channel->Close();
             }
             if (bgp_server_->admin_down()) {
                 BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
