@@ -5,9 +5,9 @@
   gather_facts: no
 
   pre_tasks:
-   - name: Include global variables
-     include_vars: group_vars/all.yml
-   - set_fact:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+    - set_fact:
         percent_init_dict: { 'total_task_count': 4, 'task_weightage_array': [35, 20, 35, 10] }
         prouter_uuid: "{{ playbook_input.device_id }}"
         prouter_fq_name: "{{ playbook_input.device_fqname }}"
