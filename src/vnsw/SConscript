@@ -4,7 +4,6 @@
 #
 
 Import('BuildEnv')
-
 import sys
 
 env = BuildEnv.Clone()
