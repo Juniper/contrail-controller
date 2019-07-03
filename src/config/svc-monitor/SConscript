@@ -9,9 +9,9 @@ env = CfgmEnv.Clone()
 sources = [
     'setup.py',
     'requirements.txt',
-    'run_tests.sh',
     'test-requirements.txt',
-    '.testr.conf',
+    '.stestr.conf',
+    'tox.ini',
     '.coveragerc',
     'MANIFEST.in',
     'svc_monitor/__init__.py',
@@ -106,7 +106,7 @@ env.Alias('install', env.Install(env['INSTALL_CONF']+
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-svc-monitor/', doc_files))
 
-test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz')
+test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz', use_tox=True)
 
 # SetupPyTestSuite* methods don't return any targets (see review 40381)
 # so until it's merged we add the broken target here directly, by referencing

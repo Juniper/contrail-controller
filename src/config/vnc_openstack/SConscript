@@ -26,10 +26,10 @@ for file in source_files:
         env.Install(idir, "#/controller/src/config/vnc_openstack/" + file))
 
 test_sources = [
-           'run_tests.sh',
            'requirements.txt',
            'test-requirements.txt',
-           '.testr.conf',
+           '.stestr.conf',
+           'tox.ini',
            '.coveragerc',
            'vnc_openstack/tests',
           ]
@@ -55,7 +55,7 @@ if 'install' in BUILD_TARGETS:
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
-test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz')
+test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz', use_tox=True)
 
 # This add'l alias is to allow retry of UT in CI
 env.Alias('controller/src/config/vnc_openstack/vnc_openstack:test', test_target)

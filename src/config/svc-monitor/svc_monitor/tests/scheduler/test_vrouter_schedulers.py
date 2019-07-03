@@ -195,4 +195,4 @@ class TestRandomScheduler(unittest.TestCase):
                                     analytics_server_list='127.0.0.2:8081'))
 
         az_vr_list = self.scheduler2._get_az_vrouter_list()
-        self.assertEqual(az_vr_list, ['compute1', 'compute3'])
+        self.assertEqual(sorted(az_vr_list), ['compute1', 'compute3'])

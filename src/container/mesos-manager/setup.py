@@ -2,33 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import setuptools, re
-import os
+import setuptools
 
-class RunTestsCommand(setuptools.Command):
-    description = "Test command to run testr in virtualenv"
-    user_options = [
-        ('coverage', 'c',
-         "Generate code coverage report"),
-        ]
-    boolean_options = ['coverage']
-    def initialize_options(self):
-        self.cwd = None
-        self.coverage = False
-    def finalize_options(self):
-        self.cwd = os.getcwd()
-    def run(self):
-        logfname = 'test.log'
-        args = '-V'
-        if self.coverage:
-            logfname = 'coveragetest.log'
-            args += ' -c'
-        rc_sig = os.system('./run_tests.sh %s' % args)
-        if rc_sig >> 8:
-            os._exit(rc_sig>>8)
-        with open(logfname) as f:
-            if not re.search('\nOK', ''.join(f.readlines())):
-                os._exit(1)
 
 setuptools.setup(
     name='mesos_manager',
@@ -51,8 +26,5 @@ setuptools.setup(
         'console_scripts' : [
             'contrail-mesos-manager = mesos_manager.mesos_manager:main',
         ],
-    },
-    cmdclass={
-       'run_tests': RunTestsCommand,
     },
 )
