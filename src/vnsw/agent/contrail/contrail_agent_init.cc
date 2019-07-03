@@ -113,11 +113,28 @@ void ContrailAgentInit::CreateModules() {
     flow_stats_manager_.reset(new FlowStatsManager(agent()));
     agent()->set_flow_stats_manager(flow_stats_manager_.get());
 
-    ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
-    agent()->set_ksync(ksync_.get());
+   if(!agent_param()->atf_is_dpdk_mocked())
+    {
+       ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
+       agent()->set_ksync(ksync_.get());
+    }
+    else
+    { 
+       ksync_.reset();
+       agent()->set_ksync(NULL);
+    }
+    
+    std::string newkportsdir =  PortIpcHandler::kPortsDir;
+
+     if (agent_param()->atf_is_agent_mocked())
+     {
+         std::stringstream stemp;
+         stemp << getpid();//with c++11 we can just use std::to_string()
+         newkportsdir = "/tmp/" + stemp.str();
+     }
 
     port_ipc_handler_.reset(new PortIpcHandler(agent(),
-                                               PortIpcHandler::kPortsDir));
+                                               newkportsdir));
     agent()->set_port_ipc_handler(port_ipc_handler_.get());
 
     rest_server_.reset(new RESTServer(agent()));

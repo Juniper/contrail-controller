@@ -137,6 +137,9 @@ InstanceManager::InstanceManager(Agent *agent)
           stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
                       "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
                       GetTaskId(INSTANCE_MANAGER_TASK_NAME), 0)), agent_(agent) {
+          std::stringstream stemp;
+          stemp<<getpid();//with c++11 we can just use std::to_string()
+          loadbalancer_config_path_ = "/tmp/"+ stemp.str() + loadbalancer_config_path_default;
           work_queue_.set_name("Instance Manager");
 
 }
