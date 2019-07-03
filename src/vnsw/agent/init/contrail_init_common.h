@@ -38,7 +38,7 @@ public:
     virtual void ModulesShutdown();
     void PktShutdown();
 
-    bool ksync_enable() const { return ksync_enable_; }
+    bool ksync_enable() const { return false;}
     bool services_enable() const { return services_enable_; }
     bool packet_enable() const { return packet_enable_; }
     bool create_vhost() const { return create_vhost_; }
