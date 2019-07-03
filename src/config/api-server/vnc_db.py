@@ -650,9 +650,23 @@ class VncZkClient(object):
         if vn_id is not None and vn_id < self._VN_MAX_ID:
             return self._vn_id_allocator.read(vn_id)
 
-    def alloc_sg_id(self, name):
-        if name is not None:
-            return self._sg_id_allocator.alloc(name) + SGID_MIN_ALLOC
+    def alloc_sg_id(self, fq_name_str, id=None):
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None:
+            if self.get_sg_from_id(id) is not None:
+                self._vn_id_allocator.set_in_use(id)
+                self._vn_id_allocator.set_in_use(id - SGID_MIN_ALLOC)
+                return id
+            elif fq_name_str is not None:
+                try:
+                    return self._sg_id_allocator.reserve(
+                        id - SGID_MIN_ALLOC, fq_name_str) + SGID_MIN_ALLOC
+                except ResourceExistsError:
+                    return self._sg_id_allocator.alloc(
+                        fq_name_str) + SGID_MIN_ALLOC
+        elif fq_name_str is not None:
+            return self._sg_id_allocator.alloc(fq_name_str) + SGID_MIN_ALLOC
 
     def free_sg_id(self, sg_id):
         if (sg_id is not None and

@@ -37,7 +37,7 @@ from lxml import etree
 from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
-from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
+from cfgm_common import SG_NO_RULE_FQ_NAME
 
 """
 Following is needed to silence warnings on every request when keystone
@@ -1367,8 +1367,11 @@ class VncApiServer(object):
             set_context(orig_context)
     # end internal_request_ref_update
 
-    def alloc_vn_id(self, name):
-        return self._db_conn._zk_db.alloc_vn_id(name) + 1
+    def alloc_vn_id(self, fq_name_str):
+        return self._db_conn._zk_db.alloc_vn_id(fq_name_str) + 1
+
+    def alloc_security_group_id(self, fq_name_str):
+        return self._db_conn._zk_db.alloc_sg_id(fq_name_str)
 
     def create_default_children(self, object_type, parent_obj):
         r_class = self.get_resource_class(object_type)
@@ -3128,11 +3131,16 @@ class VncApiServer(object):
                                user_visible=True)
         perms2 = PermType2(owner='cloud-admin')
         perms2.set_global_access(PERMS_RX)
-        sg_obj = SecurityGroup(name=SG_NO_RULE_NAME,
-                               parent_obj=proj_obj,
-                               security_group_entries=sg_rules.exportDict(''),
-                               id_perms=id_perms.exportDict(''),
-                               perms2=perms2.exportDict(''))
+        # Creating SG without SG-ID which will then
+        # be populated and attached to this SG during
+        # singleton create
+        sg_obj = SecurityGroup(
+            name=SG_NO_RULE_FQ_NAME[-1],
+            parent_obj=proj_obj,
+            security_group_entries=sg_rules.exportDict(''),
+            id_perms=id_perms.exportDict(''),
+            perms2=perms2.exportDict(''))
+
         self._create_singleton_entry(sg_obj)
 
         self._create_singleton_entry(DiscoveryServiceAssignment())
@@ -3272,6 +3280,9 @@ class VncApiServer(object):
             if obj_type == 'virtual_network':
                 vn_id = self.alloc_vn_id(s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
+            if obj_type == 'security_group':
+                sg_id = self.alloc_security_group_id(fq_name)
+                obj_dict['security_group_id'] = sg_id
             self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
             self.create_default_children(obj_type, s_obj)
 

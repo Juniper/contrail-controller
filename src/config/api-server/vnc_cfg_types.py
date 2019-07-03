@@ -2427,7 +2427,18 @@ class SecurityGroupServer(Resource, SecurityGroup):
             if sg_id is not None:
                 cls.vnc_zk_client.free_sg_id(sg_id)
                 def undo_dealloacte_sg_id():
-                    cls.vnc_zk_client.alloc_sg_id(sg_id)
+                    # cls.vnc_zk_client.alloc_sg_id(sg_id)
+                    # In case of error try to re-allocate the same ID as it was
+                    # not yet freed on other node
+                    new_sg_id = cls.vnc_zk_client.alloc_sg_id(fq_name_str,
+                                                              sg_id)
+                    if new_sg_id != sg_id:
+                        cls.vnc_zk_client.alloc_sg_id(fq_name_str)
+                        cls.server.internal_request_update(
+                            cls.resource_type,
+                            obj_dict['uuid'],
+                            {'security_group_id': new_sg_id},
+                        )
                     return True, ""
                 get_context().push_undo(undo_dealloacte_sg_id)
             obj_dict['security_group_id'] = configured_sg_id
