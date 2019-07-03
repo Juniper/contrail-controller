@@ -14,7 +14,7 @@ service_flaky_test_suite = []
 
 dhcp_test = AgentEnv.MakeTestCmd(env, 'dhcp_test', service_test_suite)
 env.Alias('src/vnsw:dhcp_test', dhcp_test)
-dns_test = AgentEnv.MakeTestCmd(env, 'dns_test', service_flaky_test_suite)
+dns_test = AgentEnv.MakeTestCmd(env, 'dns_test', service_test_suite)
 env.Alias('src/vnsw:dns_test', dns_test)
 dns_resolver_test = AgentEnv.MakeTestCmd(env, 'dns_resolver_test', 
                                          service_flaky_test_suite) 
