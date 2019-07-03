@@ -275,8 +275,15 @@ class ISSUContrailPostProvisioner(object):
                 if vr_name in del_virtual_routers:
                     vr_obj = self._vnc_lib.virtual_router_read(id=ref['uuid'])
                     PR_obj.del_virtual_router(vr_obj)
-                    self._vnc_lib.virtual_router_delete(fq_name=vr_obj.fq_name)
-
+                    # update the DB
+                    self._vnc_lib.physical_router_update(PR_obj)
+                    try:
+                        self._vnc_lib.virtual_router_delete(fq_name=vr_obj.fq_name)
+                    except RefsExistError:
+                        print "refs existing on the virtual-router %s, " + \
+                              "inspect the objects linked to this vrouter " + \
+                              "and clean them manually, and re-run the script" \
+                               %vr_obj.fq_name
 # end class ISSUContrailPostProvisioner
 
 
