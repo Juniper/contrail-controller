@@ -168,8 +168,18 @@ public:
     void ResurrectOldConnection(XmppConnection *connection,
                                 XmppSession *session);
 
-    void set_last_event(const std::string &event);
-    const std::string &last_event() const { return last_event_; }
+    void set_last_event(const std::string &event) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        last_event_ = event;
+        last_event_at_ = UTCTimestampUsec();
+    }
+
+    void update_last_event(const std::string &event);
+
+    const std::string last_event() const {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return last_event_;
+    }
 
     bool ConnectTimerCancelled() { return connect_timer_->cancelled(); }
     bool OpenTimerCancelled() { return open_timer_->cancelled(); }
@@ -210,6 +220,7 @@ private:
     std::string last_event_;
     uint64_t last_event_at_;
     SslHandShakeCallbackHandler handshake_cb_;
+    mutable tbb::mutex mutex_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppStateMachine);
 };
