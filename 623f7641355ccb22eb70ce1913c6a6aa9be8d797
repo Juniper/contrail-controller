@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7035629a_e50f0b38",
+        "filename": "src/vnsw/agent/test/test_util.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 3052,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2019-07-03T11:25:38Z",
+      "side": 1,
+      "message": "For deleteing linklocal config we add:\nadd emply global-vrouter-config stanza\n\nThis function is common, can you handle this change in the failing unit test or the\nfile dns_test.cc",
+      "range": {
+        "startLine": 3052,
+        "startChar": 0,
+        "endLine": 3052,
+        "endChar": 24
+      },
+      "revId": "623f7641355ccb22eb70ce1913c6a6aa9be8d797",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    }
+  ]
+}
