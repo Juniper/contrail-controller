@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "5f2577a7_c01683f2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/config/test_config.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-07-03T16:42:19Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5f2577a7_3b36b552",
+      "range": {
+        "startLine": 16,
+        "startChar": 14,
+        "endLine": 16,
+        "endChar": 15
+      },
+      "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5f2577a7_9ba369b2",
         "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
         "patchSetId": 2
@@ -36,6 +60,24 @@
       "writtenOn": "2018-04-20T21:57:47Z",
       "side": 1,
       "message": "Can you make the log level also configurable from the config file?",
+      "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f2577a7_2020a749",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-07-03T16:42:19Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5f2577a7_9ba369b2",
       "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
@@ -59,6 +101,24 @@
     },
     {
       "key": {
+        "uuid": "5f2577a7_001dab0e",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 270,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-07-03T16:42:19Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5f2577a7_dbee91eb",
+      "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5f2577a7_5bdbc14d",
         "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
         "patchSetId": 2
@@ -70,6 +130,24 @@
       "writtenOn": "2018-04-20T21:57:47Z",
       "side": 1,
       "message": "please check for r.status_code \u003d\u003d200",
+      "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f2577a7_e0197f22",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/test/sanity/sanity_base.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-07-03T16:42:19Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5f2577a7_5bdbc14d",
       "revId": "be6f6a4e3d683d30d233fa2d7565af7c7b241829",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
