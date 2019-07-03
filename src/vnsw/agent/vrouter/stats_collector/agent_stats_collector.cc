@@ -74,13 +74,15 @@ void AgentStatsCollector::SendDropStatsBulkGet() {
 }
 
 bool AgentStatsCollector::SendRequest(Sandesh &encoder, StatsType type) {
-    int encode_len;
-    int error;
-    uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);
+    if (!agent_->params()->atf_is_dpdk_mocked())
+    {
+    	int encode_len;
+        int error;
+        uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);
 
-    encode_len = encoder.WriteBinary(buf, KSYNC_DEFAULT_MSG_SIZE, &error);
-    SendAsync((char*)buf, encode_len, type);
-
+        encode_len = encoder.WriteBinary(buf, KSYNC_DEFAULT_MSG_SIZE, &error);
+        SendAsync((char*)buf, encode_len, type);
+    } 
     return true;
 }
 

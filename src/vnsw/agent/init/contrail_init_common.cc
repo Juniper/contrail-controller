@@ -31,6 +31,12 @@
 ContrailInitCommon::ContrailInitCommon() : AgentInit(), create_vhost_(true),
     ksync_enable_(true), services_enable_(true), packet_enable_(true),
     uve_enable_(true), vgw_enable_(true), router_id_dep_enable_(true) {
+    if( agent()->params()->atf_is_dpdk_mocked())
+      {
+       ksync_enable_ = false;
+
+      }
+
 }
 
 ContrailInitCommon::~ContrailInitCommon() {
