@@ -26,11 +26,24 @@ do {                                                                     \
 } while (false)                                                          \
 
 ///////////////////////////////////////////////////////////////////////////////
-const string Pkt0Socket::kSocketDir = "/var/run/vrouter";
-const string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kSocketDir = "/var/run/vrouter";
+string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
                                             + "/agent_pkt0";
-const string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
+string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
                                             + "/dpdk_pkt0";
+
+
+void Pkt0Socket::MockAgent()
+{
+
+    std::stringstream stemp;
+    stemp<<getpid();//with c++11 we can just use std::to_string()
+    kSocketDir =  "/tmp/PKT0/"+ stemp.str()+ Pkt0Socket::kSocketDir ;
+    kAgentSocketPath  = "/tmp/PKT0/"+ stemp.str()+ Pkt0Socket::kAgentSocketPath ;
+    kVrouterSocketPath  = "/tmp/PKT0/"+ stemp.str()+ Pkt0Socket::kVrouterSocketPath ;
+}
+
+
 
 Pkt0Interface::Pkt0Interface(const std::string &name,
                              boost::asio::io_service *io) :
@@ -131,7 +144,9 @@ Pkt0Socket::~Pkt0Socket() {
 }
 
 void Pkt0Socket::CreateUnixSocket() {
-    boost::filesystem::create_directory(kSocketDir);
+ 
+   boost::filesystem::create_directory(kSocketDir);
+
     boost::filesystem::remove(kAgentSocketPath);
 
     boost::system::error_code ec;
@@ -187,6 +202,7 @@ void Pkt0Socket::StartConnectTimer() {
 }
 
 bool Pkt0Socket::OnTimeout() {
+
     local::datagram_protocol::endpoint ep(kVrouterSocketPath);
     boost::system::error_code ec;
     socket_.connect(ep, ec);
