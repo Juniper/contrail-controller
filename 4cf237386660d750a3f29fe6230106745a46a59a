@@ -543,6 +543,30 @@
       "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9f5c4f37_4d1e4d71",
+        "filename": "src/vnsw/agent/services/test/igmp_common_test.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 385,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2019-07-04T04:28:55Z",
+      "side": 1,
+      "message": "present in diff-2.",
+      "parentUuid": "bf57530f_3d21f94e",
+      "range": {
+        "startLine": 384,
+        "startChar": 20,
+        "endLine": 385,
+        "endChar": 20
+      },
+      "revId": "4cf237386660d750a3f29fe6230106745a46a59a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
