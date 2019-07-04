@@ -38,12 +38,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.13"
+__version__ = "1.14"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.14
+  - Fix get_subnet to fetch only necessary IPAM properties to prevent case
+    where IPAM have a large number of ref/back-ref/children
 * 1.13
   - Retrieve Subnet from IPAM if the ipam-method is flat-subnet
   - PEP8 compliance
@@ -785,7 +788,7 @@ class DatabaseManager(object):
         flat-subnet: Retrieve it from the network-ipam's ipam-subnet
         User-Agent KeyVal Table: for a flat subnet, User Agent keyval table
             is setup with 0.0.0.0/0 prefix and prefix-len value.
-        Returns: 
+        Returns:
             subnet_dicts: Subnets derived from VN and IPAM subnets
             ua_subnet_dicts: Subnets derived from VN plus
                              Zero prefix (0.0.0.0/0) for IPAM subnets if
@@ -809,7 +812,9 @@ class DatabaseManager(object):
                 raise InvalidIPAMRef(msg)
 
             try:
-                network_ipam = obj_uuid_table.get(network_ipam_uuid)
+                network_ipam = obj_uuid_table.get(
+                    network_ipam_uuid, columns=['fq_name',
+                                                'prop:ipam_subnet_method'])
             except pycassa.NotFoundException as e:
                 msg = ("Exception (%s)\n"
                        "Invalid or non-existing "
