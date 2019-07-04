@@ -264,6 +264,24 @@
     },
     {
       "key": {
+        "uuid": "92063831_87b73b50",
+        "filename": "src/vnsw/agent/contrail/pkt0_interface.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "hmm why can\u0027t you change in this patch itself.. renaming should not take more than few minutes...",
+      "parentUuid": "9f5c4f37_c6250ead",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_9972dae2",
         "filename": "src/vnsw/agent/init/agent_param.cc",
         "patchSetId": 1
@@ -438,6 +456,24 @@
     },
     {
       "key": {
+        "uuid": "5a361539_08cbc2b8",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 559,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "we are using cat (control-node + agent testing framework) as the term",
+      "parentUuid": "9f5c4f37_a63c5ac8",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_d97052df",
         "filename": "src/vnsw/agent/init/agent_param.h",
         "patchSetId": 1
@@ -467,6 +503,24 @@
       "side": 1,
       "message": "ok..will do that in next patch",
       "parentUuid": "9f5c4f37_d97052df",
+      "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "fdef2563_675dd528",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 561,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "why ?",
+      "parentUuid": "9f5c4f37_863716e4",
       "revId": "ceae197e04382037c68458d9c185344e5fa1b1b4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false

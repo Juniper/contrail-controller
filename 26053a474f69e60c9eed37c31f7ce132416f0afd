@@ -1,0 +1,174 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f74c43c9_3fc47e83",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 12
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "this comment is still not removed though..",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b95fd370_79a310d7",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 84,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "same here. left brace should be on the same line as if statement",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "25c7eb16_48dea771",
+        "filename": "src/vnsw/agent/contrail/contrail_agent_init.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 123,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "no it is not done. I still see trailing space here",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b9bb1bdd_8aa1c4ad",
+        "filename": "src/vnsw/agent/contrail/pkt0_interface_base.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "please rename these as well, or make it const.",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "36a7d045_ffe5cd2b",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 709,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "please wrap before 81st column",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fecce4b6_9dc5cf07",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 1987,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "another trailing space here. also exceeds 80 columns again",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cc10f358_d663eec2",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 12
+      },
+      "lineNbr": 606,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "this is still not fixed",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1804a1e3_d33d129c",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 545,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "trailing space here",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe790230_17a1c1cc",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_init.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 546,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "same here",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7c7d3bfd_d0684b34",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_memory.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 216,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-04T01:17:35Z",
+      "side": 1,
+      "message": "please wrap",
+      "revId": "26053a474f69e60c9eed37c31f7ce132416f0afd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
