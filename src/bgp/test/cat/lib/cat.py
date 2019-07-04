@@ -158,7 +158,7 @@ class ControlNode(Component):
         self.create_component(True)
 
     def read_port_numbers(self):
-        self.filename = self.user_dir + "/" + str(self.http_port) + ".txt"
+        self.filename = self.user_dir + "/conf/" + str(self.http_port) + ".txt"
         read = 10
         while(read):
             if os.path.exists(self.filename):
@@ -185,6 +185,28 @@ class ControlNode(Component):
 
         args = []
         os.execve(c1, args, env)
+
+    def __restart_control_node_internal(self):
+        c1 = "/cs-shared/CAT/binaries/bgp_ifmap_xmpp_integration_test"
+
+        env = { "USER": self.user, "BGP_IFMAP_XMPP_INTEGRATION_TEST_SELF_NAME":
+            "overcloud-contrailcontroller-1", "RESTART": "True",
+            "XMPP_PORT": str(self.xmpp_port), "BGP_PORT": str(self.bgp_port),
+            "BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT": str(self.http_port),
+            "BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE": "1", "LOG_DISABLE": "1",
+            "USER_DIR": str(self.user_dir)}
+
+        args = []
+        os.execve(c1, args, env)
+
+    def restart_control_node(self):
+        os.kill(self.pid, signal.SIGKILL)
+        new_pid = os.fork()
+        if new_pid == 0:
+            self.pid = os.getpid()
+            self.__restart_control_node_internal()
+        else:
+            self.pid = new_pid
 
 
 ##############################################################
