@@ -597,6 +597,16 @@ protected:
             EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
     }
 
+    void VerifyAttrNoAs4BytePrepend() {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        const AsPath4Byte *as_path = attr->aspath_4byte();
+        as_t my_as = server_.autonomous_system();
+        as_t my_local_as = server_.local_autonomous_system();
+        EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+        EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
+    }
+
     void VerifyAttrNoAsPrepend() {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
@@ -1807,7 +1817,7 @@ TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend1As4) {
     VerifyExportAccept();
     VerifyAttrLocalPref(100);
     VerifyAttrMed(100);
-    VerifyAttrNoAsPrepend();
+    VerifyAttrNoAs4BytePrepend();
 }
 
 //

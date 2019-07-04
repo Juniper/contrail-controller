@@ -567,8 +567,12 @@ void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
         }
         attr->set_as_path(NULL);
     }
-    scoped_ptr<AsPath4ByteSpec> as_path_spec(aspath_4byte->Add(local_as));
-    attr->set_aspath_4byte(as_path_spec.get());
+    if (local_as) {
+        scoped_ptr<AsPath4ByteSpec> as_path_spec(aspath_4byte->Add(local_as));
+        attr->set_aspath_4byte(as_path_spec.get());
+    } else {
+        attr->set_aspath_4byte(aspath_4byte.get());
+    }
 }
 
 bool BgpTable::IsAsPathLoop(const RibOut *ribout, const BgpAttr *attr) const {
@@ -688,12 +692,20 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             // to modify the AsPath if it already exists since this is an
             // iBGP RibOut.
             if (ribout->as4_supported() && !clone->aspath_4byte()) {
-                AsPath4ByteSpec as_path;
-                clone->set_aspath_4byte(&as_path);
+                if (attr->as_path()) {
+                    CreateAsPath4Byte(clone, 0);
+                } else {
+                    AsPath4ByteSpec as_path;
+                    clone->set_aspath_4byte(&as_path);
+                }
             }
             if (!ribout->as4_supported() && !clone->as_path()) {
-                AsPathSpec as_path;
-                clone->set_as_path(&as_path);
+                if (attr->aspath_4byte()) {
+                    CreateAsPath2Byte(clone);
+                } else {
+                    AsPathSpec as_path;
+                    clone->set_as_path(&as_path);
+                }
             }
         } else if (ribout->peer_type() == BgpProto::EBGP) {
             // Don't advertise routes from non-master instances if there's

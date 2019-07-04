@@ -282,8 +282,8 @@ public:
     time_t GetRTargetTableLastUpdatedTimeStamp() const;
     bool mvpn_ipv4_enable() const { return mvpn_ipv4_enable_; }
     void set_mvpn_ipv4_enable(bool flag) { mvpn_ipv4_enable_ = flag; }
-    bool enable_4byte_as() const { return enable_4byte_as_; }
-    void set_enable_4byte_as(bool flag) { enable_4byte_as_ = flag; }
+    bool enable_4byte_as() const;
+    void set_enable_4byte_as(bool flag);
     bool ignore_aspath() const { return ignore_aspath_; }
     void set_ignore_aspath(bool flag) { ignore_aspath_ = flag; }
 
@@ -339,7 +339,6 @@ private:
     bool destroyed_;
     bool logging_disabled_;
     bool mvpn_ipv4_enable_;
-    bool enable_4byte_as_;
     bool ignore_aspath_;
 
     // databases
