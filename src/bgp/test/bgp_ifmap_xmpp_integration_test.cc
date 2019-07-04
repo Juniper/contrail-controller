@@ -21,7 +21,9 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "config-client-mgr/config_client_options.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
@@ -41,6 +43,10 @@
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fstream>
+#include "xmpp/xmpp_sandesh.h"
 
 using namespace std;
 using namespace autogen;
@@ -141,7 +147,9 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         config_client_manager_(new ConfigClientManager(&evm_,
             "localhost", "config-test", config_options_)),
         bgp_sandesh_context_(new BgpSandeshContext()),
+        xmpp_sandesh_context_(new XmppSandeshContext()),
         validate_done_(false) {
+        RegisterSandeshShowXmppExtensions(bgp_sandesh_context_.get());
         ifmap_server_->set_config_manager(config_client_manager_.get());
     }
 
@@ -149,8 +157,10 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         bgp_sandesh_context_->bgp_server = server_.get();
         bgp_sandesh_context_->xmpp_peer_manager = channel_manager_.get();
         RegisterSandeshShowIfmapHandlers(bgp_sandesh_context_.get());
+        xmpp_sandesh_context_->xmpp_server = xmpp_server_test_;
         Sandesh::set_module_context("IFMap", ifmap_sandesh_context_.get());
         Sandesh::set_module_context("BGP", bgp_sandesh_context_.get());
+        Sandesh::set_module_context("XMPP", xmpp_sandesh_context_.get());
         int port = 0;
         if (getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT")) {
             port = strtoul(getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT"),
@@ -193,13 +203,41 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         ifmap_server_->set_ifmap_channel_manager(ifmap_channel_mgr_.get());
         channel_manager_.reset(new BgpXmppChannelManager(xmpp_server_test_,
             server_.get()));
-        server_->session_manager()->Initialize(0);
-        xmpp_server_test_->Initialize(0, false);
+
+        string dir = getenv("USER_DIR");
+        int pid = getpid();
+
+        SandeshSetup();
+
+        string h = boost::lexical_cast<string>(Sandesh::http_port());
+        string ufile = dir + "/conf/" + h + ".txt";
+
+        int xmpp = 0, bgp = 0;
+	
+        xmpp = strtoul(getenv("CAT_XMPP_PORT"), NULL, 0);
+        bgp = strtoul(getenv("CAT_BGP_PORT"), NULL, 0);
+
+        server_->session_manager()->Initialize(bgp);
+        xmpp_server_test_->Initialize(xmpp, false);
+
+        string b = boost::lexical_cast<string>
+                   (server_->session_manager()->GetPort());
+        string x = boost::lexical_cast<string>(xmpp_server_test_->GetPort());
+
+        ofstream myfile;
+        myfile.open (ufile.c_str());
+        string data = "{\"ControllerDetails\": [{ \"ProcessID\": " + 
+                      boost::lexical_cast<string>(pid) + ", \"BGPPORT\": "
+                      + b + ", \"XMPPPORT\": " + x + ", \"HTTPPORT\": " 
+                      + h +"}]}" ;
+        myfile << data;
+        cout << data << endl;
+        myfile.close();
+
         cout << "BGP server started at port "
              << server_->session_manager()->GetPort() << endl;
         cout << "XMPP server started at port " << xmpp_server_test_->GetPort()
              << endl;
-        SandeshSetup();
 
         thread_.Start();
         task_util::WaitForIdle();
@@ -376,6 +414,7 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
     boost::scoped_ptr<IFMapChannelManager> ifmap_channel_mgr_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     boost::scoped_ptr<BgpSandeshContext> bgp_sandesh_context_;
+    boost::scoped_ptr<XmppSandeshContext> xmpp_sandesh_context_;
     bool validate_done_;
 };
 
@@ -395,8 +434,10 @@ TEST_F(BgpIfmapXmppIntegrationTest, BulkSync) {
     } else {
         TASK_UTIL_EXPECT_NE(0, table->Size());
     }
+    task_util::WaitForIdle();
+    config_client_manager_->EndOfConfig();
     if (getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE"))
-        TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
+        while(1) sleep(1000); //TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
     ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
 }
 
@@ -418,6 +459,8 @@ int main(int argc, char **argv) {
         boost::factory<ConfigCassandraClientPartitionTest *>());
     ConfigFactory::Register<ConfigJsonParserBase>(
         boost::factory<ConfigJsonParser *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
     int status = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return status;
