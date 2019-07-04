@@ -8,14 +8,14 @@ set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%             for import_target in ri.get('import_targets', []) %}
 {%                 set community_target = import_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
-set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target | rtfilter}}
 {%             endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 then accept
 set groups {{cfg_group}} switch-options vrf-import {{vrf_import}}
 {%             for export_target in ri.get('export_targets', []) %}
 {%                 set community_target = export_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
-set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target}}
+set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target | rtfilter}}
 {%             endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then accept
 {%         endif %}
@@ -46,7 +46,7 @@ set groups {{cfg_group}} switch-options vrf-import import-evpn
 {%                     set vxlan_id = ri.get('vxlan_id', '') %}
 {%                     if (vxlan_id != '') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
 {%                         for export_target in ri.get('export_targets', []) %}
-set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
+set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target | rtfilter}}
 {%                         endfor %}
 {%                     endif %}
 {%                 endfor %}
