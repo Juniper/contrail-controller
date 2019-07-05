@@ -165,18 +165,6 @@ for utils in utils_scripts:
   env.Alias('install', env.Install(env['INSTALL_EXAMPLE'], utils))
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           '../contrail-vrouter-agent.conf'))
-env.Alias('install',
-        env.InstallAs(env['INSTALL_CONF'] +
-        '/supervisord_vrouter_files/' + 'contrail-vrouter-agent.ini',
-        '../contrail-vrouter-agent.ini'))
-env.Alias('install',
-        env.InstallAs(env['INSTALL_INITD'] + '/contrail-vrouter-agent',
-        '../contrail-vrouter.initd.supervisord'))
-env.Alias('install',
-        env.InstallAs(env['INSTALL_SYSTEMD'] + '/contrail-vrouter-agent.service',
-        '../systemd/contrail-vrouter-agent.service'))
-env.Alias('install', env.Install(env['INSTALL_CONF'],
-    '../supervisord_vrouter.conf'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-vrouter-agent/',
     doc_files))

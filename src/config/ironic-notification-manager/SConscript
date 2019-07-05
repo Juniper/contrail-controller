@@ -56,9 +56,5 @@ if 'install_ironic_notification_manager' in BUILD_TARGETS:
 
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           'ironic-notification-manager.conf'))
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-          '/ironic-notification-manager.service', 'systemd/ironic-notification-manager.service'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] +
-          '/supervisord_config_files', 'ironic-notification-manager.ini'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/ironic-notification-manager/', doc_files))

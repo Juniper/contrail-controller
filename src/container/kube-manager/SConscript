@@ -122,16 +122,6 @@ env.SetupPyTestSuite(sdist_gen,
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-kube-manager/', doc_files))
 
-env.Alias('install', env.Install(env['INSTALL_CONF'],
-    'supervisord_kubernetes.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] +
-    '/supervisord_kubernetes_files', 'contrail-kube-manager.ini'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
-    '/contrail-kube-manager', 'contrail-kube-manager.initd.supervisord'))
-
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-          '/contrail-kube-manager.service', 'systemd/contrail-kube-manager.service'))
-
 # Local Variables:
 # mode: python
 # End:

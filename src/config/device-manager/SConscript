@@ -140,12 +140,6 @@ if 'install' in BUILD_TARGETS:
 
 env.Alias('install', env.Install(env['INSTALL_CONF'],
           'contrail-device-manager.conf'))
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
-          '/contrail-device-manager', 'contrail-device-manager.initd.supervisord'))
-env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
-          '/contrail-device-manager.service', 'systemd/contrail-device-manager.service'))
-env.Alias('install', env.Install(env['INSTALL_CONF'] +
-          '/supervisord_config_files', 'contrail-device-manager.ini'))
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-device-manager/', doc_files))
 

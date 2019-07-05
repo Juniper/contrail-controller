@@ -8,7 +8,6 @@ env = CfgmEnv.Clone()
 
 setup_sources = [
            'setup.py',
-           #'MANIFEST.in',
            'requirements.txt',
            'test-requirements.txt',
            '.stestr.conf',
@@ -68,15 +67,6 @@ else:
 env.Alias('flaky-test', test_target)
 env.Alias('controller/src/config/contrail_issu:flaky-test', test_target)
 env.Alias('controller/src/config/contrail_issu/contrail_issu:flaky-test', test_target)
-
-env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
-    '/contrail-issu-run-sync', 'contrail-issu-run-sync.initd.supervisord'))
-env.Alias('install', env.Install(env['INSTALL_CONF'],
-    'supervisord_issu.conf'))
-env.Alias('install', env.Install(env['INSTALL_CONF']+
-    '/supervisord_issu_files', 'contrail-issu-run-sync.ini'))
-env.Alias('install', env.InstallAs( env['INSTALL_SYSTEMD'] +
-    '/contrail-issu-run-sync.service', 'systemd/contrail-issu-run-sync.service'))
 
 # Local Variables:
 # mode: python
