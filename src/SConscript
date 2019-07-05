@@ -16,6 +16,7 @@ subdirs = [
            'bgp',
            'db',
            'dns',
+           'go',
            'ifmap',
            'net',
            'route',
