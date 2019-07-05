@@ -990,6 +990,9 @@ TEST_F(DnsTest, VirtualDnsLinkLocalReqTest) {
 
     DelLinkLocalConfig();
     client->WaitForIdle();
+
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
 }
 
 TEST_F(DnsTest, DnsXmppTest) {
@@ -1219,6 +1222,9 @@ TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
 
     DelLinkLocalConfig();
     client->WaitForIdle();
+
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
 }
 
 TEST_F(DnsTest, DnsDropTest) {
@@ -1280,6 +1286,10 @@ TEST_F(DnsTest, DnsFloatingIp) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     AddPort(input[0].name, input[0].intf_id);
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -1292,6 +1302,8 @@ TEST_F(DnsTest, DnsFloatingIp) {
     client->WaitForIdle();
 
     IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     // Port Active since VRF and VM already added
@@ -1312,6 +1324,7 @@ TEST_F(DnsTest, DnsFloatingIp) {
 
     IntfCfgDel(input, 0);
     client->WaitForIdle();
+    DelIPAM("vn1");
 
     EXPECT_FALSE(VmPortFind(input, 0));
     client->WaitForIdle();
@@ -1337,6 +1350,10 @@ TEST_F(DnsTest, DnsFloatingIp_VnDelWithoutFipDeAssoc) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
     AddPort(input[0].name, input[0].intf_id);
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -1349,6 +1366,8 @@ TEST_F(DnsTest, DnsFloatingIp_VnDelWithoutFipDeAssoc) {
     client->WaitForIdle();
 
     IntfCfgAdd(input, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     // Port Active since VRF and VM already added
@@ -1385,6 +1404,7 @@ TEST_F(DnsTest, DnsFloatingIp_VnDelWithoutFipDeAssoc) {
     FloatingIPTearDown(false);
     IntfCfgDel(input, 0);
     client->WaitForIdle();
+    DelIPAM("vn1");
 
     EXPECT_FALSE(VmPortFind(input, 0));
     client->WaitForIdle();
