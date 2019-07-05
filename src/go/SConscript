@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import os
+
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+GoEnv.AppendENVPath('GOPATH', GoEnv['TOP'])
+GoEnv.AppendENVPath('SRC_PATH', "go")
+GoEnv.AppendENVPath('LINT_LOG_PATH', GoEnv['TOP'])
+GoEnv.AppendENVPath('GOROOT', GoEnv.Dir('#/third_party/go').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/bin')
+
+print ("STARTED GO-ENV")
+gen_deps = GoEnv.GoDeps('./tools/deps.sh', 'bin/golangci-lint')
+run_lint = GoEnv.GoLint('./tools/lint.sh', 'linter.log')
+go_build = GoEnv.GoBuild('cmd/vcenter/import.go', 'vcenter_import')
+GoEnv.Depends(go_build, run_lint)
+GoEnv.Depends(run_lint, gen_deps)
+print ("Finished GO-ENV")

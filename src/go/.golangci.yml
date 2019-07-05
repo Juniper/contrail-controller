@@ -1,0 +1,46 @@
+run:
+  # Concurrency is reduced in order to reduce RAM consumption
+  concurrency: 2
+  deadline: 20m
+  skip-dirs: []
+
+issues:
+  exclude:
+  - .* is always .* # unparam issue
+  - ^should have a package comment, unless it's in another file for this package$ # golint issue
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+# Intentionally disabled linters:
+# - dupl consumes too much RAM and CPU cycles
+# - gosec consumes too much RAM and CPU cycles
+# - megacheck uses staticcheck which consumes too much RAM and CPU cycles
+# - prealloc issues are considered premature optimization
+# - staticcheck consumes too much RAM and CPU cycles
+linters:
+  enable-all: true
+  disable:
+  - dupl
+  - gosec
+  - megacheck
+  - prealloc
+  - staticcheck
+  - unparam
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  gocyclo:
+    min-complexity: 10
+  golint:
+    min-confidence: 0
+  govet:
+    check-shadowing: true
+  maligned:
+    suggest-new: true
+  unused:
+    check-exported: true
+  nakedret:
+    max-func-lines: 5
