@@ -24,6 +24,7 @@ subdirs = [
            'xml',
            'xmpp',
            'nodemgr',
+           'vcenter-import',
            ]
  
 if platform.system() != 'Darwin':
