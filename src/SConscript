@@ -36,6 +36,7 @@ if platform.system() != 'Windows':
         'control-node',
         'server-manager',
         'utils',
+        'vcenter-import',
     ]
 
 include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#controller/lib']
