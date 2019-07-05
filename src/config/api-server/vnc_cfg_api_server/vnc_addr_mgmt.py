@@ -1006,10 +1006,18 @@ class AddrMgmt(object):
         quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
         subnet_count = len(self._vn_to_subnets(obj_dict) or [])
         if quota_limit >= 0:
-            path_prefix = (
-                    _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid'])
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
             path = path_prefix + "/" + obj_type
             quota_counter = self._server_mgr.quota_counter
+            if not quota_counter.get(path):
+                # Init quota counter for subnet
+                db_conn = self._get_db_conn()
+                QuotaHelper._zk_quota_counter_init(
+                    path_prefix,
+                    {obj_type: quota_limit},
+                    proj_dict['uuid'],
+                    db_conn,
+                    quota_counter)
             return (True, (subnet_count, quota_counter[path]))
         return (True, (0, ""))
     # end get_subnet_quota_counter

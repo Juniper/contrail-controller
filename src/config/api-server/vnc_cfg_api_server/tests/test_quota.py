@@ -891,3 +891,19 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         subnet_quota_counter = quota_counters[subnet_counter]
         self.assertEqual(subnet_quota_counter.value, 5)
     #end TestGlobalQuota
+
+    def test_virtual_network_delete_if_subnet_quota_not_initialized(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+
+        vn, ipam = self.create_vn_ipam_subnet(
+            'vn-%s' % self.id(), '1.1.1.0', '24', project)
+        vn = self._vnc_lib.virtual_network_read(id=vn.uuid)
+        self.assertEqual(self.get_subnet_count(vn), 1)
+
+        subnet_counter_path = '%s%s/subnet' % (
+                _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        quota_counters = self._server_info['api_server'].quota_counter
+        # remove the in-memory map entry for that project subnet counter
+        quota_counters.pop(subnet_counter_path)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
