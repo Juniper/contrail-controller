@@ -14,7 +14,8 @@
     },
     "contrail-config" : {
         "source_directories" : [
-            "controller/src/config"
+            "controller/src/config",
+            "controller/src/vcenter-import"
         ],
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
@@ -25,7 +26,8 @@
             "controller/src/config/vnc_openstack:test",
             "controller/src/config/fabric-ansible:test",
             "controller/src/container/kube-manager:test",
-            "controller/src/config/common:test"
+            "controller/src/config/common:test",
+            "controller/src/vcenter-import:test"
         ],
         "misc_test_targets" : [ ]
     },
@@ -221,7 +223,8 @@
           "src/contrail-analytics/contrail-opserver:test",
           "src/contrail-analytics/contrail-query-engine:test",
           "src/contrail-api-client/schema:test",
-          "src/contrail-analytics/contrail-topology:test"
+          "src/contrail-analytics/contrail-topology:test",
+          "controller/src/vcenter-import:test"
         ],
         "misc_test_targets" : [ ]
     }

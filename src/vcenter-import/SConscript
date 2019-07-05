@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import os
+
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+GoEnv.AppendENVPath('GOPATH', GoEnv.Dir('#/controller').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
+
+go_build = GoEnv.GoBuild('main.go', 'vcenter-import')
+GoEnv.Depends('install', go_build)
+GoEnv.Default(go_build)
+
+go_cmd_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/vcenter-import/command').abspath)
+go_vcenter_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/vcenter-import/vcenter').abspath)
+go_tests =[ go_cmd_test, go_vcenter_test]
+GoEnv.Depends('install', go_tests)
+GoEnv.Depends(go_build, go_tests)
+GoEnv.Alias('controller/src/vcenter-import:test', go_tests)
+
+#if 'install' in BUILD_TARGETS:
+    #GoEnv.Alias('install', GoEnv.Install(GoEnv['INSTALL_BIN'] + '/vcenter-import' , go_build))
