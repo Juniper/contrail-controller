@@ -14,7 +14,8 @@
     },
     "contrail-config" : {
         "source_directories" : [
-            "controller/src/config"
+            "controller/src/config",
+            "controller/src/vcenter-import"
         ],
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
@@ -25,7 +26,8 @@
             "controller/src/config/vnc_openstack:test",
             "controller/src/config/fabric-ansible:test",
             "controller/src/container/kube-manager:test",
-            "controller/src/config/common:test"
+            "controller/src/config/common:test",
+            "controller/src/vcenter-import:test"
         ],
         "misc_test_targets" : [ ]
     },
@@ -214,6 +216,7 @@
           "src/contrail-api-client/api-lib:test",
           "controller/src/config/api-server:test",
           "controller/src/config/fabric-ansible:test",
+          "controller/src/vcenter-import:test",
           "controller/src/config/schema-transformer:test",
           "controller/src/ksync:test",
           "src/contrail-common/database/gendb:test",
