@@ -1,0 +1,29 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import os
+
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+GoEnv.AppendENVPath('GOPATH', GoEnv.Dir('#/controller').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
+
+print ("STARTED GO-ENV")
+#sources = ['main.go', 'command/client.go', 'vcenter/client.go']
+#sources = ['main.go']
+#setup_sources_rules = []
+#for file in sources:
+    #setup_sources_rules.append(GoEnv.Install("", "#controller/src/vcenter-import/" + file))
+#go_build = GoEnv.GoBuild('vcenter_import')
+go_build = GoEnv.GoBuild('main.go', 'vcenter-import')
+print (go_build)
+GoEnv.Alias('vcenter-import', go_build)
+#GoEnv.Depends(go_build, setup_sources_rules)
+GoEnv.Depends('install', go_build)
+GoEnv.Default(go_build)
+#if 'install' in BUILD_TARGETS:
+    #GoEnv.Alias('install', GoEnv.Install(GoEnv['INSTALL_BIN'] + '/vcenter-import' , go_build))
+GoEnv.Alias('install', GoEnv.Install(Dir("dgautam"), go_build))
+print ("Finished GO-ENV")
