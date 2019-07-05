@@ -1,0 +1,14 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import os
+
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+GoEnv.AppendENVPath('GOPATH', GoEnv['TOP'])
+GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+
+print ("STARTED GO-ENV")
+GoEnv.GoBuild('cmd/vcenter/import.go', 'vcenter_import')
+print ("Finished GO-ENV")
