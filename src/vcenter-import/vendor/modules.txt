@@ -1,0 +1,22 @@
+# github.com/konsorten/go-windows-terminal-sequences v1.0.2
+github.com/konsorten/go-windows-terminal-sequences
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
+# github.com/vmware/govmomi v0.20.2
+github.com/vmware/govmomi
+github.com/vmware/govmomi/view
+github.com/vmware/govmomi/vim25/methods
+github.com/vmware/govmomi/vim25/mo
+github.com/vmware/govmomi/vim25/soap
+github.com/vmware/govmomi/vim25/types
+github.com/vmware/govmomi/property
+github.com/vmware/govmomi/session
+github.com/vmware/govmomi/vim25
+github.com/vmware/govmomi/object
+github.com/vmware/govmomi/vim25/debug
+github.com/vmware/govmomi/vim25/progress
+github.com/vmware/govmomi/vim25/xml
+github.com/vmware/govmomi/nfc
+github.com/vmware/govmomi/task
+# golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
+golang.org/x/sys/unix
