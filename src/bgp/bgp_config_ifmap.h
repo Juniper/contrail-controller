@@ -261,10 +261,6 @@ public:
 private:
     friend class BgpConfigManagerTest;
 
-    void UpateRouteTargetIndex(BgpIfmapConfigManager *mgr,
-            BgpInstanceConfig::RouteTargetList& import_list,
-            BgpInstanceConfig::RouteTargetList& export_list);
-    void UpateRouteTargetIndex(BgpInstanceConfig::RouteTargetList& rt_list);
     std::string name_;
     IFMapNodeProxy node_proxy_;
     BgpInstanceConfig data_;

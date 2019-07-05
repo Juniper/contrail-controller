@@ -467,7 +467,6 @@ BgpServer::BgpServer(EventManager *evm)
       destroyed_(false),
       logging_disabled_(false),
       mvpn_ipv4_enable_(false),
-      enable_4byte_as_(false),
       ignore_aspath_(false),
       aspath_db_(new AsPathDB(this)),
       aspath_4byte_db_(new AsPath4ByteDB(this)),
@@ -677,6 +676,14 @@ uint32_t BgpServer::GetEndOfRibSendTime() const {
 
 bool BgpServer::IsServerStartingUp() const {
     return MiscUtils::GetUpTimeSeconds() < 0.20 * GetEndOfRibSendTime();
+}
+
+bool BgpServer::enable_4byte_as() const {
+    return global_config()->enable_4byte_as();
+}
+
+void BgpServer::set_enable_4byte_as(bool flag) {
+    global_config()->set_enable_4byte_as(flag);
 }
 
 bool BgpServer::IsGRHelperModeEnabled() const {
