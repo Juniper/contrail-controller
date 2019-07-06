@@ -1,0 +1,39 @@
+- project:
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7:
+            branches: ^(master)$
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-test-containers:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7-ocata:
+            branches: ^(!master)$
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7-queens:
+            branches: ^(!master)$
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7-rocky:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-sanity-centos7-kolla-ocata:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7-ocata
+        - contrail-sanity-centos7-kolla-queens:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7-queens
+        - contrail-sanity-centos7-kolla-rocky:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7-rocky
+        - contrail-sanity-centos7-k8s:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7-queens
