@@ -1,0 +1,195 @@
+- project-template:
+    name: unittests-dev
+    check:
+      jobs:
+        - noop
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+
+- project-template:
+    name: unittests-webui-dev
+    check:
+      jobs:
+        - contrail-vnc-unittest-webui
+
+- project-template:
+    name: systests
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-test-containers:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-sanity-centos7-kolla-ocata:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7
+        - contrail-sanity-centos7-kolla-queens:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7
+        - contrail-sanity-centos7-kolla-rocky:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7
+        - contrail-sanity-centos7-k8s:
+            dependencies:
+              - contrail-build-test-containers
+              - contrail-build-containers-centos7
+
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - contrail-vnc-build-package-centos74
+
+- project-template:
+    name: helm-systests-dev
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-build-test-containers:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-sanity-ubuntu1604-helm-ocata:
+            dependencies:
+              - contrail-build-containers-centos7
+              - contrail-build-test-containers
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+    experimental-sanity:
+      jobs:
+        - contrail-sanity-ubuntu1604-helm-ocata:
+            vars:
+              contrail_version: '{{ packaging.version.public }}-latest'
+              container_tag: '{{ openstack_version }}-{{ packaging.version.public }}-latest'
+              contrail_registry:
+                fqdn: '{{ docker_registry.fqdn }}'
+                port: '{{ docker_registry.port }}'
+              contrail_docker_registry: '{{ docker_registry.fqdn }}:{{ docker_registry.port }}'
+              setup_docker_registry: false
+
+- project-template:
+    name: openshift-systests-dev
+    check:
+      jobs:
+        - contrail-vnc-build-package-rhel7-queens
+        - contrail-build-containers-rhel7-queens:
+            dependencies:
+              - contrail-vnc-build-package-rhel7-queens
+        - contrail-build-test-containers:
+            dependencies:
+              - contrail-vnc-build-package-rhel7-queens
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+    experimental-sanity:
+      jobs:
+        - contrail-sanity-rhel7-openshift-3.9:
+            vars:
+              contrail_version: '{{ packaging.version.public }}-latest'
+              contrail_docker_registry: '{{ docker_registry.fqdn }}:{{ docker_registry.port }}'
+              setup_docker_registry: false
+
+- project-template:
+    name: rhel-containers-build-dev
+    check:
+      jobs:
+        - contrail-vnc-build-package-rhel7-queens
+        - contrail-build-containers-rhel7-queens:
+            dependencies:
+              - contrail-vnc-build-package-rhel7-queens
+
+- project-template:
+    name: build-dev
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+
+- project-template:
+    name: build-container-dev
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+
+- project-template:
+    name: build-container-go-dev
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+        - contrail-go-docker:
+            dependencies:
+              - contrail-vnc-build-package-centos74
+              - contrail-build-containers-centos7
+        - contrail-vnc-build-package-rhel7-queens
+        - contrail-build-containers-rhel7-queens:
+            dependencies:
+              - contrail-vnc-build-package-rhel7-queens
+        - contrail-go-docker-rhel7:
+            dependencies:
+              - contrail-vnc-build-package-rhel7-queens
+              - contrail-build-containers-rhel7-queens
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+
+- project-template:
+    name: noops-dev
+    check:
+      jobs:
+        - noop
+    gate:
+      queue: contrail-vnc
+      jobs:
+        - noop
+
+- project-template:
+    name: windows-sanity
+    check:
+      jobs:
+        - contrail-build-win2016
+
+- project-template:
+    name: windows-all-tests
+    check:
+      jobs:
+        - contrail-alltests-win2016
+    gate:
+      jobs:
+        - noop
+
+- project:
+    name: Juniper/contrail-controller
+    templates:
+      - unittests-dev
+      - systests
+      #- windows-sanity
+    check:
+      jobs:
+        - contrail-vnc-unittest-centos7-tntestr:
+            voting: False
