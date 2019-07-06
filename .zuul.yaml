@@ -1,0 +1,9 @@
+- project:
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-vnc-build-package-centos74
+        - contrail-build-containers-centos7:
+            branches: ^(!master)$
+            dependencies:
+              - contrail-vnc-build-package-centos74
