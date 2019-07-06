@@ -1,0 +1,5 @@
+- project:
+    name: Juniper/contrail-controller
+    templates:
+      - unittests
+      - systests
