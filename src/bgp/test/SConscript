@@ -399,7 +399,7 @@ bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
                                    ['bgp_xmpp_parse_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_parse_test', bgp_xmpp_parse_test)
 
-bgp_xmpp_rtarget_test = env.UnitTest('bgp_xmpp_rtarget_test', 
+bgp_xmpp_rtarget_test = env.UnitTest('bgp_xmpp_rtarget_test',
                                      ['bgp_xmpp_rtarget_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_rtarget_test', bgp_xmpp_rtarget_test)
 
@@ -787,6 +787,17 @@ env.Alias('controller/src/bgp:test', [
     'controller/src/bgp/origin-vn:test',
     'controller/src/bgp/rtarget:test',
     'controller/src/bgp/tunnel_encap:test',
+])
+
+bgp_cat_test = env.UnitTest('bgp_cat_test', ['bgp_cat_test.cc'])
+env.Alias('src/bgp:bgp_cat_test', bgp_cat_test)
+cat_tests = env.TestSuite('cat-test', [ bgp_cat_test ])
+env.Alias('controller/src/cat:test', [ cat_tests ])
+
+env.Depends(target = 'controller/src/cat:test', dependency = [
+    'src/bgp:bgp_ifmap_xmpp_integration_test',
+    'src/bgp:bgp_cat_test',
+    'contrail-vrouter-agent'
 ])
 
 flaky_test_suite = [
