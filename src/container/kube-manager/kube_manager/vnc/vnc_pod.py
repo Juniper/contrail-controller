@@ -512,7 +512,7 @@ class VncPod(VncCommon):
                 net_namespace = network['namespace']
             vn_obj = self._get_user_defined_network(net_name, net_namespace)
             index = str(idx) + "/" + str(total_interface_count)
-            vmi_uuid = self.vnc_pod_vmi_create(pod_id, pod_name, net_namespace,\
+            vmi_uuid = self.vnc_pod_vmi_create(pod_id, pod_name, pod_namespace,\
                                 pod_node, node_ip, vm_obj, vn_obj, vm_vmi,\
                                 index, network)
             network_status[net_name] = vmi_uuid
