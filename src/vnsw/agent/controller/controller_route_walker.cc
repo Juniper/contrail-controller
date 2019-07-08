@@ -176,6 +176,11 @@ bool ControllerRouteWalker::VrfNotifyInternal(DBTablePartBase *partition,
                                                           id));
         if (state) {
             StartRouteWalk(vrf, associate_, type_);
+
+            if (Agent::GetInstance()->mulitcast_builder() ==
+                bgp_peer->GetAgentXmppChannel()) {
+                state->mcast_exported_ = associate_;
+            }
         }
 
         return true;

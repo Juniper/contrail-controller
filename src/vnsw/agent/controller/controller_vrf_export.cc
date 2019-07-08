@@ -81,6 +81,7 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     if (state == NULL) {
         state = new State();
         state->exported_ = false;
+        state->mcast_exported_ = false;
         state->force_chg_ = true;
         vrf->SetState(partition->parent(), id, state);
 
@@ -117,11 +118,32 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
                 bgp_peer->route_walker()->StartRouteWalk(vrf, true,
                                           ControllerRouteWalker::NOTIFYALL);
                 state->force_chg_ = false;
+
+                if (Agent::GetInstance()->mulitcast_builder() == bgp_xmpp_peer) {
+                    state->mcast_exported_ = true;
+                } else {
+                    state->mcast_exported_ = false;
+                }
             }
             return;
         }
     } else {
-        CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
-                         "Already subscribed");
+        if (send_subscribe &&
+            (Agent::GetInstance()->mulitcast_builder() == bgp_xmpp_peer) &&
+            !state->mcast_exported_) {
+            // When Agent switches to a new multicast builder, we have to
+            // send multicast subscribe to the new multicast builder. Otherwise,
+            // Agent can get stuck with old multicast tree affecting BUM
+            // traffic.
+            bgp_peer->route_walker()->StartRouteWalk(vrf, true,
+                                  ControllerRouteWalker::NOTIFYMULTICAST);
+            state->mcast_exported_ = true;
+        } else if (send_subscribe &&
+                   Agent::GetInstance()->mulitcast_builder() != bgp_xmpp_peer) {
+            state->mcast_exported_ = false;
+        } else {
+            CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
+                             "Already subscribed");
+        }
     }
 }
