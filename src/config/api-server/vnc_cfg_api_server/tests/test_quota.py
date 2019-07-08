@@ -6,6 +6,7 @@ import gevent
 import sys
 import uuid
 import logging
+import mock
 
 from testtools.matchers import MismatchError
 from testtools import ExpectedException
@@ -909,6 +910,31 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # remove the in-memory map entry for that project subnet counter
         quota_counters.pop(subnet_counter_path)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+    def test_quota_update_during_resource_create(self):
+        project = Project('project-%s' % self.id())
+        project.set_quota(QuotaType(virtual_network=42))
+        self._vnc_lib.project_create(project)
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        vn2_name = 'vn-%s' % self.id()
+        vn2_uuid = str(uuid.uuid4())
+        vn2 = VirtualNetwork(vn2_name, project)
+        vn2.uuid = vn2_uuid
+        original_resource_create = self._api_server._db_conn.dbe_create
+
+        def create_resource(*args, **kwargs):
+            if args[1] == vn2_uuid:
+                project.set_quota(QuotaType(virtual_network=-1))
+                self._vnc_lib.project_update(project)
+                self._vnc_lib.project_read(id=project.uuid)
+                #gevent.sleep(5)
+            return original_resource_create(*args, **kwargs)
+
+        with mock.patch.object(self._api_server._db_conn, 'dbe_create',
+                               side_effect=create_resource) as mock_db_create:
+            self._vnc_lib.virtual_network_create(vn2)
 
 
 class TestDefaultQuota(test_case.ApiServerTestCase):
