@@ -168,6 +168,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'dump_cache'},
     {'uri': '/execute-job', 'link_name': 'execute-job',
      'method': 'POST', 'method_name': 'execute_job_http_post'},
+    {'uri': '/abort-job', 'link_name': 'abort-job',
+     'method': 'POST', 'method_name': 'abort_job_http_post'},
     {'uri': '/amqp-publish', 'link_name': 'amqp-publish',
      'method': 'POST', 'method_name': 'amqp_publish_http_post'},
     {'uri': '/amqp-request', 'link_name': 'amqp-request',
@@ -239,6 +241,7 @@ class VncApiServer(object):
 
     JOB_REQUEST_EXCHANGE = "job_request_exchange"
     JOB_REQUEST_ROUTING_KEY = "job.request"
+    JOB_ABORT_ROUTING_KEY = "job.abort"
 
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
@@ -512,6 +515,72 @@ class VncApiServer(object):
         except Exception as e:
             msg = "Failed to send job request via RabbitMQ" \
                   " %s %s" % (job_execution_id, repr(e))
+            raise cfgm_common.exceptions.HttpError(500, msg)
+
+    def abort_job_http_post(self):
+        try:
+            self.config_log("Entered abort-job",
+                            level=SandeshLevel.SYS_INFO)
+
+            # check if the job manager functionality is enabled
+            if not self._args.enable_fabric_ansible:
+                err_msg = "Fabric ansible job manager is disabled. " \
+                          "Please enable it by setting the " \
+                          "'enable_fabric_ansible' to True in the conf file"
+                raise cfgm_common.exceptions.HttpError(405, err_msg)
+
+            request_params = get_request().json
+            msg = "Abort Job Input %s " % json.dumps(request_params)
+            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+
+            # get the auth token
+            auth_token = get_request().get_header('X-Auth-Token')
+            request_params['auth_token'] = auth_token
+
+            # get cluster id
+            contrail_cluster_id = get_request().get_header('X-Cluster-ID')
+            request_params['contrail_cluster_id'] = contrail_cluster_id
+
+            # get the API config node ip list
+            if not self._config_node_list:
+                (ok, cfg_node_list, _) = self._db_conn.dbe_list(
+                    'config_node', field_names=['config_node_ip_address'])
+                if not ok:
+                    raise cfgm_common.exceptions.HttpError(
+                        500, 'Error in dbe_list while getting the '
+                             'config_node_ip_address'
+                             ' %s' % cfg_node_list)
+                if not cfg_node_list:
+                    err_msg = "Config-Node list empty"
+                    raise cfgm_common.exceptions.HttpError(404, err_msg)
+                for node in cfg_node_list:
+                    self._config_node_list.append(node.get(
+                        'config_node_ip_address'))
+            request_params['api_server_host'] = self._config_node_list
+
+            # publish message to RabbitMQ
+            self.publish_job_abort(request_params)
+
+            self.config_log("Published job abort to RabbitMQ.",
+                            level=SandeshLevel.SYS_INFO)
+
+            return {}
+        except cfgm_common.exceptions.HttpError as e:
+            raise
+
+    def publish_job_abort(self, request_params):
+        try:
+            self._amqp_client.publish(
+                request_params, self.JOB_REQUEST_EXCHANGE,
+                routing_key=self.JOB_ABORT_ROUTING_KEY,
+                serializer='json', retry=True,
+                retry_policy={'max_retries': 12,
+                              'interval_start': 2,
+                              'interval_step': 5,
+                              'interval_max': 15})
+        except Exception as e:
+            msg = "Failed to send job abort via RabbitMQ" \
+                  " %s" % (repr(e))
             raise cfgm_common.exceptions.HttpError(500, msg)
 
     def amqp_publish_http_post(self):
