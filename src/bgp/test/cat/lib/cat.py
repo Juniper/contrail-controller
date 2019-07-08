@@ -58,7 +58,7 @@ class CAT:
         signal.signal(signal.SIGTERM, CAT.sig_cleanup)
 
     @staticmethod
-    def add_control_node(test, name, port):
+    def add_control_node(test, name, port = 0):
         con = ControlNode(test, name, CAT.direc)
         con.create_object(port)
         objects.append(con)
@@ -108,24 +108,24 @@ class CAT:
 
 class Component:
     def create_component(self, read_port):
-	new_pid = os.fork()
+        new_pid = os.fork()
         if new_pid == 0:
             self.pid = os.getpid()
             self.execute_child()
         else:
             self.pid = new_pid
             if read_port:
-            	self.read_port_numbers()
+                self.read_port_numbers()
 
     def create_directory(self, component):
         directory = self.user
         test = directory + "/" + self.test
         self.comp = test + "/" + component
-	self.user_dir = self.comp + "/" + self.name
+        self.user_dir = self.comp + "/" + self.name
 
-	self.conf_file_dir = self.user_dir + "/conf"
-	if not os.path.exists(self.conf_file_dir):
-            os.makedirs(self.conf_file_dir)
+        self.conf_file_dir = self.user_dir + "/conf"
+        if not os.path.exists(self.conf_file_dir):
+                os.makedirs(self.conf_file_dir)
 
         self.log_files = self.user_dir + "/log"
         if not os.path.exists(self.log_files):
@@ -158,7 +158,7 @@ class ControlNode(Component):
         self.create_component(True)
 
     def read_port_numbers(self):
-        self.filename = self.user_dir + "/" + str(self.http_port) + ".txt"
+        self.filename = self.user_dir + "/conf/" + str(self.pid) + ".txt"
         read = 10
         while(read):
             if os.path.exists(self.filename):
@@ -167,24 +167,36 @@ class ControlNode(Component):
                     for p in data['ControllerDetails']:
                         self.xmpp_port = p['XMPPPORT']
                         self.bgp_port = p['BGPPORT']
+                        self.http_port = p['HTTPPORT']
                 read = 0
             else:
-		time.sleep(1)
-		read-=1
-            continue
+                time.sleep(1)
+                read-=1
 
     def execute_child(self):
-
-        c1 = "/cs-shared/CAT/binaries/bgp_ifmap_xmpp_integration_test"
-
+        # c1 = "/cs-shared/CAT/binaries/bgp_ifmap_xmpp_integration_test"
+        c1 = "build/debug/bgp/test/bgp_ifmap_xmpp_integration_test"
         env = { "USER": self.user, "BGP_IFMAP_XMPP_INTEGRATION_TEST_SELF_NAME":
             "overcloud-contrailcontroller-1",
+            "CAT_BGP_PORT": str(self.bgp_port),
+            "CAT_XMPP_PORT": str(self.xmpp_port),
             "BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT": str(self.http_port),
-            "BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE": "1", "LOG_DISABLE": "1",
+            "BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE": "1",
+            "LOG_DISABLE": "1",
+            "LD_LIBRARY_PATH": "build/lib",
+            "CONTRAIL_CAT_FRAMEWORK": "1",
             "USER_DIR": str(self.user_dir)}
 
         args = []
         os.execve(c1, args, env)
+
+    def restart_control_node(self):
+        os.kill(self.pid, signal.SIGKILL)
+        new_pid = os.fork()
+        if new_pid == 0:
+            self.execute_child()
+        else:
+            self.pid = new_pid
 
 
 ##############################################################
@@ -216,14 +228,17 @@ class Agent(Component):
         self.create_component(False)
 
     def execute_child(self):
-        c1 = "/cs-shared/CAT/binaries/contrail-vrouter-agent"
+        # c1 = "/cs-shared/CAT/binaries/contrail-vrouter-agent"
+        c1 = "build/debug/vnsw/agent/contrail/contrail-vrouter-agent"
+        env = { "LD_LIBRARY_PATH": "build/lib" }
         arg = [c1, "--config_file=" + self.conf_file]
 
-        os.execv(c1, arg)
+        os.execve(c1, arg, env)
 
     def create_conf(self):
-        sample_conf = "/cs-shared/CAT/configs/contrail-vrouter-agent.conf"
-        conf = open(sample_conf, 'r+')
+        sample_conf = \
+            "controller/src/bgp/test/cat/lib/contrail-vrouter-agent.conf"
+        conf = open(sample_conf, 'r')
         new_conf = []
 
         for line in conf:
