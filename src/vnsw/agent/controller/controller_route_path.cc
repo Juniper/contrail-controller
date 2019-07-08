@@ -263,7 +263,7 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
                                 item->entry.security_group_list.security_group,
                                 tag_list, sequence_number());
                     cloned_data_list_.push_back(data);
-                    return;
+                    continue;
                 }
 
                 const NextHop *mpls_nh = mpls->nexthop();
