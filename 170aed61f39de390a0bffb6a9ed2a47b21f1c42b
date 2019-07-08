@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a49274c3_a95e986f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-08T08:09:03Z",
+      "side": 1,
+      "message": "dont we need to return asn?",
+      "range": {
+        "startLine": 170,
+        "startChar": 16,
+        "endLine": 170,
+        "endChar": 28
+      },
+      "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
