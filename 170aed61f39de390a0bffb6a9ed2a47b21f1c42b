@@ -46,6 +46,30 @@
       "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "820e2aad_5c668e82",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-08T08:29:26Z",
+      "side": 1,
+      "message": "but we are returning string from one place and integer from another. Not sure if caller side we are handling this?",
+      "parentUuid": "cbde9147_d8d24bf1",
+      "range": {
+        "startLine": 170,
+        "startChar": 16,
+        "endLine": 170,
+        "endChar": 28
+      },
+      "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
