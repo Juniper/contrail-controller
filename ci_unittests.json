@@ -61,6 +61,7 @@
         ],
         "scons_test_targets" : [
             "controller/src/bgp:test",
+            "controller/src/cat:test",
             "controller/src/bfd:test",
             "controller/src/control-node:test",
             "controller/src/dns:test",
@@ -120,6 +121,7 @@
         ],
         "scons_test_targets" : [
             "controller/src/agent:test",
+            "controller/src/cat:test",
             "vrouter:test"
         ],
         "misc_test_targets" : [ ]
@@ -185,6 +187,7 @@
           "controller/src/agent:test",
           "controller/src/bfd:test",
           "controller/src/bgp:test",
+          "controller/src/cat:test",
           "controller/src/control-node:test",
           "controller/src/db:test",
           "controller/src/dns:test",
@@ -207,6 +210,7 @@
           "controller/src/agent:test",
           "controller/src/bfd:test",
           "controller/src/bgp:test",
+          "controller/src/cat:test",
           "controller/src/control-node:test",
           "controller/src/db:test",
           "controller/src/dns:test",
