@@ -991,6 +991,7 @@ class AddrMgmt(object):
     # end net_update_notify
 
     def get_subnet_quota_counter(self, obj_dict, proj_dict, db_vn_dict=None):
+        db_conn = self._get_db_conn()
         obj_type = 'subnet'
         quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
         subnet_count = len(self._vn_to_subnets(obj_dict) or [])
@@ -999,7 +1000,18 @@ class AddrMgmt(object):
                     _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid'])
             path = path_prefix + "/" + obj_type
             quota_counter = self._server_mgr.quota_counter
-            return (True, (subnet_count, quota_counter[path]))
+            try:
+                return (True, (subnet_count, quota_counter[path]))
+            except KeyError:
+                if db_conn._zk_db.quota_counter_exists(path):
+                    msg = "Error in initializing subnet quota "\
+                          "zk db quota count and quota count cache"\
+                          " are inconsistent"
+                    return (False, (404, msg))
+                else:
+                    # Ignore as the counter might be freed
+                    # by dbe_update_notification
+                    pass
         return (True, (0, ""))
     # end get_subnet_quota_counter
 
