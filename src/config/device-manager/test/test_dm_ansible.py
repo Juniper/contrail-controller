@@ -44,8 +44,8 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         project.set_vxlan_routing(True)
         self._vnc_lib.project_update(project)
 
-        self.create_features(['underlay_ip_clos', 'overlay_bgp', 'l2_gateway',
-                              'l3_gateway', 'vn_interconnect'])
+        self.create_features(['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+                              'l3-gateway', 'vn-interconnect'])
         self.create_physical_roles(['leaf', 'spine'])
         self.create_overlay_roles(['erb-ucast-gateway', 'crb-mcast-gateway'])
         self.create_role_definitions([
@@ -53,8 +53,8 @@ class TestAnsibleDM(TestAnsibleCommonDM):
                 'name': 'erb@leaf',
                 'physical_role': 'leaf',
                 'overlay_role': 'erb-ucast-gateway',
-                'features': ['underlay_ip_clos', 'overlay_bgp', 'l2_gateway',
-                             'l3_gateway', 'vn_interconnect'],
+                'features': ['underlay-ip-clos', 'overlay-bgp', 'l2-gateway',
+                             'l3-gateway', 'vn-interconnect'],
                 'feature_configs': {'l3_gateway': {'use_gateway_ip': 'True'}}
             })
         ])
@@ -83,7 +83,7 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr)
 
         vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 101)
-        vmi2, vm2, pi2 = self.attach_vmi('2', ['xe-0/0/2'], [pr], vn2_obj, None, fabric, 102)
+        vmi2, vm2, pi2 = self.attach_vmi('2', ['xe-0/0/2'], [pr], vn2_obj, None, fabric, None, 102)
 
         lr_fq_name = ['default-domain', 'default-project', 'lr-' + self.id()]
         lr = LogicalRouter(fq_name=lr_fq_name, parent_type='project',
@@ -107,7 +107,24 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
 
         gevent.sleep(1)
-        self.check_dm_ansible_config_push()
+        ac = self.check_dm_ansible_config_push()
+        fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
+
+        pi_name = 'xe-0/0/1'
+        li_name = pi_name + '.101'
+        pi = self.get_phy_interfaces(fc, name=pi_name)
+        li = self.get_logical_interface(pi, name=li_name)
+
+        self.assertEqual(li.get('vlan_tag'), '101')
+        self.assertTrue(li.get('is_tagged'))
+
+        pi_name = 'xe-0/0/2'
+        li_name = pi_name + '.0'
+        pi = self.get_phy_interfaces(fc, name=pi_name)
+        li = self.get_logical_interface(pi, name=li_name)
+
+        self.assertEqual(li.get('vlan_tag'), '102')
+        self.assertFalse(li.get('is_tagged'))
 
         self._vnc_lib.logical_router_delete(fq_name=lr.get_fq_name())
 
