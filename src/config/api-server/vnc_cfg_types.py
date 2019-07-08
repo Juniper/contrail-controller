@@ -608,9 +608,12 @@ class InstanceIpServer(Resource, InstanceIp):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
-        ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(
+        if 'virtual_network_refs' in obj_dict:
+            ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(
                 obj_dict['virtual_network_refs'][0]['to'])
-        return ok, '', ip_free_args
+            return ok, '', ip_free_args
+        else:
+            return True, '', None
     # end pre_dbe_delete
 
     @classmethod
