@@ -165,9 +165,9 @@ class FilterModule(object):
         # end rtfilter
 
         def asnfilter(value):
-            asn = value
+            asn = str(value)
             if not asn.isdigit():
-                return value
+                return asn
             if int(asn) > 65535:
                 return asn + "L"
             return asn
