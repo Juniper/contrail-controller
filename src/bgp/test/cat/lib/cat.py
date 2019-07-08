@@ -2,6 +2,7 @@
 ## Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 ##
 
+import argparse
 import datetime
 import json
 import os
@@ -15,13 +16,16 @@ objects = []
 
 ##############################################################
 #                                                            #
-#       Main Control-node Agent Test framework Class         #
+#    Main Class for Control-node Agent Test framework(CAT)   #
 #                                                            #
 ##############################################################
 
 class CAT:
 
     direc = ""
+    pause = 0
+    verbose = False
+    p = 'none'
 
     @staticmethod
     def get_report_dir():
@@ -34,6 +38,7 @@ class CAT:
     @staticmethod
     def clean_up():
         print("Called clean-up")
+        CAT.__pause_exec()
         for item in objects:
             os.kill(item.pid, signal.SIGKILL)
             # delete file from /tmp/CAT/<user-id>/pid.txt
@@ -54,12 +59,13 @@ class CAT:
 
         CAT.direc = date # /tmp/CAT/UNAME/DATE
 
-        signal.signal(signal.SIGINT, CAT.sig_cleanup)
+        #signal.signal(signal.SIGINT, CAT.sig_cleanup)
         signal.signal(signal.SIGTERM, CAT.sig_cleanup)
 
     @staticmethod
-    def add_control_node(test, name, port):
+    def add_control_node(test, name, port = 0):
         con = ControlNode(test, name, CAT.direc)
+        con.logs = CAT.verbose
         con.create_object(port)
         objects.append(con)
         return con
@@ -78,54 +84,88 @@ class CAT:
         shutil.rmtree(direc, ignore_errors=False)
 
     @staticmethod
-    def __check_connection_internal(control_nodes, agents):
-        for control_node in control_nodes:
-            for agent in agents:
-                url = ("curl -s \'http://127.0.0.1:" +
-                    str(control_node.http_port) + "/Snh_BgpNeighborReq?x=" +
-                    agent.name + "\' | xmllint --format  - | grep -i state | "
-                    + "grep -i Established")
-                try:
-                    r = subprocess.check_output(url, stderr=subprocess.STDOUT,
-                        shell=True)
-                except subprocess.CalledProcessError as event:
-                    ret = (str(control_node.name) + " not connected to " +
-                        str(agent.name))
-                    return False, ret
-        return True, None
+    def parse_arguments():
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-v', '--verbose', help='Enable logs on Control Node',
+                       action='store_true')
+        parser.add_argument('-p', '--pause', type=int,
+                       help='pause test-case for the given time(secs)')
+        parser.add_argument('unittest_args', nargs='*')
+
+        args = parser.parse_args()
+        CAT.pause = args.pause
+        CAT.verbose = args.verbose
+
+        sys.argv[1:] = args.unittest_args
+
+    @staticmethod
+    def __pause_exec():
+        if not CAT.pause:
+            return
+        cmd = ['/usr/bin/python']
+        try:
+            CAT.p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, shell=False).wait()
+        except KeyboardInterrupt:
+            print("p is " + str(CAT.p))
+            return
+
+    @staticmethod
+    def __check_connection_internal(control_node, agent, retry_time, retry_tries):
+        while retry_tries >= 0:
+            url = ("curl -s \'http://127.0.0.1:" +
+                str(control_node.http_port) + "/Snh_BgpNeighborReq?x=" +
+                agent.name + "\' | xmllint --format  - | grep -i state | "
+                + "grep -i Established")
+            try:
+                r = subprocess.check_output(url, stderr=subprocess.STDOUT,
+                    shell=True)
+            except subprocess.CalledProcessError as event:
+                ret = (str(control_node.name) + " not connected to " +
+                    str(agent.name))
+                retry_tries -= 1
+                time.sleep(retry_time)
+                print ret
+                print("Retrying. retry-time " + str(retry_time) + " seconds" + ". Retries " + str(retry_tries))
+                continue
+            return True, None
+        return False, ret
 
     @staticmethod
     def check_connection(cons, agents, retry_time=3, retry_tries=3):
-        while retry_tries >= 0:
-            ret, e = CAT.__check_connection_internal(cons, agents)
-            if ret == False:
-                print("Retrying. retry-time " + str(retry_time) + "seconds")
-                retry_tries -= 1
-                time.sleep(retry_time)
-            else:
-                return ret, e
+        for control_node in cons:
+            for agent in agents:
+                ret, e = CAT.__check_connection_internal(control_node,
+                         agent, retry_time, retry_tries)
+                if ret == False:
+                    return ret, e
         return ret, e
+
+##############################################################
+#                                                            #
+#         Parent Class for Components(Controller/Agent)      #
+#                                                            #
+##############################################################
 
 class Component:
     def create_component(self, read_port):
-	new_pid = os.fork()
+        new_pid = os.fork()
         if new_pid == 0:
             self.pid = os.getpid()
             self.execute_child()
         else:
             self.pid = new_pid
             if read_port:
-            	self.read_port_numbers()
+                self.read_port_numbers()
 
     def create_directory(self, component):
         directory = self.user
         test = directory + "/" + self.test
         self.comp = test + "/" + component
-	self.user_dir = self.comp + "/" + self.name
+        self.user_dir = self.comp + "/" + self.name
 
-	self.conf_file_dir = self.user_dir + "/conf"
-	if not os.path.exists(self.conf_file_dir):
-            os.makedirs(self.conf_file_dir)
+        self.conf_file_dir = self.user_dir + "/conf"
+        if not os.path.exists(self.conf_file_dir):
+                os.makedirs(self.conf_file_dir)
 
         self.log_files = self.user_dir + "/log"
         if not os.path.exists(self.log_files):
@@ -151,6 +191,7 @@ class ControlNode(Component):
         self.comp = ""
         self.conf_file_dir = ""
         self.log_files = ""
+        self.logs = False
         self.create_directory("control_node")
 
     def create_object(self, port):
@@ -158,7 +199,7 @@ class ControlNode(Component):
         self.create_component(True)
 
     def read_port_numbers(self):
-        self.filename = self.user_dir + "/" + str(self.http_port) + ".txt"
+        self.filename = self.user_dir + "/conf/" + str(self.pid) + ".txt"
         read = 10
         while(read):
             if os.path.exists(self.filename):
@@ -167,24 +208,41 @@ class ControlNode(Component):
                     for p in data['ControllerDetails']:
                         self.xmpp_port = p['XMPPPORT']
                         self.bgp_port = p['BGPPORT']
+                        self.http_port = p['HTTPPORT']
                 read = 0
             else:
-		time.sleep(1)
-		read-=1
-            continue
+                time.sleep(1)
+                read-=1
 
     def execute_child(self):
-
-        c1 = "/cs-shared/CAT/binaries/bgp_ifmap_xmpp_integration_test"
-
+        # c1 = "/cs-shared/CAT/binaries/bgp_ifmap_xmpp_integration_test"
+        c1 = "build/debug/bgp/test/bgp_ifmap_xmpp_integration_test"
         env = { "USER": self.user, "BGP_IFMAP_XMPP_INTEGRATION_TEST_SELF_NAME":
             "overcloud-contrailcontroller-1",
+            "CAT_BGP_PORT": str(self.bgp_port),
+            "CAT_XMPP_PORT": str(self.xmpp_port),
             "BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT": str(self.http_port),
-            "BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE": "1", "LOG_DISABLE": "1",
+            "BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE": "1",
+            "" if self.logs else "LOG_DISABLE" : "1",
+            "BGP_IFMAP_XMPP_INTEGRATION_TEST_DATA_FILE":
+            "/cs-shared/CAT/configs/bulk_sync_2.json",
+            "LD_LIBRARY_PATH": "build/lib",
+            "CONTRAIL_CAT_FRAMEWORK": "1",
             "USER_DIR": str(self.user_dir)}
 
         args = []
         os.execve(c1, args, env)
+
+    def restart_control_node(self):
+        os.kill(self.pid, signal.SIGKILL)
+        new_pid = os.fork()
+        if new_pid == 0:
+            self.execute_child()
+        else:
+            self.pid = new_pid
+
+    def send_sighup(self):
+        os.kill(self.pid, signal.SIGHUP)
 
 
 ##############################################################
@@ -216,14 +274,17 @@ class Agent(Component):
         self.create_component(False)
 
     def execute_child(self):
-        c1 = "/cs-shared/CAT/binaries/contrail-vrouter-agent"
+        # c1 = "/cs-shared/CAT/binaries/contrail-vrouter-agent"
+        c1 = "build/debug/vnsw/agent/contrail/contrail-vrouter-agent"
+        env = { "LD_LIBRARY_PATH": "build/lib", "LOGNAME": os.environ.get('USER') }
         arg = [c1, "--config_file=" + self.conf_file]
 
-        os.execv(c1, arg)
+        os.execve(c1, arg, env)
 
     def create_conf(self):
-        sample_conf = "/cs-shared/CAT/configs/contrail-vrouter-agent.conf"
-        conf = open(sample_conf, 'r+')
+        sample_conf = \
+            "controller/src/bgp/test/cat/lib/contrail-vrouter-agent.conf"
+        conf = open(sample_conf, 'r')
         new_conf = []
 
         for line in conf:
