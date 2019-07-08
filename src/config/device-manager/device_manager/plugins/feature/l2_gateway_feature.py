@@ -64,18 +64,23 @@ class L2GatewayFeature(FeatureBase):
 
         for pi_name, interface_list in interface_map.items():
             if len(interface_list) > 1 and \
-                    any(int(intf.vlan_tag) == 0 for intf in interface_list):
+                    any(intf.is_untagged() for intf in interface_list):
                 self._logger.error(
                     "Invalid logical interface config for PI %s" % pi_name)
                 continue
             _, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
             for interface in interface_list:
-                is_tagged = int(interface.vlan_tag) != 0
+                if interface.is_untagged():
+                    is_tagged = False
+                    vlan_tag = str(interface.port_vlan_tag)
+                else:
+                    is_tagged = True
+                    vlan_tag = str(interface.vlan_tag)
                 unit = self._add_or_lookup_li(li_map, interface.li_name, interface.unit)
                 unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn,
-                    is_tagged, interface.vlan_tag))
+                    is_tagged, vlan_tag))
                 unit.set_is_tagged(is_tagged)
-                unit.set_vlan_tag(str(interface.vlan_tag) if is_tagged else '4094')
+                unit.set_vlan_tag(vlan_tag)
                 if vlan:
                     self._add_ref_to_list(vlan.get_interfaces(), interface.li_name)
     # end _build_l2_evpn_interface_config
