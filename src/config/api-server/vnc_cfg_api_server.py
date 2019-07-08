@@ -640,7 +640,18 @@ class VncApiServer(object):
                     return (ok, result)
                 else:
                     # To be used for reverting back count when undo() is called
-                    quota_counter.append(self.quota_counter[path])
+                    try:
+                        quota_counter.append(self.quota_counter[path])
+                    except KeyError:
+                        if db_conn._zk_db.quota_counter_exists(path):
+                            msg = "Error in initializing quota "\
+                                  "zk db quota count and quota count cache"\
+                                  " are inconsistent"
+                            return (False, (404, msg))
+                        else:
+                            # Ignore as the counter might be freed
+                            # by dbe_update_notification
+                            pass
             else:
                 #normal execution
                 (ok, result) = db_conn.dbe_create(obj_type, obj_id, obj_dict)

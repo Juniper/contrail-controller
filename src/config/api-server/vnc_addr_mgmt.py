@@ -999,7 +999,18 @@ class AddrMgmt(object):
                     _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid'])
             path = path_prefix + "/" + obj_type
             quota_counter = self._server_mgr.quota_counter
-            return (True, (subnet_count, quota_counter[path]))
+            try:
+                return (True, (subnet_count, quota_counter[path]))
+            except KeyError:
+                if db_conn._zk_db.quota_counter_exists(path):
+                    msg = "Error in initializing subnet quota "\
+                          "zk db quota count and quota count cache"\
+                          " are inconsistent"
+                    return (False, (404, msg))
+                else:
+                    # Ignore as the counter might be freed
+                    # by dbe_update_notification
+                    pass
         return (True, (0, ""))
     # end get_subnet_quota_counter
 
