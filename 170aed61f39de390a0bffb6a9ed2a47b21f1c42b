@@ -70,6 +70,30 @@
       "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "92647bca_12b5c7fc",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 232
+      },
+      "writtenOn": "2019-07-08T08:35:23Z",
+      "side": 1,
+      "message": "Yes, it does.. Eg: https://github.com/Juniper/contrail-controller/blob/master/src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_service_chain/templates/juniper_junos-es_overlay_service_chain.j2#L14\n\nFor the sake of readability though, I can change it.",
+      "parentUuid": "820e2aad_5c668e82",
+      "range": {
+        "startLine": 170,
+        "startChar": 16,
+        "endLine": 170,
+        "endChar": 28
+      },
+      "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
