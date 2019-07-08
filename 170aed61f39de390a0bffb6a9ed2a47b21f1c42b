@@ -22,6 +22,30 @@
       "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cbde9147_d8d24bf1",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 232
+      },
+      "writtenOn": "2019-07-08T08:24:04Z",
+      "side": 1,
+      "message": "The parameter \u0027value\u0027 is an integer always as per schema -\n \u003cxsd:element name\u003d\"autonomous-system\" type\u003d\"xsd:integer\"/\u003e\nSo it will never enter the \u0027if\u0027 condition. \n\nIf suppose, we relax it to accept it in future, \u0027value\u0027 is returned as-is.\nThe j2 calling scripts will automatically convert it to string. So, we are fine.",
+      "parentUuid": "a49274c3_a95e986f",
+      "range": {
+        "startLine": 170,
+        "startChar": 16,
+        "endLine": 170,
+        "endChar": 28
+      },
+      "revId": "170aed61f39de390a0bffb6a9ed2a47b21f1c42b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
