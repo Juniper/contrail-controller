@@ -74,6 +74,17 @@
           include_role:
             name: maintenance_mode_config_push
 
+        - name: Change managed state to maintenance
+          vnc_db_mod:
+            job_ctx: "{{ job_ctx }}"
+            object_type: "physical_router"
+            object_op: "update"
+            object_dict: |
+              {
+                "uuid": "{{ pr_uuid }}",
+                "physical_router_managed_state": "maintenance"
+              }
+
         - set_fact:
                 output: {
                       "status": "Success",

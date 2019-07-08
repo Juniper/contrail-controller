@@ -59,6 +59,17 @@
       vars:
         advanced_parameters: "{{advanced_params}}"
 
+    - name: Change managed state back to active
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ pr_uuid }}",
+            "physical_router_managed_state": "active"
+          }
+
     - set_fact:
             output: {
                   "status": "Success",
