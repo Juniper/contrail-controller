@@ -238,14 +238,14 @@ class FeatureBase(object):
             lr = db.LogicalRouterDM.get(lr_uuid)
             if not lr:
                 continue
-            vns.union(lr.get_connected_networks(include_internal=False))
+            vns = vns.union(lr.get_connected_networks(include_internal=False))
 
         for vn_uuid in self._physical_router.virtual_networks:
             vns.add(vn_uuid)
             vn = db.VirtualNetworkDM.get(vn_uuid)
             if vn and vn.router_external:
                 pvn_list = vn.get_connected_private_networks() or []
-                vns.union(pvn_list)
+                vns = vns.union(pvn_list)
 
         return [vn for vn in list(vns) if self._is_valid_vn(vn, mode)]
     # end _get_connected_vns
@@ -265,6 +265,7 @@ class FeatureBase(object):
                     continue
                 vn_obj = db.VirtualNetworkDM.get(vmi_obj.virtual_network)
                 vlan_tag = vmi_obj.vlan_tag
+                port_vlan_tag = vmi_obj.port_vlan_tag
                 for pi_uuid in vpg_interfaces:
                     if pi_uuid not in self._physical_router.physical_interfaces:
                         continue
@@ -279,7 +280,8 @@ class FeatureBase(object):
                     unit = str(vlan_tag)
                     vn_dict.setdefault(vn_obj.uuid, []).append(
                         AttrDict(pi_name=pi_name, li_name=pi_name + '.' + unit,
-                                 unit=unit, vlan_tag=vlan_tag))
+                                 unit=unit, vlan_tag=vlan_tag,
+                                 port_vlan_tag=port_vlan_tag))
         return vn_dict
     # end _get_vn_li_map
 
