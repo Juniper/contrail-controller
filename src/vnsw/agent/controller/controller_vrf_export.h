@@ -18,6 +18,7 @@ public:
         State();
         ~State();
         bool exported_;
+        bool mcast_exported_; //Tracks MC notofication to MC builder
         bool force_chg_;
         RouteExport *rt_export_[Agent::ROUTE_TABLE_MAX];
         uint64_t last_sequence_number_;
