@@ -244,6 +244,11 @@ bgp_ifmap_xmpp_integration_test = \
         ['bgp_ifmap_xmpp_integration_test.cc'])
 env.Alias('src/bgp:bgp_ifmap_xmpp_integration_test', bgp_ifmap_xmpp_integration_test)
 
+bgp_cat_test = env.UnitTest('bgp_cat_test', ['bgp_cat_test.cc'])
+env.Alias('src/bgp:bgp_cat_test', bgp_cat_test)
+env.Depends(target = 'src/bgp:bgp_cat_test',
+    dependency = [bgp_ifmap_xmpp_integration_test, 'contrail-vrouter-agent'])
+
 bgp_mvpn_integration_test = env.UnitTest('bgp_mvpn_integration_test',
                                ['bgp_mvpn_integration_test.cc'])
 env.Alias('src/bgp:bgp_mvpn_integration_test', bgp_mvpn_integration_test)
@@ -662,6 +667,7 @@ test_suite = [
     bgp_attr_test,
     bgp_authentication_test,
     bgp_bgpaas_test,
+    bgp_cat_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
     bgp_dscp_test,
