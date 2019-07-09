@@ -100,6 +100,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         founded_vn_using_asn = []
         for vn in vn_list:
             rt_dict = vn.get('route_target_list', {})
+            if not rt_dict:
+                continue
             for rt in rt_dict.get('route_target', []):
                 ok, result = cls.server.get_resource_class(
                     'route_target').is_user_defined(rt, global_asn)
