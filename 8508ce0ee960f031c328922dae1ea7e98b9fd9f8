@@ -55,6 +55,24 @@
     },
     {
       "key": {
+        "uuid": "28496b4b_e21ef122",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_perms2.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 793,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-09T02:00:36Z",
+      "side": 1,
+      "message": "I added the filter to the patch because if we don\u0027t add the filters, this code will be executed:\nhttps://github.com/Juniper/contrail-controller/blob/7c09b63c48d53e8078dcaa0e580ec9ce302a0d70/src/config/api-server/vnc_cfg_api_server/vnc_db.py#L1627-L1632\n\nAnd this code will fetch all the networks and will work as expected.\nHowever, in the real world example, when network list is invoked from vnc_openstack, it\u0027s always invoked with either a project_id as parent or either one of \"external_router\" or \"is_shared\" filters enabled, in case of which the above code will not return any data which was the ticket\u0027s original problem.",
+      "parentUuid": "9f5c4f37_8c13b55c",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_bdea29a9",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 2
