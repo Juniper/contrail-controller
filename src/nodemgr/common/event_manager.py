@@ -370,7 +370,8 @@ class EventManager(object):
 
         process_status = ProcessStatus(
             module_id=self.type_info._module_name, instance_id=self.instance_id,
-            state=ProcessStateNames[state], description=description)
+            state=ProcessStateNames[state], description=description,
+            connection_infos=conn_infos)
         process_status_list = []
         process_status_list.append(process_status)
         node_status = NodeStatus(name=self.hostname,
