@@ -73,6 +73,24 @@
     },
     {
       "key": {
+        "uuid": "64195162_304e99b8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_perms2.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 793,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-09T07:40:54Z",
+      "side": 1,
+      "message": "Without your patch on _id_perms, that test fails?\nWhat I mean here, is that \u0027is_shared\u0027 filter does not do anything as we don\u0027t apply filter on shared resource. See \u0027collect_shared\u0027 method does not apply any filters. So in that test Alice\u0027s VN have \u0027is_share\u0027 to false (default value), so the list call here should not list it.",
+      "parentUuid": "28496b4b_e21ef122",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "9f5c4f37_bdea29a9",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 2
@@ -138,6 +156,24 @@
       "side": 1,
       "message": "I looked into the code and it looks like everywhere for share list, we store the UUID with \"-\" in them. I\u0027ve updated the code review to remove the convertion of \"-\" to \"\" in _owner_id function.",
       "parentUuid": "9f5c4f37_8c3cd5c8",
+      "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "d79e3c01_094c8514",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1602,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-09T07:40:54Z",
+      "side": 1,
+      "message": "Should we also do a migration path for existing data in the sharing table to verify they only use hyphen UUID version?",
+      "parentUuid": "3421e352_07cee1ff",
       "revId": "8508ce0ee960f031c328922dae1ea7e98b9fd9f8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
