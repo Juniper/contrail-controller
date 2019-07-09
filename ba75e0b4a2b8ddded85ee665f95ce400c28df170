@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3a2c8092_ae007906",
+        "filename": "src/vnsw/agent/controller/controller_vrf_export.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 143,
+      "author": {
+        "id": 694
+      },
+      "writtenOn": "2019-07-09T09:20:31Z",
+      "side": 1,
+      "message": "Please add a comment that explains the case this statement is executed.",
+      "range": {
+        "startLine": 143,
+        "startChar": 0,
+        "endLine": 143,
+        "endChar": 43
+      },
+      "revId": "ba75e0b4a2b8ddded85ee665f95ce400c28df170",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
