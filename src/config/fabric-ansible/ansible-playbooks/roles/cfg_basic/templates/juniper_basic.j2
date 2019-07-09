@@ -23,7 +23,7 @@ set groups {{cfg_group}} snmp community {{community.name}} authorization {{'read
 {%         endfor %}
 {%         for route in feature_params.get('static_routes', []) %}
 {%             for cidr in route.get('subnets', []) %}
-set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{route.nexthop}}
+set groups {{cfg_group}} routing-options static route 0.0.0.0/0 next-hop {{route.nexthop}}
 {%             endfor %}
 {%         endfor %}
 {%     endif %}
