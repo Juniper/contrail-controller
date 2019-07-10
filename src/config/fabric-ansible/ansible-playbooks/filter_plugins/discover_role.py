@@ -46,7 +46,9 @@ class FilterModule(object):
             # read the hardware object with this fq_name
             _task_log("Reading the hardware object")
             try:
-                hw_obj = vnc_lib.hardware_read(fq_name=hw_fq_name)
+                hw_obj = vnc_lib.hardware_read(
+                    fq_name=hw_fq_name,
+                    fields=['node_profile_back_refs'])
             except NoIdError as no_id_exc:
                 _task_log("\nHardware Object not present in "
                           "database: " + str(no_id_exc))
