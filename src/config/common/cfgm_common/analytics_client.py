@@ -28,14 +28,19 @@ class OpenContrailAPIFailed(Exception):
 class Client(object):
     """Opencontrail Base Statistics REST API Client."""
 
-    def __init__(self, analytics_api_ip, analytics_api_port, data={}):
+    def __init__(self, analytics_api_ip, analytics_api_port,
+                 data={}, analytics_api_ssl_params=None):
         self.data = data
         # As per requirements, IPs can be space or comma seperated
         self.analytics_api_servers = analytics_api_ip.replace(',', ' ').split()
         if len(self.analytics_api_servers) == 0:
             raise IndexError("No analytics API IP provided")
         self.analytics_api_port = analytics_api_port
+        self._analytics_ssl_params = analytics_api_ssl_params
         self.index = -1
+
+    def set_analytics_api_ssl_params(analytics_api_ssl_params=None):
+        self._analytics_ssl_params = analytics_api_ssl_params
 
     def round_robin(self):
         self.index += 1
@@ -61,11 +66,29 @@ class Client(object):
             try:
                 analytics_ip = self.analytics_api_servers[
                     analytics_server_index]
-                endpoint = "http://%s:%s" % (analytics_ip,
-                                             self.analytics_api_port)
 
-                url = urlparse.urljoin(endpoint, path + fqdn_uuid)
-                resp = requests.get(url, **req_params)
+                resp = None
+                if (self._analytics_ssl_params and
+                        self._analytics_ssl_params['ssl_enable']):
+                    endpoint = "https://%s:%s" % (analytics_ip,
+                                                  self.analytics_api_port)
+                    certfile = self._analytics_ssl_params['certfile']
+                    keyfile = self._analytics_ssl_params['keyfile']
+                    certificate = (certfile, keyfile)
+                    ca_cert = self._analytics_ssl_params['ca_cert']
+                    url = urlparse.urljoin(endpoint, path + fqdn_uuid)
+                    if (self._analytics_ssl_params['insecure_enable']):
+                        resp = requests.get(url, cert=certificate,
+                                            verify=False, **req_params)
+                    else:
+                        resp = requests.get(url, cert=certificate,
+                                            verify=ca_cert,
+                                            **req_params)
+                else:
+                    endpoint = "http://%s:%s" % (analytics_ip,
+                                                 self.analytics_api_port)
+                    url = urlparse.urljoin(endpoint, path + fqdn_uuid)
+                    resp = requests.get(url, **req_params)
                 if resp.status_code != 200:
                     raise OpenContrailAPIFailed(
                         ('Opencontrail API returned %(status)s %(reason)s') %
