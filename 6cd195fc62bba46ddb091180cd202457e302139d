@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "484aaf63_3fced79e",
+        "filename": "src/config/fabric-ansible/job_manager/job_messages.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 171,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-07-10T23:45:43Z",
+      "side": 1,
+      "message": "no playbook is run here. Change it to process.",
+      "revId": "6cd195fc62bba46ddb091180cd202457e302139d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "39ec491f_80db4f79",
+        "filename": "src/config/fabric-ansible/job_manager/job_messages.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 173,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-07-10T23:45:43Z",
+      "side": 1,
+      "message": "same as above.",
+      "revId": "6cd195fc62bba46ddb091180cd202457e302139d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
