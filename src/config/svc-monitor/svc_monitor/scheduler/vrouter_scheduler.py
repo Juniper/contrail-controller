@@ -50,8 +50,12 @@ class VRouterScheduler(object):
         analytics_server_list = server_port_list[0::2]
         analytics_server_list_in_str = ' '.join(analytics_server_list)
         analytics_port = int(server_port_list[1])
-
-        return analytics_client.Client(analytics_server_list_in_str, analytics_port)
+        
+        if (self._args.analytics_api_ssl_enable):
+            return analytics_client.Client(analytics_server_list_in_str, analytics_port,
+                self._logger, self._args.analytics_api_ssl_params)
+        else:
+            return analytics_client.Client(analytics_server_list_in_str, analytics_port)
 
     @abc.abstractmethod
     def schedule(self, plugin, context, router_id, candidates=None):
