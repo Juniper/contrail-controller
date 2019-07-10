@@ -65,8 +65,9 @@ _zookeeper_client = None
 
 class SvcMonitor(object):
 
-    def __init__(self, sm_logger=None, args=None):
+    def __init__(self, sm_logger=None, args=None, analytics_api_ssl_params=None):
         self._args = args
+        self._args.analytics_api_ssl_params = analytics_api_ssl_params
         # initialize logger
         if sm_logger is not None:
             self.logger = sm_logger
@@ -102,7 +103,7 @@ class SvcMonitor(object):
 
         # agent manager
         self._agent_manager = AgentManager()
-
+        
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
@@ -507,7 +508,6 @@ class SvcMonitor(object):
             VirtualNetworkSM.delete(vn_uuid)
         except (NoIdError, RefsExistError):
             pass
-
     @staticmethod
     def reset():
         for cls in DBBaseSM.get_obj_type_map().values():
@@ -703,6 +703,11 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'analytics_api_ssl_enable': False,
+        'analytics_api_insecure_enable': False,
+        'analytics_api_ssl_ca_cert': '',
+        'analytics_api_ssl_keyfile': '',
+        'analytics_api_ssl_certfile': '',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
@@ -837,6 +842,16 @@ def parse_args(args_str):
                         help="Cassandra password")
     parser.add_argument("--check_service_interval",
                         help="Check service interval")
+    parser.add_argument("--analytics_api_ssl_enable",
+                        help="Enable SSL in rest api server")
+    parser.add_argument("--analytics_api_insecure_enable",
+                        help="Enable insecure mode")
+    parser.add_argument("--analytics_api_ssl_certfile",
+                        help="Location of analytics api ssl host certificate")
+    parser.add_argument("--analytics_api_ssl_keyfile",
+                        help="Location of analytics api ssl private key")
+    parser.add_argument("--analytics_api_ssl_ca_cert", type=str,
+                        help="Location of analytics api ssl CA certificate")
     SandeshConfig.add_parser_arguments(parser)
 
     args = parser.parse_args(remaining_argv)
@@ -855,7 +870,11 @@ def parse_args(args_str):
         args.netns_availability_zone = None
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
-
+    
+    self._args.analytics_api_ssl_enable = \
+            (str(self._args.analytics_api_ssl_enable).lower() == 'true')
+    self._args.analytics_api_insecure_enable = \
+            (str(self._args.analytics_api_insecure_enable).lower() == 'true')
     return args
 
 def get_rabbitmq_cfg(args):
@@ -870,11 +889,18 @@ def get_rabbitmq_cfg(args):
         'ssl_ca_certs': args.kombu_ssl_ca_certs
     }
 
+def analytics_api_ssl_params(args):
+    return {'analytics_api_ssl_enable': args.analytics_api_ssl_enable,
+            'analytics_api_insecure_enable': args.analytics_api_insecure_enable,
+            'analytics_api_ssl_ca_cert': args.analytics_api_ssl_ca_cert,
+            'analytics_api_ssl_keyfile': args.analytics_api_ssl_keyfile,
+            'analytics_api_ssl_certfile': args.analytics_api_ssl_certfile}
+
 def run_svc_monitor(sm_logger, args=None):
     sm_logger.notice("Elected master SVC Monitor node. Initializing... ")
     sm_logger.introspect_init()
 
-    monitor = SvcMonitor(sm_logger, args)
+    monitor = SvcMonitor(sm_logger, args, analytics_api_ssl_params(args))
     monitor._zookeeper_client = _zookeeper_client
     monitor._conf_file = args._conf_file
     monitor._chksum = ""
