@@ -507,7 +507,6 @@ class SvcMonitor(object):
             VirtualNetworkSM.delete(vn_uuid)
         except (NoIdError, RefsExistError):
             pass
-
     @staticmethod
     def reset():
         for cls in DBBaseSM.get_obj_type_map().values():
@@ -703,6 +702,11 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'analytics_api_ssl_enable': False,
+        'analytics_api_insecure_enable': False,
+        'analytics_api_ssl_ca_cert': '',
+        'analytics_api_ssl_keyfile': '',
+        'analytics_api_ssl_certfile': '',
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
@@ -837,6 +841,16 @@ def parse_args(args_str):
                         help="Cassandra password")
     parser.add_argument("--check_service_interval",
                         help="Check service interval")
+    parser.add_argument("--analytics_api_ssl_enable",
+                        help="Enable SSL in rest api server")
+    parser.add_argument("--analytics_api_insecure_enable",
+                        help="Enable insecure mode")
+    parser.add_argument("--analytics_api_ssl_certfile",
+                        help="Location of analytics api ssl host certificate")
+    parser.add_argument("--analytics_api_ssl_keyfile",
+                        help="Location of analytics api ssl private key")
+    parser.add_argument("--analytics_api_ssl_ca_cert", type=str,
+                        help="Location of analytics api ssl CA certificate")
     SandeshConfig.add_parser_arguments(parser)
 
     args = parser.parse_args(remaining_argv)
@@ -856,6 +870,10 @@ def parse_args(args_str):
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
 
+    args.analytics_api_ssl_enable = \
+            (str(args.analytics_api_ssl_enable).lower() == 'true')
+    args.analytics_api_insecure_enable = \
+            (str(args.analytics_api_insecure_enable).lower() == 'true')
     return args
 
 def get_rabbitmq_cfg(args):
