@@ -6,6 +6,7 @@ import logging
 from cfgm_common.exceptions import BadRequest
 from testtools import ExpectedException
 from vnc_api.vnc_api import Project
+from vnc_api.vnc_api import Fabric
 from vnc_api.vnc_api import VirtualMachineInterface
 from vnc_api.vnc_api import VirtualNetwork
 from vnc_api.vnc_api import VirtualPortGroup
@@ -41,11 +42,14 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         proj_obj = Project('%s-project' % (self.id()))
         self.api.project_create(proj_obj)
 
+        fabric_obj = Fabric('%s-fabric' % (self.id()))
+        self.api.fabric_create(fabric_obj)
+
         vn = VirtualNetwork('vn-%s' % (self.id()), parent_obj=proj_obj)
         self.api.virtual_network_create(vn)
 
         vpg_name_err = "vpg-internal-" + self.id()
-        vpg_obj_err = VirtualPortGroup(vpg_name_err)
+        vpg_obj_err = VirtualPortGroup(vpg_name_err, parent_obj=fabric_obj)
 
         # Make sure that api server throws an error if
         # VPG is created externally with prefix vpg-internal in the name.
@@ -56,11 +60,14 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         proj_obj = Project('%s-project' % (self.id()))
         self.api.project_create(proj_obj)
 
+        fabric_obj = Fabric('%s-fabric' % (self.id()))
+        self.api.fabric_create(fabric_obj)
+
         vn = VirtualNetwork('vn-%s' % (self.id()), parent_obj=proj_obj)
         self.api.virtual_network_create(vn)
 
         vpg_name = "vpg-" + self.id()
-        vpg_obj = VirtualPortGroup(vpg_name)
+        vpg_obj = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
         self.api.virtual_port_group_create(vpg_obj)
 
         vmi_id_list = []
