@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "31703dd8_cdd3ca7f",
+        "filename": "src/bgp/evpn/evpn_route.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 565,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2019-07-11T22:16:00Z",
+      "side": 1,
+      "message": "You could continue to use tag_ since that would have been initialized to 0 anyway in the constructor.",
+      "range": {
+        "startLine": 565,
+        "startChar": 64,
+        "endLine": 565,
+        "endChar": 65
+      },
+      "revId": "71000c54476d4364da2e967ea7812642d8d7bdfc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fbc5ea00_c78aba8d",
+        "filename": "src/bgp/evpn/test/evpn_prefix_test.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 3243,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2019-07-11T22:16:00Z",
+      "side": 1,
+      "message": "Can\u0027t you just remove tag_list[] and the BOOST_FOREACH(...) statement in all the relevant tests",
+      "range": {
+        "startLine": 3243,
+        "startChar": 30,
+        "endLine": 3243,
+        "endChar": 31
+      },
+      "revId": "71000c54476d4364da2e967ea7812642d8d7bdfc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
