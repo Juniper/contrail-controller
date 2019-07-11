@@ -65,7 +65,7 @@ public:
         const IpAddress &ip_address);
     EvpnPrefix(const RouteDistinguisher &rd, const EthernetSegmentId &esi,
         const IpAddress &ip_address);
-    EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
+    EvpnPrefix(const RouteDistinguisher &rd,
         const IpAddress &ip_address, uint8_t ip_prefixlen);
     EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
         const IpAddress &source, const IpAddress &group,
