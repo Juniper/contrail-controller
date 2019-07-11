@@ -185,11 +185,11 @@ EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd,
     }
 }
 
-EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
+EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd,
     const IpAddress &ip_address, uint8_t ip_prefixlen)
     : type_(IpPrefixRoute),
       rd_(rd),
-      tag_(tag),
+      tag_(0),
       family_(Address::UNSPEC),
       ip_address_(ip_address),
       ip_prefixlen_(ip_prefixlen) {
@@ -372,7 +372,8 @@ int EvpnPrefix::FromProtoPrefix(BgpServer *server,
         if (!esi.IsZero())
             return -1;
         size_t tag_offset = esi_offset + kEsiSize;
-        prefix->tag_ = get_value(&proto_prefix.prefix[tag_offset], kTagSize);
+        // Ignore tag for type5 routes.
+        prefix->tag_ = 0;
         size_t ip_plen_offset = tag_offset + kTagSize;
         prefix->ip_prefixlen_ = proto_prefix.prefix[ip_plen_offset];
         if (ip_size == kIp4AddrSize && prefix->ip_prefixlen_ > 32)
@@ -560,7 +561,8 @@ void EvpnPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix,
                 proto_prefix->prefix.begin() + esi_offset);
         }
         size_t tag_offset = esi_offset + kEsiSize;
-        put_value(&proto_prefix->prefix[tag_offset], kTagSize, tag_);
+        // Tag is not applicable for type5 routes.
+        put_value(&proto_prefix->prefix[tag_offset], kTagSize, 0);
         size_t ip_plen_offset = tag_offset + kTagSize;
         proto_prefix->prefix[ip_plen_offset] = ip_prefixlen_;
         size_t ip_offset = ip_plen_offset + 1;

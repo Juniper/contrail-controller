@@ -1478,7 +1478,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
         if (family == Address::INET6) {
             req.key.reset(new Inet6Table::RequestKey(inet6_prefix, peer_.get()));
         } else {
-            EvpnPrefix evpn_prefix(RouteDistinguisher::kZeroRd, 0,
+            EvpnPrefix evpn_prefix(RouteDistinguisher::kZeroRd,
                 inet6_prefix.addr(), inet6_prefix.prefixlen());
             req.key.reset(new EvpnTable::RequestKey(evpn_prefix, peer_.get()));
         }
@@ -1861,7 +1861,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         EvpnPrefix(rd, ethernet_tag, source, group,
                    Ip4Address(bgp_server_->bgp_identifier())) :
         type2 ? EvpnPrefix(rd, ethernet_tag, mac_addr, ip_addr) :
-        EvpnPrefix(rd, ethernet_tag, ip_addr, prefix_len);
+        EvpnPrefix(rd, ip_addr, prefix_len);
 
     DBRequest req;
     ExtCommunitySpec ext;

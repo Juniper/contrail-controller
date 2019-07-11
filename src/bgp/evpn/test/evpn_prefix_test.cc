@@ -3239,9 +3239,9 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix1) {
 
     string temp1("5-10.1.1.1:65535-");
     string temp2("-192.1.1.1/32");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
-        EvpnPrefix prefix(rd, tag, ip4_addr, plen);
+        EvpnPrefix prefix(rd, ip4_addr, plen);
         string prefix_str = temp1 + integerToString(tag) + temp2;
         EXPECT_EQ(prefix_str, prefix.ToString());
         EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
@@ -3261,9 +3261,9 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix2) {
 
     string temp1("5-10.1.1.1:65535-");
     string temp2("-192.1.1.0/24");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
-        EvpnPrefix prefix(rd, tag, ip4_addr, plen);
+        EvpnPrefix prefix(rd, ip4_addr, plen);
         string prefix_str = temp1 + integerToString(tag) + temp2;
         EXPECT_EQ(prefix_str, prefix.ToString());
         EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
@@ -3283,9 +3283,9 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix3) {
 
     string temp1("5-10.1.1.1:65535-");
     string temp2("-2001:db8:0:9::1/128");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
-        EvpnPrefix prefix(rd, tag, ip6_addr, plen);
+        EvpnPrefix prefix(rd, ip6_addr, plen);
         string prefix_str = temp1 + integerToString(tag) + temp2;
         EXPECT_EQ(prefix_str, prefix.ToString());
         EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
@@ -3305,9 +3305,9 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix4) {
 
     string temp1("5-10.1.1.1:65535-");
     string temp2("-2001:db8:0:9::/120");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
-        EvpnPrefix prefix(rd, tag, ip6_addr, plen);
+        EvpnPrefix prefix(rd, ip6_addr, plen);
         string prefix_str = temp1 + integerToString(tag) + temp2;
         EXPECT_EQ(prefix_str, prefix.ToString());
         EXPECT_EQ(EvpnPrefix::IpPrefixRoute, prefix.type());
@@ -3323,7 +3323,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix1) {
     uint8_t plen = 32;
     string temp1("5-10.1.1.1:65535-");
     string temp2("-192.1.1.1/32");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
         boost::system::error_code ec;
         string prefix_str = temp1 + integerToString(tag) + temp2;
@@ -3344,7 +3344,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix2) {
     string temp1("5-10.1.1.1:65535-");
     string temp2("-192.1.1.1/24");
     string temp2_alt("-192.1.1.0/24");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
         boost::system::error_code ec;
         string prefix_str = temp1 + integerToString(tag) + temp2;
@@ -3365,7 +3365,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix3) {
     uint8_t plen = 128;
     string temp1("5-10.1.1.1:65535-");
     string temp2("-2001:db8:0:9::1/128");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
         boost::system::error_code ec;
         string prefix_str = temp1 + integerToString(tag) + temp2;
@@ -3386,7 +3386,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix4) {
     string temp1("5-10.1.1.1:65535-");
     string temp2("-2001:db8:0:9::1/120");
     string temp2_alt("-2001:db8:0:9::/120");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
         boost::system::error_code ec;
         string prefix_str = temp1 + integerToString(tag) + temp2;
@@ -3470,7 +3470,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix_Error8) {
 TEST_F(EvpnIpPrefixTest, FromProtoPrefix1) {
     string temp1("5-10.1.1.1:65535-");
     string temp2("-192.1.1.1/32");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
         boost::system::error_code ec;
         string prefix_str = temp1 + integerToString(tag) + temp2;
@@ -3510,7 +3510,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix1) {
 TEST_F(EvpnIpPrefixTest, FromProtoPrefix2) {
     string temp1("5-10.1.1.1:65535-");
     string temp2("-192.1.1.1/24");
-    uint32_t tag_list[] = { 0, 100, 128, 4094, 65536 };
+    uint32_t tag_list[] = { 0 };
     BOOST_FOREACH(uint32_t tag, tag_list) {
         boost::system::error_code ec;
         string prefix_str = temp1 + integerToString(tag) + temp2;
