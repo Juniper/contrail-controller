@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "f9a3e854_5926b871",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2019-07-11T14:17:48Z",
+      "side": 1,
+      "message": "Please check if ssl is enabled here",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "cfbc05d0_44d30ffc",
         "filename": "src/config/common/cfgm_common/analytics_client.py",
         "patchSetId": 4
@@ -47,6 +64,23 @@
       "writtenOn": "2019-07-11T13:38:01Z",
       "side": 1,
       "message": "Where is self._cert populate in else case",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "422a5d9f_23216c80",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 707,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2019-07-11T14:17:48Z",
+      "side": 1,
+      "message": "Do we need ssl_secure flag in client code ? I don\u0027t see this being used",
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
