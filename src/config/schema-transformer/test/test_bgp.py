@@ -6,12 +6,12 @@ import sys
 import gevent
 from testtools.matchers import Contains, Not
 
-try:
-    import config_db
-    import to_bgp
-except ImportError:
-    from schema_transformer import config_db
-    from schema_transformer import to_bgp
+from schema_transformer.resources.bgp_router import BgpRouterST
+from schema_transformer.resources.bgp_as_a_service import BgpAsAServiceST
+from schema_transformer.resources.virtual_machine import VirtualMachineST
+from schema_transformer.resources.global_system_config import \
+    GlobalSystemConfigST
+from schema_transformer import to_bgp
 from cfgm_common.exceptions import BadRequest
 from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
         BgpRouter, LogicalRouter, RouteTargetList, InstanceIp, BgpAsAService,
@@ -450,8 +450,8 @@ class TestBgp(STTestCase, VerifyBgp):
     # end delete_fabric
 
     def test_ibgp_auto_mesh_sub(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
         # create subcluster
         sub_cluster_obj = SubCluster('test-host', sub_cluster_asn=64513)
@@ -489,8 +489,8 @@ class TestBgp(STTestCase, VerifyBgp):
     # end test_ibgp_auto_mesh_sub
 
     def test_ibgp_auto_mesh_fabric_phy_rtr_to_bgp_rtr_dependency(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 1 leafs
@@ -546,8 +546,8 @@ class TestBgp(STTestCase, VerifyBgp):
 
     def test_ibgp_auto_mesh_fabric_with_different_asn(self):
         # global asn = 64512
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 2 leafs, asn = 64000
@@ -613,8 +613,8 @@ class TestBgp(STTestCase, VerifyBgp):
     #end test_ibgp_auto_mesh_fab
 
     def test_ibgp_auto_mesh_fab_with_control_node(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = False
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = False
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          False, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 2 leafs
@@ -648,14 +648,14 @@ class TestBgp(STTestCase, VerifyBgp):
                                                         product="qfx1000", role="leaf", fabric=fab2)
 
         # Enable auto-mesh and then trigger update peering
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
-        for router in config_db.BgpRouterST._dict.values():
+        for router in BgpRouterST._dict.values():
             router.update()
 
-        for router in config_db.BgpRouterST._dict.values():
+        for router in BgpRouterST._dict.values():
             router.update_peering()
 
         # router1 and router2 should not be connected, both of them should be
@@ -683,8 +683,8 @@ class TestBgp(STTestCase, VerifyBgp):
     #end test_ibgp_auto_mesh_fab
 
     def test_ibgp_auto_route_reflector(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
         # create route reflector
@@ -713,8 +713,8 @@ class TestBgp(STTestCase, VerifyBgp):
         gevent.sleep(1)
 
     def test_ibgp_auto_mesh(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
         # create router1
@@ -755,7 +755,7 @@ class TestBgp(STTestCase, VerifyBgp):
         gevent.sleep(1)
 
     def test_ibgp_full_mesh_to_route_reflector(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+        GlobalSystemConfigST.ibgp_auto_mesh = True
 
         # create router1
         r1_name = self.id() + 'router1'
@@ -827,7 +827,7 @@ class TestBgp(STTestCase, VerifyBgp):
         gevent.sleep(1)
 
     def test_ibgp_full_mesh_with_route_reflector_change(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
+        GlobalSystemConfigST.ibgp_auto_mesh = True
 
         # create router1
         r1_name = self.id() + 'router1'
@@ -905,8 +905,8 @@ class TestBgp(STTestCase, VerifyBgp):
     # end test_ibgp_full_mesh_with_route_reflector_change
 
     def test_ibgp_auto_mesh_redundant_route_reflector(self):
-        config_db.GlobalSystemConfigST.ibgp_auto_mesh = True
-        self.assertEqual(config_db.GlobalSystemConfigST.get_ibgp_auto_mesh(),
+        GlobalSystemConfigST.ibgp_auto_mesh = True
+        self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_test")
 
         # create route reflector
@@ -1080,15 +1080,15 @@ class TestBgp(STTestCase, VerifyBgp):
 
         bgpaas.add_virtual_machine_interface(port_obj1)
         self._vnc_lib.bgp_as_a_service_create(bgpaas)
-        self.wait_to_get_object(config_db.BgpAsAServiceST,
+        self.wait_to_get_object(BgpAsAServiceST,
                                 bgpaas.get_fq_name_str())
 
         router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + bgpaas_name
         router2_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + 'bgpaas-server'
 
         # Check for two BGP routers - one with the BGPaaS name and not with Port name
-        self.wait_to_get_object(config_db.BgpRouterST, router1_name)
-        self.wait_to_get_object(config_db.BgpRouterST, router2_name)
+        self.wait_to_get_object(BgpRouterST, router1_name)
+        self.wait_to_get_object(BgpRouterST, router2_name)
 
         # check whether shared IP address is assigned to the BGP rotuer
         self.check_bgp_router_ip(router1_name, '1.1.1.1')
@@ -1159,17 +1159,17 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.bgp_as_a_service_create(bgpaas)
 
         router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name
-        self.wait_to_get_object(config_db.BgpAsAServiceST,
+        self.wait_to_get_object(BgpAsAServiceST,
                                 bgpaas.get_fq_name_str())
-        self.wait_to_get_object(config_db.BgpRouterST, router1_name)
+        self.wait_to_get_object(BgpRouterST, router1_name)
         server_fq_name = ':'.join(self.get_ri_name(vn1_obj)) + ':bgpaas-server'
-        self.wait_to_get_object(config_db.BgpRouterST, server_fq_name)
+        self.wait_to_get_object(BgpRouterST, server_fq_name)
         server_router_obj = self._vnc_lib.bgp_router_read(fq_name_str=server_fq_name)
 
         router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name
         mx_bgp_router = self.create_bgp_router("mx-bgp-router", "contrail")
         mx_bgp_router_name = mx_bgp_router.get_fq_name_str()
-        self.wait_to_get_object(config_db.BgpRouterST, mx_bgp_router_name)
+        self.wait_to_get_object(BgpRouterST, mx_bgp_router_name)
         mx_bgp_router = self._vnc_lib.bgp_router_read(fq_name_str=mx_bgp_router_name)
         self.check_bgp_no_peering(server_router_obj, mx_bgp_router)
 
@@ -1201,9 +1201,9 @@ class TestBgp(STTestCase, VerifyBgp):
         self.assertIsNone(port_obj_updated.get_bgp_router_refs())
 
         # check bgp-router ref in vmi is restored during reinit
-        config_db.VirtualMachineST._dict = {}
-        config_db.BgpRouterST._dict = {}
-        config_db.BgpAsAServiceST._dict = {}
+        VirtualMachineST._dict = {}
+        BgpRouterST._dict = {}
+        BgpAsAServiceST._dict = {}
         to_bgp.transformer.reinit()
         gevent.sleep(1)
 
@@ -1306,7 +1306,7 @@ class TestBgp(STTestCase, VerifyBgp):
         bgpaas.add_virtual_machine_interface(port2_obj)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
         router2_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port2_name
-        self.wait_to_get_object(config_db.BgpRouterST, router2_name)
+        self.wait_to_get_object(BgpRouterST, router2_name)
 
         router2_obj = self._vnc_lib.bgp_router_read(fq_name_str=router2_name)
         self.check_bgp_peering(server_router_obj, router2_obj, 2)
@@ -1314,9 +1314,9 @@ class TestBgp(STTestCase, VerifyBgp):
 
         bgpaas.del_virtual_machine_interface(port_obj)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
-        self.wait_to_delete_object(config_db.BgpRouterST, router1_name)
+        self.wait_to_delete_object(BgpRouterST, router1_name)
         self._vnc_lib.bgp_as_a_service_delete(id=bgpaas.uuid)
-        self.wait_to_delete_object(config_db.BgpRouterST, router2_name)
+        self.wait_to_delete_object(BgpRouterST, router2_name)
 
         self._vnc_lib.instance_ip_delete(id=v6_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj.uuid)
