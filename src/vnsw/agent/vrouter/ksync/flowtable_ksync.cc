@@ -47,7 +47,9 @@
 const uint32_t KSyncFlowEntryFreeList::kInitCount;
 const uint32_t KSyncFlowEntryFreeList::kTestInitCount;
 const uint32_t KSyncFlowEntryFreeList::kGrowSize;
+const uint32_t KSyncFlowEntryFreeList::kShrinkSize;
 const uint32_t KSyncFlowEntryFreeList::kMinThreshold;
+const uint32_t KSyncFlowEntryFreeList::kMaxThreshold;
 
 using namespace boost::asio::ip;
 
@@ -687,8 +689,8 @@ void FlowTableKSyncObject::Init() {
 // KSyncFlowEntryFreeList implementation
 /////////////////////////////////////////////////////////////////////////////
 KSyncFlowEntryFreeList::KSyncFlowEntryFreeList(FlowTableKSyncObject *object) :
-    object_(object), max_count_(0), grow_pending_(false), total_alloc_(0),
-    total_free_(0), free_list_() {
+    object_(object), max_count_(0), grow_pending_(false),
+    shrink_pending_(false), total_alloc_(0), total_free_(0), free_list_() {
 
     uint32_t count = kInitCount;
     if (object->ksync()->agent()->test_mode()) {
@@ -721,6 +723,20 @@ void KSyncFlowEntryFreeList::Grow() {
     }
 }
 
+// Dispose a chunk of FlowEntries
+void KSyncFlowEntryFreeList::Shrink() {
+    if (free_list_.size() <= kMaxThreshold)
+        return;
+
+    for (uint32_t i = 0; i < kShrinkSize; ++i) {
+        FlowTableKSyncEntry *fe = &free_list_.front();
+        free_list_.pop_front();
+        delete fe;
+        --max_count_;
+    }
+    shrink_pending_ = false;
+}
+
 FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
     const FlowTableKSyncEntry *flow_key  =
         static_cast<const FlowTableKSyncEntry *>(key);
@@ -748,14 +764,23 @@ FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
 }
 
 void KSyncFlowEntryFreeList::Free(FlowTableKSyncEntry *flow) {
+    FlowTable *ft = flow->flow_entry()->flow_table();
     total_free_++;
     flow->Reset();
     free_list_.push_back(*flow);
-    // TODO : Free entry if beyond threshold
+    if (!shrink_pending_ && free_list_.size() > kMaxThreshold) {
+        shrink_pending_ = true;
+        FlowProto *proto = object_->ksync()->agent()->pkt()->get_flow_proto();
+        proto->ShrinkFreeListRequest(ft);
+    }
 }
 
 void FlowTableKSyncObject::GrowFreeList() {
     free_list_.Grow();
+}
+
+void FlowTableKSyncObject::ShrinkFreeList() {
+    free_list_.Shrink();
 }
 
 // We want to handle KSync transitions for flow from Flow task context.

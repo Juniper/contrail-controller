@@ -50,6 +50,8 @@ public:
         FREE_DBENTRY,
         // Grow the free-list entries for flow and ksync
         GROW_FREE_LIST,
+        // Shrink the free-list entries for flow and ksync
+        SHRINK_FREE_LIST,
         // Generate KSync event for the flow
         KSYNC_EVENT,
         // Pkt is re-entering processing in new partition
