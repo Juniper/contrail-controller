@@ -6,14 +6,13 @@ import copy
 import gevent
 from testtools.matchers import Contains, Not
 
-try:
-    import to_bgp
-except ImportError:
-    from schema_transformer import to_bgp
-try:
-    import config_db
-except ImportError:
-    from schema_transformer import config_db
+from schema_transformer import to_bgp
+from schema_transformer.resources.virtual_machine import VirtualMachineST
+from schema_transformer.resources.routing_policy import RoutingPolicyST
+from schema_transformer.resources.route_aggregate import RouteAggregateST
+from schema_transformer.resources.service_chain import ServiceChain
+from schema_transformer.resources.virtual_network import VirtualNetworkST
+
 from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
         VirtualNetworkPolicyType, NoIdError, NetworkIpam, VirtualMachine,
         VnSubnetsType, IpamSubnetType, SubnetType, FloatingIpPool,
@@ -226,7 +225,7 @@ class VerifyServicePolicy(VerifyPolicy):
 
     @retries(5)
     def check_st_vm_is_deleted(self, name):
-        vm_obj = config_db.VirtualMachineST.get(name)
+        vm_obj = VirtualMachineST.get(name)
         if vm_obj is not None:
             raise Exception('vm %s still exists' % name)
         return
@@ -437,7 +436,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
         rp.add_service_instance(si_obj, si_rp)
         self._vnc_lib.routing_policy_create(rp)
-        self.wait_to_get_object(config_db.RoutingPolicyST,
+        self.wait_to_get_object(RoutingPolicyST,
                                 rp.get_fq_name_str())
         self.assertTill(self.vnc_db_ident_has_ref,
                 obj=rp, ref_name='routing_instance_refs',
@@ -454,7 +453,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         sit = ServiceInterfaceTag(interface_type='left')
         ra.add_service_instance(si_obj, sit)
         self._vnc_lib.route_aggregate_create(ra)
-        self.wait_to_get_object(config_db.RouteAggregateST,
+        self.wait_to_get_object(RouteAggregateST,
                                 ra.get_fq_name_str())
         ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
         self.assertEqual(ra.get_aggregate_route_nexthop(), v4_service_chain_address)
@@ -900,7 +899,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
             rp.add_service_instance(si_obj, si_rp)
             self._vnc_lib.routing_policy_create(rp)
-            self.wait_to_get_object(config_db.RoutingPolicyST,
+            self.wait_to_get_object(RoutingPolicyST,
                                     rp.get_fq_name_str())
             self.assertTill(self.vnc_db_ident_has_ref,
                     obj=rp, ref_name='routing_instance_refs',
@@ -917,7 +916,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             sit = ServiceInterfaceTag(interface_type='left')
             ra.add_service_instance(si_obj, sit)
             self._vnc_lib.route_aggregate_create(ra)
-            self.wait_to_get_object(config_db.RouteAggregateST,
+            self.wait_to_get_object(RouteAggregateST,
                                     ra.get_fq_name_str())
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
             self.assertEqual(ra.get_aggregate_route_nexthop(), '0.255.255.%s' % (253-i))
@@ -1045,7 +1044,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
             rp.add_service_instance(si_obj, si_rp)
             self._vnc_lib.routing_policy_create(rp)
-            self.wait_to_get_object(config_db.RoutingPolicyST,
+            self.wait_to_get_object(RoutingPolicyST,
                                     rp.get_fq_name_str())
             self.assertTill(self.vnc_db_ident_has_ref,
                     obj=rp, ref_name='routing_instance_refs',
@@ -1062,7 +1061,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             sit = ServiceInterfaceTag(interface_type='left')
             ra.add_service_instance(si_obj, sit)
             self._vnc_lib.route_aggregate_create(ra)
-            self.wait_to_get_object(config_db.RouteAggregateST,
+            self.wait_to_get_object(RouteAggregateST,
                                     ra.get_fq_name_str())
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
             self.assertEqual(ra.get_aggregate_route_nexthop(), service_chain_address)
@@ -1119,7 +1118,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         si_rp = RoutingPolicyServiceInstanceType(left_sequence='1.0')
         rp.add_service_instance(si_obj, si_rp)
         self._vnc_lib.routing_policy_create(rp)
-        self.wait_to_get_object(config_db.RoutingPolicyST,
+        self.wait_to_get_object(RoutingPolicyST,
                                 rp.get_fq_name_str())
 
         rlist = RouteListType(route=['100.0.0.0/24'])
@@ -1128,7 +1127,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         sit = ServiceInterfaceTag(interface_type='left')
         ra.add_service_instance(si_obj, sit)
         self._vnc_lib.route_aggregate_create(ra)
-        self.wait_to_get_object(config_db.RouteAggregateST,
+        self.wait_to_get_object(RouteAggregateST,
                                 ra.get_fq_name_str())
 
         sc = self.wait_to_get_sc()
@@ -1546,7 +1545,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_service_chain_prefix_match(
             fq_name=self.get_ri_name(vn2_obj, sc_ri_name), prefix='10.0.0.0/24')
 
-        vn1_st = config_db.VirtualNetworkST.get(vn1_obj.get_fq_name_str())
+        vn1_st = VirtualNetworkST.get(vn1_obj.get_fq_name_str())
         rt_vn1 = vn1_st.get_route_target()
         #vn1 rt is in not sc ri
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
@@ -1575,7 +1574,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
-        vn2_st = config_db.VirtualNetworkST.get(vn2_obj.get_fq_name_str())
+        vn2_st = VirtualNetworkST.get(vn2_obj.get_fq_name_str())
         rt_vn2 = vn2_st.get_route_target()
         self.check_rt_in_ri(self.get_ri_name(vn1_obj,sc_ri_name),
                             rt_vn1, True, 'export')
@@ -1704,7 +1703,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                     PortType(start_port=500, end_port=800)]
         service_names2 = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
 
-        sc11 = config_db.ServiceChain.find_or_create(
+        sc11 = ServiceChain.find_or_create(
             "vn1", "vn2", "<>", sp_list1, dp_list1, "icmp", service_names1)
 
         #build service chain introspect and check if it has got right values
@@ -1726,7 +1725,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.assertEqual(sandesh_sc.direction, sc11.direction)
         self.assertEqual(sandesh_sc.service_list, service_names1)
 
-        sc22 = config_db.ServiceChain.find_or_create(
+        sc22 = ServiceChain.find_or_create(
             "vn1", "vn2", "<>", sp_list1, dp_list1, "icmp", service_names2)
 
         sc33 = copy.deepcopy(sc11)
@@ -2122,7 +2121,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         rp_name = self.id() + 'rp1'
         rp = RoutingPolicy(rp_name)
         self._vnc_lib.routing_policy_create(rp)
-        self.wait_to_get_object(config_db.RoutingPolicyST,
+        self.wait_to_get_object(RoutingPolicyST,
                                 rp.get_fq_name_str())
 
         rp_attr = RoutingPolicyType(sequence='1.0')

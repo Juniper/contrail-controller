@@ -27,10 +27,11 @@ for file in setup_sources:
 local_sources = [
            '__init__.py',
            'to_bgp.py',
-           'config_db.py',
            'db.py',
            'st_amqp.py',
            'logger.py',
+           'utils.py',
+           'resources',
           ]
 
 local_sources_rules = []
