@@ -90,6 +90,7 @@ public:
     bool FlowDeleteHandler(FlowEvent *req, FlowTable *table);
     bool FlowKSyncMsgHandler(FlowEvent *req, FlowTable *table);
     void GrowFreeListRequest(FlowTable *table);
+    void ShrinkFreeListRequest(FlowTable *table);
     void KSyncEventRequest(KSyncEntry *ksync_entry,
                            KSyncEntry::KSyncEvent event, uint32_t flow_handle,
                            uint8_t gen_id, int ksync_error,
