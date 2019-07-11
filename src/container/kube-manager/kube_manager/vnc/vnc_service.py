@@ -674,6 +674,12 @@ class VncService(VncCommon):
               %(self._name, event_type, kind,
               service_namespace, service_name, service_id))
 
+        # We dont need to do anything for Headless Service
+        if (service_ip == 'None'):
+            self.logger.warning("%s - Headless Service %s:%s:%s"
+                %(self._name, service_namespace, service_name, service_id))
+            return
+
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             # Add a service label for this service.
             labels = self._labels.get_service_label(service_name)

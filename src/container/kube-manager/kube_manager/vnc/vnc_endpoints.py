@@ -289,7 +289,7 @@ class VncEndpoints(VncCommon):
         # If No, log warning and return
         service_id = self._get_loadbalancer_id_or_none(name, namespace)
         if service_id is None:
-            self.logger.warning(
+            self.logger.debug(
                 "Add/Modify endpoints event received while service {} does "
                 "not exist".format(name))
             return
