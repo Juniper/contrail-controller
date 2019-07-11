@@ -1926,7 +1926,7 @@ void AgentXmppChannel::NotReady() {
         if (evaluate_new_mcast_builder) {
             //Advertise subnet and all broadcast routes to
             //the new multicast tree builder
-            StartEndOfRibTxWalker();
+            new_mcast_builder->StartEndOfRibTxWalker();
             CONTROLLER_TRACE(Session, GetXmppServer(), "NOT_READY",
                              agent_->mulitcast_builder()->
                              GetBgpPeerName(),
