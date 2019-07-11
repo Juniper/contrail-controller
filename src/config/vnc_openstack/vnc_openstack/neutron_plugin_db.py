@@ -22,11 +22,6 @@ from kazoo.exceptions import LockTimeout
 
 from neutron.common import constants
 
-try:
-    from neutron_lib.exceptions.l3 import RouterInterfaceNotFoundForSubnet
-except ImportError:
-    from neutron.extensions.l3 import RouterInterfaceNotFoundForSubnet
-
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, UUID_PATTERN
@@ -3932,8 +3927,9 @@ class DBInterface(object):
                 if subnet_id == port_db['fixed_ips'][0]['subnet_id']:
                     break
             else:
-               raise RouterInterfaceNotFoundForSubnet(router_id=router_id,
-                                                      subnet_id=subnet_id)
+                self._raise_contrail_exception('RouterInterfaceNotFound',
+                                               router_id=router_id,
+                                               subnet_id=subnet_id)
 
         port_obj = self._virtual_machine_interface_read(port_id)
         router_obj.del_virtual_machine_interface(port_obj)
