@@ -44,7 +44,7 @@
 # continue workflow even if upgrade fails
 - name: Vendor specific image upgrade and device bring up for ztp
   include_tasks: "ztp_{{pr_vendor}}_upgrade.yml"
-  when: continue_workflow
+  when: continue_workflow is defined and continue_workflow
 
 - name: Vendor specific image upgrade and device bring up
   include_tasks: "{{pr_vendor}}_upgrade.yml"
