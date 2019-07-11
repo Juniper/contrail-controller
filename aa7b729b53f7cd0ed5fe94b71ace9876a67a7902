@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cfbc05d0_44d30ffc",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2019-07-11T13:38:01Z",
+      "side": 1,
+      "message": "Please keep these names short. Eg - self._analytics_api_ssl_params[\u0027certfile\u0027]",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9ffff764_aa2c321e",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2019-07-11T13:38:01Z",
+      "side": 1,
+      "message": "When do you set verify as TRUE",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0783e1ef_5a57c89e",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2019-07-11T13:38:01Z",
+      "side": 1,
+      "message": "Where is self._cert populate in else case",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bff2afe3_c28ca302",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 895,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2019-07-11T13:38:01Z",
+      "side": 1,
+      "message": "Are we not using ca_cert anywhere ?",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
