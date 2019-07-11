@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8fef312c_fd9c80eb",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-11T12:41:31Z",
+      "side": 1,
+      "message": "As we discussed, that will prevent one API call but probably not fixing the cache issue we are facing. Can you put \u0027Partials\u0027 instead of \u0027Closes\u0027 here?",
+      "range": {
+        "startLine": 13,
+        "startChar": 0,
+        "endLine": 13,
+        "endChar": 6
+      },
+      "revId": "459fb63d015ebf1732d0a9908807cb39a4db9977",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
