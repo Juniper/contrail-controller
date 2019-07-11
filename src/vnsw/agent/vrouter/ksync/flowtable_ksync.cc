@@ -47,6 +47,7 @@ const uint32_t KSyncFlowEntryFreeList::kInitCount;
 const uint32_t KSyncFlowEntryFreeList::kTestInitCount;
 const uint32_t KSyncFlowEntryFreeList::kGrowSize;
 const uint32_t KSyncFlowEntryFreeList::kMinThreshold;
+const uint32_t KSyncFlowEntryFreeList::kMaxThreshold;
 
 using namespace boost::asio::ip;
 
@@ -774,8 +775,12 @@ FlowTableKSyncEntry *KSyncFlowEntryFreeList::Allocate(const KSyncEntry *key) {
 void KSyncFlowEntryFreeList::Free(FlowTableKSyncEntry *flow) {
     total_free_++;
     flow->Reset();
-    free_list_.push_back(*flow);
-    // TODO : Free entry if beyond threshold
+    if (free_list_.size() < kMaxThreshold)
+        free_list_.push_back(*flow);
+    else {
+        delete flow;
+        --max_count_;
+    }
 }
 
 void FlowTableKSyncObject::GrowFreeList() {
