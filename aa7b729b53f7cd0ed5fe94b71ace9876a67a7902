@@ -53,6 +53,29 @@
     },
     {
       "key": {
+        "uuid": "78d9dd2a_a6c62a23",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-12T03:41:20Z",
+      "side": 1,
+      "message": "this should be set to ca_cert based on insecure_enable",
+      "range": {
+        "startLine": 74,
+        "startChar": 69,
+        "endLine": 74,
+        "endChar": 75
+      },
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "0783e1ef_5a57c89e",
         "filename": "src/config/common/cfgm_common/analytics_client.py",
         "patchSetId": 4
@@ -64,6 +87,29 @@
       "writtenOn": "2019-07-11T13:38:01Z",
       "side": 1,
       "message": "Where is self._cert populate in else case",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6279e5ff_77f2d70f",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-12T03:41:20Z",
+      "side": 1,
+      "message": "do we really need a new param here? I thought these new params could be there in args itself",
+      "range": {
+        "startLine": 68,
+        "startChar": 50,
+        "endLine": 68,
+        "endChar": 69
+      },
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -98,6 +144,29 @@
       "writtenOn": "2019-07-11T13:38:01Z",
       "side": 1,
       "message": "Are we not using ca_cert anywhere ?",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "24f1e967_c40e2df3",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 903,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-12T03:41:20Z",
+      "side": 1,
+      "message": "first we are copying arguments from args to a structure and then we are passing it as separate argument. Not sure if I am missing something here?",
+      "range": {
+        "startLine": 903,
+        "startChar": 42,
+        "endLine": 903,
+        "endChar": 61
+      },
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
