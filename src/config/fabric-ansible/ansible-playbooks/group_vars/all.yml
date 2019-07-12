@@ -244,7 +244,24 @@ feature_based_plugin_roles:
     - overlay_evpn_erb_access
     - overlay_evpn_type5
     - overlay_evpn_ucast_gateway
+    - overlay_dhcp_relay
     - overlay_storm_control
+  CRB-Gateway@spine:
+    - overlay_dhcp_relay
+  CRB-MCAST-Gateway@spine:
+    - overlay_dhcp_relay
+  DC-Gateway@spine:
+    - overlay_dhcp_relay
+  DCI-Gateway@spine:
+    - overlay_dhcp_relay
+  CRB-Gateway@leaf:
+    - overlay_dhcp_relay
+  CRB-MCAST-Gateway@leaf:
+    - overlay_dhcp_relay
+  DC-Gateway@leaf:
+    - overlay_dhcp_relay
+  DCI-Gateway@leaf:
+    - overlay_dhcp_relay
   AR-Client@leaf:
     - overlay_assisted_replicator_client
   AR-Client@spine:
@@ -266,6 +283,7 @@ feature_apply_order:
   - overlay_evpn_ucast_gateway
   - overlay_evpn_mcast_gateway
   - overlay_evpn_type5
+  - overlay_dhcp_relay
   - overlay_security_group
   - overlay_lag
   - overlay_multi_homing
