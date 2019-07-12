@@ -1172,6 +1172,10 @@ LifetimeActor *BgpPeer::deleter() {
 // Check if the given address family has been negotiated with the peer.
 //
 bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
+    // Allow INET family, used for test purpose
+    bool ignore_family_check = getenv("CONTRAIL_IGNORE_FAMILY_CHECK") != NULL;
+    if (ignore_family_check && family == Address::INET)
+        return true;
     // Bail if the family is not configured locally.
     if (!LookupFamily(family))
         return false;
@@ -1728,6 +1732,11 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
             families.push_back(Address::FamilyToString(family));
         }
     }
+    // Add INET family if nothing is advertised, used for test purpose
+    bool ignore_family_check = getenv("CONTRAIL_IGNORE_FAMILY_CHECK") != NULL;
+    if (ignore_family_check && families.size() == 0) {
+        families.push_back(Address::FamilyToString(Address::INET));
+    }
     peer_info.set_families(families);
 
     negotiated_families_.clear();
@@ -1741,6 +1750,9 @@ bool BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
         if (!MpNlriAllowed(afi, safi))
             continue;
         negotiated_families_.push_back(Address::FamilyToString(family));
+    }
+    if (negotiated_families_.size() == 0) {
+        negotiated_families_.push_back(Address::FamilyToString(Address::INET));
     }
     sort(negotiated_families_.begin(), negotiated_families_.end());
     peer_info.set_negotiated_families(negotiated_families_);
