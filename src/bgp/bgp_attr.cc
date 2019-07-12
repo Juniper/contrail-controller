@@ -1078,6 +1078,12 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
+int BgpAttr::max_as_path_count() const {
+    int as_count = as_path_count();
+    int as4_count = aspath_4byte_count();
+    return as_count > as4_count ? as_count : as4_count;
+}
+
 bool BgpAttr::IsAsPathEmpty() const {
     if (as_path_ && !as_path_->empty())
         return false;
