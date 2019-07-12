@@ -1,0 +1,710 @@
+---
+- name: Onboard fabric data model to the database
+
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    feature: overlay_dhcp_relay
+    cfg_group: __contrail_overlay_dhcp_relay__
+  tasks:
+    - set_fact:
+        device_abstract_config: {
+          "bgp": [
+          {
+            "autonomous_system": 64512,
+            "cluster_id": 100,
+            "comment": "/* overlay_bgp: BGP Router: 5a12-qfx13-bgp, UUID: e9ce82bc-65b8-4e46-b3aa-4fc16b66249e */",
+            "families": [
+              "inet-vpn",
+              "inet6-vpn",
+              "route-target",
+              "evpn"
+            ],
+            "hold_time": 90,
+            "ip_address": "172.168.0.251",
+            "name": "_contrail_asn-64512",
+            "peers": [
+            {
+              "autonomous_system": 64512,
+              "comment": "/* overlay_bgp: BGP Router: contrail.local, UUID: c471ca75-886f-4de5-8121-baa8f5e394b0 */",
+              "ip_address": "10.87.13.3",
+              "name": "10.87.13.3"
+            },
+            {
+              "autonomous_system": 64512,
+              "comment": "/* overlay_bgp: BGP Router: 5a12-qfx7-bgp, UUID: a29cf868-fbc6-4df9-96ba-cf09fc61628e */",
+              "ip_address": "172.168.0.250",
+              "name": "172.168.0.250"
+            },
+            {
+              "autonomous_system": 64512,
+              "comment": "/* overlay_bgp: BGP Router: 5a12-qfx11-bgp, UUID: ab4faae1-967b-4b0b-b3d8-9007c15f1aab */",
+              "ip_address": "172.168.0.252",
+              "name": "172.168.0.252"
+            }
+            ],
+            "type_": "internal"
+          },
+          {
+            "autonomous_system": 64500,
+            "comment": "underlay_ip_clos",
+            "ip_address": "192.168.0.6",
+            "name": "_contrail_underlay_asn_et-0/0/30.0_64500_external",
+            "peers": [
+            {
+              "autonomous_system": 64501,
+              "comment": "5a12-qfx7",
+              "ip_address": "192.168.0.5",
+              "name": "5a12-qfx7"
+            }
+            ],
+            "type_": "external"
+          },
+          {
+            "autonomous_system": 64500,
+            "comment": "underlay_ip_clos",
+            "ip_address": "192.168.0.1",
+            "name": "_contrail_underlay_asn_et-0/0/31.0_64500_external",
+            "peers": [
+            {
+              "autonomous_system": 64502,
+              "comment": "5a12-qfx11",
+              "ip_address": "192.168.0.2",
+              "name": "5a12-qfx11"
+            }
+            ],
+            "type_": "external"
+          }
+          ],
+          "comment": "/* Contrail Generated Group Config */",
+          "evpn": {
+            "encapsulation": "vxlan"
+          },
+          "features": {
+            "l3-gateway": {
+              "name": "l3-gateway",
+              "physical_interfaces": [
+              {
+                "interface_type": "irb",
+                "logical_interfaces": [
+                {
+                  "ip_addresses": [
+                  {
+                    "address": "10.10.10.5/24",
+                    "family": "inet",
+                    "gateway": "10.10.10.1"
+                  }
+                  ],
+                  "name": "irb.8",
+                  "unit": 8
+                },
+                {
+                  "ip_addresses": [
+                  {
+                    "address": "30.30.30.4/24",
+                    "family": "inet",
+                    "gateway": "30.30.30.1"
+                  }
+                  ],
+                  "name": "irb.11",
+                  "unit": 11
+                }
+                ],
+                "name": "irb"
+              }
+              ],
+              "routing_instances": [
+              {
+                "export_targets": [
+                  "target:64512:8000007"
+                ],
+                "import_targets": [
+                  "target:64512:8000007"
+                ],
+                "is_public_network": false,
+                "name": "_contrail_vn1-l3-8",
+                "prefixes": [
+                {
+                  "prefix": "10.10.10.0",
+                  "prefix_len": 24
+                }
+                ],
+                "routing_instance_type": "vrf",
+                "virtual_network_id": "8",
+                "virtual_network_mode": "l3",
+                "vxlan_id": "8"
+              },
+              {
+                "export_targets": [
+                  "target:64512:8000011"
+                ],
+                "import_targets": [
+                  "target:64512:8000011"
+                ],
+                "is_public_network": false,
+                "name": "_contrail_vn3-l3-11",
+                "prefixes": [
+                {
+                  "prefix": "30.30.30.0",
+                  "prefix_len": 24
+                }
+                ],
+                "routing_instance_type": "vrf",
+                "virtual_network_id": "11",
+                "virtual_network_mode": "l3",
+                "vxlan_id": "11"
+              }
+              ],
+              "vlans": [
+              {
+                "interfaces": [
+                {
+                  "name": "irb.8"
+                }
+                ],
+                "name": "bd-8",
+                "vxlan_id": 8
+              },
+              {
+                "interfaces": [
+                {
+                  "name": "irb.11"
+                }
+                ],
+                "name": "bd-11",
+                "vxlan_id": 11
+              }
+              ]
+            },
+            "storm-control": {
+              "name": "storm-control",
+              "physical_interfaces": [
+              {
+                "logical_interfaces": [
+                {
+                  "name": "xe-0/0/12:0.0",
+                  "unit": "0",
+                  "vlan_tag": "4094"
+                }
+                ],
+                "name": "xe-0/0/12:0"
+              }
+              ]
+            },
+            "vn-interconnect": {
+              "name": "vn-interconnect",
+              "physical_interfaces": [
+              {
+                "interface_type": "loopback",
+                "logical_interfaces": [
+                {
+                  "ip_addresses": [
+                  {
+                    "address": "127.0.0.1",
+                    "family": "inet"
+                  }
+                  ],
+                  "name": "lo0.1010",
+                  "unit": 1010
+                },
+                {
+                  "ip_addresses": [
+                  {
+                    "address": "127.0.0.1",
+                    "family": "inet"
+                  }
+                  ],
+                  "name": "lo0.1012",
+                  "unit": 1012
+                }
+                ],
+                "name": "lo0"
+              }
+              ],
+              "routing_instances": [
+              {
+                "export_targets": [
+                  "target:64512:8000010"
+                ],
+                "forwarding_options": {
+                  "dhcp_relay": [
+                  {
+                    "comment": "Dhcp relay for logical router b53442c4-c211-4796-8984-a1069bf4782b",
+                    "dhcp_relay_group": "DHCP_RELAY_GRP_b53442c4-c211-4796-8984-a1069bf4782b",
+                    "dhcp_server_ips": [
+                    {
+                      "address": "30.30.30.3"
+                    }
+                    ],
+                    "in_network": false
+                  }
+                  ]
+                },
+                "import_targets": [
+                  "target:64512:8000010"
+                ],
+                "is_public_network": false,
+                "loopback_interfaces": [
+                {
+                  "name": "lo0.1010"
+                }
+                ],
+                "name": "_contrail___contrail_lr_internal_vn_b53442c4-c211-4796-8984-a1069bf4782b__-l3-10",
+                "rib_group": "external_vrf_7266b94e-425d-42b1-ad8e-992985458bd6",
+                "routing_instance_type": "vrf",
+                "routing_interfaces": [
+                {
+                  "name": "irb.8"
+                }
+                ],
+                "virtual_network_id": "10",
+                "virtual_network_is_internal": true,
+                "virtual_network_mode": "l3",
+                "vxlan_id": "10"
+              },
+              {
+                "export_targets": [
+                  "target:64512:8000013"
+                ],
+                "forwarding_options": {
+                  "dhcp_relay": [
+                  {
+                    "comment": "Dhcp relay for logical router 4777f196-0b1e-4bd0-b554-d8dfde9211c0",
+                    "dhcp_relay_group": "DHCP_RELAY_GRP_4777f196-0b1e-4bd0-b554-d8dfde9211c0",
+                    "dhcp_server_ips": [
+                    {
+                      "address": "40.40.40.3"
+                    }
+                    ],
+                    "in_network": false
+                  }
+                  ]
+                },
+                "import_targets": [
+                  "target:64512:8000013"
+                ],
+                "is_public_network": false,
+                "loopback_interfaces": [
+                {
+                  "name": "lo0.1012"
+                }
+                ],
+                "name": "_contrail___contrail_lr_internal_vn_4777f196-0b1e-4bd0-b554-d8dfde9211c0__-l3-12",
+                "rib_group": "external_vrf_b89bde33-213b-4292-b756-5f1665cda3e0",
+                "routing_instance_type": "vrf",
+                "routing_interfaces": [
+                {
+                  "name": "irb.11"
+                }
+                ],
+                "virtual_network_id": "12",
+                "virtual_network_is_internal": true,
+                "virtual_network_mode": "l3",
+                "vxlan_id": "12"
+              },
+              {
+                "export_targets": [
+                  "target:64512:8000015"
+                ],
+                "import_targets": [
+                  "target:64512:8000015"
+                ],
+                "is_public_network": false,
+                "loopback_interfaces": [
+                {
+                  "name": "lo0.1013"
+                }
+                ],
+                "name": "_contrail___contrail_lr_internal_vn_c4bc3d7a-bcc1-4e45-bc75-a86b12982085__-l3-13",
+                "routing_instance_type": "vrf",
+                "routing_interfaces": [
+                {
+                  "name": "irb.11"
+                },
+                {
+                  "name": "irb.9"
+                },
+                {
+                  "name": "irb.8"
+                }
+                ],
+                "virtual_network_id": "13",
+                "virtual_network_is_internal": true,
+                "virtual_network_mode": "l3",
+                "vxlan_id": "13"
+              }
+              ]
+            }
+          },
+          "physical_interfaces": [
+          {
+            "comment": "underlay_ip_clos",
+            "interface_type": "regular",
+            "logical_interfaces": [
+            {
+              "comment": "underlay_ip_clos",
+              "ip_addresses": [
+              {
+                "address": "192.168.0.6",
+                "family": "inet"
+              }
+              ],
+              "name": "et-0/0/30.0",
+              "unit": 0
+            }
+            ],
+            "name": "et-0/0/30"
+          },
+          {
+            "comment": "underlay_ip_clos",
+            "interface_type": "regular",
+            "logical_interfaces": [
+            {
+              "comment": "underlay_ip_clos",
+              "ip_addresses": [
+              {
+                "address": "192.168.0.1",
+                "family": "inet"
+              }
+              ],
+              "name": "et-0/0/31.0",
+              "unit": 0
+            }
+            ],
+            "name": "et-0/0/31"
+          },
+          {
+            "interface_type": "irb",
+            "logical_interfaces": [
+            {
+              "comment": "/* Virtual Network: vn3, UUID: d27d37c7-ed4f-4507-8ee9-ca432ed38567, VRF Type: L2-L3 */",
+              "gateway": "30.30.30.1",
+              "ip_addresses": [
+              {
+                "address": "30.30.30.4/24",
+                "family": "inet",
+                "gateway": "30.30.30.1"
+              }
+              ],
+              "name": "irb.11",
+              "unit": 11
+            },
+            {
+              "comment": "/* Virtual Network: vn1, UUID: e32e7895-8e9f-48d0-b19f-7452158fb07e, VRF Type: L2-L3 */",
+              "gateway": "10.10.10.1",
+              "ip_addresses": [
+              {
+                "address": "10.10.10.5/24",
+                "family": "inet",
+                "gateway": "10.10.10.1"
+              }
+              ],
+              "name": "irb.8",
+              "unit": 8
+            }
+            ],
+            "name": "irb"
+          },
+          {
+            "comment": "underlay_ip_clos",
+            "interface_type": "loopback",
+            "logical_interfaces": [
+            {
+              "comment": "underlay_ip_clos",
+              "ip_addresses": [
+              {
+                "address": "172.168.0.251",
+                "family": "inet"
+              }
+              ],
+              "name": "lo0.0",
+              "unit": 0
+            },
+            {
+              "comment": "/* Bogus lo0 intf (PFE limitation), Virtual Network: __contrail_lr_internal_vn_b53442c4-c211-4796-8984-a1069bf4782b__, UUID: 7266b94e-425d-42b1-ad8e-992985458bd6 */",
+              "ip_addresses": [
+              {
+                "address": "127.0.0.1",
+                "family": "inet"
+              }
+              ],
+              "name": "lo0.1010",
+              "unit": 1010
+            },
+            {
+              "comment": "/* Bogus lo0 intf (PFE limitation), Virtual Network: __contrail_lr_internal_vn_4777f196-0b1e-4bd0-b554-d8dfde9211c0__, UUID: b89bde33-213b-4292-b756-5f1665cda3e0 */",
+              "ip_addresses": [
+              {
+                "address": "127.0.0.1",
+                "family": "inet"
+              }
+              ],
+              "name": "lo0.1012",
+              "unit": 1012
+            }
+            ],
+            "name": "lo0"
+          },
+          {
+            "logical_interfaces": [
+            {
+              "comment": "/* L2 EVPN Untagged Interface, Virtual Network: vn3, UUID: d27d37c7-ed4f-4507-8ee9-ca432ed38567 */",
+              "is_tagged": false,
+              "name": "xe-0/0/12:0.0",
+              "unit": "0",
+              "vlan_tag": "4094"
+            }
+            ],
+            "name": "xe-0/0/12:0"
+          }
+          ],
+          "routing_instances": [
+          {
+            "comment": "/* Private Virtual Network: __contrail_lr_internal_vn_4777f196-0b1e-4bd0-b554-d8dfde9211c0__, UUID: b89bde33-213b-4292-b756-5f1665cda3e0, VRF Type: L3, Forwarding Mode: L3 */",
+            "export_targets": [
+              "target:64512:8000013"
+            ],
+            "import_targets": [
+              "target:64512:8000013"
+            ],
+            "is_public_network": false,
+            "loopback_interfaces": [
+            {
+              "name": "lo0.1012"
+            }
+            ],
+            "name": "_contrail___contrail_lr_internal_vn_4777f196-0b1e-4bd0-b554-d8dfde9211c0__-l3-12",
+            "routing_instance_type": "vrf",
+            "routing_interfaces": [
+            {
+              "name": "irb.11"
+            }
+            ],
+            "virtual_network_id": "12",
+            "virtual_network_is_internal": true,
+            "virtual_network_mode": "l3",
+            "vxlan_id": "12"
+          },
+          {
+            "comment": "/* Private Virtual Network: __contrail_lr_internal_vn_b53442c4-c211-4796-8984-a1069bf4782b__, UUID: 7266b94e-425d-42b1-ad8e-992985458bd6, VRF Type: L3, Forwarding Mode: L3 */",
+            "export_targets": [
+              "target:64512:8000010"
+            ],
+            "import_targets": [
+              "target:64512:8000010"
+            ],
+            "is_public_network": false,
+            "loopback_interfaces": [
+            {
+              "name": "lo0.1010"
+            }
+            ],
+            "name": "_contrail___contrail_lr_internal_vn_b53442c4-c211-4796-8984-a1069bf4782b__-l3-10",
+            "routing_instance_type": "vrf",
+            "routing_interfaces": [
+            {
+              "name": "irb.8"
+            }
+            ],
+            "virtual_network_id": "10",
+            "virtual_network_is_internal": true,
+            "virtual_network_mode": "l3",
+            "vxlan_id": "10"
+          },
+          {
+            "comment": "/* Private Virtual Network: vn1, UUID: e32e7895-8e9f-48d0-b19f-7452158fb07e, VRF Type: L2, Forwarding Mode: L2-L3 */",
+            "export_targets": [
+              "target:64512:8000007"
+            ],
+            "gateways": [
+            {
+              "gateway": {
+                "prefix": "10.10.10.1",
+                "prefix_len": 32
+              },
+              "ip_address": {
+                "prefix": "10.10.10.5",
+                "prefix_len": 24
+              }
+            }
+            ],
+            "import_targets": [
+              "target:64512:8000007"
+            ],
+            "is_public_network": false,
+            "name": "_contrail_vn1-l2-8",
+            "routing_instance_type": "virtual-switch",
+            "virtual_network_id": "8",
+            "virtual_network_is_internal": false,
+            "virtual_network_mode": "l2-l3",
+            "vxlan_id": "8"
+          },
+          {
+            "comment": "/* Private Virtual Network: vn1, UUID: e32e7895-8e9f-48d0-b19f-7452158fb07e, VRF Type: L3, Forwarding Mode: L2-L3 */",
+            "export_targets": [
+              "target:64512:8000007"
+            ],
+            "import_targets": [
+              "target:64512:8000007"
+            ],
+            "interfaces": [
+            {
+              "name": "irb.8"
+            }
+            ],
+            "is_public_network": false,
+            "name": "_contrail_vn1-l3-8",
+            "prefixes": [
+            {
+              "prefix": "10.10.10.0",
+              "prefix_len": 24
+            }
+            ],
+            "routing_instance_type": "vrf",
+            "static_routes": [
+            {
+              "prefix": "10.10.10.0",
+              "prefix_len": 24
+            }
+            ],
+            "virtual_network_id": "8",
+            "virtual_network_is_internal": false,
+            "virtual_network_mode": "l2-l3",
+            "vxlan_id": "None"
+          },
+          {
+            "comment": "/* Private Virtual Network: vn3, UUID: d27d37c7-ed4f-4507-8ee9-ca432ed38567, VRF Type: L2, Forwarding Mode: L2-L3 */",
+            "export_targets": [
+              "target:64512:8000011"
+            ],
+            "gateways": [
+            {
+              "gateway": {
+                "prefix": "30.30.30.1",
+                "prefix_len": 32
+              },
+              "ip_address": {
+                "prefix": "30.30.30.4",
+                "prefix_len": 24
+              }
+            }
+            ],
+            "import_targets": [
+              "target:64512:8000011"
+            ],
+            "is_public_network": false,
+            "name": "_contrail_vn3-l2-11",
+            "routing_instance_type": "virtual-switch",
+            "virtual_network_id": "11",
+            "virtual_network_is_internal": false,
+            "virtual_network_mode": "l2-l3",
+            "vxlan_id": "11"
+          },
+          {
+            "comment": "/* Private Virtual Network: vn3, UUID: d27d37c7-ed4f-4507-8ee9-ca432ed38567, VRF Type: L3, Forwarding Mode: L2-L3 */",
+            "export_targets": [
+              "target:64512:8000011"
+            ],
+            "import_targets": [
+              "target:64512:8000011"
+            ],
+            "interfaces": [
+            {
+              "name": "irb.11"
+            }
+            ],
+            "is_public_network": false,
+            "name": "_contrail_vn3-l3-11",
+            "prefixes": [
+            {
+              "prefix": "30.30.30.0",
+              "prefix_len": 24
+            }
+            ],
+            "routing_instance_type": "vrf",
+            "static_routes": [
+            {
+              "prefix": "30.30.30.0",
+              "prefix_len": 24
+            }
+            ],
+            "virtual_network_id": "11",
+            "virtual_network_is_internal": false,
+            "virtual_network_mode": "l2-l3",
+            "vxlan_id": "None"
+          }
+          ],
+          "system": {
+            "credentials": {
+              "authentication_method": "PasswordBasedAuthentication",
+              "password": "Embe1mpls",
+              "user_name": "root"
+            },
+            "device_family": "junos-qfx",
+            "dummy_ip": "172.16.0.8",
+            "encapsulation_priorities": [
+              "VXLAN",
+              "MPLSoUDP",
+              "MPLSoGRE"
+            ],
+            "is_ucast_gateway_only": false,
+            "loopback_ip_list": [
+              "172.168.0.251"
+            ],
+            "management_ip": "10.87.13.16",
+            "name": "5a12-qfx13",
+            "physical_role": "leaf",
+            "product_name": "qfx10002-36q",
+            "routing_bridging_roles": [
+              "CRB-Access",
+              "CRB-Gateway",
+              "Route-Reflector"
+            ],
+            "tunnel_destination_networks": [
+            {
+              "prefix": "10.87.13.0",
+              "prefix_len": 27
+            }
+            ],
+            "tunnel_ip": "172.168.0.251",
+            "uuid": "b8714e49-81c7-4458-811e-41b61cc5cd41",
+            "vendor_name": "Juniper"
+          },
+          "vlans": [
+          {
+            "comment": "/* Virtual Network: vn3, UUID: d27d37c7-ed4f-4507-8ee9-ca432ed38567, Encapsulation: VXLAN */",
+            "interfaces": [
+            {
+              "name": "xe-0/0/12:0.0"
+            },
+            {
+              "name": "irb.11"
+            }
+            ],
+            "name": "bd-11",
+            "vxlan_id": 11
+          },
+          {
+            "comment": "/* Virtual Network: vn1, UUID: e32e7895-8e9f-48d0-b19f-7452158fb07e, Encapsulation: VXLAN */",
+            "interfaces": [
+            {
+              "name": "irb.8"
+            }
+            ],
+            "name": "bd-8",
+            "vxlan_id": 8
+          }
+          ]
+        }
+
+    - template:
+        src: juniper_junos-qfx_overlay_dhcp_relay.j2
+        dest: /tmp/output.json
+
+    - command: cat /tmp/output.json
+      register: output
+
+    - debug: var=output.stdout_lines
+
