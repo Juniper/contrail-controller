@@ -1131,6 +1131,12 @@
             "default-global-system-config", "assisted-replicator"
           ],
           "name": "assisted-replicator"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "storm-control"
+          ],
+          "name": "storm-control"
         }
       ]
     },
@@ -1162,6 +1168,12 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "crb-access"
+          ],
+          "name": "crb-access"
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "crb-mcast-gateway"
           ],
           "name": "crb-mcast-gateway"
@@ -1189,25 +1201,37 @@
           ],
           "name": "erb-leaf"
         },
-         {
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-access-leaf"
+          ],
+          "name": "crb-access-leaf"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-access-spine"
+          ],
+          "name": "crb-access-spine"
+        },
+        {
           "fq_name": [
             "default-global-system-config", "ar-client-leaf"
           ],
           "name": "ar-client-leaf"
         },
-         {
+        {
           "fq_name": [
             "default-global-system-config", "ar-client-spine"
           ],
           "name": "ar-client-spine"
         },
-         {
+        {
           "fq_name": [
             "default-global-system-config", "ar-replicator-leaf"
           ],
           "name": "ar-replicator-leaf"
         },
-         {
+        {
           "fq_name": [
             "default-global-system-config", "ar-replicator-spine"
           ],
@@ -1480,6 +1504,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "storm-control"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
@@ -1488,6 +1518,42 @@
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "erb-ucast-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "storm-control"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-access" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "storm-control"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-access" ]
     },
     {
       "from_type": "role-definition",
