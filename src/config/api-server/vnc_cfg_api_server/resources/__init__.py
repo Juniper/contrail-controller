@@ -50,6 +50,9 @@ from vnc_cfg_api_server.resources.routing_policy import RoutingPolicyServer
 from vnc_cfg_api_server.resources.security_group import SecurityGroupServer
 from vnc_cfg_api_server.resources.service_appliance_set import\
     ServiceApplianceSetServer
+from vnc_cfg_api_server.resources.storm_control_profile import\
+    StormControlProfileServer
+from vnc_cfg_api_server.resources.port_profile import PortProfileServer
 from vnc_cfg_api_server.resources.service_group import ServiceGroupServer
 from vnc_cfg_api_server.resources.service_template import ServiceTemplateServer
 from vnc_cfg_api_server.resources.sub_cluster import SubClusterServer
