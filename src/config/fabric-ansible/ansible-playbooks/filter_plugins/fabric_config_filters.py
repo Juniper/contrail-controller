@@ -14,6 +14,7 @@ import shutil
 import sys
 import traceback
 
+from ansible.plugins.filter.core import regex_search
 from jinja2 import Environment, ext, FileSystemLoader
 import yaml
 
@@ -180,6 +181,7 @@ class FilterModule(object):
                           extensions=(ext.loopcontrols, ext.do))
         env.filters['rtfilter'] = rtfilter
         env.filters['asnfilter'] = asnfilter
+        env.filters['regex_search'] = regex_search
         templ = env.get_template('templates/' + ffile)
         model = '_' + self.device_model if '[' in template and ']' in template\
             else ''
