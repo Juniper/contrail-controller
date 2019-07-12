@@ -25,11 +25,12 @@ from db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     InstanceIpDM, LinkAggregationGroupDM, LogicalInterfaceDM, \
     LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
     OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
-    PhysicalRouterDM, PortDM, PortTupleDM, RoleConfigDM, RoleDefinitionDM, \
-    RoutingInstanceDM, SecurityGroupDM, ServiceApplianceDM, \
+    PhysicalRouterDM, PortDM, PortProfileDM, PortTupleDM, RoleConfigDM, \
+    RoleDefinitionDM, RoutingInstanceDM, SecurityGroupDM, ServiceApplianceDM, \
     ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
-    ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, TagDM, \
-    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
+    ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, \
+    StormControlProfileDM, TagDM, VirtualMachineInterfaceDM, \
+    VirtualNetworkDM, VirtualPortGroupDM
 from device_conf import DeviceConf
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
@@ -158,6 +159,7 @@ class DeviceManager(object):
             'port_tuple': ['physical_interface'],
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface', 'virtual_port_group'],
+            'port_profile': ['virtual_port_group'],
         },
         'security_group': {
             'self': [],
@@ -166,6 +168,13 @@ class DeviceManager(object):
         'access_control_list': {
             'self': ['security_group'],
             'security_group': [],
+        },
+        'port_profile': {
+            'self': ['virtual_machine_interface'],
+            'storm_control_profile': ['virtual_machine_interface'],
+        },
+        'storm_control_profile': {
+            'self': ['port_profile'],
         },
         'service_appliance_set': {
             'self': [],
@@ -391,6 +400,8 @@ class DeviceManager(object):
         VirtualMachineInterfaceDM.locate_all()
         SecurityGroupDM.locate_all()
         AccessControlListDM.locate_all()
+        PortProfileDM.locate_all()
+        StormControlProfileDM.locate_all()
         ServiceInstanceDM.locate_all()
         ServiceApplianceSetDM.locate_all()
         ServiceApplianceDM.locate_all()

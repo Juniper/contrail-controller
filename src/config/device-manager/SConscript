@@ -100,6 +100,7 @@ local_sources = [
     'device_manager/plugins/feature/underlay_ip_clos_feature.py',
     'device_manager/plugins/feature/vn_interconnect_feature.py',
     'device_manager/plugins/feature/assisted_replicator_feature.py',
+    'device_manager/plugins/feature/storm_control_feature.py',
 ]
 
 local_sources_rules = []
