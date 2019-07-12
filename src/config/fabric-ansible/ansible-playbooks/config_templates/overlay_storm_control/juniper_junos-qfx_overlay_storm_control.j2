@@ -4,7 +4,7 @@
 {%     set sc_profile_name = sc_profile.get('name') %}
 {%     set sc_bw_percent = sc_profile.get('bandwidth_percent') %}
 {%     set sc_actions = sc_profile.get('actions', []) %}
-{%     set sc_traffic_types = sc_profile.get('traffic_type', []) %}
+{%     set sc_traffic_types = sc_profile.get('traffic_type', []) | unique %}
 {%     set sc_recovery_timeout = sc_profile.get('recovery_timeout') %}
 {%     set x= sc_map.update({sc_profile_name: {
                                                      'recovery_timeout': sc_recovery_timeout,
@@ -17,6 +17,16 @@ set groups {{cfg_group}} forwarding-options storm-control-profiles {{sc_profile_
 {%         endif %}
 {%     endfor %}
 {%     set sc_traffic_options_str = ' '.join(sc_traffic_types) %}
+{%     set device_product_name = device_abstract_config.get('system', {}).get('product_name', '') %}
+{%     if device_product_name.startswith('qfx5') %}
+{%         set regex_str = "^qfx51[12]+" %}
+{%         set regex_matched = device_product_name | regex_search(regex_str) %}
+{%         if not regex_matched %}
+{%             set sc_traffic_options_str = sc_traffic_options_str.replace('no-registered-multicast', '') %}
+{%             set sc_traffic_options_str = sc_traffic_options_str.replace('no-unregistered-multicast', '') %}
+{%             set sc_traffic_options_str = sc_traffic_options_str.strip() %}
+{%         endif %}
+{%     endif %}
 set groups {{cfg_group}} forwarding-options storm-control-profiles {{sc_profile_name}} all bandwidth-percentage {{sc_bw_percent}} {{sc_traffic_options_str}}
 {% endfor %}
 {%  for phy_int in device_abstract_config.get('features', {}).get('storm-control', {}).get('physical_interfaces', []) %}
