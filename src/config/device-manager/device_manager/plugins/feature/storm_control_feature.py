@@ -102,6 +102,9 @@ class StormControlFeature(FeatureBase):
         self.pi_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
 
+        if not self._is_enterprise_style(self._physical_router):
+            return feature_config
+
         vn_dict = self._get_connected_vn_li_map()
         for vn_uuid, interfaces in vn_dict.items():
             self._build_storm_control_interface_config(interfaces,
