@@ -2535,6 +2535,9 @@ class FabricDM(DBBaseDM):
         # Get the 'ip_fabric' type virtual network
         self.ip_fabric_ipam_subnet = \
             self._get_ipam_subnets_for_virtual_network(obj, 'ip_fabric')
+
+        # Get the enterprise-style flag
+        self.enterprise_style = obj.get('fabric_enterprise_style', True)
     # end update
 # end class FabricDM
 
