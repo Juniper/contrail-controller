@@ -1,0 +1,84 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "723bcd36_be1ce0f3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_port_group.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-12T00:37:41Z",
+      "side": 1,
+      "message": "should be \"virtual_machine_interface\".",
+      "range": {
+        "startLine": 24,
+        "startChar": 35,
+        "endLine": 24,
+        "endChar": 60
+      },
+      "revId": "da80eb74d5cedf245a4208bb4267bc5daea58ab6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "176db92d_b63ef756",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_port_group.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-12T00:37:41Z",
+      "side": 1,
+      "message": "Can you add a test case for this ?",
+      "range": {
+        "startLine": 32,
+        "startChar": 16,
+        "endLine": 35,
+        "endChar": 37
+      },
+      "revId": "da80eb74d5cedf245a4208bb4267bc5daea58ab6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "583928da_316d3ce1",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_port_group.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-12T00:37:41Z",
+      "side": 1,
+      "message": "will cause pep8 error in compilation",
+      "revId": "da80eb74d5cedf245a4208bb4267bc5daea58ab6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5de55506_718aef91",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1158,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-12T00:37:41Z",
+      "side": 1,
+      "message": "So a \u0027READCOUNT\u0027 operation won\u0027t be needed for Trunk port ?",
+      "revId": "da80eb74d5cedf245a4208bb4267bc5daea58ab6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
