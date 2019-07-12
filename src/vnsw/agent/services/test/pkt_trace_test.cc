@@ -221,16 +221,22 @@ TEST_F(PktTraceTest, TraceTest) {
     client->WaitForIdle();
     sand1->Release();
 
+    ClearAllInfo *clear_req = new ClearAllInfo();
+    clear_req->HandleRequest();
+    client->WaitForIdle();
+    clear_req->Release();
+
     for (int i = 0; i < 5; ++i) {
         SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)));
         SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[1].gw)));
     }
     count = 0;
-    TRACE_CHECK(stats.icmp_gw_ping < 12);
+    TRACE_CHECK(stats.icmp_gw_ping < 10);
+
 
     IcmpInfo *sand2 = new IcmpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&PktTraceTest::CheckSandeshResponse, this, _1, 8));
+    boost::bind(&PktTraceTest::CheckSandeshResponse, this, _1, 10));
     sand2->HandleRequest();
     client->WaitForIdle();
     sand2->Release();
@@ -256,7 +262,7 @@ TEST_F(PktTraceTest, TraceTest) {
         SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[1].gw)));
     }
     count = 0;
-    TRACE_CHECK(stats.icmp_gw_ping < 22);
+    TRACE_CHECK(stats.icmp_gw_ping < 10);
 
     IcmpInfo *sand4 = new IcmpInfo();
     Sandesh::set_response_callback(
