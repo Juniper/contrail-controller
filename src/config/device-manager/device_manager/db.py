@@ -1566,6 +1566,7 @@ class LogicalRouterDM(DBBaseDM):
         self.physical_routers = set()
         self.data_center_interconnect = None
         self.virtual_machine_interfaces = set()
+        self.dhcp_relay_servers = None
         # internal virtual-network
         self.virtual_network = None
         self.port_tuples = set()
@@ -1583,6 +1584,8 @@ class LogicalRouterDM(DBBaseDM):
                 vn_obj.logical_router = self.uuid
         self.logical_router_gateway_external = obj.get(
             "logical_router_gateway_external")
+        self.dhcp_relay_servers = obj.get(
+            'logical_router_dhcp_relay_server', None).get('ip_address')
         self.update_multiple_refs('physical_router', obj)
         self.update_single_ref('data_center_interconnect', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)

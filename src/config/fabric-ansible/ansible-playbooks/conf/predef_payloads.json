@@ -1180,6 +1180,30 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "crb-gateway"
+          ],
+          "name": "crb-gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-mcast-gateway"
+          ],
+          "name": "crb-mcast-gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dc-gateway"
+          ],
+          "name": "dc-gateway"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dci-gateway"
+          ],
+          "name": "dci-gateway"
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "ar-client"
           ],
           "name": "ar-client"
@@ -1212,6 +1236,54 @@
             "default-global-system-config", "crb-access-spine"
           ],
           "name": "crb-access-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-gateway-spine"
+          ],
+          "name": "crb-gateway-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-mcast-gateway-spine"
+          ],
+          "name": "crb-mcast-gateway-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dc-gateway-spine"
+          ],
+          "name": "dc-gateway-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dci-gateway-spine"
+          ],
+          "name": "dci-gateway-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-gateway-leaf"
+          ],
+          "name": "crb-gateway-leaf"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "crb-mcast-gateway-leaf"
+          ],
+          "name": "crb-mcast-gateway-leaf"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dc-gateway-leaf"
+          ],
+          "name": "dc-gateway-leaf"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dci-gateway-leaf"
+          ],
+          "name": "dci-gateway-leaf"
         },
         {
           "fq_name": [
@@ -1548,6 +1620,202 @@
       "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-access" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-mcast-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "crb-mcast-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },{
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "dci-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l3-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "overlay-role",
+      "to_fq_name": [ "default-global-system-config", "dci-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "physical-role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
     {
       "from_type": "role-definition",
