@@ -100,9 +100,9 @@ class FeatureBase(object):
     # end _add_to_list
 
     @staticmethod
-    def _add_ref_to_list(lst, value):
+    def _add_ref_to_list(lst, value, in_network=False):
         if not any(v.get_name() == value for v in lst):
-            lst.append(Reference(name=value))
+            lst.append(Reference(name=value, in_network=in_network))
     # end _add_ref_to_list
 
     @classmethod
@@ -115,7 +115,9 @@ class FeatureBase(object):
             family = 'inet'
             if gateway == '0.0.0.0':
                 gateway = None
-        ip_address = IpAddress(address=address, family=family, gateway=gateway)
+        ip = address.split('/')[0]
+        ip_address = IpAddress(ip=ip, address=address, family=family,
+                               gateway=gateway)
         cls._add_to_list(unit.get_ip_addresses(), ip_address)
     # end _add_ip_address
 
