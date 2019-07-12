@@ -1,0 +1,659 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ac5a4d56_5fab47ee",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "These don\u0027t need to be renamed",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cf83cfa2_8efe2c58",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "jobManagerConfig",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4039d9df_1b11281b",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "func (j jobManagerConfig) Command (cc.ContrailCommand, error) {\n}",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2995ff2e_07bb4baf",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "Don\u0027t wrap args just leave it on one line",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6df4faec_c88f739f",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "Dont log.Fatal just return error\nlet the caller decide what to do",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b08a02ad_b53dd363",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "probably don\u0027t want this in this function let main print out stuff",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "44edd398_0cfab563",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 72,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "move flags out to module level\n\nvar (\n  jobInput \u003d flag.String(\"job-input\", \"\", \"Job input for the reading vcenter nodes\")\n)\n \nfunc main() {...",
+      "range": {
+        "startLine": 72,
+        "startChar": 85,
+        "endLine": 72,
+        "endChar": 86
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45297762_6216dd84",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 76,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "c :\u003d \u0026jobManagerConfig{}\nif err :\u003d json.Unmarshal([]byte(*jobInput), c); err !\u003d nil {\n  fmt.Println(err)\n  os.Exit(1)\n}",
+      "range": {
+        "startLine": 76,
+        "startChar": 15,
+        "endLine": 76,
+        "endChar": 30
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a85a06a1_2156ef3d",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "vConfig :\u003d  inputJSON.Input.Vcenter",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "474a5086_bc2cf72e",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 90,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "don\u0027t wrap line",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "022b5aee_5fded3cb",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "hosts, err :\u003d vc.GetDataCenterHostSystems(ctx, vcenterInput.Datacenter, vcenterSdkURL, !vcenterInput.Secure)",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec400401_bed39c22",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "just return error don\u0027t fatal",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "eeaa8703_eb5e8bb9",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "package command",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d615752a_a524003c",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "preferably use logrus for logging",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "99193aab_80916bc3",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "this shouldn\u0027t be renamed",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "779b8db4_63cd1b3e",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "Given that you use these structs in different packages you probably want them exported (start with \"capital\")",
+      "range": {
+        "startLine": 15,
+        "startChar": 29,
+        "endLine": 15,
+        "endChar": 35
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bf70a11b_f1086ffd",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "func NewContrailCommand(host, user, pass, clusterID, clusterToken string) ContrailCommand {\n ....\n}",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "37b1138b_91fe8a47",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 174,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "func (cc ContrailCommand) TokenFromClusterToken() (string, error) {\n...\n}\nfunc (cc ContrailCommand) TokenFromUser() (string,error) {\n\n\nSince you do this logic in the main why not just make a simplier api here?\nfunc (cc ContrailCommand) Token() (string, error) {\n  cc.TokenFromUser()\n  cc.TokenFromClusterToken()\n...\n}",
+      "range": {
+        "startLine": 174,
+        "startChar": 0,
+        "endLine": 174,
+        "endChar": 4
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f71f4dd_8a868889",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 254,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "remove commented code",
+      "range": {
+        "startLine": 254,
+        "startChar": 0,
+        "endLine": 254,
+        "endChar": 1
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "663fb384_e883734d",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 260,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "respClose",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f5ceedb9_da91aefa",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 268,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "don\u0027t wrap",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cb7cb6fc_248e56a5",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 284,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "remove commented code",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cc9a1cb6_af9e7805",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 300,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "remove println let caller handle",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d0094aad_756d6d34",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 304,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "log don\u0027t print",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "083ad552_e36a26c0",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 305,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "ccNodes :\u003d map[string]CCNode{}",
+      "range": {
+        "startLine": 305,
+        "startChar": 0,
+        "endLine": 305,
+        "endChar": 1
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f65a66b8_92057aff",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 311,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "node :\u003d \u0026contrailCommandNodes{}\nif err \u003d json.Unmarshal(body, \u0026nodeJSON); err !\u003d nil {\n  return err\n}",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3cae9961_a7eb2918",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 314,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "libraries should never print - return to caller and let call print something out",
+      "range": {
+        "startLine": 314,
+        "startChar": 17,
+        "endLine": 314,
+        "endChar": 18
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "89a7e639_804c144c",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 323,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "if you want to log that is fine",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "49b54c8a_a88d6a61",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 347,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "log",
+      "range": {
+        "startLine": 347,
+        "startChar": 5,
+        "endLine": 347,
+        "endChar": 12
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "17e39e7f_a6538e57",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 353,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "log",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a6628f61_f2dcf162",
+        "filename": "src/go/pkg/vcenter/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "ESXIPort",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "19f5d882_152ede09",
+        "filename": "src/go/pkg/vcenter/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "MACAddress or just MAC",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "25f8395d_f3345cab",
+        "filename": "src/go/pkg/vcenter/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "DVS",
+      "range": {
+        "startLine": 25,
+        "startChar": 1,
+        "endLine": 25,
+        "endChar": 8
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0cc8b81f_a0647d55",
+        "filename": "src/go/pkg/vcenter/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "Hosts\n\nalso don\u0027t wrap params",
+      "range": {
+        "startLine": 51,
+        "startChar": 5,
+        "endLine": 51,
+        "endChar": 29
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1871e157_e9542c6f",
+        "filename": "src/go/pkg/vcenter/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-12T22:32:01Z",
+      "side": 1,
+      "message": "don\u0027t print",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
