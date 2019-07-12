@@ -35,6 +35,7 @@
         <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
         <xsd:element name="assisted-replicator" type="dac:AssistedReplicator"/>
         <xsd:element name="storm-control" type="dac:StormControl" maxOccurs="unbounded"/>
+
     </xsd:all>
 </xsd:complexType>
 
@@ -196,6 +197,8 @@
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
        <xsd:element name="virtual-network-is-shared" type="xsd:boolean"/>
        <xsd:element name="protocols" type="dac:RoutingInstanceProtocols"/>
+       <xsd:element name="forwarding-options" type="dac:ForwardingOptions"/>
+       <xsd:element name="rib-group" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -225,6 +228,7 @@
         <xsd:element name="dhcp-server-ips" type="dac:IpAddress" maxOccurs="unbounded"/>
         <xsd:element name="interfaces" type="dac:Reference" maxOccurs="unbounded"/>
         <xsd:element name="dhcp-relay-group" type="xsd:string"/>
+        <xsd:element name="in_network" type="xsd:boolean"/>
     </xsd:all>
 </xsd:complexType>
 
