@@ -57,28 +57,6 @@
         jl_message: "Assigned static ip to management interface {{interface_configuration.name}} info for {{prouter_vendor}} device, {{prouter_name}}"
     - import_role:
         name: wait_for_fpc_online
-    - name: Change managed state to activating if required to push config during RMA
-      vnc_db_mod:
-        job_ctx: "{{ job_ctx }}"
-        object_type: "physical_router"
-        object_op: "update"
-        object_dict: |
-          {
-            "uuid": "{{ prouter_uuid }}",
-            "physical_router_managed_state": "activating"
-          }
-      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
-    - name: Change managed state to active if required during RMA
-      vnc_db_mod:
-        job_ctx: "{{ job_ctx }}"
-        object_type: "physical_router"
-        object_op: "update"
-        object_dict: |
-          {
-            "uuid": "{{ prouter_uuid }}",
-            "physical_router_managed_state": "active"
-          }
-      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:

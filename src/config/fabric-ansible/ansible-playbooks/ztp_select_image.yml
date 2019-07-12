@@ -9,6 +9,7 @@
   vars:
     pr_fq_name: "{{playbook_input.device_fqname[-1]}}"
     pr_vendor_name: "{{playbook_input.vendor | lower}}"
+    prouter_uuid: "{{playbook_input.device_id}}"
     current_index: 0
     pr_product_name: "{{playbook_input.product_name}}"
     final_task_dict:
@@ -45,6 +46,9 @@
           set_fact:
             hardware_fq_name: ["{{pr_vendor_name}}-{{pr_product_name}}"]
 
+        - name: Print hardware
+          debug: var=hardware_fq_name verbosity=1
+
         - name: Read the hardware vnc object
           vnc_db_mod:
             job_ctx: "{{ job_ctx }}"
@@ -56,6 +60,9 @@
         - name: Get the device image back refs
           set_fact:
             image_refs: "{{hardware_obj.obj.device_image_back_refs}}"
+
+        - name: Print image refs
+          debug: var=image_refs verbosity=1
 
         - name: Pick the right image
           include: image_validation.yml
@@ -132,3 +139,29 @@
           set_fact:
             output: {'status':'Success', 'message':'{{skip_msg}}'}
       when: ztp_os_version is not defined or skip_upgrade is defined
+
+    - name: Change managed state to activating if required to push config during RMA
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ prouter_uuid }}",
+            "physical_router_managed_state": "activating"
+          }
+      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
+
+    - name: Change managed state to active if required during RMA
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "update"
+        object_dict: |
+          {
+            "uuid": "{{ prouter_uuid }}",
+            "physical_router_managed_state": "active"
+          }
+      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
+
+

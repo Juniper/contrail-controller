@@ -86,7 +86,7 @@
 
         - name: Exit if successful
           set_fact:
-            output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating', os_version: os_version})}}"
+            output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating', 'os_version': os_version})}}"
 
       rescue:
         - name: Perform the necessary error handling
