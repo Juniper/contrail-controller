@@ -1,0 +1,238 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cd4aa660_fea8909b",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6203,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "Test that before you read sub-port (aka VMI) from VNC API",
+      "range": {
+        "startLine": 6200,
+        "startChar": 12,
+        "endLine": 6203,
+        "endChar": 59
+      },
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2832242a_0f19fa05",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6210,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "you should set name as display name of the VPG if a name was defined by the user",
+      "range": {
+        "startLine": 6210,
+        "startChar": 12,
+        "endLine": 6210,
+        "endChar": 59
+      },
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ea0ead73_0d4c7540",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6240,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "Catch NoIdError",
+      "range": {
+        "startLine": 6239,
+        "startChar": 17,
+        "endLine": 6240,
+        "endChar": 62
+      },
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "26e43029_90db5ceb",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6245,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "So this is called when sub-port are deleted not when trunk is deleted? This is not clear. IMO deleting sub-port should happen in the update of trunk",
+      "range": {
+        "startLine": 6245,
+        "startChar": 21,
+        "endLine": 6245,
+        "endChar": 27
+      },
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "af44c394_b2dac3db",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6259,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "You shuld not delete ref from trunk_port to sub_port?",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ea297d1a_46f88d00",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6260,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "You don\u0027t need to remove the trunk port ref from trunk also?",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f7b3733_471061b9",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6261,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "spaces",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fa656465_7f1184ec",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6269,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "Catch NoIdError",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "85f82797_c35e1aab",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6286,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "?",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d7df6189_895c1325",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6287,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "Don\u0027t use the contrail name resource, only the display name. Neutron name resource is not required and can be equals to None",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f4d8c078_2040aa81",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6343,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "Are you sure we can delete trunk if it in use? I mean if the trunk_port is bound to a VM",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d010b6b4_675f060a",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6365,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-12T17:39:01Z",
+      "side": 1,
+      "message": "if you remove project IDs from filter the filter will not work anymore",
+      "range": {
+        "startLine": 6364,
+        "startChar": 8,
+        "endLine": 6365,
+        "endChar": 39
+      },
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
