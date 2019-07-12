@@ -115,7 +115,8 @@ class FeatureBase(object):
             family = 'inet'
             if gateway == '0.0.0.0':
                 gateway = None
-        ip_address = IpAddress(address=address, family=family, gateway=gateway)
+        ip_address = IpAddress(address=address, family=family,
+                               gateway=gateway)
         cls._add_to_list(unit.get_ip_addresses(), ip_address)
     # end _add_ip_address
 
