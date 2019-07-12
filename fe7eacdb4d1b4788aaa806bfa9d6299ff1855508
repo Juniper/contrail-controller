@@ -111,6 +111,24 @@
     },
     {
       "key": {
+        "uuid": "e125a942_477c8977",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6259,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "Yes that\u0027s the part we discussed yesterday. I will update the check of VPG.",
+      "parentUuid": "af44c394_b2dac3db",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "ea297d1a_46f88d00",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
         "patchSetId": 3
@@ -122,6 +140,24 @@
       "writtenOn": "2019-07-12T17:39:01Z",
       "side": 1,
       "message": "You don\u0027t need to remove the trunk port ref from trunk also?",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "36df2c77_309b5fc3",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6260,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "No, its only deleting a sub port not removing a ref to parent port(aka trunk port).\nI should delete the trunk port as a part of trunk delete. I will update my review",
+      "parentUuid": "ea297d1a_46f88d00",
       "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -145,6 +181,24 @@
     },
     {
       "key": {
+        "uuid": "bdc11cce_7dac07da",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6261,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "1f7b3733_471061b9",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fa656465_7f1184ec",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
         "patchSetId": 3
@@ -159,6 +213,24 @@
       "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "34aca637_e34d34fb",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6269,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "fa656465_7f1184ec",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -196,6 +268,24 @@
     },
     {
       "key": {
+        "uuid": "5f99c6a2_14a1c130",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6287,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "ok, make sense. I saw we\u0027re doing this for some resources so added it. will remove this.",
+      "parentUuid": "d7df6189_895c1325",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "f4d8c078_2040aa81",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
         "patchSetId": 3
@@ -207,6 +297,24 @@
       "writtenOn": "2019-07-12T17:39:01Z",
       "side": 1,
       "message": "Are you sure we can delete trunk if it in use? I mean if the trunk_port is bound to a VM",
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ac784e89_ce371e4f",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6343,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "If trunk port(VMI) is bound by VM it will throw a RefexistError. I\u0027m catching it and throwing TrunkInUse neutron exception.",
+      "parentUuid": "f4d8c078_2040aa81",
       "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -233,6 +341,30 @@
       "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "547659a5_db980cf8",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 6365,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-07-12T18:43:00Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "d010b6b4_675f060a",
+      "range": {
+        "startLine": 6364,
+        "startChar": 8,
+        "endLine": 6365,
+        "endChar": 39
+      },
+      "revId": "fe7eacdb4d1b4788aaa806bfa9d6299ff1855508",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
