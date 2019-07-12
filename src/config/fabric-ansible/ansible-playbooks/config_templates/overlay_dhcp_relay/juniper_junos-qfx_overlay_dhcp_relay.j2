@@ -1,0 +1,37 @@
+{%     set irb_dict = {} %}
+{%     for pi in device_abstract_config.features.get('l3-gateway').get('physical_interfaces', []) %}
+{%         if pi.get('interface_type') == 'irb' %}
+{%             for li in pi.get('logical_interfaces', [])  %}
+{%                 set x = irb_dict.update({li.get('name'): li.get('ip_addresses')[0].get('ip')}) %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+{%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
+{%         set name = ri.get('name') %}
+{%         if ri.get('forwarding_options') %}
+set groups {{cfg_group}} routing-instances {{name}} forwarding-options dhcp-relay forward-only
+set groups {{cfg_group}} routing-instances {{name}} forwarding-options dhcp-relay forward-only-replies
+set groups {{cfg_group}} routing-instances {{name}} forwarding-options dhcp-relay overrides relay-source lo0
+{%             for dhcp_relay in ri.get('forwarding_options', {}).get('dhcp_relay', []) %}
+{%                 set comment = dhcp_relay.get('comment') %}
+{%                 set dhcp_relay_group = dhcp_relay.get('dhcp_relay_group', '') %}
+{%                 set dhcp_server_ips = dhcp_relay.get('dhcp_server_ips', []) %}
+{%                 for irb_int in ri.get('routing_interfaces', []) %}
+{%                     set irb_name = irb_int.get('name') %}
+set groups {{cfg_group}} routing-instances {{name}} forwarding-options dhcp-relay group {{dhcp_relay_group}} interface {{irb_name}}
+{%                     if not dhcp_relay.get('in_network') %}
+{%                         set irb_ip = irb_dict.get(irb_name) %}
+set routing-options static route {{irb_ip}}/32 next-table {{name}}.inet.0
+{%                     endif %}
+{%                 endfor %}
+{%                 for dhcp_ip_addr in dhcp_server_ips %}
+{%                     set dhcp_ip = dhcp_ip_addr.get('address') %}
+set groups {{cfg_group}} routing-instances {{name}} forwarding-options dhcp-relay server-group DHCP_SERVER_GROUP {{dhcp_ip}}
+{%                     if not dhcp_relay.get('in_network') %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{dhcp_ip}} next-table inet.0
+{%                     endif %}
+{%                 endfor %}
+{%             endfor %}
+set groups {{cfg_group}} routing-instances {{name}} forwarding-options dhcp-relay active-server-group DHCP_SERVER_GROUP
+{%         endif %}
+{%     endfor %}
