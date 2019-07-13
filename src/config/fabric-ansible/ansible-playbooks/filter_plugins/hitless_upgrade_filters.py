@@ -8,12 +8,14 @@
 
 import argparse
 import copy
+from collections import OrderedDict
 from datetime import timedelta
 import re
 import sys
 import traceback
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+sys.path.append("../fabric-ansible/ansible-playbooks/module_utils") # unit test
 from filter_utils import _task_error_log, FilterLog
 
 from job_manager.job_utils import JobAnnotations, JobVncApi
@@ -138,8 +140,8 @@ class FilterModule(object):
 
     # generate a table of device information
     def _generate_device_table(self):
-        device_table = {}
-        skipped_device_table = {}
+        device_table = OrderedDict()
+        skipped_device_table = OrderedDict()
         for image_entry in self.image_upgrade_list:
             image_uuid = image_entry.get('image_uuid')
             image_obj = self.vncapi.device_image_read(id=image_uuid)

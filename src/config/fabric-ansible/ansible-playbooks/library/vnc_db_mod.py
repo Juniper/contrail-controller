@@ -9,13 +9,17 @@
 #
 
 import ast
+import sys
 import time
 
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
 from inflection import camelize
+from job_manager.job_utils import JobVncApi
 import vnc_api
 
-from job_manager.job_utils import JobVncApi
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
+sys.path.append('../fabric-ansible/ansible-playbooks/module_utils') # unit test
+from fabric_utils import FabricAnsibleModule # noqa
+
 
 DOCUMENTATION = '''
 ---
