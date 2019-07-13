@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d5681148_18b0670b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_dhcp_relay/juniper_junos-qfx_overlay_dhcp_relay.j2",
+        "patchSetId": 9
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-07-13T15:42:40Z",
+      "side": 1,
+      "message": "these statements should be inside the cfg_group",
+      "range": {
+        "startLine": 29,
+        "startChar": 0,
+        "endLine": 30,
+        "endChar": 61
+      },
+      "revId": "2672bdc9138eaceb12347df2bc5e667c10ad74cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
