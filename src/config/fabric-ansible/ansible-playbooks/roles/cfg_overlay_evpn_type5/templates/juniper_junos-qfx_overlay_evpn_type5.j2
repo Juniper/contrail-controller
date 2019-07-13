@@ -3,6 +3,8 @@ set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 from
 set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 then accept
 set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 from protocol static
 set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 then accept
+set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 3 from protocol evpn
+set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 {% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
