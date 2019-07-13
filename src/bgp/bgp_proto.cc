@@ -70,11 +70,28 @@ int BgpProto::OpenMessage::ValidateCapabilities(BgpPeer *peer) const {
                 if (peer->LookupFamily(family))
                     mp_extension_ok = true;
             }
+
+            if (cap->code == Capability::AS4Support &&
+                    peer->server()->enable_4byte_as()) {
+                const uint8_t *data = cap->capability.data();
+                as_t asn = get_value(data, 4);
+                if (asn != peer->peer_as()) {
+                    BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
+                             BGP_PEER_DIR_IN, "Bad Peer AS Number: " << asn <<
+                             ", Configured peer ASN: " << peer->peer_as());
+                    return BgpProto::Notification::BadPeerAS;
+                }
+            }
         }
     }
 
-    if (!mp_extension_ok)
-        return Capability::MpExtension;
+    if (!mp_extension_ok) {
+        BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_IN, "Unsupported Capability: " <<
+                     Capability::CapabilityToString(Capability::MpExtension) <<
+                     " (" << Capability::MpExtension << ")");
+        return BgpProto::Notification::UnsupportedCapability;
+    }
 
     return 0;
 }
@@ -105,15 +122,7 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
         return BgpProto::Notification::BadPeerAS;
     }
 
-    int result = ValidateCapabilities(peer);
-    if (result != 0) {
-        BGP_LOG_PEER_WARNING(Message, peer, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_IN, "Unsupported Capability: " <<
-                     Capability::CapabilityToString(result) <<
-                     " (" << result << ")");
-        return BgpProto::Notification::UnsupportedCapability;
-    }
-    return 0;
+    return ValidateCapabilities(peer);
 }
 
 BgpProto::OpenMessage::Capability *
