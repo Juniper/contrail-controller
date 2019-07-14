@@ -176,6 +176,12 @@ class FeatureBase(object):
         return cls._is_family_configured(bgp_router.params, 'e-vpn')
     # end _is_evpn
 
+    @classmethod
+    def _is_enterprise_style(cls, physical_router):
+        if physical_router.fabric_obj:
+            return physical_router.fabric_obj.enterprise_style
+    # enf _is_enterprise_style
+
     @staticmethod
     def _get_primary_ri(vn_obj):
         for ri_id in vn_obj.routing_instances:
