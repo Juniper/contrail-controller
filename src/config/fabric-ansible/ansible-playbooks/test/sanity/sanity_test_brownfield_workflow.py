@@ -85,9 +85,6 @@ class SanityTestZtpWorkflow(SanityBase):
                         },
                         {
                             "node_profile_name": "juniper-qfx10k"
-                        },
-                        {
-                            "node_profile_name": "juniper-mx"
                         }
                     ]
                 }
