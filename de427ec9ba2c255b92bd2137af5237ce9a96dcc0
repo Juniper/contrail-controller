@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "93f7eb10_e66ee9ef",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "4ba5074e_e6ee3157",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "655d8d08_8b19f938",
         "filename": "src/vcenter-import/vcenter/client.go",
         "patchSetId": 5
@@ -53,6 +71,24 @@
     },
     {
       "key": {
+        "uuid": "1b939e4b_2269add1",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "946af75e_f3f0cfe7",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "efe544a5_4509d22f",
         "filename": "src/vcenter-import/vcenter/client.go",
         "patchSetId": 5
@@ -64,6 +100,24 @@
       "writtenOn": "2019-07-15T19:45:47Z",
       "side": 1,
       "message": "what do you want to have happen here if the destroy fails?",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e207d22_865fbfde",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "nothing, needs to happen. process is exiting.",
+      "parentUuid": "efe544a5_4509d22f",
       "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -84,6 +138,24 @@
       "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "be690a33_71bf3eaf",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "1e21fb7e_5c0aca74",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }

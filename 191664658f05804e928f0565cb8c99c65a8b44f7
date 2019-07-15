@@ -90,6 +90,24 @@
     },
     {
       "key": {
+        "uuid": "d31291ed_1f00ce51",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "485ea351_5ae5846e",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4039d9df_1b11281b",
         "filename": "src/go/cmd/vcenter/import.go",
         "patchSetId": 4
@@ -332,6 +350,24 @@
       "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f80561c4_e6ea11b4",
+        "filename": "src/go/cmd/vcenter/import.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "4d624656_c0335088",
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -647,6 +683,30 @@
       "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "62f6f292_8116049e",
+        "filename": "src/go/pkg/command/client.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 174,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-15T22:31:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "37b1138b_91fe8a47",
+      "range": {
+        "startLine": 174,
+        "startChar": 0,
+        "endLine": 174,
+        "endChar": 4
+      },
+      "revId": "191664658f05804e928f0565cb8c99c65a8b44f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
