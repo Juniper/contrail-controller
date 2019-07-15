@@ -1,0 +1,140 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "021ee6c6_5db4c2a8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 619,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "Did you wrote UT to validate that?",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2328a69c_a8215542",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_port_group.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "Don\u0027t limit the check to the first item of the list, if for any reason VMI have more that one VPG back-ref, list all of them in the error message. Also not just use the VPG name in the error message but all the FQ name and the UUID, it\u0027s more useful for troubleshooting.\nWhat about the update? Could we update the \u0027virtual_port_group_trunk_port_id\u0027? If yes, we should take care to not use a VMI already use by another trunk.\nNo UT for that?\nIMO, we should take care of the ref create/delete here in the API server and vnc_openstack code or a user just have to set \u0027virtual_port_group_trunk_port_id\u0027 VPG property",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6bdac229_c2f3dbbd",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6258,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "We don\u0027t set the segmentation type and ID on the sub-port?",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6500fa0f_3866932b",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6269,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "trunk update can contains some sub-port to add and some to remove. Not necessary only add or remove sub-port.",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d5d8c052_34399f2d",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6273,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "you don\u0027t set the trunk name in the VPG \u0027display_name\u0027 property",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6d087718_1a1c0f1f",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6285,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "Should be done in the API server IMO",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a7753b70_136fbaed",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6374,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "miss segmentation type and ID properties of the sub-port",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c90c79f2_adc65882",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1158,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-15T17:43:13Z",
+      "side": 1,
+      "message": "I think you missed the sub-port list API call https://developer.openstack.org/api-ref/network/v2/?expanded\u003dcreate-trunk-detail,delete-subports-from-trunk-detail,list-trunks-detail,list-subports-for-trunk-detail,add-subports-to-trunk-detail#list-subports-for-trunk",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
