@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4ba5074e_e6ee3157",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T19:45:47Z",
+      "side": 1,
+      "message": "This should be written as a sentence\n\n\n// ContrailCommand provides configuration data for contrail command.",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "655d8d08_8b19f938",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T19:45:47Z",
+      "side": 1,
+      "message": "vcenter",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "946af75e_f3f0cfe7",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T19:45:47Z",
+      "side": 1,
+      "message": "ESXIPort",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "efe544a5_4509d22f",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T19:45:47Z",
+      "side": 1,
+      "message": "what do you want to have happen here if the destroy fails?",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1e21fb7e_5c0aca74",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T19:45:47Z",
+      "side": 1,
+      "message": "don\u0027t print and return error",
+      "revId": "de427ec9ba2c255b92bd2137af5237ce9a96dcc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
