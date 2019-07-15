@@ -194,6 +194,30 @@
     },
     {
       "key": {
+        "uuid": "5e7e15f2_b591fa14",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T09:00:46Z",
+      "side": 1,
+      "message": "I corrected this, as per the review comments.",
+      "parentUuid": "6279e5ff_77f2d70f",
+      "range": {
+        "startLine": 68,
+        "startChar": 50,
+        "endLine": 68,
+        "endChar": 69
+      },
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "422a5d9f_23216c80",
         "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
         "patchSetId": 4
@@ -211,6 +235,24 @@
     },
     {
       "key": {
+        "uuid": "22e7e4da_5aa3a4f1",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 707,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T09:00:46Z",
+      "side": 1,
+      "message": "Have used it now. Will upload next patch set.",
+      "parentUuid": "422a5d9f_23216c80",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bff2afe3_c28ca302",
         "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
         "patchSetId": 4
@@ -225,6 +267,24 @@
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "55ade358_d6f43e9b",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 895,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T09:00:46Z",
+      "side": 1,
+      "message": "Yes. When the \u0027analytics_api_insecure_enable\u0027 is false.",
+      "parentUuid": "bff2afe3_c28ca302",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -248,6 +308,30 @@
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9733841a_a2adf4b8",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 903,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T09:00:46Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "24f1e967_c40e2df3",
+      "range": {
+        "startLine": 903,
+        "startChar": 42,
+        "endLine": 903,
+        "endChar": 61
+      },
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
