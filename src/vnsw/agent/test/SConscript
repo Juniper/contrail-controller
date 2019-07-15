@@ -97,8 +97,7 @@ test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
                                                agent_suite)
 
 test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', flaky_agent_suite)
-test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap',
-                                         flaky_agent_suite)
+test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', agent_suite)
 
 test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', flaky_agent_suite)
 test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', agent_suite)
