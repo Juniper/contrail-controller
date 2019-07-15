@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "ca88da60_a49f1154",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T08:57:54Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f9a3e854_5926b871",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "cfbc05d0_44d30ffc",
         "filename": "src/config/common/cfgm_common/analytics_client.py",
         "patchSetId": 4
@@ -33,6 +51,24 @@
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f5dfdc3d_928bb3d6",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T08:57:54Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cfbc05d0_44d30ffc",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -76,6 +112,30 @@
     },
     {
       "key": {
+        "uuid": "05d3e118_7324f4e6",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T08:57:54Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "78d9dd2a_a6c62a23",
+      "range": {
+        "startLine": 74,
+        "startChar": 69,
+        "endLine": 74,
+        "endChar": 75
+      },
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0783e1ef_5a57c89e",
         "filename": "src/config/common/cfgm_common/analytics_client.py",
         "patchSetId": 4
@@ -90,6 +150,24 @@
       "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "88623527_67d395dc",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 717
+      },
+      "writtenOn": "2019-07-15T08:57:54Z",
+      "side": 1,
+      "message": "Corrected this. self_cert does not need to be populated in the http case.",
+      "parentUuid": "0783e1ef_5a57c89e",
+      "revId": "aa7b729b53f7cd0ed5fe94b71ace9876a67a7902",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
