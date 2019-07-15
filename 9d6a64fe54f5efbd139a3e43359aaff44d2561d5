@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "735afd45_e470e8d1",
+        "filename": "src/SConscript",
+        "patchSetId": 7
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2019-07-15T23:43:26Z",
+      "side": 1,
+      "message": "not necessary for the new directory structure",
+      "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b5e2f312_5f53c099",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2019-07-15T23:43:26Z",
+      "side": 1,
+      "message": "This whole package have lot of reusable code, which can used reused by any other future go pkg similar to vcenter_import for communicating with Command Controller.\n\nSo I would suggest to move this one level up under src/.\n\nAfter moving one level up, there will be two golang pkg under src/ and this will grow in future.\nSo I would suggest to group all golang packages under  src/pkg",
+      "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "265aa967_4d4e2fb9",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2019-07-15T23:43:26Z",
+      "side": 1,
+      "message": "It is also a best practice to group all entry-points under src/cmd, so that one can find all entry-points at one place, else developer needs to go through all the packages to find out the entry-points.",
+      "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
