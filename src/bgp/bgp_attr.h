@@ -898,6 +898,7 @@ public:
     uint64_t params() const { return params_; }
     const AsPath *as_path() const { return as_path_.get(); }
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
+    int max_as_path_count() const;
     const AsPath4Byte *aspath_4byte() const { return aspath_4byte_.get(); }
     int aspath_4byte_count() const {
         return aspath_4byte_ ? aspath_4byte_->AsCount() : 0;

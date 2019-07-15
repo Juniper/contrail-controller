@@ -89,7 +89,7 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     const BgpServer *server = attr_->attr_db()->server();
     if (!server->ignore_aspath() &&
             (!attr_->origin_vn_path() || !rattr->origin_vn_path())) {
-        KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
+        KEY_COMPARE(attr_->max_as_path_count(), rattr->max_as_path_count());
     }
 
     KEY_COMPARE(attr_->origin(), rattr->origin());
@@ -112,7 +112,7 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Compare as path length for service chain paths since we bypassed the
     // check previously.
     if (attr_->origin_vn_path() && rattr->origin_vn_path())
-        KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
+        KEY_COMPARE(attr_->max_as_path_count(), rattr->max_as_path_count());
 
     // Prefer locally generated routes over bgp and xmpp routes.
     BOOL_COMPARE(peer_ == NULL, rhs.peer_ == NULL);
