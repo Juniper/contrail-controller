@@ -1,0 +1,243 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "77be70d2_79f75ad5",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "for all types which are accessible by users should be exported",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dc8c61c6_6f12404d",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "Why isn\u0027t Nodes []Node ?",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b56821ea_72f76d55",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "why isn\u0027t Ports []Port\n\nwhere\n\n\nPort \u003d\u003d PortData\n\nthe fact that some of the fields aren\u0027t present doesn\u0027t hurt anything",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "596d9de8_2321f56d",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "fix sentence",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "725ec899_e0b6cff0",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "New(CCHost, username, password, clusterID, clusterToken string) (*ContrailCommand) {\n  return \u0026ContrailCommand{\n     AuthHost: CCHost,\n ....\n  }",
+      "range": {
+        "startLine": 166,
+        "startChar": 0,
+        "endLine": 166,
+        "endChar": 1
+      },
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "077013e8_873d4d35",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 169,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "remove the Get",
+      "range": {
+        "startLine": 169,
+        "startChar": 0,
+        "endLine": 169,
+        "endChar": 30
+      },
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "103b6da2_a4c86842",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "func (cc ContrailCommand) ....",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "10bd2656_ac5425b0",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 196,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "cc.AuthToken \u003d resp.Header.Get(\"X-Subject-Token\")\nreturn cc.AuthToken, nil\n\nyou should probably check to see if the token is not \"\" or it isn\u0027t really much of a token\n\nin your current form you could cause a panic if the key is not found or the array is 0",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "81f75f31_455a9208",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "Remove Get",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3fd3b60d_0fadf73d",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 239,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "this seems like something you should be handling in this cl\n\n\nswitch resp.StatusCode {\ndefault:\n  return \"\", fmt.Errorf(\"...\")\ncase 200,201:\n}",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c952a5ab_38824c70",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 246,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "since these basically do the same thing why not\n\nfunc (cc ContrailCommand) getToken(authData json.Marshalable) (string, error) {\n  b, err :\u003d json.Marshal(authData)\n  if err !\u003d nil {\n    return \"\", fmt.Errorf(\"failed to marshal: %v\", authData)\n  }\n  resp, _, err :\u003d ccData.sendRequest(ccData.AuthPath, string(jsonData), \"POST\")\n  if err !\u003d nil {\n    return \"\", err\n  }\n  switch resp.StatusCode {\n  default:\n    return \"\", fmt.Errorf(\"...\")\n  case 200,201:\n  }\n  token :\u003d resp.Header.Get(\"X-Subject-Token\")\n  if token \u003d\u003d \"\"\n    return \"\", fmt.Errorf(\"failed to get token from resp: %v\", resp.Header)\n  }\n  return token, nil\n}",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bcf7ea28_1eda38b6",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 286,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "move ccNodes to loop where it is used",
+      "range": {
+        "startLine": 286,
+        "startChar": 0,
+        "endLine": 286,
+        "endChar": 31
+      },
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6d54eccb_8e2f30ef",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 293,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-15T22:31:19Z",
+      "side": 1,
+      "message": "ccPorts :\u003d map[string]CCPort{}",
+      "revId": "66901b081f85a54419fb02e5dd97038a89b289ca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
