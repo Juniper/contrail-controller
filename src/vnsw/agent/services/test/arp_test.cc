@@ -398,6 +398,7 @@ TEST_F(ArpTest, ArpTunnelTest) {
 }
 
 TEST_F(ArpTest, ArpTunnelNoRequestTest) {
+    TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
     // Send Arp reply first to check that entry is created
     SendArpReply(reply_ifindex, 0, src_ip, dest_ip);
     WaitForCompletion(2);
@@ -405,7 +406,7 @@ TEST_F(ArpTest, ArpTunnelNoRequestTest) {
     EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->fabric_vrf_name()));
     // TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
     // WaitForCompletion(2);
-    // TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
+    TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
     client->WaitForIdle();
     SendArpMessage(ArpProto::AGING_TIMER_EXPIRED, dest_ip);
     usleep(175000);
@@ -448,7 +449,6 @@ TEST_F(ArpTest, ArpErrorTest) {
 
 TEST_F(ArpTest, ArpVrfDeleteTest) {
     Agent *agent = Agent::GetInstance();
-    agent->set_fabric_vrf_name("vrf1");
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
     };
@@ -459,10 +459,10 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
     usleep(1000);
     client->WaitForIdle();
 
-    SendArpReq(3, 1, src_ip, target_ip);
-    SendArpReply(3, 1, src_ip, target_ip);
-    SendArpReq(3, 1, src_ip, target_ip+5);
-    SendArpReply(3, 1, src_ip, target_ip+5);
+    SendArpReq(3, 2, src_ip, target_ip);
+    SendArpReply(3, 2, src_ip, target_ip);
+    SendArpReq(3, 2, src_ip, target_ip+5);
+    SendArpReply(3, 2, src_ip, target_ip+5);
     WaitForCompletion(3);
     EXPECT_TRUE(FindArpNHEntry(target_ip, "vrf1"));
     EXPECT_TRUE(FindArpRoute(target_ip, "vrf1"));
@@ -476,7 +476,6 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
 
     EXPECT_FALSE(FindArpRoute(target_ip, "vrf1"));
     EXPECT_FALSE(FindArpRoute(target_ip+5, "vrf1"));
-    agent->set_fabric_vrf_name("default-domain:default-project:ip-fabric:__default__");
 }
 
 #if 0
@@ -1132,7 +1131,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface) {
     WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_garp_req == 8));
 
     EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", mac, ip,
-                                   32, NULL);
+                                   32, 0, NULL);
 
     client->WaitForIdle();
     DelIPAM("vn1", "vdns1");
