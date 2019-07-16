@@ -787,6 +787,24 @@
     },
     {
       "key": {
+        "uuid": "cc7fb01d_24244b6f",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 707,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a5041912_f884f59f",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b0ebb3c4_b068cab9",
         "filename": "src/vnsw/agent/init/agent_param.cc",
         "patchSetId": 16
@@ -801,6 +819,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f7a56021_7221a99e",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 1058,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "b0ebb3c4_b068cab9",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -821,6 +857,24 @@
     },
     {
       "key": {
+        "uuid": "5934ce40_b08c9ea8",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 1713,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1f69dc4a_89e4c37b",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a8707d31_a0cc338a",
         "filename": "src/vnsw/agent/init/agent_param.cc",
         "patchSetId": 16
@@ -832,6 +886,24 @@
       "writtenOn": "2019-07-16T01:42:15Z",
       "side": 1,
       "message": "isn\u0027t there an unit test already for command line options ? I don\u0027t new UT added for the same.",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "01e1c789_0f5c55b8",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 2000,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "did not add any unit test for these options yet",
+      "parentUuid": "a8707d31_a0cc338a",
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -855,6 +927,24 @@
     },
     {
       "key": {
+        "uuid": "bc8919d3_d57cdd6d",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 2002,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "35d9c3c4_a465f760",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b8eb3d4e_1467371b",
         "filename": "src/vnsw/agent/init/agent_param.h",
         "patchSetId": 16
@@ -869,6 +959,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ffdb3570_15f3a7ef",
+        "filename": "src/vnsw/agent/init/agent_param.h",
+        "patchSetId": 16
+      },
+      "lineNbr": 560,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "b8eb3d4e_1467371b",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -906,6 +1014,24 @@
     },
     {
       "key": {
+        "uuid": "a6f4436d_001d0a78",
+        "filename": "src/vnsw/agent/init/contrail_init_common.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "removed unnecessary comment in code. It was in reply to your previous comment of using ksync_enable \u003d !agent()-\u003eparams-\u003eatf_is_dpdk_mocked()",
+      "parentUuid": "4e673676_46e7e369",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "18837bcc_0a56b5ea",
         "filename": "src/vnsw/agent/init/contrail_init_common.h",
         "patchSetId": 16
@@ -923,6 +1049,24 @@
     },
     {
       "key": {
+        "uuid": "5cbc62ba_361f1168",
+        "filename": "src/vnsw/agent/init/contrail_init_common.h",
+        "patchSetId": 16
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "removed comment",
+      "parentUuid": "18837bcc_0a56b5ea",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "7c738b8a_eac59fdf",
         "filename": "src/vnsw/agent/init/contrail_init_common.h",
         "patchSetId": 16
@@ -934,6 +1078,24 @@
       "writtenOn": "2019-07-16T01:42:15Z",
       "side": 1,
       "message": "if this is the case, please add an assert accordingly",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "98e05a58_e11bae3f",
+        "filename": "src/vnsw/agent/init/contrail_init_common.h",
+        "patchSetId": 16
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "removed comment. The issue will be if someone calls ksync_enable before agent_param is initialized (which will need to be used in the assert).. we can check if it is null or not and then use it",
+      "parentUuid": "7c738b8a_eac59fdf",
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -957,6 +1119,24 @@
     },
     {
       "key": {
+        "uuid": "439c84fa_befd84d3",
+        "filename": "src/vnsw/agent/oper/instance_manager.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 141,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4dcaee61_efcd516c",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "964cab95_8d5539c5",
         "filename": "src/vnsw/agent/oper/instance_manager.cc",
         "patchSetId": 16
@@ -971,6 +1151,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45bd9bff_68a0b97e",
+        "filename": "src/vnsw/agent/oper/instance_manager.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 143,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "964cab95_8d5539c5",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -991,6 +1189,24 @@
     },
     {
       "key": {
+        "uuid": "b5a70e10_7a844600",
+        "filename": "src/vnsw/agent/vrouter/ksync/ksync_memory.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 219,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "removed spaces",
+      "parentUuid": "8df6643d_7c21751a",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "519d5ff7_d7d29adf",
         "filename": "src/vnsw/agent/vrouter/stats_collector/agent_stats_collector.cc",
         "patchSetId": 16
@@ -1005,6 +1221,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "56f174ed_bb56919d",
+        "filename": "src/vnsw/agent/vrouter/stats_collector/agent_stats_collector.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:53:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "519d5ff7_d7d29adf",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
