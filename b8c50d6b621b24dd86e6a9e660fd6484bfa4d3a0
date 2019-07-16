@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "de1380a5_b219a62b",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 16
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f957fcad_72f508b8",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ca9c375d_9c39d9b4",
         "filename": "src/ksync/ksync_sock_uds.cc",
         "patchSetId": 16
@@ -47,6 +65,24 @@
       "writtenOn": "2019-07-16T01:42:15Z",
       "side": 1,
       "message": "indentation not right. Also please place \"\u0026\" next to variable such as const std::string \u0026sockpathvr",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d811667d_47665a7c",
+        "filename": "src/ksync/ksync_sock_uds.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 143,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "moved the \u0026.",
+      "parentUuid": "ca9c375d_9c39d9b4",
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "e72e9dc7_d02814c4",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d6c58501_776bfdfe",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6fcbefe0_f3bd777d",
         "filename": "src/vnsw/agent/cmn/agent.cc",
         "patchSetId": 16
@@ -84,6 +138,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0553b277_a03b6edf",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 109,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6fcbefe0_f3bd777d",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -104,6 +176,24 @@
     },
     {
       "key": {
+        "uuid": "c99bce2d_f3756d06",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 156,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "00534948_14150653",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3b425677_dd78aa61",
         "filename": "src/vnsw/agent/cmn/agent.cc",
         "patchSetId": 16
@@ -118,6 +208,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "81b01b0d_b3a3419d",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 578,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "3b425677_dd78aa61",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -138,6 +246,24 @@
     },
     {
       "key": {
+        "uuid": "50751479_a38f29f9",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 580,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "284159f5_13cd0ef4",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1d6f8ade_0139822a",
         "filename": "src/vnsw/agent/cmn/agent.cc",
         "patchSetId": 16
@@ -152,6 +278,24 @@
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b28f525f_1b158dd6",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 582,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1d6f8ade_0139822a",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -183,6 +327,24 @@
       "writtenOn": "2019-07-16T01:42:15Z",
       "side": 1,
       "message": "what is the difference between above two statements ?",
+      "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb31b94f_0ef6f5f6",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 16
+      },
+      "lineNbr": 589,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-16T20:33:20Z",
+      "side": 1,
+      "message": "removed",
+      "parentUuid": "9e6800e6_3133a3e7",
       "revId": "b8c50d6b621b24dd86e6a9e660fd6484bfa4d3a0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
