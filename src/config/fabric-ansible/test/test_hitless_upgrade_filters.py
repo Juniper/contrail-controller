@@ -1602,11 +1602,12 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
             attr_obj = VpgInterfaceParametersType(ae_num=1)
             vpg = mock_virtual_port_group_db[id]
             vpg_obj = VirtualPortGroup(
-                name=vpg['name']
+                name=vpg['name'],
+                fq_name=vpg['fq_name'],
+                parent_type='fabric',
+                parent_uuid=FAB_UUID1
             )
-            vpg_obj.parent_uuid = FAB_UUID1
             vpg_obj.uuid = id
-            vpg_obj.fq_name = vpg['fq_name']
             self._vnc_lib.virtual_port_group_create(vpg_obj)
 
             for ref in vpg['refs']:
