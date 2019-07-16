@@ -89,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "59fee52d_d5500105",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2019-07-16T22:26:58Z",
+      "side": 1,
+      "message": "@Marcus Hines \n\nAs I mentioned this client code can be reused in future.  If this reusable code is under vcenter_import, future developer will not be aware of the reusable code available under vcenter_import and he/she will rewrite it.\n\nSo I suggest to separate out this reusable code and keep it a level above vcenter_import directory",
+      "parentUuid": "9cdc4cf6_587f47ef",
+      "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "265aa967_4d4e2fb9",
         "filename": "src/vcenter-import/main.go",
         "patchSetId": 7
