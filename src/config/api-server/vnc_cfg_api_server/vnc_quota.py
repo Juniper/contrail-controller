@@ -22,6 +22,14 @@ class QuotaHelper(object):
             return False, (404, str(e))
 
     @classmethod
+    def get_quota_limits(cls, project):
+        quota_limits = {}
+        quota_project = project.get('quota') or {}
+        for obj_type in quota_project.keys():
+            quota_limits[obj_type] = cls.get_quota_limit(project, obj_type)
+        return quota_limits
+
+    @classmethod
     def get_quota_limit(cls, proj_dict, obj_type):
         quota = proj_dict.get('quota') or cls.default_quota
         quota_limit = quota.get(obj_type)
@@ -175,19 +183,16 @@ class QuotaHelper(object):
     def update_zk_counter_helper(cls, path_prefix, quota_dict, proj_id,
                                  db_conn, quota_counter):
         new_quota_dict = {}
-        for (obj_type, quota) in quota_dict.iteritems():
+        for (obj_type, quota) in cls.get_quota_limits(quota_dict).iteritems():
             path = path_prefix + "/" + obj_type
             if path in quota_counter:
-                if ((quota == -1 or quota is None) and
-                                    db_conn._zk_db.quota_counter_exists(path)):
-                    db_conn._zk_db.delete_quota_counter(path)
-                    try:
-                        del quota_counter[path]
-                    except KeyError:
-                        # Ignore as the counter might be freed
-                        # by deb_update_notification
-                        pass
+                if quota in [-1, None]:
+                    if db_conn._zk_db.quota_counter_exists(path):
+                        db_conn._zk_db.delete_quota_counter(path)
+                    quota_counter.pop(path, None)
                 else:
+                    #TODO(ethuleau): we need to check the now quota limit was
+                    #                not already exceeded
                     quota_counter[path].max_count = quota
             else:
                 # dbe_update_notification might have freed the counter,
