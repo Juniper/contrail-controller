@@ -8,6 +8,7 @@
 #include "bgp/bgp_update.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
 
 using namespace std;
@@ -26,6 +27,10 @@ public:
         attr_spec.push_back(&nexthop);
         BgpAttrLabelBlock label_block(label_block_);
         attr_spec.push_back(&label_block);
+        ExtCommunitySpec ext;
+        TunnelEncap tunnel(TunnelEncapType::GRE);
+        ext.communities.push_back(tunnel.GetExtCommunityValue());
+        attr_spec.push_back(&ext);
         attr = server_->attr_db()->Locate(attr_spec);
     }
     virtual ~XmppPeerMock() { }
@@ -171,6 +176,37 @@ protected:
             XmppPeerMock *peer = new XmppPeerMock(&server_, repr.str());
             peers_.push_back(peer);
         }
+    }
+
+    void VerifyRoute(ErmVpnTable *table, string group_str, string source_str) {
+        boost::system::error_code ec;
+        Ip4Address group = Ip4Address::from_string(group_str.c_str(), ec);
+        Ip4Address source = Ip4Address::from_string(source_str.c_str(), ec);
+
+        ErmVpnPrefix prefix(ErmVpnPrefix::LocalTreeRoute,
+                            RouteDistinguisher::kZeroRd, group, source);
+        ErmVpnTable::RequestKey key(prefix, NULL);
+        ErmVpnRoute *rt = dynamic_cast<ErmVpnRoute *>(table->Find(&key));
+        TASK_UTIL_EXPECT_TRUE(rt != NULL);
+        const BgpAttr* attr = rt->BestPath()->GetAttr();
+        TASK_UTIL_EXPECT_TRUE(attr != NULL);
+        TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
+        std::vector<string> encaps = attr->ext_community()->GetTunnelEncap();
+        TASK_UTIL_EXPECT_TRUE(encaps.size() != 0);
+        ErmVpnPrefix prefix2(ErmVpnPrefix::GlobalTreeRoute,
+                            RouteDistinguisher::kZeroRd, group, source);
+        ErmVpnTable::RequestKey key2(prefix2, NULL);
+        rt = dynamic_cast<ErmVpnRoute *>(table->Find(&key2));
+        TASK_UTIL_EXPECT_TRUE(rt != NULL);
+        attr = rt->BestPath()->GetAttr();
+        TASK_UTIL_EXPECT_TRUE(attr != NULL);
+        TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
+        encaps = attr->ext_community()->GetTunnelEncap();
+        TASK_UTIL_EXPECT_TRUE(encaps.size() != 0);
+    }
+
+    void VerifyRoute(ErmVpnTable *table, string group_str) {
+        VerifyRoute(table, group_str, "0.0.0.0");
     }
 
     void AddRoutePeers(ErmVpnTable *table,
@@ -378,6 +414,7 @@ TEST_F(BgpMulticastTest, Basic) {
     VerifyRouteCount(red_table_, 4);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", 2);
+    VerifyRoute(red_table_, "192.168.1.255");
 
     peers_[0]->DelRoute(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
@@ -398,6 +435,7 @@ TEST_F(BgpMulticastTest, SingleGroup) {
     VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
+    VerifyRoute(red_table_, "192.168.1.255");
 
     DelRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
@@ -421,6 +459,7 @@ TEST_F(BgpMulticastTest, SingleGroupDuplicateAdd) {
     VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
+    VerifyRoute(red_table_, "192.168.1.255");
 
     AddRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
@@ -524,6 +563,9 @@ TEST_F(BgpMulticastTest, MultipleGroup) {
     VerifyForwarderCount(red_tm_, "192.168.1.253", kPeerCount);
     VerifyForwarderCount(red_tm_, "192.168.1.254", kPeerCount);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
+    VerifyRoute(red_table_, "192.168.1.253");
+    VerifyRoute(red_table_, "192.168.1.254");
+    VerifyRoute(red_table_, "192.168.1.255");
 
     DelRouteAllPeers(red_table_, "192.168.1.253");
     DelRouteAllPeers(red_table_, "192.168.1.254");

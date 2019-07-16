@@ -140,6 +140,7 @@ public:
     explicit ExtCommunitySpec(const BgpAttribute &rhs) : BgpAttribute(rhs) { }
     virtual size_t EncodeLength() const;
     std::vector<uint64_t> communities;
+    void AddTunnelEncaps(std::vector<std::string> encaps);
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
