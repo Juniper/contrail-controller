@@ -176,5 +176,53 @@
             "contrail-control",
             "contrail-vrouter"
          ]
+    },
+    "default_cplusplus" : {
+        "source_directories" : [ ],
+        "scons_test_targets" : [
+          "controller/src/agent:test",
+          "controller/src/bfd:test",
+          "controller/src/bgp:test",
+          "controller/src/control-node:test",
+          "controller/src/db:test",
+          "controller/src/dns:test",
+          "controller/src/ifmap:test",
+          "controller/src/net:test",
+          "controller/src/xmpp:test",
+          "controller/src/ksync:test",
+          "src/contrail-analytics/contrail-collector:test",
+          "src/contrail-analytics/contrail-query-engine:test",
+          "src/contrail-common/base:test",
+          "src/contrail-common/io:test",
+          "src/contrail-common/database/gendb:test",
+          "sandesh:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+    "default" : {
+        "source_directories" : [ ],
+        "scons_test_targets" : [
+          "controller/src/agent:test",
+          "controller/src/bfd:test",
+          "controller/src/bgp:test",
+          "controller/src/control-node:test",
+          "controller/src/db:test",
+          "controller/src/dns:test",
+          "controller/src/ifmap:test",
+          "controller/src/net:test",
+          "controller/src/xmpp:test",
+          "src/contrail-api-client/api-lib:test",
+          "controller/src/config/api-server:test",
+          "controller/src/config/fabric-ansible:test",
+          "controller/src/config/schema-transformer:test",
+          "controller/src/ksync:test",
+          "src/contrail-common/database/gendb:test",
+          "src/contrail-analytics/contrail-collector:test",
+          "src/contrail-analytics/contrail-opserver:test",
+          "src/contrail-analytics/contrail-query-engine:test",
+          "src/contrail-api-client/schema:test",
+          "src/contrail-analytics/contrail-topology:test"
+        ],
+        "misc_test_targets" : [ ]
     }
 }
