@@ -18,6 +18,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routing_instance_analytics_types.h"
 #include "bgp/routing-instance/routing_instance_log.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 
 using std::string;
 using std::vector;
@@ -251,6 +252,15 @@ void McastForwarder::AddGlobalTreeRoute() {
         efspec.edge_list.push_back(edge);
     }
     attr_spec.push_back(&efspec);
+    // Add tunnel encaps for remote nodes
+    ExtCommunitySpec ext;
+    for (std::vector<string>::size_type i = 0; i < encap_.size(); i++) {
+        std::string encap_str = encap_[i];
+        TunnelEncap tun_encap(encap_str);
+        ext.communities.push_back(tun_encap.GetExtCommunityValue());
+    }
+    if (!ext.communities.empty())
+        attr_spec.push_back(&ext);
     BgpAttrPtr attr = server->attr_db()->Locate(attr_spec);
 
     // Add a path with source BgpPath::Local.
@@ -312,6 +322,10 @@ void McastForwarder::AddGlobalOListElems(BgpOListSpec *olist_spec) {
     const BgpPath *path = route->BestPath();
     if (!path)
         return;
+    const BgpAttr *attr = path->GetAttr();
+    vector<string> encaps;
+    if (attr && attr->ext_community())
+        encaps = attr->ext_community()->GetTunnelEncap();
 
     // Go through each forwarding edge and add it to the list.
     const EdgeForwarding *eforwarding = path->GetAttr()->edge_forwarding();
@@ -320,7 +334,8 @@ void McastForwarder::AddGlobalOListElems(BgpOListSpec *olist_spec) {
          ++it) {
         const EdgeForwarding::Edge *edge = *it;
         if (edge->inbound_address == address_) {
-            BgpOListElem elem(edge->outbound_address, edge->outbound_label);
+            BgpOListElem elem(edge->outbound_address, edge->outbound_label,
+                              encaps);
             olist_spec->elements.push_back(elem);
         }
     }
@@ -514,6 +529,16 @@ void McastSGEntry::AddLocalTreeRoute() {
         edspec.edge_list.push_back(edge);
     }
     attr_spec.push_back(&edspec);
+    // Add tunnel encaps for remote nodes
+    ExtCommunitySpec ext;
+    for (std::vector<string>::size_type i = 0; i <
+                             forest_node_->encap().size(); i++) {
+        std::string encap_str = forest_node_->encap()[i];
+        TunnelEncap tun_encap(encap_str);
+        ext.communities.push_back(tun_encap.GetExtCommunityValue());
+    }
+    if (!ext.communities.empty())
+        attr_spec.push_back(&ext);
     BgpAttrPtr attr = server->attr_db()->Locate(attr_spec);
 
     // Add a path with source BgpPath::Local.
