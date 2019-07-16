@@ -588,7 +588,20 @@ class TestBasic(test_case.NeutronBackendTestCase):
     def test_empty_list_for_allowed_address(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         port_q = self._create_port_with_no_sg(proj_obj.uuid)
-	self.assertTrue(port_q['allowed_address_pairs'] is not None)
+        self.assertTrue(port_q['allowed_address_pairs'] is not None)
+
+    def test_allowed_address_with_wrong_format(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        net_q = self.create_resource('network', proj_id)
+        subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
+        with ExpectedException(webtest.app.AppError):
+            self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'],
+                                                                    'port_security_enabled': False,
+                                                                    "virtual_machine_interface_allowed_address_pairs":
+                                                                        {"allowed_address_pair": [{"ip": {"ip_prefix": "fd00:2600::300:7 ",
+                                                                                                          "ip_prefix_len": 128},
+                                                                                                          "mac": None,
+                                                                                                          "address_mode": "active-active"}]}})
 
     def test_update_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
