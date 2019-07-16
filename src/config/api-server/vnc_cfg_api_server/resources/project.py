@@ -164,7 +164,8 @@ class ProjectServer(ResourceMixin, Project):
             return False, result
         proj_dict = result
 
-        for obj_type, quota_limit in proj_dict.get('quota', {}).items():
+        quota_limits = QuotaHelper.get_quota_limits(proj_dict)
+        for obj_type, quota_limit in quota_limits.items():
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_id
             path = path_prefix + "/" + obj_type
             if (quota_counter.get(path) and (quota_limit == -1 or
