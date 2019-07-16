@@ -824,6 +824,14 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             address_pairs = db_dict.get(
                             'virtual_machine_interface_allowed_address_pairs')
 
+        #Validate the format of allowed_address_pair
+        if address_pairs:
+            for aap in address_pairs.get('allowed_address_pair', {}):
+                try:
+                    IPAddress(aap.get('ip').get('ip_prefix'))
+                except netaddr.core.AddrFormatError as e:
+                    return (False, (400, str(e)))
+
         if not port_security and address_pairs:
             msg = "Allowed address pairs are not allowed when port "\
                   "security is disabled"
