@@ -907,3 +907,104 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # remove the in-memory map entry for that project subnet counter
         quota_counters.pop(subnet_counter_path)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+
+class TestDefaultQuota(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestDefaultQuota, cls).setUpClass(
+            extra_config_knobs=[('QUOTA', 'virtual_network', 1)])
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestDefaultQuota, cls).tearDownClass(*args, **kwargs)
+
+    def test_default_quota_is_used_if_not_set_in_project(self):
+        project = Project('project-%s' % self.id())
+        project.set_quota(QuotaType(virtual_network=None))
+        self._vnc_lib.project_create(project)
+
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn1)
+        vn_counter_path = '%s%s/virtual_network' % (
+            _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 1)
+
+        vn2 = VirtualNetwork('vn2-%s' % self.id(), project)
+        self.assertRaises(OverQuota, self._vnc_lib.virtual_network_create, vn2)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 1)
+
+        project = self._vnc_lib.project_read(id=project.uuid)
+        project_id_perms = project.get_id_perms()
+        project_id_perms.set_description('test updating project')
+        project.set_id_perms(project_id_perms)
+        self._vnc_lib.project_update(project)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 1)
+
+    def test_default_quota_is_used_if_not_set_in_project_after_update(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), project)
+        self._vnc_lib.virtual_network_create(vn1)
+        vn_counter_path = '%s%s/virtual_network' % (
+            _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 1)
+
+        vn2 = VirtualNetwork('vn2-%s' % self.id(), project)
+        self.assertRaises(OverQuota, self._vnc_lib.virtual_network_create, vn2)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 1)
+
+        project = self._vnc_lib.project_read(id=project.uuid)
+        project.set_quota(QuotaType(virtual_network=None))
+        self._vnc_lib.project_update(project)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 1)
+
+    def test_default_quota_is_correctly_initialized(self):
+        project = Project('project-%s' % self.id())
+        project.set_quota(QuotaType(virtual_network=None))
+        self._vnc_lib.project_create(project)
+
+        vn_counter_path = '%s%s/virtual_network' % (
+            _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 0)
+
+    def test_default_quota_is_correctly_reinitialized_when_api_restarted(self):
+        project = Project('project-%s' % self.id())
+        project.set_quota(QuotaType(virtual_network=None))
+        self._vnc_lib.project_create(project)
+
+        # simulate API server restart
+        self._server_info['api_server'].quota_counter = {}
+        self._server_info['api_server']._initialize_quota_counters()
+        vn_counter_path = '%s%s/virtual_network' % (
+            _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        vn_counter = self._server_info['api_server'].quota_counter[
+            vn_counter_path]
+        self.assertEqual(vn_counter.max_count, 1)
+        self.assertEqual(vn_counter.value, 0)
