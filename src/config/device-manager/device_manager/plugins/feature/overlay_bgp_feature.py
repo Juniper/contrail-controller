@@ -2,15 +2,15 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of abstract config generation for overlay bgp feature
-"""
+"""Overlay Bgp Feature Implementation."""
 
-import db
-from abstract_device_api.abstract_device_xsd import *
 from collections import OrderedDict
+
+from abstract_device_api.abstract_device_xsd import *
+import db
 from dm_utils import DMUtils
 from feature_base import FeatureBase
+
 
 class OverlayBgpFeature(FeatureBase):
 
@@ -20,7 +20,8 @@ class OverlayBgpFeature(FeatureBase):
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
-        super(OverlayBgpFeature, self).__init__(logger, physical_router, configs)
+        super(OverlayBgpFeature, self).__init__(logger, physical_router,
+                                                configs)
     # end __init__
 
     def _is_valid(self, bgp):
@@ -28,8 +29,8 @@ class OverlayBgpFeature(FeatureBase):
     # end _is_valid
 
     def _get_asn(self, bgp):
-        return bgp.params.get('local_autonomous_system') or \
-               bgp.params.get('autonomous_system')
+        return (bgp.params.get('local_autonomous_system') or
+                bgp.params.get('autonomous_system'))
     # end _get_asn
 
     def _add_families(self, config, params):
@@ -65,7 +66,8 @@ class OverlayBgpFeature(FeatureBase):
         if cluster_id:
             config.set_cluster_id(cluster_id)
 
-        config.set_name(DMUtils.make_bgp_group_name(self._get_asn(bgp), external))
+        config.set_name(DMUtils.make_bgp_group_name(self._get_asn(bgp),
+                                                    external))
         config.set_type('external' if external else 'internal')
 
         config.set_ip_address(bgp.params['address'])
@@ -134,7 +136,8 @@ class OverlayBgpFeature(FeatureBase):
             feature_config.add_bgp(ebgp)
     # end _build_bgp_config
 
-    def _add_dynamic_tunnels(self, feature_config, tunnel_source_ip, ip_fabric_subnets):
+    def _add_dynamic_tunnels(self, feature_config, tunnel_source_ip,
+                             ip_fabric_subnets):
         feature_config.set_tunnel_ip(tunnel_source_ip)
         if not ip_fabric_subnets:
             return
@@ -147,10 +150,12 @@ class OverlayBgpFeature(FeatureBase):
     def _build_dynamic_tunnels_config(self, feature_config):
         bgp_router = db.BgpRouterDM.get(self._physical_router.bgp_router)
         tunnel_ip = self._physical_router.dataplane_ip or \
-            (bgp_router.params.get('address') if self._is_valid(bgp_router) else None)
+            (bgp_router.params.get('address')
+                if self._is_valid(bgp_router) else None)
         if tunnel_ip and self._physical_router.is_valid_ip(tunnel_ip):
-            self._add_dynamic_tunnels(feature_config, tunnel_ip,
-                                      db.GlobalSystemConfigDM.ip_fabric_subnets)
+            self._add_dynamic_tunnels(
+                feature_config, tunnel_ip,
+                db.GlobalSystemConfigDM.ip_fabric_subnets)
     # end _build_dynamic_tunnels_config
 
     def feature_config(self, **kwargs):

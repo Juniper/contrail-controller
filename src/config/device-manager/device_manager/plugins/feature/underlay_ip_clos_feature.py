@@ -2,15 +2,15 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of abstract config generation for overlay bgp feature
-"""
+"""Underlay IP CLOS Feature Implementation."""
 
-import db
-from abstract_device_api.abstract_device_xsd import *
 from collections import OrderedDict
+
+from abstract_device_api.abstract_device_xsd import *
+import db
 from dm_utils import DMUtils
 from feature_base import FeatureBase
+
 
 class UnderlayIpClosFeature(FeatureBase):
 
@@ -20,7 +20,8 @@ class UnderlayIpClosFeature(FeatureBase):
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
-        super(UnderlayIpClosFeature, self).__init__(logger, physical_router, configs)
+        super(UnderlayIpClosFeature, self).__init__(
+            logger, physical_router, configs)
     # end __init__
 
     def _fetch_pi_li_iip(self, physical_interfaces):
@@ -33,13 +34,14 @@ class UnderlayIpClosFeature(FeatureBase):
                 for li_uuid in pi_obj.logical_interfaces:
                     li_obj = db.LogicalInterfaceDM.get(li_uuid)
                     if li_obj is None:
-                        self._logger.error("unable to read logical interface %s"
-                                           % li_uuid)
+                        self._logger.error(
+                            "unable to read logical interface %s" % li_uuid)
                     elif li_obj.instance_ip is not None:
                         iip_obj = db.InstanceIpDM.get(li_obj.instance_ip)
                         if iip_obj is None:
-                            self._logger.error("unable to read instance ip %s" %
-                                               li_obj.instance_ip)
+                            self._logger.error(
+                                "unable to read instance ip %s" %
+                                li_obj.instance_ip)
                         else:
                             yield pi_obj, li_obj, iip_obj
     # end _fetch_pi_li_iip
@@ -55,7 +57,8 @@ class UnderlayIpClosFeature(FeatureBase):
         for pi_obj, li_obj, iip_obj in self.\
                 _fetch_pi_li_iip(self._physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
-                pi, li_map = self._add_or_lookup_pi(pi_map, pi_obj.name, 'regular')
+                pi, li_map = self._add_or_lookup_pi(
+                    pi_map, pi_obj.name, 'regular')
 
                 li = self._add_or_lookup_li(li_map, li_obj.name,
                                             int(li_obj.name.split('.')[-1]))
@@ -67,8 +70,8 @@ class UnderlayIpClosFeature(FeatureBase):
                                                           pi_obj.uuid))
                 # Add this bgp object only if it has a peer
                 underlay_asn = self._physical_router.allocated_asn
-                bgp_name = DMUtils.make_underlay_bgp_group_name(underlay_asn,
-                    li_obj.name, is_external=True)
+                bgp_name = DMUtils.make_underlay_bgp_group_name(
+                    underlay_asn, li_obj.name, is_external=True)
                 bgp = Bgp(name=bgp_name,
                           ip_address=iip_obj.instance_ip_address,
                           autonomous_system=underlay_asn,
@@ -91,9 +94,10 @@ class UnderlayIpClosFeature(FeatureBase):
                                 "peer physical router %s does not have"
                                 " asn allocated" % peer_pi_obj.physical_router)
                         elif peer_pr != self._physical_router:
-                            peer = Bgp(name=peer_pr.name,
-                                       ip_address=peer_iip_obj.instance_ip_address,
-                                       autonomous_system=peer_pr.allocated_asn)
+                            peer = Bgp(
+                                name=peer_pr.name,
+                                ip_address=peer_iip_obj.instance_ip_address,
+                                autonomous_system=peer_pr.allocated_asn)
                             peers[peer_pr.name] = peer
 
                 if peers:

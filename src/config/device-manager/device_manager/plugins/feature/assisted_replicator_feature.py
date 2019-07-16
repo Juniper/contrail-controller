@@ -2,12 +2,11 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of abstract config generation for overlay bgp feature
-"""
+"""Assisted Replicator Feature Implementation."""
 
 from abstract_device_api.abstract_device_xsd import *
 from feature_base import FeatureBase
+
 
 class AssistedReplicatorFeature(FeatureBase):
 
@@ -17,7 +16,8 @@ class AssistedReplicatorFeature(FeatureBase):
     # end feature_name
 
     def __init__(self, logger, physical_router, configs):
-        super(AssistedReplicatorFeature, self).__init__(logger, physical_router, configs)
+        super(AssistedReplicatorFeature, self).__init__(
+            logger, physical_router, configs)
     # end __init__
 
     def _build_ar_config(self, feature_config):
@@ -27,8 +27,9 @@ class AssistedReplicatorFeature(FeatureBase):
                 rep_act_delay = c.additional_params.replicator_activation_delay
                 break
 
-        ar = AssistedReplicator(ar_loopback_ip=self._physical_router.replicator_ip,
-                                replicator_activation_delay=rep_act_delay)
+        ar = AssistedReplicator(
+            ar_loopback_ip=self._physical_router.replicator_ip,
+            replicator_activation_delay=rep_act_delay)
 
         feature_config.set_assisted_replicator(ar)
 
