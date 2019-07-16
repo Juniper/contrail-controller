@@ -53,6 +53,24 @@
     },
     {
       "key": {
+        "uuid": "9cdc4cf6_587f47ef",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "the use of /pkg and /cmd are fairly useless - basically even having a /src directory isn\u0027t useful at a repo level",
+      "parentUuid": "b5e2f312_5f53c099",
+      "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "265aa967_4d4e2fb9",
         "filename": "src/vcenter-import/main.go",
         "patchSetId": 7
@@ -64,6 +82,24 @@
       "writtenOn": "2019-07-15T23:43:26Z",
       "side": 1,
       "message": "It is also a best practice to group all entry-points under src/cmd, so that one can find all entry-points at one place, else developer needs to go through all the packages to find out the entry-points.",
+      "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e27051a7_9afd2f38",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "I disagree",
+      "parentUuid": "265aa967_4d4e2fb9",
       "revId": "9d6a64fe54f5efbd139a3e43359aaff44d2561d5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true

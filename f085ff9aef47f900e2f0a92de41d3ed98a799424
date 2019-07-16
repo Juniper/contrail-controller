@@ -1,0 +1,232 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "651acc5d_60704487",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 171,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "Token will fetch the token from ClusterToken if cluster ID is provided or from Username.",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d328066e_656e8ebc",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 172,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "why is authToken passed in?",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4d4f99d8_2514b2fe",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 190,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "this is the same in both cases move it out to below the if",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2bb5101a_d131899c",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 238,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "remove as this isn\u0027t used now?",
+      "range": {
+        "startLine": 238,
+        "startChar": 0,
+        "endLine": 238,
+        "endChar": 30
+      },
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "64a3c2a2_17a0f395",
+        "filename": "src/vcenter-import/command/client.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 272,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "remove these funcs as they are not used now?",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fc2f2933_24f09d24",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 48,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "why not just cfg rather than inputJSON as it isn\u0027t a json?",
+      "range": {
+        "startLine": 48,
+        "startChar": 39,
+        "endLine": 48,
+        "endChar": 55
+      },
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0e9d1945_5653303f",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "it isn\u0027t ccData it just cClient or c",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ed680b8e_cd4750e1",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "if authtoken was sent as part of the New why do you need to pass it here?",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8f8a12a7_24692ab3",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "cfg :\u003d ...",
+      "range": {
+        "startLine": 66,
+        "startChar": 15,
+        "endLine": 66,
+        "endChar": 31
+      },
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bbfeaf09_b82c5e49",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 73,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "vCenterCfg :\u003d cfg.Input.VCenter",
+      "range": {
+        "startLine": 73,
+        "startChar": 37,
+        "endLine": 73,
+        "endChar": 44
+      },
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cc2113f2_3e39fb72",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 98,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "Creating",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0f96e088_1c76ae44",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 8
+      },
+      "lineNbr": 108,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T20:24:33Z",
+      "side": 1,
+      "message": "Why would you continue if you couldn\u0027t create?\nisn\u0027t that an error?",
+      "revId": "f085ff9aef47f900e2f0a92de41d3ed98a799424",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
