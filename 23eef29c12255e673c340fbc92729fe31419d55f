@@ -1,0 +1,153 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e087b0af_8efb21f6",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "if err :\u003d cClient.Token(); err !\u003d nil ...",
+      "range": {
+        "startLine": 55,
+        "startChar": 0,
+        "endLine": 55,
+        "endChar": 2
+      },
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7b6fe679_22898e07",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "var ( \n  jobInput \u003d flag.String(\"job-input\", \"\", \"Job input for the reading vcenter nodes\")\n  debug \u003d flag.Bool(\"debug\", false, \"Enable debug logs\")\n)",
+      "range": {
+        "startLine": 58,
+        "startChar": 0,
+        "endLine": 58,
+        "endChar": 0
+      },
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "78fbe43b_11097829",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "log.SetLevel(log.InfoLevel)\nif debug_flag {\n  log.SetLevel(log.DebugLevel)\n}",
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1949c151_10a46d34",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "cfg.Input.VCenter",
+      "range": {
+        "startLine": 78,
+        "startChar": 17,
+        "endLine": 78,
+        "endChar": 18
+      },
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5af8c88c_52605745",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "vCenter",
+      "range": {
+        "startLine": 78,
+        "startChar": 0,
+        "endLine": 78,
+        "endChar": 35
+      },
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "837227a0_da684d0a",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "GET RID OF THE GETS",
+      "range": {
+        "startLine": 50,
+        "startChar": 5,
+        "endLine": 50,
+        "endChar": 29
+      },
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "69ebc6e3_d4d8375b",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 9
+      },
+      "lineNbr": 106,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-16T21:49:04Z",
+      "side": 1,
+      "message": "GET RID OF THE GETS :)",
+      "revId": "23eef29c12255e673c340fbc92729fe31419d55f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
