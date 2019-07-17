@@ -142,6 +142,24 @@
     },
     {
       "key": {
+        "uuid": "746aeef1_dc5087f6",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T20:44:27Z",
+      "side": 1,
+      "message": "not done",
+      "parentUuid": "a69bcd98_7e6edb1e",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6387e568_fbc6a143",
         "filename": "src/vcenter-import/vcenter/client.go",
         "patchSetId": 13
