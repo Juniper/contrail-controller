@@ -65,7 +65,7 @@ public:
     }
 
     virtual void TearDown() {
-        WAIT_FOR(10000, 100,
+        WAIT_FOR(15000, 100,
                  (agent_->oper_db()->global_vrouter()->PendingFabricDnsRequests()
                   == 0));
     }
