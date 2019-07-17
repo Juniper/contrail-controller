@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dfa14cdc_9f86641a",
+        "filename": "src/bgp/bgp_multicast.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 542,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-07-17T02:29:46Z",
+      "side": 1,
+      "message": "can you pls make a function and call from both places.. I see very similar code except you have to pass encaps_ for one case and forest_node_-\u003eencap() for the other. Also can you update multicast UTs to assert for the presence of these tunnel encaps ?\n\nthanks",
+      "revId": "93e5b4891f9fcfbae949a80f293f0c356d1bc008",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
