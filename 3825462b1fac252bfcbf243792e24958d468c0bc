@@ -1,0 +1,277 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b4f2d846_ce737683",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "fix import order to style - ez/style\nimport (\n\t\"context\"\n\t\"fmt\"\n\n\t\"github.com/vmware/govmomi\"\n\t\"github.com/vmware/govmomi/view\"\n\t\"github.com/vmware/govmomi/vim25/methods\"\n\t\"github.com/vmware/govmomi/vim25/mo\"\n\t\"github.com/vmware/govmomi/vim25/soap\"\n\t\"github.com/vmware/govmomi/vim25/types\"\n\n\tlog \"github.com/sirupsen/logrus\"\n)",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "358a5e35_d9df8fd3",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "if err :\u003d c.Logout(ctx); err !\u003d nil {\n  log.Warn(err)\n}\n\nsame as below",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fbd053a2_5c1698a7",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "let the caller handle printing error returns",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "78b6c066_5def0055",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "remote whitespace",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6387e568_fbc6a143",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "if err :\u003d d.Retrieve(ctx, []string{\"Datacenter\"}, nil, \u0026dcs); err !\u003d nil",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7a2146b1_d7ecfad8",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "Retrieved",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "504716e7_45ea9dad",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "never fatal..\nyou are exiting the program here",
+      "range": {
+        "startLine": 89,
+        "startChar": 13,
+        "endLine": 89,
+        "endChar": 14
+      },
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9d4b5b72_8dc96c07",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "if err :\u003d v.Retrieve(ctx, []string{\"HostSystem\"}, nil, \u0026hss); err !\u003d nil",
+      "range": {
+        "startLine": 97,
+        "startChar": 9,
+        "endLine": 97,
+        "endChar": 10
+      },
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3cd3d1d5_eb009a6a",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "do not fatal",
+      "range": {
+        "startLine": 99,
+        "startChar": 0,
+        "endLine": 99,
+        "endChar": 1
+      },
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d794143f_1f2a19ef",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 110,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "don\u0027t define here",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f935da29_8a3af8e9",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "esxiHost :\u003d ESXIHost{\n Name: hs.Name, \n UUID: \"\", \n PORTS: esxiPorts,\n}\n\nalways use the names of the fields for initialization",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "43ca9133_55765846",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "this shouldn\u0027t be called val - what is this actual data?",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3924b1ae_b0979944",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "esxiPorts :\u003d map[string]ESXIPort{}",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "56313eab_9afbe886",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 140,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "esxiPorts[pnic.Device] \u003d ESXIPort{\n  MACAddress: pnic.Mac,\n  Name: pnic.Device,\n  DVSName: dvsName(hs, pnic),\n}",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f165d41f_9e193ebb",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 13
+      },
+      "lineNbr": 151,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-17T17:45:45Z",
+      "side": 1,
+      "message": "So if you keep this like this should work better..\nAlso if you convert esxiPorts to map[string]*ESXIPort\nthen you don\u0027t need the assignment at the end of the loop as p is mutating the dict \nas it is you are making a copy which then you have assign back which works fine but just have to remember that is what you doing\n\nfor _, lldpNic :\u003d range val.Returnval {\n  p, ok :\u003d esxiPorts[lldpNic.Device]\n  if !ok {\n    continue\n  }\n  if lldpNic.LldpInfo \u003d\u003d nil {\n    continue\n  }\n  var switchName string\n  var portID string\n  for _, param :\u003d range lldpNic.LldpInfo.Parameter {\n    switch param.Key {\n    case \"Port Description\":\n      portID, _ \u003d param.Value.(string)\n    case \"System Name\":\n      switchName, _ \u003d param.Value.(string)\n    }\n  }\n  p.PortID \u003d portID\n  p.SwitchName \u003d switchName\n  p.PortIndex \u003d lldpNic.LldpInfo.PortId\n  p.ChassisID \u003d lldpNic.LldpInfo.ChassisId\n  esxiPorts[lldpNic.Device] \u003d p\n}",
+      "revId": "3825462b1fac252bfcbf243792e24958d468c0bc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
