@@ -267,8 +267,28 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if 'autonomous_system' in obj_dict:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
+        if 'enable_4byte_as' in obj_dict:
+            cls.server.enable_4byte_as_flag = obj_dict['enable_4byte_as']
+
         if 'data_center_interconnect_loopback_namespace' not in obj_dict:
             return True, ''
 
         return cls._create_dci_lo0_network_ipam(
             obj_dict['data_center_interconnect_loopback_namespace'])
+
+    @classmethod
+    def dbe_update_notification(cls, obj_id, extra_dict=None):
+        ok, read_result = cls.dbe_read(cls.db_conn,
+                                       'global_system_config',
+                                       obj_id,
+                                       obj_fields=['autonomous_system',
+                                                   'enable_4byte_as'])
+        if not ok:
+            return ok, read_result
+
+        if 'autonomous_system' in read_result:
+            cls.server.global_autonomous_system = read_result[
+                'autonomous_system']
+        if 'enable_4byte_as' in read_result:
+            cls.server.enable_4byte_as_flag = read_result[
+                'enable_4byte_as']
