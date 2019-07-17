@@ -197,6 +197,14 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
         &state, &message);
 }
 
+// Docker restart takes long time as control node is not handling SIGTERM
+// its better to exit gracefully.
+void SigtermSignalHandler(const boost::system::error_code &error, int sig,
+                          bool force_reinit) {
+    LOG(WARN, "Received signal " << sig << " inside SigtermSignalHandler()");
+    ControlNode::Exit(1);
+}
+
 void ReConfigSignalHandler(const boost::system::error_code &error, int sig,
                            bool force_reinit) {
     if (error) {
@@ -218,9 +226,12 @@ int main(int argc, char *argv[]) {
         (boost::bind(&ReConfigSignalHandler, _1, _2, false));
     std::vector<Signal::SignalHandler> sigusr1_handlers = boost::assign::list_of
         (boost::bind(&ReConfigSignalHandler, _1, _2, true));
+    std::vector<Signal::SignalHandler> sigterm_handler = boost::assign::list_of
+        (boost::bind(&SigtermSignalHandler, _1, _2, true));
     Signal::SignalCallbackMap smap = boost::assign::map_list_of
         (SIGHUP, sighup_handlers)
         (SIGUSR1, sigusr1_handlers)
+        (SIGTERM, sigterm_handler)
     ;
     Signal signal(&evm, smap);
 
