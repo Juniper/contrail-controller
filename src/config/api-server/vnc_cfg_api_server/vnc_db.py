@@ -1523,7 +1523,6 @@ class VncDbClient(object):
         return wrapper1
 
     @dbe_trace('create')
-    @build_shared_index('create')
     def dbe_create(self, obj_type, obj_uuid, obj_dict):
         (ok, result) = self._object_db.object_create(obj_type, obj_uuid,
                                                      obj_dict)
@@ -1589,7 +1588,6 @@ class VncDbClient(object):
     # end _dbe_publish_update_implicit
 
     @dbe_trace('update')
-    @build_shared_index('update')
     def dbe_update(self, obj_type, obj_uuid, new_obj_dict,
                    attr_to_publish=None):
         (ok, result) = self._object_db.object_update(obj_type, obj_uuid,
