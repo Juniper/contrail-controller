@@ -71,6 +71,41 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
+    def create_storm_control_profile(self, name, bw_percent, traffic_type, actions, recovery_timeout=None):
+
+        sc_params_list = StormControlParameters(
+            storm_control_actions=actions,
+            recovery_timeout=recovery_timeout,
+            bandwidth_percent=bw_percent)
+
+        if 'no-broadcast' in traffic_type:
+            sc_params_list.set_no_broadcast(True)
+        if 'no-multicast' in traffic_type:
+            sc_params_list.set_no_multicast(True)
+        if 'no-registered-multicast' in traffic_type:
+            sc_params_list.set_no_registered_multicast(True)
+        if 'no-unknown-unicast' in traffic_type:
+            sc_params_list.set_no_unknown_unicast(True)
+        if 'no-unregistered-multicast' in traffic_type:
+            sc_params_list.set_no_unregistered_multicast(True)
+
+        sc_profile = StormControlProfile(
+            name=name,
+            storm_control_parameters=sc_params_list
+        )
+
+        self._vnc_lib.storm_control_profile_create(sc_profile)
+        return sc_profile
+
+
+    def create_port_profile(self, name, sc_obj=None):
+        port_profile = PortProfile(name=name)
+        if sc_obj:
+            port_profile.set_storm_control_profile(sc_obj)
+        self._vnc_lib.port_profile_create(port_profile)
+
+        return port_profile
+
     def create_fabric(self, name):
         fab = Fabric(
             name=name,
@@ -160,3 +195,4 @@ class DMTestCase(test_common.TestCase):
         return
 
 #end DMTestCase
+
