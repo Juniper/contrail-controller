@@ -28,7 +28,7 @@
 
     - name: Set the error message
       set_fact:
-        failure_message: "Unable to upgrade image on the device {{pr_fq_name}}.Junos upgrade task failed with exception. {{junos_response.msg}}"
+        failure_message: "Unable to upgrade image on the device {{pr_fqname}}.Junos upgrade task failed with exception. {{junos_response.msg}}"
 
     - name: Update job log with percentage
       include_tasks: percentage_update.yml

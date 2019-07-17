@@ -25,6 +25,7 @@
        "message": "{{op_err_message}}",
        "results": "{{ results if results is defined else {} }}"
     }
+  when: upgrade_mode == 'upgrade'
 
 - name: Update prouter logs with failed status
   prouter_objectlog:
