@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "58621298_ef68e680",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/image_upgrade_role/tasks/ztp_juniper_upgrade.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-07-17T23:40:02Z",
+      "side": 1,
+      "message": "Can you add a space after the period but before \"Junos upgrade\" and also change the wording a little to differentiate this string from the same string in juniper_upgrade.yml",
+      "revId": "ad8ec81c9df0a8692d5f3933a6dcae6f14068537",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
