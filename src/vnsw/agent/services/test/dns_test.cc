@@ -1094,6 +1094,7 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     CHECK_CONDITION(stats.resolved < 1);
     EXPECT_EQ(1U, stats.requests);
     EXPECT_TRUE(stats.resolved == 1);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(4);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
@@ -1179,6 +1180,7 @@ TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
     usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(4);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     DnsItem query_items_2[MAX_ITEMS] = a_items;
