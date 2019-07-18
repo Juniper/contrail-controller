@@ -333,7 +333,14 @@ class DeviceJobManager(object):
                               device_list=device_list,
                               fabric_job_uve_name=fabric_job_uve_name,
                               job_params=job_input_params)
-    # end hantdle_execute_job_request
+    # end handle_execute_job_request
+
+    def _abort_job(self, pid, job_instance, abort_mode):
+        self._logger.info("ABORT: pid={}, job_instance={}, mode={}".
+                          format(pid, job_instance, abort_mode))
+        # Force abort or graceful abort
+        os.kill(int(pid), signal.SIGABRT if abort_mode == "force"
+                else signal.SIGUSR1)
 
     def handle_abort_job_request(self, body, message):
         inp = body.get('input')
@@ -344,13 +351,14 @@ class DeviceJobManager(object):
 
         # Search through running job instances to find this job
         for pid, job_instance in self._job_mgr_running_instances.iteritems():
-            if job_instance.get('exec_id') == job_execution_id:
-                self._logger.info("ABORT: pid={}, job_instance={}, mode={}".
-                                  format(pid, job_instance, abort_mode))
-                # Force abort or graceful abort
-                os.kill(int(pid), signal.SIGABRT if abort_mode == "force"
-                        else signal.SIGUSR1)
-                break
+            # Abort one job
+            if job_execution_id:
+                if job_instance.get('exec_id') == job_execution_id:
+                    self._abort_job(pid, job_instance, abort_mode)
+                    break
+            # Abort next job
+            else:
+                self._abort_job(pid, job_instance, abort_mode)
     # end handle_abort_job_request
 
     def create_fabric_job_uve(self, fabric_job_uve_name,
