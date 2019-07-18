@@ -2,16 +2,16 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of abstract config generation for overlay bgp feature
-"""
+"""VN Interconnect Feature Implementation."""
 
-import db
-from abstract_device_api.abstract_device_xsd import *
 from collections import OrderedDict
+
+from abstract_device_api.abstract_device_xsd import *
+import db
 from dm_utils import DMUtils
 from feature_base import FeatureBase
-from netaddr import IPNetwork, IPAddress
+from netaddr import IPAddress, IPNetwork
+
 
 class VnInterconnectFeature(FeatureBase):
 
@@ -22,7 +22,8 @@ class VnInterconnectFeature(FeatureBase):
 
     def __init__(self, logger, physical_router, configs):
         self.pi_map = None
-        super(VnInterconnectFeature, self).__init__(logger, physical_router, configs)
+        super(VnInterconnectFeature, self).__init__(
+            logger, physical_router, configs)
     # end __init__
 
     def _dhcp_server_exists(self, lr):
@@ -50,7 +51,8 @@ class VnInterconnectFeature(FeatureBase):
                     not self._is_valid_vn(lr.virtual_network, 'l3'):
                 continue
             vn_list = lr.get_connected_networks(include_internal=False)
-            vn_map[lr.virtual_network] = [vn for vn in vn_list if self._is_valid_vn(vn, 'l3')]
+            vn_map[lr.virtual_network] = [
+                vn for vn in vn_list if self._is_valid_vn(vn, 'l3')]
             if self._dhcp_server_exists(lr):
                 dhcp_servers[lr.virtual_network] = lr.dhcp_relay_servers
         return vn_map, dhcp_servers
@@ -60,7 +62,7 @@ class VnInterconnectFeature(FeatureBase):
         forwarding_options = ForwardingOptions()
         dhcp_relay = DhcpRelay()
         dhcp_relay.set_comment("Dhcp relay for logical router %s" % lr)
-        dhcp_relay.set_dhcp_relay_group("DHCP_RELAY_GRP_"+lr)
+        dhcp_relay.set_dhcp_relay_group("DHCP_RELAY_GRP_" + lr)
         dhcp_relay.set_in_network(in_network)
 
         for dhcp_server in dhcp_server_list:
@@ -72,12 +74,12 @@ class VnInterconnectFeature(FeatureBase):
     # end _build_dhcp_relay_config
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
-            import_targets, vn_list):
-        encapsulation_priorities = self._get_encapsulation_priorities()
+                         import_targets, vn_list):
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
-        ri = RoutingInstance(name=ri_name, virtual_network_mode='l3',
+        ri = RoutingInstance(
+            name=ri_name, virtual_network_mode='l3',
             export_targets=export_targets, import_targets=import_targets,
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
             is_public_network=vn.router_external, routing_instance_type='vrf',
@@ -85,7 +87,8 @@ class VnInterconnectFeature(FeatureBase):
 
         _, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
         lo0_unit = 1000 + int(network_id)
-        lo0_li = self._add_or_lookup_li(li_map, 'lo0.'+str(lo0_unit), lo0_unit)
+        lo0_li = self._add_or_lookup_li(
+            li_map, 'lo0.' + str(lo0_unit), lo0_unit)
         self._add_ip_address(lo0_li, '127.0.0.1')
         self._add_ref_to_list(ri.get_loopback_interfaces(), lo0_li.get_name())
 
@@ -108,8 +111,8 @@ class VnInterconnectFeature(FeatureBase):
                 continue
             ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
                                             vn_obj.vn_network_id, 'l3')
-            export_targets, import_targets = self._get_export_import_targets(vn_obj, ri_obj)
-
+            export_targets, import_targets = self._get_export_import_targets(
+                vn_obj, ri_obj)
 
             ri = self._build_ri_config(vn_obj, ri_name, ri_obj, export_targets,
                                        import_targets, vn_list)
@@ -121,7 +124,7 @@ class VnInterconnectFeature(FeatureBase):
                     vn_obj.logical_router, dhcp_servers[internal_vn],
                     in_network)
                 ri.set_forwarding_options(fwd_options)
-                rib_group_name = 'external_vrf_'+internal_vn
+                rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
 
             feature_config.add_routing_instances(ri)

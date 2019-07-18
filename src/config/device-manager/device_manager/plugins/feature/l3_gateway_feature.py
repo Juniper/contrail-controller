@@ -2,15 +2,15 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of abstract config generation for overlay bgp feature
-"""
+"""L3 Gateway Feature Implementation."""
 
-import db
-from abstract_device_api.abstract_device_xsd import *
 from collections import OrderedDict
+
+from abstract_device_api.abstract_device_xsd import *
+import db
 from dm_utils import DMUtils
 from feature_base import FeatureBase
+
 
 class L3GatewayFeature(FeatureBase):
 
@@ -21,7 +21,8 @@ class L3GatewayFeature(FeatureBase):
 
     def __init__(self, logger, physical_router, configs):
         self.pi_map = None
-        super(L3GatewayFeature, self).__init__(logger, physical_router, configs)
+        super(L3GatewayFeature, self).__init__(
+            logger, physical_router, configs)
     # end __init__
 
     def _get_connected_vn_ids(self):
@@ -31,12 +32,12 @@ class L3GatewayFeature(FeatureBase):
     # end _get_connected_vn_ids
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
-            import_targets, feature_config, irb_ips):
-        encapsulation_priorities = self._get_encapsulation_priorities()
+                         import_targets, feature_config, irb_ips):
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni()
 
-        ri = RoutingInstance(name=ri_name, virtual_network_mode='l3',
+        ri = RoutingInstance(
+            name=ri_name, virtual_network_mode='l3',
             export_targets=export_targets, import_targets=import_targets,
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
             is_public_network=vn.router_external, routing_instance_type='vrf')
@@ -46,7 +47,7 @@ class L3GatewayFeature(FeatureBase):
 
         _, li_map = self._add_or_lookup_pi(self.pi_map, 'irb', 'irb')
         if irb_ips:
-            irb = self._add_or_lookup_li(li_map, 'irb.'+str(network_id),
+            irb = self._add_or_lookup_li(li_map, 'irb.' + str(network_id),
                                          network_id)
             for (irb_ip, gateway) in irb_ips:
                 self._add_ip_address(irb, irb_ip, gateway=gateway)
@@ -61,8 +62,11 @@ class L3GatewayFeature(FeatureBase):
         self.pi_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
         vns = self._get_connected_vn_ids()
-        use_gateway_ip = all([c.additional_params.use_gateway_ip == 'True' for c in self._configs])
-        irb_ip_map = self._physical_router.allocate_irb_ips_for(vns, use_gateway_ip)
+        use_gateway_ip = all(
+            [c.additional_params.use_gateway_ip == 'True'
+                for c in self._configs])
+        irb_ip_map = self._physical_router.allocate_irb_ips_for(
+            vns, use_gateway_ip)
 
         for vn_uuid in vns:
             vn_obj = db.VirtualNetworkDM.get(vn_uuid)
@@ -71,8 +75,10 @@ class L3GatewayFeature(FeatureBase):
                 continue
             ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
                                             vn_obj.vn_network_id, 'l3')
-            export_targets, import_targets = self._get_export_import_targets(vn_obj, ri_obj)
-            ri = self._build_ri_config(vn_obj, ri_name, ri_obj, export_targets,
+            export_targets, import_targets = self._get_export_import_targets(
+                vn_obj, ri_obj)
+            ri = self._build_ri_config(
+                vn_obj, ri_name, ri_obj, export_targets,
                 import_targets, feature_config, irb_ip_map.get(vn_uuid, []))
             feature_config.add_routing_instances(ri)
 
