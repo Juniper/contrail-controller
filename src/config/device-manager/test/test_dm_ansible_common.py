@@ -129,10 +129,10 @@ class TestAnsibleCommonDM(DMTestCase):
         return node_profile, role_config
     # end create_node_profile
 
-    def create_fabric(self, name):
+    def create_fabric(self, name, **kwargs):
         fabric = Fabric(fq_name=[self.GSC, name], name=name,
                         parent_type='global-system-config',
-                        display_name=name, manage_underlay=False)
+                        display_name=name, manage_underlay=False, **kwargs)
         fabric_uuid = self._vnc_lib.fabric_create(fabric)
         return self._vnc_lib.fabric_read(id=fabric_uuid)
     # end create_fabric
@@ -223,9 +223,13 @@ class TestAnsibleCommonDM(DMTestCase):
     def attach_vmi(self, vmi_id, pi_list, pr_list, vn, sg, fabric, vlan_tag, port_vlan_tag=None):
         pi_obj_list = []
         for idx in range(len(pi_list)):
-            pi = PhysicalInterface(pi_list[idx], parent_obj=pr_list[idx])
-            pi_uuid = self._vnc_lib.physical_interface_create(pi)
-            pi = self._vnc_lib.physical_interface_read(id=pi_uuid)
+            try:
+                pi_fq_name = pr_list[idx].get_fq_name() + [pi_list[idx]]
+                pi = self._vnc_lib.physical_interface_read(fq_name=pi_fq_name)
+            except NoIdError:
+                pi = PhysicalInterface(pi_list[idx], parent_obj=pr_list[idx])
+                pi_uuid = self._vnc_lib.physical_interface_create(pi)
+                pi = self._vnc_lib.physical_interface_read(id=pi_uuid)
             pi_obj_list.append(pi)
 
         vm = VirtualMachine(name='bms' + vmi_id, display_name='bms' + vmi_id,
@@ -332,35 +336,28 @@ class TestAnsibleCommonDM(DMTestCase):
     def get_phy_interfaces(self, abs_config, name=None):
         interfaces = abs_config.get('physical_interfaces')
         if not interfaces:
-            return []
-        intf_list = []
+            return None
         for intf in interfaces or []:
             if name and name == intf.get('name'):
                 return intf
-            else:
-                intf_list.append(intf)
-        return intf_list
+        return None
     # end get_phy_interfaces
 
     def get_logical_interface(self, phy_intf, name=None):
         log_intf = phy_intf.get('logical_interfaces')
         if not log_intf:
-            return []
-        intf_list = []
+            return None
         for intf in log_intf or []:
             if name and name == intf.get('name'):
                 return intf
-            else:
-                intf_list.append(intf)
-        return intf_list
-
+        return None
+    # end get_logical_interface
 
     def get_lag_members(self, phy_intf):
         lag = phy_intf.get('link_aggregation_group')
 
         self.assertTrue(lag.get('lacp_enabled'))
         return lag.get('link_members')
-
 
     def get_vlans(self, abs_config, name=None):
         vlans = abs_config.get('vlans')
