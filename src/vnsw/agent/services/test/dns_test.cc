@@ -1082,6 +1082,7 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     IntfCfgAdd(input, 0);
     WaitForItfUpdate(1);
 
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(4);
     DnsItem query_items[MAX_ITEMS] = a_items;
     query_items[0].name     = "localhost.juniper.net";
 
