@@ -333,24 +333,31 @@ class DeviceJobManager(object):
                               device_list=device_list,
                               fabric_job_uve_name=fabric_job_uve_name,
                               job_params=job_input_params)
-    # end hantdle_execute_job_request
+    # end handle_execute_job_request
+
+    def _abort_job(self, pid, job_instance, abort_mode):
+        self._logger.info("ABORT: pid={}, job_instance={}, mode={}".
+                          format(pid, job_instance, abort_mode))
+        # Force abort or graceful abort
+        os.kill(int(pid), signal.SIGABRT if abort_mode == "force"
+                else signal.SIGUSR1)
 
     def handle_abort_job_request(self, body, message):
         inp = body.get('input')
-        job_execution_id = inp.get('job_execution_id')
+        job_execution_ids = inp.get('job_execution_ids')
         abort_mode = inp.get('abort_mode')
-        self._logger.info("Abort job request: job_id={}, mode={}".
-                          format(job_execution_id, abort_mode))
+        self._logger.info("Abort job request: job_ids={}, mode={}".
+                          format(job_execution_ids, abort_mode))
 
         # Search through running job instances to find this job
         for pid, job_instance in self._job_mgr_running_instances.iteritems():
-            if job_instance.get('exec_id') == job_execution_id:
-                self._logger.info("ABORT: pid={}, job_instance={}, mode={}".
-                                  format(pid, job_instance, abort_mode))
-                # Force abort or graceful abort
-                os.kill(int(pid), signal.SIGABRT if abort_mode == "force"
-                        else signal.SIGUSR1)
-                break
+            # Abort one job
+            if job_execution_ids:
+                if job_instance.get('exec_id') in job_execution_ids:
+                    self._abort_job(pid, job_instance, abort_mode)
+            # Abort next job
+            else:
+                self._abort_job(pid, job_instance, abort_mode)
     # end handle_abort_job_request
 
     def create_fabric_job_uve(self, fabric_job_uve_name,
