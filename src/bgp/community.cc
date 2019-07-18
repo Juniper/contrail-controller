@@ -208,6 +208,14 @@ void ExtCommunitySpec::ToCanonical(BgpAttr *attr) {
     attr->set_ext_community(this);
 }
 
+void ExtCommunitySpec::AddTunnelEncaps(vector<string> encaps) {
+    for (vector<string>::size_type i = 0; i < encaps.size(); i++) {
+        string encap_str = encaps[i];
+        TunnelEncap tun_encap(encap_str);
+        communities.push_back(tun_encap.GetExtCommunityValue());
+    }
+}
+
 int ExtCommunity::CompareTo(const ExtCommunity &rhs) const {
     KEY_COMPARE(communities_.size(), rhs.communities_.size());
 
