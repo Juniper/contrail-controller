@@ -227,6 +227,10 @@ then
   fi
 fi
 
+# Override contrail-api-version with the local built version (CEM-6028)
+# TODO: remove that workaround when we will use correct package versioning
+[ -f ${build_top}/api-lib/dist/*.tar.gz ] && ${wrapper} pip install ${build_top}/api-lib/dist/*.tar.gz
+
 # Delete old coverage data from previous runs
 if [ $coverage -eq 1 ]; then
     ${wrapper} coverage erase
