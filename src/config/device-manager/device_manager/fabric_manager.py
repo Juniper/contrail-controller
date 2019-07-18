@@ -94,6 +94,18 @@ class FabricManager(object):
                         if object_type == "tag":
                             continue
                         instance_obj.set_uuid(uuid)
+                        # Update config json inside role-config object
+                        if object_type == 'role-config':
+                            role_config_obj = self._vnc_api.\
+                                role_config_read(id=uuid)
+                            cur_config_json = json.loads(
+                                role_config_obj.get_role_config_config())
+                            def_config_json = json.loads(
+                                instance_obj.get_role_config_config())
+                            def_config_json.update(cur_config_json)
+                            instance_obj.set_role_config_config(
+                                json.dumps(def_config_json)
+                            )
                         self._vnc_api._object_update(object_type, instance_obj)
                     except NoIdError:
                         self._vnc_api._object_create(object_type, instance_obj)
