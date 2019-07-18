@@ -541,7 +541,14 @@ void KSyncUds::UdsInit() {
     boost::asio::io_service &io = *event_mgr->io_service();
     boost::system::error_code ec;
 
-    KSyncSockUds::Init(io, agent_->params()->ksync_thread_cpu_pin_policy());
+    string ksync_agent_vrouter_sock_path = KSYNC_AGENT_VROUTER_SOCK_PATH;
+
+    ksync_agent_vrouter_sock_path = agent_->params()->cat_is_agent_mocked() ?
+        agent_->params()->cat_ksocketdir() +
+        "dpdk_netlink":ksync_agent_vrouter_sock_path;
+
+    KSyncSockUds::Init(io, agent_->params()->ksync_thread_cpu_pin_policy(),
+       ksync_agent_vrouter_sock_path);
     KSyncSock::SetNetlinkFamilyId(24);
 
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {

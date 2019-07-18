@@ -93,6 +93,11 @@ void ContrailInitCommon::RegisterDBClients() {
 }
 
 void ContrailInitCommon::InitModules() {
+
+    if(agent()->params()->cat_is_dpdk_mocked()) {
+        ksync_enable_= false;
+    }
+
     if (agent()->pkt()) {
         agent()->pkt()->Init(ksync_enable());
     }

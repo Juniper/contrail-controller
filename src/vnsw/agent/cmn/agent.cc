@@ -2,15 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <algorithm>
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <algorithm>
+
 #include <base/logging.h>
 #include <base/lifetime.h>
 #include <base/misc_utils.h>
 #include <io/event_manager.h>
 #include <ifmap/ifmap_link.h>
-
 #include <cmn/agent_cmn.h>
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
@@ -104,7 +106,8 @@ const string &Agent::vhost_interface_name() const {
 };
 
 bool Agent::is_vhost_interface_up() const {
-    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()) {
+    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()||
+        isMockMode()) {
         return true;
     }
 
@@ -135,7 +138,6 @@ bool Agent::is_vhost_interface_up() const {
     }
     close(sock);
 #endif
-
     return true;
 }
 
@@ -149,6 +151,10 @@ bool Agent::isKvmMode() {
 
 bool Agent::isDockerMode() {
     return params_->isDockerMode();
+}
+
+bool Agent::isMockMode() const {
+    return params_->cat_is_agent_mocked();
 }
 
 static void SetTaskPolicyOne(const char *task, const char *exclude_list[],
@@ -569,6 +575,19 @@ void Agent::InitCollector() {
                 params_->sandesh_config());
     }
 
+    if (params_->cat_is_agent_mocked()) {
+        std::cout << "Introspect Port: " << Sandesh::http_port() << std::endl;
+        std::cout << "Agent Name: " << params_->agent_name() << std::endl;
+        std::string sub("{\"introspectport\":");
+        std::string pidstring = integerToString(getpid());
+
+        pidstring += ".json";
+        sub += integerToString(Sandesh::http_port()) + "}";
+
+        std::ofstream outfile(pidstring.c_str(), std::ofstream::out);
+        outfile << sub;
+        outfile.close();
+     }
 }
 
 void Agent::ReConnectCollectors() {

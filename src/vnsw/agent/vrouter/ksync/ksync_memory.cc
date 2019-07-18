@@ -40,7 +40,7 @@
 #include "ksync_init.h"
 #include "ksync_flow_memory.h"
 #include "sandesh_ksync.h"
-
+#include "init/agent_param.h"
 #ifdef _WIN32
 #include <windows_shmem_ioctl.h>
 #endif
@@ -212,6 +212,11 @@ void KSyncMemory::GetTableSize() {
     encode_len = EncodeReq(cl, attr_len);
     nl_build_attr(cl, encode_len, NL_ATTR_VR_MESSAGE_PROTOCOL);
     nl_update_nlh(cl);
+    string ksync_agent_vrouter_sock_path = KSYNC_AGENT_VROUTER_SOCK_PATH;
+    ksync_agent_vrouter_sock_path =
+    ksync_->agent()->params()->cat_is_agent_mocked()?
+    ksync_->agent()->params()->cat_ksocketdir() + 
+    "dpdk_netlink" : ksync_agent_vrouter_sock_path;
 
 #ifdef AGENT_VROUTER_TCP
     tcp::socket socket(*(ksync_->agent()->event_manager()->io_service()));
@@ -221,7 +226,7 @@ void KSyncMemory::GetTableSize() {
     boost::asio::local::stream_protocol::socket
         socket(*(ksync_->agent()->event_manager()->io_service()));
     boost::asio::local::stream_protocol::endpoint
-        endpoint(KSYNC_AGENT_VROUTER_SOCK_PATH);
+        endpoint(ksync_agent_vrouter_sock_path);
 #endif
     boost::system::error_code ec;
     socket.connect(endpoint, ec);

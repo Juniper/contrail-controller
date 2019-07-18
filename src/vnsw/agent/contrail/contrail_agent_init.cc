@@ -80,6 +80,9 @@ void ContrailAgentInit::FactoryInit() {
 
 void ContrailAgentInit::CreateModules() {
     ContrailInitCommon::CreateModules();
+    if (agent_param()->cat_is_agent_mocked()) {
+        Pkt0Socket::CreateMockAgent();
+    }
 
     if (agent_param()->vrouter_on_host_dpdk()) {
 #ifdef _WIN32
@@ -113,11 +116,22 @@ void ContrailAgentInit::CreateModules() {
     flow_stats_manager_.reset(new FlowStatsManager(agent()));
     agent()->set_flow_stats_manager(flow_stats_manager_.get());
 
-    ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
-    agent()->set_ksync(ksync_.get());
+    if (!agent_param()->cat_is_dpdk_mocked()) {
+        ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
+        agent()->set_ksync(ksync_.get());
+    }
+    else {
+      ksync_.reset();
+    }
+
+    std::string newkPortsDir =  PortIpcHandler::kPortsDir;
+
+    if (agent_param()->cat_is_agent_mocked()) {
+       newkPortsDir = "/tmp/" + integerToString(getpid()) + newkPortsDir;
+    }
 
     port_ipc_handler_.reset(new PortIpcHandler(agent(),
-                                               PortIpcHandler::kPortsDir));
+                                               newkPortsDir));
     agent()->set_port_ipc_handler(port_ipc_handler_.get());
 
     rest_server_.reset(new RESTServer(agent()));
