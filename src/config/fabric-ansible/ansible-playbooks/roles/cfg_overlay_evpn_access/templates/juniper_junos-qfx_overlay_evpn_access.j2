@@ -1,3 +1,4 @@
+set groups {{cfg_group}} protocols igmp-snooping vlan all proxy
 {%    if enterprise_style == True %}
 {%        include "./roles/cfg_overlay_evpn_access/templates/juniper_junos-qfx_overlay_evpn_access_enterprise.j2" %}
 {%    else %}
