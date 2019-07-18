@@ -6,7 +6,7 @@
 
 from abstract_device_api.abstract_device_xsd import *
 from ansible_role_common import AnsibleRoleCommon
-from db import *
+import db
 
 
 class PnfConf(AnsibleRoleCommon):
@@ -191,10 +191,10 @@ class PnfConf(AnsibleRoleCommon):
 
     def get_peer_asn(self, pi_obj):
         pr_uuid = pi_obj.physical_router
-        pr_obj = PhysicalRouterDM.get(pr_uuid)
+        pr_obj = db.PhysicalRouterDM.get(pr_uuid)
         if pr_obj:
             bgp_uuid = pr_obj.bgp_router
-            bgp_obj = BgpRouterDM.get(bgp_uuid)
+            bgp_obj = db.BgpRouterDM.get(bgp_uuid)
             if bgp_obj and bgp_obj.params:
                 return bgp_obj.params.get('autonomous_system')
 
@@ -205,10 +205,10 @@ class PnfConf(AnsibleRoleCommon):
         pr = self.physical_router
         pt_list = pr.port_tuples
         for pt in pt_list or []:
-            pt_obj = PortTupleDM.get(pt)
+            pt_obj = db.PortTupleDM.get(pt)
             if pt_obj:
                 si = pt_obj.svc_instance
-                si_obj = ServiceInstanceDM.get(si)
+                si_obj = db.ServiceInstanceDM.get(si)
                 if si_obj:
                     svc_params = {}
                     svc_params['svc_inst_name'] = si_obj.name
@@ -224,7 +224,7 @@ class PnfConf(AnsibleRoleCommon):
                         right_li_ip = left_li_ip = lo0_li_ip = None
                         for pi, intf_type in (
                                 sa_obj.physical_interfaces).iteritems():
-                            pi_obj = PhysicalInterfaceDM.get(pi)
+                            pi_obj = db.PhysicalInterfaceDM.get(pi)
                             attr = intf_type.get('interface_type')
                             if attr == 'left':
                                 left_li_name = pi_obj.name + '.' + \
@@ -232,10 +232,10 @@ class PnfConf(AnsibleRoleCommon):
                                 left_li_fq_name = pi_obj.fq_name + \
                                     [left_li_name.replace(":", "_")]
                                 left_li_obj = \
-                                    LogicalInterfaceDM.find_by_fq_name(
+                                    db.LogicalInterfaceDM.find_by_fq_name(
                                         left_li_fq_name)
                                 if left_li_obj:
-                                    instance_ip = InstanceIpDM.get(
+                                    instance_ip = db.InstanceIpDM.get(
                                         left_li_obj.instance_ip)
                                     if instance_ip:
                                         left_li_ip = \
@@ -246,10 +246,10 @@ class PnfConf(AnsibleRoleCommon):
                                     str(svc_params['left_vlan'])
                                 lo0_fq_name = pr.fq_name + ['lo0', lo0_li_name]
                                 lo0_li_obj = \
-                                    LogicalInterfaceDM.find_by_fq_name(
+                                    db.LogicalInterfaceDM.find_by_fq_name(
                                         lo0_fq_name)
                                 if lo0_li_obj:
-                                    instance_ip = InstanceIpDM.get(
+                                    instance_ip = db.InstanceIpDM.get(
                                         lo0_li_obj.instance_ip)
                                     if instance_ip:
                                         lo0_li_ip = \
@@ -258,7 +258,7 @@ class PnfConf(AnsibleRoleCommon):
                                         svc_params['lo0_li_ip'] = lo0_li_ip
                                 peer_left_intfs_ip = []
                                 for pi_ref in pi_obj.physical_interfaces or []:
-                                    pi_ref_obj = PhysicalInterfaceDM.get(
+                                    pi_ref_obj = db.PhysicalInterfaceDM.get(
                                         pi_ref)
                                     svc_params['left_peer_asn'] = \
                                         self.get_peer_asn(pi_ref_obj)
@@ -267,10 +267,10 @@ class PnfConf(AnsibleRoleCommon):
                                     peer_li_fq_name = pi_ref_obj.fq_name + \
                                         [peer_li_name.replace(":", "_")]
                                     peer_li_obj = \
-                                        LogicalInterfaceDM.find_by_fq_name(
+                                        db.LogicalInterfaceDM.find_by_fq_name(
                                             peer_li_fq_name)
                                     if peer_li_obj:
-                                        instance_ip = InstanceIpDM.get(
+                                        instance_ip = db.InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
                                         if instance_ip:
                                             peer_li_ip = \
@@ -285,10 +285,10 @@ class PnfConf(AnsibleRoleCommon):
                                 right_li_fq_name = pi_obj.fq_name + \
                                     [right_li_name.replace(":", "_")]
                                 right_li_obj = \
-                                    LogicalInterfaceDM.find_by_fq_name(
+                                    db.LogicalInterfaceDM.find_by_fq_name(
                                         right_li_fq_name)
                                 if right_li_obj:
-                                    instance_ip = InstanceIpDM.get(
+                                    instance_ip = db.InstanceIpDM.get(
                                         right_li_obj.instance_ip)
                                     if instance_ip:
                                         right_li_ip = \
@@ -297,7 +297,7 @@ class PnfConf(AnsibleRoleCommon):
                                         svc_params['right_li_ip'] = right_li_ip
                                 peer_right_intfs_ip = []
                                 for pi_ref in pi_obj.physical_interfaces or []:
-                                    pi_ref_obj = PhysicalInterfaceDM.get(
+                                    pi_ref_obj = db.PhysicalInterfaceDM.get(
                                         pi_ref)
                                     svc_params['right_peer_asn'] = \
                                         self.get_peer_asn(pi_ref_obj)
@@ -306,10 +306,10 @@ class PnfConf(AnsibleRoleCommon):
                                     peer_li_fq_name = pi_ref_obj.fq_name + \
                                         [peer_li_name.replace(":", "_")]
                                     peer_li_obj = \
-                                        LogicalInterfaceDM.find_by_fq_name(
+                                        db.LogicalInterfaceDM.find_by_fq_name(
                                             peer_li_fq_name)
                                     if peer_li_obj:
-                                        instance_ip = InstanceIpDM.get(
+                                        instance_ip = db.InstanceIpDM.get(
                                             peer_li_obj.instance_ip)
                                         if instance_ip:
                                             peer_li_ip = \
