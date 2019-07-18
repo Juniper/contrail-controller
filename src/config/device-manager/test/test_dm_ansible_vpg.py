@@ -394,3 +394,248 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
         self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
         self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+    def test_tagged_and_untagged_vpg_enterprise_style(self):
+        self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])
+        self.create_features(['overlay-bgp', 'l2-gateway'])
+        self.create_physical_roles(['leaf'])
+        self.create_overlay_roles(['crb-access'])
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'crb-access@leaf',
+                'physical_role': 'leaf',
+                'overlay_role': 'crb-access',
+                'features': ['overlay-bgp', 'l2-gateway'],
+                'feature_configs': {}
+            })
+        ])
+
+        jt = self.create_job_template('job-template-1')
+        fabric = self.create_fabric('test-fabric',
+            fabric_enterprise_style=True)
+        np, rc = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx',
+            role_mappings=[
+                AttrDict(
+                    {'physical_role': 'leaf',
+                    'rb_roles': ['crb-access']}
+                )],
+            job_template=jt)
+
+        vn1_obj = self.create_vn('1', '1.1.1.0')
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1',
+            product='qfx5110', family='junos-qfx',
+            role='leaf', rb_roles=['crb-access'],
+            physical_role=self.physical_roles['leaf'],
+            overlay_role=self.overlay_roles['crb-access'], fabric=fabric,
+            node_profile=np)
+        pr.set_physical_router_loopback_ip('10.10.0.1')
+        self._vnc_lib.physical_router_update(pr)
+
+        vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 101)
+        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 102)
+
+        gevent.sleep(1)
+        ac = self.check_dm_ansible_config_push()
+        fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
+
+        self.assertIsNone(self.get_phy_interfaces(fc, name='xe-0/0/1'))
+        self.assertIsNone(self.get_phy_interfaces(fc, name='xe-0/0/2'))
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi1[0].get_fq_name())
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi2.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm2.get_fq_name())
+
+        self.delete_routers(None, pr)
+        self.wait_for_routers_delete(None, pr.get_fq_name())
+        self._vnc_lib.bgp_router_delete(fq_name=bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+        self.delete_role_definitions()
+        self.delete_overlay_roles()
+        self.delete_physical_roles()
+        self.delete_features()
+        self.wait_for_features_delete()
+    # end test_tagged_and_untagged_vpg_enterprise_style
+
+    def test_tagged_and_untagged_vpg_sp_style(self):
+        self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])
+        self.create_features(['overlay-bgp', 'l2-gateway'])
+        self.create_physical_roles(['leaf'])
+        self.create_overlay_roles(['crb-access'])
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'crb-access@leaf',
+                'physical_role': 'leaf',
+                'overlay_role': 'crb-access',
+                'features': ['overlay-bgp', 'l2-gateway'],
+                'feature_configs': {}
+            })
+        ])
+
+        jt = self.create_job_template('job-template-1')
+        fabric = self.create_fabric('test-fabric',
+            fabric_enterprise_style=False)
+        np, rc = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx',
+            role_mappings=[
+                AttrDict(
+                    {'physical_role': 'leaf',
+                    'rb_roles': ['crb-access']}
+                )],
+            job_template=jt)
+
+        vn1_obj = self.create_vn('1', '1.1.1.0')
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1',
+            product='qfx5110', family='junos-qfx',
+            role='leaf', rb_roles=['crb-access'],
+            physical_role=self.physical_roles['leaf'],
+            overlay_role=self.overlay_roles['crb-access'], fabric=fabric,
+            node_profile=np)
+        pr.set_physical_router_loopback_ip('10.10.0.1')
+        self._vnc_lib.physical_router_update(pr)
+
+        vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 101)
+        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 102)
+
+        gevent.sleep(1)
+        ac = self.check_dm_ansible_config_push()
+        fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
+
+        pi_name = 'xe-0/0/1'
+        li_name = pi_name + '.101'
+        pi = self.get_phy_interfaces(fc, name=pi_name)
+        li = self.get_logical_interface(pi, name=li_name)
+
+        self.assertEqual(li.get('vlan_tag'), '101')
+        self.assertTrue(li.get('is_tagged'))
+
+        pi_name = 'xe-0/0/1'
+        li_name = pi_name + '.0'
+        pi = self.get_phy_interfaces(fc, name=pi_name)
+        li = self.get_logical_interface(pi, name=li_name)
+
+        self.assertEqual(li.get('vlan_tag'), '102')
+        self.assertFalse(li.get('is_tagged'))
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi1[0].get_fq_name())
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi2.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm2.get_fq_name())
+
+        self.delete_routers(None, pr)
+        self.wait_for_routers_delete(None, pr.get_fq_name())
+        self._vnc_lib.bgp_router_delete(fq_name=bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+        self.delete_role_definitions()
+        self.delete_overlay_roles()
+        self.delete_physical_roles()
+        self.delete_features()
+        self.wait_for_features_delete()
+    # end test_tagged_and_untagged_vpg_sp_style
+
+    def test_untagged_and_tagged_vpg_sp_style(self):
+        self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])
+        self.create_features(['overlay-bgp', 'l2-gateway'])
+        self.create_physical_roles(['leaf'])
+        self.create_overlay_roles(['crb-access'])
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'crb-access@leaf',
+                'physical_role': 'leaf',
+                'overlay_role': 'crb-access',
+                'features': ['overlay-bgp', 'l2-gateway'],
+                'feature_configs': {}
+            })
+        ])
+
+        jt = self.create_job_template('job-template-1')
+        fabric = self.create_fabric('test-fabric',
+            fabric_enterprise_style=False)
+        np, rc = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx',
+            role_mappings=[
+                AttrDict(
+                    {'physical_role': 'leaf',
+                    'rb_roles': ['crb-access']}
+                )],
+            job_template=jt)
+
+        vn1_obj = self.create_vn('1', '1.1.1.0')
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1',
+            product='qfx5110', family='junos-qfx',
+            role='leaf', rb_roles=['crb-access'],
+            physical_role=self.physical_roles['leaf'],
+            overlay_role=self.overlay_roles['crb-access'], fabric=fabric,
+            node_profile=np)
+        pr.set_physical_router_loopback_ip('10.10.0.1')
+        self._vnc_lib.physical_router_update(pr)
+
+        vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 101)
+        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 102)
+
+        gevent.sleep(1)
+        ac = self.check_dm_ansible_config_push()
+        fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
+
+        pi_name = 'xe-0/0/1'
+        li_name = pi_name + '.0'
+        pi = self.get_phy_interfaces(fc, name=pi_name)
+        li = self.get_logical_interface(pi, name=li_name)
+
+        self.assertEqual(li.get('vlan_tag'), '101')
+        self.assertFalse(li.get('is_tagged'))
+
+        pi_name = 'xe-0/0/1'
+        li_name = pi_name + '.102'
+        pi = self.get_phy_interfaces(fc, name=pi_name)
+        li = self.get_logical_interface(pi, name=li_name)
+
+        self.assertEqual(li.get('vlan_tag'), '102')
+        self.assertTrue(li.get('is_tagged'))
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi1.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm1.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi1[0].get_fq_name())
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi2.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm2.get_fq_name())
+
+        self.delete_routers(None, pr)
+        self.wait_for_routers_delete(None, pr.get_fq_name())
+        self._vnc_lib.bgp_router_delete(fq_name=bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+        self.delete_role_definitions()
+        self.delete_overlay_roles()
+        self.delete_physical_roles()
+        self.delete_features()
+        self.wait_for_features_delete()
+    # end test_tagged_and_untagged_vpg_sp_style
