@@ -5,12 +5,10 @@ import sys
 import traceback
 
 from cfgm_common.exceptions import NoIdError
+sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import _task_done, _task_error_log, _task_log, FilterLog
 
 from job_manager.job_utils import JobVncApi
-
-
-sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 
 
 class FilterModule(object):
