@@ -66,10 +66,19 @@ class L2GatewayFeature(FeatureBase):
             interface_map.setdefault(interface.pi_name, []).append(interface)
 
         for pi_name, interface_list in interface_map.items():
-            if len(interface_list) > 1 and \
-                    any(int(intf.vlan_tag) == 0 for intf in interface_list):
+            untagged = [i for i in interface_list if int(i.vlan_tag) == 0]
+            if len(untagged) > 1:
                 self._logger.error(
-                    "Invalid logical interface config for PI %s" % pi_name)
+                    "Only one untagged interface is allowed on a PI %s" %
+                    pi_name)
+                continue
+            tagged = [i for i in interface_list if int(i.vlan_tag) != 0]
+            if (self._is_enterprise_style(self._physical_router) and
+               len(untagged) > 0 and len(tagged) > 0):
+                self._logger.error(
+                    "Enterprise style config: Can't have tagged and untagged "
+                    "interfaces for same VN on same PI %s" %
+                    pi_name)
                 continue
             _, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
             for interface in interface_list:
