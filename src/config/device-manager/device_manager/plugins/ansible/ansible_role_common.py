@@ -448,47 +448,57 @@ class AnsibleRoleCommon(AnsibleConf):
                 unit.add_firewall_filters(fname)
     # end attach_acls
 
+    def _is_enterprise_style(self):
+        return self.physical_router.fabric_obj.enterprise_style
+    # end _is_enterprise_style
+
     def build_l2_evpn_interface_config(self, interfaces, vn, vlan_conf):
         ifd_map = {}
         for interface in interfaces:
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
 
         for ifd_name, interface_list in ifd_map.items():
-            intf, li_map = self.set_default_pi(ifd_name)
-            if interface_list[0].is_untagged():
-                if len(interface_list) > 1:
+            untagged = [int(i.port_vlan_tag) for i in interface_list
+                if i.is_untagged()]
+            if len(untagged) > 1:
+                self._logger.error(
+                    "Only one untagged interface is allowed on a ifd %s" %
+                    ifd_name)
+                continue
+            tagged = [int(i.vlan_tag) for i in interface_list
+                if not i.is_untagged()]
+            if self._is_enterprise_style():
+                if len(untagged) > 0 and len(tagged) > 0:
                     self._logger.error(
-                        "invalid logical interfaces config for ifd %s" % (
-                            ifd_name))
+                        "Enterprise style config: Can't have tagged and "
+                        "untagged interfaces for same VN on same PI %s" %
+                        ifd_name)
                     continue
-                unit_name = ifd_name + "." + str(interface_list[0].unit)
-                port_vlan_tag = interface_list[0].port_vlan_tag
-                if not port_vlan_tag:
-                    self._logger.error(
-                        "No vlan tag found for interface %s" %(unit_name))
-                    continue
-                unit = self.set_default_li(li_map, unit_name,
-                                           interface_list[0].unit)
-                unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn, False))
-                unit.set_is_tagged(False)
-                unit.set_vlan_tag(str(port_vlan_tag))
+            elif len(set(untagged) & set(tagged)) > 0:
+                self._logger.error(
+                    "SP style config: Can't have tagged and untagged "
+                    "interfaces with same Vlan-id on same PI %s" %
+                    ifd_name)
+                continue
+            _, li_map = self.set_default_pi(ifd_name)
+            for interface in interface_list:
+                if interface.is_untagged():
+                    is_tagged = False
+                    vlan_tag = str(interface.port_vlan_tag)
+                else:
+                    is_tagged = True
+                    vlan_tag = str(interface.vlan_tag)
+                unit_name = ifd_name + "." + str(interface.unit)
+                unit = self.set_default_li(li_map, unit_name, interface.unit)
+                unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn,
+                    is_tagged, vlan_tag))
+                unit.set_is_tagged(is_tagged)
+                unit.set_vlan_tag(vlan_tag)
                 # attach acls
-                self.attach_acls(interface_list[0], unit)
+                self.attach_acls(interface, unit)
                 if vlan_conf:
-                    self.add_ref_to_list(vlan_conf.get_interfaces(), unit_name)
-            else:
-                for interface in interface_list:
-                    unit_name = ifd_name + "." + str(interface.unit)
-                    unit = self.set_default_li(li_map, unit_name,
-                                               interface.unit)
-                    unit.set_comment(DMUtils.l2_evpn_intf_unit_comment(vn,
-                        True, interface.vlan_tag))
-                    unit.set_is_tagged(True)
-                    unit.set_vlan_tag(str(interface.vlan_tag))
-                    # attach acls
-                    self.attach_acls(interface, unit)
-                    if vlan_conf:
-                        self.add_ref_to_list(vlan_conf.get_interfaces(), unit_name)
+                    self.add_ref_to_list(vlan_conf.get_interfaces(),
+                        unit_name)
     # end build_l2_evpn_interface_config
 
     def init_evpn_config(self, encapsulation='vxlan'):

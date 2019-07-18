@@ -191,7 +191,7 @@ class FeatureBase(object):
     def _is_enterprise_style(cls, physical_router):
         if physical_router.fabric_obj:
             return physical_router.fabric_obj.enterprise_style
-    # enf _is_enterprise_style
+    # end _is_enterprise_style
 
     @staticmethod
     def _get_primary_ri(vn_obj):
