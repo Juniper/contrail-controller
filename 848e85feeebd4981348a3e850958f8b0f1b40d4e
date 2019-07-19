@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0040383c_90560436",
+        "filename": "src/vcenter-import/command/client_test.go",
+        "patchSetId": 24
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-19T20:44:18Z",
+      "side": 1,
+      "message": "so in general you would just have each of the ccclients created from parameters in the test rather than here but this okay for setup",
+      "revId": "848e85feeebd4981348a3e850958f8b0f1b40d4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b7642f89_55e44661",
+        "filename": "src/vcenter-import/command/client_test.go",
+        "patchSetId": 24
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-19T20:44:18Z",
+      "side": 1,
+      "message": "remove fmt.Println",
+      "range": {
+        "startLine": 71,
+        "startChar": 33,
+        "endLine": 71,
+        "endChar": 34
+      },
+      "revId": "848e85feeebd4981348a3e850958f8b0f1b40d4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
