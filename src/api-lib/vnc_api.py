@@ -233,7 +233,7 @@ class VncApi(object):
             if apicafile and api_server_use_ssl:
                 certs=[apicafile]
                 apicertbundle = os.path.join(
-                    '/tmp',
+                    '/tmp', self._web_host.replace('.', '_'),
                      self._username + '_' + VncApi._DEFAULT_API_CERT_BUNDLE)
                 self._apicertbundle=utils.getCertKeyCaBundle(apicertbundle,
                                                              certs)
@@ -258,7 +258,7 @@ class VncApi(object):
             if kscafile and self._authn_protocol == 'https':
                 certs=[kscafile]
                 kscertbundle = os.path.join(
-                    '/tmp',
+                    '/tmp', self._web_host.replace('.', '_'),
                     self._username + '_' + VncApi._DEFAULT_KS_CERT_BUNDLE)
                 self._kscertbundle=utils.getCertKeyCaBundle(kscertbundle,
                                                             certs)
