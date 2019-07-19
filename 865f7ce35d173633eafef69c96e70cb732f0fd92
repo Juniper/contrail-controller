@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "30f67fa1_6ebe5960",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 10
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-19T14:43:38Z",
+      "side": 1,
+      "message": "You missed the \u0027s\u0027 at the end in \u0027closes\u0027.\nIMO your patch does not close CEM-6272 but its sub-task CEM7328. BTW you should add another sub-task to CEM-6272 to take care of pep8 compliance.",
+      "range": {
+        "startLine": 15,
+        "startChar": 0,
+        "endLine": 15,
+        "endChar": 14
+      },
+      "revId": "865f7ce35d173633eafef69c96e70cb732f0fd92",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8bd3723b_cd35812d",
+        "filename": "src/config/schema-transformer/test/fab_tasks.py",
+        "patchSetId": 10
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-19T14:43:38Z",
+      "side": 1,
+      "message": "\u0027cfgm_common\u0027 package was renamed \u0027contrail-config-common\u0027",
+      "range": {
+        "startLine": 20,
+        "startChar": 35,
+        "endLine": 20,
+        "endChar": 46
+      },
+      "revId": "865f7ce35d173633eafef69c96e70cb732f0fd92",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
