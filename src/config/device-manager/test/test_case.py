@@ -53,6 +53,8 @@ class DMTestCase(test_common.TestCase):
         setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
         setattr(device_manager.overlay_conf.OverlayConf, 'device_send',
                 fake_job_handler_push)
+        setattr(device_manager.pnf_conf.PnfConf, 'device_send',
+                fake_job_handler_push)
         if hasattr(self, 'product'):
             FakeNetconfManager.set_model(self.product)
         return
