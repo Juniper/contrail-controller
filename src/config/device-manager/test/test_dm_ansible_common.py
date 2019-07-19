@@ -1,15 +1,17 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+import json
 import sys
+import uuid
 
 from device_manager.device_manager import DeviceManager
 from test_case import DMTestCase
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
+from netaddr import IPNetwork
 from test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
-import json
 
 
 class TestAnsibleCommonDM(DMTestCase):
@@ -29,7 +31,6 @@ class TestAnsibleCommonDM(DMTestCase):
         DeviceManager.get_instance().logger.debug("Job Input: %s" % json.dumps(job_input, indent=4))
         return job_input
     # end check_dm_ansible_config_push
-
 
     def create_features(self, features=[]):
         self.features = {}
@@ -384,4 +385,173 @@ class TestAnsibleCommonDM(DMTestCase):
                 fw_list.append(fw)
         return fw_list
     # end get_firewalls
+
+    def fabric_network_name(self, fabric_name, network_type):
+        """Fabric network name.
+
+        :param fabric_name: string
+        :param network_type: string
+        :return: string
+        """
+        return '%s-%s-network' % (fabric_name, network_type)
+    # end fabric_network_name
+
+    def fabric_network_ipam_name(self, fabric_name, network_type):
+        """Fabric network IPAM name.
+
+        :param fabric_name: string
+        :param network_type: string
+        :return: string
+        """
+        return '%s-%s-network-ipam' % (fabric_name, network_type)
+    # end fabric_network_ipam_name
+
+    def carve_out_subnets(self, subnets, cidr):
+        """Carve out subnets.
+
+        :param subnets: type=list<Dictionary>
+        :param cidr: type=int
+            example:
+            [
+                { 'cidr': '192.168.10.1/24', 'gateway': '192.168.10.1 }
+            ]
+            cidr = 30
+        :return: list<Dictionary>
+            example:
+            [
+                { 'cidr': '192.168.10.1/30'}
+            ]
+        """
+        carved_subnets = []
+        for subnet in subnets:
+            slash_x_subnets = IPNetwork(subnet.get('cidr')).subnet(cidr)
+            for slash_x_sn in slash_x_subnets:
+                carved_subnets.append({'cidr': str(slash_x_sn)})
+        return carved_subnets
+    # end _carve_out_subnets
+
+    def new_subnet(self, cidr):
+        """Create a new subnet.
+
+        :param cidr: string, example: '10.1.1.1/24'
+        :return: <vnc_api.gen.resource_xsd.SubnetType>
+        """
+        split_cidr = cidr.split('/')
+        return SubnetType(ip_prefix=split_cidr[0], ip_prefix_len=split_cidr[1])
+    # end new_subnet
+
+    def add_network_ipam(self, ipam_name, subnets, subnetting):
+        """Add network IPAM.
+
+        :param ipam_name: string
+        :param subnets: list<Dictionary>
+            [
+                { 'cidr': '10.1.1.1/24', 'gateway': '10.1.1.1' }
+            ]
+        :param subnetting: boolean
+        :return: <vnc_api.gen.resource_client.NetworkIpam>
+        """
+        ipam_fq_name = ['default-domain', 'default-project', ipam_name]
+        ipam = NetworkIpam(
+            name=ipam_name,
+            fq_name=ipam_fq_name,
+            parent_type='project',
+            ipam_subnets=IpamSubnets([
+                IpamSubnetType(
+                    subnet=self.new_subnet(sn.get('cidr')),
+                    default_gateway=sn.get('gateway'),
+                    subnet_uuid=str(uuid.uuid1())
+                ) for sn in subnets if int(sn.get('cidr').split('/')[-1]) < 31
+            ]),
+            ipam_subnet_method='flat-subnet',
+            ipam_subnetting=subnetting
+        )
+        try:
+            self._vnc_lib.network_ipam_create(ipam)
+        except RefsExistError as ex:
+            self._vnc_lib.network_ipam_update(ipam)
+        return self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+    # end add_network_ipam
+
+    def add_cidr_namespace(self, fabric, ns_name, ns_subnets, tag):
+        """Add CIDR namespace.
+
+        :param fabric: <vnc_api.gen.resource_client.Fabric>
+        :param ns_name:
+        :param ns_subnets:
+        :param tag:
+        :return:
+        """
+        subnets = []
+        for subnet in ns_subnets:
+            ip_prefix = subnet['cidr'].split('/')
+            subnets.append(SubnetType(
+                ip_prefix=ip_prefix[0], ip_prefix_len=ip_prefix[1]))
+
+        ns_fq_name = fabric.fq_name + [ns_name]
+        namespace = FabricNamespace(
+            name=ns_name,
+            fq_name=ns_fq_name,
+            parent_type='fabric',
+            fabric_namespace_type='IPV4-CIDR',
+            fabric_namespace_value=NamespaceValue(
+                ipv4_cidr=SubnetListType(subnet=subnets)
+            )
+        )
+        namespace.set_tag_list([{'to': [tag]}])
+        # import pdb
+        # pdb.set_trace()
+        try:
+            self._vnc_lib.fabric_namespace_create(namespace)
+        except RefsExistError:
+            self._vnc_lib.fabric_namespace_update(namespace)
+
+        namespace = self._vnc_lib.fabric_namespace_read(fq_name=ns_fq_name)
+        return namespace
+    # end add_cidr_namespace
+
+    def add_fabric_vn(self, fabric_obj, network_type, subnets, subnetting):
+        """Add fabric VN.
+
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :param network_type: string, one of the NetworkType constants
+        :param subnets: list<Dictionary>
+            [
+                { 'cidr': '10.1.1.1/24', 'gateway': '10.1.1.1' }
+            ]
+        :param subnetting: boolean
+        :return: <vnc_api.gen.resource_client.VirtualNetwork>
+        """
+        network_name = self.fabric_network_name(
+            str(fabric_obj.name), network_type)
+        nw_fq_name = ['default-domain', 'default-project', network_name]
+
+        network = VirtualNetwork(
+            name=network_name,
+            fq_name=nw_fq_name,
+            parent_type='project',
+            virtual_network_properties=VirtualNetworkType(
+                forwarding_mode='l3'),
+            address_allocation_mode='flat-subnet-only')
+
+        try:
+            self._vnc_lib.virtual_network_create(network)
+        except RefsExistError as ex:
+            self._vnc_lib.virtual_network_update(network)
+
+        network = self._vnc_lib.virtual_network_read(fq_name=nw_fq_name)
+
+        ipam_name = self.fabric_network_ipam_name(
+            str(fabric_obj.name), network_type)
+        ipam = self.add_network_ipam(ipam_name, subnets, subnetting)
+
+        # add vn->ipam link
+        network.add_network_ipam(ipam, VnSubnetsType([]))
+        self._vnc_lib.virtual_network_update(network)
+        fabric_obj.add_virtual_network(
+            network, FabricNetworkTag(network_type=network_type))
+        self._vnc_lib.fabric_update(fabric_obj)
+
+        return ipam, network
+    # end add_fabric_vn
 # end TestAnsibleCommonDM
