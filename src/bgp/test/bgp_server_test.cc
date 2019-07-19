@@ -202,6 +202,9 @@ protected:
                 as_t as_num1, as_t as_num2,
                 as_t local_as_num1, as_t local_as_num2,
                 bool enable_4byte_as = false);
+    void SetupPeersWrongAsnConfig(int peer_count, unsigned short port_a,
+                unsigned short port_b, bool verify_keepalives,
+                as_t as_num1, as_t as_num2);
     void SetupPeers(BgpServerTest *server, int peer_count,
                 unsigned short port_a, unsigned short port_b,
                 bool verify_keepalives,
@@ -629,6 +632,54 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
     task_util::WaitForIdle();
 }
 
+// Configure wrong asn for peer so that asn check happens in AS4SUPPORT
+// capability. 4byte_as feature is assumed to be on
+void BgpServerUnitTest::SetupPeersWrongAsnConfig(int peer_count,
+        unsigned short port_a, unsigned short port_b, bool verify_keepalives,
+        as_t as_num1, as_t as_num2) {
+    string config = GetConfigStr(peer_count, port_a, port_b,
+                                 false, false, false, false, false, false,
+                                 as_num1, as_num2,
+                                 0, 0,
+                                 bgp_server_ip_a_, bgp_server_ip_b_,
+                                 "192.168.0.10", "192.168.0.11",
+                                 vector<string>(), vector<string>(),
+                                 StateMachine::kHoldTime,
+                                 StateMachine::kHoldTime,
+                                 0, 0, false, vector<ConfigUTAuthKeyItem>(),
+                                 0, true);
+    a_->Configure(config);
+    task_util::WaitForIdle();
+    config = GetConfigStr(peer_count, port_a, port_b,
+                                 false, false, false, false, false, false,
+                                 as_num1 + 1, as_num2 + 2,
+                                 0, 0,
+                                 bgp_server_ip_a_, bgp_server_ip_b_,
+                                 "192.168.0.10", "192.168.0.11",
+                                 vector<string>(), vector<string>(),
+                                 StateMachine::kHoldTime,
+                                 StateMachine::kHoldTime,
+                                 0, 0, false, vector<ConfigUTAuthKeyItem>(),
+                                 0, true);
+    b_->Configure(config);
+    task_util::WaitForIdle();
+
+    const int peers = peer_count;
+    for (int j = 0; j < peers; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+
+        TASK_UTIL_EXPECT_NE(static_cast<BgpPeer *>(NULL),
+                a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        ASSERT_TRUE(peer_a != NULL);
+        // asn mismatch will happen in AS4Support capability so connection
+        // won't establish and open_error count will go up
+        TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
+        TASK_UTIL_EXPECT_TRUE(peer_a->get_open_error() > 0);
+    }
+}
+
 void BgpServerUnitTest::VerifyPeers(int peer_count,
     size_t verify_keepalives_count, as_t local_as_num1, as_t local_as_num2) {
     BgpProto::BgpPeerType peer_type =
@@ -712,7 +763,16 @@ TEST_P(BgpServerUnitTest, LotsOfKeepAlives) {
     StateMachineTest::set_keepalive_time_msecs(0);
 }
 
-TEST_P(BgpServerUnitTest, ChangeDisable4ByteAsn) {
+TEST_P(BgpServerUnitTest, VerifyAs4SupportCapability) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    // Enable 4 byte asn so that AS4Support capability is sent
+    SetupPeersWrongAsnConfig(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false, 70000, 80000);
+}
+
+TEST_P(BgpServerUnitTest, ChangeEnable4ByteAsn) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
