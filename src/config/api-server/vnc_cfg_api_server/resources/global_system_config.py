@@ -67,17 +67,50 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         return (True, '')
 
     @classmethod
+    def check_asn_range(cls, asn):
+        fields = ['enable_4byte_as']
+        ok, result = cls._get_global_system_config(fields)
+        if not ok:
+            return False, result
+        enable_4byte_as = result['enable_4byte_as']
+        if enable_4byte_as:
+            # 4 Byte AS is allowed. So the range should be
+            # between 1-0xffFFffFF
+            if asn < 1 or asn > 0xFFFFFFFF:
+                return (False,
+                        (400, 'ASN out of range, should be between '
+                              '1-0xFFFFFFFF'))
+        else:
+            # Only 2 Byte AS allowed. The range should be
+            # between 1-0xffFF
+            if asn < 1 or asn > 0xFFFF:
+                return (False,
+                        (400, 'ASN out of range, should be between 1-0xFFFF'))
+        return True, ''
+
+    @classmethod
     def _check_asn(cls, obj_dict):
+        # For the case of simplicity, we won't allow edit of both
+        # enable_4byte_as and autonomous_system in same request
+        if ('enable_4byte_as' in obj_dict and
+                'autonomous_system' in obj_dict):
+            return False, (400, 'Cannot edit both ASN and enable_4byte_as '
+                                'in same request')
+
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
             return True, ''
+
+        ok, result = cls.check_asn_range(global_asn)
+        if not ok:
+            return ok, result
 
         # If the ASN has changed from 2 byte to 4 byte, we need to make sure
         # that there is enough space to reallocate the RT values in new
         # zookeeper space.
 
         if ((global_asn > 0xFFFF) and
-                (cls.server.global_autonomous_system < 0xFFFF)):
+                (cls.server.global_autonomous_system <= 0xFFFF)):
             try:
                 _, znode_stat = cls.vnc_zk_client._zk_client.read_node(
                     '%s%s' % (cls.server._args.cluster_id,
