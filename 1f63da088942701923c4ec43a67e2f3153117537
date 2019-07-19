@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d87239c8_86ddac68",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_quota.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 186,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-19T20:10:06Z",
+      "side": 1,
+      "message": "I don\u0027t get this Édouard. Here we are passing quota_dict. But the get_quota_limits method is actually taking in a project as an argument.",
+      "range": {
+        "startLine": 186,
+        "startChar": 8,
+        "endLine": 186,
+        "endChar": 78
+      },
+      "revId": "1f63da088942701923c4ec43a67e2f3153117537",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
