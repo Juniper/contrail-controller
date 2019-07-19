@@ -39,7 +39,6 @@ set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}
-set groups {{cfg_group}} protocols igmp-snooping vlan all proxy
 {%     for bgp_elem in device_abstract_config.get('bgp', []) %}
 {%         set families = bgp_elem.get('families', []) %}
 {%         for fam in families %}
