@@ -22,7 +22,9 @@
 - set_fact:
     image_uri: "{{image_info.device_image_file_uri}}"
     filename: "{{image_info.fq_name[-1]}}"
-    image_os_version: "{{image_info.device_image_os_version}}"
+    image_os_version_raw: "{{image_info.device_image_os_version}}"
     image_family: "{{image_info.device_image_device_family}}"
 
-
+- name: Strip white space for image os version
+  set_fact:
+    image_os_version: "{{image_os_version_raw | replace(' ','')}}"

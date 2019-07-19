@@ -24,7 +24,7 @@
   debug: var=sys_info verbosity=1
 
 - set_fact:
-    device_version: "{{sys_info.parsed_output['system-information']['os-version']}}"
+    device_version: "{{sys_info.parsed_output['system-information']['os-version'] | replace(' ','')}}"
 
 - name: Print device OS version
   debug: var=device_version verbosity=1
@@ -32,9 +32,9 @@
 # check if image os version is same as device os version
 - name: Validate version in device to see if it does not matches image version
   include_tasks: error_handler.yml
-  when: "image_info.device_image_os_version != device_version"
+  when: image_os_version != device_version
   vars:
-    op_err_message: "Device version validation task failed. Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+    op_err_message: "Device version validation task failed. Image version is {{image_os_version}} and Device version is {{device_version}}"
     results: |
       {
         "prouter_uuid": "{{pr_uuid}}",
@@ -43,5 +43,6 @@
       }
     jl_err_message: >
       "Device version validation task failed.
-       Image version is {{image_info.device_image_os_version}} and Device version is {{device_version}}"
+       Image version is {{image_os_version}} and Device version is {{device_version}}"
+
 
