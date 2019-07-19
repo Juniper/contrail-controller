@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "7f04ea32_80067986",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-19T22:35:49Z",
+      "side": 1,
+      "message": "Édouard. I decided to take the approach of removing the underscore.\nReasoning is that I believe it should be kept within the GlobalSystemServer as the flag itself belongs to that class. Please let me know if you disagree. \nP.S. it was also an easier code change.",
+      "parentUuid": "3c4f29a6_2557c360",
+      "range": {
+        "startLine": 38,
+        "startChar": 46,
+        "endLine": 38,
+        "endChar": 62
+      },
+      "revId": "e1b63612fcc73661b7efdfc7c7aa63c7c7ab1933",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "66d0ce35_3f0d4d35",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
         "patchSetId": 5
@@ -48,6 +72,30 @@
     },
     {
       "key": {
+        "uuid": "e79bbc99_ddca1e11",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-19T22:35:49Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "66d0ce35_3f0d4d35",
+      "range": {
+        "startLine": 39,
+        "startChar": 8,
+        "endLine": 42,
+        "endChar": 23
+      },
+      "revId": "e1b63612fcc73661b7efdfc7c7aa63c7c7ab1933",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c187e282_952399bd",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
         "patchSetId": 5
@@ -68,6 +116,30 @@
       "revId": "e1b63612fcc73661b7efdfc7c7aa63c7c7ab1933",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3c157384_344f3ce0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-19T22:35:49Z",
+      "side": 1,
+      "message": "Done. But, made it default to False. The user can then start debugging to find out the reason behind a 4 byte ASN change.",
+      "parentUuid": "c187e282_952399bd",
+      "range": {
+        "startLine": 75,
+        "startChar": 26,
+        "endLine": 75,
+        "endChar": 51
+      },
+      "revId": "e1b63612fcc73661b7efdfc7c7aa63c7c7ab1933",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
