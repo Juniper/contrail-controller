@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "06fd8740_818f7bef",
+        "filename": "src/vcenter-import/command/client_test.go",
+        "patchSetId": 24
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-20T06:30:01Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0040383c_90560436",
+      "revId": "848e85feeebd4981348a3e850958f8b0f1b40d4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b7642f89_55e44661",
         "filename": "src/vcenter-import/command/client_test.go",
         "patchSetId": 24
@@ -39,6 +57,30 @@
       "revId": "848e85feeebd4981348a3e850958f8b0f1b40d4e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "55890c85_c0cf8830",
+        "filename": "src/vcenter-import/command/client_test.go",
+        "patchSetId": 24
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-20T06:30:01Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "b7642f89_55e44661",
+      "range": {
+        "startLine": 71,
+        "startChar": 33,
+        "endLine": 71,
+        "endChar": 34
+      },
+      "revId": "848e85feeebd4981348a3e850958f8b0f1b40d4e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
