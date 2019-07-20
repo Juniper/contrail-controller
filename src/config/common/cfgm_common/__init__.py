@@ -58,6 +58,12 @@ def get_bgp_rtgt_min_id(asn):
     else:
         return _BGP_RTGT_MIN_ID_TYPE0
 
+def get_bgp_rtgt_max_id(asn):
+    if asn > 0xFFFF:
+        return _BGP_RTGT_MAX_ID_TYPE1_2
+    else:
+        return _BGP_RTGT_MAX_ID_TYPE0
+
 RULE_IMPLICIT_ALLOW_UUID = "00000000-0000-0000-0000-100000000001"
 RULE_IMPLICIT_DENY_UUID = "00000000-0000-0000-0000-100000000002"
 
