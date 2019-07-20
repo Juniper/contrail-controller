@@ -2133,6 +2133,7 @@ class VncApiServer(object):
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
         self._global_asn = None
+        self._enable_4byte_as = None
 
         # api server list info
         self._config_node_list = []
@@ -2195,6 +2196,23 @@ class VncApiServer(object):
     @global_autonomous_system.setter
     def global_autonomous_system(self, asn):
         self._global_asn = asn
+
+    @property
+    def enable_4byte_as_flag(self):
+        if not self._enable_4byte_as:
+            gsc_class = self.get_resource_class(GlobalSystemConfig.object_type)
+            ok, result = gsc_class.locate(uuid=self._gsc_uuid, create_it=False,
+                                          fields=['enable_4byte_as'])
+            if not ok:
+                msg = ("Cannot fetch Global System Config to obtain "
+                       "enable_4byte_as flag")
+                raise cfgm_common.exceptions.VncError(msg)
+            self._enable_4byte_as = result['enable_4byte_as']
+        return self._enable_4byte_as
+
+    @enable_4byte_as_flag.setter
+    def enable_4byte_as_flag(self, enable_4byte_as):
+        self._enable_4byte_as = enable_4byte_as
 
     @property
     def default_domain(self):
