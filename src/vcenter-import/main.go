@@ -82,9 +82,13 @@ func main() {
 		vCenterCfg.SdkURL = "/sdk"
 	}
 	vCenterSdkURL := fmt.Sprintf("https://%s:%s@%s%s", vCenterCfg.Username, vCenterCfg.Password, vCenterCfg.Host, vCenterCfg.SdkURL)
-	hosts, err := vcenter.DataCenterHostSystems(ctx, vCenterCfg.Datacenter, vCenterSdkURL, !vCenterCfg.Secure)
+	c, err := vcenter.New(ctx, vCenterSdkURL, !vCenterCfg.Secure)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create vcenter client: %v", err)
+	}
+	hosts, err := c.DataCenterHostSystems(ctx, vCenterCfg.Datacenter)
+	if err != nil {
+		log.Fatalf("Failed to get hosts: %v", err)
 	}
 
 	cClient, err := contrailCommandClient(cfg)
