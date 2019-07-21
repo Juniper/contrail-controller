@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e2e4b7be_c37467bd",
+        "filename": "ci_unittests.json",
+        "patchSetId": 33
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-07-21T07:34:57Z",
+      "side": 1,
+      "message": "why it was added to config? would it be better to create separate section?",
+      "revId": "ac88b7aa68a63b96c6a733fb5919b6dfa77c8b38",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
