@@ -2,16 +2,7 @@ python-subunit
 testrepository
 flexmock
 mock
-coverage
-pyaml
-python-keystoneclient
-keystonemiddleware!=4.19.0
 webtest
-kazoo
-sandesh
-sandesh-common
-contrail-api-client
 contrail-api-server
 ../../../noarch/config/svc-monitor
 junitxml
-pyOpenSSL
