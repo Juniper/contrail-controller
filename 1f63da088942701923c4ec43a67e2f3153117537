@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "91210e37_30f74e49",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_quota.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-22T08:31:27Z",
+      "side": 1,
+      "message": "If you prefer but we only manipulate dict in API server",
+      "parentUuid": "c90579b1_498acba8",
+      "range": {
+        "startLine": 25,
+        "startChar": 30,
+        "endLine": 25,
+        "endChar": 37
+      },
+      "revId": "1f63da088942701923c4ec43a67e2f3153117537",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "d87239c8_86ddac68",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_quota.py",
         "patchSetId": 2
@@ -60,6 +84,30 @@
       "side": 1,
       "message": "My Bad. It\u0027s a project_dict",
       "parentUuid": "d87239c8_86ddac68",
+      "range": {
+        "startLine": 186,
+        "startChar": 8,
+        "endLine": 186,
+        "endChar": 78
+      },
+      "revId": "1f63da088942701923c4ec43a67e2f3153117537",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "34e3a81b_8492f245",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_quota.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 186,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-22T08:31:27Z",
+      "side": 1,
+      "message": "Yes I should rename it \u0027project_dict\u0027 also",
+      "parentUuid": "d4271bfd_e197dd69",
       "range": {
         "startLine": 186,
         "startChar": 8,
