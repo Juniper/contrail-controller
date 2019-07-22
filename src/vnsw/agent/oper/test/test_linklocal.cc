@@ -65,7 +65,9 @@ public:
     }
 
     virtual void TearDown() {
-        WAIT_FOR(10000, 100,
+        // dns query for entries in fabric_dns_name is sent to dns server (resolve.conf)
+        // of build machine increase retries for successful lookup.
+        WAIT_FOR(50000, 100,
                  (agent_->oper_db()->global_vrouter()->PendingFabricDnsRequests()
                   == 0));
     }
