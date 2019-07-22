@@ -218,6 +218,44 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         return True, ''
 
     @classmethod
+    def _check_host_based_service_action(cls, req_dict, db_dict=None):
+        if not db_dict:
+            db_dict = {}
+
+        if ('action_list' not in req_dict or
+                not req_dict['action_list'].get('host_based_service', False)):
+            return True, ''
+
+        parent_type = req_dict.get('parent_type', db_dict.get('parent_type'))
+        if parent_type != 'project':
+            msg = ("host-based-service rule action can only be use in a "
+                   "project scope")
+            return False, (400, msg)
+
+        fq_name = req_dict.get('fq_name', db_dict.get('fq_name'))
+        parent_uuid = req_dict.get('parent_uuid', db_dict.get('parent_uuid'))
+        if not parent_uuid:
+            try:
+                parent_uuid = cls.db_conn.fq_name_to_uuid(
+                    'project', fq_name[:-1])
+            except NoIdError:
+                msg = "Project %s parent not found " % fq_name
+                return False, (404, msg)
+
+        ok, result = cls.server.get_resource_class(
+            'host_based_service').host_based_service_enabled(parent_uuid)
+        if not ok:
+            return False, result
+        hbs_enabled, msg = result
+
+        if not hbs_enabled:
+            msg = ("Cannot use Host Based Service firewall rule action: %s" %
+                   msg)
+            return False, (400, msg)
+
+        return True, ''
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls.check_draft_mode_state(obj_dict)
         if not ok:
@@ -247,6 +285,10 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
             obj_dict,
             VirtualNetwork,
         )
+        if not ok:
+            return False, result
+
+        ok, result = cls._check_host_based_service_action(obj_dict)
         if not ok:
             return False, result
 
@@ -310,6 +352,11 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return ok, read_result
         db_obj_dict = read_result
+
+        ok, result = cls._check_host_based_service_action(
+            obj_dict, db_obj_dict)
+        if not ok:
+            return False, result
 
         try:
             service = obj_dict['service']

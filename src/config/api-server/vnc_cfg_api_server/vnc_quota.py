@@ -38,6 +38,13 @@ class QuotaHelper(object):
             quota_limit = cls.default_quota.get(obj_type)
         if quota_limit is None:
             quota_limit = cls.default_quota['defaults']
+
+        # For the moment, we can set only one host_based-service per project
+        # cannot be unlimited or limited to more than 1
+        if obj_type == 'host_based_service':
+            if quota_limit not in [0, 1]:
+                quota_limit = 0
+
         return quota_limit
 
     @classmethod
