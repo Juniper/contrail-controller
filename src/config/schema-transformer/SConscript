@@ -16,7 +16,7 @@ setup_sources = [
            '.stestr.conf',
            'tox.ini',
            '.coveragerc',
-           'test',
+           'schema_transformer',
           ]
 
 setup_sources_rules = []
@@ -24,26 +24,11 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/schema-transformer/" + file))
 
-local_sources = [
-           '__init__.py',
-           'to_bgp.py',
-           'config_db.py',
-           'db.py',
-           'st_amqp.py',
-           'logger.py',
-          ]
-
-local_sources_rules = []
-for file in local_sources:
-    local_sources_rules.append(
-        env.Install("schema_transformer", "#controller/src/config/schema-transformer/" + file))
-
 st_introspect_pkg = env.SandeshGenPy('st_introspect.sandesh', 'schema_transformer/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(st_introspect_pkg)
 sdist_gen = env.Command('dist/schema_transformer-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
