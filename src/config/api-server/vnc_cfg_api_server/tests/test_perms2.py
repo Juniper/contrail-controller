@@ -782,6 +782,20 @@ class TestPermissions(test_case.ApiServerTestCase):
         except PermissionDenied as e:
             self.assertTrue(False, 'Failed to read VN ... Test failed!')
 
+        logger.info( 'Reading VN as bob with filters set... should succeed')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+            # In order to check the working of collect_shared method in API server
+            # Ask for all shared networks, But set the filters to something that
+            # that makes _object_db.object_list inside API server return empty
+            filters={'display_name': net_obj.display_name+'_dummy'}
+            net_objs = bob.vnc_lib.virtual_networks_list(shared=True,
+                                                         filters=filters)
+            self.assertTrue(vn.get_uuid(), net_objs['virtual-networks'][0]['uuid'])
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
+
         logger.info('')
         logger.info( 'Disable share in virtual networks for others')
         set_perms(vn, share = [])
@@ -830,6 +844,20 @@ class TestPermissions(test_case.ApiServerTestCase):
             net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
             self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
             net_objs = bob.vnc_lib.virtual_networks_list(shared=True)
+            self.assertTrue(vn.get_uuid(), net_objs['virtual-networks'][0]['uuid'])
+        except PermissionDenied as e:
+            self.assertTrue(False, 'Failed to read VN ... Test failed!')
+
+        logger.info( 'Reading VN as bob with filters set... should succeed')
+        try:
+            net_obj = bob.vnc_lib.virtual_network_read(id=vn.get_uuid())
+            self.assertTrue(True, 'Succeeded in reading VN. Test passed!')
+            # In order to check the working of collect_shared method in API server
+            # Ask for all shared networks, But set the filters to something that
+            # that makes _object_db.object_list inside API server return empty
+            filters={'display_name': net_obj.display_name+'_dummy'}
+            net_objs = bob.vnc_lib.virtual_networks_list(shared=True,
+                                                         filters=filters)
             self.assertTrue(vn.get_uuid(), net_objs['virtual-networks'][0]['uuid'])
         except PermissionDenied as e:
             self.assertTrue(False, 'Failed to read VN ... Test failed!')
