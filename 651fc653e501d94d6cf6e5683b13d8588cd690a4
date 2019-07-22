@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a66f02f0_f3e51d69",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2407,
+      "author": {
+        "id": 561
+      },
+      "writtenOn": "2019-07-22T16:53:10Z",
+      "side": 1,
+      "message": "I would prefer if you refactor this code in a method",
+      "range": {
+        "startLine": 2346,
+        "startChar": 12,
+        "endLine": 2407,
+        "endChar": 32
+      },
+      "revId": "651fc653e501d94d6cf6e5683b13d8588cd690a4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
