@@ -283,6 +283,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return False, result
 
+        cls._check_hbs_action(obj_dict)
         return True, ""
 
     @classmethod
