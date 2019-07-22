@@ -14,6 +14,7 @@ from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
 monkey.patch_all()
 import sys
+import os
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import requests
@@ -27,8 +28,34 @@ import argparse
 
 from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
-from config_db import *
+from cfgm_common.vnc_db import DBBase
+from resources._resource_base import ResourceBaseST
+from resources.virtual_network import VirtualNetworkST
+from resources.virtual_machine import VirtualMachineST
+from resources.port_tuple import PortTupleST
+from resources.routing_instance import RoutingInstanceST
+from resources.route_target import RouteTargetST
+from resources.network_policy import NetworkPolicyST
+from resources.service_instance import ServiceInstanceST
+from resources.bgp_vpn import BgpvpnST
+from resources.physical_router import PhysicalRouterST
+from resources.security_group import SecurityGroupST
+from resources.logical_router import LogicalRouterST
+from resources.routing_policy import RoutingPolicyST
+from resources.global_system_config import GlobalSystemConfigST
+from resources.virtual_machine_interface import VirtualMachineInterfaceST
+from resources.service_chain import ServiceChain
+from resources.bgp_router import BgpRouterST
+from resources.bgp_as_a_service import BgpAsAServiceST
+from resources.instance_ip import InstanceIpST
+from resources.floating_ip import FloatingIpST
+from resources.security_logging_object import SecurityLoggingObjectST
+from resources.alias_ip import AliasIpST
+from resources.route_aggregate import RouteAggregateST
+from resources.route_table import RouteTableST
 
+
+from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -196,9 +223,9 @@ class SchemaTransformer(object):
         try:
             # Initialize cassandra
             self._object_db = SchemaTransformerDB(self, _zookeeper_client)
-            DBBaseST.init(self, self.logger, self._object_db)
-            DBBaseST._sandesh = self.logger._sandesh
-            DBBaseST._vnc_lib = _vnc_lib
+            ResourceBaseST.init(self, self.logger, self._object_db)
+            ResourceBaseST._sandesh = self.logger._sandesh
+            ResourceBaseST._vnc_lib = _vnc_lib
             ServiceChain.init()
             self.reinit()
             self._vnc_amqp._db_resync_done.set()
@@ -242,7 +269,7 @@ class SchemaTransformer(object):
         ri_dict = {}
         service_ri_dict = {}
         ri_deleted = {}
-        for ri in DBBaseST.list_vnc_obj('routing_instance'):
+        for ri in ResourceBaseST.list_vnc_obj('routing_instance'):
             delete = False
             if ri.parent_uuid not in vn_id_list:
                 delete = True
@@ -281,7 +308,7 @@ class SchemaTransformer(object):
         sg_id_list = [sg.uuid for sg in sg_list]
         sg_acl_dict = {}
         vn_acl_dict = {}
-        for acl in DBBaseST.list_vnc_obj('access_control_list', fields=['access_control_list_hash']):
+        for acl in ResourceBaseST.list_vnc_obj('access_control_list', fields=['access_control_list_hash']):
             delete = False
             if acl.parent_type == 'virtual-network':
                 if acl.parent_uuid in vn_id_list:
@@ -381,7 +408,7 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in reinit evaluate virtual network %s: %s" % (
                     vn_obj.name, str(e)))
-        for cls in DBBaseST.get_obj_type_map().values():
+        for cls in ResourceBaseST.get_obj_type_map().values():
             if cls is VirtualNetworkST:
                 continue
             for obj in cls.values():
@@ -419,7 +446,7 @@ class SchemaTransformer(object):
     def destroy_instance(cls):
         inst = cls.get_instance()
         inst._vnc_amqp.close()
-        for obj_cls in DBBaseST.get_obj_type_map().values():
+        for obj_cls in ResourceBaseST.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
         inst._object_db = None

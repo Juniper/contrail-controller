@@ -5,13 +5,9 @@
 import uuid
 import copy
 
-try:
-    import config_db
-except ImportError:
-    from schema_transformer import config_db
+from schema_transformer.resources.security_group import SecurityGroupST
 from vnc_api.vnc_api import (AddressType, SubnetType, PolicyRuleType,
         PortType, PolicyEntriesType, SecurityGroup, NoIdError)
-
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
 
@@ -103,7 +99,7 @@ class VerifySecurityGroup(VerifyPolicy):
 
     @retries(5)
     def check_sg_refer_list(self, sg_referred_by, sg_referrer, is_present):
-        self.assertEqual(is_present, sg_referred_by in config_db.SecurityGroupST._sg_dict.get(sg_referrer, []))
+        self.assertEqual(is_present, sg_referred_by in SecurityGroupST._sg_dict.get(sg_referrer, []))
 
     @retries(5)
     def check_acl_not_match_sg(self, fq_name, acl_name, sg_id):
