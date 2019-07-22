@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ef574dad_4323d305",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 146,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-22T21:21:31Z",
+      "side": 1,
+      "message": "func (c *Client) esxiPorts(hs mo.HostSystem) map[string]ESXIPort {\n  esxiPorts :\u003d map[string]ESXIPort{}\n  for _, pnic :\u003d range hs.Config.Network.Pnic {\n    esxiPorts[pnic.Device] \u003d ESXIPort{\n      MACAddress: pnic.Mac,\n      Name:       pnic.Device,\n      DVSName:    dvsName(hs, pnic),\n    }\n  }\n  return c.addLLDPPortInfo(esxiPorts)\n}\n  \n\nfunc (c *Client) addLLDPPortInfo(ports map[string]ESXIPort) map[string]ESXIPort {\n  ns :\u003d hs.ConfigManager.NetworkSystem\n  req :\u003d types.QueryNetworkHint{\n    This: ns.Reference(),\n  }\n  lldpInfo, err :\u003d methods.QueryNetworkHint(ctx, c.c.Client, \u0026req)\n  if err !\u003d nil {\n    // it may fail to query, try with next server\n    log.Warn(\"Failed to get lldp info:\", err)\n    return\n  }\n  for _, lldpNic :\u003d range lldpInfo.Returnval {\n    if lldpNic.LldpInfo \u003d\u003d nil {\n      continue\n    }\n    p, ok :\u003d esxiPorts[lldpNic.Device]\n    if !ok {\n      continue\n    }\n    var switchName string\n    var portID string\n\t\tfor _, param :\u003d range lldpNic.LldpInfo.Parameter {\n\t\t\tswitch param.Key {\n\t\t\tcase \"Port Description\":\n\t\t\t\tportID, _ \u003d param.Value.(string) // nolint: errcheck\n\t\t\tcase \"System Name\":\n\t\t\t\tswitchName, _ \u003d param.Value.(string) // nolint: errcheck\n\t\t\t}\n\t\t}\n\t\tp.PortID \u003d portID\n\t\tp.SwitchName \u003d switchName\n\t\tp.PortIndex \u003d lldpNic.LldpInfo.PortId\n\t\tp.ChassisID \u003d lldpNic.LldpInfo.ChassisId\n\t\tesxiPorts[lldpNic.Device] \u003d p\n\t}\n\treturn esxiPorts\n}",
+      "revId": "72dfb3179a541331421e74b6d149750777e63c18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
