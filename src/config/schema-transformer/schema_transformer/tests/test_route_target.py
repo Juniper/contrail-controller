@@ -4,18 +4,13 @@
 
 import gevent
 import sys
-
-try:
-    import config_db
-except ImportError:
-    from schema_transformer import config_db
+from schema_transformer.resources.routing_instance import RoutingInstanceST
 from vnc_api.vnc_api import RouteTargetList, NoIdError
 from vnc_cfg_api_server import db_manage
-
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
-
 from cfgm_common.tests import test_common
+
 
 class VerifyRouteTarget(VerifyPolicy):
     def __init__(self, vnc_lib):
@@ -39,7 +34,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
-        self.wait_to_get_object(config_db.RoutingInstanceST,
+        self.wait_to_get_object(RoutingInstanceST,
                                 vn1_obj.get_fq_name_str()+':'+vn1_name)
 
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
@@ -130,7 +125,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
     def test_route_target_of_virtual_network_deleted(self):
         vn = self.create_virtual_network('vn-%s' % self.id(), '10.0.0.0/24')
         ri_fq_name = vn.fq_name + [vn.fq_name[-1]]
-        self.wait_to_get_object(config_db.RoutingInstanceST,
+        self.wait_to_get_object(RoutingInstanceST,
                                 ':'.join(ri_fq_name))
         ri = self._vnc_lib.routing_instance_read(ri_fq_name)
         rt = self.wait_for_route_target(vn)

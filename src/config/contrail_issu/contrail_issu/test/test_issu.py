@@ -4,7 +4,7 @@
 
 import sys
 import gevent
-sys.path.append("../schema-transformer/test")
+sys.path.append("../schema-transformer/schema_transformer/tests")
 sys.path.append("../schema-transformer")
 sys.path.append("contrail_issu")
 from testtools.matchers import Equals, Contains, Not
@@ -36,10 +36,6 @@ try:
     import to_bgp
 except ImportError:
     from schema_transformer import to_bgp
-try:
-    import config_db
-except ImportError:
-    from schema_transformer import config_db
 
 from gevent import sleep
 
