@@ -1,14 +1,5 @@
-gevent==1.1.2
 geventhttpclient==1.0a
 pycassa>=1.7.2
 netaddr>=0.7.5
-bitarray>=0.8.0
-psutil>=0.4.1
-python-novaclient
-kombu==4.0.2
-netifaces
-bottle
-stevedore
 contrail-config-common
-vine==1.1.3
 jsonpickle

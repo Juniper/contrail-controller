@@ -17,16 +17,13 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
 
 from test_case import STTestCase, retries, VerifyCommon
 from cfgm_common.tests import test_common
-from schema_transformer.to_bgp import DBBaseST
 
-try:
-    import to_bgp
-except ImportError:
-    from schema_transformer import to_bgp
-try:
-    import config_db
-except ImportError:
-    from schema_transformer import config_db
+from schema_transformer import to_bgp
+from schema_transformer.resources._resource_base import ResourceBaseST
+
+from schema_transformer.resources.virtual_network import VirtualNetworkST
+from schema_transformer.resources.security_logging_object import\
+    SecurityLoggingObjectST
 
 import uuid
 
@@ -343,7 +340,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # Attach policy to vn1
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
-        orignal_vn_eval = config_db.VirtualNetworkST.evaluate
+        orignal_vn_eval = VirtualNetworkST.evaluate
         # if we dont sleep now for some time than following mock function gets picked
         # for the above vn update
         gevent.sleep(3)
@@ -355,13 +352,13 @@ class TestPolicy(STTestCase, VerifyPolicy):
                 self.assertTrue(False, 'Error: Should not have run evaluate of vn1')
             orignal_vn_eval(vn_obj)
         # end evaluate
-        config_db.VirtualNetworkST.evaluate = mock_vn_evaluate
+        VirtualNetworkST.evaluate = mock_vn_evaluate
         vn2.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn2)
         # if we dont sleep now for some time than for the above code original vn evaluate gets
         # picked up due to the next line
         gevent.sleep(3)
-        config_db.VirtualNetworkST.evaluate = orignal_vn_eval
+        VirtualNetworkST.evaluate = orignal_vn_eval
 
 
         # cleanup
@@ -398,7 +395,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # Attach policy to vn1
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
-        orignal_vn_eval = config_db.VirtualNetworkST.evaluate
+        orignal_vn_eval = VirtualNetworkST.evaluate
 
         # if we dont sleep now for some time than following mock function gets
         # picked for the above vn update
@@ -409,7 +406,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
             orignal_vn_eval(vn_obj)
         # end evaluate
         gevent.sleep(3)
-        config_db.VirtualNetworkST.evaluate = mock_vn_evaluate
+        VirtualNetworkST.evaluate = mock_vn_evaluate
         vn2.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn2)
         # if we dont sleep now for some time than for the above code original vn
@@ -417,7 +414,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         gevent.sleep(3)
         if vn1.vn_evaluate_hit == False:
             self.assertTrue(False, 'Error: Did not execute evaluate of vn1')
-        config_db.VirtualNetworkST.evaluate = orignal_vn_eval
+        VirtualNetworkST.evaluate = orignal_vn_eval
 
         # cleanup
         self.delete_network_policy(np, auto_policy=True)
@@ -506,7 +503,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
                                         security_logging_object_rate=300)
 
         self._vnc_lib.security_logging_object_create(slo_obj)
-        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+        self.wait_to_get_object(SecurityLoggingObjectST,
                                 slo_obj.get_fq_name_str())
 
         np_rule = np.get_network_policy_entries().get_policy_rule()[0]
@@ -574,7 +571,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
                                         security_logging_object_rate=300)
 
         self._vnc_lib.security_logging_object_create(slo_obj)
-        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+        self.wait_to_get_object(SecurityLoggingObjectST,
                                 slo_obj.get_fq_name_str())
 
         np_rule1 = np.get_network_policy_entries().get_policy_rule()[0]
@@ -631,7 +628,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
 
         self._vnc_lib.security_logging_object_create(slo_obj)
 
-        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+        self.wait_to_get_object(SecurityLoggingObjectST,
                                 slo_obj.get_fq_name_str())
 
         slo_obj.add_network_policy(np, None)
@@ -714,7 +711,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
                                         security_logging_object_rate=300)
 
         self._vnc_lib.security_logging_object_create(slo_obj)
-        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+        self.wait_to_get_object(SecurityLoggingObjectST,
                                 slo_obj.get_fq_name_str())
 
         np_rule1 = np.get_network_policy_entries().get_policy_rule()[0]
@@ -882,8 +879,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
                         provider_vn.virtual_network_refs]
         self.assertIn(vn3_obj1.uuid, linked_uuids)
         self.assertIn(vn2_obj1.uuid, linked_uuids)
-        config_db.VirtualNetworkST._dict = {}
-        config_db.VirtualNetworkST.reinit()
+        VirtualNetworkST._dict = {}
+        VirtualNetworkST.reinit()
         provider_vn = self._vnc_lib.virtual_network_read(
                 fq_name=provider_vn.get_fq_name())
         vn3_obj1 = self._vnc_lib.virtual_network_read(
@@ -1083,10 +1080,10 @@ class TestPolicy(STTestCase, VerifyPolicy):
     def schema_transformer_restart(self):
         def mock_acl_update(*args, **kwargs):
             self.assertTrue(False, 'Error: Should not have updated acl entries')
-        old_acl_update = DBBaseST._vnc_lib.access_control_list_update
-        DBBaseST._vnc_lib.access_control_list_update = mock_acl_update
+        old_acl_update = ResourceBaseST._vnc_lib.access_control_list_update
+        ResourceBaseST._vnc_lib.access_control_list_update = mock_acl_update
         test_common.reinit_schema_transformer()
-        DBBaseST._vnc_lib.access_control_list_update = old_acl_update
+        ResourceBaseST._vnc_lib.access_control_list_update = old_acl_update
 
     def test_acl_hash_entries(self):
         vn1_name = self.id() + 'vn1'

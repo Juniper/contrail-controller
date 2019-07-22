@@ -10,7 +10,8 @@ Sechmatransformer  amqp handler
 import socket
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
-from config_db import DBBaseST, VirtualNetworkST, BgpRouterST
+from schema_transformer.resources._resource_base import ResourceBaseST
+from schema_transformer.resources.virtual_network import VirtualNetworkST
 
 
 class STAmqpHandle(VncAmqpHandle):
@@ -31,7 +32,7 @@ class STAmqpHandle(VncAmqpHandle):
             host_ip = args.host_ip
         else:
             host_ip = socket.gethostbyname(socket.getfqdn())
-        super(STAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseST,
+        super(STAmqpHandle, self).__init__(logger._sandesh, logger, ResourceBaseST,
                                            reaction_map, q_name_prefix,
                                            rabbitmq_cfg, host_ip,
                                            args.trace_file, timer_obj=timer_obj)
