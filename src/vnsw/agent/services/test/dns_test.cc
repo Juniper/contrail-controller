@@ -1083,7 +1083,7 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     WaitForItfUpdate(1);
 
     DnsItem query_items[MAX_ITEMS] = a_items;
-    query_items[0].name     = "localhost.juniper.net";
+    query_items[0].name     = "juniper.net";
 
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, query_items);
     usleep(1000);
