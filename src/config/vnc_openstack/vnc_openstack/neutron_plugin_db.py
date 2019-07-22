@@ -4104,8 +4104,10 @@ class DBInterface(object):
         subnet = None
         if port_id:
             port_db = self.port_read(port_id)
-            if (port_db['device_owner'] != constants.DEVICE_OWNER_ROUTER_INTF
-                or port_db['device_id'] != router_id):
+            if (port_db['device_owner'] not in
+                    [constants.DEVICE_OWNER_ROUTER_INTF,
+                     constants.DEVICE_OWNER_DVR_INTERFACE]
+                    or port_db['device_id'] != router_id):
                 self._raise_contrail_exception('RouterInterfaceNotFound',
                                                router_id=router_id,
                                                port_id=port_id)
