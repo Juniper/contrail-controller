@@ -441,7 +441,7 @@ class TestCrud(test_case.ApiServerTestCase):
         phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_rout.uuid)
         user_cred_read = phy_rout_obj.get_physical_router_user_credentials()
         self.assertIsNotNone(user_cred_read.password)
-        self.assertEqual(user_cred_read.password, 'P0Sy94TU0CJqMhM2Y/YrEi4YqVqcXs+kpMOZFCM8ldI=')
+        self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
        # end test_physical_router_credentials
 
     def test_physical_router_w_no_user_credentials(self):
@@ -697,10 +697,18 @@ class TestCrud(test_case.ApiServerTestCase):
     def test_physical_router_credentials_list(self):
         phy_rout_name = self.id() + '-phy-router-1'
         phy_rout_name_2 = self.id() + '-phy-router-2'
+        phy_rout_name_3 = self.id() + '-phy-router-3'
+        phy_rout_name_4 = self.id() + '-phy-router-4'
         user_cred_create = UserCredentials(username="test_user",
                                            password="test_pswd")
         user_cred_create_2 = UserCredentials(username="test_user_2",
                                              password="test_pswd_2")
+        # Test the password that's more than 16 bytes
+        user_cred_create_3 = UserCredentials(username="test_user_3",
+            password="01234567890123456789")
+        # Test the password that's more than 32 bytes
+        user_cred_create_4 = UserCredentials(username="test_user_4",
+            password="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
         phy_rout = PhysicalRouter(phy_rout_name,
                            physical_router_user_credentials=user_cred_create)
@@ -710,18 +718,34 @@ class TestCrud(test_case.ApiServerTestCase):
                            physical_router_user_credentials=user_cred_create_2)
         self._vnc_lib.physical_router_create(phy_rout_2)
 
+        phy_rout_3 = PhysicalRouter(phy_rout_name_3,
+                           physical_router_user_credentials=user_cred_create_3)
+        self._vnc_lib.physical_router_create(phy_rout_3)
+
+        phy_rout_4 = PhysicalRouter(phy_rout_name_4,
+                           physical_router_user_credentials=user_cred_create_4)
+        self._vnc_lib.physical_router_create(phy_rout_4)
+
         obj_uuids = []
         obj_uuids.append(phy_rout.uuid)
         obj_uuids.append(phy_rout_2.uuid)
+        obj_uuids.append(phy_rout_3.uuid)
+        obj_uuids.append(phy_rout_4.uuid)
 
         phy_rtr_list = self._vnc_lib.physical_routers_list(obj_uuids=obj_uuids,
                                                            detail=True)
         for rtr in phy_rtr_list:
             user_cred_read = rtr.get_physical_router_user_credentials()
             if user_cred_read.username == 'test_user':
-                self.assertEqual(user_cred_read.password, 'P0Sy94TU0CJqMhM2Y/YrEi4YqVqcXs+kpMOZFCM8ldI=')
+                self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
             if user_cred_read.username == 'test_user_2':
-                self.assertEqual(user_cred_read.password, 'P0Sy94TU0CJqMhM2Y/YrEkCwIo4OyhR0KNpiHncjyos=')
+                self.assertEqual(user_cred_read.password, 'QLAijg7KFHQo2mIedyPKiw==')
+            if user_cred_read.username == 'test_user_3':
+                self.assertEqual(user_cred_read.password,
+                    'hmRxjIpYG3nJzT1RifrRpr3Ip3J2/WAzHvCC4E5PCuY=')
+            if user_cred_read.username == 'test_user_4':
+                self.assertEqual(user_cred_read.password,
+                    'J4DD30YPSd5dkh4ZAlO8PZi2Auc5NtncltwvxfCh4NbJlaUdc+yufddcFY5DI+d8')
        # end test_physical_router_credentials
 
     def test_allowed_address_pair_prefix_len(self):
