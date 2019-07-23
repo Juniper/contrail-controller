@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "0decbb5d_51b0fb78",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 39
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-23T04:07:05Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "c567db28_74005fce",
+      "revId": "25f4b5b90c545d7c1330d593198957c2b6347df7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6f714b1a_083bbdec",
         "filename": "src/vcenter-import/vcenter/client.go",
         "patchSetId": 39
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "ab616c8a_104bb335",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 39
+      },
+      "lineNbr": 145,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-23T04:07:05Z",
+      "side": 1,
+      "message": "what space ? you mean to use tab instead of space or something is being referred ?\nConverted spaces to tabs.",
+      "parentUuid": "6f714b1a_083bbdec",
+      "revId": "25f4b5b90c545d7c1330d593198957c2b6347df7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "716b84a5_ddffa5f9",
         "filename": "src/vcenter-import/vcenter/client_test.go",
         "patchSetId": 39
@@ -50,6 +86,24 @@
       "revId": "25f4b5b90c545d7c1330d593198957c2b6347df7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3198fd77_ab5e6451",
+        "filename": "src/vcenter-import/vcenter/client_test.go",
+        "patchSetId": 39
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 79
+      },
+      "writtenOn": "2019-07-23T04:07:05Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "716b84a5_ddffa5f9",
+      "revId": "25f4b5b90c545d7c1330d593198957c2b6347df7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
