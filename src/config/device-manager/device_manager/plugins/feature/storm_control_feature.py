@@ -70,7 +70,8 @@ class StormControlFeature(FeatureBase):
                 unit.set_storm_control_profile(scp.name)
 
     def _build_storm_control_config(self, scp, feature_config):
-        sc = StormControl(name=scp.name)
+        sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
+        sc = StormControl(name=sc_name)
         params = scp.storm_control_params
         traffic_type = []
         if params:
