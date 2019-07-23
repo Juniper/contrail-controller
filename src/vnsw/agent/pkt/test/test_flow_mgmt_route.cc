@@ -557,6 +557,10 @@ TEST_F(FlowMgmtRouteTest, MacMovement_1) {
     BridgeTunnelRouteAdd(peer_, "vrf1", TunnelType::AllType(), remote_server1,
                          1000, mac, Ip4Address::from_string(remote_vm_ip), 32);
 
+    // check route gets added, else short flow is created (SHORT_NO_DST_ROUTE)
+    client->WaitForIdle();
+    EXPECT_TRUE(L2RouteFind("vrf1", mac));
+
     TxL2Packet(vif0->id(), vif0_mac, remote_mac, vif0_ip, remote_vm_ip, 1);
     client->WaitForIdle();
 
