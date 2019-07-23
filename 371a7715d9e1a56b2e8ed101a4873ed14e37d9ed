@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "d80ebc6c_8fca9998",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 11
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 617
+      },
+      "writtenOn": "2019-07-23T22:31:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "11f8d2ad_74ec66d7",
+      "range": {
+        "startLine": 16,
+        "startChar": 0,
+        "endLine": 16,
+        "endChar": 14
+      },
+      "revId": "371a7715d9e1a56b2e8ed101a4873ed14e37d9ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d9a5e875_0bffe004",
         "filename": "src/config/schema-transformer/schema_transformer/resources/_resource_base.py",
         "patchSetId": 11
@@ -45,6 +69,30 @@
       "revId": "371a7715d9e1a56b2e8ed101a4873ed14e37d9ed",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "235ed176_6ca1faf5",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/_resource_base.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 617
+      },
+      "writtenOn": "2019-07-23T22:31:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d9a5e875_0bffe004",
+      "range": {
+        "startLine": 4,
+        "startChar": 0,
+        "endLine": 5,
+        "endChar": 25
+      },
+      "revId": "371a7715d9e1a56b2e8ed101a4873ed14e37d9ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
