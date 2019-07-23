@@ -148,3 +148,22 @@ def print_merged_trace_buffer(*arg):
 
     for files in arg:
         os.remove(files)
+#end print_merged_trace_buffer
+
+def print_all_trace_buffers():
+    now = datetime.datetime.now()
+    dirName = "AllTraceBuffers_" + str(now)
+    try:
+        os.mkdir(dirName)
+    except FileExistsError:
+        print("Directory " , dirName ,  " already exists")
+
+    os.chdir('/' + dirName)
+    trace_buf_map = _get_trace_buffer_map()
+    for key in trace_buf_map.keys():
+        res = str(key)
+        res = res.replace('"', '')
+        print_trace_buffer(res)
+
+    os.chdir('../')
+#end print_all_trace_buffers
