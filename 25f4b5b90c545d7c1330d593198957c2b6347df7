@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "89266d62_0abdb2ec",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 39
+      },
+      "lineNbr": 145,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-07-23T19:19:56Z",
+      "side": 1,
+      "message": "func (c *Client) addLLDPPortInfo(ctx context.Context, hs mo.HostSystem, ports map[string]ESXIPort) map[string]ESXIPort",
+      "parentUuid": "ab616c8a_104bb335",
+      "revId": "25f4b5b90c545d7c1330d593198957c2b6347df7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "716b84a5_ddffa5f9",
         "filename": "src/vcenter-import/vcenter/client_test.go",
         "patchSetId": 39
