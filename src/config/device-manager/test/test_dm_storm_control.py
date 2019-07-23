@@ -32,6 +32,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         # config changes and device abstract config is generated.
         # verify the generated device abstract config properties
 
+        sc_obj_fqname = sc_obj.get_fq_name()
         gevent.sleep(1)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
@@ -39,7 +40,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         storm_control_profiles = device_abstract_config.get(
             'features', {}).get('storm-control',{}).get('storm_control', [])
         storm_control_profile = storm_control_profiles[-1]
-        self.assertEqual(storm_control_profile.get('name'), sc_name)
+        self.assertEqual(storm_control_profile.get('name'),
+                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
         self.assertEqual(storm_control_profile.get('actions'), actions)
         self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
@@ -66,7 +68,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         storm_control_profiles = device_abstract_config.get(
             'features', {}).get('storm-control',{}).get('storm_control', [])
         storm_control_profile = storm_control_profiles[-1]
-        self.assertEqual(storm_control_profile.get('name'), sc_name)
+        self.assertEqual(storm_control_profile.get('name'),
+                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), 40)
         self.assertEqual(storm_control_profile.get('actions'), None)
         self.assertEqual(storm_control_profile.get('traffic_type'), None)
@@ -103,7 +106,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         storm_control_profiles = device_abstract_config.get(
             'features', {}).get('storm-control',{}).get('storm_control', [])
         storm_control_profile = storm_control_profiles[-1]
-        self.assertEqual(storm_control_profile.get('name'), sc_name)
+        sc_obj_fqname = sc_obj.get_fq_name()
+        self.assertEqual(storm_control_profile.get('name'),
+                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
         self.assertEqual(storm_control_profile.get('actions'), actions)
         self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
@@ -115,7 +120,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             log_intfs = phy_int.get('logical_interfaces', [])
             for log_intf in log_intfs:
                 if "xe-0/0/0" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'), sc_name)
+                    self.assertEqual(log_intf.get('storm_control_profile'),
+                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         # delete workflow
 
         self.delete_objects(vmi_obj, pp_obj, sc_obj)
@@ -183,7 +189,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         storm_control_profiles = device_abstract_config.get(
             'features', {}).get('storm-control',{}).get('storm_control', [])
         storm_control_profile = storm_control_profiles[-1]
-        self.assertEqual(storm_control_profile.get('name'), sc_name)
+        sc_obj_fqname = sc_obj.get_fq_name()
+        self.assertEqual(storm_control_profile.get('name'),
+                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
         self.assertEqual(storm_control_profile.get('actions'), actions)
         self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
@@ -247,7 +255,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             'features', {}).get('storm-control',{}).get('storm_control', [])
 
         storm_control_profile = storm_control_profiles[-1]
-        self.assertEqual(storm_control_profile.get('name'), sc_name)
+        sc_obj_fqname = sc_obj.get_fq_name()
+        self.assertEqual(storm_control_profile.get('name'),
+                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
         self.assertEqual(storm_control_profile.get('actions'), actions)
         self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
@@ -259,7 +269,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             log_intfs = phy_int.get('logical_interfaces', [])
             for log_intf in log_intfs:
                 if "xe-0/0/0" in log_intf.get('name'):
-                    self.assertEqual(log_intf.get('storm_control_profile'), sc_name)
+                    self.assertEqual(log_intf.get('storm_control_profile'),
+                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
 
         # delete workflow
 
