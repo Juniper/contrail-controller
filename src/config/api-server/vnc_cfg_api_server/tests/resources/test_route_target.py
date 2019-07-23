@@ -59,6 +59,7 @@ class TestRouteTargetBase(test_case.ApiServerTestCase):
         tested_values = [
             ('target:1:1', 42, True),
             ('target:42:1', 42, True),
+            ('target:40L:10', 42, True),
             ('target:42:%d' % (get_bgp_rtgt_min_id(42) + 1000), 42, False),
         ]
 
