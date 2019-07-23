@@ -158,7 +158,7 @@ def print_all_trace_buffers():
     except FileExistsError:
         print("Directory " , dirName ,  " already exists")
 
-    os.chdir('/' + dirName)
+    os.chdir(dirName)
     trace_buf_map = _get_trace_buffer_map()
     for key in trace_buf_map.keys():
         res = str(key)
