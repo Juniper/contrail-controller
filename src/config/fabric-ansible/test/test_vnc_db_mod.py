@@ -6,8 +6,8 @@ from test_fabric_base import set_module_args
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import *
 
-sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
-import fabric_utils
+# sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+# import fabric_utils
 from job_manager.job_utils import JobVncApi
 
 
@@ -17,7 +17,7 @@ class TestFabricVncDbModule(TestFabricModule):
         fake_logger = flexmock()
         flexmock(fake_logger).should_receive('error')
         flexmock(fake_logger).should_receive('debug')
-        flexmock(fabric_utils).should_receive('fabric_ansible_logger').and_return(fake_logger)
+        # flexmock(fabric_utils).should_receive('fabric_ansible_logger').and_return(fake_logger)
 
     def tearDown(self):
         pass
