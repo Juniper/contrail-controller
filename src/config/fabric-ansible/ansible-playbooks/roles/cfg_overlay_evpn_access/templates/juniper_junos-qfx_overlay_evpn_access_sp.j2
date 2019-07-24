@@ -44,7 +44,7 @@ set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
 {%         for fam in families %}
 {%             if fam == 'evpn' %}
 set groups {{cfg_group}} protocols evpn multicast-mode ingress-replication
-set groups {{cfg_group}} switch-options vrf-target auto
+set groups {{cfg_group}} switch-options vrf-target auto import-as {{bgp_elem.autonomous_system}} vni-list all
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
