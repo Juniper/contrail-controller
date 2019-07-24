@@ -1,0 +1,130 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "37f15350_1859f8a3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/route_target.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-24T16:41:59Z",
+      "side": 1,
+      "message": "Use the get_ressource_class method:\n\n cls.server.get_resource_class(\u0027global_system_config\u0027)\n\nI think we made that mistake in your precedent patch https://review.opencontrail.org/c/Juniper/contrail-controller/+/52178 can you fix that also?",
+      "range": {
+        "startLine": 62,
+        "startChar": 25,
+        "endLine": 62,
+        "endChar": 70
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a82f0ed4_4d689a78",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 109,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-24T16:41:59Z",
+      "side": 1,
+      "message": "I think that code should also validate route targets defined by the user in the VN properties \u0027export_route_target_list\u0027 and \u0027import_route_target_list\u0027. Can you fix that in your patch?",
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "91fcedf3_28cd7081",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_route_target.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-24T16:41:59Z",
+      "side": 1,
+      "message": "nit: remove that word",
+      "range": {
+        "startLine": 69,
+        "startChar": 24,
+        "endLine": 69,
+        "endChar": 28
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "98378719_0e92494e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 2201,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-24T16:41:59Z",
+      "side": 1,
+      "message": "Why did you add the suffix \u0027_flag\u0027?",
+      "range": {
+        "startLine": 2201,
+        "startChar": 23,
+        "endLine": 2201,
+        "endChar": 28
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "df7413a5_cde9289b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 2205,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-24T16:41:59Z",
+      "side": 1,
+      "message": "Perhaps we should maintain in memory all the default GSC resource with its property. Let see later",
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d33cf073_088a131a",
+        "filename": "src/config/common/cfgm_common/__init__.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-07-24T16:41:59Z",
+      "side": 1,
+      "message": "But with that patch, you allowing the user to use them, no?",
+      "range": {
+        "startLine": 22,
+        "startChar": 0,
+        "endLine": 24,
+        "endChar": 34
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
