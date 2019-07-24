@@ -24,6 +24,8 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
             if prefix != 'target':
                 raise ValueError
             target = int(target)
+            if asn.lower().endswith('l'):
+                asn = asn[:-1]
             if not asn.isdigit():
                 try:
                     IPAddress(asn)
