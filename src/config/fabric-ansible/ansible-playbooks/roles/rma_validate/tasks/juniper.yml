@@ -21,3 +21,16 @@
 - name: Extract OS version
   set_fact:
     device_os_version: "{{show_system_resp|json_query('parsed_output.\"system-information\".\"os-version\"')}}"
+
+- name: Update the prouter object with the os version
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "update"
+    object_dict: |
+      {
+       "uuid": "{{prouter_uuid}}",
+       "physical_router_os_version": "{{device_os_version}}"
+      }
+  register: prouter_obj
+
