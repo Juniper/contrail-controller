@@ -576,8 +576,7 @@ void Agent::InitCollector() {
     }
 
     if (params_->cat_is_agent_mocked()) {
-        std::cout << "Introspect Port: " << Sandesh::http_port() << std::endl;
-        std::cout << "Agent Name: " << params_->agent_name() << std::endl;
+        std::cout << "Agent Name: " << params_->agent_name() << " Introspect Port: "<< Sandesh::http_port() << std::endl;
         std::string sub("{\"introspectport\":");
         std::string pidstring = integerToString(getpid());
 

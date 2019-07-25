@@ -127,7 +127,7 @@ void ContrailAgentInit::CreateModules() {
     std::string newkPortsDir =  PortIpcHandler::kPortsDir;
 
     if (agent_param()->cat_is_agent_mocked()) {
-       newkPortsDir = "/tmp/" + integerToString(getpid()) + newkPortsDir;
+       newkPortsDir = "/tmp/" + std::string(getenv("LOGNAME"))+"/"+ integerToString(getpid()) + newkPortsDir;
     }
 
     port_ipc_handler_.reset(new PortIpcHandler(agent(),
