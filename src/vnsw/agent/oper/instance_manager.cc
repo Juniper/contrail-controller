@@ -139,8 +139,10 @@ InstanceManager::InstanceManager(Agent *agent)
                       GetTaskId(INSTANCE_MANAGER_TASK_NAME), 0)), agent_(agent) {
           if (agent->isMockMode()) {
               string pidstring = integerToString(getpid());
-              loadbalancer_config_path_ = "/tmp/" +  pidstring + loadbalancer_config_path_default;
-              namespace_store_path_ = "/tmp/" + pidstring + namespace_store_path_default;
+              loadbalancer_config_path_ = "/tmp/" + std::string(getenv("LOGNAME"))
+              + "/" +  pidstring + loadbalancer_config_path_default;
+              namespace_store_path_ = "/tmp/" + std::string(getenv("LOGNAME"))
+              + "/" + pidstring + namespace_store_path_default;
           }
           work_queue_.set_name("Instance Manager");
 
