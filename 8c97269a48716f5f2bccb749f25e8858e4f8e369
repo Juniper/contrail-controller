@@ -1,0 +1,96 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a0e260ac_5e52b17a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/firewall_rule.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T01:54:12Z",
+      "side": 1,
+      "message": "Why are we checking db_dict\u0027s parent_type here? Since it\u0027s already in DB, isn\u0027t it guaranteed that it\u0027s already validated ?",
+      "range": {
+        "startLine": 229,
+        "startChar": 8,
+        "endLine": 233,
+        "endChar": 36
+      },
+      "revId": "8c97269a48716f5f2bccb749f25e8858e4f8e369",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5335c1bb_592cf597",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/firewall_rule.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 249,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T01:54:12Z",
+      "side": 1,
+      "message": "Instead, it can be hbs_enabled, _",
+      "range": {
+        "startLine": 249,
+        "startChar": 8,
+        "endLine": 249,
+        "endChar": 33
+      },
+      "revId": "8c97269a48716f5f2bccb749f25e8858e4f8e369",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1fcbc917_86142533",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T01:54:12Z",
+      "side": 1,
+      "message": "So is this going to be a temporary change ? Cause, once other service types are added, we cannot default to firewall right ?",
+      "range": {
+        "startLine": 88,
+        "startChar": 8,
+        "endLine": 88,
+        "endChar": 66
+      },
+      "revId": "8c97269a48716f5f2bccb749f25e8858e4f8e369",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bdfd2eea_f2e95cc6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 98,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T01:54:12Z",
+      "side": 1,
+      "message": "I understand that db_obj_dict will always have \u0027host_based_service_type\u0027 in it. But do you think we should still validate the result to verify that \u0027host_based_service_type\u0027 exists in db_obj_dict ?",
+      "range": {
+        "startLine": 98,
+        "startChar": 8,
+        "endLine": 98,
+        "endChar": 28
+      },
+      "revId": "8c97269a48716f5f2bccb749f25e8858e4f8e369",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
