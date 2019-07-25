@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7b778e4b_5f1eef14",
+        "filename": "src/bgp/test/cat/lib/cat.py",
+        "patchSetId": 24
+      },
+      "lineNbr": 221,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-07-25T00:48:24Z",
+      "side": 1,
+      "message": "Please add LOGNAME env variable",
+      "revId": "b0380ce360b05fd80dc2234eb8149a8ab04e9fed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
