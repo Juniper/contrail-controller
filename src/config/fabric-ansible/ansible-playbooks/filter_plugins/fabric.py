@@ -2261,6 +2261,69 @@ class FilterModule(object):
             return gsc_obj.autonomous_system
     # end _get_ibgp_asn
 
+    def _instance_ip_creation(self, vnc_api, device_obj, local_pi,
+                              remote_pi, fabric_network_obj):
+
+        li_name = self._build_li_name(device_obj, local_pi.name, 0)
+        li_fq_name = local_pi.fq_name + [li_name]
+
+        try:
+            local_li = vnc_api.logical_interface_read(
+                fq_name=li_fq_name
+            )
+        except NoIdError:
+            local_li = LogicalInterface(
+                name=li_name,
+                fq_name=li_fq_name,
+                parent_type='physical-interface',
+                logical_interface_type='l3'
+            )
+            _task_log(
+                'creating logical interface %s for physical link from'
+                ' %s to %s' % (local_li.name, local_pi.fq_name,
+                               remote_pi.fq_name)
+            )
+            vnc_api.logical_interface_create(local_li)
+            _task_done()
+
+        iip_refs = local_li.get_instance_ip_back_refs()
+        if not iip_refs:
+            local_mac = self._get_pi_mac(local_pi)
+            if not local_mac:
+                raise ValueError(
+                    "MAC address not found: %s" % str(local_pi.fq_name)
+                )
+
+            remote_mac = self._get_pi_mac(remote_pi)
+            if not remote_mac:
+                raise ValueError(
+                    "MAC address not found: %s" % str(remote_pi.fq_name)
+                )
+
+            subscriber_tag = _subscriber_tag(local_mac, remote_mac)
+            iip_obj = InstanceIp(
+                name=local_mac.replace(':', ''),
+                instance_ip_family='v4',
+                instance_ip_subscriber_tag=subscriber_tag
+            )
+            iip_obj.set_virtual_network(fabric_network_obj)
+            iip_obj.set_logical_interface(local_li)
+            try:
+                _task_log(
+                    'Create instance ip for logical interface %s'
+                    % local_li.fq_name
+                )
+                vnc_api.instance_ip_create(iip_obj)
+                _task_done()
+            except RefsExistError as ex:
+                _task_log(
+                    'instance ip already exists for logical interface %s '
+                    'or other conflict: %s' % (local_li.fq_name, str(ex))
+                )
+                vnc_api.instance_ip_update(iip_obj)
+                _task_done()
+
+
     def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj):
         """Add logical interfaces for fabric links.
 
@@ -2284,63 +2347,16 @@ class FilterModule(object):
             local_pi = link.get('local_pi')
             remote_pi = link.get('remote_pi')
 
-            local_li_name = self._build_li_name(device_obj, local_pi.name, 0)
-            local_li_fq_name = local_pi.fq_name + [local_li_name]
-            try:
-                local_li = vnc_api.logical_interface_read(
-                    fq_name=local_li_fq_name
-                )
-            except NoIdError:
-                local_li = LogicalInterface(
-                    name=local_li_name,
-                    fq_name=local_li_fq_name,
-                    parent_type='physical-interface',
-                    logical_interface_type='l3'
-                )
-                _task_log(
-                    'creating logical interface %s for physical link from'
-                    ' %s to %s' % (local_li.name, local_pi.fq_name,
-                                   remote_pi.fq_name)
-                )
-                vnc_api.logical_interface_create(local_li)
-                _task_done()
+            # local_pi
+            self._instance_ip_creation(vnc_api, device_obj, local_pi,
+                                       remote_pi, fabric_network_obj)
 
-            iip_refs = local_li.get_instance_ip_back_refs()
-            if not iip_refs:
-                local_mac = self._get_pi_mac(local_pi)
-                if not local_mac:
-                    raise ValueError(
-                        "MAC address not found: %s" % str(local_pi.fq_name)
-                    )
-
-                remote_mac = self._get_pi_mac(remote_pi)
-                if not remote_mac:
-                    raise ValueError(
-                        "MAC address not found: %s" % str(remote_pi.fq_name)
-                    )
-
-                subscriber_tag = _subscriber_tag(local_mac, remote_mac)
-                iip_obj = InstanceIp(
-                    name=local_mac.replace(':', ''),
-                    instance_ip_family='v4',
-                    instance_ip_subscriber_tag=subscriber_tag
-                )
-                iip_obj.set_virtual_network(fabric_network_obj)
-                iip_obj.set_logical_interface(local_li)
-                try:
-                    _task_log(
-                        'Create instance ip for logical interface %s'
-                        % local_li.fq_name
-                    )
-                    vnc_api.instance_ip_create(iip_obj)
-                    _task_done()
-                except RefsExistError as ex:
-                    _task_log(
-                        'instance ip already exists for logical interface %s '
-                        'or other conflict: %s' % (local_li.fq_name, str(ex))
-                    )
-                    vnc_api.instance_ip_update(iip_obj)
-                    _task_done()
+            # remote_pi
+            remote_device_obj = \
+                vnc_api.physical_router_read(
+                    fq_name=remote_pi.get_parent_fq_name())
+            self._instance_ip_creation(vnc_api, remote_device_obj,
+                                       remote_pi, local_pi, fabric_network_obj)
     # end _add_logical_interfaces_for_fabric_links
 
     @staticmethod
@@ -2584,9 +2600,10 @@ def _mock_job_ctx_delete_devices():
 def _mock_job_ctx_assign_roles():
     return {
         "auth_token": "",
+        "api_server_host": ['10.87.13.3'],
         "config_args": {
             "collectors": [
-                "10.155.75.181:8086"
+                "10.87.13.3:8086"
             ],
             "fabric_ansible_conf_file": [
                 "/etc/contrail/contrail-keystone-auth.conf",
@@ -2600,15 +2617,7 @@ def _mock_job_ctx_assign_roles():
                 {
                     "device_fq_name": [
                         "default-global-system-config",
-                        "DK588"
-                    ],
-                    "physical_role": "spine",
-                    "routing_bridging_roles": ["CRB-Gateway"]
-                },
-                {
-                    "device_fq_name": [
-                        "default-global-system-config",
-                        "VF3717350117"
+                        "5a12-qfx7"
                     ],
                     "physical_role": "leaf",
                     "routing_bridging_roles": ["CRB-Access"]
