@@ -325,8 +325,8 @@ private:
 class AgentBridgeRtSandesh : public AgentSandesh {
 public:
     AgentBridgeRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
-                         bool stale) 
-        : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
+                         bool stale, std::string mac)
+        : AgentSandesh(context, name), vrf_(vrf), stale_(stale), mac_(mac) {}
 
 private:
     DBTable *AgentGetTable();
@@ -335,6 +335,7 @@ private:
 
     VrfEntry *vrf_;
     bool stale_;
+    std::string mac_;
 };
 
 class AgentEvpnRtSandesh : public AgentSandesh {
