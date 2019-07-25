@@ -1706,8 +1706,6 @@ AgentParam::AgentParam(bool enable_flow_options,
     uint32_t default_mac_learning_delete_tokens = Agent::kMacLearningDefaultTokens;
     uint16_t default_fabric_snat_table_size = Agent::kFabricSnatTableSize;
 
-    restart_backup_dir_  = "/tmp/"+ integerToString(getpid()) + CFG_BACKUP_DIR;
-
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()

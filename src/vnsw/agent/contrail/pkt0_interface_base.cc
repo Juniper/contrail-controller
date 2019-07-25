@@ -33,12 +33,11 @@ string Pkt0Socket::sAgentSocketPath = "/var/run/vrouter/agent_pkt0";
 string Pkt0Socket::sVrouterSocketPath = "/var/run/vrouter/dpdk_pkt0";
 
 
-void Pkt0Socket::CreateMockAgent()
+void Pkt0Socket::CreateMockAgent(const std::string& guid)
 {
-    std:: string pidstr = integerToString(getpid());
-    sSocketDir =  "/tmp/" + pidstr + Pkt0Socket::sSocketDir ;
-    sAgentSocketPath  = "/tmp/" + pidstr + Pkt0Socket::sAgentSocketPath ;
-    sVrouterSocketPath  = "/tmp/" +  pidstr + Pkt0Socket::sVrouterSocketPath ;
+    sSocketDir = "/tmp/" + guid + sSocketDir ;
+    sAgentSocketPath = "/tmp/" + guid + sAgentSocketPath;
+    sVrouterSocketPath = "/tmp/" + guid + sVrouterSocketPath;
 }
 
 
