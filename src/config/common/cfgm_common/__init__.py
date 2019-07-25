@@ -20,7 +20,7 @@ SGID_MIN_ALLOC = 8000000
 VNID_MIN_ALLOC = 1
 _BGP_RTGT_MAX_ID_TYPE0 = 1 << 24
 # We don't left shift by 16 below to reserve certain target
-# values if required for future use
+# for user created RTs
 _BGP_RTGT_MAX_ID_TYPE1_2 = 1 << 15
 
 # Route Target location in Zookeeper for a Type0 Route Targets
@@ -57,6 +57,12 @@ def get_bgp_rtgt_min_id(asn):
         return _BGP_RTGT_MIN_ID_TYPE1_2
     else:
         return _BGP_RTGT_MIN_ID_TYPE0
+
+def get_bgp_rtgt_max_id(asn):
+    if asn > 0xFFFF:
+        return _BGP_RTGT_MAX_ID_TYPE1_2
+    else:
+        return _BGP_RTGT_MAX_ID_TYPE0
 
 RULE_IMPLICIT_ALLOW_UUID = "00000000-0000-0000-0000-100000000001"
 RULE_IMPLICIT_DENY_UUID = "00000000-0000-0000-0000-100000000002"
