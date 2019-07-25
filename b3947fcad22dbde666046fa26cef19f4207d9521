@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "57f67f1c_42e4025c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/route_target.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T05:06:01Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "37f15350_1859f8a3",
+      "range": {
+        "startLine": 62,
+        "startChar": 25,
+        "endLine": 62,
+        "endChar": 70
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a82f0ed4_4d689a78",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
         "patchSetId": 3
@@ -39,6 +63,24 @@
       "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "65fc94a3_0390906a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 109,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T05:06:01Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a82f0ed4_4d689a78",
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -65,6 +107,30 @@
     },
     {
       "key": {
+        "uuid": "7bee3ce9_92e91708",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_route_target.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T05:06:01Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "91fcedf3_28cd7081",
+      "range": {
+        "startLine": 69,
+        "startChar": 24,
+        "endLine": 69,
+        "endChar": 28
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "98378719_0e92494e",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
         "patchSetId": 3
@@ -76,6 +142,30 @@
       "writtenOn": "2019-07-24T16:41:59Z",
       "side": 1,
       "message": "Why did you add the suffix \u0027_flag\u0027?",
+      "range": {
+        "startLine": 2201,
+        "startChar": 23,
+        "endLine": 2201,
+        "endChar": 28
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "20c635ed_8ce81771",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 2201,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T05:06:01Z",
+      "side": 1,
+      "message": "Done. Not needed.",
+      "parentUuid": "98378719_0e92494e",
       "range": {
         "startLine": 2201,
         "startChar": 23,
@@ -125,6 +215,30 @@
       "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "54a7e234_a78491e5",
+        "filename": "src/config/common/cfgm_common/__init__.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-07-25T05:06:01Z",
+      "side": 1,
+      "message": "Done. Changed the wordings. We will allow user defined RTs to be created in this upper range too.",
+      "parentUuid": "d33cf073_088a131a",
+      "range": {
+        "startLine": 22,
+        "startChar": 0,
+        "endLine": 24,
+        "endChar": 34
+      },
+      "revId": "b3947fcad22dbde666046fa26cef19f4207d9521",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
