@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f3df9e38_55fa83a8",
+        "filename": "src/config/svc-monitor/svc_monitor/scheduler/vrouter_scheduler.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-25T04:22:58Z",
+      "side": 1,
+      "message": "Is this working? Now you have made data as third argument so it would not work.",
+      "range": {
+        "startLine": 55,
+        "startChar": 33,
+        "endLine": 55,
+        "endChar": 48
+      },
+      "revId": "8d82a5acf32863154ad8c580a57766f658e4f2d7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0623c779_aa934ec3",
+        "filename": "src/config/svc-monitor/svc_monitor/svc_monitor.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-25T04:22:58Z",
+      "side": 1,
+      "message": "args can be None, don\u0027t we need to check for that?",
+      "range": {
+        "startLine": 70,
+        "startChar": 46,
+        "endLine": 70,
+        "endChar": 59
+      },
+      "revId": "8d82a5acf32863154ad8c580a57766f658e4f2d7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
