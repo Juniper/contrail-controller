@@ -490,14 +490,14 @@ void BridgeRouteReq::HandleRequest() const {
     }
 
     AgentSandeshPtr sand(new AgentBridgeRtSandesh(vrf, context(), "",
-                                                  get_stale()));
+                                                  get_stale(), get_mac()));
     sand->DoSandesh(sand);
 }
 
 AgentSandeshPtr BridgeAgentRouteTable::GetAgentSandesh
 (const AgentSandeshArguments *args, const std::string &context) {
     return AgentSandeshPtr(new AgentBridgeRtSandesh(vrf_entry(), context, "",
-                                                    false));
+                                                    false, ""));
 }
 
 bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
