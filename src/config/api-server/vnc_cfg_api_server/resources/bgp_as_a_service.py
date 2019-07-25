@@ -28,6 +28,22 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
         return True, ""
 
     @classmethod
+<<<<<<< HEAD   (c71833 Merge "[DM] Allow combination of tagged and untagged IFL" in)
+=======
+    def _check_asn(cls, obj_dict):
+        local_asn = obj_dict.get('autonomous_system')
+        if not local_asn:
+            return True, ''
+
+        ok, result = cls.server.get_resource_class(
+            'global_system_config').check_asn_range(local_asn)
+        if not ok:
+            return ok, result
+
+        return True, ''
+
+    @classmethod
+>>>>>>> CHANGE (ec93b6 [Config] Add range checks for user created route targets)
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         if 'control_node_zone_refs' in obj_dict:
             (ok, msg) = cls._validate_control_node_zone_dep(obj_dict)
