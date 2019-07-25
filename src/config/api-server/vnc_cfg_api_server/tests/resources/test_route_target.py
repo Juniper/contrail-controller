@@ -3,6 +3,7 @@
 #
 import logging
 
+from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
 
 from vnc_cfg_api_server.resources import RouteTargetServer
@@ -60,11 +61,23 @@ class TestRouteTargetBase(test_case.ApiServerTestCase):
             ('target:1:1', 42, True),
             ('target:42:1', 42, True),
             ('target:40L:10', 42, True),
+            # Test with same ASN as global ASN(42). But target value
+            # being greater than get_bgp_rtgt_min_id
             ('target:42:%d' % (get_bgp_rtgt_min_id(42) + 1000), 42, False),
+            # Test with same ASN as global ASN(42). But target value
+            # being greater than get_bgp_rtgt_max_id
+            ('target:42:%d' % (get_bgp_rtgt_max_id(42) + 1000), 42, True),
+            # Test with ASN different from global ASN(42).
+            # Target value can be either greater than get_bgp_rtgt_max_id
+            # or greater than get_bgp_rtgt_max_id
+            ('target:40:%d' % (get_bgp_rtgt_min_id(42) + 1000), 42, True),
+            ('target:40:%d' % (get_bgp_rtgt_max_id(42) + 1000), 42, True)
         ]
 
         for rt_name, global_asn, expected_result in tested_values:
-            ok, result = RouteTargetServer.is_user_defined(rt_name, global_asn)
+            ok, result = RouteTargetServer.validate_route_target(
+                rt_name,
+                global_asn)
             if not ok:
                 self.fail("Cannot determine if it is a user defined route "
                           "target: %s", result[1])

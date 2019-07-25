@@ -4,6 +4,7 @@
 import copy
 import uuid
 
+from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import LINK_LOCAL_VN_FQ_NAME
 from cfgm_common import PERMS_RWX
@@ -100,22 +101,20 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         return (True, '')
 
     @classmethod
-    def _check_route_targets(cls, obj_dict):
-        rt_dict = obj_dict.get('route_target_list')
-        if not rt_dict:
-            return True, ''
+    def _check_route_targets(cls, rt_dict):
         global_asn = cls.server.global_autonomous_system
         for rt in rt_dict.get('route_target') or []:
             ok, result = cls.server.get_resource_class(
-                'route_target').is_user_defined(rt)
+                'route_target').validate_route_target(rt)
             if not ok:
                 return False, result
             user_defined_rt = result
             if not user_defined_rt:
                 return (False, "Configured route target must use ASN that is "
                         "different from global ASN or route target value must"
-                        " be less than %d" %
-                        get_bgp_rtgt_min_id(global_asn))
+                        " be less than %d and greater than %d" %
+                        (get_bgp_rtgt_min_id(global_asn),
+                         get_bgp_rtgt_max_id(global_asn)))
 
         return (True, '')
 
@@ -408,9 +407,23 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         if not ok:
             return (ok, (return_code, result))
 
-        (ok, error) = cls._check_route_targets(obj_dict)
-        if not ok:
-            return (False, (400, error))
+        rt_dict = obj_dict.get('route_target_list')
+        if rt_dict:
+            (ok, error) = cls._check_route_targets(rt_dict)
+            if not ok:
+                return (False, (400, error))
+
+        rt_import_dict = obj_dict.get('import_route_target_list')
+        if rt_import_dict:
+            (ok, error) = cls._check_route_targets(rt_import_dict)
+            if not ok:
+                return (False, (400, error))
+
+        rt_export_dict = obj_dict.get('export_route_target_list')
+        if rt_export_dict:
+            (ok, error) = cls._check_route_targets(rt_export_dict)
+            if not ok:
+                return (False, (400, error))
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, True)
         if not ok:
@@ -513,9 +526,23 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                 obj_dict['perms2']['global_access'] = (PERMS_RWX if is_shared
                                                        else 0)
 
-        (ok, error) = cls._check_route_targets(obj_dict)
-        if not ok:
-            return (False, (400, error))
+        rt_dict = obj_dict.get('route_target_list')
+        if rt_dict:
+            (ok, error) = cls._check_route_targets(rt_dict)
+            if not ok:
+                return (False, (400, error))
+
+        rt_import_dict = obj_dict.get('import_route_target_list')
+        if rt_import_dict:
+            (ok, error) = cls._check_route_targets(rt_import_dict)
+            if not ok:
+                return (False, (400, error))
+
+        rt_export_dict = obj_dict.get('export_route_target_list')
+        if rt_export_dict:
+            (ok, error) = cls._check_route_targets(rt_export_dict)
+            if not ok:
+                return (False, (400, error))
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, False)
         if not ok:
