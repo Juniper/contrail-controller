@@ -157,6 +157,12 @@ bool Agent::isMockMode() const {
     return params_->cat_is_agent_mocked();
 }
 
+std::string Agent::AgentGUID() const {
+   char *envval = NULL;
+   assert(params_);
+   return std::string(((envval = getenv("LOGNAME"))== NULL)? "" : envval) + "_" +  agent_name() + "_" + integerToString(getpid());
+}
+
 static void SetTaskPolicyOne(const char *task, const char *exclude_list[],
                              int count) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -576,8 +582,8 @@ void Agent::InitCollector() {
     }
 
     if (params_->cat_is_agent_mocked()) {
-        std::cout << "Introspect Port: " << Sandesh::http_port() << std::endl;
-        std::cout << "Agent Name: " << params_->agent_name() << std::endl;
+        std::cout << "Agent Name: " << params_->agent_name()
+        << " Introspect Port: " << Sandesh::http_port() << std::endl;
         std::string sub("{\"introspectport\":");
         std::string pidstring = integerToString(getpid());
 

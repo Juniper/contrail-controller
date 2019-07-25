@@ -69,7 +69,7 @@ public:
     static string sSocketDir;
     static string sAgentSocketPath;
     static string sVrouterSocketPath;
-    static void CreateMockAgent();
+    static void CreateMockAgent(const string&);
 
     Pkt0Socket(const std::string &name,
                boost::asio::io_service *io);
