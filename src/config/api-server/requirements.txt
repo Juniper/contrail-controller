@@ -10,7 +10,6 @@ bitarray>=0.8.0
 psutil>=0.6.0
 python-novaclient
 python-keystoneclient
-kombu
 netifaces
 bottle
 stevedore
