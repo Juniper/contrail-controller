@@ -12,6 +12,8 @@ from vnc_api.exceptions import BadRequest
 from vnc_api.exceptions import HttpError
 from vnc_api.exceptions import NoIdError
 from vnc_api.exceptions import RefsExistError
+from vnc_api.gen.resource_xsd import QuotaType
+from vnc_api.gen.resource_xsd import ServiceVirtualNetworkType
 from vnc_api.vnc_api import ActionListType
 from vnc_api.vnc_api import AddressGroup
 from vnc_api.vnc_api import ApplicationPolicySet
@@ -23,6 +25,7 @@ from vnc_api.vnc_api import FirewallSequence
 from vnc_api.vnc_api import FirewallServiceGroupType
 from vnc_api.vnc_api import FirewallServiceType
 from vnc_api.vnc_api import GlobalSystemConfig
+from vnc_api.vnc_api import HostBasedService
 from vnc_api.vnc_api import KeyValuePair
 from vnc_api.vnc_api import PolicyManagement
 from vnc_api.vnc_api import PortType
@@ -1172,6 +1175,50 @@ class TestFirewall(TestFirewallBase):
         fr2.set_service(FirewallServiceType())
         with ExpectedException(BadRequest):
             self.api.firewall_rule_update(fr2)
+
+    def test_host_based_service_action(self):
+        project = Project('project-%s' % self.id())
+        project.set_quota(QuotaType(host_based_service=1))
+        self.api.project_create(project)
+        vn_left = VirtualNetwork('left-vn-%s' % self.id(), parent_obj=project)
+        self.api.virtual_network_create(vn_left)
+        vn_right = VirtualNetwork('right-vn-%s' % self.id(),
+                                  parent_obj=project)
+        self.api.virtual_network_create(vn_right)
+        vn_other = VirtualNetwork('other-vn-%s' % self.id(),
+                                  parent_obj=project)
+        self.api.virtual_network_create(vn_other)
+
+        fr = FirewallRule(name='fr-%s' % self.id(), parent_obj=project)
+        fr.set_service(FirewallServiceType())
+        fr.set_action_list(ActionListType(host_based_service=True))
+        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
+
+        hbs = HostBasedService('hbs-%s' % self.id(), parent_obj=project)
+        self.api.host_based_service_create(hbs)
+        hbs = self.api.host_based_service_read(id=hbs.uuid)
+        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
+
+        hbs.add_virtual_network(vn_left, ServiceVirtualNetworkType('left'))
+        self.api.host_based_service_update(hbs)
+        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
+
+        hbs.add_virtual_network(vn_other, ServiceVirtualNetworkType('other1'))
+        self.api.host_based_service_update(hbs)
+        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
+
+        hbs.add_virtual_network(vn_right, ServiceVirtualNetworkType('right'))
+        self.api.host_based_service_update(hbs)
+        self.api.firewall_rule_create(fr)
+
+    def test_cannot_set_host_based_service_action_on_global_fr(self):
+        pm = PolicyManagement('pm-%s' % self.id())
+        self.api.policy_management_create(pm)
+        global_fr = FirewallRule('global-fr-%s' % self.id(), parent_obj=pm)
+        global_fr.set_service(FirewallServiceType())
+        global_fr.set_action_list(ActionListType(host_based_service=True))
+
+        self.assertRaises(BadRequest, self.api.firewall_rule_create, global_fr)
 
 
 @six.add_metaclass(abc.ABCMeta)

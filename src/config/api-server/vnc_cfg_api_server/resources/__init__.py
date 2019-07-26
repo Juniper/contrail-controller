@@ -28,6 +28,8 @@ from vnc_cfg_api_server.resources.floating_ip_pool import FloatingIpPoolServer
 from vnc_cfg_api_server.resources.forwarding_class import ForwardingClassServer
 from vnc_cfg_api_server.resources.global_system_config import\
     GlobalSystemConfigServer
+from vnc_cfg_api_server.resources.host_based_service import\
+    HostBasedServiceServer
 from vnc_cfg_api_server.resources.instance_ip import InstanceIpServer
 from vnc_cfg_api_server.resources.logical_interface import\
     LogicalInterfaceServer
