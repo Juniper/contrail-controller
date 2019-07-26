@@ -3,6 +3,8 @@
 #
 
 from cfgm_common import _obj_serializer_all
+from cfgm_common import get_bgp_rtgt_max_id
+from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import HttpError
@@ -183,6 +185,27 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         return (True, '')
 
     @classmethod
+    def _check_route_targets(cls, obj_dict):
+        rt_dict = obj_dict.get('configured_route_target_list')
+        if not rt_dict:
+            return True, ''
+        global_asn = cls.server.global_autonomous_system
+        for rt in rt_dict.get('route_target') or []:
+            ok, result = cls.server.get_resource_class(
+                'route_target').validate_route_target(rt)
+            if not ok:
+                return False, result
+            user_defined_rt = result
+            if not user_defined_rt:
+                return (False, "Configured route target must use ASN that is "
+                        "different from global ASN or route target value must"
+                        " be less than %d and greater than %d" %
+                        (get_bgp_rtgt_min_id(global_asn),
+                         get_bgp_rtgt_max_id(global_asn)))
+
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls._ensure_lr_dci_association(obj_dict)
         if not ok:
@@ -196,6 +219,10 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         ok, result = cls.is_port_in_use_by_vm(obj_dict, db_conn)
         if not ok:
             return ok, result
+
+        (ok, error) = cls._check_route_targets(obj_dict)
+        if not ok:
+            return (False, (400, error))
 
         ok, result = cls._check_type(obj_dict)
         if not ok:
@@ -255,6 +282,10 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         ok, result = cls.is_port_in_use_by_vm(obj_dict, db_conn)
         if not ok:
             return ok, result
+
+        (ok, error) = cls._check_route_targets(obj_dict)
+        if not ok:
+            return (False, (400, error))
 
         # To get the current vxlan_id, read the LR from the DB
         ok, result = cls.dbe_read(cls.db_conn,

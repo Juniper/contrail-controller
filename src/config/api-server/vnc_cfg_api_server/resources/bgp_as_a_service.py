@@ -5,8 +5,6 @@
 from vnc_api.gen.resource_common import BgpAsAService
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
-from vnc_cfg_api_server.resources.global_system_config import\
-    GlobalSystemConfigServer
 
 
 class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
@@ -35,7 +33,8 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
         if not local_asn:
             return True, ''
 
-        ok, result = GlobalSystemConfigServer.check_asn_range(local_asn)
+        ok, result = cls.server.get_resource_class(
+            'global_system_config').check_asn_range(local_asn)
         if not ok:
             return ok, result
 

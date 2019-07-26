@@ -137,7 +137,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                 continue
             for rt in rt_dict.get('route_target', []):
                 ok, result = cls.server.get_resource_class(
-                    'route_target').is_user_defined(rt, global_asn)
+                    'route_target').validate_route_target(rt, global_asn)
                 if not ok:
                     return False, result
                 user_defined_rt = result
@@ -300,8 +300,28 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if 'autonomous_system' in obj_dict:
             cls.server.global_autonomous_system = obj_dict['autonomous_system']
 
+        if 'enable_4byte_as' in obj_dict:
+            cls.server.enable_4byte_as = obj_dict['enable_4byte_as']
+
         if 'data_center_interconnect_loopback_namespace' not in obj_dict:
             return True, ''
 
         return cls._create_dci_lo0_network_ipam(
             obj_dict['data_center_interconnect_loopback_namespace'])
+
+    @classmethod
+    def dbe_update_notification(cls, obj_id, extra_dict=None):
+        ok, read_result = cls.dbe_read(cls.db_conn,
+                                       'global_system_config',
+                                       obj_id,
+                                       obj_fields=['autonomous_system',
+                                                   'enable_4byte_as'])
+        if not ok:
+            return ok, read_result
+
+        if 'autonomous_system' in read_result:
+            cls.server.global_autonomous_system = read_result[
+                'autonomous_system']
+        if 'enable_4byte_as' in read_result:
+            cls.server.enable_4byte_as = read_result[
+                'enable_4byte_as']
