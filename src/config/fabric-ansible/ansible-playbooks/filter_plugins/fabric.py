@@ -2324,6 +2324,25 @@ class FilterModule(object):
                 _task_done()
 
 
+    def _verify_physical_roles(self, device_obj, remote_device_obj):
+        # this function verifies that local prouter and the remote
+        # prouter are not of the same leaf role in
+        # order to avoid loops.
+
+        local_physical_role = device_obj.get_physical_router_role()
+        remote_physical_role = remote_device_obj.get_physical_router_role()
+
+        if (local_physical_role ==
+            remote_physical_role == 'leaf'):
+            _task_log(
+                "Not creating instance ips as both"
+                "physical routers are of the same role type %s"
+                % local_physical_role)
+            return False
+
+        return True
+
+
     def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj):
         """Add logical interfaces for fabric links.
 
@@ -2347,16 +2366,20 @@ class FilterModule(object):
             local_pi = link.get('local_pi')
             remote_pi = link.get('remote_pi')
 
-            # local_pi
-            self._instance_ip_creation(vnc_api, device_obj, local_pi,
-                                       remote_pi, fabric_network_obj)
-
-            # remote_pi
             remote_device_obj = \
                 vnc_api.physical_router_read(
                     fq_name=remote_pi.get_parent_fq_name())
-            self._instance_ip_creation(vnc_api, remote_device_obj,
-                                       remote_pi, local_pi, fabric_network_obj)
+
+            if self._verify_physical_roles(device_obj, remote_device_obj):
+
+                # local_pi
+                self._instance_ip_creation(vnc_api, device_obj, local_pi,
+                                           remote_pi, fabric_network_obj)
+
+                # remote_pi
+                self._instance_ip_creation(vnc_api, remote_device_obj,
+                                           remote_pi, local_pi,
+                                           fabric_network_obj)
     # end _add_logical_interfaces_for_fabric_links
 
     @staticmethod
