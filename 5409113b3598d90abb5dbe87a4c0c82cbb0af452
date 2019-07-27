@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a51d17ec_7890e720",
+        "filename": "src/bgp/test/cat/lib/cat.py",
+        "patchSetId": 28
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 805
+      },
+      "writtenOn": "2019-07-27T00:26:31Z",
+      "side": 1,
+      "message": "please change the line to below to remove spaces.\n\ndate \u003d user + \"/\" + str(datetime.datetime.now()).replace(\" \", \"\")",
+      "revId": "5409113b3598d90abb5dbe87a4c0c82cbb0af452",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1480b577_c44e7b48",
+        "filename": "src/bgp/test/cat/lib/cat.py",
+        "patchSetId": 28
+      },
+      "lineNbr": 107,
+      "author": {
+        "id": 805
+      },
+      "writtenOn": "2019-07-27T00:26:31Z",
+      "side": 1,
+      "message": "Please change it to below.\n\nCAT.p \u003d subprocess.call(cmd, stderr\u003dsubprocess.STDOUT, shell\u003dTrue)",
+      "revId": "5409113b3598d90abb5dbe87a4c0c82cbb0af452",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1a124491_b532ea80",
+        "filename": "src/bgp/test/cat/lib/cat.py",
+        "patchSetId": 28
+      },
+      "lineNbr": 109,
+      "author": {
+        "id": 805
+      },
+      "writtenOn": "2019-07-27T00:26:31Z",
+      "side": 1,
+      "message": "Please remove print",
+      "revId": "5409113b3598d90abb5dbe87a4c0c82cbb0af452",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
