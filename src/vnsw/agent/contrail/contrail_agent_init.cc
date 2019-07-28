@@ -81,7 +81,7 @@ void ContrailAgentInit::FactoryInit() {
 void ContrailAgentInit::CreateModules() {
     ContrailInitCommon::CreateModules();
     if (agent_param()->cat_is_agent_mocked()) {
-        Pkt0Socket::CreateMockAgent();
+        Pkt0Socket::CreateMockAgent(agent()->AgentGUID());
     }
 
     if (agent_param()->vrouter_on_host_dpdk()) {
@@ -127,7 +127,7 @@ void ContrailAgentInit::CreateModules() {
     std::string newkPortsDir =  PortIpcHandler::kPortsDir;
 
     if (agent_param()->cat_is_agent_mocked()) {
-       newkPortsDir = "/tmp/" + integerToString(getpid()) + newkPortsDir;
+       newkPortsDir = "/tmp/" + agent()->AgentGUID() + newkPortsDir;
     }
 
     port_ipc_handler_.reset(new PortIpcHandler(agent(),

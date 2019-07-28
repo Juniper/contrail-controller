@@ -31,7 +31,15 @@ BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &file_name) :
     backup_manager_(manager), agent_(manager->agent()), name_(name),
     last_modified_time_(UTCTimestampUsec()) {
-    backup_dir_ = agent_->params()->restart_backup_dir();
+
+    if (!agent_->isMockMode()) {
+        backup_dir_ = agent_->params()->restart_backup_dir();
+    }
+    else { 
+      backup_dir_ = "/tmp/" + agent_->AgentGUID() +
+      agent_->params()->restart_backup_dir();
+    }
+
     backup_idle_timeout_ = agent_->params()
         ->restart_backup_idle_timeout();
     file_name_str_ = backup_dir_ + "/" + file_name;

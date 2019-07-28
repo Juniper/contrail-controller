@@ -1167,6 +1167,7 @@ public:
 
     AgentParam *params() const { return params_; }
     bool isMockMode() const;
+    std::string AgentGUID() const;
     bool isXenMode();
     bool isKvmMode();
     bool isDockerMode();
