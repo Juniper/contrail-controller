@@ -434,7 +434,7 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr)
 
         vmi1, vm1, pi1 = self.attach_vmi('1', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, 101)
-        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 102)
+        vmi2, vm2, _ = self.attach_vmi('2', ['xe-0/0/1'], [pr], vn1_obj, None, fabric, None, 101)
 
         gevent.sleep(1)
         ac = self.check_dm_ansible_config_push()
