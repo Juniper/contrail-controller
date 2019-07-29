@@ -522,7 +522,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         data = {'binding:profile': binding_profile_update,
                 'binding:vnic_type': vnic_type,
                 'binding:vpg': vpg_obj.name,
-                'binding:host_id': 'myhost'}
+                'binding:host_id': 'myhost',
+                'binding:tor_port_vlan_id': 23}
         self.update_resource('port', port_dict['id'], proj_uuid, extra_res_fields=data)
         vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_obj.uuid)
 
