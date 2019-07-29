@@ -1,0 +1,105 @@
+- import_role:
+    name: Juniper.junos
+
+- set_fact:
+    command_resp: {}
+
+- block:
+    - name: Execute commands on a Juniper Device to get interfaces
+      juniper_junos_command:
+        commands:
+          - show interfaces
+        display: xml
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: dev_info
+
+    - name: settings facts
+      set_fact:
+        command_resp: "{{dev_info|json_query('parsed_output.\"interface-information\".\"physical-interface\"')}}"
+
+  when: "'Show runtime interfaces' == input_params.conditional.sub_operation"
+
+- block:
+    - name: Execute commands on a Juniper Device to get interfaces
+      juniper_junos_config:
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+        retrieve: 'committed'
+        filter: 'interfaces'
+        diff: true
+        check: false
+        commit: false
+        config_mode: 'private'
+        format: xml
+        options:
+          inherit: inherit
+      register: device_inf
+
+    - name: settings facts
+      set_fact:
+        command_resp: "{{device_inf|json_query('config_parsed.configuration.interfaces.interface')}}"
+
+  when: "'Show configured interfaces' == input_params.conditional.sub_operation"
+
+- block:
+    - set_fact:
+        commands_list: []
+
+    - set_fact:
+        commands_list: "{{commands_list}} + ['show interfaces {{item}}']"
+      with_items: "{{input_params.conditional.interface_names}}"
+      when: "'interface_names' in input_params.conditional"
+
+    - name: Execute commands on a Juniper Device to get specific interfaces information (by names)
+      juniper_junos_command:
+        commands: "{{commands_list}}"
+        display: xml
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: device_info
+
+    - name: get the physical or logical interfaces info for multiple matching interfaces
+      set_fact:
+        command_resp_phy_intf: "{{device_info['results']|json_query('[*].parsed_output.\"interface-information\".\"physical-interface\"')}}"
+        command_resp_log_intf: "{{device_info['results']|json_query('[*].parsed_output.\"interface-information\".\"logical-interface\"')}}"
+      when: "'results' in device_info"
+
+    - name: get the physical and logical interfaces info if it is a single matching interface
+      set_fact:
+        command_resp_phy_intf: "{{device_info | json_query('parsed_output.\"interface-information\".\"physical-interface\"') | default([], true)}}"
+        command_resp_log_intf: "{{device_info | json_query('parsed_output.\"interface-information\".\"logical-interface\"') | default([], true)}}"
+      when: "'results' not in device_info"
+
+    - name: convert phy_int_dict back into list
+      set_fact:
+        command_resp_phy_intf: ["{{command_resp_phy_intf}}"]
+      when: command_resp_phy_intf is mapping
+
+    - name: convert log_int dict into list
+      set_fact:
+        command_resp_log_intf: ["{{command_resp_log_intf}}"]
+      when: command_resp_log_intf is mapping
+
+    - name: set the command_resp
+      set_fact:
+        command_resp: {
+                       "physical_intf_list": "{{command_resp_phy_intf}}",
+                       "logical_intf_list": "{{command_resp_log_intf}}"
+                      }
+
+  when: "'Show interfaces by names' == input_params.conditional.sub_operation"
+
+
