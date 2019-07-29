@@ -20,7 +20,7 @@ class ResourceBaseST(DBBase):
         for ref_field in self.ref_fields:
             self.update_refs(ref_field, {})
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         # Implement in the derived class
         pass
 
