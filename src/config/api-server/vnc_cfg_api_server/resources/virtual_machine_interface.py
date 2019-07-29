@@ -13,6 +13,7 @@ from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
 from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from collections import defaultdict
 
 
 class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
@@ -517,14 +518,30 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             kvp_dict = cls._kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
             vpg_name = kvp_dict.get('vpg')
+            tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id',0)
             if vnic_type == 'baremetal' and kvp_dict.get('profile'):
                 # Process only if port profile exists and physical links are
                 # specified
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
+                    if ((tor_port_vlan_id != 0 and vlan_tag != 0) or
+                        (tor_port_vlan_id == 0 and vlan_tag == 0)):
+                        msg = 'Only one of tor_port_vlan_id or '\
+                              'sub_interface_vlan_tag can be set and '\
+                              'both cannot be zero'
+                        return (False, (400, msg))
+                    is_tagged_vlan = False
+                    if tor_port_vlan_id:
+                        vlan_id = tor_port_vlan_id
+                        is_tagged_vlan = True
+                    else:
+                        vlan_id = vlan_tag
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
-                        obj_dict['uuid'], cls.server, db_conn, links, vpg_name)
+                        obj_dict['uuid'], cls.server, db_conn, links,
+                        vpg_name, vn_uuid, vlan_id, is_tagged_vlan)
+                    if not vpg_uuid:
+                        return vpg_uuid, ret_dict
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
                     obj_dict.update(ret_dict)
 
@@ -623,10 +640,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 vmib = True
                 kvps.append(oper_param['value'])
 
+        old_vlan = (read_result.get('virtual_machine_interface_properties') or
+                    {}).get('sub_interface_vlan_tag') or 0
         ret_dict = None
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
+            tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
             # IRONIC: allow for normal->baremetal change if bindings has
             # link-local info
             if new_vnic_type != 'baremetal':
@@ -648,15 +668,30 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 phy_links = json.loads(kvp_dict.get('profile'))
                 if phy_links and phy_links.get('local_link_information'):
                     links = phy_links['local_link_information']
+                    if ((tor_port_vlan_id != 0 and vlan_tag != 0) or
+                        (tor_port_vlan_id == 0 and vlan_tag == 0)):
+                        msg = 'Only one of tor_port_vlan_id or '\
+                              'sub_interface_vlan_tag can be set and '\
+                              'both cannot be zero'
+                        return (False, (400, msg))
+                    is_tagged_vlan = False
+                    if tor_port_vlan_id:
+                        vlan_id = tor_port_vlan_id
+                        is_tagged_vlan = True
+                    else:
+                        vlan_id = vlan_tag
+
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
-                        id, cls.server, db_conn, links, vpg_name)
+                        id, cls.server, db_conn, links, vpg_name,
+                        vn_uuid, vlan_id, is_tagged_vlan)
+                    if not vpg_uuid:
+                        return vpg_uuid, ret_dict
+
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
 
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
 
-        old_vlan = (read_result.get('virtual_machine_interface_properties') or
-                    {}).get('sub_interface_vlan_tag') or 0
         if 'virtual_machine_interface_properties' in obj_dict:
             new_vlan = (obj_dict['virtual_machine_interface_properties'] or
                         {}).get('sub_interface_vlan_tag') or 0
@@ -836,8 +871,203 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         return
 
     @classmethod
+    def _check_vpg_for_enterprise(cls, all_vpgs, vpg_uuid, vn_uuid, vlan_id, is_tagged_vlan):
+        db_conn = cls.db_conn
+
+        ok, result = cls._check_vlanid_vn_mapping(all_vpgs, vn_uuid, vlan_id)
+        if not ok:
+            return ok, result
+
+        ok, result = cls._check_vpg_restrictions(vpg_uuid, vn_uuid, vlan_id, is_tagged_vlan)
+        if not ok:
+            return ok, result
+
+        return True, ''
+
+    @classmethod
+    def _check_vpg_restrictions(cls, vpg_uuid, vn_uuid, vlan_id, is_tagged_vlan):
+        db_conn = cls.db_conn
+        # Only one native/untagged VLAN supported
+        # A VN can be set only once.
+        ok, read_result = cls.dbe_read(db_conn, 'virtual-port-group',
+                                       vpg_uuid,
+                                       obj_fields=['virtual_machine_interface_refs'])
+        if not ok:
+            return ok, result
+
+
+        all_vmis = read_result.get('virtual_machine_interface_refs', [])
+        tor_vlan_ids = []
+        if is_tagged_vlan:
+            tor_vlan_ids.append(vlan_id)
+
+        all_vn_ids = [vn_uuid]
+
+        for vmi in all_vmis:
+            ok, read_result = cls.dbe_read(
+                db_conn,
+                'virtual_machine_interface',
+                vmi['uuid'],
+                obj_fields=['virtual_network_refs',
+                            'virtual_machine_interface_bindings'])
+            if not ok:
+                return ok, result
+
+            vmi_info = read_result
+            bindings = vmi_info.get(
+                'virtual_machine_interface_bindings') or {}
+            kvps = bindings.get('key_value_pair') or []
+            kvp_dict = cls._kvp_to_dict(kvps)
+            tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
+            if tor_port_vlan_id != 0:
+                tor_vlan_ids.append(tor_port_vlan_id)
+
+            all_vns = vmi_info.get('virtual_network_refs')
+            all_vn_ids.extend([ref['uuid'] for ref in all_vns])
+
+        if len(set(tor_vlan_ids)) > 1:
+            msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
+                  'in a Enterprise style Fabric'
+            return (False, (400, msg))
+
+        if len(all_vn_ids) > len(set(all_vn_ids)):
+            msg = 'A Virtual Network can only be associated once per VPG '\
+                  'in a Enterprise style Fabric'
+            return (False, (400, msg))
+
+        return True, ''
+
+    @classmethod
+    def _check_vlanid_vn_mapping(cls, all_vpgs, vn_uuid, vlan_id):
+        db_conn = cls.db_conn
+
+        # Traverse through All VPGs in the fabric.
+        # if the current VN is already connected to a different VMI of any VPG in this fabric,
+        # then it's VLAN ID for that VMI and current VMI should be same.
+        for vpg in all_vpgs:
+            # Get all VMI for VPG
+            ok, read_result = cls.dbe_read(
+                db_conn,
+                'virtual-port-group',
+                vpg['uuid'],
+                obj_fields=['virtual_machine_interface_refs'])
+            if not ok:
+                return ok, result
+
+            all_vmis = read_result.get('virtual_machine_interface_refs', [])
+            for vmi in all_vmis:
+                # Get required details for the VMI
+                ok, read_result = cls.dbe_read(
+                    db_conn,
+                    'virtual_machine_interface',
+                    vmi['uuid'],
+                    obj_fields=['virtual_network_refs',
+                                'virtual_machine_interface_bindings',
+                                'virtual_machine_interface_properties'])
+                if not ok:
+                    return ok, result
+
+                vmi_info = read_result
+                all_vns = vmi_info.get('virtual_network_refs')
+                vn_uuids = [ref['uuid'] for ref in all_vns]
+                if vn_uuid in vn_uuids:
+                    # the VN of current_VM has already been used in fabric.
+                    # Validate that same VLAN is used for both places
+                    bindings = vmi_info.get(
+                        'virtual_machine_interface_bindings') or {}
+                    kvps = bindings.get('key_value_pair') or []
+                    kvp_dict = cls._kvp_to_dict(kvps)
+                    tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
+                    vlan_tag = (vmi_info.get(
+                        'virtual_machine_interface_properties') or {}).get(
+                            'sub_interface_vlan_tag') or 0
+                    if ((tor_port_vlan_id != 0 and vlan_tag != 0) or
+                        (tor_port_vlan_id == 0 and vlan_tag == 0)):
+                        msg = 'Only one of tor_port_vlan_id or '\
+                              'sub_interface_vlan_tag can be set and '\
+                              'both cannot be zero'
+                        return (False, (400, msg))
+                    if tor_port_vlan_id:
+                        vlan_id_in_db = tor_port_vlan_id
+                    else:
+                        vlan_id_in_db = vlan_tag
+
+                    if vlan_id_in_db != vlan_id:
+                        msg = 'One VN can only be assigned only one VLAN ID '\
+                              'in a Enterprise style Fabric'
+                        return (False, (400, msg))
+        return True, ''
+
+    @classmethod
+    def _check_vpg_for_service_provider(cls, vpg_uuid, vn_uuid, vlan_id, is_tagged_vlan):
+        db_conn = cls.db_conn
+        # Only one native/untagged VLAN supported
+        # A VN can be set only once.
+        ok, read_result = cls.dbe_read(db_conn, 'virtual-port-group',
+                                       vpg_uuid,
+                                       obj_fields=['virtual_machine_interface_refs'])
+        if not ok:
+            return ok, result
+
+        all_vmis = read_result.get('virtual_machine_interface_refs', [])
+
+        import pdb ; pdb.set_trace()
+        tor_vlan_ids = []
+        if is_tagged_vlan:
+            tor_vlan_ids.append(vlan_id)
+
+        all_vns_in_vpg_dict = defaultdict(list)
+        all_vns_in_vpg_dict[vn_uuid].append(vlan_id)
+        all_vn_ids = [vn_uuid]
+
+        for vmi in all_vmis:
+            ok, read_result = cls.dbe_read(
+                db_conn,
+                'virtual_machine_interface',
+                vmi['uuid'],
+                obj_fields=['virtual_network_refs',
+                            'virtual_machine_interface_bindings',
+                            'virtual_machine_interface_properties'])
+            if not ok:
+                return ok, result
+
+            vmi_info = read_result
+            bindings = vmi_info.get(
+                'virtual_machine_interface_bindings') or {}
+            kvps = bindings.get('key_value_pair') or []
+            kvp_dict = cls._kvp_to_dict(kvps)
+            tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
+            if tor_port_vlan_id != 0:
+                tor_vlan_ids.append(tor_port_vlan_id)
+            vlan_tag = (vmi_info.get(
+                    'virtual_machine_interface_properties') or {}).get(
+                            'sub_interface_vlan_tag') or 0
+
+            all_vns = vmi_info.get('virtual_network_refs')
+            for ref in all_vns:
+                if vlan_tag != 0:
+                    all_vns_in_vpg_dict[ref['uuid']].append(vlan_tag)
+                else:
+                    all_vns_in_vpg_dict[ref['uuid']].append(tor_port_vlan_id)
+
+        if len(set(tor_vlan_ids)) > 1:
+            msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
+                  'in a Enterprise style Fabric'
+            return (False, (400, msg))
+
+        for vn_id, vlan_list in all_vns_in_vpg_dict.items():
+            if len(vlan_list) > len(set(vlan_list)):
+                msg = ("Virtual Network(%s) can only be associated to VPG "
+                       "through different VLAN in a service provider style fabric" %
+                       vn_id)
+                return (False, (400, msg))
+
+        return True, ''
+
+    @classmethod
     def _manage_vpg_association(cls, vmi_id, api_server, db_conn, phy_links,
-                                vpg_name=None):
+                                vpg_name=None, vn_uuid=None,
+                                vlan_id=None, is_tagged_vlan=False):
         fabric_name = None
         phy_interface_uuids = []
         old_phy_interface_uuids = []
@@ -928,6 +1158,41 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                                                    vpg_uuid)
                 return True, ''
             get_context().push_undo(undo_vpg_create)
+
+        # Check for fabric to get vpg
+        if 'parent_uuid' in vpg_dict:
+            ok, read_result = cls.dbe_read(
+                db_conn,
+                'fabric',
+                vpg_dict['parent_uuid'],
+                obj_fields=['fabric_enterprise_style', 'virtual_port_groups'])
+            if not ok:
+                return ok, read_result
+            fabric = read_result
+            if 'fabric_enterprise_style' in fabric:
+                fabric_enterprise_style = fabric.get('fabric_enterprise_style')
+            else:
+                msg = "Fabric_Enterprise_Style not defined for "\
+                      "Virtual port group(%s)"\
+                      % (vpg_dict['uuid'])
+                return False, (404, msg)
+
+            all_vpgs = fabric.get('virtual_port_groups') or []
+            if fabric_enterprise_style:
+                ok, result = cls._check_vpg_for_enterprise(all_vpgs,
+                                                           vpg_uuid,
+                                                           vn_uuid,
+                                                           vlan_id,
+                                                           is_tagged_vlan)
+                if not ok:
+                    return ok, result
+            else:
+                ok, result = cls._check_vpg_for_service_provider(vpg_uuid,
+                                                                 vn_uuid,
+                                                                 vlan_id,
+                                                                 is_tagged_vlan)
+                if not ok:
+                    return ok, result
 
         old_phy_interface_refs = vpg_dict.get('physical_interface_refs')
         for ref in old_phy_interface_refs or []:
