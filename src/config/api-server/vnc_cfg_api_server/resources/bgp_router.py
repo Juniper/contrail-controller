@@ -5,6 +5,8 @@
 from vnc_api.gen.resource_common import BgpRouter
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources.global_system_config import\
+    GlobalSystemConfigServer
 
 
 class BgpRouterServer(ResourceMixin, BgpRouter):
@@ -13,6 +15,18 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
         bgp_router_prop = obj_dict.get('bgp_router_parameters')
         if bgp_router_prop:
             asn = bgp_router_prop.get('autonomous_system')
+            if asn and asn != 'null':
+                ok, result = GlobalSystemConfigServer.check_asn_range(asn)
+                if not ok:
+                    return ok, result
+
+            local_asn = bgp_router_prop.get('local_autonomous_system')
+            if local_asn and local_asn != 'null':
+                ok, result = GlobalSystemConfigServer.check_asn_range(
+                    local_asn)
+                if not ok:
+                    return ok, result
+
             router_type = bgp_router_prop.get('router_type')
         else:
             asn = None
@@ -88,6 +102,18 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
             bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
             bgp_router_prop = bgp_obj.get('prop:bgp_router_parameters')
         if bgp_router_prop:
+            asn = bgp_router_prop.get('autonomous_system')
+            if asn and asn != 'null':
+                ok, result = GlobalSystemConfigServer.check_asn_range(asn)
+                if not ok:
+                    return ok, result
+
+            local_asn = bgp_router_prop.get('local_autonomous_system')
+            if local_asn and local_asn != 'null':
+                ok, result = GlobalSystemConfigServer.check_asn_range(
+                    local_asn)
+                if not ok:
+                    return ok, result
             router_type = bgp_router_prop.get('router_type')
         control_node_zone_ref = obj_dict.get('control_node_zone_refs')
         if control_node_zone_ref:
