@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "43bf31b7_d068364a",
+        "filename": "src/vnsw/agent/oper/vm_interface.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 730,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2019-07-29T05:28:44Z",
+      "side": 1,
+      "message": "Instead of referring to the Bug id just add the reason for the extra check.",
+      "revId": "5337b7c0cb451d911f91a38986a8fd7cb296bad3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
