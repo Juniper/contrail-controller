@@ -20,6 +20,9 @@
 #include "services/metadata_proxy.h"
 #include "init/agent_param.h"
 
+#define MPLS_OVER_UDP_OLD_DEST_PORT 51234
+#define MPLS_OVER_UDP_NEW_DEST_PORT 6635
+#define VXLAN_UDP_DEST_PORT 4789
 
 SandeshTraceBufferPtr DhcpTraceBuf(SandeshTraceBufferCreate("Dhcp", 1000));
 SandeshTraceBufferPtr Dhcpv6TraceBuf(SandeshTraceBufferCreate("Dhcpv6", 1000));
@@ -70,6 +73,7 @@ void ServicesModule::Init(bool run_with_vrouter) {
     agent_->SetIgmpProto(igmp_proto_.get());
 
     metadata_proxy_.reset(new MetadataProxy(this, metadata_secret_key_));
+    ReserveLocalPorts();
 }
 
 void ServicesModule::ConfigInit() {
@@ -116,4 +120,53 @@ void ServicesModule::Shutdown() {
 
     metadata_proxy_->Shutdown();
     metadata_proxy_.reset(NULL);
+}
+
+bool ServicesModule::AllocateFd(uint16_t port_number, uint8_t l3_proto) {
+    int fd;
+
+    if (l3_proto == IPPROTO_TCP) {
+        fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    } else if (l3_proto == IPPROTO_UDP) {
+        fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+
+    if (fd == kInvalidFd) {
+        return false;
+    }
+
+    int optval = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
+                    (const char*)&optval, sizeof(optval));
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(port_number);
+    if (::bind(fd, (struct sockaddr*) &address, sizeof(address)) < 0) {
+        LOG(ERROR, "failed to bind socket to port:" << port_number);
+        close(fd);
+        return false;
+    }
+
+    reserved_port_fd_list_.push_back(fd);
+
+    return true;
+}
+void ServicesModule::ReserveLocalPorts() {
+
+    //reserve UDP dest ports used for tunneling protocos
+    //so that these port numbers are not used for link local services.
+    AllocateFd(MPLS_OVER_UDP_OLD_DEST_PORT, IPPROTO_UDP);
+    AllocateFd(MPLS_OVER_UDP_NEW_DEST_PORT, IPPROTO_UDP);
+    AllocateFd(VXLAN_UDP_DEST_PORT, IPPROTO_UDP);
+}
+
+void ServicesModule::FreeLocalPortBindings() {
+    std::vector<int>::const_iterator it = reserved_port_fd_list_.begin();
+    while ( it != reserved_port_fd_list_.end()) {
+        // close socket
+        close(*it);
+        it++;
+    }
 }

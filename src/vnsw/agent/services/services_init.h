@@ -15,6 +15,7 @@ class MetadataProxy;
 
 class ServicesModule {
 public:
+    static const int kInvalidFd=-1;
     enum ServiceList {
         ArpService,
         DhcpService,
@@ -38,8 +39,11 @@ public:
     ArpProto *arp_proto() const {
         return arp_proto_.get();
     }
+    void ReserveLocalPorts();
+    void FreeLocalPortBindings();
 
 private:
+    bool AllocateFd(uint16_t port_number, uint8_t ip_proto);
     Agent *agent_;
     std::string metadata_secret_key_;
     boost::scoped_ptr<DhcpProto> dhcp_proto_;
@@ -53,6 +57,7 @@ private:
     boost::scoped_ptr<Icmpv6ErrorProto> icmpv6_error_proto_;
     boost::scoped_ptr<IgmpProto> igmp_proto_;
     boost::scoped_ptr<MetadataProxy> metadata_proxy_;
+    std::vector<int>  reserved_port_fd_list_;
 };
 
 extern SandeshTraceBufferPtr DhcpTraceBuf;
