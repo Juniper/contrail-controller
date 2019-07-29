@@ -63,7 +63,7 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         self.update_routing_instances([])
     # end delete_obj
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.set_virtual_network()
         self._add_pbf_rules()
         self.process_analyzer()

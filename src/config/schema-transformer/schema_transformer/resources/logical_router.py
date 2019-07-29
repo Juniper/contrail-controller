@@ -50,7 +50,7 @@ class LogicalRouterST(ResourceBaseST):
         self.route_target = rt_key
     # end __init__
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.update_virtual_networks()
         self.set_route_target_list()
     # end evaluate

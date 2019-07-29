@@ -92,7 +92,7 @@ class BgpRouterST(ResourceBaseST):
         self.update_peering()
     # end update_autonomous_system
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         if self.router_type == 'bgpaas-client':
             bgpaas = ResourceBaseST.get_obj_type_map().get('bgp_as_a_service').get(self.bgp_as_a_service)
             ret = self.update_bgpaas_client(bgpaas)

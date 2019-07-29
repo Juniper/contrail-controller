@@ -24,7 +24,7 @@ class SecurityLoggingObjectST(ResourceBaseST):
         self.uuid = self.obj.uuid
     # end __init__
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         rule_entries = set()
         if self.network_policys:
             rule_entries = self.populate_rules('network_policy',

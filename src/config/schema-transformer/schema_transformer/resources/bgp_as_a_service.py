@@ -62,7 +62,7 @@ class BgpAsAServiceST(ResourceBaseST):
         return changed
     # end update
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         # If the BGP Service is shared, just create
         # one BGP Router.
         if self.obj.get_bgpaas_shared() == True:
