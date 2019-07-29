@@ -102,7 +102,7 @@ class SecurityGroupST(ResourceBaseST):
         self.process_referred_sgs()
     # end delete_obj
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.update_policy_entries()
 
     def update_policy_entries(self):
