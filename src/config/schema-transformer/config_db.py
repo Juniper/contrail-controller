@@ -143,7 +143,7 @@ class DBBaseST(DBBase):
         for ref_field in self.ref_fields:
             self.update_refs(ref_field, {})
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         # Implement in the derived class
         pass
 
@@ -306,7 +306,7 @@ class GlobalSystemConfigST(DBBaseST):
         return True
     # end update_autonomous_system
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         for router in BgpRouterST.values():
             router.update_global_asn(self._autonomous_system)
             router.update_peering()
@@ -1234,7 +1234,8 @@ class VirtualNetworkST(DBBaseST):
             self._vnc_lib.routing_instance_update(default_ri.obj)
     # end update_pnf_presence
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
+        self.timer = kwargs.get('timer')
         self.set_route_target_list(self.obj)
 
         old_virtual_network_connections = self.expand_connections()
@@ -1317,8 +1318,11 @@ class VirtualNetworkST(DBBaseST):
 
                         if action.simple_action:
                             self.add_connection(connected_network)
-
+                    if self.timer:
+                        self.timer.timed_yield(is_evaluate_yield=True)
                 # end for acl_rule_list
+                if self.timer:
+                    self.timer.timed_yield(is_evaluate_yield=True)
             # end for policy_rule_entries.policy_rule
         # end for self.network_policys
 
@@ -1981,7 +1985,7 @@ class SecurityGroupST(DBBaseST):
         self.process_referred_sgs()
     # end delete_obj
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.update_policy_entries()
 
     def update_policy_entries(self):
@@ -3309,7 +3313,7 @@ class BgpRouterST(DBBaseST):
         self.update_peering()
     # end update_autonomous_system
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         if self.router_type == 'bgpaas-client':
             bgpaas = BgpAsAServiceST.get(self.bgp_as_a_service)
             ret = self.update_bgpaas_client(bgpaas)
@@ -3637,7 +3641,7 @@ class BgpAsAServiceST(DBBaseST):
         return changed
     # end update
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         # If the BGP Service is shared, just create
         # one BGP Router.
         if self.obj.get_bgpaas_shared() == True:
@@ -3781,7 +3785,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_routing_instances([])
     # end delete_obj
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.set_virtual_network()
         self._add_pbf_rules()
         self.process_analyzer()
@@ -4255,7 +4259,7 @@ class LogicalRouterST(DBBaseST):
         self.route_target = rt_key
     # end __init__
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.update_virtual_networks()
         self.set_route_target_list()
     # end evaluate
@@ -4930,7 +4934,7 @@ class SecurityLoggingObjectST(DBBaseST):
         self.uuid = self.obj.uuid
     # end __init__
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         rule_entries = set()
         if self.network_policys:
             rule_entries = self.populate_rules('network_policy',
