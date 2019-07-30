@@ -8,7 +8,6 @@
 
 import argparse
 import copy
-from collections import OrderedDict
 from datetime import timedelta
 import re
 import sys
@@ -140,8 +139,8 @@ class FilterModule(object):
 
     # generate a table of device information
     def _generate_device_table(self):
-        device_table = OrderedDict()
-        skipped_device_table = OrderedDict()
+        device_table = {}
+        skipped_device_table = {}
         for image_entry in self.image_upgrade_list:
             image_uuid = image_entry.get('image_uuid')
             image_obj = self.vncapi.device_image_read(id=image_uuid)
