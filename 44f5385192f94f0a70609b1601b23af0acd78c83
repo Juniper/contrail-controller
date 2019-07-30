@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "389f6235_94865905",
+        "filename": "src/vnsw/agent/services/services_init.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 132,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-07-30T08:09:32Z",
+      "side": 1,
+      "message": "want to add else? If proto is not UDP/TCP it fd will remain uninitialized.",
+      "revId": "44f5385192f94f0a70609b1601b23af0acd78c83",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
