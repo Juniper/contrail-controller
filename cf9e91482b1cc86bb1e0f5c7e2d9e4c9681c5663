@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dd2489e2_544df308",
+        "filename": "src/sandesh/common/vns.sandesh",
+        "patchSetId": 4
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-30T02:40:58Z",
+      "side": 1,
+      "message": "Is this file already part of packaging? By the way, what is the need to change filename?",
+      "range": {
+        "startLine": 233,
+        "startChar": 84,
+        "endLine": 233,
+        "endChar": 91
+      },
+      "revId": "cf9e91482b1cc86bb1e0f5c7e2d9e4c9681c5663",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
