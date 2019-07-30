@@ -1017,7 +1017,7 @@ class AnsibleRoleCommon(AnsibleConf):
         return
     # end build_ri_config
 
-    def build_service_chain_ri_config(self, left_vrf_info, right_vrf_info):
+    def build_service_chain_ri_config(self, si_name, left_vrf_info, right_vrf_info):
         #left vrf
         vn_obj = VirtualNetworkDM.get(left_vrf_info.get('vn_id'))
         if vn_obj:
@@ -1034,7 +1034,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
             if left_vrf_info.get('srx_left_interface') and left_vrf_info.get('loopback_ip'):
                 protocols = RoutingInstanceProtocols()
-                bgp_name = vrf_name + '_left'
+                bgp_name = si_name + '_left'
                 peer_bgp_name = bgp_name + '_' + left_vrf_info.get(
                      'srx_left_interface')
 
@@ -1050,11 +1050,11 @@ class AnsibleRoleCommon(AnsibleConf):
                 protocols.add_bgp(bgp)
 
                 pimrp = PimRp(ip_address=left_vrf_info.get('loopback_ip'))
-                pim = Pim(name="srx")
+                pim = Pim(name=si_name + '_left')
                 pim.set_rp(pimrp)
                 pim.set_comment('PNF-Service-Chaining')
                 protocols.add_pim(pim)
-                left_ri.set_protocols(protocols)
+                left_ri.add_protocols(protocols)
 
         #create new service chain ri for vni targets
         for vn in left_vrf_info.get('tenant_vn') or []:
@@ -1065,8 +1065,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 if self.ri_map.get(vrf_name):
                     ri = self.ri_map.get(vrf_name)
 
-                    vni_ri_left = RoutingInstance(name=vrf_name + '_service_chain_left')
-                    self.ri_map[vrf_name + '_service_chain_left'] = vni_ri_left
+                    vni_ri_left = RoutingInstance(name=si_name + '_service_chain_left')
+                    self.ri_map[si_name + '_service_chain_left'] = vni_ri_left
 
                     vni_ri_left.set_comment('PNF-Service-Chaining')
                     vni_ri_left.set_routing_instance_type("virtual-switch")
@@ -1091,7 +1091,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
             if right_vrf_info.get('srx_right_interface') and left_vrf_info.get('loopback_ip'):
                 protocols = RoutingInstanceProtocols()
-                bgp_name = vrf_name + '_right'
+                bgp_name = si_name + '_right'
                 peer_bgp_name = bgp_name + '_' + right_vrf_info.get('srx_right_interface')
 
                 peer_bgp = Bgp(name=peer_bgp_name,
@@ -1107,11 +1107,11 @@ class AnsibleRoleCommon(AnsibleConf):
                 protocols.add_bgp(bgp)
 
                 pimrp = PimRp(ip_address=left_vrf_info.get('loopback_ip'))
-                pim = Pim(name="srx")
+                pim = Pim(name=si_name + '_right')
                 pim.set_rp(pimrp)
                 pim.set_comment('PNF-Service-Chaining')
                 protocols.add_pim(pim)
-                right_ri.set_protocols(protocols)
+                right_ri.add_protocols(protocols)
 
         #create new service chain ri for vni targets
         for vn in right_vrf_info.get('tenant_vn') or []:
@@ -1122,8 +1122,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 if self.ri_map.get(vrf_name):
                     ri = self.ri_map.get(vrf_name)
 
-                    vni_ri_right = RoutingInstance(name=vrf_name + '_service_chain_right')
-                    self.ri_map[vrf_name + '_service_chain_right'] = vni_ri_right
+                    vni_ri_right = RoutingInstance(name=si_name + '_service_chain_right')
+                    self.ri_map[si_name + '_service_chain_right'] = vni_ri_right
 
                     vni_ri_right.set_comment('PNF-Service-Chaining')
                     vni_ri_right.set_routing_instance_type("virtual-switch")
@@ -1358,7 +1358,8 @@ class AnsibleRoleCommon(AnsibleConf):
                 if self.build_service_chain_required_params(left_vrf_info,
                                                             right_vrf_info):
                     self.build_service_chain_irb_bd_config(svc_app_obj, left_right_params)
-                    self.build_service_chain_ri_config(left_vrf_info,
+                    self.build_service_chain_ri_config(si_obj.name,
+                                                       left_vrf_info,
                                                        right_vrf_info)
 
     def build_server_config(self):
