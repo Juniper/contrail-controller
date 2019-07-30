@@ -727,7 +727,9 @@ static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
     autogen::IdPermsType id_perms = vn->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vn_uuid_);
-    if (cfg_entry && (cfg_entry->GetVnUuid() != data->vn_uuid_)) {
+    //Refer bug #1669224.
+    if (cfg_entry && (cfg_entry->port_type() == CfgIntEntry::CfgIntVMPort)
+                  &&(cfg_entry->GetVnUuid() != data->vn_uuid_)) {
         IFMAP_ERROR(InterfaceConfiguration, 
                     "Virtual-network UUID mismatch for interface:",
                     UuidToString(u),
