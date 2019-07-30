@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9e65a492_fd385703",
+        "filename": "src/sandesh/common/vns.sandesh",
+        "patchSetId": 2
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-07-30T02:42:09Z",
+      "side": 1,
+      "message": "have you verified that contrail-status works properly with this change?",
+      "range": {
+        "startLine": 233,
+        "startChar": 84,
+        "endLine": 233,
+        "endChar": 90
+      },
+      "revId": "dda21345b4d8227491b709133ffa41b53828cfb3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
