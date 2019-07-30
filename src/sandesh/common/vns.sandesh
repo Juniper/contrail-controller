@@ -194,6 +194,7 @@ const list<string> BackupImplementedServices = [
     SERVICE_SVC_MONITOR,
     SERVICE_DEVICE_MANAGER,
     SERVICE_KUBE_MANAGER,
+    SERVICE_VCENTER_FABRIC_MANAGER,
 ]
 
 const string ContrailKeystoneAuthConfigurationFile = '/etc/contrail/contrail-keystone-auth.conf'
@@ -229,7 +230,7 @@ const map<string, list<string> > ServicesDefaultConfigurationFiles = {
     SERVICE_KUBE_MANAGER : ['/etc/contrail/contrail-kubernetes.conf'],
     SERVICE_MESOS_MANAGER : ['/etc/contrail/contrail-mesos.conf'],
     SERVICE_VCENTER_MANAGER: ['/etc/contrail/contrail-vcenter-manager/config.yaml'],
-    SERVICE_VCENTER_FABRIC_MANAGER: ['/etc/contrail/contrail-vcenter-fabric-manager/config.yaml'],
+    SERVICE_VCENTER_FABRIC_MANAGER: ['/etc/contrail/contrail-vcenter-fabric-manager/cvfm.conf'],
 }
 
 enum Module {
