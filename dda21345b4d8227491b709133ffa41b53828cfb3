@@ -22,6 +22,30 @@
       "revId": "dda21345b4d8227491b709133ffa41b53828cfb3",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a4eb770b_6b0766fa",
+        "filename": "src/sandesh/common/vns.sandesh",
+        "patchSetId": 2
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 616
+      },
+      "writtenOn": "2019-07-30T09:59:11Z",
+      "side": 1,
+      "message": "This particular line has nothing common with contrail-status. I wanted to make this mapping up to date. Commit message informs about it. I tested contrail-status where vcenter fabric manager was added to backup services and it worked fine",
+      "parentUuid": "9e65a492_fd385703",
+      "range": {
+        "startLine": 233,
+        "startChar": 84,
+        "endLine": 233,
+        "endChar": 90
+      },
+      "revId": "dda21345b4d8227491b709133ffa41b53828cfb3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
