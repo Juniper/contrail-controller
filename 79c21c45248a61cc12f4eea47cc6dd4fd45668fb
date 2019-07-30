@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f52a1994_57e82874",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 356,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-07-30T17:36:29Z",
+      "side": 1,
+      "message": "instead of iterating through all the current jobs could we look for the requested exec_id presence and retrieve the pid ?",
+      "revId": "79c21c45248a61cc12f4eea47cc6dd4fd45668fb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
