@@ -133,7 +133,7 @@ class PnfConf(AnsibleRoleCommon):
                     bgp.set_peers(self.get_values_sorted_by_key(peers))
                 protocol.add_bgp(bgp)
 
-            ri.set_protocols(protocol)
+            ri.add_protocols(protocol)
     # end build_pnf_svc_ri_config
 
     def build_pnf_svc_intfs_config(self, svc_params):

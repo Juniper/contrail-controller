@@ -7,8 +7,8 @@ set groups {{cfg_group}} routing-instances {{ri.name}} interface {{lo_intf.name}
 {%     for intf in ri.get('routing_interfaces',[]) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} interface {{intf.name}}
 {%     endfor %}
-{%     if 'bgp' in ri.get('protocols',[]) %}
-{%         for bgp in ri.protocols.bgp %}
+{%     for protocol in ri.get('protocols', []) %}
+{%         for bgp in protocol.get('bgp', []) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} local-address {{bgp.ip_address}}
 set groups {{cfg_group}} routing-instances {{ri.name}} routing-options autonomous-system {{bgp.autonomous_system}}
@@ -17,11 +17,11 @@ set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
 {%                 if peer.get('comment','') %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
-{%                 endif %}{# peer.get('comment','') #}
-{%             endfor %}{# for bgp.get('peers',[]) #}
-{%         endfor %}{# for ri_proto.get('bgp',[]) #}
-{%     endif %}{# if 'bgp' in ri.get('protocols',[]) #}
-{% endfor %}{# for device_abstract_config.get("routing_instances", []) #}
+{%                 endif %}
+{%             endfor %}
+{%         endfor %}
+{%     endfor %}
+{% endfor %}
 
 {# Config for advertising 0/0 from SRX to QFX #}
 {% for ri in device_abstract_config.get('routing_instances', []) %}
@@ -32,12 +32,12 @@ set groups {{cfg_group}} policy-options policy-statement aggregate_contribute te
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term AGGR from protocol aggregate
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term AGGR then accept
 set groups {{cfg_group}} routing-instances {{ri.name}} routing-options aggregate route 0.0.0.0/0 policy aggregate_contribute
-{%     if 'bgp' in ri.get('protocols',[]) %}
-{%         for bgp in ri.protocols.bgp %}
+{%     for protocol in ri.get('protocols', []) %}
+{%         for bgp in protocol.get('bgp', []) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export from_aggregate
-{%         endfor %}{# for ri_proto.get('bgp') #}
-{%     endif %}{# if 'bgp' in ri.get('protocols',[]) #}
-{% endfor %}{# for device_abstract_config.get('routing_instances', []) #}
+{%         endfor %}
+{%     endfor %}
+{% endfor %}
 
 {# Config for adding service VLANs to tenants for service chaining #}
 {% for ifd in device_abstract_config.get('physical_interfaces', []) %}
