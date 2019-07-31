@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fcb11b33_0bf88698",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 955,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-07-31T22:58:40Z",
+      "side": 1,
+      "message": "would it be better to do dbe_list with all the UUIDs rather than reading one by one.",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8c825c5a_f3a7551f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 966,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-07-31T22:58:40Z",
+      "side": 1,
+      "message": "Same here",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "42a491d7_b91bb00d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 990,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-07-31T22:58:40Z",
+      "side": 1,
+      "message": "Is the check valid for already existing objects?",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "643f43a0_138425fc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1024,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-07-31T22:58:40Z",
+      "side": 1,
+      "message": "Think this should be \"not\" is_tagged_vlan",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9dd8e574_ea4ec30e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1067,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-07-31T22:58:40Z",
+      "side": 1,
+      "message": "Can we rephrase the message?",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "67fc9c7c_713a683f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1182,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-07-31T22:58:40Z",
+      "side": 1,
+      "message": "On a upgrade scenario, fabric_enterprise_style flag wont be set, in such case we consider it as enterprise-style by default in DM codebase.",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
