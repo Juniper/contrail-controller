@@ -2617,6 +2617,7 @@ class NodeProfileDM(DBBaseDM):
         self.uuid = uuid
         self.name = None
         self.role_configs = set()
+        self.physical_routers = set()
         self.job_template = None
         self.job_template_fq_name = None
         self.update(obj_dict)
@@ -2629,12 +2630,17 @@ class NodeProfileDM(DBBaseDM):
         for rc in obj.get('role_configs') or []:
             self.role_configs.add(rc.get('uuid', None))
         self.update_single_ref('job_template', obj)
+        self.update_multiple_refs('physical_router', obj)
         if self.job_template is not None:
             self.job_template_fq_name =\
                 self._object_db.uuid_to_fq_name(self.job_template)
         else:
             self.job_template_fq_name = None
     # end update
+
+    def delete_obj(self):
+        self.update_multiple_refs('physical_router', {})
+    # end delete_obj
 # end class NodeProfileDM
 
 
