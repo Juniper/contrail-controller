@@ -1211,6 +1211,21 @@ void BgpAttr::Remove() {
     attr_db_->Delete(this);
 }
 
+int BgpAttr::IsAsPathLoop(as_t asn, uint8_t max_loop_count) const {
+    if (as_path() && as_path()->path().AsPathLoop(asn, max_loop_count)) {
+        return true;
+    }
+    if (aspath_4byte() &&
+           aspath_4byte()->path().AsPathLoop(asn, max_loop_count)) {
+        return true;
+    }
+    if (asn > AS2_MAX && as4_path() &&
+           as4_path()->path().AsPathLoop(asn, max_loop_count)) {
+        return true;
+    }
+    return false;
+}
+
 int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(origin_, rhs.origin_);
     KEY_COMPARE(nexthop_, rhs.nexthop_);
