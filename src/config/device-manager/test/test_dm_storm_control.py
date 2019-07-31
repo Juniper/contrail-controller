@@ -277,6 +277,55 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.delete_objects(vmi_obj, pp_obj, sc_obj)
 
 
+    def test_06_port_profile_service_provider_style_erb_ucast(self):
+        # create objects
+
+        sc_name = 'strm_ctrl_sp_style_erb'
+        bw_percent = 47
+        traffic_type = ['no-broadcast', 'no-multicast']
+        actions = ['interface-shutdown']
+
+        self.create_feature_objects_and_params()
+
+        sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
+        pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
+
+        vmi_obj = self.create_vpg_and_vmi(pp_obj, enterprise_style=False)
+
+        # this should trigger reaction map so that PR
+        # config changes and device abstract config is generated.
+        # verify the generated device abstract config properties
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+
+        device_abstract_config = abstract_config.get('device_abstract_config')
+        storm_control_profiles = device_abstract_config.get(
+            'features', {}).get('storm-control',{}).get('storm_control', [])
+
+        storm_control_profile = storm_control_profiles[-1]
+        sc_obj_fqname = sc_obj.get_fq_name()
+        self.assertEqual(storm_control_profile.get('name'),
+                         sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+        self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent)
+        self.assertEqual(storm_control_profile.get('actions'), actions)
+        self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type)
+        self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+        for phy_int in phy_interfaces:
+            log_intfs = phy_int.get('logical_interfaces', [])
+            for log_intf in log_intfs:
+                if "xe-0/0/0" in log_intf.get('name'):
+                    self.assertEqual(log_intf.get('storm_control_profile'),
+                                     sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
+
+        # delete workflow
+
+        self.delete_objects(vmi_obj, pp_obj, sc_obj)
+
+
 
     def create_feature_objects_and_params(self, role='erb-ucast-gateway'):
         self.create_features(['storm-control'])

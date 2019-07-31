@@ -46,9 +46,10 @@ class StormControlFeature(FeatureBase):
                                               interface.unit)
                 unit.set_vlan_tag(vlan_tag)
                 # attach port profiles
-                self._attach_port_profiles(unit, feature_config)
+                self._attach_port_profiles(unit, feature_config,
+                                           interface)
 
-    def _attach_port_profiles(self, unit, feature_config):
+    def _attach_port_profiles(self, unit, feature_config, interface):
         pp_list = []
         pr = self._physical_router
         for vpg_uuid in pr.virtual_port_groups or []:
@@ -57,7 +58,8 @@ class StormControlFeature(FeatureBase):
                 continue
 
             pp_list_temp = \
-                vpg_obj.get_attached_port_profiles(unit.get_vlan_tag())
+                vpg_obj.get_attached_port_profiles(unit.get_vlan_tag(),
+                                                   interface)
             for pp in pp_list_temp:
                 if pp not in pp_list:
                     pp_list.append(pp)
