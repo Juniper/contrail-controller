@@ -1863,6 +1863,10 @@ uint32_t BgpPeer::GetPathFlags(Address::Family family,
            attr->aspath_4byte()->path().AsPathLoop(local_as_, max_loop_count)) {
         flags |= BgpPath::AsPathLooped;
     }
+    if (local_as_ > AS2_MAX && attr->as4_path() &&
+           attr->as4_path()->path().AsPathLoop(local_as_, max_loop_count)) {
+        flags |= BgpPath::AsPathLooped;
+    }
 
     return flags;
 }
