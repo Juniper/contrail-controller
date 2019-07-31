@@ -617,18 +617,16 @@ protected:
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
     }
 
+    void VerifyAttrAsPathLoop(as_t as_number) {
+        const UpdateInfo &uinfo = uinfo_slist_->front();
+        const BgpAttr *attr = uinfo.roattr.attr();
+        EXPECT_TRUE(attr->IsAsPathLoop(as_number, 0));
+    }
+
     void VerifyAttrNoAsPathLoop(as_t as_number) {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
-        const AsPath *as_path = attr->as_path();
-        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
-    }
-
-    void VerifyAttrNoAs4PathLoop(as_t as_number) {
-        const UpdateInfo &uinfo = uinfo_slist_->front();
-        const BgpAttr *attr = uinfo.roattr.attr();
-        const AsPath4Byte *as_path = attr->aspath_4byte();
-        EXPECT_FALSE(as_path->path().AsPathLoop(as_number, 0));
+        EXPECT_FALSE(attr->IsAsPathLoop(as_number, 0));
     }
 
     void VerifyAttrAsPathAsCount(as_t as_number, uint8_t count) {
@@ -1068,6 +1066,22 @@ TEST_P(BgpTableExportParamTest1, EBgpAsPrepend2RiboutAs2PeerAs4WithAs4PathSet) {
     VerifyAttrAs4Value(0, LocalAsNumber());
     VerifyAttrAs4Value(1, 80000);
     VerifyAttrAs4Value(2, 70000);
+}
+
+// Add local as in the as_path or as4_path of the route, we should detect a loop
+// and reject the route
+TEST_P(BgpTableExportParamTest1, EBgpAsLoopAsPath) {
+    RibExportPolicy policy(BgpProto::EBGP, RibExportPolicy::BGP,
+        LocalAsNumber(), false, false, true, -1, 0);
+    CreateRibOut(policy);
+    if (LocalAsNumber() > AS2_MAX) {
+        SetAttrAsPath(AS_TRANS);
+        SetAttrAs4Path(LocalAsNumber());
+    } else
+        SetAttrAsPath(LocalAsNumber());
+    AddPath();
+    RunExport();
+    VerifyExportReject();
 }
 
 // Inbound AS_PATH: [600, 500, 100]
@@ -1916,7 +1930,7 @@ TEST_P(BgpTableExportParamTest3, As4Override) {
     VerifyExportAccept();
     VerifyAttrAs4BytePrepend();
     VerifyAttrAs4BytePathCount(PeerIsInternal() ? 1 : 2);
-    VerifyAttrNoAs4PathLoop(100);
+    VerifyAttrNoAsPathLoop(100);
     UnregisterRibOut();
 }
 

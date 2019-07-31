@@ -1855,14 +1855,8 @@ uint32_t BgpPeer::GetPathFlags(Address::Family family,
 
     // Check for AS_PATH loop.
     uint8_t max_loop_count = family_attributes_list_[family]->loop_count;
-    if (attr->as_path() &&
-           attr->as_path()->path().AsPathLoop(local_as_, max_loop_count)) {
+    if (attr->IsAsPathLoop(local_as_, max_loop_count))
         flags |= BgpPath::AsPathLooped;
-    }
-    if (attr->aspath_4byte() &&
-           attr->aspath_4byte()->path().AsPathLoop(local_as_, max_loop_count)) {
-        flags |= BgpPath::AsPathLooped;
-    }
 
     return flags;
 }

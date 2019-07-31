@@ -575,18 +575,6 @@ void BgpTable::CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const {
     }
 }
 
-bool BgpTable::IsAsPathLoop(const RibOut *ribout, const BgpAttr *attr) const {
-    if ((ribout->peer_as() <= AS2_MAX) && attr->as_path() &&
-        attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
-        return true;
-    }
-    if (attr->aspath_4byte() &&
-        attr->aspath_4byte()->path().AsPathLoop(ribout->peer_as())) {
-        return true;
-    }
-    return false;
-}
-
 UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         const RibPeerSet &peerset) {
     const BgpPath *path = route->BestPath();
@@ -726,7 +714,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
 
             // Sender side AS path loop check and split horizon within RibOut.
             if (!ribout->as_override()) {
-                if (IsAsPathLoop(ribout, attr))
+                if (attr->IsAsPathLoop(ribout->peer_as()))
                     return NULL;
             } else {
                 if (peer && peer->PeerType() == BgpProto::EBGP) {
