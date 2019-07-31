@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "65795215_40428b4a",
+        "filename": "src/vnsw/agent/oper/test/test_aap.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 91,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-07-31T07:03:22Z",
+      "side": 1,
+      "message": "local VM peer path should be present. if path is not present , it results in seg faults, are we hitting seg faults in this test run?",
+      "range": {
+        "startLine": 91,
+        "startChar": 8,
+        "endLine": 91,
+        "endChar": 14
+      },
+      "revId": "82b7b6b32827a63c9ed7d7ad763d717fed86fbc6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3fdc65f8_b407722b",
+        "filename": "src/vnsw/agent/oper/test/test_aap.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 783,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-07-31T07:03:22Z",
+      "side": 1,
+      "message": "why are both WAIT_FOR and waitForIdle  needed here?\nis BGP peer path addition taking time?",
+      "range": {
+        "startLine": 783,
+        "startChar": 12,
+        "endLine": 783,
+        "endChar": 23
+      },
+      "revId": "82b7b6b32827a63c9ed7d7ad763d717fed86fbc6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
