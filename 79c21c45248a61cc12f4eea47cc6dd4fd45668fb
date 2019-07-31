@@ -16,6 +16,24 @@
       "revId": "79c21c45248a61cc12f4eea47cc6dd4fd45668fb",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5ede2556_99bb06c6",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 356,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-07-31T06:00:57Z",
+      "side": 1,
+      "message": "After looking at this again, I think it\u0027s right.\nThe key to each dict element is pid and the value is this:\n            signal_var \u003d {\n                \u0027fabric_name\u0027: fabric_job_uve_name,\n                \u0027fabric_fq_name\u0027: fabric_fq_name,\n                \u0027start_time\u0027: start_time,\n                \u0027exec_id\u0027: job_execution_id,\n                \u0027device_fqnames\u0027: device_fqnames,\n                \u0027job_concurrency\u0027: job_concurrency\n            }\n\nSince the job_execution_ids list contains job execution ids, we are forced to search each element in the _job_mgr_running_instances, at least until we find all job execution ids given in the input list. So, to optimize a little, I could keep a count of found items and break out of the loop when the count is reached. Also, note that for the case when no ob_execution_ids list is given, we have to go through the entire _job_mgr_running_instances list.",
+      "parentUuid": "f52a1994_57e82874",
+      "revId": "79c21c45248a61cc12f4eea47cc6dd4fd45668fb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
