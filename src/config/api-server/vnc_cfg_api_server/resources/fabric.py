@@ -48,3 +48,16 @@ class FabricServer(ResourceMixin, Fabric):
                 if not ok:
                     return ok, err_msg
         return True, ''
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        # Disallow transition from sp-style to enterprise-style
+        ok, read_result = cls.dbe_read(db_conn, 'fabric', id)
+        if not ok:
+            return ok, read_result
+        cur_enterprise_style = read_result.get('fabric_enterprise_style')
+        new_enterprise_style = obj_dict.get('fabric_enterprise_style')
+        if cur_enterprise_style is False and new_enterprise_style is True:
+            return (False,
+                    (403, "Cannot change from sp-style to enterprise-style"))
+        return True, ''
