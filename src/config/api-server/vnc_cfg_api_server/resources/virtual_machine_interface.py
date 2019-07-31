@@ -5,6 +5,8 @@
 from cfgm_common import _obj_serializer_all
 from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import NoIdError
+from netaddr import AddrFormatError
+from netaddr import IPAddress
 from vnc_api.gen.resource_common import VirtualMachineInterface
 from vnc_api.gen.resource_common import VirtualPortGroup
 from vnc_api.gen.resource_xsd import MacAddressesType
@@ -149,6 +151,14 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         else:
             address_pairs = db_dict.get(
                 'virtual_machine_interface_allowed_address_pairs')
+
+        # Validate the format of allowed_address_pair
+        if address_pairs:
+            for aap in address_pairs.get('allowed_address_pair', {}):
+                try:
+                    IPAddress(aap.get('ip').get('ip_prefix'))
+                except AddrFormatError as e:
+                    return (False, (400, str(e)))
 
         if (not port_security and address_pairs and
                 address_pairs.get('allowed_address_pair')):
