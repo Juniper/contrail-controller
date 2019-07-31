@@ -2836,15 +2836,36 @@ class VirtualPortGroupDM(DBBaseDM):
         return sg_list
     # end get_attached_sgs
 
-    def get_attached_port_profiles(self, vlan_tag):
+    def _check_if_correct_vmi_object(self, vmi_obj, interface,
+                                     vlan_tag):
+        vlan_tag_check = False
+
+        if interface.vlan_tag:
+            if vmi_obj.vlan_tag == int(vlan_tag):
+                vlan_tag_check = True
+
+        elif interface.port_vlan_tag:
+            if not vmi_obj.vlan_tag and int(vlan_tag) == \
+                    int(vmi_obj.port_vlan_tag):
+                vlan_tag_check = True
+
+        for pi in self.physical_interfaces or []:
+            pi_obj = PhysicalInterfaceDM.get(pi)
+            if interface.pi_name == pi_obj.name:
+                return vlan_tag_check
+
+        return False
+
+    def get_attached_port_profiles(self, vlan_tag, interface):
         pp_list = []
         for vmi_uuid in self.virtual_machine_interfaces:
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
             if not vmi_obj:
                 return pp_list
-            if vmi_obj.vlan_tag == \
-                int(vlan_tag) or (not vmi_obj.vlan_tag and
-                                  int(vlan_tag) == int(vmi_obj.port_vlan_tag)):
+
+            if self._check_if_correct_vmi_object(vmi_obj, interface,
+                                                 vlan_tag):
+
                 for pp in vmi_obj.port_profiles or []:
                     pp = PortProfileDM.get(pp)
                     if pp and pp not in pp_list:
