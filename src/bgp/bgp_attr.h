@@ -903,6 +903,7 @@ public:
     int aspath_4byte_count() const {
         return aspath_4byte_ ? aspath_4byte_->AsCount() : 0;
     }
+    int IsAsPathLoop(as_t asn, uint8_t max_loop_count = 0) const;
     const ClusterList *cluster_list() const { return cluster_list_.get(); }
     size_t cluster_list_length() const {
         return cluster_list_ ? cluster_list_->size() : 0;

@@ -118,7 +118,6 @@ public:
                                      ExtCommunityPtr community) = 0;
 
     static bool PathSelection(const Path &path1, const Path &path2);
-    bool IsAsPathLoop(const RibOut *ribout, const BgpAttr *attr) const;
     void CheckAggregatorAttr(BgpAttr *attr) const;
     void CreateAsPath4Byte(BgpAttr *attr, as_t local_as) const;
     void CreateAsPath2Byte(BgpAttr *attr) const;
