@@ -196,7 +196,7 @@
        <xsd:element name="nat-rules" type="dac:NatRules"/>
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
        <xsd:element name="virtual-network-is-shared" type="xsd:boolean"/>
-       <xsd:element name="protocols" type="dac:RoutingInstanceProtocols"/>
+       <xsd:element name="protocols" type="dac:RoutingInstanceProtocols" maxOccurs="unbounded"/>
        <xsd:element name="forwarding-options" type="dac:ForwardingOptions"/>
        <xsd:element name="rib-group" type="xsd:string"/>
     </xsd:all>
