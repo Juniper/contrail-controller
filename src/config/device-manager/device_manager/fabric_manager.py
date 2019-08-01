@@ -126,6 +126,54 @@ class FabricManager(object):
             err_msg = 'error while loading init data: %s\n' % str(e)
             err_msg += detailed_traceback()
             self._logger.error(err_msg)
+
+        # - fetch list of all the physical routers
+        # - check physical and overlay role associated with each PR
+        # - create ref between physical_role and physical_router object,
+        # if PR is assigned with a specific physical role
+        # - create ref between overlay_roles and physical_router object,
+        # if PR is assigned with specific overlay roles
+        obj_list = self._vnc_api._objects_list('physical-router')
+        pr_list = obj_list.get('physical-routers')
+        for pr in pr_list or []:
+            try:
+                pr_obj = self._vnc_api.\
+                    physical_router_read(id=pr.get('uuid'))
+                physical_role = pr_obj.get_physical_router_role()
+                overlay_roles = pr_obj.get_routing_bridging_roles()
+                if overlay_roles is not None:
+                    overlay_roles = overlay_roles.get_rb_roles()
+                if physical_role:
+                    try:
+                        physical_role_uuid = self._vnc_api.\
+                            fq_name_to_id('physical_role',
+                                          ['default-global-system-config',
+                                           physical_role])
+                        if physical_role_uuid:
+                            self._vnc_api.ref_update('physical-router',
+                                                     pr.get('uuid'),
+                                                     'physical-role',
+                                                     physical_role_uuid,
+                                                     None, 'ADD')
+                    except NoIdError:
+                        pass
+                if overlay_roles:
+                    for overlay_role in overlay_roles or []:
+                        try:
+                            overlay_role_uuid = self._vnc_api.\
+                                fq_name_to_id('overlay_role',
+                                              ['default-global-system-config',
+                                               overlay_role.lower()])
+                            if overlay_role_uuid:
+                                self._vnc_api.ref_update('physical-router',
+                                                         pr.get('uuid'),
+                                                         'overlay-role',
+                                                         overlay_role_uuid,
+                                                         None, 'ADD')
+                        except NoIdError:
+                            pass
+            except NoIdError:
+                pass
     # end _load_init_data
 
     # Load json data from fabric_ansible_playbooks/conf directory
