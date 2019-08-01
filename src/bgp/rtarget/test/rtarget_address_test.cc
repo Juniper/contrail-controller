@@ -121,6 +121,26 @@ TEST_F(RouteTargetTest, FromStringType2_3) {
     EXPECT_EQ("target:66412:0", rtarget.ToString());
 }
 
+TEST_F(RouteTargetTest, FromStringType2_4) {
+    boost::system::error_code ec;
+    RouteTarget rtarget =
+        RouteTarget::FromString("target:100L:100", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:100L:100", rtarget.ToString());
+}
+
+TEST_F(RouteTargetTest, FromStringType2_5) {
+    boost::system::error_code ec;
+    RouteTarget rtarget =
+        RouteTarget::FromString("target:100l:100", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:100L:100", rtarget.ToString());
+}
+
 TEST_F(RouteTargetTest, FromStringType0_1) {
     boost::system::error_code ec;
     RouteTarget rtarget =

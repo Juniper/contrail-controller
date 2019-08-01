@@ -73,7 +73,7 @@ RouteTarget RouteTarget::FromString(const string &str,
     if (ec.value() != 0) {
         bool is_as4 = false;
         // Not an IP address, try ASN.
-        if (second.c_str()[pos - 1] == 'L') {
+        if (second.c_str()[pos - 1] == 'L' || second.c_str()[pos - 1] == 'l') {
             is_as4 = true;
             second = second.substr(0, pos - 1);
         }
