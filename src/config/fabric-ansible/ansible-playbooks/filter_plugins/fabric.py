@@ -1635,9 +1635,12 @@ class FilterModule(object):
             role_assignments = fabric_info.get('role_assignments', [])
 
             device2roles_mappings = {}
+            devicefqname2_phy_role_map = {}
+
             for device_roles in role_assignments:
+                device_fq_name = device_roles.get('device_fq_name')
                 device_obj = vnc_api.physical_router_read(
-                    fq_name=device_roles.get('device_fq_name'),
+                    fq_name=device_fq_name,
                     fields=[
                         'physical_router_vendor_name',
                         'physical_router_product_name',
@@ -1648,11 +1651,15 @@ class FilterModule(object):
                         'physical_router_management_ip',
                         'physical_router_underlay_managed',
                         'display_name',
-                        'annotations'
+                        'annotations',
+                        'physical_router_role'
                     ]
                 )
                 device_roles['device_obj'] = device_obj
+
                 device2roles_mappings[device_obj] = device_roles
+                devicefqname2_phy_role_map[':'.join(device_fq_name)] = \
+                    device_roles.get('physical_role')
 
             # disable ibgp auto mesh to avoid O(n2) issue in schema transformer
             self._enable_ibgp_auto_mesh(vnc_api, False)
@@ -1700,7 +1707,7 @@ class FilterModule(object):
                         self._add_loopback_interface(vnc_api, device_obj,
                                                      ar_flag)
                         self._add_logical_interfaces_for_fabric_links(
-                            vnc_api, device_obj
+                            vnc_api, device_obj, devicefqname2_phy_role_map
                         )
                     self._add_bgp_router(vnc_api, device_roles,
                                          fabric_cluster_id)
@@ -2324,7 +2331,46 @@ class FilterModule(object):
                 _task_done()
 
 
-    def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj):
+    def _verify_physical_roles(self, device_obj, remote_device_obj,
+                               devicefqname2_phy_role_map):
+
+        # this function verifies that
+        # 1. local prouter and the remote
+        #    prouter are not of the same leaf role in
+        #    order to avoid loops.
+        # 2. The physical interface refs are not
+        #    from and to the same physical routers
+
+        local_physical_role = devicefqname2_phy_role_map.get(
+            device_obj.get_fq_name_str(),
+            device_obj.get_physical_router_role()
+        )
+
+        remote_physical_role = devicefqname2_phy_role_map.get(
+            remote_device_obj.get_fq_name_str(),
+            remote_device_obj.get_physical_router_role()
+        )
+
+        if (local_physical_role ==
+            remote_physical_role == 'leaf'):
+            _task_log(
+                "Not creating instance ips as both "
+                "physical routers are of the same role type %s"
+                % local_physical_role)
+            return False
+
+        if device_obj.get_uuid() == remote_device_obj.get_uuid():
+            _task_log(
+                "Not creating instance ips as physical "
+                "interface refs are from and to the same device: %s"
+                % device_obj.get_fq_name())
+            return False
+
+        return True
+
+
+    def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj,
+                                                 devicefqname2_phy_role_map):
         """Add logical interfaces for fabric links.
 
         :param vnc_api: <vnc_api.VncApi>
@@ -2347,16 +2393,21 @@ class FilterModule(object):
             local_pi = link.get('local_pi')
             remote_pi = link.get('remote_pi')
 
-            # local_pi
-            self._instance_ip_creation(vnc_api, device_obj, local_pi,
-                                       remote_pi, fabric_network_obj)
-
-            # remote_pi
             remote_device_obj = \
                 vnc_api.physical_router_read(
                     fq_name=remote_pi.get_parent_fq_name())
-            self._instance_ip_creation(vnc_api, remote_device_obj,
-                                       remote_pi, local_pi, fabric_network_obj)
+
+            if self._verify_physical_roles(device_obj, remote_device_obj,
+                                           devicefqname2_phy_role_map):
+
+                # local_pi
+                self._instance_ip_creation(vnc_api, device_obj, local_pi,
+                                           remote_pi, fabric_network_obj)
+
+                # remote_pi
+                self._instance_ip_creation(vnc_api, remote_device_obj,
+                                           remote_pi, local_pi,
+                                           fabric_network_obj)
     # end _add_logical_interfaces_for_fabric_links
 
     @staticmethod
