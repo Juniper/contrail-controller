@@ -9,12 +9,12 @@
 
 
 def import_plugins():
+    from e2_conf import MxE2Conf
     from juniper_conf import JuniperConf
     from mx_conf import MxConf
     from qfx_conf import QfxConf
     from qfx_5k import Qfx5kConf
     from qfx_10k import Qfx10kConf
-    from e2_conf import MxE2Conf
 # end import_plugins
 
 
@@ -27,11 +27,12 @@ def import_ansible_plugins():
 
 
 def import_feature_plugins():
-    from underlay_ip_clos_feature import UnderlayIpClosFeature
-    from overlay_bgp_feature import OverlayBgpFeature
+    from assisted_replicator_feature import AssistedReplicatorFeature
     from l2_gateway_feature import L2GatewayFeature
     from l3_gateway_feature import L3GatewayFeature
-    from vn_interconnect_feature import VnInterconnectFeature
-    from assisted_replicator_feature import AssistedReplicatorFeature
+    from overlay_bgp_feature import OverlayBgpFeature
+    from pnf_service_chaining_feature import PNFSrvcChainingFeature
     from storm_control_feature import StormControlFeature
+    from underlay_ip_clos_feature import UnderlayIpClosFeature
+    from vn_interconnect_feature import VnInterconnectFeature
 # end import_feature_plugins
