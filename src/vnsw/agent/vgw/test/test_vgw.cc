@@ -261,7 +261,8 @@ TEST_F(VgwTest, IngressFlow_1) {
         {"vnet2", 2, "2.2.2.3", "00:00:00:02:02:02", 1, 2},
     };
 
-    CreateVmportEnv(input, 2, 0);
+    CreateVmportEnv(input, 2, 0, "default-domain:admin:public",
+                    "default-domain:admin:public:public", NULL);
     client->WaitForIdle();
 
     WAIT_FOR(1000, 100, (VmPortFind(2) == true));
@@ -280,16 +281,17 @@ TEST_F(VgwTest, IngressFlow_1) {
     };
     CreateFlow(flow, 1);
     client->WaitForIdle();
-
     FlowEntry *fe = FlowGet(vmi->vrf_id(), "2.2.2.2", "100.100.100.100",
                               1, 0, 0, vmi->flow_key_nh()->id());
     EXPECT_TRUE(fe != NULL);
+    EXPECT_FALSE(fe->IsShortFlow());
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
 
-    DeleteVmportEnv(input, 2, 1, 0);
+    DeleteVmportEnv(input, 2, 1, 0, "default-domain:admin:public",
+                    "default-domain:admin:public:public");
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(2));
@@ -302,7 +304,8 @@ TEST_F(VgwTest, EgressFlow_1) {
         {"vnet2", 2, "2.2.2.3", "00:00:00:02:02:02", 1, 2},
     };
 
-    CreateVmportEnv(input, 2, 0);
+    CreateVmportEnv(input, 2, 0, "default-domain:admin:public",
+                    "default-domain:admin:public:public", NULL);
     client->WaitForIdle();
 
     WAIT_FOR(1000, 100, (VmPortFind(2) == true));
@@ -321,18 +324,18 @@ TEST_F(VgwTest, EgressFlow_1) {
         },
     };
     CreateFlow(flow, 1);
-    client->WaitForIdle();
-
+    client->WaitForIdle(50);
     MplsLabel *label = GetActiveLabel(gw->label());
     FlowEntry *fe = FlowGet(vmi->vrf_id(), "100.100.100.100", "2.2.2.2",
                               1, 0, 0, label->nexthop()->id());
     EXPECT_TRUE(fe != NULL);
+    EXPECT_FALSE(fe->IsShortFlow());
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
     WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0));
-
-    DeleteVmportEnv(input, 2, 1, 0);
+    DeleteVmportEnv(input, 2, 1, 0, "default-domain:admin:public",
+                    "default-domain:admin:public:public");
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(2));
@@ -345,6 +348,7 @@ int main(int argc, char **argv) {
     client = VGwInit( "controller/src/vnsw/agent/vgw/test/cfg.ini",
                       ksync_init);
     int ret = RUN_ALL_TESTS();
+    usleep(1000);
     std::vector<VirtualGatewayInfo> vgw_info_list;
     vgw_info_list.push_back(VirtualGatewayInfo("vgw"));
     vgw_info_list.push_back(VirtualGatewayInfo("vgw1"));
@@ -354,6 +358,7 @@ int main(int argc, char **argv) {
     Agent::GetInstance()->params()->vgw_config_table()->Enqueue(vgw_data);
     client->WaitForIdle();
     TestShutdown();
+    client->WaitForIdle();
     delete client;
     return ret;
 }
