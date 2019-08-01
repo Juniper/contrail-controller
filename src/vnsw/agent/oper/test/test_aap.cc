@@ -88,7 +88,10 @@ public:
     void FlapRoute(const Ip4Address ip, const VmInterface *vm_intf,
                    uint32_t flap_count) {
         InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+        client->WaitForIdle();
+        // check that path is not null
         const AgentPath *path = rt->FindPath(vm_intf->peer());
+        EXPECT_TRUE(path != NULL);
 
         for (uint32_t i = 0; i <= flap_count; i++) {
             Agent::GetInstance()->oper_db()->route_preference_module()->
@@ -770,7 +773,7 @@ TEST_F(TestAap, StateMachine_13) {
         Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
                 16, "vn1", SecurityGroupList(),
                 TagList(), path_preference);
-        client->WaitForIdle();
+        task_util::WaitForIdle(1, false);
         if (i != PathPreferenceSM::kMaxFlapCount) {
             EXPECT_TRUE(path->path_preference().preference() ==
                         PathPreference::LOW);
@@ -872,7 +875,7 @@ TEST_F(TestAap, Backoff_4) {
     usleep((PathPreferenceSM::kMinInterval) * 1000);
     FlapRoute(ip, vm_intf, PathPreferenceSM::kMaxFlapCount);
     usleep(2 * 1000 * (PathPreferenceSM::kMinInterval));
-    WAIT_FOR(1000, 1000, (path->path_preference().wait_for_traffic() == true));
+    WAIT_FOR(1500, 1000, (path->path_preference().wait_for_traffic() == true));
 }
 
 //Ensure backoff time continous at 32 seconds
@@ -1429,6 +1432,7 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
     TestShutdown();
     return ret;
 }
