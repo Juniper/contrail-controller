@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "5505a512_a5579ae5",
+        "filename": "src/vnsw/agent/oper/test/test_aap.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 91,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2019-08-01T13:51:50Z",
+      "side": 1,
+      "message": "yes segfault is hit:\n\nProgram received signal SIGSEGV, Segmentation fault.\n\n0x0000000001c82f96 in PathPreference::sequence (this\u003d0x118) at controller/src/vnsw/agent/oper/agent_path.h:39\nwarning: Source file is more recent than executable.\n39          uint32_t sequence() const { return sequence_;}\n\nI will update the full back trace.",
+      "parentUuid": "65795215_40428b4a",
+      "range": {
+        "startLine": 91,
+        "startChar": 8,
+        "endLine": 91,
+        "endChar": 14
+      },
+      "revId": "82b7b6b32827a63c9ed7d7ad763d717fed86fbc6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3fdc65f8_b407722b",
         "filename": "src/vnsw/agent/oper/test/test_aap.cc",
         "patchSetId": 1
@@ -36,6 +60,30 @@
       "writtenOn": "2019-07-31T07:03:22Z",
       "side": 1,
       "message": "why are both WAIT_FOR and waitForIdle  needed here?\nis BGP peer path addition taking time?",
+      "range": {
+        "startLine": 783,
+        "startChar": 12,
+        "endLine": 783,
+        "endChar": 23
+      },
+      "revId": "82b7b6b32827a63c9ed7d7ad763d717fed86fbc6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d0096563_7a5acf2e",
+        "filename": "src/vnsw/agent/oper/test/test_aap.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 783,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2019-08-01T13:51:50Z",
+      "side": 1,
+      "message": "yes bgp peer path  addition is taking time .",
+      "parentUuid": "3fdc65f8_b407722b",
       "range": {
         "startLine": 783,
         "startChar": 12,
