@@ -596,6 +596,10 @@ VmInterfaceState::Op MacVmBindingState::GetOpL3(const Agent *agent,
 bool MacVmBindingState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
     BridgeAgentRouteTable *table =
             static_cast<BridgeAgentRouteTable *>(vrf_->GetBridgeRouteTable());
+    // return if table is already marked for deletion, bridge route delete might
+    // already be processed in ReComputePathDeletion
+    if (table == NULL)
+        return true;
     table->DeleteMacVmBindingRoute(agent->mac_vm_binding_peer(),
                                    vrf_->GetName(), vmi->vm_mac(), vmi);
     return true;
