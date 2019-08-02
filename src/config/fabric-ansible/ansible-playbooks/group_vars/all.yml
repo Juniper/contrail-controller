@@ -28,6 +28,7 @@ JOBLOG_STATUS:
 # Job context to be passed to ansible modules
 job_ctx:
   job_template_fqname: "{{ playbook_input.job_template_fqname }}"
+  device_password: "{{ playbook_input.device_password if playbook_input.device_password is defined else None }}"
   job_execution_id: "{{ playbook_input.job_execution_id }}"
   fabric_fqname: "{{ playbook_input.fabric_fq_name }}"
   config_args: "{{ playbook_input.args }}"
