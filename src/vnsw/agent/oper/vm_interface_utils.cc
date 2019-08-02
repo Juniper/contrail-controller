@@ -621,6 +621,23 @@ VmInterface::GetIpMac(const IpAddress &ip, uint8_t plen) const {
     return vm_mac_;
 }
 
+/*
+ * Check if the passed IP is in the AAP IP list on this interface;
+ * If so, return true, else return false
+ */
+bool
+VmInterface::MatchAapIp(const IpAddress &ip, uint8_t plen) const {
+    AllowedAddressPairSet::const_iterator it =
+        allowed_address_pair_list_.list_.begin();
+    while (it != allowed_address_pair_list_.list_.end()) {
+        if (it->addr_ == ip && it->plen_ == plen) {
+            return true;
+        }
+        it++;
+    }
+    return false;
+}
+
 bool VmInterface::WaitForTraffic() const {
     // do not continue if the interface is inactive or if the VRF is deleted
     if (IsActive() == false || vrf_->IsDeleted()) {

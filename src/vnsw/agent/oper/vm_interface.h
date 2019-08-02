@@ -1441,6 +1441,7 @@ public:
     bool SgExists(const boost::uuids::uuid &id, const SgList &sg_l);
     const MacAddress& GetIpMac(const IpAddress &,
                               const uint8_t plen) const;
+    bool MatchAapIp(const IpAddress &ip, uint8_t plen) const;
     void BuildIpStringList(Address::Family family,
                            std::vector<std::string> *vect) const;
 
