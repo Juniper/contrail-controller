@@ -53,20 +53,22 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
     def validate_route_target(cls, route_target_name, global_asn=None):
         ok, result = cls._parse_route_target_name(route_target_name)
         if not ok:
-            return False, result
+            return False, result, None
         asn, target = result
 
         if not global_asn:
             try:
                 global_asn = cls.server.global_autonomous_system
             except VncError as e:
-                return False, (400, str(e))
+                return False, (400, str(e)), None
 
         if type(asn) == int:
             ok, result = cls.server.get_resource_class(
                 'global_system_config').check_asn_range(asn)
             if not ok:
-                return ok, result
+                return ok, result, None
+
+        ret_val = "target:" + str(asn) + ":" + str(target)
 
         # If the ASN of Route Target matches Global ASN, we need to check
         # for its target range. The target should not clash with contrail
@@ -82,9 +84,9 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
                 # 8000-32768
                 if ((1 <= target < get_bgp_rtgt_min_id(asn)) or
                    (get_bgp_rtgt_max_id(asn) < target <= 0xFFFF)):
-                    return True, True
+                    return True, True, ret_val
                 else:
-                    return True, False
+                    return True, False, ret_val
             else:
                 # Case when 2 byte ASN flag is set
                 # Target should be:
@@ -92,8 +94,8 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
                 # 2. _BGP_RTGT_MAX_ID_TYPE0 < target <= 0xFFFFFFFF
                 if ((1 <= target < get_bgp_rtgt_min_id(asn)) or
                    (get_bgp_rtgt_max_id(asn) < target <= 0xFFFFFFFF)):
-                    return True, True
+                    return True, True, ret_val
                 else:
-                    return True, False
+                    return True, False, ret_val
 
-        return True, True
+        return True, True, ret_val
