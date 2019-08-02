@@ -174,6 +174,18 @@ class FabricManager(object):
                             pass
             except NoIdError:
                 pass
+
+        # handle deleted job_templates as part of in-place cluster update
+        to_be_del_jt_names = ['show_interfaces_template',
+                              'show_config_interfaces_template',
+                              'show_interfaces_by_names_template']
+        for jt_name in to_be_del_jt_names:
+            try:
+                self._vnc_api.job_template_delete(
+                    fq_name=['default-global-system-config', jt_name])
+            except NoIdError:
+                pass
+
     # end _load_init_data
 
     # Load json data from fabric_ansible_playbooks/conf directory
