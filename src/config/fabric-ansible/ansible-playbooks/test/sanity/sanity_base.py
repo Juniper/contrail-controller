@@ -732,11 +732,11 @@ class SanityBase(object):
 
     # end ztp
 
-    def workflow_abort(self, job_execution_id, abort_mode, sleep_time):
+    def workflow_abort(self, job_execution_ids, abort_mode, sleep_time):
         time.sleep(sleep_time)
         status = self._api.abort_job(
             job_input={
-                'job_execution_id': job_execution_id,
+                'job_execution_ids': job_execution_ids,
                 'abort_mode': abort_mode
             }
         )
