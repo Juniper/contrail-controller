@@ -10,8 +10,11 @@ Schema Transformer monitor logger
 from sandesh_common.vns.ttypes import Module
 from cfgm_common.vnc_logger import ConfigServiceLogger
 
-from schema_transformer.config_db import DBBaseST, VirtualNetworkST,\
-        RoutingInstanceST, ServiceChain
+from schema_transformer.resources._resource_base import ResourceBaseST
+from schema_transformer.resources.virtual_network import VirtualNetworkST
+from schema_transformer.resources.routing_instance import RoutingInstanceST
+from schema_transformer.resources.service_chain import ServiceChain
+
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
@@ -106,7 +109,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
 
     def sandesh_st_object_handle_request(self, req):
         st_resp = sandesh.StObjectListResp(objects=[])
-        obj_type_map = DBBaseST.get_obj_type_map()
+        obj_type_map = ResourceBaseST.get_obj_type_map()
         if req.object_type is not None:
             if req.object_type not in obj_type_map:
                 return st_resp

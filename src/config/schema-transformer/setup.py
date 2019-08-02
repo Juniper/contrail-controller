@@ -1,7 +1,16 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+
+import re
 from setuptools import setup, find_packages, Command
+
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    c = re.compile(r'\s*#.*')
+    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
+
 
 setup(
     name='schema_transformer',
@@ -16,7 +25,7 @@ setup(
              'contrail-schema = schema_transformer.to_bgp:server_main',
          ],
     },
-    install_requires=[
-        'jsonpickle'
-    ],
+    install_requires=requirements('requirements.txt'),
+    tests_require=requirements('test-requirements.txt'),
+    test_suite='schema_transformer.tests'
 )
