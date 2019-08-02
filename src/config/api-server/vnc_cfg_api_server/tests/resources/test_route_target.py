@@ -79,7 +79,7 @@ class TestRouteTargetBase(test_case.ApiServerTestCase):
         ]
 
         for rt_name, global_asn, expected_result in tested_values:
-            ok, result = RouteTargetServer.validate_route_target(
+            ok, result, _ = RouteTargetServer.validate_route_target(
                 rt_name,
                 global_asn)
             if not ok:
