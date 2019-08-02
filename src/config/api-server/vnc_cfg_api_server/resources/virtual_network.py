@@ -102,9 +102,13 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
 
     @classmethod
     def _check_route_targets(cls, rt_dict):
+        route_target_list = rt_dict.get('route_target')
+        if not route_target_list:
+            return True, ''
+
         global_asn = cls.server.global_autonomous_system
-        for rt in rt_dict.get('route_target') or []:
-            ok, result = cls.server.get_resource_class(
+        for idx, rt in enumerate(route_target_list):
+            ok, result, new_rt = cls.server.get_resource_class(
                 'route_target').validate_route_target(rt)
             if not ok:
                 return False, result
@@ -116,6 +120,8 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                         (get_bgp_rtgt_min_id(global_asn),
                          get_bgp_rtgt_max_id(global_asn)))
 
+            if new_rt:
+                route_target_list[idx] = new_rt
         return (True, '')
 
     @staticmethod
