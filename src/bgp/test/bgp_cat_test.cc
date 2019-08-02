@@ -19,19 +19,6 @@ TEST_F(BgpCatTest, Basic) {
     system("sudo apt-get -y install liblog4cplus-dev 2>/dev/null");
     system("sudo yum -y install liblog4cplus-dev 2>/dev/null");
 
-    EXPECT_EQ(0, access("/usr/bin/python", X_OK));
-
-    // Wait for the mock agent and control-node binaries availability.
-    string build_dir = getenv("CONTRAIL_BUILD_DIR") ?: "build/debug";
-    TASK_UTIL_WAIT_EQ(0, access((build_dir +
-        "/bgp/test/bgp_ifmap_xmpp_integration_test").c_str(), X_OK), 5000000,
-            120, "Waiting for bgp_ifmap_xmpp_integration_test to get built");
-    TASK_UTIL_WAIT_EQ(0, access((build_dir +
-        "/vnsw/agent/contrail/contrail-vrouter-agent").c_str(), X_OK), 5000000,
-            120, "Waiting for contrail-vrouter-agent to get built");
-
-    // Wait for some time to ensure that linked excutables are ready.
-    sleep(5);
     pid_t child = 0;
     char *const argv[3] = {
         (char *) "python",
