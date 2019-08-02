@@ -71,6 +71,7 @@ class FilterModule(object):
         os.chdir(PLAYBOOK_BASE)
 
         job_input = self.job_ctx['job_input']
+        device_password = self.job_ctx['device_password']
         self.input = job_input
         self.device_mgmt_ip = job_input['device_management_ip']
         self.additional_feature_params = job_input['additional_feature_params']
@@ -88,7 +89,7 @@ class FilterModule(object):
         self.device_family = device_info['device_family'].lower()
         self.device_model = device_info['product_name']
         self.device_username = device_info['credentials']['user_name']
-        self.device_password = device_info['credentials']['password']
+        self.device_password = device_password
         self.device_phy_role = device_info['physical_role']
         self.device_rb_roles = device_info.get('routing_bridging_roles', [])
         if not self.device_rb_roles:
@@ -252,6 +253,7 @@ class FilterModule(object):
             'results': {},
             'status': "success"
         }
+        _task_error_log("render_output: %s" %(render_output))
         return render_output
 
     def render_fabric_config(self, job_ctx):
