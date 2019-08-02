@@ -1398,6 +1398,23 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "juniper-qfx5k-erb-only"
+          ],
+          "name": "juniper-qfx5120",
+          "node_profile_vendor": "Juniper",
+          "node_profile_device_family": "junos-qfx",
+          "node_profile_hitless_upgrade": true,
+          "node_profile_roles": {
+            "role_mappings": [
+              {
+                "physical_role": "leaf",
+                "rb_roles": ["Route-Reflector", "ERB-UCAST-Gateway"]
+              }
+            ]
+          }
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "juniper-qfx10k"
           ],
           "name": "juniper-qfx10k",
@@ -1969,7 +1986,7 @@
     },
     {
       "from_type": "node-profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-erb-only" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-32c" ]
     },
