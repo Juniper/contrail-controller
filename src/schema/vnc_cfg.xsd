@@ -232,7 +232,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="analyzer-mac-address" type="xsd:string"  required='optional'
             description='mac address of interface to which mirrored packets are sent '/>
         <xsd:element name="routing-instance" type="xsd:string"       required='true'
-             description='Internal use only, should be set to -1'/>
+             description='Routing instance for the virtual network which analyzer is in'/>
         <xsd:element name="udp-port" type="xsd:integer"              required='optional'
              description='ip udp port used in contrail default encapsulation for mirroring'/>
         <xsd:element name="juniper-header" type="xsd:boolean"  default="true"      required='optional'
