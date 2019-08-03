@@ -224,13 +224,10 @@ role_to_feature_mapping:
     - overlay_multi_homing
     - overlay_networking
   PNF-Servicechain@leaf:
-    - overlay_pim
     - overlay_service_chain
   PNF-Servicechain@spine:
-    - overlay_pim
     - overlay_service_chain
   PNF-Servicechain@pnf:
-    - overlay_pim
     - overlay_service_chain
 
 feature_based_plugin_roles:
@@ -270,6 +267,12 @@ feature_based_plugin_roles:
     - overlay_assisted_replicator
   AR-Replicator@spine:
     - overlay_assisted_replicator
+  PNF-Servicechain@leaf:
+    - overlay_service_chain
+  PNF-Servicechain@spine:
+    - overlay_service_chain
+  PNF-Servicechain@pnf:
+    - overlay_service_chain
 
 feature_apply_order:
   - basic

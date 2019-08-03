@@ -34,4 +34,5 @@ def import_feature_plugins():
     from vn_interconnect_feature import VnInterconnectFeature
     from assisted_replicator_feature import AssistedReplicatorFeature
     from storm_control_feature import StormControlFeature
+    from pnf_service_chaining_feature import PNFSrvcChainingFeature
 # end import_feature_plugins
