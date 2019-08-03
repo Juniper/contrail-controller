@@ -479,6 +479,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end service_policy_test_with_version
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_service_policy(self):
         self.service_policy_test_with_version()
         self.service_policy_test_with_version(2)
@@ -630,6 +631,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy_no_vm
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_service_policy_delete_vns_deletes_scs(self):
         # Test to check deleting VNs without deleting the
         # policy associated, deletes the service chain.
@@ -666,6 +668,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_vn_is_deleted(uuid=vn2_obj.uuid)
     # end test_service_policy_delete_vns_deletes_scs
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_multi_service_in_policy(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -730,6 +733,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_multi_service_in_policy
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_multi_service_policy(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -819,6 +823,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_multi_service_policy
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_multi_policy_service_chain(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1090,6 +1095,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_multi_rule_service_chain
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_st_restart_service_chain_delete(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1169,6 +1175,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
     #end
 
     # test service chain configuration while st is restarted
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_st_restart_service_chain(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1282,6 +1289,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=vn2_obj.fq_name+[vn2_obj.name])
         #self.check_ri_is_deleted(fq_name=vn2_obj.fq_name+[vn2_obj.name])
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_service_and_analyzer_policy(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1417,6 +1425,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(vn2_obj.fq_name+[vn2_obj.name])
         self.check_ri_is_deleted(vn3_obj.fq_name+[vn3_obj.name])
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_pnf_service(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1514,6 +1523,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_service(si_fq_name_str)
     #end test_interface_mirror
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_transit_vn(self):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -1852,6 +1862,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
     # end test_vrf_assign_rules
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_service_policy_vmi_with_multi_port_tuples(self):
 
         #              -------
@@ -2031,6 +2042,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn_obj)
         vn_obj.clear_pending_updates()
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_service_policy_with_v4_v6_subnets(self):
 
         # If the SC chain info changes after the SI is created

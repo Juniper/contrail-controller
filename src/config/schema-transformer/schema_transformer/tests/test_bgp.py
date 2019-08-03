@@ -21,6 +21,7 @@ from test_case import STTestCase, retries
 from test_route_target import VerifyRouteTarget
 
 from cfgm_common.tests import test_common
+from unittest import skip
 from random import randint
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
@@ -202,6 +203,7 @@ class TestVxLan(STTestCase, VerifyBgp):
 
 class TestBgp(STTestCase, VerifyBgp):
 
+    @skip("CEM-7696-Skip these until we figure out the reason for flakiness")
     def test_vxlan_routing(self):
         # create  vn1
         vn1_name = self.id() + '_vn1'
