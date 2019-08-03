@@ -20,6 +20,7 @@ set groups {{cfg_group}} routing-instances {{vrf}} forwarding-options dhcp-relay
 {%                     set dhcp_ip = dhcp_ip_addr.get('address') %}
 set groups {{cfg_group}} routing-instances {{vrf}} forwarding-options dhcp-relay server-group DHCP_SERVER_GROUP {{dhcp_ip}}
 {%                     if not dhcp_relay.get('in_network') %}
+set groups {{cfg_group}} forwarding-options dhcp-relay forward-only-replies
 set groups {{cfg_group}} routing-instances {{vrf}} routing-options static route {{dhcp_ip}} next-table inet.0
 set groups {{cfg_group}} routing-instances {{vrf}} routing-options interface-routes rib-group inet {{rib_group_name}}
 set groups {{cfg_group}} routing-options rib-groups {{rib_group_name}} import-rib {{vrf}}.inet.0
