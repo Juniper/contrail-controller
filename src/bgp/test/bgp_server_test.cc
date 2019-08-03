@@ -2774,9 +2774,9 @@ TEST_P(BgpServerUnitTest, DisableSessionQueue2) {
         a_connect_error[j] = peer_a->get_connect_error();
     }
 
-    b_->Shutdown(false);
     StateMachineTest::set_hold_time_msecs(0);
     SetSessionQueueDisable(b_session_manager_, false);
+    b_->Shutdown(false);
     b_->VerifyShutdown();
 
     for (int j = 0; j < peer_count; j++) {
