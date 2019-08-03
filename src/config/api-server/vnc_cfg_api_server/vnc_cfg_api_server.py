@@ -2209,7 +2209,7 @@ class VncApiServer(object):
                 msg = ("Cannot fetch Global System Config to obtain "
                        "enable_4byte_as flag")
                 raise cfgm_common.exceptions.VncError(msg)
-            self._enable_4byte_as = result['enable_4byte_as']
+            self._enable_4byte_as = result.get('enable_4byte_as', False)
         return self._enable_4byte_as
 
     @enable_4byte_as.setter
