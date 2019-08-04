@@ -46,13 +46,20 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fstream>
+#include "signal.h"
 #include "xmpp/xmpp_sandesh.h"
 
 using namespace std;
 using namespace autogen;
 using boost::assign::list_of;
 
+void sighup_cb_handler(int signum);
+
 #include "config-client-mgr/test/config_cassandra_client_partition_test.h"
+
+void sighup_cb_handler(int signum) {
+    cout << "In SIGHUP Handler function" << endl;
+}
 
 class BgpIfmapXmppIntegrationTest : public ::testing::Test {
  public:
@@ -211,7 +218,7 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
 
         string h = boost::lexical_cast<string>(Sandesh::http_port());
         string ufile = dir + "/conf/" + boost::lexical_cast<string>(pid) +
-            ".txt";
+            ".json";
 
         int xmpp = 0, bgp = 0;
         xmpp = strtoul(getenv("CAT_XMPP_PORT") ?: "0", NULL, 0);
@@ -446,6 +453,7 @@ int main(int argc, char **argv) {
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
     BgpServerTest::GlobalSetUp();
+    signal(SIGHUP, sighup_cb_handler);
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
     ConfigFactory::Register<ConfigCassandraPartition>(
