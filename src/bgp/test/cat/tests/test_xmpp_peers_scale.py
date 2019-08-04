@@ -1,8 +1,8 @@
+#!/usr/bin/env python
+
 ##
 ## Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 ##
-
-#!/usr/bin/env python
 
 import argparse
 from pyunitreport import HTMLTestRunner
@@ -22,7 +22,7 @@ class TestCAT(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        CAT.delete_all_files()
+        # CAT.delete_all_files()
         return
 
     def setUp(self):
@@ -31,15 +31,44 @@ class TestCAT(unittest.TestCase):
     def tearDown(self):
         CAT.clean_up()
 
-    def test_5_two_controlnodes_scale_agents(self):
-        c1 = CAT.add_control_node(self.test, "con1")
-        #c2 = CAT.add_control_node(self.test, "con2")
+    def test_1_agents(self):
+        print(Fore.CYAN + "\nBring up 400 XMPP agent sessions" +
+              Style.RESET_ALL)
+        c1 = CAT.add_control_node(self.test, "control-node1")
+        c2 = CAT.add_control_node(self.test, "control-node2")
         agents = []
-        for i in range(200):
+        for i in range(400):
             name = "agent" + str(i+1)
-            agent = CAT.add_agent(self.test, name, [c1])
+            agent = CAT.add_agent(self.test, name, [c1, c2])
             agents.append(agent)
-        ret, ms = CAT.check_connection([c1], agents, 5, 3)
+        ret, ms = CAT.check_connection([c1, c2], agents, 5, 3)
+        self.assertTrue(ret, msg=ms)
+
+    def test_2_config(self):
+        print(Fore.CYAN + "\nInject 20000 virtual-networks configuration" +
+              Style.RESET_ALL)
+        conf1 = CAT.create_config_file(self.test, "conf1")
+        conf1.add_virtual_network("vn", 20000, "default-domain", "admin")
+        c1 = CAT.add_control_node(self.test, "control-node1",
+                                  conf=conf1.filename)
+        a1 = CAT.add_agent(self.test, "agent1", [c1])
+        ret, ms = CAT.check_connection([c1], [a1], 15, 20)
+        self.assertTrue(ret, msg=ms)
+
+    def test_3_scale_agents_and_config(self):
+        print(Fore.CYAN+"\nBring up 400 sessions + 20000 virtual-networks" +
+              Style.RESET_ALL)
+        conf1 = CAT.create_config_file(self.test, "conf1")
+        conf1.add_virtual_network("cat-vn", 20000, "default-domain", "admin")
+        c1 = CAT.add_control_node(self.test, "control-node1",
+                                  conf=conf1.filename)
+        c2 = CAT.add_control_node(self.test, "control-node2", conf=conf1.filename)
+        agents = []
+        for i in range(400):
+            name = "agent" + str(i+1)
+            agent = CAT.add_agent(self.test, name, [c1, c2])
+            agents.append(agent)
+        ret, ms = CAT.check_connection([c1], agents, 15, 20)
         self.assertTrue(ret, msg=ms)
 
 def main():

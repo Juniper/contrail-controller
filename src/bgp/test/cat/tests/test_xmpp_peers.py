@@ -1,8 +1,8 @@
+#!/usr/bin/env python
+
 ##
 ## Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 ##
-
-#!/usr/bin/env python
 
 import argparse
 from pyunitreport import HTMLTestRunner
@@ -32,20 +32,26 @@ class TestCAT(unittest.TestCase):
         CAT.clean_up()
 
     def test_1_single_controlnode_single_agent(self):
-        c1 = CAT.add_control_node(self.test, "con1")
+        print(Fore.CYAN + "\nSingle control-node + single agent" +
+              Style.RESET_ALL)
+        c1 = CAT.add_control_node(self.test, "control-node1")
         a1 = CAT.add_agent(self.test, "agent1", [c1])
         ret, ms = CAT.check_connection([c1], [a1], 2, 3)
         self.assertTrue(ret, msg=ms)
 
     def test_2_multi_controlnodes_single_agent(self):
-        c1 = CAT.add_control_node(self.test, "con1")
-        c2 = CAT.add_control_node(self.test, "con2")
+        print(Fore.CYAN + "\nMultiple control-nodes + single agent" +
+              Style.RESET_ALL)
+        c1 = CAT.add_control_node(self.test, "control-node1")
+        c2 = CAT.add_control_node(self.test, "control-node2")
         a1 = CAT.add_agent(self.test, "agent1", [c1, c2])
         ret, ms = CAT.check_connection([c1, c2], [a1], 2, 3)
         self.assertTrue(ret, msg=ms)
 
     def test_3_single_controlnode_multi_agents(self):
-        c1 = CAT.add_control_node(self.test, "con1")
+        print(Fore.CYAN + "\nSingle control-node + multiple agents" +
+              Style.RESET_ALL)
+        c1 = CAT.add_control_node(self.test, "control-node1")
         a1 = CAT.add_agent(self.test, "agent1", [c1])
         a2 = CAT.add_agent(self.test, "agent2", [c1])
         a3 = CAT.add_agent(self.test, "agent3", [c1])
@@ -56,9 +62,11 @@ class TestCAT(unittest.TestCase):
         self.assertTrue(ret, msg=ms)
 
     def test_4_multi_controlnodes_multi_agents(self):
-        c1 = CAT.add_control_node(self.test, "con1")
-        c2 = CAT.add_control_node(self.test, "con2")
-        c3 = CAT.add_control_node(self.test, "con3")
+        print(Fore.CYAN + "\Multiple control-node + multiple agents" +
+              Style.RESET_ALL)
+        c1 = CAT.add_control_node(self.test, "control-node1")
+        c2 = CAT.add_control_node(self.test, "control-node2")
+        c3 = CAT.add_control_node(self.test, "control-node3")
         a1 = CAT.add_agent(self.test, "agent1", [c1, c2])
         a2 = CAT.add_agent(self.test, "agent2", [c1, c3])
         ret, ms = CAT.check_connection([c1, c2], [a1], 2, 3)
