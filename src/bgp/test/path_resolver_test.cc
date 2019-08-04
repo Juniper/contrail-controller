@@ -258,6 +258,17 @@ protected:
             bgp_server_->database()->FindTable(GetNexthopTableName(instance)));
     }
 
+    void EnqueueActual(BgpTable *table, DBRequest *request,
+                       const string &task) {
+        CHECK_CONCURRENCY(task.c_str());
+        table->Enqueue(request);
+    }
+
+    void Enqueue(BgpTable *table, DBRequest *request, const string &task) {
+        task_util::TaskFire(boost::bind(&PathResolverTest::EnqueueActual,
+                                        this, table, request, task), task);
+    }
+
     // Add a BgpPath that requires resolution.
     void AddBgpPath(IPeer *bgp_peer, const string &instance,
         const string &prefix_str, const string &nexthop_str, uint32_t med = 0,
@@ -303,7 +314,7 @@ protected:
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
         request.data.reset(
             new BgpTable::RequestData(attr, flags|BgpPath::ResolveNexthop, 0));
-        table->Enqueue(&request);
+        Enqueue(table, &request, "bgp::StateMachine");
     }
 
     void AddBgpPathWithMed(IPeer *bgp_peer, const string &instance,
@@ -380,7 +391,7 @@ protected:
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
         request.data.reset(new BgpTable::RequestData(attr, 0, label));
-        table->Enqueue(&request);
+        Enqueue(table, &request, "xmpp::StateMachine");
     }
 
     // Add a BgpPath that that can be used to resolve other paths.
@@ -439,7 +450,7 @@ protected:
         request.key.reset(new typename TableT::RequestKey(prefix, bgp_peer));
 
         BgpTable *table = GetTable(instance);
-        table->Enqueue(&request);
+        Enqueue(table, &request, "bgp::StateMachine");
     }
 
     template <typename XmppTableT, typename XmppPrefixT>
@@ -455,7 +466,7 @@ protected:
             new typename XmppTableT::RequestKey(prefix, xmpp_peer));
 
         BgpTable *table = GetNexthopTable(instance);
-        table->Enqueue(&request);
+        Enqueue(table, &request, "xmpp::StateMachine");
     }
 
     void DeleteXmppPath(IPeer *xmpp_peer, const string &instance,
