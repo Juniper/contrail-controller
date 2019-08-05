@@ -948,7 +948,8 @@ class VirtualNetworkST(ResourceBaseST):
             self._vnc_lib.routing_instance_update(default_ri.obj)
     # end update_pnf_presence
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
+        self.timer = kwargs.get('timer')
         self.set_route_target_list(self.obj)
 
         old_virtual_network_connections = self.expand_connections()
@@ -1032,7 +1033,11 @@ class VirtualNetworkST(ResourceBaseST):
                         if action.simple_action:
                             self.add_connection(connected_network)
 
+                    if self.timer:
+                        self.timer.timed_yield(is_evaluate_yield=True)
                 # end for acl_rule_list
+                if self.timer:
+                    self.timer.timed_yield(is_evaluate_yield=True)
             # end for policy_rule_entries.policy_rule
         # end for self.network_policys
 

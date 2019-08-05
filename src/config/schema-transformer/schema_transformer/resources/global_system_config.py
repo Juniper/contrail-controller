@@ -153,7 +153,7 @@ class GlobalSystemConfigST(ResourceBaseST):
         return True
     # end update_autonomous_system
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         for router in ResourceBaseST.get_obj_type_map().get('bgp_router').values():
             router.update_global_asn(self._autonomous_system)
             router.update_peering()
