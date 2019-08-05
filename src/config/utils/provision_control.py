@@ -72,6 +72,7 @@ class ControlProvisioner(BgpProvisioner):
             gr_params.set_xmpp_helper_enable(
                 self._args.graceful_restart_xmpp_helper_enable)
             gsc_obj.set_graceful_restart_parameters(gr_params)
+        gsc_obj.set_enable_4byte_as(self._args.enable_4byte_as)
         self._vnc_lib.global_system_config_update(gsc_obj)
 
     def check_if_provision_is_needed(self):
@@ -136,6 +137,7 @@ class ControlProvisioner(BgpProvisioner):
         Eg. python provision_control.py --host_name a3s30.contrail.juniper.net
                                         --host_ip 10.1.1.1
                                         --router_asn 64512
+                                        --enable_4byte_as False
                                         --ibgp_auto_mesh|--no_ibgp_auto_mesh
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
@@ -164,6 +166,7 @@ class ControlProvisioner(BgpProvisioner):
 
         defaults = {
             'router_asn': '64512',
+            'enable_4byte_as': False,
             'bgp_server_port': 179,
             'local_autonomous_system': None,
             'ibgp_auto_mesh': None,
@@ -208,6 +211,8 @@ class ControlProvisioner(BgpProvisioner):
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
+        parser.add_argument(
+            "--enable_4byte_as", help="If set, AS Number can be 4 byte wide")
         parser.add_argument(
             "--bgp_server_port", help="BGP server port number (Default: 179)")
         parser.add_argument(
