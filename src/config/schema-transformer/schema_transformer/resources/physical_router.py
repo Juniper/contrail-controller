@@ -23,6 +23,7 @@ class PhysicalRouterST(ResourceBaseST):
             bgp_rtr = ResourceBaseST.get_obj_type_map().get('bgp_router').locate(self.bgp_router)
             if bgp_rtr:
                 bgp_rtr.physical_router = self.name
+                bgp_rtr.physical_router_changed = True
         return changed
     # end update
 
