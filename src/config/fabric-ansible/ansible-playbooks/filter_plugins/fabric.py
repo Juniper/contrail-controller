@@ -610,7 +610,7 @@ class FilterModule(object):
 
         # Add os_version
         if fabric_info.get('os_version'):
-            self._add_fabric_os_version(vnc_api,fabric_obj,
+            self._add_fabric_os_version(vnc_api, fabric_obj,
                                         fabric_info.get('os_version'))
 
         # Add enterprise style
@@ -785,7 +785,7 @@ class FilterModule(object):
     def _add_fabric_os_version(vnc_api, fab, os_version):
         _task_log(
             'adding fabric os version "%s" to fabric "%s"'
-            % (os_version,fab.name )
+            % (os_version, fab.name)
         )
         fab.set_fabric_os_version(os_version)
         vnc_api.fabric_update(fab)
@@ -833,7 +833,7 @@ class FilterModule(object):
     def _add_fabric_enterprise_style(vnc_api, fab, enterprise_style):
         _task_log(
             'adding enterprise style "%s" to fabric "%s"'
-            % (enterprise_style, fab.name )
+            % (enterprise_style, fab.name)
         )
         fab.set_fabric_enterprise_style(enterprise_style)
         vnc_api.fabric_update(fab)
@@ -1702,13 +1702,11 @@ class FilterModule(object):
                     ar_flag = True
                 if device_roles.get('supported_roles'):
                     device_obj = device_roles.get('device_obj')
-                    if device_obj.get_physical_router_underlay_managed() \
-                            or ar_flag:
-                        self._add_loopback_interface(vnc_api, device_obj,
-                                                     ar_flag)
-                        self._add_logical_interfaces_for_fabric_links(
-                            vnc_api, device_obj, devicefqname2_phy_role_map
-                        )
+                    self._add_loopback_interface(vnc_api, device_obj,
+                                                 ar_flag)
+                    self._add_logical_interfaces_for_fabric_links(
+                        vnc_api, device_obj, devicefqname2_phy_role_map
+                    )
                     self._add_bgp_router(vnc_api, device_roles,
                                          fabric_cluster_id)
 
@@ -2059,60 +2057,39 @@ class FilterModule(object):
         :param vnc_api: <vnc_api.VncApi>
         :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
         """
-        loopback_network_obj = self._get_device_network(
-            vnc_api, device_obj, NetworkType.LOOPBACK_NETWORK
-        )
-        if not loopback_network_obj:
-            _task_debug_log(
-                "Loopback network does not exist, thereofore skip the loopback\
-                 interface creation.")
-            return
-
-        # create loopback logical interface if needed
-        loopback_li_fq_name = device_obj.fq_name + ['lo0', 'lo0.0']
-        try:
-            loopback_li_obj = vnc_api.logical_interface_read(
-                fq_name=loopback_li_fq_name
+        if device_obj.get_physical_router_underlay_managed() \
+                or ar_flag:
+            loopback_network_obj = self._get_device_network(
+                vnc_api, device_obj, NetworkType.LOOPBACK_NETWORK
             )
-        except NoIdError:
-            loopback_li_obj = LogicalInterface(
-                name='lo0.0',
-                fq_name=loopback_li_fq_name,
-                parent_type='physical-interface',
-                logical_interface_type='l3'
-            )
-            _task_log(
-                'creating looback interface lo0.0 on device %s'
-                % device_obj.name
-            )
-            vnc_api.logical_interface_create(loopback_li_obj)
-            _task_done()
+            if not loopback_network_obj:
+                _task_debug_log(
+                    "Loopback network does not exist, thereofore skip the\
+                     loopback interface creation.")
+                return
 
-        # assgin instance IP to the loopback interface
-        iip_name = "%s/lo0.0" % device_obj.name
-        try:
-            iip_obj = vnc_api.instance_ip_read(fq_name=[iip_name])
-        except NoIdError:
-            iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4')
-            iip_obj.set_logical_interface(loopback_li_obj)
-            iip_obj.set_virtual_network(loopback_network_obj)
-            _task_log(
-                'Create instance ip for lo0.0 on device %s' % device_obj.name
-            )
-            iip_uuid = vnc_api.instance_ip_create(iip_obj)
-            iip_obj = vnc_api.instance_ip_read(id=iip_uuid)
-            _task_done()
+            # create loopback logical interface if needed
+            loopback_li_fq_name = device_obj.fq_name + ['lo0', 'lo0.0']
+            try:
+                loopback_li_obj = vnc_api.logical_interface_read(
+                    fq_name=loopback_li_fq_name
+                )
+            except NoIdError:
+                loopback_li_obj = LogicalInterface(
+                    name='lo0.0',
+                    fq_name=loopback_li_fq_name,
+                    parent_type='physical-interface',
+                    logical_interface_type='l3'
+                )
+                _task_log(
+                    'creating looback interface lo0.0 on device %s'
+                    % device_obj.name
+                )
+                vnc_api.logical_interface_create(loopback_li_obj)
+                _task_done()
 
-        # update device level properties
-        if device_obj.get_physical_router_underlay_managed():
-            device_obj.physical_router_loopback_ip \
-                = iip_obj.get_instance_ip_address()
-            device_obj.physical_router_dataplane_ip \
-                = iip_obj.get_instance_ip_address()
-
-        if ar_flag:
-            # assign assisted replicator IP to the loopback interface
-            iip_name = "%s-assisted-replicator/lo0.0" % device_obj.name
+            # assgin instance IP to the loopback interface
+            iip_name = "%s/lo0.0" % device_obj.name
             try:
                 iip_obj = vnc_api.instance_ip_read(fq_name=[iip_name])
             except NoIdError:
@@ -2120,14 +2097,38 @@ class FilterModule(object):
                 iip_obj.set_logical_interface(loopback_li_obj)
                 iip_obj.set_virtual_network(loopback_network_obj)
                 _task_log(
-                    'Create assisted replicator IP for lo0.0 on device %s'
+                    'create instance ip for lo0.0 on device %s'
                     % device_obj.name
                 )
                 iip_uuid = vnc_api.instance_ip_create(iip_obj)
                 iip_obj = vnc_api.instance_ip_read(id=iip_uuid)
                 _task_done()
-            device_obj.physical_router_replicator_loopback_ip \
-                = iip_obj.get_instance_ip_address()
+
+            # update device level properties
+            if device_obj.get_physical_router_underlay_managed():
+                device_obj.physical_router_loopback_ip \
+                    = iip_obj.get_instance_ip_address()
+                device_obj.physical_router_dataplane_ip \
+                    = iip_obj.get_instance_ip_address()
+
+            if ar_flag:
+                # assign assisted replicator IP to the loopback interface
+                iip_name = "%s-assisted-replicator/lo0.0" % device_obj.name
+                try:
+                    iip_obj = vnc_api.instance_ip_read(fq_name=[iip_name])
+                except NoIdError:
+                    iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4')
+                    iip_obj.set_logical_interface(loopback_li_obj)
+                    iip_obj.set_virtual_network(loopback_network_obj)
+                    _task_log(
+                        'Create assisted replicator IP for lo0.0 on device %s'
+                        % device_obj.name
+                    )
+                    iip_uuid = vnc_api.instance_ip_create(iip_obj)
+                    iip_obj = vnc_api.instance_ip_read(id=iip_uuid)
+                    _task_done()
+                device_obj.physical_router_replicator_loopback_ip \
+                    = iip_obj.get_instance_ip_address()
     # end _add_loopback_interface
 
     def _add_bgp_router(self, vnc_api, device_roles, fabric_cluster_id):
@@ -2330,9 +2331,9 @@ class FilterModule(object):
                 vnc_api.instance_ip_update(iip_obj)
                 _task_done()
 
-
     def _verify_physical_roles(self, device_obj, remote_device_obj,
-                               devicefqname2_phy_role_map):
+                               devicefqname2_phy_role_map,
+                               local_pi, remote_pi):
 
         # this function verifies that
         # 1. local prouter and the remote
@@ -2351,12 +2352,29 @@ class FilterModule(object):
             remote_device_obj.get_physical_router_role()
         )
 
+        # mark link type as service if link is between
+        # 1. Leaf and PNF device
+        # 2. Spine and PNF device
+        if ((local_physical_role in ['leaf', 'spine'] and
+             remote_physical_role == 'pnf') or
+            (local_physical_role == 'pnf' and
+             remote_physical_role in ['leaf', 'spine'])):
+            _task_log(
+                "Not creating instance ips as links are between "
+                " %s and %s"
+                % (local_physical_role, remote_physical_role))
+            local_pi.set_physical_interface_type('service')
+            remote_pi.set_physical_interface_type('service')
+            return False
+
         if (local_physical_role ==
-            remote_physical_role == 'leaf'):
+                remote_physical_role == 'leaf'):
             _task_log(
                 "Not creating instance ips as both "
                 "physical routers are of the same role type %s"
                 % local_physical_role)
+            local_pi.set_physical_interface_type('fabric')
+            remote_pi.set_physical_interface_type('fabric')
             return False
 
         if device_obj.get_uuid() == remote_device_obj.get_uuid():
@@ -2366,8 +2384,12 @@ class FilterModule(object):
                 % device_obj.get_fq_name())
             return False
 
-        return True
+        if (local_physical_role in ['leaf', 'spine'] and
+                remote_physical_role in ['leaf', 'spine']):
+            local_pi.set_physical_interface_type('fabric')
+            remote_pi.set_physical_interface_type('fabric')
 
+        return True
 
     def _add_logical_interfaces_for_fabric_links(self, vnc_api, device_obj,
                                                  devicefqname2_phy_role_map):
@@ -2398,16 +2420,17 @@ class FilterModule(object):
                     fq_name=remote_pi.get_parent_fq_name())
 
             if self._verify_physical_roles(device_obj, remote_device_obj,
-                                           devicefqname2_phy_role_map):
+                                           devicefqname2_phy_role_map,
+                                           local_pi, remote_pi):
+                if device_obj.get_physical_router_underlay_managed():
+                    # local_pi
+                    self._instance_ip_creation(vnc_api, device_obj, local_pi,
+                                               remote_pi, fabric_network_obj)
 
-                # local_pi
-                self._instance_ip_creation(vnc_api, device_obj, local_pi,
-                                           remote_pi, fabric_network_obj)
-
-                # remote_pi
-                self._instance_ip_creation(vnc_api, remote_device_obj,
-                                           remote_pi, local_pi,
-                                           fabric_network_obj)
+                    # remote_pi
+                    self._instance_ip_creation(vnc_api, remote_device_obj,
+                                               remote_pi, local_pi,
+                                               fabric_network_obj)
     # end _add_logical_interfaces_for_fabric_links
 
     @staticmethod
