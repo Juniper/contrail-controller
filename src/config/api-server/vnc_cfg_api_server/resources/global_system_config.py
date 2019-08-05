@@ -72,7 +72,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         ok, result = cls._get_global_system_config(fields)
         if not ok:
             return False, result
-        enable_4byte_as = result['enable_4byte_as']
+        enable_4byte_as = result.get('enable_4byte_as', False)
         if enable_4byte_as:
             # 4 Byte AS is allowed. So the range should be
             # between 1-0xffFFffFF
