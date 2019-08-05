@@ -7,7 +7,7 @@ from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from vnc_api.gen.resource_xsd import AddressFamilies, BgpSessionAttributes
 from vnc_api.gen.resource_xsd import BgpSession, BgpPeeringAttributes
 from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
-
+from vnc_api.gen.resource_client import BgpRouter
 
 class BgpRouterST(ResourceBaseST):
     _dict = {}
@@ -18,6 +18,8 @@ class BgpRouterST(ResourceBaseST):
     def __init__(self, name, obj=None):
         self.name = name
         self.asn = None
+        self.cluster_id_changed = False
+        self.physical_router_changed = False
         self.bgp_as_a_service = None
         self.vendor = None
         self.identifier = None
@@ -60,7 +62,7 @@ class BgpRouterST(ResourceBaseST):
         # to reduce the peering from full mesh to RR
         if self.is_cluster_id_changed(params):
             self.cluster_id = params.cluster_id
-            self.update_full_mesh_to_rr_peering()
+            self.cluster_id_changed = True
 
         if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
             if self.vendor == 'contrail':
@@ -123,7 +125,14 @@ class BgpRouterST(ResourceBaseST):
             elif ret:
                 self._vnc_lib.bgp_router_update(self.obj)
         elif self.router_type != 'bgpaas-server':
-            self.update_peering()
+            if self.cluster_id_changed:
+                self.update_full_mesh_to_rr_peering()
+                self.cluster_id_changed = False
+            elif self.physical_router_changed:
+                self.update_peering(rr_changed=True)
+                self.physical_router_changed = False
+            else:
+                self.update_peering()
     # end evaluate
 
     def update_bgpaas_client(self, bgpaas):
@@ -290,12 +299,10 @@ class BgpRouterST(ResourceBaseST):
 
     def update_full_mesh_to_rr_peering(self):
         for router in BgpRouterST.values():
-            if router.name == self.name:
-                continue
-            router.update_peering()
+            router.update_peering(rr_changed=True)
     # end update_full_mesh_to_rr_peering
 
-    def update_peering(self):
+    def update_peering(self, rr_changed=False):
         if not ResourceBaseST.get_obj_type_map().\
                         get('global_system_config').get_ibgp_auto_mesh():
             return
@@ -323,8 +330,8 @@ class BgpRouterST(ResourceBaseST):
 
         cluster_rr_supported, control_rr_supported = \
                                      self._is_route_reflector_supported()
-        peerings_set = set(':'.join(ref['to']) for ref in (obj.get_bgp_router_refs() or []))
-        new_peerings_set = set()
+        peerings_set = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
+
         new_peerings_list = []
         new_peerings_attrs = []
         for router in self._dict.values():
@@ -339,18 +346,29 @@ class BgpRouterST(ResourceBaseST):
                                                 control_rr_supported):
                 continue
 
+            router_fq_name = router.name.split(':')
+            if router_fq_name in peerings_set and not rr_changed:
+                continue
+            router_obj = BgpRouter()
+            router_obj.fq_name = router_fq_name
             af = AddressFamilies(family=[])
             bsa = BgpSessionAttributes(address_families=af)
             session = BgpSession(attributes=[bsa])
             attr = BgpPeeringAttributes(session=[session])
-            new_peerings_set.add(router.name)
-            router_fq_name = router.name.split(':')
             new_peerings_list.append(router_fq_name)
             new_peerings_attrs.append(attr)
+            obj.add_bgp_router(router_obj, attr)
 
-        if new_peerings_set != peerings_set:
+        new_peerings_set = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
+        if rr_changed:
+            obj.set_bgp_router_list(new_peerings_list, new_peerings_attrs)
             try:
-                obj.set_bgp_router_list(new_peerings_list, new_peerings_attrs)
+                self._vnc_lib.bgp_router_update(obj)
+            except NoIdError as e:
+                self._logger.error("NoIdError while updating bgp router "
+                                   "%s: %s"%(self.name, str(e)))
+        elif new_peerings_set != peerings_set:
+            try:
                 self._vnc_lib.bgp_router_update(obj)
             except NoIdError as e:
                 self._logger.error("NoIdError while updating bgp router "
