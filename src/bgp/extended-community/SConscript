@@ -24,7 +24,8 @@ libextended_community = env.Library('extended_community',
                                      'vrf_route_import.cc',
                                      'source_as.cc',
                                      'multicast_flags.cc',
-                                     'tag.cc'])
+                                     'tag.cc',
+                                     'sub_cluster.cc'])
 
 extended_community_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
                                      duplicate = 0)
