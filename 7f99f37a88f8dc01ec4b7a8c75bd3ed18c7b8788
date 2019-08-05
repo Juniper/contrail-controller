@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1b5ee275_03c22e09",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/bgp_router.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 340,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-08-05T09:13:56Z",
+      "side": 1,
+      "message": "This should be after _skip_bgp_router_peering_add check.",
+      "revId": "7f99f37a88f8dc01ec4b7a8c75bd3ed18c7b8788",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "392015fe_34bf3d81",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/bgp_router.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 344,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-08-05T09:13:56Z",
+      "side": 1,
+      "message": "Shouldn\u0027t be handling delete from here. It should come from a client.",
+      "revId": "7f99f37a88f8dc01ec4b7a8c75bd3ed18c7b8788",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
