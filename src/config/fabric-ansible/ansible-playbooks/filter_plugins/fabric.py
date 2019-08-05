@@ -610,7 +610,7 @@ class FilterModule(object):
 
         # Add os_version
         if fabric_info.get('os_version'):
-            self._add_fabric_os_version(vnc_api,fabric_obj,
+            self._add_fabric_os_version(vnc_api, fabric_obj,
                                         fabric_info.get('os_version'))
 
         # Add enterprise style
@@ -785,7 +785,7 @@ class FilterModule(object):
     def _add_fabric_os_version(vnc_api, fab, os_version):
         _task_log(
             'adding fabric os version "%s" to fabric "%s"'
-            % (os_version,fab.name )
+            % (os_version, fab.name)
         )
         fab.set_fabric_os_version(os_version)
         vnc_api.fabric_update(fab)
@@ -833,7 +833,7 @@ class FilterModule(object):
     def _add_fabric_enterprise_style(vnc_api, fab, enterprise_style):
         _task_log(
             'adding enterprise style "%s" to fabric "%s"'
-            % (enterprise_style, fab.name )
+            % (enterprise_style, fab.name)
         )
         fab.set_fabric_enterprise_style(enterprise_style)
         vnc_api.fabric_update(fab)
@@ -2330,9 +2330,9 @@ class FilterModule(object):
                 vnc_api.instance_ip_update(iip_obj)
                 _task_done()
 
-
     def _verify_physical_roles(self, device_obj, remote_device_obj,
-                               devicefqname2_phy_role_map):
+                               devicefqname2_phy_role_map,
+                               local_pi, remote_pi):
 
         # this function verifies that
         # 1. local prouter and the remote
@@ -2351,12 +2351,29 @@ class FilterModule(object):
             remote_device_obj.get_physical_router_role()
         )
 
+        # mark link type as service if link is between
+        # 1. Leaf and PNF device
+        # 2. Spine and PNF device
+        if ((local_physical_role in ['leaf', 'spine'] and
+             remote_physical_role == 'pnf') or
+             (local_physical_role == 'pnf' and
+              remote_physical_role in ['leaf', 'spine'])):
+             _task_log(
+                "Not creating instance ips as links are between "
+                " %s and %s"
+                %(local_physical_role, remote_physical_role))
+            local_pi.set_physical_interface_type('service')
+            remote_pi.set_physical_interface_type('service')
+            return False
+
         if (local_physical_role ==
             remote_physical_role == 'leaf'):
             _task_log(
                 "Not creating instance ips as both "
                 "physical routers are of the same role type %s"
                 % local_physical_role)
+            local_pi.set_physical_interface_type('fabric')
+            remote_pi.set_physical_interface_type('fabric')
             return False
 
         if device_obj.get_uuid() == remote_device_obj.get_uuid():
@@ -2365,6 +2382,11 @@ class FilterModule(object):
                 "interface refs are from and to the same device: %s"
                 % device_obj.get_fq_name())
             return False
+
+        if (local_physical_role in ['leaf', 'spine'] and
+            remote_physical_role in ['leaf', 'spine']:
+            local_pi.set_physical_interface_type('fabric')
+            remote_pi.set_physical_interface_type('fabric')
 
         return True
 
@@ -2398,7 +2420,8 @@ class FilterModule(object):
                     fq_name=remote_pi.get_parent_fq_name())
 
             if self._verify_physical_roles(device_obj, remote_device_obj,
-                                           devicefqname2_phy_role_map):
+                                           devicefqname2_phy_role_map,
+                                           local_pi, remote_pi):
 
                 # local_pi
                 self._instance_ip_creation(vnc_api, device_obj, local_pi,
