@@ -48,6 +48,10 @@ BgpProto::OpenMessage::~OpenMessage() {
 //
 //
 int BgpProto::OpenMessage::ValidateCapabilities(BgpPeer *peer) const {
+    // Used for test purpose where capabilities may not be in order
+    bool ignore_family_check = getenv("CONTRAIL_IGNORE_FAMILY_CHECK") != NULL;
+    if (ignore_family_check)
+        return 0;
     bool mp_extension_ok = false;
 
     // Go through each OptParam in the OpenMessage.
