@@ -47,6 +47,10 @@ source_as_test = env.UnitTest('source_as_test',
                                    ['source_as_test.cc'])
 env.Alias('src/bgp/extended-community:source_as_test', source_as_test)
 
+sub_cluster_test = env.UnitTest('sub_cluster_test',
+                                   ['sub_cluster_test.cc'])
+env.Alias('src/bgp/extended-community:sub_cluster_test', sub_cluster_test)
+
 vrf_route_import_test = env.UnitTest('vrf_route_import_test',
                                    ['vrf_route_import_test.cc'])
 env.Alias('src/bgp/extended-community:vrf_route_import_test', vrf_route_import_test)
@@ -74,6 +78,7 @@ test_suite = [
     source_as_test,
     tag_test,
     vrf_route_import_test,
+    sub_cluster_test,
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
