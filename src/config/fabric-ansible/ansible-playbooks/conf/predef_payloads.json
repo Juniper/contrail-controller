@@ -514,7 +514,7 @@
           "job_template_executables": {
             "executable_info": [
               {
-                "executable_path": "/opt/contrail/bin/vcenter_import",
+                "executable_path": "/opt/contrail/utils/vcenter-import",
                 "executable_args": "",
                 "job_completion_weightage": 100
               }
