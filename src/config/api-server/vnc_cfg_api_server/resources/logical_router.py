@@ -189,9 +189,14 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         rt_dict = obj_dict.get('configured_route_target_list')
         if not rt_dict:
             return True, ''
+
+        route_target_list = rt_dict.get('route_target')
+        if not route_target_list:
+            return True, ''
+
         global_asn = cls.server.global_autonomous_system
-        for rt in rt_dict.get('route_target') or []:
-            ok, result = cls.server.get_resource_class(
+        for idx, rt in enumerate(route_target_list):
+            ok, result, new_rt = cls.server.get_resource_class(
                 'route_target').validate_route_target(rt)
             if not ok:
                 return False, result
@@ -202,7 +207,8 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                         " be less than %d and greater than %d" %
                         (get_bgp_rtgt_min_id(global_asn),
                          get_bgp_rtgt_max_id(global_asn)))
-
+            if new_rt:
+                route_target_list[idx] = new_rt
         return (True, '')
 
     @classmethod

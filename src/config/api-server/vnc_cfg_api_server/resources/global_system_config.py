@@ -136,7 +136,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             if not rt_dict:
                 continue
             for rt in rt_dict.get('route_target', []):
-                ok, result = cls.server.get_resource_class(
+                ok, result, _ = cls.server.get_resource_class(
                     'route_target').validate_route_target(rt, global_asn)
                 if not ok:
                     return False, result
@@ -325,3 +325,4 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if 'enable_4byte_as' in read_result:
             cls.server.enable_4byte_as = read_result[
                 'enable_4byte_as']
+        return True, ''
