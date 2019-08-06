@@ -12,6 +12,7 @@ import json
 import re
 import socket
 import struct
+import time
 from time import gmtime, strftime
 import traceback
 
@@ -36,6 +37,10 @@ from netaddr import IPAddress
 import pyhash
 from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 from vnc_api.vnc_api import *
+
+
+_ZK_TIMEOUT = None
+_YIELD_DURING_CONFIG_GENERATION = None
 
 
 class DBBaseDM(DBBase):
@@ -69,6 +74,36 @@ class DBBaseDM(DBBase):
             return None
     # end _get_single_ref
 # end DBBaseDM
+
+
+class DeviceManagerTimer:
+    def __init__(self,
+                 zk_timeout,
+                 yield_during_config_gen=False,
+                 print_stats=False):
+        self.timeout = time.time()
+        self.max_time = zk_timeout / 6
+        if self.max_time < 60:
+            self.max_time = 60
+        self.total_yield_stats = 0
+        self.print_stats = print_stats
+        self.yield_durig_config_gen = yield_during_config_gen
+
+    #
+    # Sleep if we are continuously running without yielding
+    #
+    def timed_yield(self):
+        if self.yield_durig_config_gen:
+            now = time.time()
+            if now > self.timeout:
+                gevent.sleep(0.001)
+                self.timeout = time.time() + self.max_time
+                if self.print_stats:
+                    self.total_yield_stats += 1
+                    print "Yielded at: %s, Total yields: %s" % (
+                        now, self.total_yield_stats)
+    # end timed_yield
+# DeviceManagerTimer
 
 
 class BgpRouterDM(DBBaseDM):
@@ -286,6 +321,19 @@ class PhysicalRouterDM(DBBaseDM):
         self.config_repush_interval = PushConfigState.get_repush_interval()
         self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
                                                        self.nc_handler)
+        global _ZK_TIMEOUT
+        global _YIELD_DURING_CONFIG_GENERATION
+
+        zk_timeout = 400
+        if _ZK_TIMEOUT:
+            zk_timeout = _ZK_TIMEOUT
+        yield_during_config_generation = False
+        if _YIELD_DURING_CONFIG_GENERATION:
+            yield_during_config_generation = True
+
+        self.timer = DeviceManagerTimer(zk_timeout,
+                                        yield_during_config_generation,
+                                        False)  # print_stats: True for debug
     # end __init__
 
     def use_ansible_plugin(self):
@@ -2972,6 +3020,14 @@ class DMCassandraDB(VncObjectDBClient):
     def get_instance(cls, zkclient=None, args=None, logger=None):
         if cls.dm_object_db_instance is None:
             cls.dm_object_db_instance = DMCassandraDB(zkclient, args, logger)
+            global _ZK_TIMEOUT
+            global _YIELD_DURING_CONFIG_GENERATION
+
+            if args.zk_timeout:
+                _ZK_TIMEOUT = int(args.zk_timeout)
+            if args.yield_during_config_generation:
+                _YIELD_DURING_CONFIG_GENERATION =\
+                    args.yield_during_config_generation
         return cls.dm_object_db_instance
     # end
 
