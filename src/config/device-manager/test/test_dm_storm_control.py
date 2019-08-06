@@ -26,7 +26,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
-        vmi_obj = self.create_vpg_and_vmi(pp_obj)
+        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj = self.create_vpg_dependencies()
+        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -77,7 +78,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects(vmi_obj, pp_obj, sc_obj)
+        self.delete_objects()
 
     def test_02_port_profile_vmi_association(self):
         # create objects
@@ -92,7 +93,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
-        vmi_obj = self.create_vpg_and_vmi(pp_obj)
+        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj = self.create_vpg_dependencies()
+        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -124,7 +127,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                                      sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
         # delete workflow
 
-        self.delete_objects(vmi_obj, pp_obj, sc_obj)
+        self.delete_objects()
 
 
     def test_03_port_profile_service_provider_style_crb_access(self):
@@ -140,7 +143,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, enterprise_style=False, role='crb-access')
+        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj = self.create_vpg_dependencies(enterprise_style=False, role='crb-access')
+        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -158,7 +162,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects(vmi_obj, pp_obj, sc_obj)
+        self.delete_objects()
 
 
     def test_04_disassociate_PP_from_VMI(self):
@@ -172,7 +176,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
-        vmi_obj = self.create_vpg_and_vmi(pp_obj)
+        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj = self.create_vpg_dependencies()
+        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -225,7 +231,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                     self.assertIsNone(log_intf.get('storm_control_profile'))
         # delete workflow
 
-        self.delete_objects(vmi_obj, pp_obj, sc_obj)
+        self.delete_objects()
 
 
     def test_05_port_profile_service_provider_style_erb_ucast(self):
@@ -241,7 +247,9 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
-        vmi_obj = self.create_vpg_and_vmi(pp_obj, enterprise_style=False)
+        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj = self.create_vpg_dependencies(enterprise_style=False)
+        vmi_obj = self.create_vpg_and_vmi(pp_obj, pr1, fabric, pi_obj_1, vn_obj)
+
 
         # this should trigger reaction map so that PR
         # config changes and device abstract config is generated.
@@ -274,8 +282,84 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects(vmi_obj, pp_obj, sc_obj)
+        self.delete_objects()
 
+
+    def test_06_port_profile_multiple_vpgs_same_vlan(self):
+        # create objects
+
+        sc_name_1 = 'strm_ctrl_multi_vpg_1'
+        sc_name_2 = 'strm_ctrl_multi_vpg_2'
+        bw_percent_1 = 47
+        bw_percent_2 = 52
+        traffic_type_1 = ['no-broadcast', 'no-multicast']
+        actions_1 = ['interface-shutdown']
+        traffic_type_2 = ['no-registered-multicast', 'no-unknown-unicast']
+
+        self.create_feature_objects_and_params()
+
+        sc_obj_1 = self.create_storm_control_profile(sc_name_1, bw_percent_1, traffic_type_1, actions_1, recovery_timeout=900)
+        pp_obj_1 = self.create_port_profile('port_profile_vmi_1', sc_obj_1)
+
+        sc_obj_2 = self.create_storm_control_profile(sc_name_2, bw_percent_2, traffic_type_2, None)
+        pp_obj_2 = self.create_port_profile('port_profile_vmi_2', sc_obj_2)
+
+        sc_obj1_fqname = sc_obj_1.get_fq_name()
+        sc_obj2_fqname = sc_obj_2.get_fq_name()
+
+        pr1, fabric, pi_obj_1, pi_obj_2, vn_obj = self.create_vpg_dependencies()
+        vmi_obj_1 = self.create_vpg_and_vmi(pp_obj_1, pr1, fabric, pi_obj_1, vn_obj, pp_obj_2)
+        vmi_obj_2 = self.create_vpg_and_vmi(pp_obj_2, pr1, fabric, pi_obj_2, vn_obj, pp_obj_1, vpg_nm=2)
+
+        # this should trigger reaction map so that PR
+        # config changes and device abstract config is generated.
+        # verify the generated device abstract config properties
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+
+        device_abstract_config = abstract_config.get('device_abstract_config')
+        storm_control_profiles = device_abstract_config.get(
+            'features', {}).get('storm-control',{}).get('storm_control', [])
+
+
+        #self.assertEqual(len(storm_control_profiles), 2)
+        for storm_control_profile in storm_control_profiles:
+            if storm_control_profile.get('name') == sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2]:
+                self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent_1)
+                self.assertEqual(storm_control_profile.get('actions'), actions_1)
+                self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type_1)
+                self.assertEqual(storm_control_profile.get('recovery_timeout'), 900)
+            else:
+                self.assertEqual(storm_control_profile.get('bandwidth_percent'), bw_percent_2)
+                self.assertEqual(storm_control_profile.get('actions'), None)
+                self.assertEqual(storm_control_profile.get('traffic_type'), traffic_type_2)
+                self.assertEqual(storm_control_profile.get('recovery_timeout'), None)
+
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('storm-control', {}).get('physical_interfaces', [])
+        for phy_int in phy_interfaces:
+            log_intfs = phy_int.get('logical_interfaces', [])
+            for log_intf in log_intfs:
+                if "xe-0/0/0" in log_intf.get('name'):
+                    if log_intf.get('unit') == '10':
+                        self.assertEqual(log_intf.get('storm_control_profile'),
+                                         sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2])
+                    else:
+                        self.assertEqual(log_intf.get('storm_control_profile'),
+                                         sc_obj2_fqname[-1] + "-" + sc_obj2_fqname[-2])
+                elif "xe-0/0/1" in log_intf.get('name'):
+                    if log_intf.get('unit') == '10':
+                        self.assertEqual(log_intf.get('storm_control_profile'),
+                                         sc_obj2_fqname[-1] + "-" + sc_obj2_fqname[-2])
+                    else:
+                        self.assertEqual(log_intf.get('storm_control_profile'),
+                                         sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2])
+
+        # delete workflow
+
+        self.delete_objects()
 
 
     def create_feature_objects_and_params(self, role='erb-ucast-gateway'):
@@ -292,7 +376,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             })
         ])
 
-    def create_vpg_and_vmi(self, pp_obj,enterprise_style=True, role='erb-ucast-gateway'):
+    def create_vpg_dependencies(self, enterprise_style=True,
+                                role='erb-ucast-gateway'):
 
         jt = self.create_job_template('job-template-sc' + self.id())
 
@@ -320,23 +405,39 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self._vnc_lib.physical_router_update(pr1)
 
         pi_name = "xe-0/0/0"
-        pi_obj = PhysicalInterface(pi_name, parent_obj=pr1)
-        self._vnc_lib.physical_interface_create(pi_obj)
+        pi_obj_1 = PhysicalInterface(pi_name, parent_obj=pr1)
+        self._vnc_lib.physical_interface_create(pi_obj_1)
+
+        pi_name = "xe-0/0/1"
+        pi_obj_2 = PhysicalInterface(pi_name, parent_obj=pr1)
+        self._vnc_lib.physical_interface_create(pi_obj_2)
+
+        vn_obj = self.create_vn(str(3), '3.3.3.0')
+
+        return pr1, fabric, pi_obj_1, pi_obj_2, vn_obj
+
+
+    def create_vpg_and_vmi(self, pp_obj_1, pr1, fabric, pi_obj, vn_obj, pp_obj_2=None, vpg_nm=1):
 
         device_name = pr1.get_fq_name()[-1]
         fabric_name = fabric.get_fq_name()[-1]
+        phy_int_name = pi_obj.get_fq_name()[-1]
+
 
         # first create a VMI
 
-        vpg_name = "vpg-sc" + self.id()
+        vpg_name = "vpg-sc-" + str(vpg_nm) + self.id()
         vlan_tag = 10
 
-        vmi_obj = VirtualMachineInterface(vpg_name + "-" + str(vlan_tag),
+        vmi_obj_1 = VirtualMachineInterface(vpg_name + "-tagged-" + str(vlan_tag),
                                           parent_type='project',
                                           fq_name = ["default-domain", "default-project",
-                                                     vpg_name + "-" + str(vlan_tag)])
+                                                     vpg_name + "-tagged-" + str(vlan_tag)])
 
-        vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"xe-0/0/0\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % ('xe-0/0/0', device_name, fabric_name)
+        vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (phy_int_name,
+                                                                                                                                             phy_int_name,
+                                                                                                                                             device_name,
+                                                                                                                                             fabric_name)
 
         vmi_bindings = {
             "key_value_pair": [{
@@ -352,32 +453,69 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         }
 
 
-        vmi_obj.set_virtual_machine_interface_bindings(vmi_bindings)
+        vmi_obj_1.set_virtual_machine_interface_bindings(vmi_bindings)
 
         vmi_properties = {
                 "sub_interface_vlan_tag": vlan_tag
             }
-        vmi_obj.set_virtual_machine_interface_properties(vmi_properties)
+        vmi_obj_1.set_virtual_machine_interface_properties(vmi_properties)
 
-        vn_obj = self.create_vn(str(3), '3.3.3.0')
+        vmi_obj_1.set_virtual_network(vn_obj)
 
-        vmi_obj.set_virtual_network(vn_obj)
+
+        vmi_obj_2 = VirtualMachineInterface(vpg_name + "-untagged-" + str(vlan_tag),
+                                          parent_type='project',
+                                          fq_name = ["default-domain", "default-project",
+                                                     vpg_name + "-untagged-" + str(vlan_tag)])
+
+        vmi_profile = "{\"local_link_information\":[{\"switch_id\":\"%s\",\"port_id\":\"%s\",\"switch_info\":\"%s\",\"fabric\":\"%s\"}]}" % (phy_int_name,
+                                                                                                                                             phy_int_name,
+                                                                                                                                             device_name,
+                                                                                                                                             fabric_name)
+
+        vmi_bindings = {
+            "key_value_pair": [{
+                "key": "vnic_type",
+                "value": "baremetal"
+            }, {
+                "key": "vif_type",
+                "value": "vrouter"
+            }, {
+                "key": "profile",
+                "value": vmi_profile
+            }, {
+                "key": "tor_port_vlan_id",
+                "value": str(vlan_tag)
+            }]
+        }
+
+
+        vmi_obj_2.set_virtual_machine_interface_bindings(vmi_bindings)
+
+        vmi_obj_2.set_virtual_network(vn_obj)
+
 
         # now create a VPG
         vpg_obj = VirtualPortGroup(vpg_name, parent_obj=fabric)
         vpg_obj.set_physical_interface(pi_obj)
         self._vnc_lib.virtual_port_group_create(vpg_obj)
 
-        vmi_obj.set_port_profile(pp_obj)
-        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        vmi_obj_1.set_port_profile(pp_obj_1)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj_1)
 
-        vpg_obj.set_virtual_machine_interface(vmi_obj)
+        vpg_obj.set_virtual_machine_interface_list([{'uuid': vmi_obj_1.get_uuid()}])
+
+        if pp_obj_2:
+            vmi_obj_2.set_port_profile(pp_obj_2)
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj_2)
+            vpg_obj.set_virtual_machine_interface_list([{'uuid': vmi_obj_1.get_uuid()},
+                                                        {'uuid': vmi_obj_2.get_uuid()}])
         self._vnc_lib.virtual_port_group_update(vpg_obj)
 
 
-        return vmi_obj
+        return vmi_obj_1
 
-    def delete_objects(self, vmi_obj, pp_obj, sc_obj):
+    def delete_objects(self):
 
         vpg_list = self._vnc_lib.virtual_port_groups_list().get('virtual-port-groups')
         for vpg in vpg_list:
@@ -386,12 +524,14 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             vpg_obj.set_physical_interface_list([])
             self._vnc_lib.virtual_port_group_update(vpg_obj)
 
-        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi_obj.get_fq_name())
+        vmi_list = self._vnc_lib.virtual_machine_interfaces_list().get(
+            'virtual-machine-interfaces')
+        for vmi in vmi_list:
+            self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
 
         pi_list = self._vnc_lib.physical_interfaces_list().get('physical-interfaces')
         for pi in pi_list:
             self._vnc_lib.physical_interface_delete(id=pi['uuid'])
-
 
         for vpg in vpg_list:
             self._vnc_lib.virtual_port_group_delete(id=vpg['uuid'])
@@ -420,8 +560,14 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         for jt in jt_list:
             self._vnc_lib.job_template_delete(id=jt['uuid'])
 
-        self._vnc_lib.port_profile_delete(fq_name=pp_obj.get_fq_name())
-        self._vnc_lib.storm_control_profile_delete(fq_name=sc_obj.get_fq_name())
+        pp_list = self._vnc_lib.port_profiles_list().get('port-profiles')
+        for pp in pp_list:
+            self._vnc_lib.port_profile_delete(id=pp['uuid'])
+
+        sc_list = self._vnc_lib.storm_control_profiles_list().get('storm-control-profiles')
+        for sc in sc_list:
+            self._vnc_lib.storm_control_profile_delete(id=sc['uuid'])
+
         self.delete_role_definitions()
         self.delete_overlay_roles()
         self.delete_physical_roles()

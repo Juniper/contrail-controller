@@ -25,9 +25,17 @@ class StormControlFeature(FeatureBase):
 
     def __init__(self, logger, physical_router, configs):
         self.pi_map = None
+        self.sc_map = None
         super(StormControlFeature, self).__init__(logger, physical_router,
                                                   configs)
     # end __init__
+
+    def _add_to_sc_map(self, sc_name, sc_obj):
+        if sc_name in self.sc_map:
+            return
+        else:
+            self.sc_map[sc_name] = sc_obj
+    # end _add_to_sc_map
 
     def _build_storm_control_interface_config(self, interfaces,
                                               feature_config):
@@ -92,7 +100,7 @@ class StormControlFeature(FeatureBase):
             sc.set_traffic_type(traffic_type)
             sc.set_recovery_timeout(params.get('recovery_timeout'))
             sc.set_actions(params.get('storm_control_actions'))
-        feature_config.add_storm_control(sc)
+        self._add_to_sc_map(sc_name, sc)
 
     def _get_connected_vn_li_map(self):
         vns = self._get_connected_vns('l2')
@@ -104,6 +112,7 @@ class StormControlFeature(FeatureBase):
 
     def feature_config(self, **kwargs):
         self.pi_map = OrderedDict()
+        self.sc_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
 
         if (not self._is_enterprise_style(self._physical_router) and
@@ -118,6 +127,9 @@ class StormControlFeature(FeatureBase):
         for pi, li_map in self.pi_map.values():
             pi.set_logical_interfaces(li_map.values())
             feature_config.add_physical_interfaces(pi)
+
+        for sc_name in self.sc_map:
+            feature_config.add_storm_control(self.sc_map[sc_name])
 
         return feature_config
     # end feature_config
