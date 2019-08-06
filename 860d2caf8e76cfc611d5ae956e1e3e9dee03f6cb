@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "5be07c2d_eafd1491",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 955,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-06T17:50:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fcb11b33_0bf88698",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8c825c5a_f3a7551f",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 2
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "9753cc85_aeb5c653",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 966,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-06T17:50:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8c825c5a_f3a7551f",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "42a491d7_b91bb00d",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 2
@@ -47,6 +83,24 @@
       "writtenOn": "2019-07-31T22:58:40Z",
       "side": 1,
       "message": "Is the check valid for already existing objects?",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4dd8d79d_9e8fd781",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 990,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-06T17:50:03Z",
+      "side": 1,
+      "message": "I think so, I don\u0027t think even now we allow VPG to have VMIs without VLAN tags",
+      "parentUuid": "42a491d7_b91bb00d",
       "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -70,6 +124,24 @@
     },
     {
       "key": {
+        "uuid": "12e2e381_e79b9afc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1024,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-06T17:50:03Z",
+      "side": 1,
+      "message": "Done. it\u0027s a Typo. the idea was to check if there were more than one \"untagged\" vlan.",
+      "parentUuid": "643f43a0_138425fc",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "9dd8e574_ea4ec30e",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 2
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "996677f1_a7671451",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1067,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-06T17:50:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9dd8e574_ea4ec30e",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "67fc9c7c_713a683f",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
         "patchSetId": 2
@@ -101,6 +191,24 @@
       "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bd3680bb_a8572e95",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1182,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-06T17:50:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "67fc9c7c_713a683f",
+      "revId": "860d2caf8e76cfc611d5ae956e1e3e9dee03f6cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
