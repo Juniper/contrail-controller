@@ -1,10 +1,11 @@
 set groups {{cfg_group}} routing-options forwarding-table chained-composite-next-hop ingress evpn
-set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 from protocol direct
-set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 1 then accept
-set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 from protocol static
-set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 2 then accept
-set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 3 from protocol evpn
-set groups {{cfg_group}} policy-options policy-statement dummy_type5 term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 1 from protocol direct
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 1 then accept
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 2 from protocol static
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 2 then accept
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from protocol evpn
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
+set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
 {% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set name = ri.get('name') %}
@@ -28,7 +29,7 @@ set groups {{cfg_group}} protocols evpn default-gateway no-gateway-community
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
-set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export dummy_type5
+set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export type5_policy
 {%             endif %}
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
 {%             set vrf_import = name+'-import' %}
