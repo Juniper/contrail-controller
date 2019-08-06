@@ -124,7 +124,8 @@ def main(args_str=None):
 
     _amqp_client = initialize_amqp_client(dm_logger, args)
     _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
-                                        args.zk_server_ip, args.host_ip)
+                                        args.zk_server_ip, args.host_ip,
+                                        zk_timeout=int(args.zk_timeout))
 
     try:
         # Initialize the device job manager
