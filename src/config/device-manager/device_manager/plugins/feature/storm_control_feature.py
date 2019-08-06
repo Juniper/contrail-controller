@@ -25,12 +25,19 @@ class StormControlFeature(FeatureBase):
 
     def __init__(self, logger, physical_router, configs):
         self.pi_map = None
+        self.sc_map = None
         super(StormControlFeature, self).__init__(logger, physical_router,
                                                   configs)
     # end __init__
 
-    def _build_storm_control_interface_config(self, interfaces,
-                                              feature_config):
+    def _add_to_sc_map(self, sc_name, sc_obj):
+        if sc_name in self.sc_map:
+            return
+        else:
+            self.sc_map[sc_name] = sc_obj
+    # end _add_to_sc_map
+
+    def _build_storm_control_interface_config(self, interfaces):
         interface_map = OrderedDict()
         for interface in interfaces:
             interface_map.setdefault(interface.pi_name, []).append(interface)
@@ -46,10 +53,10 @@ class StormControlFeature(FeatureBase):
                                               interface.unit)
                 unit.set_vlan_tag(vlan_tag)
                 # attach port profiles
-                self._attach_port_profiles(unit, feature_config,
+                self._attach_port_profiles(unit,
                                            interface)
 
-    def _attach_port_profiles(self, unit, feature_config, interface):
+    def _attach_port_profiles(self, unit, interface):
         pp_list = []
         pr = self._physical_router
         for vpg_uuid in pr.virtual_port_groups or []:
@@ -68,11 +75,11 @@ class StormControlFeature(FeatureBase):
             sc_uuid = pp.storm_control_profile
             scp = db.StormControlProfileDM.get(sc_uuid)
             if scp:
-                self._build_storm_control_config(scp, feature_config)
+                self._build_storm_control_config(scp)
                 sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
                 unit.set_storm_control_profile(sc_name)
 
-    def _build_storm_control_config(self, scp, feature_config):
+    def _build_storm_control_config(self, scp):
         sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
         sc = StormControl(name=sc_name)
         params = scp.storm_control_params
@@ -92,7 +99,7 @@ class StormControlFeature(FeatureBase):
             sc.set_traffic_type(traffic_type)
             sc.set_recovery_timeout(params.get('recovery_timeout'))
             sc.set_actions(params.get('storm_control_actions'))
-        feature_config.add_storm_control(sc)
+        self._add_to_sc_map(sc_name, sc)
 
     def _get_connected_vn_li_map(self):
         vns = self._get_connected_vns('l2')
@@ -104,6 +111,7 @@ class StormControlFeature(FeatureBase):
 
     def feature_config(self, **kwargs):
         self.pi_map = OrderedDict()
+        self.sc_map = OrderedDict()
         feature_config = Feature(name=self.feature_name())
 
         if (not self._is_enterprise_style(self._physical_router) and
@@ -112,12 +120,14 @@ class StormControlFeature(FeatureBase):
 
         vn_dict = self._get_connected_vn_li_map()
         for vn_uuid, interfaces in vn_dict.items():
-            self._build_storm_control_interface_config(interfaces,
-                                                       feature_config)
+            self._build_storm_control_interface_config(interfaces)
 
         for pi, li_map in self.pi_map.values():
             pi.set_logical_interfaces(li_map.values())
             feature_config.add_physical_interfaces(pi)
+
+        for sc_name in self.sc_map:
+            feature_config.add_storm_control(self.sc_map[sc_name])
 
         return feature_config
     # end feature_config
