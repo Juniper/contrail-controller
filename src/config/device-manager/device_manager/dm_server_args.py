@@ -36,6 +36,8 @@ def default_options():
         'analytics_password': None,
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
+        'zk_timeout': 400,
+        'yield_during_config_generation': True,
         'collectors': None,
         'http_server_port': '8096',
         'http_server_ip': '0.0.0.0',
@@ -104,6 +106,10 @@ def add_parser_arguments(parser):
                         help="Password for Analytics server")
     parser.add_argument("--zk_server_ip",
                         help="IP address:port of zookeeper server")
+    parser.add_argument("--zk_timeout",
+                        help="Timeout for zookeeper connection")
+    parser.add_argument("--yield_during_config_generation",
+                        help="Yield during abstract config generation")
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")

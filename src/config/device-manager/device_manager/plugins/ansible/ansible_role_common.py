@@ -499,6 +499,9 @@ class AnsibleRoleCommon(AnsibleConf):
                 if vlan_conf:
                     self.add_ref_to_list(vlan_conf.get_interfaces(),
                         unit_name)
+                if self.physical_router.timer:
+                    self.physical_router.timer.timed_yield()
+
     # end build_l2_evpn_interface_config
 
     def init_evpn_config(self, encapsulation='vxlan'):
@@ -623,6 +626,8 @@ class AnsibleRoleCommon(AnsibleConf):
                                     vn_dict.setdefault(vn_id, []).append(
                                     JunosInterface(li_name, 'l2', vlan_tag, port_vlan_tag=port_vlan_tag))
                                     break
+            if self.physical_router.timer:
+                self.physical_router.timer.timed_yield()
         return vn_dict
     # end
 
