@@ -248,7 +248,6 @@ class FilterModule(object):
             'device_password': self.device_password,
             'is_delete': self.is_delete,
             'enterprise_style': self.enterprise_style,
-            'manage_underlay': self.manage_underlay,
             'onboard_log': FilterLog.instance().dump(),
             'results': {},
             'status': "success"
