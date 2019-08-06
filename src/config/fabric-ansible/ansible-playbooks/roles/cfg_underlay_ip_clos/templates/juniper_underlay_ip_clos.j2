@@ -8,14 +8,16 @@ delete protocols rstp interface {{ifd.name}}
 {%                 if feature not in ifl.get('comment', '') %}
 {%                     continue %}
 {%                 endif %}
+{%                 if ifd.get('interface_type','') != 'service' %}
 delete interfaces {{ifd.name}} unit {{ifl.unit}}
 set interfaces {{ifd.name}} unit {{ifl.unit}} family inet
-{%                 set address = ifl.ip_addresses[0].address %}
-{%                 if ifl.name == 'lo0.0' %}
+{%                     set address = ifl.ip_addresses[0].address %}
+{%                     if ifl.name == 'lo0.0' %}
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32 primary
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/32 preferred
-{%                 else %}
+{%                     else %}
 set groups {{cfg_group}} interfaces {{ifd.name}} unit {{ifl.unit}} family inet address {{address}}/30
+{%                     endif %}
 {%                 endif %}
 {%             endfor %}
 {%         endif %}
