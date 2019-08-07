@@ -609,11 +609,24 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     iip_class.is_gateway_ip(db_conn, iip_ref['uuid'])):
                 return (False, (400, 'Gateway IP cannot be used by VM port'))
 
+        vpg = None
+        if read_result.get('virtual_port_group_back_refs'):
+            vpg_refs = read_result.get('virtual_port_group_back_refs')
+            vpg_id = vpg_refs[0].get('uuid')
+            ok, vpg = cls.dbe_read(
+                db_conn, 'virtual_port_group',
+                vpg_id, obj_fields=['virtual_port_group_trunk_port_id'])
+            if not ok:
+                return ok, vpg
+
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_refs' in read_result):
             for ref in read_result['virtual_machine_interface_refs']:
-                if ref not in obj_dict['virtual_machine_interface_refs']:
-                    # Dont allow remove of vmi ref during update
+                if (ref not in obj_dict['virtual_machine_interface_refs'] and
+                        vpg and
+                        vpg.get('virtual_port_group_trunk_port_id') != id):
+                    # Dont allow remove of vmi ref during update if it's
+                    # a sub port
                     msg = "VMI ref delete not allowed during update"
                     return (False, (409, msg))
 
@@ -670,7 +683,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if 'virtual_machine_interface_properties' in obj_dict:
             new_vlan = (obj_dict['virtual_machine_interface_properties'] or
                         {}).get('sub_interface_vlan_tag') or 0
-            if new_vlan != old_vlan:
+            # If this is a sub-interface, do not allow update of vlan
+            if new_vlan != old_vlan and 'virtual_machine_interface_refs' in read_result:
                 return False, (400, "Cannot change sub-interface VLAN tag ID")
 
         if 'virtual_machine_interface_bindings' in obj_dict or vmib:
