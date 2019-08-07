@@ -1,0 +1,27 @@
+- import_role:
+    name: Juniper.junos
+
+- name: IMPORT ASN INFO
+  juniper_junos_config:
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+    retrieve: 'committed'
+    filter: 'routing-options'
+    diff: true
+    check: false
+    commit: false
+    config_mode: 'private'
+    format: xml
+    options:
+      inherit: inherit
+  register: execute_command_resp
+  ignore_errors: yes
+
+- set_fact:
+    device_info: {
+        "asn": "{{execute_command_resp.get('config_parsed', {}).get('configuration', {}).get('routing-options', {}).get('autonomous-system', {}).get('as-number', '')}}"
+    }

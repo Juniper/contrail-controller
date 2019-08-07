@@ -1,0 +1,21 @@
+{
+   "input_schema":{
+       "$schema":"http://json-schema.org/draft-06/schema#",
+       "type": "object",
+       "minProperties":1
+   },
+   "output_schema":{
+      "$schema":"http://json-schema.org/draft-06/schema#",
+      "title":"Generic Device Facts Parser Output",
+      "type":"object",
+      "properties":{
+         "device_asn":{
+            "$id": "/properties/device_asn",
+            "type":"string",
+            "description":"Autonomous System Number (in string) of the device"
+         }
+      },
+      "additionalProperties": false
+   }
+}
+

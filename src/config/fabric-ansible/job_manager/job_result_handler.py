@@ -26,9 +26,11 @@ class JobResultHandler(object):
         # job result data
         self.job_result_status = None     # cummulative status
         self.job_result_message = ""   # job result msg when not device spec
+        self.job_warning_message = "" # job warning msg when not device spec
         self.job_result = dict()   # map of the device_id to job result msg
         self.job_summary_message = None
         self.failed_device_jobs = list()
+        self.warning_device_jobs = set()
         # device_management_ip, device_username, etc
         self.playbook_output = None  # marked output from the playbook stdout
         self.percentage_completed = 0.0
@@ -49,13 +51,41 @@ class JobResultHandler(object):
         if status == JobStatus.FAILURE and device_id is not None:
             self.failed_device_jobs.append(device_id)
 
+        if status == JobStatus.WARNING:
+            if device_id is not None:
+                self.warning_device_jobs.add(device_id)
+                if device_id in self.job_result:
+                    exis_warn_mess = self.job_result[device_id].get(
+                        "warning_message", ""
+                    )
+                    self.job_result[device_id].update(
+                        {
+                            "warning_message": exis_warn_mess + message
+                        }
+                    )
+                else:
+                    self.job_result[device_id] = {
+                        "warning_message": message
+                    }
+            else:
+                self.job_warning_message += message + "\n"
+
         # collect the result message
         if message is not None:
             if device_id is not None:
-                self.job_result.update(
-                    {device_id: {"message": message,
-                                 "device_name": device_name,
-                                 "device_op_result": pb_results}})
+                if device_id in self.job_result:
+                    self.job_result[device_id].update(
+                        {
+                            "message": message,
+                            "device_name": device_name,
+                            "device_op_result": pb_results
+                        }
+                    )
+                else:
+                    self.job_result.update(
+                        {device_id: {"message": message,
+                                     "device_name": device_name,
+                                     "device_op_result": pb_results}})
             else:
                 self.job_result_message = message
     # end update_job_status
@@ -135,9 +165,11 @@ class JobResultHandler(object):
                                       failed_device_jobs_len)
         # result_summary would infact be the failed_devices
         # result summary
+        # warning_summary is warning for multi device jobs
         result_summary = ""
         device_op_results = []
         failed_device_names = []
+        warning_summary = ""
 
         for entry in self.job_result:
             if entry in self.failed_device_jobs:
@@ -150,6 +182,11 @@ class JobResultHandler(object):
                 # could be other device jobs such as device import, topology
                 device_op_results.append(
                     self.job_result[entry]['device_op_result'])
+            if entry in self.warning_device_jobs:
+                warning_summary += \
+                    "%s: %s \n" % (self.job_result[entry]['device_name'],
+                                   self.job_result[entry]['warning_message'])
+
         if result_summary != "":
             failed_device_msg = "Job execution failed for %s devices.\n"\
                                 % len(self.failed_device_jobs)
@@ -158,6 +195,12 @@ class JobResultHandler(object):
 
         if self.job_result_message is not None:
             job_summary_message += self.job_result_message
+
+        if self.job_warning_message or self.warning_device_jobs:
+            job_summary_message += "\nJob execution had the following" \
+                                   " warnings: \n"
+            job_summary_message += self.job_warning_message
+            job_summary_message += warning_summary
 
         return job_summary_message, device_op_results, failed_device_names
     # end create_job_summary_message
