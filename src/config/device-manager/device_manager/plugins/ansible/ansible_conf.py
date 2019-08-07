@@ -95,6 +95,8 @@ class AnsibleConf(AnsibleBase):
             self.physical_router.routing_bridging_roles)
         is_erb_only = self.physical_router.is_erb_only()
         self.system_config.set_is_ucast_gateway_only(is_erb_only)
+        self.system_config.set_brownfield_global_asn(
+            self.physical_router.brownfield_global_asn)
         if self.physical_router.user_credentials:
             self.system_config.set_credentials(Credentials(
                 authentication_method="PasswordBasedAuthentication",

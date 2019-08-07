@@ -1,3 +1,5 @@
+---
+# vendor agnostic tasks file for import_asn_info
 - name: Encapsulate all the operations in a block rescue for error handling
   block:
     - name: check to see if the ansible file for the vendor and family exists
@@ -34,15 +36,15 @@
         op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
         jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-    - name: parse output info obtained to get appropriate chassis payload format. Ensure Jinja template does not have any new lines
+    - name: parse device asn info obtained to get asn into appropriate format. Ensure Jinja template does not have any new lines
       set_fact:
-        chassis_payload: "{{lookup('template', jinja_file_path)}}"
+        device_asn_payload: "{{lookup('template', jinja_file_path)}}"
       register: parser_output
 
-    # validate schema to check if the interfaces payload is of the correct output schema
-    - name: Validate Output Schema -- chassis_payload
+    # validate schema to check if the device_asn_payload is of the correct output schema
+    - name: Validate Output Schema -- device_asn_payload
       set_fact:
-        schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, chassis_payload, prouter_name)}}"
+        schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, device_asn_payload, prouter_name)}}"
 
     - name: Perform the necessary error handling when there is a schema validation error
       include_tasks: error_handler.yml
@@ -51,30 +53,16 @@
         op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
         jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-    # Call the vnc filter plugin for chassis import
-    - name: Call the vnc filter plugin for chassis import
-      set_fact:
-        chassis_info_import_result: "{{job_ctx | import_chassis_info(prouter_name, chassis_payload, prouter_vendor) }}"
+    # Instead of calling vnc to update prouter object, we set the facts appropriately to be
+    # later used for prouter update.
+    - set_fact:
+        device_asn: "{{device_asn_payload.device_asn}}"
 
-    - name: Set the chassis_import response
-      set_fact:
-        chassis_import_resp: "{{chassis_info_import_result.chassis_import_resp}}"
-
-    - name: Handle any exception or error cases
-      include_tasks: error_handler.yml
-      when: "'status' in chassis_info_import_result and chassis_info_import_result.status == 'failure'"
-      vars:
-        op_err_message: "Unable to import chassis info due to the following error: {{ chassis_info_import_result.error_msg }}"
-        jl_err_message: "Failed to import chassis info due to error: {{ chassis_info_import_result.error_msg }}. Here is the chassis_import_log: {{chassis_info_import_result.chassis_import_log}}"
-
-    - name: Update job log with percentage
+    - name: Update Job log with device_facts successs with percentage
       include_tasks: percentage_update.yml
       vars:
-        current_index: 5
-        jl_message: "Imported chassis mac address(es) for {{prouter_vendor}} device, {{prouter_name}}:\n   - {{chassis_import_resp.chassis_mac_ids }} "
-        jl_details: {
-                      "warning_info": "{{chassis_import_resp.warning_info}}"
-                    }
+        current_index: 3
+        jl_message: "Imported asn info for {{prouter_vendor}} device, {{prouter_name}}:\n   ASN: {{device_asn}}"
 
   rescue:
     - name: Perform the necessary error handling while trying to execute command
@@ -82,14 +70,14 @@
       when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
       vars:
         op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
-        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp .msg}}"
 
     - name: Perform the necessary error handling when parsing the device_info
       include_tasks: error_handler.yml
       when: "'failed' in parser_output and parser_output.failed == true"
       vars:
-        op_err_message: "Error while parsing the chassis information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
-        jl_err_message: "Error while parsing the chassis information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        op_err_message: "Error while parsing the device asn information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        jl_err_message: "Error while parsing the device asn information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
 
     # this is when the playbook has to end for other unhandled failures
     - meta: end_play
