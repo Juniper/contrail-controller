@@ -149,6 +149,10 @@ public:
         logical_router_uuid_ = logical_router_uuid;
     }
 
+    InterfaceOsParams get_os_params() {
+        return os_params_;
+    }
+
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
     virtual void ObtainOsSpecificParams(const std::string &name);
