@@ -111,20 +111,31 @@ class JobHandler(object):
 
             # retrieve the device_op_results in case it was set for
             # generic device operations.
+            # retrieve the playbook output status for warning cases
             playbook_output_results = None
-            if playbook_output is not None:
+            playbook_output_status = ""
+            warning_msg = ""
+
+            if playbook_output:
                 playbook_output_results = playbook_output.get('results')
+                playbook_output_status = playbook_output.get('status')
+                result_handler.update_playbook_output(playbook_output)
+                warning_msg = playbook_output.get("message")
 
             msg = MsgBundle.getMessage(
                 MsgBundle.PLAYBOOK_EXECUTION_COMPLETE,
                 job_template_name=self._job_template.get_fq_name()[-1],
                 job_execution_id=self._execution_id)
             self._logger.debug(msg)
-            result_handler.update_job_status(
-                JobStatus.SUCCESS, msg, device_id, device_name,
-                pb_results=playbook_output_results)
-            if playbook_output:
-                result_handler.update_playbook_output(playbook_output)
+
+            if playbook_output_status.lower() == "warning":
+                result_handler.update_job_status(
+                    JobStatus.WARNING, warning_msg, device_id, device_name,
+                    pb_results = playbook_output_results)
+            else:
+                result_handler.update_job_status(
+                    JobStatus.SUCCESS, msg, device_id, device_name,
+                    pb_results=playbook_output_results)
 
             self.check_and_send_prouter_job_uve_for_multidevice(
                 playbook_info, JobStatus.SUCCESS.value,
