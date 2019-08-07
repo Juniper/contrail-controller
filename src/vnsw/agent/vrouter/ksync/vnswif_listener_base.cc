@@ -16,6 +16,8 @@
 #include <vrouter/ksync/interface_ksync.h>
 #include "vrouter/ksync/vnswif_listener_base.h"
 #include "net/if.h"
+#include <oper/physical_interface.h>
+#include <string>
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -376,10 +378,27 @@ void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
     if (event->event_ == Event::DEL_INTERFACE) {
         ResetSeen(event->interface_, false);
     } else {
-        SetSeen(event->interface_, false, Interface::kInvalidIndex);
-        bool up =
-            (event->flags_ & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING);
+        bool up = (event->flags_ & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING);
+        if(event->type_ == VnswInterfaceListenerBase::VR_FABRIC || event->type_ == VnswInterfaceListenerBase::VR_BOND_SLAVES)
+        {
+            std::vector<std::string> interface_info;
+            std::istringstream iss(event->interface_);
+            for(std::string s; iss >> s; )
+                interface_info.push_back(s);
 
+            const char *x = interface_info[2].c_str();
+            InterfaceTable *table = agent_->interface_table();
+            Interface *intrface = table->FindInterface(atoi(x));
+            PhysicalInterface *phy_intf = dynamic_cast<PhysicalInterface *>(intrface);
+            if(phy_intf)
+            {
+                DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+                req.key.reset(new PhysicalInterfaceKey(agent_->fabric_interface_name()));
+                req.data.reset(new PhysicalInterfaceOsOperStateData(event->type_, interface_info[0], interface_info[1], up));
+                table->Enqueue(&req);
+            }
+        }
+        SetSeen(event->interface_, false, Interface::kInvalidIndex);
 
         SetLinkState(event->interface_, up);
 
