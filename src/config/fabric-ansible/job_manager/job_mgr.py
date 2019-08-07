@@ -142,8 +142,7 @@ class ExecutableManager(object):
                 job_input_args = self.gather_job_args()
                 try:
                     exec_process = subprocess32.Popen([exec_path,
-                                                   exec_args,
-                                                   "-i",
+                                                   "--job-input",
                                                    json.dumps(job_input_args)],
                                                   close_fds=True, cwd='/')
                     self.job_file_write.write_to_file(
