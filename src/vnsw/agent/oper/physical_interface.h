@@ -5,6 +5,7 @@
 #define src_vnsw_agent_oper_physical_interface_hpp
 
 struct PhysicalInterfaceData;
+struct PhysicalInterfaceOsOperStateData;
 
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of Physical Ports local to the device
@@ -25,6 +26,16 @@ public:
         ETHERNET,       // Ethernet with ARP
         RAW_IP          // No L2 header. Packets sent as raw-ip
     };
+
+    struct Bond_ChildIntf {
+        string intf_name;
+        string intf_drv_name;
+        bool intf_status;
+    };
+
+    typedef std::map<const std::string, Bond_ChildIntf> BondChildIntfMap;
+    typedef std::map<const std::string, Bond_ChildIntf>::const_iterator BondChildIntfMapIterator;
+
 
     PhysicalInterface(const std::string &name,
                       const boost::uuids::uuid &logical_router_uuid);
@@ -71,6 +82,15 @@ public:
     bool OnChange(PhysicalInterfaceData *data);
     virtual void ObtainOsSpecificParams(const std::string &name);
     friend struct PhysicalInterfaceKey;
+    friend struct PhysicalInterfaceOsOperStateData;
+    friend class TestVnswIf;
+
+    const BondChildIntfMap& getBondChildIntfMap() const {
+        return bond_childIntf_map_;
+    }
+    void setBondChildIntfMap(const BondChildIntfMap bondChildIntfMap) {
+        bond_childIntf_map_ = bondChildIntfMap;
+    }
 
 private:
     std::string GetPhysicalInterfaceName() const;
@@ -79,6 +99,7 @@ private:
     SubType subtype_;
     EncapType encap_type_;
     bool no_arp_;
+    BondChildIntfMap bond_childIntf_map_;
     PhysicalDeviceRef physical_device_;
     std::string display_name_;
     Ip4Address ip_;
@@ -95,12 +116,14 @@ struct PhysicalInterfaceData : public InterfaceData {
                           const std::string &display_name,
                           const Ip4Address &ip,
                           Interface::Transport transport);
+    virtual ~PhysicalInterfaceData() { }
     PhysicalInterface::SubType subtype_;
     PhysicalInterface::EncapType encap_type_;
     bool no_arp_;
     boost::uuids::uuid device_uuid_;
     std::string display_name_;
     Ip4Address ip_;
+    virtual bool OnResync(PhysicalInterface *phy_intf) const;
 };
 
 struct PhysicalInterfaceKey : public InterfaceKey {
@@ -111,6 +134,25 @@ struct PhysicalInterfaceKey : public InterfaceKey {
     Interface *AllocEntry(const InterfaceTable *table,
                           const InterfaceData *data) const;
     InterfaceKey *Clone() const;
+};
+
+struct PhysicalInterfaceOsOperStateData : public PhysicalInterfaceData {
+    enum bond_intf_type {
+       VR_FABRIC = 1,
+       VR_BOND_SLAVES,
+    };
+
+    PhysicalInterfaceOsOperStateData(unsigned short int type_, std::string intf_name, std::string intf_drv_name, bool status):
+            PhysicalInterfaceData(NULL, NULL, "", PhysicalInterface::INVALID, PhysicalInterface::ETHERNET,
+                        false, boost::uuids::nil_uuid(), "", Ip4Address(0), Interface::TRANSPORT_INVALID), type_(type_),
+                        intf_name(intf_name), intf_drv_name(intf_drv_name), oper_state_(status) { }
+    virtual ~PhysicalInterfaceOsOperStateData() { }
+    virtual bool OnResync(PhysicalInterface *phy_intf) const;
+
+    unsigned short int type_;
+    string intf_name;
+    string intf_drv_name;
+    bool oper_state_;
 };
 
 #endif // src_vnsw_agent_oper_physical_interface_hpp

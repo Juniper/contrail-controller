@@ -56,9 +56,9 @@ public:
         }
 
         // Constructor for interface add/delete/change notification
-        Event(Type event, const std::string &interface, uint32_t flags) :
+        Event(Type event, const std::string &interface, uint32_t flags, unsigned short int type) :
             event_(event), interface_(interface), addr_(0), plen_(0),
-            gw_(0), flags_(flags), protocol_(0), ipam_(false) {
+            gw_(0), flags_(flags), protocol_(0), ipam_(false), type_(type) {
         }
 
         // Constructor for interface address add/delete/change notification
@@ -84,6 +84,11 @@ public:
         uint32_t flags_;
         uint8_t protocol_;
         bool ipam_;
+        unsigned short int type_;
+    };
+    enum bond_intf_type {
+        VR_FABRIC = 1,
+        VR_BOND_SLAVES,
     };
 
     struct HostInterfaceEntry {

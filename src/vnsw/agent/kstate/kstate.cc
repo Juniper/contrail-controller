@@ -21,6 +21,7 @@
 #include "vr_nexthop.h"
 #include "vr_message.h"
 #include <net/if.h>
+#include <string>
 
 using namespace std;
 
@@ -171,6 +172,51 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     }
     if (r->get_vifr_pbb_mac().size()) {
         data.set_pbb_bmac(MacToString(r->get_vifr_pbb_mac()));
+    }
+
+    if(ist->TypeToString(r->get_vifr_type()) == "PHYSICAL")
+    {
+        std::vector<BondInterfaceInfo> bond_interface_list;
+        const char *bond_link[] = {"DOWN", "UP"};
+
+        BondInterfaceInfo entry;
+        entry.set_bond_members_info("Master Interface");
+
+        char *master_intf_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_fab_name())[0]));
+        std::string str_bond_interface_name((char *)master_intf_name);
+        entry.set_bond_interface_name(str_bond_interface_name);
+
+        entry.set_bond_interface_status(bond_link[(r->get_vifr_intf_status() & 0x01)]);
+
+        char *master_intf_drv_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_fab_drv_name())[0]));
+        std::string str_bond_interface_drv_name((char *)master_intf_drv_name);
+        entry.set_bond_interface_drv_name(str_bond_interface_drv_name);
+
+        bond_interface_list.push_back(entry);
+
+        char *slave_intf_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_bond_slave_name())[0]));
+        char *slave_intf_drv_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_bond_slave_drv_name())[0]));
+
+        for (int i = 0; i < r->get_vifr_num_bond_slave(); i++) {
+            BondInterfaceInfo entry;
+            entry.set_bond_members_info("Slave Interface");
+
+            std::string str((char*)slave_intf_name);
+            entry.set_bond_interface_name(str);
+
+            entry.set_bond_interface_status(bond_link[(r->get_vifr_intf_status() >> (i + 1)) & 0x01]);
+
+            std::string str1((char*)slave_intf_drv_name);
+            entry.set_bond_interface_drv_name(str1);
+
+            slave_intf_name = strchr(slave_intf_name, '\0');
+            slave_intf_name++;
+            slave_intf_drv_name = strchr(slave_intf_drv_name, '\0');
+            slave_intf_drv_name++;
+            bond_interface_list.push_back(entry);
+        }
+
+        data.set_bond_interface_list(bond_interface_list);
     }
     list.push_back(data);
 

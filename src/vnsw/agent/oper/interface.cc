@@ -850,7 +850,30 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
     switch (type_) {
     case Interface::PHYSICAL:
-        data.set_type("eth");
+        {
+            const PhysicalInterface *pintf =
+                    static_cast<const PhysicalInterface *>(this);
+            map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = pintf->getBondChildIntfMap().begin();
+            vector<BondInterfaceList> bond_interface_list;
+            for(; it != pintf->getBondChildIntfMap().end(); it++)
+            {
+                PhysicalInterface::Bond_ChildIntf bond_intf;
+                bond_intf = it->second;
+                BondInterfaceList entry;
+                entry.set_intf_name(bond_intf.intf_name);
+                entry.set_intf_drv_name(bond_intf.intf_drv_name);
+                entry.set_intf_status(bond_intf.intf_status ? "UP" : "DOWN");
+                bond_interface_list.push_back(entry);
+            }
+            data.set_bond_interface_list(bond_interface_list);
+
+            if(pintf->os_params_.os_oper_state_)
+                data.set_active("Active");
+            else
+                data.set_active("Inactive <Oper-state-down>");
+            data.set_type("eth");
+
+        }
         break;
 
     case Interface::REMOTE_PHYSICAL:

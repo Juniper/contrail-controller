@@ -178,6 +178,13 @@ struct VmiTagData {
 /**
  * Structure definition for interface in oper db
  */
+
+struct BondInterfaceList {
+   1: string intf_name;
+   2: string intf_drv_name;
+   3: string intf_status;
+}
+
 struct ItfSandeshData {
     /** Index value for interface in oper db table */
     1: i32 index;
@@ -327,6 +334,7 @@ struct ItfSandeshData {
    /** Max number of flows on vmi **/
    67: i32 max_flows;
    68: list<string> policy_set_fwaas_list;
+   69: list<BondInterfaceList> bond_interface_list;
 }
 
 /**

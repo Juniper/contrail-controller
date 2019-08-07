@@ -182,6 +182,7 @@ std::string VmPortGetAnalyzerName(int id);
 Interface::MirrorDirection VmPortGetMirrorDirection(int id);
 bool VmPortInactive(PortInfo *input, int id);
 PhysicalInterface *EthInterfaceGet(const char *name);
+bool getIntfStatus(PhysicalInterface *intf);
 VmInterface *VmInterfaceGet(int id);
 bool VmPortPolicyEnable(int id);
 bool VmPortPolicyEnable(PortInfo *input, int id);
