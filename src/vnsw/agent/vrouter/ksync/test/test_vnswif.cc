@@ -58,14 +58,14 @@ public:
         vnswif_->ResetSeen(agent_->vhost_interface_name(), true);
     }
 
-    void InterfaceEvent(bool add, const string &ifname, uint32_t flags) {
+    void InterfaceEvent(bool add, const string &ifname, uint32_t flags, unsigned short int type_ = 0) {
         VnswInterfaceListener::Event::Type type;
         if (add) {
             type = VnswInterfaceListener::Event::ADD_INTERFACE;
         } else {
             type = VnswInterfaceListener::Event::DEL_INTERFACE;
         }
-        vnswif_->Enqueue(new VnswInterfaceListener::Event(type, ifname, flags));
+        vnswif_->Enqueue(new VnswInterfaceListener::Event(type, ifname, flags, type_));
         client->WaitForIdle();
     }
 
@@ -502,6 +502,37 @@ TEST_F(TestVnswIf, FabricIpamLinkFlap) {
 
     InterfaceEvent(false, agent_->vhost_interface_name(), 0);
     ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
+}
+
+TEST_F(TestVnswIf, InterfaceStatus) {
+    InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
+
+    InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, 1);
+    client->WaitForIdle();
+
+    InterfaceEvent(true, "test_phy1 test_phy_drv1 0", 3, 1);
+    client->WaitForIdle();
+    EXPECT_FALSE(EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
+
+    InterfaceEvent(false, "test_phy1 test_phy_drv1 0", 3, 1);
+    client->WaitForIdle();
+
+    InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, 2);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(getIntfStatus(EthInterfaceGet(agent_->fabric_interface_name().c_str())));
+
+    InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, 2);
+    client->WaitForIdle();
+
+    InterfaceEvent(true, "test_phy1 test_phy_drv1 0", 3, 2);
+    client->WaitForIdle();
+    EXPECT_FALSE(getIntfStatus(EthInterfaceGet(agent_->fabric_interface_name().c_str())));
+
+    InterfaceEvent(false, "test_phy1 test_phy_drv1 0", 3, 2);
     client->WaitForIdle();
 }
 
