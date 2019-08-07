@@ -71,14 +71,21 @@ class TestVirtualMachineInterface(test_case.ApiServerTestCase):
         self.api.project_create(project)
         vn = VirtualNetwork('%s-vn' % self.id(), parent_obj=project)
         self.api.virtual_network_create(vn)
+        parent_vmi = VirtualMachineInterface(
+            '%s-parent-vmi' % self.id(), parent_obj=project)
+        parent_vmi.set_virtual_network(vn)
+        self.api.virtual_machine_interface_create(parent_vmi)
+
         vmi = VirtualMachineInterface('%s-vmi' % self.id(), parent_obj=project)
         vmi.set_virtual_network(vn)
+        vmi.set_virtual_machine_interface(parent_vmi)
         self.api.virtual_machine_interface_create(vmi)
         vmi42 = VirtualMachineInterface('%s-vmi42' % self.id(),
                                         parent_obj=project)
         vmi42.set_virtual_machine_interface_properties(
             VMIPT(sub_interface_vlan_tag=42))
         vmi42.set_virtual_network(vn)
+        vmi42.set_virtual_machine_interface(parent_vmi)
         self.api.virtual_machine_interface_create(vmi42)
 
         # if we don't touch VMI props, we can update the VMI with or without
