@@ -357,6 +357,22 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
             }
         }
     }
+    else if (intf->type() == Interface::PHYSICAL)
+    {
+        const PhysicalInterface *phy_intf = static_cast<const PhysicalInterface *>(intf);
+        if (phy_intf)
+        {
+            PhysicalInterface::BondChildIntfMap bond_childIntf_map = phy_intf->getBondChildIntfMap();
+            map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = bond_childIntf_map.begin();
+            for(; it != bond_childIntf_map.end(); it++)
+            {
+                PhysicalInterface::Bond_ChildIntf bond_intf;
+                bond_intf = it->second;
+                if(!bond_intf.intf_status)
+                    err_if_list.get()->push_back(it->first);
+            }
+        }
+    }
     return true;
 }
 
@@ -466,6 +482,18 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
             if (!state) {
                 set_state = true;
                 phy_intf_set_.insert(intf);
+            }
+            if (phy_if)
+            {
+                PhysicalInterface::BondChildIntfMap bond_childIntf_map = phy_if->getBondChildIntfMap();
+                map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = bond_childIntf_map.begin();
+                for(; it != bond_childIntf_map.end(); it++)
+                {
+                    PhysicalInterface::Bond_ChildIntf bond_intf;
+                    bond_intf = it->second;
+                    if(!bond_intf.intf_status)
+                        do_interface_walk_ = true;
+                }
             }
         }
         break;
