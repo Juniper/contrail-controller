@@ -146,6 +146,21 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "sandesh" : {
+        "source_directories" : [
+            "controller/src/sandesh",
+            "src/contrail-api-client/schema",
+            "controller/src/xml",
+            "src/contrail-api-client/generateds",
+            "src/contrail-common/sandesh"
+        ],
+        "scons_test_targets" : [
+            "src/contrail-common/database/gendb:test",
+            "src/contrail-api-client/schema:test",
+            "sandesh:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-libs" : {
         "source_directories" : [
             "src/contrail-common/base",
@@ -157,23 +172,15 @@
             "src/contrail-common/http",
             "controller/src/net",
             "controller/src/route",
-            "controller/src/routing-policy",
-            "controller/src/sandesh",
-            "src/contrail-api-client/schema",
-            "controller/src/xml",
-            "src/contrail-api-client/generateds",
-            "src/contrail-common/sandesh"
+            "controller/src/routing-policy"
         ],
         "scons_test_targets" : [
             "src/contrail-common/base:test",
             "src/contrail-common/io:test",
             "controller/src/db:test",
-            "src/contrail-common/database/gendb:test",
             "src/contrail-common/database/cassandra/cql:test",
             "src/contrail-common/zookeeper:test",
-            "controller/src/net:test",
-            "src/contrail-api-client/schema:test",
-            "sandesh:test"
+            "controller/src/net:test"
         ],
         "misc_test_targets" : [
             "contrail-collector",
