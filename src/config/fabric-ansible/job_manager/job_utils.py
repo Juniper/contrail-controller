@@ -28,6 +28,7 @@ class JobStatus(Enum):
     IN_PROGRESS = "IN_PROGRESS"
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
+    WARNING = "WARNING"
 
 
 class JobVncApi(object):
