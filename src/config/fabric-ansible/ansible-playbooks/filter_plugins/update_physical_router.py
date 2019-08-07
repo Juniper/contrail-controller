@@ -31,7 +31,7 @@ class FilterModule(object):
 
     @staticmethod
     def _parse_additional_prop_and_upd_payload(
-            obj_dict_payload, prouter_vendor):
+            obj_dict_payload, prouter_vendor, is_ztp):
         if obj_dict_payload.get("additional_properties"):
             annotations = {
                 "key_value_pair": [
@@ -42,9 +42,15 @@ class FilterModule(object):
                     }
                 ]
             }
-            obj_dict_payload.update({"annotations": annotations})
+            obj_dict_payload["annotations"] = annotations
+        pr_asn = obj_dict_payload.get("physical_router_asn")
+        if pr_asn and not is_ztp:
+            asn = {
+                "asn": [int(pr_asn)]
+            }
+            obj_dict_payload["physical_router_autonomous_system"] = asn
         obj_dict_payload.pop("additional_properties")
-
+        obj_dict_payload.pop("physical_router_asn")
     # end _parse_additional_prop_and_upd_payload
 
     def update_physical_router(self, job_ctx, prouter_name,
@@ -117,8 +123,10 @@ class FilterModule(object):
 
             _task_log("Parsing additional physical router properties")
 
+            is_ztp = job_ctx.get('job_input').get('manage_underlay')
+
             FilterModule._parse_additional_prop_and_upd_payload(
-                obj_dict_payload, prouter_vendor)
+                obj_dict_payload, prouter_vendor, is_ztp)
 
             _task_log("Updating the physical router")
 
