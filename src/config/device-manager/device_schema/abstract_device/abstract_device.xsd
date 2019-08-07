@@ -59,6 +59,7 @@
        <!-- Deprecated: These sections are encapsulated inside feature groups -->
        <xsd:element name="is-ucast-gateway-only" type="xsd:boolean"/>
        <xsd:element name="dummy-ip" type="xsd:string"/>
+       <xsd:element name="global-asn" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
