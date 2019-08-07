@@ -5,6 +5,7 @@
 from schema_transformer.resources._resource_base import ResourceBaseST
 from vnc_api.gen.resource_xsd import InstanceTargetType
 from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
+import json
 import jsonpickle
 import copy
 import uuid
@@ -21,7 +22,9 @@ class ServiceChain(ResourceBaseST):
     def init(cls):
         # When schema transformer restarts, read all service chains from cassandra
         for (name, columns) in cls._object_db.list_service_chain_uuid():
-            chain = jsonpickle.decode(columns['value'])
+            json_dict = json.loads(columns['value'])
+            json_dict.update({"py/object": '%s.%s' % (cls.__module__, cls.__name__)})
+            chain = jsonpickle.loads(json.dumps(json_dict))
 
             # Some service chains may not be valid any more. We may need to
             # delete such service chain objects or we have to destroy them.
