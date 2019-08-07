@@ -53,6 +53,24 @@
     },
     {
       "key": {
+        "uuid": "fba8fcce_d46063e0",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6258,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-07T13:57:27Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6bdac229_c2f3dbbd",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6500fa0f_3866932b",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
         "patchSetId": 9
@@ -84,6 +102,24 @@
       "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a9749482_9878bb75",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6273,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-07T13:57:27Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d5d8c052_34399f2d",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -121,6 +157,24 @@
     },
     {
       "key": {
+        "uuid": "22e5598a_fdeacea3",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 6374,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-07T13:57:27Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a7753b70_136fbaed",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c90c79f2_adc65882",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
         "patchSetId": 9
@@ -135,6 +189,24 @@
       "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d291a8df_ad0cb99d",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 1158,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-07T13:57:27Z",
+      "side": 1,
+      "message": "that\u0027s handled. I tested out in one of my setups:\n\n(kolla-toolbox)[ansible@b4s9 /var/log/kolla/neutron]$ openstack network trunk show SATHISH-trunk2\n+----------------+--------------------------------------------------------------------------------------------------+\n| Field          | Value                                                                                            |\n+----------------+--------------------------------------------------------------------------------------------------+\n| admin_state_up | UP                                                                                               |\n| id             | ceb2a63d-dc87-4ebc-9002-22638c3d7515                                                             |\n| name           | SATHISH-trunk2                                                                                   |\n| port_id        | ba0cb8f1-7637-4639-8c58-5139ec484687                                                             |\n| project_id     | 928808e85c78431c8090be3847ad8f03                                                                 |\n| status         | DOWN                                                                                             |\n| sub_ports      | port_id\u003d\u0027df518237-b977-4ef2-a14e-589b655054db\u0027, segmentation_id\u003d\u00272132\u0027, segmentation_type\u003d\u0027vlan\u0027 |\n|                | port_id\u003d\u0027898694a4-5e9a-4a92-8d1e-78243b773a56\u0027, segmentation_id\u003d\u0027100\u0027, segmentation_type\u003d\u0027vlan\u0027  |\n| tenant_id      | 928808e85c78431c8090be3847ad8f03                                                                 |\n+----------------+--------------------------------------------------------------------------------------------------+\n(kolla-toolbox)[ansible@b4s9 /var/log/kolla/neutron]$ \n(kolla-toolbox)[ansible@b4s9 /var/log/kolla/neutron]$ \n(kolla-toolbox)[ansible@b4s9 /var/log/kolla/neutron]$ openstack network subport list --trunk SATHISH-trunk2\n+--------------------------------------+-------------------+-----------------+\n| Port                                 | Segmentation Type | Segmentation ID |\n+--------------------------------------+-------------------+-----------------+\n| df518237-b977-4ef2-a14e-589b655054db | vlan              |            2132 |\n| 898694a4-5e9a-4a92-8d1e-78243b773a56 | vlan              |             100 |\n+--------------------------------------+-------------------+-----------------+",
+      "parentUuid": "c90c79f2_adc65882",
+      "revId": "712f21f8e77a7a942311ed04750a3c314956576e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
