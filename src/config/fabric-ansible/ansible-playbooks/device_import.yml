@@ -13,6 +13,7 @@
     - import_device_facts
     - read_interfaces_info
     - import_interfaces_info
+    - import_asn_info
     - update_physical_router_properties
     - import_chassis_info
 

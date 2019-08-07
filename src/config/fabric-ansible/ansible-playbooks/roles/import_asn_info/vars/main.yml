@@ -1,0 +1,3 @@
+---
+# vars file for import_asn_info
+schema_file: "{{playbook_dir}}/schema/import_asn_info_schema.json"
