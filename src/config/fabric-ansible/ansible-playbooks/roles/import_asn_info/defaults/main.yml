@@ -1,0 +1,7 @@
+---
+# defaults file for import_asn_info
+execute_command_resp: {}
+device_info: {}
+parser_output: {}
+device_asn_payload: {}
+schema_validation_resp: {}
