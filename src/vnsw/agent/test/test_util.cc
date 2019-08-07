@@ -1167,6 +1167,19 @@ PhysicalInterface *EthInterfaceGet(const char *name) {
     return intf;
 }
 
+bool getIntfStatus(PhysicalInterface *intf)
+{
+    bool ret = false;
+    PhysicalInterface::BondChildIntfMap bond_childIntf_map = intf->getBondChildIntfMap();
+    PhysicalInterface::BondChildIntfMapIterator it = bond_childIntf_map.begin();
+    for(; it != bond_childIntf_map.end(); it++)
+    {
+        ret = (it->second).intf_status;
+    }
+
+    return ret;
+}
+
 VmInterface *VmInterfaceGet(int id) {
     VmInterface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
