@@ -4,6 +4,8 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
+
 
 class FilterModule(object):
     def filters(self):
@@ -36,4 +38,3 @@ class FilterModule(object):
         return True
     # end is_juniper_device_online
 # end FilterModule
-

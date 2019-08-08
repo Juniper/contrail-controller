@@ -9,17 +9,23 @@
 #
 
 import ast
+from builtins import object
+from builtins import range
+from builtins import str
 import sys
 import time
 
 from inflection import camelize
-from job_manager.job_utils import JobVncApi
 import vnc_api
+
 try:
    from ansible.module_utils.fabric_utils import FabricAnsibleModule
 except:
    sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
    from fabric_utils import FabricAnsibleModule # noqa
+
+from job_manager.job_utils import JobVncApi
+
 
 DOCUMENTATION = '''
 ---

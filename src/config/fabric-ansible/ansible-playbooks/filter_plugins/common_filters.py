@@ -1,3 +1,5 @@
+from builtins import object
+from builtins import range
 import crypt
 import random
 
