@@ -1,5 +1,9 @@
 #!/usr/bin/python
+from __future__ import print_function
+
 import argparse
+from builtins import object
+from builtins import str
 import sys
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
@@ -63,4 +67,4 @@ if __name__ == '__main__':
             {"sample_exec_id_filename": "sample_exec_id",
              "sample_unique_pb_id": "sample_unique_pb_id"},
             10)
-    print results
+    print(results)

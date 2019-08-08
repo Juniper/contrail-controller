@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import absolute_import
 import gevent
 import gevent.monkey
 gevent.monkey.patch_all(thread=False)
@@ -12,7 +13,7 @@ from collections import OrderedDict
 
 sys.path.append('../common/cfgm_common/tests')
 
-import test_case
+from . import test_case
 from test_utils import FakeKazooClient
 
 logger = logging.getLogger(__name__)
@@ -1474,13 +1475,13 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
 
     def init_test(self):
         self.mockFabric()
-        for id, val in mock_device_image_db.iteritems():
+        for id, val in mock_device_image_db.items():
             self.mockDeviceImage(id)
-        for id, val in mock_physical_router_db.iteritems():
+        for id, val in mock_physical_router_db.items():
             self.mockPhysicalRouter(id)
-        for id, val in mock_physical_interface_db.iteritems():
+        for id, val in mock_physical_interface_db.items():
             self.mockPhysicalInterface(id)
-        for id, val in mock_virtual_port_group_db.iteritems():
+        for id, val in mock_virtual_port_group_db.items():
             self.mockVirtualPortGroup(id)
         flexmock(JobVncApi).should_receive('vnc_init').and_return(self._vnc_lib)
         flexmock(self._vnc_lib).should_receive('job_template_read').\
@@ -1490,7 +1491,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
         hitless_filter = FilterModule()
         upgrade_plan = hitless_filter.get_hitless_upgrade_plan(mock_job_ctx,
                         mock_image_upgrade_list)
-        for device_uuid, device_info in upgrade_plan['device_table'].iteritems():
+        for device_uuid, device_info in upgrade_plan['device_table'].items():
             device_info['basic']['device_password'] = '***'
             for buddy in device_info['vpg_info']['buddies']:
                 buddy['password'] = '***'
@@ -1515,7 +1516,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
         hitless_filter = FilterModule()
         device_info = hitless_filter.get_device_info(mock_job_ctx,
                                                      DEV_UUID1)
-        for device_uuid, dev_info in device_info['device_table'].iteritems():
+        for device_uuid, dev_info in device_info['device_table'].items():
             dev_info['basic']['device_password'] = '***'
             for buddy in dev_info['vpg_info']['buddies']:
                 buddy['password'] = '***'

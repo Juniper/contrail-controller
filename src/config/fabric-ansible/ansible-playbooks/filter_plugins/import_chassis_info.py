@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from builtins import object
+from builtins import str
 import sys
 import traceback
 
@@ -172,7 +174,7 @@ class FilterModule(object):
                     chassis_mac_ids.append(
                         chassis_mac_id
                     )
-                except NoIdError as ex:
+                except NoIdError:
                     vnc_lib.device_chassis_create(chassis_obj)
                     chassis_mac_fqnames.append(
                         chassis_mac_fqname)

@@ -3,13 +3,17 @@
 #
 
 """This file contains job manager process code and api."""
+from __future__ import print_function
 
 import argparse
+from builtins import map
+from builtins import object
+from builtins import range
+from builtins import str
 import json
 import os
-import socket
 import signal
-import subprocess32
+import socket
 import sys
 import time
 import traceback
@@ -20,6 +24,8 @@ monkey.patch_socket()
 from gevent.greenlet import Greenlet
 from gevent.pool import Pool
 import jsonschema
+from past.builtins import basestring
+import subprocess32
 from vnc_api.vnc_api import VncApi
 
 from job_manager.job_exception import JobException
@@ -27,12 +33,13 @@ from job_manager.job_handler import JobHandler
 from job_manager.job_log_utils import JobLogUtils
 from job_manager.job_messages import MsgBundle
 from job_manager.job_result_handler import JobResultHandler
-from job_manager.job_utils import JobStatus, JobUtils, JobFileWrite
+from job_manager.job_utils import JobFileWrite, JobStatus, JobUtils
 from job_manager.sandesh_utils import SandeshUtils
 
 
 class ExecutableManager(object):
-    def __init__(self, logger, vnc_api, job_input, job_log_utils ):
+    def __init__(self, logger, vnc_api, job_input, job_log_utils):
+        """Initializer."""
         self._logger = logger
         self.vnc_api = vnc_api
         self.vnc_api_init_params = None
@@ -87,19 +94,19 @@ class ExecutableManager(object):
             raise JobException(msg, self.job_execution_id)
 
     def gather_job_args(self):
-            extra_vars = {
-                'input': self.job_data,
-                'job_template_id': self.job_template.get_uuid(),
-                'job_template_fqname': self.job_template.fq_name,
-                'fabric_fq_name': self.fabric_fq_name,
-                'auth_token': self.auth_token,
-                'contrail_cluster_id': self.contrail_cluster_id,
-                'api_server_host': self.api_server_host,
-                'job_execution_id': self.job_execution_id ,
-                'sandesh_args': self.sandesh_args,
-                'vnc_api_init_params': self.vnc_api_init_params,
-            }
-            return extra_vars
+        extra_vars = {
+            'input': self.job_data,
+            'job_template_id': self.job_template.get_uuid(),
+            'job_template_fqname': self.job_template.fq_name,
+            'fabric_fq_name': self.fabric_fq_name,
+            'auth_token': self.auth_token,
+            'contrail_cluster_id': self.contrail_cluster_id,
+            'api_server_host': self.api_server_host,
+            'job_execution_id': self.job_execution_id,
+            'sandesh_args': self.sandesh_args,
+            'vnc_api_init_params': self.vnc_api_init_params,
+        }
+        return extra_vars
 
     def start_job(self):
         self._logger.info("Starting Executable")
@@ -114,11 +121,10 @@ class ExecutableManager(object):
                                                    self.job_utils,
                                                    self.job_log_utils)
 
-
             msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
                                        job_execution_id=self.job_execution_id,
-                                       job_template_name=\
-                                           job_template.fq_name[-1])
+                                       job_template_name=job_template.fq_name[
+                                           -1])
             self._logger.debug(msg)
 
             timestamp = int(round(time.time() * 1000))
@@ -138,16 +144,13 @@ class ExecutableManager(object):
                 .get_executable_info()
             for executable in executable_list:
                 exec_path = executable.get_executable_path()
-                exec_args = executable.get_executable_args()
+                executable.get_executable_args()
                 job_input_args = self.gather_job_args()
                 try:
-                    exec_process = subprocess32.Popen([exec_path,
-                                                   "--job-input",
-                                                   json.dumps(job_input_args),
-                                                   '--debug', 'True'],
-                                                  close_fds=True, cwd='/',
-                                                  stdout=subprocess32.PIPE,
-                                                  stderr=subprocess32.PIPE)
+                    exec_process = subprocess32.Popen(
+                        [exec_path, "--job-input",
+                         json.dumps(job_input_args)], close_fds=True, cwd='/',
+                        stdout=subprocess32.PIPE, stderr=subprocess32.PIPE)
                     self.job_file_write.write_to_file(
                         self.job_execution_id,
                         "job_summary",
@@ -155,7 +158,8 @@ class ExecutableManager(object):
                         {"job_status": "INPROGRESS"})
                     msg = "Child process pid = " + str(exec_process.pid)
                     self._logger.info(msg)
-                    (out, err) = exec_process.communicate(timeout=self.executable_timeout)
+                    (out, err) = exec_process.communicate(
+                        timeout=self.executable_timeout)
 
                     self._logger.notice(str(out))
                     self._logger.notice(str(err))
@@ -163,30 +167,28 @@ class ExecutableManager(object):
                     if exec_process is not None:
                         os.kill(exec_process.pid, 9)
                         msg = MsgBundle.getMessage(
-                                  MsgBundle.RUN_EXECUTABLE_PROCESS_TIMEOUT,
-                                  exec_path=exec_path,
-                                  exc_msg=repr(timeout_exp))
+                            MsgBundle.RUN_EXECUTABLE_PROCESS_TIMEOUT,
+                            exec_path=exec_path, exc_msg=repr(timeout_exp))
                         raise JobException(msg, self.job_execution_id)
 
                 self._logger.info(exec_process.returncode)
                 self._logger.info("Executable Completed")
                 if exec_process.returncode != 0:
-                     self.job_file_write.write_to_file(
-                         self.job_execution_id,
-                         "job_summary",
-                         JobFileWrite.JOB_LOG,
-                         {"job_status": "FAILED"})
-                     msg = MsgBundle.getMessage(MsgBundle.
-                                   EXECUTABLE_RETURN_WITH_ERROR,
-                                   exec_uri=exec_path)
-                     self._logger.error(msg)
+                    self.job_file_write.write_to_file(
+                        self.job_execution_id,
+                        "job_summary",
+                        JobFileWrite.JOB_LOG,
+                        {"job_status": "FAILED"})
+                    msg = MsgBundle.getMessage(
+                        MsgBundle.EXECUTABLE_RETURN_WITH_ERROR,
+                        exec_uri=exec_path)
+                    self._logger.error(msg)
                 else:
                     self.job_file_write.write_to_file(
                         self.job_execution_id,
                         "job_summary",
                         JobFileWrite.JOB_LOG,
                         {"job_status": "COMPLETED"})
-
 
         except JobException as exp:
             err_msg = "Job Exception recieved: %s " % repr(exp)
@@ -214,6 +216,7 @@ class ExecutableManager(object):
             self._logger.info("Closed Sandesh connection")
             if job_error_msg is not None:
                 sys.exit(job_error_msg)
+
 
 class JobManager(object):
 
@@ -367,8 +370,8 @@ class WFManager(object):
         self.job_mgr = None
         self.job_template = None
         self.abort_flag = False
-        signal.signal(signal.SIGABRT,  self.job_mgr_abort_signal_handler)
-        signal.signal(signal.SIGUSR1,  self.job_mgr_abort_signal_handler)
+        signal.signal(signal.SIGABRT, self.job_mgr_abort_signal_handler)
+        signal.signal(signal.SIGUSR1, self.job_mgr_abort_signal_handler)
         logger.debug("Job manager initialized")
 
     def parse_job_input(self, job_input_json):
@@ -525,7 +528,8 @@ class WFManager(object):
                 if self.abort_flag:
                     err_msg = "ABORTING NOW..."
                     self._logger.info(err_msg)
-                    self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
+                    self.result_handler.update_job_status(JobStatus.FAILURE,
+                                                          err_msg)
                     break
 
                 # update the job input with marked playbook output json
@@ -582,15 +586,18 @@ class WFManager(object):
             self._logger.info(err_msg)
             try:
                 self.job_mgr.job_handler.playbook_abort()
-                self.result_handler.update_job_status(JobStatus.FAILURE, err_msg)
-                self.result_handler.create_job_summary_log(self.job_template.fq_name)
+                self.result_handler.update_job_status(JobStatus.FAILURE,
+                                                      err_msg)
+                self.result_handler.create_job_summary_log(
+                    self.job_template.fq_name)
                 sys.exit()
-            except Exception as ex:
+            except Exception:
                 self._logger.error("Failed to force abort")
         elif signalnum == signal.SIGUSR1:
             # Graceful abort; Exit after current playbook
             self._logger.info("Job will abort upon playbook completion...")
             self.abort_flag = True
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Job manager parameters')
@@ -659,8 +666,8 @@ if __name__ == "__main__":
             config_args=job_input_json.get('args'))
         logger = job_log_utils.config_logger
     except Exception as exp:
-        print >> sys.stderr, "Failed to initialize logger due "\
-                             "to Exception: %s" % traceback.format_exc()
+        print("Failed to initialize logger due to Exception:"
+              " %s" % traceback.format_exc(), file=sys.stderr)
         sys.exit(
             "Exiting due to logger initialization error: %s" % repr(exp))
 

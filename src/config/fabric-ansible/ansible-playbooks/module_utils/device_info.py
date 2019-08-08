@@ -8,7 +8,11 @@
 
 This file contains untility functions for device discovery
 """
+
 import ast
+from builtins import next
+from builtins import object
+from builtins import str
 import subprocess
 import xml.etree.ElementTree as etree
 
@@ -280,7 +284,7 @@ class DeviceInfo(object):
         # If neither avaiable, remove the entire entry from the list.
         # Cannot check ssh connectivity with just the username or password.
         for creds in credentials[index:]:
-            for user_pwd in creds.values():
+            for user_pwd in list(creds.values()):
                 if isinstance(user_pwd, dict):
                     if user_pwd.get('username') and user_pwd.get('password'):
                         index += 1
@@ -294,7 +298,7 @@ class DeviceInfo(object):
         for single_dict in credentials:
             remove_null.append(
                 dict([(dkey, ddata)
-                      for dkey, ddata in single_dict.iteritems() if ddata]))
+                      for dkey, ddata in single_dict.items() if ddata]))
 
         # Sorting based on number of keys in a dict.Max-min sorting done here
         # resulting list would have dict with max keys as first entry
