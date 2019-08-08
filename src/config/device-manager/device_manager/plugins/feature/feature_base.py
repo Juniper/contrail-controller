@@ -5,6 +5,8 @@
 """Base class for feature plugins."""
 
 import abc
+from builtins import object
+from builtins import str
 from collections import OrderedDict
 import copy
 
