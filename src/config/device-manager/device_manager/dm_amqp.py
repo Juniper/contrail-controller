@@ -4,11 +4,12 @@
 #
 
 """Device Manager amqp handler."""
+from __future__ import absolute_import
 
 import socket
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
-from db import DBBaseDM, PhysicalRouterDM, VirtualNetworkDM
+from .db import DBBaseDM, PhysicalRouterDM, VirtualNetworkDM
 
 
 class DMAmqpHandle(VncAmqpHandle):

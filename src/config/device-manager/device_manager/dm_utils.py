@@ -4,6 +4,8 @@
 # This file contains  utility methods used by device manager module
 #
 
+from builtins import str
+from builtins import object
 from bitarray import bitarray
 from netaddr import IPNetwork
 

@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import object
 import base64
 import os
 import re
@@ -161,7 +163,7 @@ class DeviceZtpManager(object):
                         host_name = match.group(3)
                         lease_table[mac] = (ip_addr, host_name)
                         line = lfile.readline()
-            for mac, (ip_addr, host_name) in lease_table.iteritems():
+            for mac, (ip_addr, host_name) in lease_table.items():
                 if self._within_dhcp_subnet(ip_addr, config) and \
                         self._within_ztp_devices(host_name, device_to_ztp):
                     matched_devices[mac] = (ip_addr, host_name)
@@ -171,7 +173,7 @@ class DeviceZtpManager(object):
 
         results['device_list'] = [
             {'ip_addr': ip_addr, 'mac': mac, 'host_name': host_name}
-            for mac, (ip_addr, host_name) in matched_devices.iteritems()
+            for mac, (ip_addr, host_name) in matched_devices.items()
         ]
         if not results['device_list']:
             results['failed'] = True

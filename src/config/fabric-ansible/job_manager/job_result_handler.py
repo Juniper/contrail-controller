@@ -4,6 +4,7 @@
 
 """Job results handler that collects and processes results from the job."""
 
+from builtins import object
 import json
 import time
 

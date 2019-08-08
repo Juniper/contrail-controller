@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
@@ -6,10 +7,10 @@
 #
 
 from cfgm_common.vnc_logger import ConfigServiceLogger
-from db import BgpRouterDM, FloatingIpDM, InstanceIpDM, LogicalInterfaceDM, \
+from .db import BgpRouterDM, FloatingIpDM, InstanceIpDM, LogicalInterfaceDM, \
     LogicalRouterDM, PhysicalInterfaceDM, PhysicalRouterDM, PortTupleDM, \
     RoutingInstanceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
-from sandesh.dm_introspect import ttypes as sandesh
+from .sandesh.dm_introspect import ttypes as sandesh
 from sandesh_common.vns.ttypes import Module
 
 
@@ -61,7 +62,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the list of BGP routers
         resp = sandesh.BgpRouterListResp(bgp_routers=[])
         if req.name_or_uuid is None:
-            for router in BgpRouterDM.values():
+            for router in list(BgpRouterDM.values()):
                 sandesh_router = self.sandesh_bgp_build(router)
                 resp.bgp_routers.append(sandesh_router)
         else:
@@ -85,7 +86,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the list of PR routers
         resp = sandesh.PhysicalRouterListResp(physical_routers=[])
         if req.name_or_uuid is None:
-            for router in PhysicalRouterDM.values():
+            for router in list(PhysicalRouterDM.values()):
                 sandesh_router = self.sandesh_pr_build(router)
                 resp.physical_routers.append(sandesh_router)
         else:
@@ -106,7 +107,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the list of PR routers
         resp = sandesh.PhysicalInterfaceListResp(physical_interfaces=[])
         if req.name_or_uuid is None:
-            for pi in PhysicalInterfaceDM.values():
+            for pi in list(PhysicalInterfaceDM.values()):
                 sandesh_pi = self.sandesh_pi_build(pi)
                 resp.physical_interfaces.append(sandesh_pi)
         else:
@@ -128,7 +129,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the list of PR routers
         resp = sandesh.LogicalInterfaceListResp(logical_interfaces=[])
         if req.name_or_uuid is None:
-            for li in LogicalInterfaceDM.values():
+            for li in list(LogicalInterfaceDM.values()):
                 sandesh_li = self.sandesh_li_build(li)
                 resp.logical_interfaces.append(sandesh_li)
         else:
@@ -151,7 +152,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the vnst of PR routers
         resp = sandesh.VirtualNetworkListResp(virtual_networks=[])
         if req.name_or_uuid is None:
-            for vn in VirtualNetworkDM.values():
+            for vn in list(VirtualNetworkDM.values()):
                 sandesh_vn = self.sandesh_vn_build(vn)
                 resp.virtual_networks.append(sandesh_vn)
         else:
@@ -174,7 +175,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         resp = sandesh.VirtualMachineInterfaceListResp(
             virtual_machine_interfaces=[])
         if req.name_or_uuid is None:
-            for vmi in VirtualMachineInterfaceDM.values():
+            for vmi in list(VirtualMachineInterfaceDM.values()):
                 sandesh_vmi = self.sandesh_vmi_build(vmi)
                 resp.virtual_machine_interfaces.append(sandesh_vmi)
         else:
@@ -194,7 +195,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the set of VMIs
         resp = sandesh.RoutingInstanceListResp(routing_instances=[])
         if req.name_or_uuid is None:
-            for ri in RoutingInstanceDM.values():
+            for ri in list(RoutingInstanceDM.values()):
                 sandesh_ri = self.sandesh_ri_build(ri)
                 resp.routing_instances.append(sandesh_ri)
         else:
@@ -217,7 +218,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the set of VMIs
         resp = sandesh.LogicalRouterListResp(logical_routers=[])
         if req.name_or_uuid is None:
-            for lr in LogicalRouterDM.values():
+            for lr in list(LogicalRouterDM.values()):
                 sandesh_lr = self.sandesh_lr_build(lr)
                 resp.logical_routers.append(sandesh_lr)
         else:
@@ -239,7 +240,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the set of FIPs
         resp = sandesh.FloatingIpListResp(floating_ips=[])
         if req.name_or_uuid is None:
-            for fip in FloatingIpDM.values():
+            for fip in list(FloatingIpDM.values()):
                 sandesh_fip = self.sandesh_fip_build(fip)
                 resp.floating_ips.append(sandesh_fip)
         else:
@@ -261,7 +262,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the set of Instance IPs
         resp = sandesh.InstanceIpListResp(instance_ips=[])
         if req.name_or_uuid is None:
-            for instance_ip in InstanceIpDM.values():
+            for instance_ip in list(InstanceIpDM.values()):
                 sandesh_instance_ip = self.sandesh_instance_ip_build(
                     instance_ip)
                 resp.instance_ips.append(sandesh_instance_ip)
@@ -284,7 +285,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the set of Port Tuples
         resp = sandesh.PortTupleListResp(port_tuples=[])
         if req.name_or_uuid is None:
-            for port_tuple in PortTupleDM.values():
+            for port_tuple in list(PortTupleDM.values()):
                 sandesh_port_tuple = self.sandesh_port_tuple_build(port_tuple)
                 resp.port_tuples.append(sandesh_port_tuple)
         else:

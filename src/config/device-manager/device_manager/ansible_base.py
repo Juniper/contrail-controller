@@ -8,6 +8,8 @@ This file contains implementation plugin base class for device config module.
 The specific plugins should inherit from this class.
 """
 
+from builtins import str
+from builtins import object
 import abc
 
 from imports import import_ansible_plugins

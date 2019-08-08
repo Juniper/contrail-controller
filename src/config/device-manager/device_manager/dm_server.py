@@ -1,7 +1,9 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 import os
 import random
 import signal
@@ -12,15 +14,15 @@ from attrdict import AttrDict
 from cfgm_common import vnc_cgitb
 from cfgm_common.kombu_amqp import KombuAmqpClient
 from cfgm_common.zkclient import ZookeeperClient
-from device_job_manager import DeviceJobManager
-from device_ztp_manager import DeviceZtpManager
-from dm_amqp import DMAmqpHandle
-from dm_server_args import parse_args
+from .device_job_manager import DeviceJobManager
+from .device_ztp_manager import DeviceZtpManager
+from .dm_amqp import DMAmqpHandle
+from .dm_server_args import parse_args
 import gevent
 from gevent import monkey
-from logger import DeviceManagerLogger
+from .logger import DeviceManagerLogger
 
-from device_manager import DeviceManager
+from .device_manager import DeviceManager
 monkey.patch_all()
 
 

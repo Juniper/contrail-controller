@@ -8,6 +8,8 @@
 # Utility functions for Operational State Server for VNC
 #
 
+from builtins import str
+from builtins import object
 import json
 import random
 
