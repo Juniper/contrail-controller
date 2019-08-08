@@ -374,6 +374,13 @@
                 "job_completion_weightage": 5
               },
               {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hardware_inventory.yml",
+                "multi_device_playbook": true,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 5
+              },
+              {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
@@ -385,7 +392,7 @@
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 15
+                "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/update_dhcp_config.yml",
@@ -484,6 +491,13 @@
                 "job_completion_weightage": 10
               },
               {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hardware_inventory.yml",
+                "multi_device_playbook": true,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 5
+              },
+              {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/device_import.yml",
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
@@ -495,7 +509,7 @@
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 20
+                "job_completion_weightage": 15
               }
             ]
           },
@@ -632,6 +646,32 @@
           },
           "job_template_input_schema": "",
           "job_template_output_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
+            "hardware_inventory_template"
+          ],
+          "name": "hardware_inventory_template",
+          "display_name": "Fetch hardware chassis information",
+          "job_template_description": "This command is used to fetch hardware inventory information from the device",
+          "parent_type": "global-system-config",
+          "job_template_type": "device_operation",
+          "job_template_concurrency_level": "device",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "device_family": "",
+                "multi_device_playbook": true,
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/hardware_inventory.yml",
+                "vendor": "Juniper"
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": "",
+          "job_template_input_ui_schema": "",
+          "job_template_output_ui_schema": ""
         }
       ]
     },
