@@ -1315,6 +1315,11 @@ class FakeKazooClient(object):
         pass
     # end stop
 
+    def close(*args, **kwargs):
+        pass
+    # end close
+
+
     def create(self, path, value='', *args, **kwargs):
         scrubbed_path = zk_scrub_path(path)
         if scrubbed_path in self._values:
