@@ -6,6 +6,8 @@
 
 """This file contains code to support the hitless image upgrade feature."""
 
+from builtins import str
+from builtins import object
 import argparse
 import copy
 from datetime import timedelta
@@ -200,7 +202,7 @@ class FilterModule(object):
     def _generate_role_device_groups(self):
         # Group devices based on role. Use dict keyed by role name
         role_device_groups = {}
-        for device_uuid, device_info in self.device_table.iteritems():
+        for device_uuid, device_info in self.device_table.items():
             role = device_info['role']
             if role not in role_device_groups:
                 role_device_groups[role] = []
@@ -249,12 +251,12 @@ class FilterModule(object):
     # For each device, generate a list of devices which cannot be upgraded at
     # the same time because they are multi-homed to the same BMS
     def _generate_buddy_lists(self):
-        for device_uuid, device_info in self.device_table.iteritems():
+        for device_uuid, device_info in self.device_table.items():
             vpg_info = self.device_table[device_uuid]['vpg_info']
             for vpg_uuid in vpg_info['vpg_list']:
                 vpg_entry = self.vpg_table[vpg_uuid]
                 vpg_dev_table = vpg_entry['device_table']
-                for vpg_dev_uuid, pi_list in vpg_dev_table.iteritems():
+                for vpg_dev_uuid, pi_list in vpg_dev_table.items():
                     if vpg_dev_uuid not in vpg_info['buddies'] and \
                             vpg_dev_uuid != device_uuid:
                         buddy_entry = self._get_buddy_entry(vpg_dev_uuid,
@@ -424,13 +426,13 @@ class FilterModule(object):
 
         # generate devices dict with key of device name
         devices = {}
-        for device_uuid, device_info in self.device_table.iteritems():
+        for device_uuid, device_info in self.device_table.items():
             device_name = self.device_table[device_uuid]['name']
             devices[device_name] = self.device_table[device_uuid]
 
         # generate skipped devices dict with key of device name
         sdevices = {}
-        for device_uuid, device_info in self.skipped_device_table.iteritems():
+        for device_uuid, device_info in self.skipped_device_table.items():
             device_name = self.skipped_device_table[device_uuid]['name']
             sdevices[device_name] = self.skipped_device_table[device_uuid]
 
@@ -471,7 +473,7 @@ class FilterModule(object):
         if len(sdevices) > 0:
             report += "\nThe following devices will not be upgraded " \
                       "for the reasons listed:\n"
-            for device_name, device_info in sorted(sdevices.iteritems()):
+            for device_name, device_info in sorted(sdevices.items()):
                 report += "\n  {} ({})".format(device_name,
                                                device_info.get
                                                ('skip_reason',
@@ -491,7 +493,7 @@ class FilterModule(object):
             report += "\nDetailed information for the " \
                       "devices to be upgraded is listed below:\n"
             # Spill out sorted list
-            for device_name, device_info in sorted(devices.iteritems()):
+            for device_name, device_info in sorted(devices.items()):
                 details = self._spill_device_details(device_name, device_info)
                 report += details
 
@@ -500,7 +502,7 @@ class FilterModule(object):
             report += "\nDetailed information for " \
                       "the devices to be skipped is listed below:\n"
             # Spill out sorted list
-            for device_name, device_info in sorted(sdevices.iteritems()):
+            for device_name, device_info in sorted(sdevices.items()):
                 details = self._spill_device_details(device_name, device_info)
                 report += details
         return report
@@ -598,7 +600,7 @@ class FilterModule(object):
             },
             'status': "success"
         }
-        for device_uuid, device_info in device_table.iteritems():
+        for device_uuid, device_info in device_table.items():
             all_devices[device_uuid] = device_table[device_uuid]['basic']
         batch_info['next']['batch_devices'] = all_devices
         return batch_info

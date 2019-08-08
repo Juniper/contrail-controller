@@ -6,6 +6,9 @@
 # This file contains code to support fabric device configuration operations
 #
 
+from __future__ import print_function
+from builtins import str
+from builtins import object
 import argparse
 import json
 import os
@@ -37,11 +40,11 @@ class FilterModule(object):
             group_vars = yaml.load(f)
         role_to_feature_mapping = group_vars['role_to_feature_mapping']
         self.role_to_feature_mapping = dict(
-            (k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
+            (k.lower(), v) for k, v in role_to_feature_mapping.items())
         feature_based_plugin_roles = group_vars['feature_based_plugin_roles']
         self.feature_based_plugin_roles = \
             dict((k.lower(), v) for k, v in
-                 feature_based_plugin_roles.iteritems())
+                 feature_based_plugin_roles.items())
         self.feature_apply_order = group_vars['feature_apply_order']
 
     # Load the abstract config
@@ -427,7 +430,7 @@ def __main__():
     elif parser.manage_underlay:
         results = fab_filter.render_fabric_config(_mock_job_ctx(False, True))
 
-    print results
+    print(results)
 # end __main__
 
 

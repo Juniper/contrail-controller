@@ -1,3 +1,4 @@
+from builtins import object
 class FilterModule(object):
     def filters(self):
         return {

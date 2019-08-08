@@ -3,9 +3,16 @@
 #
 
 """Initializes Sandesh instance and provides utility sandesh functions."""
+from __future__ import division
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import argparse
-import ConfigParser
+import configparser
 from decimal import Decimal, getcontext
 import json
 import random
@@ -107,7 +114,7 @@ class JobLogUtils(object):
         sandeshopts = SandeshConfig.get_default_options()
 
         if config_args.get("fabric_ansible_conf_file"):
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read(config_args['fabric_ansible_conf_file'])
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
@@ -359,16 +366,16 @@ class JobLogUtils(object):
             # equally divided chunk from the total_percent based on the total
             # number of tasks
             if task_weightage_array is None:
-                success_task_percent = float(Decimal(total_percent) /
-                                             Decimal(num_tasks))
+                success_task_percent = float(old_div(Decimal(total_percent),
+                                             Decimal(num_tasks)))
             else:
                 if task_seq_number is None:
                     raise JobException("Unable to calculate the task "
                                        "percentage since the task sequence "
                                        "number is not provided")
-                success_task_percent = float(Decimal(
+                success_task_percent = float(old_div(Decimal(
                     task_weightage_array[task_seq_number - 1] *
-                    total_percent) / 100)
+                    total_percent), 100))
 
             # based on the task sequence number calculate the percentage to be
             # marked in cases of error. This is required to mark the job to
@@ -382,9 +389,9 @@ class JobLogUtils(object):
                 else:
                     failed_task_percent = 0.00
                     for task_index in range(task_seq_number, num_tasks):
-                        task_percent = float(Decimal(
+                        task_percent = float(old_div(Decimal(
                             task_weightage_array[task_index - 1] *
-                            total_percent) / 100)
+                            total_percent), 100))
                         failed_task_percent += task_percent
             self.config_logger.info("success_task_percent %s "
                                     "failed_task_percent %s " %

@@ -5,6 +5,8 @@
 # This file contains code to support the RMA devices feature
 #
 
+from builtins import str
+from builtins import object
 import sys
 import traceback
 
@@ -108,7 +110,7 @@ class FilterModule(object):
 
             # Only handle greenfield devices
             if not underlay_managed:
-                raise("Device {} not underlay managed".format(
+                raise Exception("Device {} not underlay managed".format(
                     device_obj.display_name))
 
             # if serial number not found, go into error state on this device

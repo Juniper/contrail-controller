@@ -8,6 +8,9 @@
 # fqname_to_id, id_to_fqname
 #
 
+from builtins import str
+from builtins import range
+from builtins import object
 import ast
 import sys
 import time
