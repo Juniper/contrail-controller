@@ -8,17 +8,32 @@ Physical router configuration implementation.
 This file contains implementation of managing physical router configuration
 based on intent configuration.
 """
+from __future__ import absolute_import
 
-import ConfigParser
+from builtins import object
+from builtins import str
+import configparser
 import hashlib
 import random
 import time
 import traceback
 
-from ansible_base import AnsibleBase
 from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
-from db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
+from future import standard_library
+standard_library.install_aliases() # noqa
+import gevent
+from gevent import monkey
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+# Import kazoo.client before monkey patching
+import requests
+from vnc_api.vnc_api import VncApi
+monkey.patch_all() # noqa
+
+from .ansible_base import AnsibleBase
+from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     DBBaseDM, DMCassandraDB, E2ServiceProviderDM, FabricDM, \
     FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
@@ -32,21 +47,12 @@ from db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, SflowProfileDM, \
     StormControlProfileDM, TagDM, TelemetryProfileDM, \
     VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
-from device_conf import DeviceConf
-from dm_amqp import DMAmqpHandle
-from dm_utils import PushConfigState
-from fabric_manager import FabricManager
-from feature_base import FeatureBase
-import gevent
-from gevent import monkey
-from logger import DeviceManagerLogger
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
-# Import kazoo.client before monkey patching
-import requests
-from vnc_api.vnc_api import VncApi
-monkey.patch_all()
+from .device_conf import DeviceConf
+from .dm_amqp import DMAmqpHandle
+from .dm_utils import PushConfigState
+from .fabric_manager import FabricManager
+from .feature_base import FeatureBase
+from .logger import DeviceManagerLogger
 
 
 class DeviceManager(object):
@@ -422,7 +428,7 @@ class DeviceManager(object):
         InstanceIpDM.locate_all()
         FloatingIpDM.locate_all()
 
-        for vn in VirtualNetworkDM.values():
+        for vn in list(VirtualNetworkDM.values()):
             vn.update_instance_ip_map()
 
         ServiceEndpointDM.locate_all()
@@ -444,7 +450,7 @@ class DeviceManager(object):
         si_uuid_set = set([si_obj['uuid'] for si_obj in si_obj_list])
         self._object_db.handle_pnf_resource_deletes(si_uuid_set)
 
-        for pr in PhysicalRouterDM.values():
+        for pr in list(PhysicalRouterDM.values()):
             pr.set_config_state()
             pr.uve_send()
 
@@ -493,7 +499,7 @@ class DeviceManager(object):
         inst._vnc_amqp.close()
         if PushConfigState.is_push_mode_ansible():
             FabricManager.destroy_instance()
-        for obj_cls in DBBaseDM.get_obj_type_map().values():
+        for obj_cls in list(DBBaseDM.get_obj_type_map().values()):
             obj_cls.reset()
         DBBase.clear()
         DMCassandraDB.clear_instance()
@@ -512,7 +518,7 @@ class DeviceManager(object):
     # sighup handler for applying new configs
     def sighup_handler(self):
         if self._args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read(self._args.conf_file)
             if 'DEFAULTS' in config.sections():
                 try:
@@ -527,6 +533,6 @@ class DeviceManager(object):
                                 collectors, len(collectors))
                         # Reconnect to achieve loadbalance irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
-                except ConfigParser.NoOptionError:
+                except configparser.NoOptionError:
                     pass
     # end sighup_handler

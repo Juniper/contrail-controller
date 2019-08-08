@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import gevent
 import sys
 from cfgm_common.tests import test_common
@@ -10,12 +11,12 @@ import uuid
 from random import randint
 from ncclient import manager
 from flexmock import flexmock
-from test_dm_utils import FakeDeviceConnect
-from test_dm_utils import FakeJobHandler
-from test_dm_utils import FakeNetconfManager
-from test_dm_utils import fake_netconf_connect
-from test_dm_utils import fake_send_netconf
-from test_dm_utils import fake_job_handler_push
+from .test_dm_utils import FakeDeviceConnect
+from .test_dm_utils import FakeJobHandler
+from .test_dm_utils import FakeNetconfManager
+from .test_dm_utils import fake_netconf_connect
+from .test_dm_utils import fake_send_netconf
+from .test_dm_utils import fake_job_handler_push
 import device_manager
 
 class DMTestCase(test_common.TestCase):
