@@ -6,6 +6,8 @@
 This file contains implementation plugin base class for device config module
 """
 
+from builtins import str
+from builtins import object
 import abc
 import sys
 from imports import import_plugins
