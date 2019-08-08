@@ -4,6 +4,7 @@
 #
 # This file contains implementation for fabric related Ansible filter plugins
 #
+from __future__ import print_function
 import argparse
 import json
 import socket
@@ -2741,7 +2742,7 @@ def __main__():
     elif parser.assign_roles:
         results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
 
-    print results
+    print(results)
 # end __main__
 
 

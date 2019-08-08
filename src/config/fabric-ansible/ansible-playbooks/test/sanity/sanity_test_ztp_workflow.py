@@ -8,9 +8,10 @@
 This file contains sanity test for all major workflows supported by
 fabric ansible
 """
+from __future__ import absolute_import
 
-from sanity_base import SanityBase
-import config
+from .sanity_base import SanityBase
+from . import config
 
 
 # pylint: disable=E1101

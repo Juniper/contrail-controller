@@ -1,12 +1,13 @@
 """
 This file contains sanity test for image upgrade workflow
 """
+from __future__ import absolute_import
 import sys
 import hashlib
-import config
+from . import config
 import re
-from sanity_base import SanityBase
-import config
+from .sanity_base import SanityBase
+from . import config
 import re
 
 class FabricAnsibleModule:
@@ -15,7 +16,7 @@ class FabricAnsibleModule:
 sys.path.append('../..')
 sys.modules['ansible.module_utils.fabric_utils'] = __import__('sanity_test_hitless_upgrade')
 from library.swift_fileutil import FileSvcUtil
-from sanity_base import SanityBase
+from .sanity_base import SanityBase
 
 class SwiftFileUtil(FileSvcUtil):
 

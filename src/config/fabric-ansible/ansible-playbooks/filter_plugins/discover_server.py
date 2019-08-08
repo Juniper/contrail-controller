@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import logging
 import sys
 import traceback
@@ -152,11 +153,11 @@ class FilterModule(object):
                         and node['bms_info'].get('driver_info') \
                         and node['bms_info']['driver_info'].get('ipmi_address'):
 
-                    print node['bms_info']['driver_info']['ipmi_address']
+                    print(node['bms_info']['driver_info']['ipmi_address'])
                     cc_node['ipmi_address'] = node['bms_info']['driver_info'][
                         'ipmi_address']
                     if node['bms_info']['driver_info'].get('ipmi_port'):
-                        print node['bms_info']['driver_info']['ipmi_port']
+                        print(node['bms_info']['driver_info']['ipmi_port'])
                         cc_node['ipmi_port'] = node['bms_info']['driver_info'][
                             'ipmi_port']
                     else:
@@ -210,7 +211,7 @@ class FilterModule(object):
                               'result': ping_output.returncode == 0})
             return ping_output.returncode == 0
         except Exception as ex:
-            print host, "ERROR: SUBPROCESS.POPEN failed with error {}"
+            print(host, "ERROR: SUBPROCESS.POPEN failed with error {}")
             return False
     # end _ping_check
 
@@ -343,7 +344,7 @@ class FilterModule(object):
             else:
                 return False
         except Exception as ex:
-            print address, "ERROR: SUBPROCESS.POPEN failed {} ".format(str(ex))
+            print(address, "ERROR: SUBPROCESS.POPEN failed {} ".format(str(ex)))
             return False
 
     def call_gevent_func(self, input_queue, result_queue, func_call):
@@ -365,10 +366,10 @@ class FilterModule(object):
             threadpool.join()
 
           except queue.Empty:
-            print "QUEUE EMPTY EXIT"
+            print("QUEUE EMPTY EXIT")
             break
 
-        print ("RESULTS-QUEUE-SIZE" , result_queue.qsize())
+        print(("RESULTS-QUEUE-SIZE" , result_queue.qsize()))
 
     def ipmi_auth_check(self, job_ctx, ipaddress_list):
         """
@@ -426,7 +427,7 @@ class FilterModule(object):
                 if port_range_end >= port_range_start:
                     port_list.extend(range(port_range_start,port_range_end+1))
                 else:
-                    print "IGNORING, BAD RANGE ", ipmi_port_range
+                    print("IGNORING, BAD RANGE ", ipmi_port_range)
 
             final_port_list = list(set(port_list))
 
@@ -602,11 +603,11 @@ class FilterModule(object):
             failed_nodes = []
             introspection_flag = ironic_auth_args.get('introspection_flag',True)
             if introspection_flag:
-                print "CHECKING INTROSPECTION"
+                print("CHECKING INTROSPECTION")
                 success_nodes, failed_nodes = \
                     ironic_object.check_introspection()
             else:
-                print "IMPORTING WITHOUT INTROSPECT"
+                print("IMPORTING WITHOUT INTROSPECT")
                 for node in ironic_object.node_info_list:
                     ironic_object.create_cc_node(node)
         except Exception as e:

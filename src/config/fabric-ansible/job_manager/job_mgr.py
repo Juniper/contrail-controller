@@ -3,6 +3,7 @@
 #
 
 """This file contains job manager process code and api."""
+from __future__ import print_function
 
 import argparse
 import json
@@ -655,8 +656,8 @@ if __name__ == "__main__":
             config_args=job_input_json.get('args'))
         logger = job_log_utils.config_logger
     except Exception as exp:
-        print >> sys.stderr, "Failed to initialize logger due "\
-                             "to Exception: %s" % traceback.format_exc()
+        print("Failed to initialize logger due to Exception:"
+              " %s" % traceback.format_exc(), file=sys.stderr)
         sys.exit(
             "Exiting due to logger initialization error: %s" % repr(exp))
 

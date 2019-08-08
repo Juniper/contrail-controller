@@ -1,9 +1,11 @@
 """
 This file contains sanity test for image upgrade workflow
 """
+from __future__ import print_function
+from __future__ import absolute_import
 import sys
 import hashlib
-import config
+from . import config
 import re
 
 class FabricAnsibleModule:
@@ -12,7 +14,7 @@ class FabricAnsibleModule:
 sys.path.append('../..')
 sys.modules['ansible.module_utils.fabric_utils'] = __import__('sanity_test02')
 from library.swift_fileutil import FileSvcUtil
-from sanity_base import SanityBase
+from .sanity_base import SanityBase
 
 class SwiftFileUtil(FileSvcUtil):
 
@@ -123,7 +125,7 @@ class SanityTest02(SanityBase):
             self.add_asn_namespace(fabric, self._namespaces['asn'])
 
             prouters = self.discover_fabric_device(fabric)
-            print prouters
+            print(prouters)
             # Create image db object
             image = self.create_image(self._image_name,
                                                          img_uri,

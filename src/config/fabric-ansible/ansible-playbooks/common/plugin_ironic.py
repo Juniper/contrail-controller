@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import requests
 from ironicclient import client as ironicclient
 from urlparse import urlparse
@@ -164,7 +165,7 @@ class ImportIronicNodes(object):
             for node in node_list:
                 intro_status = self.check_introspection_status(node)
                 if intro_status == "finished":
-                    print "CREATING CC NODE", node
+                    print("CREATING CC NODE", node)
                     # Get latest Node Info from Ironic POST Introspection
                     node_info = self.ironic_client.node.get(node['uuid'])
                     new_node_info = node_info.to_dict()
@@ -188,7 +189,7 @@ class ImportIronicNodes(object):
 
             node_list = new_node_list
             if len(node_list):
-                print "SLEEPING FOR NEXT INSPECT", timeout
+                print("SLEEPING FOR NEXT INSPECT", timeout)
                 time.sleep(self.introspection_check_secs)
                 timeout += self.introspection_check_secs
 
@@ -208,9 +209,9 @@ class ImportIronicNodes(object):
             return "running"
 
     def log_introspection_error(self, node_list):
-        print "LOG INTROSPECTION ERROR"
+        print("LOG INTROSPECTION ERROR")
         for node in node_list:
-            print "FAILED NODES", node['uuid']
+            print("FAILED NODES", node['uuid'])
         return
 
     def get_cc_port_payload(self, port_dict, local_link_dict):
@@ -321,24 +322,24 @@ class ImportIronicNodes(object):
             }
             try:
                 resp = self.ironic_client.node.create(**ironic_node)
-                print resp.uuid
+                print(resp.uuid)
                 node['uuid'] = resp.uuid
                 registered_nodes_list.append(node)
             except Exception as error:
-                print "ERROR: ", error
+                print("ERROR: ", error)
                 raise error
 
         return registered_nodes_list
 
     def trigger_introspection(self, registered_nodes):
         for node in registered_nodes:
-            print node['uuid']
+            print(node['uuid'])
             try:
                 self.ironic_inspector_client.introspect(node['uuid'])
                 node['inspect'] = True
             except Exception as error:
                 node['inspect'] = False
-                print "ERROR: ", error
+                print("ERROR: ", error)
                 raise error
         return registered_nodes
 
@@ -376,5 +377,5 @@ if __name__ == '__main__':
              cc_auth_token=None,
              introspection_flag=introspection_flag)
     except Exception as e:
-        print e.message
+        print(e.message)
 

@@ -6,6 +6,7 @@
 # This file contains code to support fabric device configuration operations
 #
 
+from __future__ import print_function
 import argparse
 import json
 import os
@@ -427,7 +428,7 @@ def __main__():
     elif parser.manage_underlay:
         results = fab_filter.render_fabric_config(_mock_job_ctx(False, True))
 
-    print results
+    print(results)
 # end __main__
 
 

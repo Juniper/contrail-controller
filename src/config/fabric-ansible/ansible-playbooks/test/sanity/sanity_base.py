@@ -8,6 +8,7 @@
 This file contains base class to support tests for all major workflows
 supported by fabric ansible
 """
+from __future__ import print_function
 import logging
 import pprint
 import time
@@ -411,12 +412,12 @@ class SanityBase(object):
                         print("[{}%] {}: {}".format(percentage_complete,
                                                              log_ts_fmt,
                                                              log_text))
-                    print
+                    print()
                     if log_details:
                         pprint.pprint("[{}%] {}: ==> {}".format(percentage_complete,
                                                             log_ts_fmt,
                                                             log_details))
-                        print
+                        print()
                     log_ts = (log_ts_us + 1)
                 return True, log_ts
         else:

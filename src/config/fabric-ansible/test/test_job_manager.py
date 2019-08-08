@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import absolute_import
 import gevent
 import gevent.monkey
 gevent.monkey.patch_all(thread=False)
@@ -16,12 +17,12 @@ from vnc_api.vnc_api import PlaybookInfoType
 from vnc_api.vnc_api import PlaybookInfoListType
 from vnc_api.vnc_api import JobTemplate
 
-import test_case
+from . import test_case
 from job_manager.job_mgr import WFManager
 from job_manager.job_utils import JobStatus
 from job_manager.job_utils import PLAYBOOK_EOL_PATTERN
 from cfgm_common.tests.test_utils import FakeKazooClient
-from test_job_manager_utils import TestJobManagerUtils
+from .test_job_manager_utils import TestJobManagerUtils
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

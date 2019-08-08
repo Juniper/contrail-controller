@@ -11,8 +11,7 @@ sandesh
 sandesh_common
 contrail-api-client
 contrail-api-server
-junitxml
-timeout-decorator
+wrapt-timeout-decorator
 subprocess32
 pycrypto
 python-swiftclient

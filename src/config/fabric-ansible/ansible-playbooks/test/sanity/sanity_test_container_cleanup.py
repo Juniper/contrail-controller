@@ -1,14 +1,15 @@
 """
 This file contains sanity test for activate maintenance mode workflow
 """
+from __future__ import absolute_import
 import sys
-import config
+from . import config
 
 class FabricAnsibleModule:
     pass
 
 sys.path.append('../..')
-from sanity_base import SanityBase
+from .sanity_base import SanityBase
 
 class SanityTestHitless(SanityBase):
 

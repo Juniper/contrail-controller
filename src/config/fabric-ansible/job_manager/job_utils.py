@@ -3,6 +3,7 @@
 #
 
 """Contains utility functions used by the job manager."""
+from __future__ import absolute_import
 import base64
 import collections
 from enum import Enum
@@ -12,8 +13,8 @@ import traceback
 
 from Crypto.Cipher import AES
 from inflection import camelize
-from job_exception import JobException
-from job_messages import MsgBundle
+from .job_exception import JobException
+from .job_messages import MsgBundle
 from jsonschema import Draft4Validator, validators
 import vnc_api
 from vnc_api.gen.resource_xsd import KeyValuePair

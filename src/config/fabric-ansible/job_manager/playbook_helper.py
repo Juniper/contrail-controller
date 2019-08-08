@@ -235,7 +235,7 @@ if __name__ == "__main__":
             exec_id, unique_pb_id, JobFileWrite.PLAYBOOK_OUTPUT,
             json.dumps(pb_output)
         )
-    except Exception, exc:
+    except Exception as exc:
         ERR_MSG = "Error while trying to parse output"\
                   " from playbook due to exception: %s"\
                   % str(exc)
