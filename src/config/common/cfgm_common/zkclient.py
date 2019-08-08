@@ -454,6 +454,10 @@ class ZookeeperClient(object):
         self._sandesh_connection_info_update(status='UP', message='')
 
     # end
+   
+    def stop(self):
+	self._zk_client.stop()
+	self._zk_client.close() 
 
     def is_connected(self):
         return self._zk_client.state == KazooState.CONNECTED
