@@ -6,22 +6,26 @@
 This file contains generic plugin implementation for juniper devices
 """
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 from ncclient import manager
 from ncclient.xml_ import new_ele
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import TransportError
 import time
 import datetime
-from cStringIO import StringIO
-from dm_utils import DMUtils
-from device_conf import DeviceConf
-from dm_utils import PushConfigState
-from db import PhysicalInterfaceDM
-from db import LogicalInterfaceDM
-from db import BgpRouterDM
-from db import VirtualNetworkDM
-from db import GlobalSystemConfigDM
-from db import VirtualMachineInterfaceDM
+from io import BytesIO as StringIO
+from .dm_utils import DMUtils
+from .device_conf import DeviceConf
+from .dm_utils import PushConfigState
+from .db import PhysicalInterfaceDM
+from .db import LogicalInterfaceDM
+from .db import BgpRouterDM
+from .db import VirtualNetworkDM
+from .db import GlobalSystemConfigDM
+from .db import VirtualMachineInterfaceDM
 from device_api.juniper_common_xsd import *
 
 class JuniperConf(DeviceConf):
@@ -218,7 +222,7 @@ class JuniperConf(DeviceConf):
             if not dev_conf.get('software-version'):
                 ele = self.get_xpath_data(res,
                      "//software-information/package-information[name='junos-version']", True)
-                if ele:
+                if len(ele):
                     dev_conf['software-version'] = ele.find('comment').text
         except Exception as e:
             if self._logger:
@@ -354,7 +358,7 @@ class JuniperConf(DeviceConf):
                     DestinationNetworks(name=dest_net,
                                         comment=DMUtils.ip_fabric_subnet_comment()))
 
-        for r_name, bgp_router_ip in bgp_router_ips.items():
+        for r_name, bgp_router_ip in list(bgp_router_ips.items()):
             dynamic_tunnel.add_destination_networks(
                 DestinationNetworks(name=bgp_router_ip + '/32',
                                     comment=DMUtils.bgp_router_subnet_comment(r_name)))
@@ -483,7 +487,7 @@ class JuniperConf(DeviceConf):
     # end add_peer
 
     def _get_neighbor_config_xml(self, bgp_config, peers):
-        for peer, peer_data in peers.items():
+        for peer, peer_data in list(peers.items()):
             obj = peer_data.get('obj')
             params = peer_data.get('params', {})
             attr = peer_data.get('attr', {})
@@ -540,7 +544,7 @@ class JuniperConf(DeviceConf):
         if not bgp_router:
             return
         if bgp_router:
-            for peer_uuid, attr in bgp_router.bgp_routers.items():
+            for peer_uuid, attr in list(bgp_router.bgp_routers.items()):
                 peer = BgpRouterDM.get(peer_uuid)
                 if not peer or not peer.params or not peer.params.get('address'):
                     continue

@@ -5,6 +5,9 @@
 """This file contains job manager api which involves playbook interactions."""
 
 import ast
+from builtins import map
+from builtins import object
+from builtins import str
 import json
 import os
 import signal
@@ -131,7 +134,7 @@ class JobHandler(object):
             if playbook_output_status.lower() == "warning":
                 result_handler.update_job_status(
                     JobStatus.WARNING, warning_msg, device_id, device_name,
-                    pb_results = playbook_output_results)
+                    pb_results=playbook_output_results)
             else:
                 result_handler.update_job_status(
                     JobStatus.SUCCESS, msg, device_id, device_name,
@@ -490,7 +493,7 @@ class JobHandler(object):
     def send_prouter_uve(self, exec_id, status):
         job_template_fq_name = ':'.join(
             map(str, self._job_template.fq_name))
-        for k, v in self._prouter_info.iteritems():
+        for k, v in self._prouter_info.items():
             pr_fabric_job_template_fq_name = "%s:%s:%s" % \
                                              (k, self._fabric_fq_name,
                                               job_template_fq_name)
@@ -610,7 +613,7 @@ class JobHandler(object):
 
     def _extract_marked_json(self, marked_output):
         retval = {}
-        for marker, output in marked_output.iteritems():
+        for marker, output in marked_output.items():
             start = output.index(marker) + len(marker)
             end = output.rindex(marker)
             if start > end:
