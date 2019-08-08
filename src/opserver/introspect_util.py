@@ -18,7 +18,7 @@ class JsonDrv (object):
                 auth=HTTPBasicAuth(user, password)
             else:
                 auth=None
-            resp = requests.get(url, headers=headers, auth=auth, timeout=10, verify=ca_cert, cert=cert)
+            resp = requests.get(url, headers=headers, auth=auth, timeout=30, verify=ca_cert, cert=cert)
             return json.loads(resp.text)
         except requests.ConnectionError, e:
             print "Socket Connection error : " + str(e)
