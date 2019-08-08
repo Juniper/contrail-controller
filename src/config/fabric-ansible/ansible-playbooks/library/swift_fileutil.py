@@ -12,6 +12,10 @@ swift download URL for the uploaded image file
 """
 
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 DOCUMENTATION = '''
 ---
 
@@ -102,7 +106,7 @@ import logging
 import re
 from threading import RLock
 import time
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
 import requests

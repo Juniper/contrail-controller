@@ -1,4 +1,7 @@
 #!/usr/bin/python
+from __future__ import print_function
+from builtins import str
+from builtins import object
 import argparse
 import sys
 
@@ -63,4 +66,4 @@ if __name__ == '__main__':
             {"sample_exec_id_filename": "sample_exec_id",
              "sample_unique_pb_id": "sample_unique_pb_id"},
             10)
-    print results
+    print(results)

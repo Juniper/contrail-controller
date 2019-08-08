@@ -8,6 +8,10 @@
 This file contains implementation of cleaning up the swift container of residual chucks
 """
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 DOCUMENTATION = '''
 ---
 
@@ -94,7 +98,7 @@ import logging
 import requests
 import re
 import time
-from urlparse import urlparse
+from urllib.parse import urlparse
 import swiftclient
 import swiftclient.utils
 from ansible.module_utils.fabric_utils import FabricAnsibleModule
@@ -178,14 +182,14 @@ class FileSvcUtil(object):  # pragma: no cover
             f = regex.match(item['name'])
             if f is not None:
                 image_name = f.group().split("__")
-                if image_name[0] not in chunk_dict.keys():
+                if image_name[0] not in list(chunk_dict.keys()):
                     chunk_dict[image_name[0]] = [f.group()]
                 else:
                     chunk_dict[image_name[0]].append(f.group())
             else:
                 manifest_list.append(item['name'])
 
-        for key in chunk_dict.keys():
+        for key in list(chunk_dict.keys()):
             if key in manifest_list:
                 pass
             else:

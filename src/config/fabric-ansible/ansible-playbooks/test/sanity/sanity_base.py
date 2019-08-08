@@ -8,6 +8,12 @@
 This file contains base class to support tests for all major workflows
 supported by fabric ansible
 """
+from __future__ import print_function
+from __future__ import division
+from builtins import map
+from builtins import str
+from builtins import object
+from past.utils import old_div
 import logging
 import pprint
 import time
@@ -396,8 +402,8 @@ class SanityBase(object):
                     if log_details:
                         log_details = log_details.get('#text')
                     log_ts_us = int(log_entry['MessageTS'])
-                    log_ts_ms = log_ts_us / 1000
-                    log_ts_sec = log_ts_ms / 1000
+                    log_ts_ms = old_div(log_ts_us, 1000)
+                    log_ts_sec = old_div(log_ts_ms, 1000)
                     log_ts_sec_gm = time.gmtime(log_ts_sec)
                     log_ts_fmt = time.strftime("%m/%d/%Y %H:%M:%S",
                                                log_ts_sec_gm) + ".%s" % \
@@ -411,12 +417,12 @@ class SanityBase(object):
                         print("[{}%] {}: {}".format(percentage_complete,
                                                              log_ts_fmt,
                                                              log_text))
-                    print
+                    print()
                     if log_details:
                         pprint.pprint("[{}%] {}: ==> {}".format(percentage_complete,
                                                             log_ts_fmt,
                                                             log_details))
-                        print
+                        print()
                     log_ts = (log_ts_us + 1)
                 return True, log_ts
         else:
@@ -429,7 +435,7 @@ class SanityBase(object):
         fabric_fqname = ':'.join(map(str, fabric_fq_name))
         job_template_fqname = ':'.join(map(str, job_template_fq_name))
 
-        for prouter_name, prouter_state in prouter_states.iteritems():
+        for prouter_name, prouter_state in prouter_states.items():
             prouter_fqname = "default-global-system-config:%s" % prouter_name
             url = "http://%s:%d/analytics/uves/job-execution/%s:%s:%s?flat" %\
                   (self._analytics['host'],

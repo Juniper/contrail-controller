@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+from __future__ import print_function
+from builtins import str
+from builtins import object
 import argparse
 import sys
 import traceback
@@ -250,4 +253,4 @@ if __name__ == '__main__':
             pb_input['device_fqname'][-1],
             pb_input['device_id'], pb_input['vendor'],
             pb_input['product_name'])
-    print results
+    print(results)

@@ -3,7 +3,12 @@
 #
 
 """Contains utility functions used by the job manager."""
+
+from __future__ import absolute_import
+
 import base64
+from builtins import object
+from builtins import str
 import collections
 from enum import Enum
 import json
@@ -12,12 +17,13 @@ import traceback
 
 from Crypto.Cipher import AES
 from inflection import camelize
-from job_exception import JobException
-from job_messages import MsgBundle
 from jsonschema import Draft4Validator, validators
 import vnc_api
 from vnc_api.gen.resource_xsd import KeyValuePair
 from vnc_api.vnc_api import VncApi
+
+from .job_exception import JobException
+from .job_messages import MsgBundle
 
 
 PLAYBOOK_EOL_PATTERN = "*EOL*\n"
@@ -132,7 +138,7 @@ class JobAnnotations(object):
         validate_properties = validator_class.VALIDATORS["properties"]
 
         def set_defaults(validator, properties, instance, schema):
-            for obj_property, subschema in properties.iteritems():
+            for obj_property, subschema in properties.items():
                 if "default" in subschema:
                     instance.setdefault(obj_property, subschema["default"])
             for error in validate_properties(
@@ -167,7 +173,7 @@ class JobAnnotations(object):
 
     # Recursive update of nested dict
     def dict_update(self, d, u):
-        for k, v in u.iteritems():
+        for k, v in u.items():
             if isinstance(v, collections.Mapping):
                 d[k] = self.dict_update(d.get(k, {}), v)
             else:

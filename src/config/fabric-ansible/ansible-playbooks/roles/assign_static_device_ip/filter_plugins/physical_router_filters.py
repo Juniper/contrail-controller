@@ -4,6 +4,8 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import object
 from cfgm_common.exceptions import NoIdError
 from netaddr import IPAddress, IPNetwork
 from vnc_api.vnc_api import VncApi
