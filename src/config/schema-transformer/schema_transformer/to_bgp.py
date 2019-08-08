@@ -467,12 +467,15 @@ class SchemaTransformer(object):
     @classmethod
     def destroy_instance(cls):
         inst = cls.get_instance()
-        inst._vnc_amqp.close()
+        if inst:
+            inst._vnc_amqp.close()
         for obj_cls in ResourceBaseST.get_obj_type_map().values():
             obj_cls.reset()
         DBBase.clear()
-        inst._object_db = None
+        if inst:
+            inst._object_db = None
         cls._schema_transformer = None
+        _zookeeper_client.stop()
 
     def sighup_handler(self):
         if self._conf_file:
@@ -688,7 +691,6 @@ def parse_args(args_str):
 
 transformer = None
 
-
 def run_schema_transformer(st_logger, args):
     global _vnc_lib
 
@@ -746,7 +748,7 @@ def run_schema_transformer(st_logger, args):
 
 def main(args_str=None):
     global _zookeeper_client
-
+    global transformer	
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -782,9 +784,12 @@ def main(args_str=None):
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
                                         host_ip, zk_timeout=args.zk_timeout)
     st_logger.notice("Waiting to be elected as master...")
-    _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
-                                      os.getpid(), run_schema_transformer,
-                                      st_logger, args)
+    try:
+        _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
+                                          os.getpid(), run_schema_transformer,
+                                          st_logger, args)
+    finally:
+        transformer.destroy_instance()
 # end main
 
 
