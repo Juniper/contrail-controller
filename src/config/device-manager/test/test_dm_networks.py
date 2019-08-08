@@ -1,6 +1,8 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
 import sys
 import gevent
 from time import sleep
@@ -10,8 +12,8 @@ from device_manager.dm_utils import *
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from cfgm_common.exceptions import BadRequest
-from test_dm_common import *
-from test_dm_utils import FakeDeviceConnect, FakeNetconfManager
+from .test_dm_common import *
+from .test_dm_utils import FakeDeviceConnect, FakeNetconfManager
 from unittest import skip
 
 #

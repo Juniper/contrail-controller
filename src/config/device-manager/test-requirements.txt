@@ -13,9 +13,9 @@ sandesh_common
 contrail-api-client
 contrail-api-server
 ../schema-transformer
-junitxml
 xmltodict
 pyOpenSSL
 mock
 fabric-ansible
 pyhash==0.6.2
+configparser

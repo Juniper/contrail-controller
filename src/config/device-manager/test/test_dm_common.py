@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -5,7 +6,7 @@ import sys
 import gevent
 from time import sleep
 from testtools.matchers import Equals, Contains, Not
-import test_case
+from . import test_case
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *
 

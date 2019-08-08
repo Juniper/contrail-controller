@@ -4,7 +4,12 @@
 #
 # This file contains implementation for fabric related Ansible filter plugins
 #
+from __future__ import print_function
+
 import argparse
+from builtins import object
+from builtins import range
+from builtins import str
 import json
 import socket
 import struct
@@ -279,10 +284,11 @@ class FilterModule(object):
         mgmt_tag = vnc_api.tag_read(fq_name=['label=fabric-management-ip'],
                                     fields=['fabric_namespace_back_refs'])
         for ref in mgmt_tag.get_fabric_namespace_back_refs() or []:
-            namespace_obj = vnc_api.fabric_namespace_read(id=ref.get('uuid'),
-                                                          fields=['fq_name',
-                                                                  'fabric_namespace_type',
-                                                                  'fabric_namespace_value'])
+            namespace_obj = vnc_api.fabric_namespace_read(
+                id=ref.get('uuid'),
+                fields=['fq_name',
+                        'fabric_namespace_type',
+                        'fabric_namespace_value'])
 
             # skip namespaces belong to this fabric
             if _compare_fq_names(namespace_obj.fq_name[:-1], fab_fq_name):
@@ -1385,9 +1391,9 @@ class FilterModule(object):
         # delete all interfaces
         for pi_ref in list(device_obj.get_physical_interfaces() or []):
             pi_uuid = str(pi_ref.get('uuid'))
-            pi_obj = vnc_api.physical_interface_read(id=pi_uuid,fields=[
-                'fq_name','physical_interface_mac_addresses',
-                'logical_interfaces'] )
+            pi_obj = vnc_api.physical_interface_read(id=pi_uuid, fields=[
+                'fq_name', 'physical_interface_mac_addresses',
+                'logical_interfaces'])
 
             # delete all the instance-ips for the fabric interfaces
             pi_mac = self._get_pi_mac(pi_obj)
@@ -1680,7 +1686,7 @@ class FilterModule(object):
             self._enable_ibgp_auto_mesh(vnc_api, False)
 
             # load supported roles from node profile assigned to the device
-            for device_obj, device_roles in device2roles_mappings.iteritems():
+            for device_obj, device_roles in device2roles_mappings.items():
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
                     _task_warn_log(
@@ -2279,7 +2285,7 @@ class FilterModule(object):
             return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
         except NoIdError:
             gsc_obj = vnc_api.global_system_config_read(
-                fq_name=[GSC],fields=['autonomous_system']
+                fq_name=[GSC], fields=['autonomous_system']
             )
             return gsc_obj.autonomous_system
     # end _get_ibgp_asn
@@ -2781,7 +2787,7 @@ def __main__():
     elif parser.assign_roles:
         results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
 
-    print results
+    print(results)
 # end __main__
 
 

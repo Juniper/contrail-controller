@@ -7,6 +7,7 @@
 # virtual network
 #
 
+from builtins import object
 import logging
 
 from cfgm_common.exceptions import NoIdError

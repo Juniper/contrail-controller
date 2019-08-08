@@ -1,8 +1,9 @@
+from __future__ import absolute_import
 import unittest
 import sys
 from flexmock import flexmock
-from test_fabric_base import TestFabricModule
-from test_fabric_base import set_module_args
+from .test_fabric_base import TestFabricModule
+from .test_fabric_base import set_module_args
 from vnc_api.vnc_api import VncApi
 from vnc_api.gen.resource_client import *
 

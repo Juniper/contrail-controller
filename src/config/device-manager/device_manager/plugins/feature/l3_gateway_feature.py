@@ -4,6 +4,7 @@
 
 """L3 Gateway Feature Implementation."""
 
+from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
@@ -85,8 +86,8 @@ class L3GatewayFeature(FeatureBase):
                 import_targets, feature_config, irb_ip_map.get(vn_uuid, []))
             feature_config.add_routing_instances(ri)
 
-        for pi, li_map in self.pi_map.values():
-            pi.set_logical_interfaces(li_map.values())
+        for pi, li_map in list(self.pi_map.values()):
+            pi.set_logical_interfaces(list(li_map.values()))
             feature_config.add_physical_interfaces(pi)
 
         return feature_config
