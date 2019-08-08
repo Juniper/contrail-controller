@@ -7,6 +7,7 @@ This file contains implementation of netconf interface for QFX physical router
 configuration manager
 """
 
+from builtins import str
 from db import *
 from dm_utils import DMUtils
 from juniper_conf import JuniperConf
@@ -367,7 +368,7 @@ class QfxConf(JuniperConf):
         for interface in interfaces:
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
 
-        for ifd_name, interface_list in ifd_map.items():
+        for ifd_name, interface_list in list(ifd_map.items()):
             intf = Interface(name=ifd_name)
             interfaces_config.add_interface(intf)
             intf.set_flexible_vlan_tagging('')
@@ -671,7 +672,7 @@ class QfxConf(JuniperConf):
                     Interfaces(comment=DMUtils.interfaces_comment())
         # self.ae_id_map should have all esi => ae_id mapping
         # esi_map should have esi => interface memberships
-        for esi, ae_id in self.physical_router.ae_id_map.items():
+        for esi, ae_id in list(self.physical_router.ae_id_map.items()):
             # config ae interface
             ae_name = "ae" + str(ae_id)
             intf = Interface(name=ae_name)
@@ -917,7 +918,7 @@ class QfxConf(JuniperConf):
             self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
             vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
 
-        for vn_id, interfaces in vn_dict.items():
+        for vn_id, interfaces in list(vn_dict.items()):
             vn_obj = VirtualNetworkDM.get(vn_id)
             if (vn_obj is None or
                     vn_obj.get_vxlan_vni() is None or
