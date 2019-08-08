@@ -1,21 +1,24 @@
 """
 This file contains sanity test for image upgrade workflow
 """
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import sys
 import hashlib
-import config
+from . import config
 import re
-from sanity_base import SanityBase
-import config
+from .sanity_base import SanityBase
+from . import config
 import re
 
-class FabricAnsibleModule:
+class FabricAnsibleModule(object):
     pass
 
 sys.path.append('../..')
 sys.modules['ansible.module_utils.fabric_utils'] = __import__('sanity_test_hitless_upgrade')
 from library.swift_fileutil import FileSvcUtil
-from sanity_base import SanityBase
+from .sanity_base import SanityBase
 
 class SwiftFileUtil(FileSvcUtil):
 
@@ -171,6 +174,6 @@ class SanityTestHitless(SanityBase):
         return hasher.hexdigest()
 
 if __name__ == "__main__":
-    SanityTestHitless(config.load('config/test_config.yml',
-                             'config/image_config.yml')).test_maintenance_mode()
+    SanityTestHitless(config.load('sanity/config/test_config.yml',
+                             'sanity/config/image_config.yml')).test_maintenance_mode()
 

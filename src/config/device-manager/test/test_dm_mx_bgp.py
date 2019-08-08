@@ -1,7 +1,8 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-from test_dm_bgp import TestBgpDM
+from __future__ import absolute_import
+from .test_dm_bgp import TestBgpDM
 
 #
 # All BGP related DM test cases should go here

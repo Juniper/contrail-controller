@@ -8,9 +8,11 @@
 This file contains sanity test for all major workflows supported by
 fabric ansible
 """
+from __future__ import absolute_import
 
-from sanity_base import SanityBase
-import config
+from builtins import str
+from .sanity_base import SanityBase
+from . import config
 
 
 # pylint: disable=E1101
@@ -76,5 +78,5 @@ class SanityTestAssignRoles(SanityBase):
 
 
 if __name__ == "__main__":
-    SanityTestAssignRoles(config.load('config/test_config.yml')).test()
+    SanityTestAssignRoles(config.load('sanity/config/test_config.yml')).test()
 # end __main__
