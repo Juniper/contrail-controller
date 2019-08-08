@@ -101,7 +101,7 @@ class UnderlayIpClosFeature(FeatureBase):
                             peers[peer_pr.name] = peer
 
                 if peers:
-                    bgp.set_peers(peers.values())
+                    bgp.set_peers(list(peers.values()))
                     feature_config.add_bgp(bgp)
     # end _build_underlay_bgp
 

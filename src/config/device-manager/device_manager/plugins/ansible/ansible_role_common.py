@@ -6,6 +6,7 @@
 This file contains base implementation of both spines and leafs
 """
 
+from builtins import str
 from db import *
 from dm_utils import DMUtils
 from ansible_conf import AnsibleConf
@@ -249,12 +250,12 @@ class AnsibleRoleCommon(AnsibleConf):
             self.add_ref_to_list(ri.get_interfaces(), interfaces[0].name)
 
             public_vrf_ips = {}
-            for pip in fip_map.values():
+            for pip in list(fip_map.values()):
                 if pip["vrf_name"] not in public_vrf_ips:
                     public_vrf_ips[pip["vrf_name"]] = set()
                 public_vrf_ips[pip["vrf_name"]].add(pip["floating_ip"])
 
-            for public_vrf, fips in public_vrf_ips.items():
+            for public_vrf, fips in list(public_vrf_ips.items()):
                 ri_public = RoutingInstance(name=public_vrf)
                 self.ri_map[public_vrf] = ri_public
                 self.add_ref_to_list(ri_public.get_interfaces(), interfaces[1].name)
@@ -308,7 +309,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
             term = Term(name=DMUtils.make_vrf_term_name(ri_name))
             from_ = From()
-            for fip_user_ip in fip_map.keys():
+            for fip_user_ip in list(fip_map.keys()):
                 from_.add_source_address(self.get_subnet_for_cidr(fip_user_ip))
             term.set_from(from_)
             term.set_then(Then(routing_instance=[ri_name]))
@@ -398,7 +399,7 @@ class AnsibleRoleCommon(AnsibleConf):
             nat_rules.set_inside_interface(interfaces[0].name)
             nat_rules.set_outside_interface(interfaces[1].name)
 
-            for pip, fip_vn in fip_map.items():
+            for pip, fip_vn in list(fip_map.items()):
                 fip = fip_vn["floating_ip"]
                 # private ip
                 snat_rule.add_source_addresses(self.get_subnet_for_cidr(pip))
@@ -469,7 +470,7 @@ class AnsibleRoleCommon(AnsibleConf):
         for interface in interfaces:
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
 
-        for ifd_name, interface_list in ifd_map.items():
+        for ifd_name, interface_list in list(ifd_map.items()):
             untagged = [int(i.port_vlan_tag) for i in interface_list
                         if i.is_untagged()]
             if len(untagged) > 1:
@@ -563,7 +564,7 @@ class AnsibleRoleCommon(AnsibleConf):
                     pi = PhysicalInterfaceDM.get(pi_uuid)
                     if not pi:
                         continue
-                    if ae_link_members.has_key(ae_intf_name):
+                    if ae_intf_name in ae_link_members:
                         ae_link_members[ae_intf_name].append(pi.name)
                     else:
                         ae_link_members[ae_intf_name] = []
@@ -576,7 +577,7 @@ class AnsibleRoleCommon(AnsibleConf):
                         intf, _ = self.set_default_pi(pi_obj.name, 'regular')
                         intf.set_link_aggregation_group(lag)
 
-            for ae_intf_name, link_members in ae_link_members.iteritems():
+            for ae_intf_name, link_members in ae_link_members.items():
                 self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
                                   (vpg_uuid, link_members, ae_intf_name))
                 lag = LinkAggrGroup(lacp_enabled=True,
@@ -1164,7 +1165,7 @@ class AnsibleRoleCommon(AnsibleConf):
         left_svc_unit = left_right_params['left_svc_unit']
         right_svc_unit = left_right_params['right_svc_unit']
 
-        for pnf_pi, intf_type in svc_app_obj.physical_interfaces.iteritems():
+        for pnf_pi, intf_type in svc_app_obj.physical_interfaces.items():
             pnf_pi_obj = PhysicalInterfaceDM.get(pnf_pi)
             for spine_pi in pnf_pi_obj.physical_interfaces:
                 if spine_pi not in self.physical_router.physical_interfaces:
@@ -1331,7 +1332,7 @@ class AnsibleRoleCommon(AnsibleConf):
                 right_vrf_info['right_svc_unit'] = right_svc_unit
 
                 #get left srx and right srx interface IPs
-                for pnf_pi, intf_type in svc_app_obj.physical_interfaces.iteritems():
+                for pnf_pi, intf_type in svc_app_obj.physical_interfaces.items():
                     if intf_type.get('interface_type') == "left":
                         pnf_pi_obj = PhysicalInterfaceDM.get(pnf_pi)
                         pnf_pr = pnf_pi_obj.physical_router

@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from builtins import object
+from builtins import str
 import sys
 import traceback
 
@@ -258,7 +260,7 @@ class FilterModule(object):
                             break
                     success_intfs_names.append(
                         phy_interface_dict['fq_name'][-1])
-                except NoIdError as exc:
+                except NoIdError:
                     vnc_lib.physical_interface_create(phy_interface_obj)
                     success_intfs_names.append(
                         phy_interface_dict['fq_name'][-1])
@@ -294,7 +296,7 @@ class FilterModule(object):
                             break
                     success_intfs_names.append(
                         log_interface_dict['fq_name'][-1])
-                except NoIdError as exc:
+                except NoIdError:
                     vnc_lib.logical_interface_create(log_interface_obj)
                     success_intfs_names.append(
                         log_interface_dict['fq_name'][-1])

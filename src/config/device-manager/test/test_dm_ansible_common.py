@@ -1,16 +1,19 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
+from builtins import range
 import json
 import sys
 import uuid
 
 from device_manager.device_manager import DeviceManager
-from test_case import DMTestCase
+from .test_case import DMTestCase
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from netaddr import IPNetwork
-from test_dm_utils import FakeJobHandler
+from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 
 
@@ -75,8 +78,8 @@ class TestAnsibleCommonDM(DMTestCase):
             role_definition.add_feature(self.features[feature])
         self._vnc_lib.role_definition_create(role_definition)
         if feature_configs:
-            for feature, config in feature_configs.items():
-                kvps = [KeyValuePair(key=key, value=value) for key, value in config.items()]
+            for feature, config in list(feature_configs.items()):
+                kvps = [KeyValuePair(key=key, value=value) for key, value in list(config.items())]
                 config = KeyValuePairs(key_value_pair=kvps)
                 feature_config = FeatureConfig(name=feature,
                     parent_obj=role_definition,
@@ -305,28 +308,28 @@ class TestAnsibleCommonDM(DMTestCase):
     def delete_role_definitions(self):
         for fc in self.feature_configs:
             self._vnc_lib.feature_config_delete(fq_name=fc.get_fq_name())
-        for rd in self.role_definitions.values():
+        for rd in list(self.role_definitions.values()):
             self._vnc_lib.role_definition_delete(fq_name=rd.get_fq_name())
     # end delete_role_definitions
 
     def delete_overlay_roles(self):
-        for r in self.overlay_roles.values():
+        for r in list(self.overlay_roles.values()):
             self._vnc_lib.overlay_role_delete(fq_name=r.get_fq_name())
     # end delete_overlay_roles
 
     def delete_physical_roles(self):
-        for r in self.physical_roles.values():
+        for r in list(self.physical_roles.values()):
             self._vnc_lib.physical_role_delete(fq_name=r.get_fq_name())
     # end delete_physical_roles
 
     def delete_features(self):
-        for f in self.features.values():
+        for f in list(self.features.values()):
             self._vnc_lib.feature_delete(fq_name=f.get_fq_name())
     # end delete_features
 
     @retries(5, hook=retry_exc_handler)
     def wait_for_features_delete(self):
-        for f in self.features.values():
+        for f in list(self.features.values()):
             try:
                 self._vnc_lib.feature_read(fq_name=f.get_fq_name())
                 self.assertFalse(True)

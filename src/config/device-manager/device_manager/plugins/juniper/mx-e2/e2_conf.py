@@ -6,7 +6,10 @@
 This file contains implementation of netconf interface for E2 services
 on physical router
 """
+from __future__ import division
 
+from builtins import str
+from past.utils import old_div
 from ncclient import manager
 import datetime
 from lxml import etree
@@ -168,11 +171,11 @@ class MxE2Conf(JuniperConf):
                             mtu_present = False
                             cw_present = False
                             for res_entry in sval:
-                                if 'mtu' in res_entry.values():
+                                if 'mtu' in list(res_entry.values()):
                                     mtu_present = True
-                                if 'control-word' in res_entry.values():
+                                if 'control-word' in list(res_entry.values()):
                                     cw_present = True
-                                for res_key, res_value in res_entry.iteritems():
+                                for res_key, res_value in res_entry.items():
                                     if 'rvalue' in res_key and mtu_present == True:
                                         scm.mtu = res_value
                                         phy_mtu = scm.mtu
@@ -924,7 +927,7 @@ class MxE2Conf(JuniperConf):
         if not self.physical_router.telemetry_info:
             return
         telemetry_info = self.physical_router.telemetry_info
-        for tkey, tdk in telemetry_info.iteritems():
+        for tkey, tdk in telemetry_info.items():
             if 'server_ip' in tkey:
                 server_ip = tdk
             if 'server_port' in tkey:
@@ -932,7 +935,7 @@ class MxE2Conf(JuniperConf):
             if 'resource' in tkey:
                 for res_entry in tdk:
                     rname = rpath = rrate = None
-                    for res_key, res_value in res_entry.iteritems():
+                    for res_key, res_value in res_entry.items():
                         if 'name' in res_key:
                             rname = res_value
                         if 'path' in res_key:
@@ -1426,7 +1429,7 @@ class MxE2Conf(JuniperConf):
         block_provider_comm = etree.Element("community")
         etree.SubElement(block_provider_comm, "name").text = block_rib_name
         if provider_as > 65535:
-            provider_comm_str = "large:0:" + str(provider_as/65536) + ":" + \
+            provider_comm_str = "large:0:" + str(old_div(provider_as,65536)) + ":" + \
                                  str(provider_as%65536)
         else:
             provider_comm_str = "0:" + str(provider_as)
@@ -1437,7 +1440,7 @@ class MxE2Conf(JuniperConf):
         to_provider_comm = etree.Element("community")
         etree.SubElement(to_provider_comm, "name").text = to_rib_name
         if provider_as > 65535:
-            provider_comm_str = "large:" + str(vrr_as) + ":" + str(provider_as/65536) + \
+            provider_comm_str = "large:" + str(vrr_as) + ":" + str(old_div(provider_as,65536)) + \
                                 ":" + str(provider_as%65536)
         else:
             provider_comm_str = str(vrr_as) + ":" + str(provider_as)

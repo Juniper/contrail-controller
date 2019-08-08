@@ -8,6 +8,7 @@ Contains common logger initialization.
 This is to be used in ansible internals as well as ansible modules
 """
 
+from builtins import str
 import logging
 import os
 
@@ -56,7 +57,7 @@ def fabric_ansible_logger(name, ctx=None):
         name_hdr += " pid={}".format(str(os.getpid()))
         # Include any context attributes
         if ctx:
-            for k, v in extra_list.iteritems():
+            for k, v in extra_list.items():
                 if k in ctx:
                     name_hdr += " {}={}".format(v, ctx[k])
         logger = logging.getLogger(name_hdr)

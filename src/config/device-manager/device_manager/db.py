@@ -7,7 +7,12 @@ This file contains implementation of data model for physical router.
 
 for device specific configuration manager
 """
+from __future__ import absolute_import
+from __future__ import division
 
+from builtins import map
+from builtins import range
+from builtins import str
 import json
 import re
 import socket
@@ -15,7 +20,6 @@ import struct
 from time import gmtime, strftime
 import traceback
 
-from ansible_base import AnsibleBase
 from attrdict import AttrDict
 from cfgm_common import vnc_greenlets
 from cfgm_common.exceptions import ResourceExistsError
@@ -25,17 +29,21 @@ from cfgm_common.uve.service_status.ttypes import *
 from cfgm_common.vnc_db import DBBase
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.zkclient import IndexAllocator
-from device_conf import DeviceConf
-from dm_utils import DMIndexer
-from dm_utils import DMUtils
-from dm_utils import PushConfigState
-from feature_base import FeatureBase
 import gevent
 from gevent import queue
 from netaddr import IPAddress
+from past.builtins import basestring
+from past.utils import old_div
 import pyhash
 from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 from vnc_api.vnc_api import *
+
+from .ansible_base import AnsibleBase
+from .device_conf import DeviceConf
+from .dm_utils import DMIndexer
+from .dm_utils import DMUtils
+from .dm_utils import PushConfigState
+from .feature_base import FeatureBase
 
 
 class DBBaseDM(DBBase):
@@ -100,7 +108,7 @@ class BgpRouterDM(DBBaseDM):
                 continue
             if self.uuid in peer.bgp_routers:
                 del peer.bgp_routers[self.uuid]
-        for peer_id, attrs in new_peers.items():
+        for peer_id, attrs in list(new_peers.items()):
             peer = BgpRouterDM.get(peer_id)
             if peer:
                 peer.bgp_routers[self.uuid] = attrs
@@ -437,8 +445,8 @@ class PhysicalRouterDM(DBBaseDM):
     def get_features(self):
         features = {}
         if not self.physical_role or not self.overlay_roles:
-            return features.values()
-        for rd in RoleDefinitionDM.values():
+            return list(features.values())
+        for rd in list(RoleDefinitionDM.values()):
             if rd.physical_role != self.physical_role or \
                     rd.overlay_role not in self.overlay_roles:
                 continue
@@ -451,7 +459,7 @@ class PhysicalRouterDM(DBBaseDM):
                 if feature_config.name in features:
                     features[feature_config.name]['configs'].append(
                         feature_config)
-        return features.values()
+        return list(features.values())
     # end get_features
 
     def set_associated_lags(self, lag_uuid):
@@ -613,7 +621,7 @@ class PhysicalRouterDM(DBBaseDM):
 
     @classmethod
     def reset(cls):
-        for obj in cls._dict.values():
+        for obj in list(cls._dict.values()):
             if obj.config_manager:
                 obj.config_manager.clear()
         cls._dict = {}
@@ -703,7 +711,8 @@ class PhysicalRouterDM(DBBaseDM):
     def get_vn_irb_ip_map(self):
         ips = {'irb': {}, 'lo0': {}}
         for ip_used_for in ['irb', 'lo0']:
-            for vn_subnet, ip_addr in self.vn_ip_map[ip_used_for].items():
+            for vn_subnet, ip_addr in \
+                    list(self.vn_ip_map[ip_used_for].items()):
                 (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
                 vn = VirtualNetworkDM.get(vn_uuid)
                 if vn_uuid not in ips[ip_used_for]:
@@ -727,7 +736,7 @@ class PhysicalRouterDM(DBBaseDM):
                     continue
                 if vn.router_external and ignore_external:
                     continue
-                for subnet_prefix in vn.gateways.keys():
+                for subnet_prefix in list(vn.gateways.keys()):
                     new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
 
         self.evaluate_vn_ip_map(new_vn_ip_set, self.vn_ip_map[ip_used_for],
@@ -811,7 +820,7 @@ class PhysicalRouterDM(DBBaseDM):
                 continue
             if vn.get_forwarding_mode() != 'l2_l3':
                 continue
-            for subnet_prefix in vn.gateways.keys():
+            for subnet_prefix in list(vn.gateways.keys()):
                 new_vns.add(vn_uuid + ':' + subnet_prefix)
 
         irb_ip_map = self.vn_ip_map['irb']
@@ -822,7 +831,7 @@ class PhysicalRouterDM(DBBaseDM):
 
     def get_ip_map_for(self, vn_ip_map):
         ips = {}
-        for vn_subnet, ip_addr in vn_ip_map.items():
+        for vn_subnet, ip_addr in list(vn_ip_map.items()):
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
             if vn_uuid not in ips:
@@ -1008,7 +1017,7 @@ class PhysicalRouterDM(DBBaseDM):
 
     def get_push_config_interval(self, last_config_size):
         config_delay = int(
-            (last_config_size / 1000) *
+            (old_div(last_config_size, 1000)) *
             PushConfigState.get_push_delay_per_kb())
         delay = min([PushConfigState.get_push_delay_max(), config_delay])
         return delay
@@ -1107,7 +1116,7 @@ class GlobalVRouterConfigDM(DBBaseDM):
     # end update
 
     def update_physical_routers(self):
-        for pr in PhysicalRouterDM.values():
+        for pr in list(PhysicalRouterDM.values()):
             pr.set_config_state()
     # end update_physical_routers
 
@@ -1240,7 +1249,7 @@ class LogicalInterfaceDM(DBBaseDM):
     def get_sg_list(cls):
         sg_list = []
         li_dict = cls._dict
-        for li_obj in li_dict.values() or []:
+        for li_obj in list(li_dict.values()) or []:
             sg_list += li_obj.get_attached_sgs()
         return sg_list
     # end get_sg_list
@@ -1775,7 +1784,7 @@ class VirtualNetworkDM(DBBaseDM):
             return set(self.gateways.keys())
         vn_list = lr.get_connected_networks(include_internal=False)
         prefix_set = set()
-        if self.gateways and self.gateways.keys():
+        if self.gateways and list(self.gateways.keys()):
             prefix_set = set(self.gateways.keys())
         for vn in vn_list:
             vn_obj = VirtualNetworkDM.get(vn)
@@ -2422,7 +2431,7 @@ class DataCenterInterconnectDM(DBBaseDM):
 
     @classmethod
     def get_dci_peers(cls, pr_uuid):
-        dci_list = cls._dict.values()
+        dci_list = list(cls._dict.values())
         pr_list = []
         for dci in dci_list or []:
             prs = dci.get_connected_physical_routers()
@@ -2601,10 +2610,9 @@ class FabricNamespaceDM(DBBaseDM):
             return
         value = obj.get('fabric_namespace_value')
         if value is not None and value['asn_ranges'] is not None:
-            self.asn_ranges = list(map(lambda asn_range:
-                                       (int(asn_range['asn_min']),
-                                        int(asn_range['asn_max'])),
-                                       value['asn_ranges']))
+            self.asn_ranges = list([(int(asn_range['asn_min']),
+                                    int(asn_range['asn_max']))
+                                    for asn_range in value['asn_ranges']])
     # end _read_asn_ranges
 
     def update(self, obj=None):
@@ -3254,10 +3262,10 @@ class DMCassandraDB(VncObjectDBClient):
     def init_pr_map(self):
         cf = self.get_cf(self._PR_VN_IP_CF)
         pr_entries = dict(cf.get_range(column_count=1000000))
-        for key in pr_entries.keys():
+        for key in list(pr_entries.keys()):
             key_data = key.split(':', 1)
             cols = pr_entries[key] or {}
-            for col in cols.keys():
+            for col in list(cols.keys()):
                 ip_used_for = DMUtils.get_ip_used_for_str(col)
                 (pr_uuid, vn_subnet_uuid) = (key_data[0], key_data[1])
                 self.add_to_pr_map(pr_uuid, vn_subnet_uuid, ip_used_for)
@@ -3266,7 +3274,7 @@ class DMCassandraDB(VncObjectDBClient):
     def init_pr_asn_map(self):
         cf = self.get_cf(self._PR_ASN_CF)
         pr_entries = dict(cf.get_range())
-        for pr_uuid in pr_entries.keys():
+        for pr_uuid in list(pr_entries.keys()):
             pr_entry = pr_entries[pr_uuid] or {}
             asn = int(pr_entry.get('asn'))
             if asn:
