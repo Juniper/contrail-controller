@@ -106,9 +106,8 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     boost::system::error_code ec;
     IpAddress xmpp_ip_address = AddressFromString(options->host_ip(), &ec);
     if (ec) {
-        LOG(ERROR, "Xmpp IP Address:" <<  options->host_ip() <<
-                   " conversion error:" << ec.message());
-        ControlNode::Exit(1);
+        CONTROL_NODE_EXIT("Xmpp IP Address " <<  options->host_ip() <<
+                          " conversion error:" << ec.message());
     }
     if (!xmpp_server->Initialize(options->xmpp_port(), true,
                                  xmpp_ip_address)) {
@@ -199,10 +198,9 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
 
 // Docker restart takes long time as control node is not handling SIGTERM
 // its better to exit gracefully.
-void SigtermSignalHandler(const boost::system::error_code &error, int sig,
+void SigTermSignalHandler(const boost::system::error_code &error, int sig,
                           bool force_reinit) {
-    LOG(WARN, "Received signal " << sig << " inside SigtermSignalHandler()");
-    ControlNode::Exit(1);
+    CONTROL_NODE_EXIT("Received terminating signal " << sig);
 }
 
 void ReConfigSignalHandler(const boost::system::error_code &error, int sig,
@@ -218,7 +216,7 @@ void ReConfigSignalHandler(const boost::system::error_code &error, int sig,
 int main(int argc, char *argv[]) {
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
-        ControlNode::Exit(1);
+        CONTROL_NODE_EXIT("Invalid command line arguments");
     }
 
     srand(unsigned(time(NULL)));
@@ -227,7 +225,7 @@ int main(int argc, char *argv[]) {
     std::vector<Signal::SignalHandler> sigusr1_handlers = boost::assign::list_of
         (boost::bind(&ReConfigSignalHandler, _1, _2, true));
     std::vector<Signal::SignalHandler> sigterm_handler = boost::assign::list_of
-        (boost::bind(&SigtermSignalHandler, _1, _2, true));
+        (boost::bind(&SigTermSignalHandler, _1, _2, true));
     Signal::SignalCallbackMap smap = boost::assign::map_list_of
         (SIGHUP, sighup_handlers)
         (SIGUSR1, sigusr1_handlers)
@@ -305,9 +303,8 @@ int main(int argc, char *argv[]) {
     boost::system::error_code ec;
     IpAddress bgp_ip_address = AddressFromString(options.host_ip(), &ec);
     if (ec) {
-        LOG(ERROR, "Bgp IP Address:" <<  options.host_ip() <<
-                   " conversion error:" << ec.message());
-        ControlNode::Exit(1);
+        CONTROL_NODE_EXIT("BGP IP Address " <<  options.host_ip() <<
+                          " conversion error: " << ec.message());
     }
 
     bgp_server->rtarget_group_mgr()->Initialize();
@@ -319,7 +316,7 @@ int main(int argc, char *argv[]) {
     xmpp_cfg.dscp_value = bgp_server->global_qos()->control_dscp();
     XmppServer *xmpp_server = CreateXmppServer(&evm, &options, &xmpp_cfg);
     if (xmpp_server == NULL) {
-        ControlNode::Exit(1);
+        CONTROL_NODE_EXIT("XmppServer creation failed");
     }
 
     // Create BGP and IFMap channel managers.
@@ -385,9 +382,8 @@ int main(int argc, char *argv[]) {
                     options.sandesh_config());
     }
     if (!success) {
-        LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
         Sandesh::Uninit();
-        ControlNode::Exit(1);
+        CONTROL_NODE_EXIT("Sandesh initialization failed");
     }
 
     // Set BuildInfo.

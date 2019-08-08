@@ -242,15 +242,15 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
 }
 
-// Exit control-node without dumping any core-file.
-void ControlNode::Exit(int status, bool do_assert) {
+// Immediately exit control-node non-gracefully without creating any core dump.
+void ControlNode::Exit(bool do_assert) {
     rlimit new_core_limit;
     new_core_limit.rlim_cur = 0;
     new_core_limit.rlim_max = 0;
     setrlimit(RLIMIT_CORE, &new_core_limit);
     if (do_assert)
         assert(false);
-    exit(status);
+    abort();
 }
 
 string ControlNode::GetProcessState(bool bgpHasSelfConfiguration,
