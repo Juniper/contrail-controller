@@ -4,7 +4,12 @@
 #
 # This file contains implementation for fabric related Ansible filter plugins
 #
+from __future__ import print_function
+
 import argparse
+from builtins import object
+from builtins import range
+from builtins import str
 import json
 import socket
 import struct
@@ -1418,12 +1423,13 @@ class FilterModule(object):
             vnc_api.physical_interface_delete(id=pi_uuid)
             _task_done()
 
-        # delete all the hardware inventory items 
+        # delete all the hardware inventory items
         for hardware_item in list(device_obj.get_hardware_inventorys() or []):
             hr_uuid = str(hardware_item.get('uuid'))
             hr_obj = vnc_api.hardware_inventory_read(id=hr_uuid)
             _task_log(
-                "Deleting the hardware inventory object %s" % (str(hr_obj.fq_name)))
+                "Deleting the hardware inventory object %s" %
+                str(hr_obj.fq_name))
             vnc_api.hardware_inventory_delete(id=hr_uuid)
             _task_done()
 
@@ -1674,7 +1680,7 @@ class FilterModule(object):
             self._enable_ibgp_auto_mesh(vnc_api, False)
 
             # load supported roles from node profile assigned to the device
-            for device_obj, device_roles in device2roles_mappings.iteritems():
+            for device_obj, device_roles in device2roles_mappings.items():
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
                     _task_warn_log(
@@ -2775,7 +2781,7 @@ def __main__():
     elif parser.assign_roles:
         results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
 
-    print results
+    print(results)
 # end __main__
 
 

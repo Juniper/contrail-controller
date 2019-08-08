@@ -6,7 +6,11 @@
 # This file contains code to support fabric device configuration operations
 #
 
+from __future__ import print_function
+
 import argparse
+from builtins import object
+from builtins import str
 import json
 import os
 import re
@@ -37,11 +41,11 @@ class FilterModule(object):
             group_vars = yaml.load(f)
         role_to_feature_mapping = group_vars['role_to_feature_mapping']
         self.role_to_feature_mapping = dict(
-            (k.lower(), v) for k, v in role_to_feature_mapping.iteritems())
+            (k.lower(), v) for k, v in role_to_feature_mapping.items())
         feature_based_plugin_roles = group_vars['feature_based_plugin_roles']
         self.feature_based_plugin_roles = \
             dict((k.lower(), v) for k, v in
-                 feature_based_plugin_roles.iteritems())
+                 feature_based_plugin_roles.items())
         self.feature_apply_order = group_vars['feature_apply_order']
 
     # Load the abstract config
@@ -153,7 +157,7 @@ class FilterModule(object):
             rt_dict = value.split(':')
             if rt_dict[0] == 'target':
                 asn = value.split(':')[-2]
-                id = value.split(':')[-1]
+                identifier = value.split(':')[-1]
                 # It is already in 4-Byte ASN format
                 if asn[len(asn) - 1] == 'L':
                     return value
@@ -163,7 +167,7 @@ class FilterModule(object):
                     return value
                 # If ASN > 64K, append 'L'
                 if int(asn) > 65535:
-                    return "target:" + asn + "L:"+ id
+                    return "target:" + asn + "L:" + identifier
             return value
         # end rtfilter
 
@@ -252,7 +256,7 @@ class FilterModule(object):
             'results': {},
             'status': "success"
         }
-        _task_error_log("render_output: %s" %(render_output))
+        _task_error_log("render_output: %s" % render_output)
         return render_output
 
     def render_fabric_config(self, job_ctx):
@@ -427,7 +431,7 @@ def __main__():
     elif parser.manage_underlay:
         results = fab_filter.render_fabric_config(_mock_job_ctx(False, True))
 
-    print results
+    print(results)
 # end __main__
 
 

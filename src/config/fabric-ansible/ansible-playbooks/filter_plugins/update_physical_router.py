@@ -46,7 +46,6 @@ class FilterModule(object):
         obj_dict_payload.pop("additional_properties")
 
     # end _parse_additional_prop_and_upd_payload
-
     def update_physical_router(self, job_ctx, prouter_name,
                                obj_dict_payload, prouter_vendor):
         """

@@ -11,6 +11,20 @@ This file contains implementation of gett
 swift download URL for the uploaded image file
 """
 
+from builtins import object
+from builtins import str
+import logging
+import re
+from threading import RLock
+import time
+from urllib.parse import urlparse
+
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
+from future import standard_library
+standard_library.install_aliases()
+import requests
+import swiftclient
+import swiftclient.utils
 
 DOCUMENTATION = '''
 ---
@@ -97,17 +111,6 @@ error_msg:
   returned: on failure
   type: str
 '''
-
-import logging
-import re
-from threading import RLock
-import time
-from urlparse import urlparse
-
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
-import requests
-import swiftclient
-import swiftclient.utils
 
 connection_lock = RLock()
 
