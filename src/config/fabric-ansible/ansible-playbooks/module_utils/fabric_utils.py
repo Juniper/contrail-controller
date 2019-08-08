@@ -6,6 +6,7 @@
 
 """This file contains general functions for fabric ansible modules."""
 
+from builtins import str
 from functools import wraps
 import json
 import traceback

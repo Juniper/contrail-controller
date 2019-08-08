@@ -1,8 +1,11 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
-from cStringIO import StringIO
+from io import BytesIO as StringIO
 from lxml import etree
 from cfgm_common.tests.test_utils import stub
 
