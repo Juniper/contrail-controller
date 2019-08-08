@@ -4,9 +4,11 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+from builtins import str
 import time
-from sanity_base import SanityBase
-import config
+from .sanity_base import SanityBase
+from . import config
 from collections import namedtuple
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
@@ -221,5 +223,5 @@ class SanityTestRmaActivate(SanityBase):
             pass
 
 if __name__ == "__main__":
-    SanityTestRmaActivate(config.load('config/test_config.yml')).rma_activate()
+    SanityTestRmaActivate(config.load('sanity/config/test_config.yml')).rma_activate()
 # end __main__

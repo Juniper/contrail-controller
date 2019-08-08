@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import binascii
+from builtins import object
+from builtins import str
 from collections import defaultdict
 
 from ansible.module_utils._text import to_text

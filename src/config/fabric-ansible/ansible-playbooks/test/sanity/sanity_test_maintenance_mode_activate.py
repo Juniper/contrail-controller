@@ -1,15 +1,18 @@
 """
 This file contains sanity test for activate maintenance mode workflow
 """
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import sys
-import config
+from . import config
 
-class FabricAnsibleModule:
+class FabricAnsibleModule(object):
     pass
 
 sys.path.append('../..')
 sys.modules['ansible.module_utils.fabric_utils'] = __import__('sanity_test_hitless_upgrade')
-from sanity_base import SanityBase
+from .sanity_base import SanityBase
 
 class SanityTestHitless(SanityBase):
 
@@ -37,6 +40,6 @@ class SanityTestHitless(SanityBase):
                 % str(ex))
 
 if __name__ == "__main__":
-    SanityTestHitless(config.load('config/test_config.yml',
-                             'config/image_config.yml')).test_maintenance_mode_activate()
+    SanityTestHitless(config.load('sanity/config/test_config.yml',
+                             'sanity/config/image_config.yml')).test_maintenance_mode_activate()
 
