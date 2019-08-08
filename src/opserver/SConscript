@@ -234,7 +234,6 @@ sandesh_pkgs = [vm_pkg, vn_pkg, stats_test_pkg, alarm_test_pkg,
 testr_str = 'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + \
             ' && tools_path=../config/common/tests/' + \
             ' omit_list="opserver/sandesh"' \
-            ' build_top=' + Dir(OpEnv['TOP']).path + \
             ' CFLAGS= LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:../../../build/lib' \
             ' python setup.py run_tests %s 2>&1 |' \
             ' tee %s.log"'

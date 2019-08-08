@@ -60,7 +60,7 @@ class ConsistentScheduler(object):
         while True:
             self._logger.error("Consistent scheduler zk start")
             self._zk = KazooClient(self._zookeeper_srvr,
-                handler=SequentialGeventHandler())
+                handler=SequentialGeventHandler(), timeout=60.0)
             self._zk.add_listener(self._zk_lstnr)
             try:
                 self._zk.start()
