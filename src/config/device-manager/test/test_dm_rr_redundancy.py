@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import absolute_import
 import gevent
 import json
 from attrdict import AttrDict
