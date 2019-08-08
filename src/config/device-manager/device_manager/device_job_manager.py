@@ -3,6 +3,9 @@
 #
 
 import ast
+from builtins import map
+from builtins import object
+from builtins import str
 import json
 import os
 import signal
@@ -350,7 +353,7 @@ class DeviceJobManager(object):
                           format(job_execution_ids, abort_mode))
 
         # Search through running job instances to find this job
-        for pid, job_instance in self._job_mgr_running_instances.iteritems():
+        for pid, job_instance in self._job_mgr_running_instances.items():
             # Abort one job
             if job_execution_ids:
                 if job_instance.get('exec_id') in job_execution_ids:
@@ -517,7 +520,7 @@ class DeviceJobManager(object):
                         data=prouter_job_data, sandesh=self._sandesh)
                     prouter_job_uve.send(sandesh=self._sandesh)
 
-            for k, v in prouter_info.iteritems():
+            for k, v in prouter_info.items():
                 prouter_uve_name = "%s:%s" % (k, signal_var.get('fabric_name'))
                 prouter_job_data = PhysicalRouterJobExecution(
                     name=prouter_uve_name,

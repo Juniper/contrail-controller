@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+from builtins import map
+from builtins import str
+from past.builtins import basestring
+from builtins import object
 import logging
 import traceback
 import json
@@ -225,7 +229,7 @@ class FilterModule(object):
 
             port_dict = self.translate(port_dict)
 
-            local_link_dict = {k: v for k, v in port_dict.iteritems() if k in
+            local_link_dict = {k: v for k, v in port_dict.items() if k in
                                ['port_id', 'switch_info', 'switch_id']}
 
             self._logger.warn("dvs-name:: " + str(port_dict.get('dvs_name')))
@@ -294,9 +298,9 @@ class FilterModule(object):
         if isinstance(data, basestring):
             return str(data)
         elif isinstance(data, collections.Mapping):
-            return dict(map(self.convert, data.iteritems()))
+            return dict(list(map(self.convert, iter(data.items()))))
         elif isinstance(data, collections.Iterable):
-            return type(data)(map(self.convert, data))
+            return type(data)(list(map(self.convert, data)))
         else:
             return data
 

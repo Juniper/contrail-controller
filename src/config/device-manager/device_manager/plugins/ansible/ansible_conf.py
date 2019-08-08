@@ -5,6 +5,8 @@
 # using ansible
 #
 
+from builtins import str
+from builtins import object
 import datetime
 from hashlib import md5
 import json
@@ -543,7 +545,7 @@ class AnsibleConf(AnsibleBase):
         if not bgp_router:
             return
         if bgp_router:
-            for peer_uuid, attr in bgp_router.bgp_routers.items():
+            for peer_uuid, attr in list(bgp_router.bgp_routers.items()):
                 peer = BgpRouterDM.get(peer_uuid)
                 if not peer or not peer.params or not peer.params.get(
                         'address'):
@@ -612,7 +614,7 @@ class AnsibleConf(AnsibleBase):
         if isinstance(obj, set):
             return list(obj)
         if hasattr(obj, '__dict__'):
-            return dict((k, v) for k, v in obj.__dict__.iteritems()
+            return dict((k, v) for k, v in obj.__dict__.items()
                         if AnsibleConf.do_export(v))
         raise TypeError(
             'Object of type %s is not JSON serializable' %

@@ -4,6 +4,7 @@
 
 """L2 Gateway Feature Implementation."""
 
+from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
@@ -70,7 +71,7 @@ class L2GatewayFeature(FeatureBase):
             interface_map.setdefault(interface.pi_name, []).append(interface)
             vpg_map[interface.pi_name] = interface.vpg_name
 
-        for pi_name, interface_list in interface_map.items():
+        for pi_name, interface_list in list(interface_map.items()):
             untagged = [int(i.port_vlan_tag) for i in interface_list
                         if int(i.vlan_tag) == 0]
             if len(untagged) > 1:
@@ -131,7 +132,7 @@ class L2GatewayFeature(FeatureBase):
             return feature_config
 
         vn_dict = self._get_connected_vn_li_map()
-        for vn_uuid, interfaces in vn_dict.items():
+        for vn_uuid, interfaces in list(vn_dict.items()):
             vn_obj = db.VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
@@ -145,8 +146,8 @@ class L2GatewayFeature(FeatureBase):
                 export_targets, import_targets, feature_config)
             feature_config.add_routing_instances(ri)
 
-        for pi, li_map in self.pi_map.values():
-            pi.set_logical_interfaces(li_map.values())
+        for pi, li_map in list(self.pi_map.values()):
+            pi.set_logical_interfaces(list(li_map.values()))
             feature_config.add_physical_interfaces(pi)
 
         return feature_config

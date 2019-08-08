@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Infra, Inc. All rights reserved.
 #
@@ -18,11 +19,11 @@ from cfgm_common.tests.test_common import retry_exc_handler
 from cfgm_common.tests.test_common import launch_device_manager
 from cfgm_common.tests.test_common import kill_device_manager
 from cfgm_common.tests.test_common import wait_for_device_manager_up
-from test_dm_common import *
-from test_case import DMTestCase
-from test_dm_utils import FakeDeviceConnect
-from test_dm_utils import FakeJobHandler
-from test_dm_utils import FakeNetconfManager
+from .test_dm_common import *
+from .test_case import DMTestCase
+from .test_dm_utils import FakeDeviceConnect
+from .test_dm_utils import FakeJobHandler
+from .test_dm_utils import FakeNetconfManager
 
 #
 # All Infra related DM test cases should go here

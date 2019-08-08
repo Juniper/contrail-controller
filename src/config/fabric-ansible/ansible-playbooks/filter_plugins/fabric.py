@@ -4,7 +4,12 @@
 #
 # This file contains implementation for fabric related Ansible filter plugins
 #
+from __future__ import print_function
+
 import argparse
+from builtins import object
+from builtins import range
+from builtins import str
 import json
 import socket
 import struct
@@ -280,9 +285,10 @@ class FilterModule(object):
                                     fields=['fabric_namespace_back_refs'])
         for ref in mgmt_tag.get_fabric_namespace_back_refs() or []:
             namespace_obj = vnc_api.fabric_namespace_read(
-                id=ref.get('uuid'), fields=[
-                    'fq_name', 'fabric_namespace_type',
-                    'fabric_namespace_value'])
+                id=ref.get('uuid'),
+                fields=['fq_name',
+                        'fabric_namespace_type',
+                        'fabric_namespace_value'])
 
             # skip namespaces belong to this fabric
             if _compare_fq_names(namespace_obj.fq_name[:-1], fab_fq_name):
@@ -1680,7 +1686,7 @@ class FilterModule(object):
             self._enable_ibgp_auto_mesh(vnc_api, False)
 
             # load supported roles from node profile assigned to the device
-            for device_obj, device_roles in device2roles_mappings.iteritems():
+            for device_obj, device_roles in device2roles_mappings.items():
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
                     _task_warn_log(
@@ -2781,7 +2787,7 @@ def __main__():
     elif parser.assign_roles:
         results = fabric_filter.assign_roles(_mock_job_ctx_assign_roles())
 
-    print results
+    print(results)
 # end __main__
 
 

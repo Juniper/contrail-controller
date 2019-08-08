@@ -9,6 +9,7 @@ This file contains implementation of abstract config generation for
 storm control feature
 """
 
+from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
@@ -42,7 +43,7 @@ class StormControlFeature(FeatureBase):
         for interface in interfaces:
             interface_map.setdefault(interface.pi_name, []).append(interface)
 
-        for pi_name, interface_list in interface_map.items():
+        for pi_name, interface_list in list(interface_map.items()):
             _, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
             for interface in interface_list:
                 if int(interface.vlan_tag) == 0:
@@ -119,11 +120,11 @@ class StormControlFeature(FeatureBase):
             return feature_config
 
         vn_dict = self._get_connected_vn_li_map()
-        for vn_uuid, interfaces in vn_dict.items():
+        for vn_uuid, interfaces in list(vn_dict.items()):
             self._build_storm_control_interface_config(interfaces)
 
-        for pi, li_map in self.pi_map.values():
-            pi.set_logical_interfaces(li_map.values())
+        for pi, li_map in list(self.pi_map.values()):
+            pi.set_logical_interfaces(list(li_map.values()))
             feature_config.add_physical_interfaces(pi)
 
         for sc_name in self.sc_map:
