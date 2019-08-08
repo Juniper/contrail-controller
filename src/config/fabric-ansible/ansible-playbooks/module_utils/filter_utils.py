@@ -1,3 +1,4 @@
+from builtins import object
 from functools import wraps
 import logging
 import os

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -12,8 +13,8 @@ from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import DMUtils
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
-from test_dm_common import *
-from test_dm_utils import FakeDeviceConnect
+from .test_dm_common import *
+from .test_dm_utils import FakeDeviceConnect
 
 #
 # All BGP related DM test cases should go here
