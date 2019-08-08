@@ -654,7 +654,7 @@ TEST_F(OptionsTest, CustomConfigDBFileAndOverrideFromCommandLine) {
 
 TEST_F(OptionsTest, ControlNodeExit) {
     remove("core");
-    EXPECT_DEATH(ControlNode::Exit(1, true), ".*");
+    EXPECT_DEATH(ControlNode::Exit(true), ".*");
     EXPECT_FALSE(ifstream("core"));
 }
 
