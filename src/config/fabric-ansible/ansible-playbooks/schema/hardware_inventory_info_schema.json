@@ -1,0 +1,91 @@
+{
+  "input_schema": {
+    "title": "Hardware Inventory Information",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "minProperties":1
+  },
+  "output_schema": {
+	"$schema": "http://json-schema.org/draft-07/schema#",
+    "title":"Generic hardware inventory information output",
+    "type":"object",
+    "minProperties": 1,
+    "additionalProperties": false,
+    "properties": {
+      "hardware_inventory_inventory_info": {
+        "type": "array",
+        "title": "Hardware Inventory Output",
+        "items": {
+          "$id": "#/items",
+          "type": "object",
+          "title": "List of hardware inventory info",
+          "required": [
+            "module",
+            "model",
+            "model_number",
+            "part_number",
+            "version",
+            "serial_number",
+            "description",
+            "parent_module"
+          ],
+          "properties": {
+            "module": {
+              "type": "string",
+              "title": "The Module Name",
+              "default": "",
+              "examples": [
+                "chassis"
+              ]
+            },
+            "model": {
+              "type": "string",
+              "title": "The Model Name",
+              "default": ""
+            },
+            "model_number": {
+              "type": "string",
+              "title": "The Model Number",
+              "default": ""
+            },
+            "part_number": {
+              "type": "string",
+              "title": "The Part Number ",
+              "default": ""
+            },
+            "version": {
+              "type": "string",
+              "title": "Module Version",
+              "default": ""
+            },
+            "serial_number": {
+              "type": "string",
+              "title": "The Module Serial Number",
+              "default": "",
+              "examples": [
+                "VF3717350288"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "title": "Module Description",
+              "default": "",
+              "examples": [
+                "QFX5100-48S-6Q"
+              ]
+            },
+            "parent_module": {
+              "$id": "#/items/properties/parent",
+              "type": "string",
+              "title": "If the current Module is a subset of another Module",
+              "default": "",
+              "examples": [
+                "FPC 0"
+              ]
+            }
+          }
+        }
+      }
+     }
+   }
+}
