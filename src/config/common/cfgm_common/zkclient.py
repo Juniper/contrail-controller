@@ -455,6 +455,11 @@ class ZookeeperClient(object):
 
     # end
 
+    def stop(self):
+        self._zk_client.stop()
+        self._zk_client.close()
+    # end stop
+
     def is_connected(self):
         return self._zk_client.state == KazooState.CONNECTED
     # end is_connected
