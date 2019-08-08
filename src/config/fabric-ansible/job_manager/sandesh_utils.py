@@ -19,7 +19,7 @@ class SandeshUtils(object):
         """
         self._logger = logger
 
-#    @timeout_decorator.timeout(15, timeout_exception=JobException)
+#    @wrapt_timeout_decorator.timeout(15, timeout_exception=JobException)
     def wait_for_connection_establish(self):
         total_wait = 0
         state = self._logger._sandesh._client._connection.\
@@ -38,7 +38,7 @@ class SandeshUtils(object):
         self._logger._sandesh._client._connection.set_admin_state(down=True)
         self._logger._sandesh.uninit()
 
-#    @timeout_decorator.timeout(15, timeout_exception=JobException)
+#    @wrapt_timeout_decorator.timeout(15, timeout_exception=JobException)
     def wait_for_msg_send(self):
         total_wait = 0
         while not self._logger._sandesh.is_send_queue_empty():
