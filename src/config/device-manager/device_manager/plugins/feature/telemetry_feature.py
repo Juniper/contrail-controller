@@ -138,7 +138,7 @@ class TelemetryFeature(FeatureBase):
                 enbld_intf_params_obj)
 
         # all flow nodes will have same same load balancer IP
-        for node in db.FlowNodeDM.values():
+        for node in list(db.FlowNodeDM.values()):
             collector_ip_addr = node.virtual_ip_addr
 
         if collector_ip_addr:
