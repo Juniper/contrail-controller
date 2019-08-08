@@ -4,6 +4,8 @@
 # This file contains implementation of abstract config generation for PNFs
 #
 
+from builtins import str
+
 from abstract_device_api.abstract_device_xsd import *
 from ansible_role_common import AnsibleRoleCommon
 import db
@@ -223,7 +225,7 @@ class PnfConf(AnsibleRoleCommon):
                         right_li_name = left_li_name = lo0_li_name = None
                         right_li_ip = left_li_ip = lo0_li_ip = None
                         for pi, intf_type in (
-                                sa_obj.physical_interfaces).iteritems():
+                                sa_obj.physical_interfaces).items():
                             pi_obj = db.PhysicalInterfaceDM.get(pi)
                             attr = intf_type.get('interface_type')
                             if attr == 'left':

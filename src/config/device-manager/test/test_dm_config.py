@@ -1,17 +1,20 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import range
 import sys
 import gevent
 from testtools.matchers import Equals, Contains, Not
-import test_case
+from . import test_case
 import xmltodict
 import collections
 import itertools
 import copy
 from unittest import skip
 from vnc_api.vnc_api import *
-from test_dm_utils import fake_netconf_connect
+from .test_dm_utils import fake_netconf_connect
 
 try:
     import device_manager
@@ -21,14 +24,14 @@ except ImportError:
 from time import sleep
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+    print("Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay), file=sys.stderr)
 
 
 def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:
@@ -54,7 +57,7 @@ def dictMatch(patn, real):
     if type(real) is collections.OrderedDict:
         real = dict(real)
     try:
-        for pkey, pvalue in patn.iteritems():
+        for pkey, pvalue in patn.items():
             if type(pvalue) is dict or type(pvalue) is collections.OrderedDict:
                 if type(real[pkey]) is list:   # it is possible if one more than config object is present
                     result = False
@@ -121,7 +124,7 @@ def get_valid_permutations(blocks, dep_map):
     valid_seq_list = list()
     for seq in seq_list:
         good_one = True
-        for key, dep in dep_map.items():
+        for key, dep in list(dep_map.items()):
             if check_dep(seq, key, copy.deepcopy(dep)) == False:
                 good_one = False
                 break
@@ -224,14 +227,14 @@ self._vnc_lib.bgp_router_delete(bgp_router.get_fq_name())
         for code_blocks in code_blocks_seq:
             for code in code_blocks:
                 obj = compile(code, '<string>', 'exec')
-                exec obj
+                exec(obj)
             gevent.sleep(2)
             xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-options><dynamic-tunnels><dynamic-tunnel><name>__contrail__</name><source-address>5.5.5.5</source-address><gre/><destination-networks><name>10.0.0.0/24</name></destination-networks><destination-networks><name>20.0.0.0/32</name></destination-networks><destination-networks><name>1.1.1.1/32</name></destination-networks></dynamic-tunnel></dynamic-tunnels></routing-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
-            print "Checking xml tags"
+            print("Checking xml tags")
             self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
 
             obj = compile(cleanup_block, '<string>', 'exec')
-            exec obj
+            exec(obj)
             gevent.sleep(2)
 
     #end test_tunnels_dm
@@ -455,12 +458,12 @@ self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         for code_blocks in code_blocks_seq:
             for code in code_blocks:
                 obj = compile(code, '<string>', 'exec')
-                exec obj
+                exec(obj)
             gevent.sleep(2)
             xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><hold-time>90</hold-time><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-instances><instance operation="replace"><name>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1</name><instance-type>vrf</instance-type><vrf-import>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-import</vrf-import><vrf-export>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-export</vrf-export><vrf-table-label/></instance></routing-instances><policy-options><policy-statement><name>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-export</name><term><name>t1</name><then><community><add/><community-name>target_64512_8000001</community-name></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__8c8174da-67a6-4bc1-b076-1536d11d944e_vn1-import</name><term><name>t1</name><from><community>target_64512_8000001</community></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>target_64512_8000001</name><members>target:64512:8000001</members></community></policy-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
             self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
             obj = compile(cleanup_block, '<string>', 'exec')
-            exec obj
+            exec(obj)
             gevent.sleep(2)
 
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name operation="delete">__contrail__</name></groups></configuration></config>'

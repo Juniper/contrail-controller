@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+from builtins import str
+from builtins import map
+from past.builtins import basestring
+from builtins import object
 import logging
 import traceback
 import json
@@ -163,9 +167,9 @@ class FilterModule(object):
         if isinstance(data, basestring):
             return str(data)
         elif isinstance(data, collections.Mapping):
-            return dict(map(self.convert, data.iteritems()))
+            return dict(list(map(self.convert, iter(data.items()))))
         elif isinstance(data, collections.Iterable):
-            return type(data)(map(self.convert, data))
+            return type(data)(list(map(self.convert, data)))
         else:
             return data
 
