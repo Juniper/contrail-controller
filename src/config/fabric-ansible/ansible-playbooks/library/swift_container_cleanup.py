@@ -4,9 +4,21 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-This file contains implementation of cleaning up the swift container of residual chucks
-"""
+"""Contains cleaning up the swift container of residual chucks."""
+
+from builtins import object
+from builtins import str
+import logging
+import re
+from threading import RLock
+import time
+
+from ansible.module_utils.fabric_utils import FabricAnsibleModule
+from future import standard_library
+standard_library.install_aliases()
+import requests
+import swiftclient
+import swiftclient.utils
 
 DOCUMENTATION = '''
 ---
@@ -15,7 +27,8 @@ module: Swift container cleanup
 author: Juniper Networks
 short_description: Private module to clean up container of residual chunks
 description:
-    - Pass the container name and delete all the residual chunks that don't have a manifest file
+    - Pass the container name and delete all the residual chunks
+    that don't have a manifest file
 requirements:
     -
 options:
@@ -80,7 +93,8 @@ EXAMPLES = '''
 RETURN = '''
 url:
   description:
-    - Success message that the container has been cleaned up of all the residual chunks
+    - Success message that the container has been cleaned up
+     of all the residual chunks
   returned: on success always
   type: str
 error_msg:
@@ -90,16 +104,6 @@ error_msg:
   type: str
 '''
 
-import logging
-import requests
-import re
-import time
-from urlparse import urlparse
-import swiftclient
-import swiftclient.utils
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
-from threading import RLock
-
 connection_lock = RLock()
 
 
@@ -107,6 +111,7 @@ class FileSvcUtil(object):  # pragma: no cover
     def __init__(self, authtoken, authurl, user, key, tenant_name,
                  auth_version, container_name, filename, temp_url_key,
                  temp_url_key2, connection_retry_count, chosen_temp_url_key):
+        """Initializer."""
         self.requests = requests
         self.authurl = authurl
         self.preauthtoken = authtoken
@@ -124,21 +129,20 @@ class FileSvcUtil(object):  # pragma: no cover
         self.generateToken()
         self.updateAccount()
 
-# Connect to the swift client
+    # Connect to the swift client
     def generateToken(self):
         retry_count = 0
         incr_sleep = 10
         while retry_count <= self.connection_retry_count:
             try:
                 acquired = connection_lock.acquire()
-                swiftconn = swiftclient.client.Connection(authurl=self.authurl,
-                                                          user=self.user,
-                                                          key=self.key,
-                                                          preauthtoken=self.preauthtoken,
-                                                          tenant_name=self.tenant_name,
-                                                          auth_version=self.auth_version,
-                                                          timeout=self.conn_timeout_sec,
-                                                          insecure=True)
+                swiftconn = swiftclient.client.Connection(
+                    authurl=self.authurl, user=self.user, key=self.key,
+                    preauthtoken=self.preauthtoken,
+                    tenant_name=self.tenant_name,
+                    auth_version=self.auth_version,
+                    timeout=self.conn_timeout_sec,
+                    insecure=True)
                 self.swift_conn = swiftconn
                 swiftconn.get_account()
                 self.storageurl = swiftconn.url
@@ -148,9 +152,10 @@ class FileSvcUtil(object):  # pragma: no cover
                 err_msg = e.message
                 logging.error(err_msg)
                 if retry_count == self.connection_retry_count:
-                    raise Exception("Connection failed with swift file "
-                                    "server: " + str(err_msg))
-                logging.error("Connection failed with swift file server, retrying to connect")
+                    raise Exception("Connection failed with swift"
+                                    " file server: " + str(err_msg))
+                logging.error("Connection failed with swift file server,"
+                              " retrying to connect")
                 incr_sleep *= 2
                 time.sleep(incr_sleep)
             finally:
@@ -168,8 +173,7 @@ class FileSvcUtil(object):  # pragma: no cover
             raise Exception(
                 "Update account failed with swift file server: " + str(err))
 
-
-# Pick out residual chunks without manifest file and delete them
+    # Pick out residual chunks without manifest file and delete them
     def container_cleanup(self, container_name, filename):
         list_item = self.swift_conn.get_container(container_name)
         manifest_list = []
@@ -182,7 +186,7 @@ class FileSvcUtil(object):  # pragma: no cover
                 f = regex.match(item['name'])
                 if f is not None:
                     image_name = f.group().split("__")
-                    if image_name[0] not in chunk_dict.keys():
+                    if image_name[0] not in list(chunk_dict.keys()):
                         chunk_dict[image_name[0]] = [f.group()]
                     else:
                         chunk_dict[image_name[0]].append(f.group())
@@ -193,7 +197,7 @@ class FileSvcUtil(object):  # pragma: no cover
                     delete_list.append(item['name'])
 
         if filename == "":
-            for key in chunk_dict.keys():
+            for key in list(chunk_dict.keys()):
                 if key in manifest_list:
                     pass
                 else:
@@ -209,6 +213,7 @@ class FileSvcUtil(object):  # pragma: no cover
         if self.swift_conn:
             self.swift_conn.close()
 
+
 def main():
     module = FabricAnsibleModule(
         argument_spec=dict(
@@ -223,7 +228,8 @@ def main():
             chosen_temp_url_key=dict(required=False, default="temp_url_key"),
             container_name=dict(required=True),
             filename=dict(required=False, default=""),
-            connection_retry_count=dict(required=False, default=5, type='int')),
+            connection_retry_count=dict(required=False, default=5,
+                                        type='int')),
         supports_check_mode=False)
     m_args = module.params
     authtoken = m_args['authtoken']
@@ -242,8 +248,9 @@ def main():
     error_msg = ''
     try:
         fileutil = FileSvcUtil(authtoken, authurl, user, key, tenant_name,
-                               auth_version, container_name, filename, temp_url_key,
-                               temp_url_key_2, connection_retry_count, chosen_temp_url_key)
+                               auth_version, container_name, filename,
+                               temp_url_key, temp_url_key_2,
+                               connection_retry_count, chosen_temp_url_key)
 
         fileutil.container_cleanup(container_name, filename)
 
@@ -255,10 +262,8 @@ def main():
     results = {}
     results['error_msg'] = error_msg
 
-
     module.exit_json(**results)
 
 
 if __name__ == '__main__':
     main()
-
