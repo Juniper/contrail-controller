@@ -98,7 +98,7 @@ class OverlayBgpFeature(FeatureBase):
     # end _update_config_from_session
 
     def _add_peers(self, config, bgp, peers):
-        for peer, attr in peers.items():
+        for peer, attr in list(peers.items()):
             peer_config = Bgp()
             peer_config.set_ip_address(peer.params['address'])
             peer_config.set_autonomous_system(self._get_asn(peer))
@@ -115,7 +115,7 @@ class OverlayBgpFeature(FeatureBase):
         ebgp_peers = OrderedDict()
 
         local_asn = self._get_asn(bgp_router)
-        for peer_uuid, attr in bgp_router.bgp_routers.iteritems():
+        for peer_uuid, attr in bgp_router.bgp_routers.items():
             peer = db.BgpRouterDM.get(peer_uuid)
             if not self._is_valid(peer):
                 continue

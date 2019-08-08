@@ -126,7 +126,7 @@ def process_dhcp_entries(module):
 
         # Now verify that the IP address is inside one of the subnets from the
         # IPAM and store IP/MAC entries in a simple list
-        for mac, ip_addr in lease_table.iteritems():
+        for mac, ip_addr in lease_table.items():
             if within_dhcp_subnet(ip_addr, ztp_config):
                 results['device_list'].append({"ip_addr": ip_addr, "mac": mac})
 

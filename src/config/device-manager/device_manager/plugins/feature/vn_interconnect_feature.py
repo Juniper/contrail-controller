@@ -4,6 +4,7 @@
 
 """VN Interconnect Feature Implementation."""
 
+from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
@@ -104,7 +105,7 @@ class VnInterconnectFeature(FeatureBase):
         feature_config = Feature(name=self.feature_name())
         vn_map, dhcp_servers = self._get_interconnect_vn_map()
 
-        for internal_vn, vn_list in vn_map.iteritems():
+        for internal_vn, vn_list in vn_map.items():
             vn_obj = db.VirtualNetworkDM.get(internal_vn)
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
@@ -131,8 +132,8 @@ class VnInterconnectFeature(FeatureBase):
 
             feature_config.add_routing_instances(ri)
 
-        for pi, li_map in self.pi_map.values():
-            pi.set_logical_interfaces(li_map.values())
+        for pi, li_map in list(self.pi_map.values()):
+            pi.set_logical_interfaces(list(li_map.values()))
             feature_config.add_physical_interfaces(pi)
 
         return feature_config

@@ -9,6 +9,8 @@ The specific plugins should inherit from this class.
 """
 
 import abc
+from builtins import object
+from builtins import str
 
 from imports import import_ansible_plugins
 

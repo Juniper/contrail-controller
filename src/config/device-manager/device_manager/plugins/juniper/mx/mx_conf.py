@@ -7,6 +7,7 @@ This file contains implementation of netconf interface for physical router
 configuration manager
 """
 
+from builtins import str
 from db import *
 from dm_utils import DMUtils
 from juniper_conf import JuniperConf
@@ -161,7 +162,7 @@ class MxConf(JuniperConf):
         if not static_config:
             static_config = Static()
             parent.set_static(static_config)
-        for dest, next_hops in static_routes.items():
+        for dest, next_hops in list(static_routes.items()):
             route_config = Route(name=dest)
             for next_hop in next_hops:
                 next_hop_str = next_hop.get("next-hop")
@@ -350,12 +351,12 @@ class MxConf(JuniperConf):
             ri.add_interface(Interface(name=interfaces[0].name))
 
             public_vrf_ips = {}
-            for pip in fip_map.values():
+            for pip in list(fip_map.values()):
                 if pip["vrf_name"] not in public_vrf_ips:
                     public_vrf_ips[pip["vrf_name"]] = set()
                 public_vrf_ips[pip["vrf_name"]].add(pip["floating_ip"])
 
-            for public_vrf, fips in public_vrf_ips.items():
+            for public_vrf, fips in list(public_vrf_ips.items()):
                 ri_public = Instance(name=public_vrf)
                 ri_config.add_instance(ri_public)
                 ri_public.add_interface(Interface(name=interfaces[1].name))
@@ -452,7 +453,7 @@ class MxConf(JuniperConf):
 
             term = Term(name=DMUtils.make_vrf_term_name(ri_name))
             from_ = From()
-            for fip_user_ip in fip_map.keys():
+            for fip_user_ip in list(fip_map.keys()):
                 from_.add_source_address(fip_user_ip)
             term.set_from(from_)
             term.set_then(Then(routing_instance=[ri_name]))
@@ -600,7 +601,7 @@ class MxConf(JuniperConf):
             dnat_rule.set_comment(DMUtils.dnat_rule_comment())
             nat.add_rule(dnat_rule)
 
-            for pip, fip_vn in fip_map.items():
+            for pip, fip_vn in list(fip_map.items()):
                 fip = fip_vn["floating_ip"]
                 term = Term(name=DMUtils.make_ip_term_name(pip))
                 snat_rule.set_term(term)
@@ -661,7 +662,7 @@ class MxConf(JuniperConf):
         for interface in interfaces:
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
 
-        for ifd_name, interface_list in ifd_map.items():
+        for ifd_name, interface_list in list(ifd_map.items()):
             intf = Interface(name=ifd_name)
             interfaces_config.add_interface(intf)
             if interface_list[0].is_untagged():
@@ -727,7 +728,7 @@ class MxConf(JuniperConf):
         pnf_dict = pnfs[0]
         pnf_ris = pnfs[1]
 
-        for vn_id, interfaces in vn_dict.items():
+        for vn_id, interfaces in list(vn_dict.items()):
             vn_obj = VirtualNetworkDM.get(vn_id)
             if (vn_obj is None or
                     vn_obj.get_vxlan_vni() is None or

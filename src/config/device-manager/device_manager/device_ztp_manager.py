@@ -3,6 +3,8 @@
 #
 
 import base64
+from builtins import object
+from builtins import str
 import os
 import re
 import socket
@@ -209,7 +211,7 @@ class DeviceZtpManager(object):
                 lease_table[mac] = (ip_addr, host_name)
 
             if lease_table:
-                for mac, (ip_addr, host_name) in lease_table.iteritems():
+                for mac, (ip_addr, host_name) in lease_table.items():
                     if self._within_dhcp_subnet(ip_addr, config) and \
                             self._within_ztp_devices(host_name, device_to_ztp):
                         matched_devices[mac] = (ip_addr, host_name)
@@ -219,7 +221,7 @@ class DeviceZtpManager(object):
 
         results['device_list'] = [
             {'ip_addr': ip_addr, 'mac': mac, 'host_name': host_name}
-            for mac, (ip_addr, host_name) in matched_devices.iteritems()
+            for mac, (ip_addr, host_name) in matched_devices.items()
         ]
 
         if not results['device_list']:

@@ -1,8 +1,13 @@
 #!/usr/bin/python
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import requests
 from ironicclient import client as ironicclient
-from urlparse import urlparse
+from urllib.parse import urlparse
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from keystoneclient.v3 import client
@@ -59,7 +64,7 @@ class ImportIronicNodes(object):
     def __init__(self, auth_args, cluster_id=None, cluster_token=None,
                  cc_host=None, cc_username=None,cc_password=None,
                  added_nodes_list=None):
-        for key,val in auth_args.iteritems():
+        for key,val in auth_args.items():
             if key in self.auth_args:
                 self.auth_args[key] = val
             elif key in self.ironic_client_kwargs:
@@ -122,7 +127,7 @@ class ImportIronicNodes(object):
             node_dict = node_dict.to_dict()
 
             if self.added_nodes_dict:
-                if node_dict.get('uuid', None) in self.added_nodes_dict.keys():
+                if node_dict.get('uuid', None) in list(self.added_nodes_dict.keys()):
                     self.node_info_list.append(node_dict)
                     self.uuid_node_map[str(node_dict['uuid'])] = node_dict
             else:
@@ -164,14 +169,14 @@ class ImportIronicNodes(object):
             for node in node_list:
                 intro_status = self.check_introspection_status(node)
                 if intro_status == "finished":
-                    print "CREATING CC NODE", node
+                    print("CREATING CC NODE", node)
                     # Get latest Node Info from Ironic POST Introspection
                     node_info = self.ironic_client.node.get(node['uuid'])
                     new_node_info = node_info.to_dict()
 
                     # Merge with known IPMI Info if available
                     if self.added_nodes_dict and node['uuid'] in \
-                            self.added_nodes_dict.keys():
+                            list(self.added_nodes_dict.keys()):
                         node_ipmi_info = self.added_nodes_dict[node['uuid']]
                         new_node_info['driver_info'] = {
                             str("ipmi_" + k): node_ipmi_info[k] for k in [
@@ -188,7 +193,7 @@ class ImportIronicNodes(object):
 
             node_list = new_node_list
             if len(node_list):
-                print "SLEEPING FOR NEXT INSPECT", timeout
+                print("SLEEPING FOR NEXT INSPECT", timeout)
                 time.sleep(self.introspection_check_secs)
                 timeout += self.introspection_check_secs
 
@@ -208,9 +213,9 @@ class ImportIronicNodes(object):
             return "running"
 
     def log_introspection_error(self, node_list):
-        print "LOG INTROSPECTION ERROR"
+        print("LOG INTROSPECTION ERROR")
         for node in node_list:
-            print "FAILED NODES", node['uuid']
+            print("FAILED NODES", node['uuid'])
         return
 
     def get_cc_port_payload(self, port_dict, local_link_dict):
@@ -261,7 +266,7 @@ class ImportIronicNodes(object):
         processed_data = {}
         interface_data_dict = introspection_data['all_interfaces']
 
-        for if_name,if_data in interface_data_dict.iteritems():
+        for if_name,if_data in interface_data_dict.items():
             mac_address = if_data['mac']
             processed_data[mac_address] = {'ifname': if_name}
             if 'lldp_processed' in if_data:
@@ -317,28 +322,28 @@ class ImportIronicNodes(object):
             ironic_node = {}
             ironic_node['driver'] = 'pxe_ipmitool'
             ironic_node['driver_info'] = {
-                str("ipmi_" + k): v for (k, v) in node.iteritems()
+                str("ipmi_" + k): v for (k, v) in node.items()
             }
             try:
                 resp = self.ironic_client.node.create(**ironic_node)
-                print resp.uuid
+                print(resp.uuid)
                 node['uuid'] = resp.uuid
                 registered_nodes_list.append(node)
             except Exception as error:
-                print "ERROR: ", error
+                print("ERROR: ", error)
                 raise error
 
         return registered_nodes_list
 
     def trigger_introspection(self, registered_nodes):
         for node in registered_nodes:
-            print node['uuid']
+            print(node['uuid'])
             try:
                 self.ironic_inspector_client.introspect(node['uuid'])
                 node['inspect'] = True
             except Exception as error:
                 node['inspect'] = False
-                print "ERROR: ", error
+                print("ERROR: ", error)
                 raise error
         return registered_nodes
 
@@ -376,5 +381,5 @@ if __name__ == '__main__':
              cc_auth_token=None,
              introspection_flag=introspection_flag)
     except Exception as e:
-        print e.message
+        print(e.message)
 

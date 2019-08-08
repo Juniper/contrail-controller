@@ -1,10 +1,14 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
+from builtins import range
 import sys
 import gevent
 from testtools.matchers import Equals, Contains, Not
-import test_case
+from . import test_case
 import xmltodict
 import collections
 import itertools
@@ -12,7 +16,7 @@ import copy
 from netaddr import IPNetwork
 from unittest import skip
 from vnc_api.vnc_api import *
-from test_dm_utils import fake_netconf_connect
+from .test_dm_utils import fake_netconf_connect
 
 def get_ip(ip_w_pfx):
     """get the default network IP."""
@@ -27,7 +31,7 @@ except ImportError:
 from time import sleep
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+    print("Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay), file=sys.stderr)
 
 
 # License: MIT
@@ -37,7 +41,7 @@ def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:
@@ -63,7 +67,7 @@ def dictMatch(patn, real):
     if type(real) is collections.OrderedDict:
         real = dict(real)
     try:
-        for pkey, pvalue in patn.iteritems():
+        for pkey, pvalue in patn.items():
             if type(pvalue) is dict or type(pvalue) is collections.OrderedDict:
                 if type(real[pkey]) is list:   # it is possible if one more than config object is present
                     result = False
@@ -219,7 +223,7 @@ class TestE2DM(test_case.DMTestCase):
                          ]
         }
         tmetry = TelemetryStateInfo()
-        for key, value in telemetry_config.iteritems():
+        for key, value in telemetry_config.items():
            if 'resources' in key:
                for lst in value:
                    telemetry_resource = TelemetryResourceInfo()
@@ -367,7 +371,7 @@ class TestE2DM(test_case.DMTestCase):
             'mtu': '1400',
         }
         '''
-        for skey,sval in service_flavor.items():
+        for skey,sval in list(service_flavor.items()):
             service_options = sval
         #Create virtual-network
         vn1_name = 'vn-e2-1'
@@ -388,7 +392,7 @@ class TestE2DM(test_case.DMTestCase):
         #Create service-connection-module
         scm_name1 = 'scm-e2-1'
         set_config = False
-        for skey,sval in service_attributes.items():
+        for skey,sval in list(service_attributes.items()):
             if skey == 'set-config':
                 set_config = True
         scm_id_perms = IdPermsType(enable=set_config,
@@ -396,7 +400,7 @@ class TestE2DM(test_case.DMTestCase):
         scm1 = ServiceConnectionModule(scm_name1, id_perms=scm_id_perms)
         scm1.e2_service      = 'point-to-point'
         scm1.service_type    = service_options
-        for skey,sval in service_attributes.items():
+        for skey,sval in list(service_attributes.items()):
             if skey != 'set-config':
                 scm1.add_annotations(KeyValuePair(key=skey, value=sval))
         self._vnc_lib.service_connection_module_create(scm1)

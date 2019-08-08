@@ -4,6 +4,7 @@
 
 """Job results handler that collects and processes results from the job."""
 
+from builtins import object
 import json
 import time
 
@@ -26,7 +27,7 @@ class JobResultHandler(object):
         # job result data
         self.job_result_status = None     # cummulative status
         self.job_result_message = ""   # job result msg when not device spec
-        self.job_warning_message = "" # job warning msg when not device spec
+        self.job_warning_message = ""  # job warning msg when not device spec
         self.job_result = dict()   # map of the device_id to job result msg
         self.job_summary_message = None
         self.failed_device_jobs = list()

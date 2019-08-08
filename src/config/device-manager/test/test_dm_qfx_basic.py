@@ -1,6 +1,8 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2017 Juniper Infra, Inc. All rights reserved.
 #
+from builtins import str
 import sys
 import gevent
 import uuid
@@ -17,10 +19,10 @@ from device_manager.db import DBBaseDM
 from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
-from test_dm_common import *
-from test_case import DMTestCase
-from test_dm_utils import FakeDeviceConnect
-from test_dm_utils import FakeNetconfManager
+from .test_dm_common import *
+from .test_case import DMTestCase
+from .test_dm_utils import FakeDeviceConnect
+from .test_dm_utils import FakeNetconfManager
 
 #
 # All QFX DM  Basic Test Cases should go here

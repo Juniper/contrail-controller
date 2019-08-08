@@ -3,8 +3,11 @@
 #
 
 import argparse
-import ConfigParser
+from builtins import str
+import configparser
 
+from future import standard_library
+standard_library.install_aliases() # noqa
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
@@ -214,7 +217,7 @@ def parse_args(args_str):
 
     saved_conf_file = args.conf_file
     if args.conf_file:
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if ('SECURITY' in config.sections() and

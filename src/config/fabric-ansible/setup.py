@@ -34,6 +34,7 @@ class RunTestsCommand(Command):
 setup(
     name='fabric_ansible',
     version='0.1dev',
+    install_requires=['future', 'configparser'],
     packages=find_packages(exclude=["*.test", "*.test.*", "test.*", "test"]),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
