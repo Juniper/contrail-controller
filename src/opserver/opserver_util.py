@@ -194,7 +194,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
     def _run(self):
         while True:
             self._logger.error("Analytics Discovery zk start")
-            self._zk = KazooClient(hosts=self._zkservers)
+            self._zk = KazooClient(hosts=self._zkservers, timeout=60.0)
             self._zk.add_listener(self._zk_listen)
             try:
                 self._zk.start()

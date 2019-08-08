@@ -46,7 +46,7 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     output,_ = call_command_("mkdir " + kafkabase)
 
     logging.info('Check zookeeper in %d' % zk_client_port)
-    zk = KazooClient(hosts='127.0.0.1:'+str(zk_client_port))
+    zk = KazooClient(hosts='127.0.0.1:'+str(zk_client_port), timeout=60.0)
     try:
         zk.start()
         zk.delete("/brokers", recursive=True) 
