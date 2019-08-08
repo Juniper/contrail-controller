@@ -80,7 +80,7 @@ class PartitionClient(object):
         # connect to zookeeper
         while True:
             self._logger.error("Libpartition zk start")
-            self._zk = KazooClient(zk_server)
+            self._zk = KazooClient(zk_server, timeout=60.0)
             self._zk.add_listener(self._zk_listen)
             try:
                 self._zk.start()
