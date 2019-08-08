@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
+import json
 import sys
 import traceback
-import json
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import _task_done, _task_error_log, _task_log, FilterLog
@@ -15,18 +15,20 @@ class FilterModule(object):
 
     def filters(self):
         return {
-            'import_hardware_inventory_info': self.import_hardware_inventory_info,
+            'import_hardware_inventory_info':
+                self.import_hardware_inventory_info,
         }
     # end filters
 
     def _instantiate_filter_log_instance(self, device_name):
-        FilterLog.instance("Import_hardware_inventory_info_Filter", device_name)
+        FilterLog.instance("Import_hardware_inventory_info_Filter",
+                           device_name)
     # end _instantiate_filter_log_instance
 
     def import_hardware_inventory_info(self, job_ctx, prouter_name,
                                        pr_product_name, prouter_vendor,
                                        hardware_inventory_payload):
-        """Import Hardware Inventory.
+        r"""Import Hardware Inventory.
 
         :param job_ctx: Dictionary
             example:
@@ -64,18 +66,33 @@ class FilterModule(object):
         :param hardware_inventory_payload: Dictionary
             example:
             {
-        "inventory_info": "\n[{'description': u'QFX5110-48S-4C', 'parent': '', 'model_number': None, 'module': u'Chassis',
-        'version': None, 'serial_number': u'WS3718350232', 'model': None}, {'description': None, 'parent': u'Chassis', 'model_number': None,
-        'module': u'Pseudo CB 0', 'version': None, 'serial_number': None, 'model': None}, {'description': u'RE-QFX5110-48S-4C', 'parent': u'Chassis',
-        'model_number': u'QFX5110-48S-AFI', 'module': u'Routing Engine 0', 'version': None, 'serial_number': u'BUILTIN', 'model': None},
-        {'description': u'QFX5110-48S-4C', 'parent': u'Chassis', 'model_number': u'QFX5110-48S-AFI', 'module': u'FPC 0', 'version': u'REV 26', '
-        serial_number': u'WS3718350232', 'model': None}, {'description': u'FPC CPU', 'parent': u'FPC 0', 'model_number': None, 'module': u'CPU',
-        'version': None, 'serial_number': u'BUILTIN', 'model': None}, {'description': u'48x10G-4x100G', 'parent': u'FPC 0',
-        'model_number': u'QFX5110-48S-AFI', 'module': u'PIC 0', 'version': None, 'serial_number': u'BUILTIN', 'model': None},
-        {'description': u'SFP+-10G-CU2M', 'parent': u'PIC 0', 'model_number': None, 'module': u'Xcvr 0', 'version': None,
-        'serial_number': u'APF164800484VC', 'model': None}, {'description': u'SFP+-10G-CU2M', 'parent': u'PIC 0',
-        'model_number': None, 'module': u'Xcvr 45', 'version': None, 'serial_number': u'APF164900493E7', 'model': None},
-        {'description': u'SFP+-10G-CU2M', 'parent': u'PIC 0', 'model_number': None, 'module': u'Xcvr 46', 'version': None,
+        "inventory_info": "\n[{'description': u'QFX5110-48S-4C', 'parent': '',
+         'model_number': None, 'module': u'Chassis',
+        'version': None, 'serial_number': u'WS3718350232', 'model': None},
+         {'description': None, 'parent': u'Chassis', 'model_number': None,
+        'module': u'Pseudo CB 0', 'version': None, 'serial_number': None,
+        'model': None}, {'description': u'RE-QFX5110-48S-4C',
+         'parent': u'Chassis',
+        'model_number': u'QFX5110-48S-AFI', 'module': u'Routing Engine 0',
+         'version': None, 'serial_number': u'BUILTIN', 'model': None},
+        {'description': u'QFX5110-48S-4C', 'parent': u'Chassis',
+        'model_number': u'QFX5110-48S-AFI', 'module': u'FPC 0',
+         'version': u'REV 26', '
+        serial_number': u'WS3718350232', 'model': None},
+        {'description': u'FPC CPU', 'parent': u'FPC 0', 'model_number':
+         None, 'module': u'CPU',
+        'version': None, 'serial_number': u'BUILTIN', 'model': None},
+         {'description': u'48x10G-4x100G', 'parent': u'FPC 0',
+        'model_number': u'QFX5110-48S-AFI', 'module': u'PIC 0',
+         'version': None, 'serial_number': u'BUILTIN', 'model': None},
+        {'description': u'SFP+-10G-CU2M', 'parent': u'PIC 0',
+         'model_number': None, 'module': u'Xcvr 0', 'version': None,
+        'serial_number': u'APF164800484VC', 'model': None},
+         {'description': u'SFP+-10G-CU2M', 'parent': u'PIC 0',
+        'model_number': None, 'module': u'Xcvr 45', 'version': None,
+         'serial_number': u'APF164900493E7', 'model': None},
+        {'description': u'SFP+-10G-CU2M', 'parent': u'PIC 0',
+         'model_number': None, 'module': u'Xcvr 46', 'version': None,
         'serial_number': u'APF18220040FVH', 'model': None}
             }
         }
@@ -83,15 +100,19 @@ class FilterModule(object):
         if success, returns
             {
               'status': 'success',
-              'hardware_inventory_import_log': <String: hardware_inventory_import_log>,
-              'hardware_inventory_import_resp': <Dictionary: hardware_inventory_import_resp>
+              'hardware_inventory_import_log':
+               <String: hardware_inventory_import_log>,
+              'hardware_inventory_import_resp': <Dictionary:
+               hardware_inventory_import_resp>
             }
         if failure, returns
             {
               'status': 'failure',
               'error_msg': <String: exception message>,
-              'hardware_inventory_import_log': <String: hardware_inventory_import_log>,
-              'hardware_inventory_import_resp': <Dictionary: hardware_inventory_import_resp>
+              'hardware_inventory_import_log':
+              <String: hardware_inventory_import_log>,
+              'hardware_inventory_import_resp':
+              <Dictionary: hardware_inventory_import_resp>
             }
         """
         self._instantiate_filter_log_instance(prouter_name)
@@ -110,7 +131,8 @@ class FilterModule(object):
             return {
                 'status': 'success',
                 'hardware_inventory_import_log': FilterLog.instance().dump(),
-                'hardware_inventory_import_resp': hardware_inventory_import_resp
+                'hardware_inventory_import_resp':
+                    hardware_inventory_import_resp
             }
         except Exception as ex:
             _task_error_log(str(ex))
@@ -122,13 +144,13 @@ class FilterModule(object):
 
     # end import_hardware_inventory_info
 
-    def _create_hardware_inventory(self,
-                           job_ctx,
-                           hardware_inventory_payload,
-                           prouter_name, pr_product_name, prouter_vendor):
+    def _create_hardware_inventory(self, job_ctx, hardware_inventory_payload,
+                                   prouter_name, pr_product_name,
+                                   prouter_vendor):
         object_type = "hardware_inventory"
-        hardware_iven_obj = prouter_vendor+ "__"+pr_product_name
-        json_data = hardware_inventory_payload['hardware_inventory_inventory_info']
+        hardware_iven_obj = prouter_vendor + "__" + pr_product_name
+        json_data =\
+            hardware_inventory_payload['hardware_inventory_inventory_info']
         data_str = json.dumps(json_data)
 
         hardware_inventory_payload_final = {
@@ -146,19 +168,22 @@ class FilterModule(object):
         try:
             try:
                 cls = JobVncApi.get_vnc_cls(object_type)
-                inventory_obj = cls.from_dict(**hardware_inventory_payload_final)
+                inventory_obj = cls.from_dict(
+                    **hardware_inventory_payload_final)
                 existing_obj = vnc_lib.hardware_inventory_read(
                     fq_name=hardware_inventory_payload_final.get('fq_name'))
                 existing_obj_dict = vnc_lib.obj_to_dict(existing_obj)
-                to_be_upd_value = hardware_inventory_payload_final[hardware_obj_key]
+                to_be_upd_value =\
+                    hardware_inventory_payload_final[hardware_obj_key]
                 existing_value = existing_obj_dict.get(hardware_obj_key)
                 if to_be_upd_value != existing_value:
                     vnc_lib.hardware_inventory_update(
                         inventory_obj)
-            except NoIdError as ex:
+            except NoIdError:
                 vnc_lib.hardware_inventory_create(inventory_obj)
 
         except Exception as exc:
-            raise Exception("Inventory object creation failed with exception: %s", str(exc))
+            raise Exception("Inventory object creation failed"
+                            " with exception: %s", str(exc))
 
     # end _create_hardware_inventory
