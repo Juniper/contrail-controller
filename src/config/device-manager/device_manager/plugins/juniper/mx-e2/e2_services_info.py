@@ -6,18 +6,18 @@
 This file contains error code for E2 services
 """
 
+from builtins import object
+from future.utils import with_metaclass
 class ROClass(type):
     def __setattr__(self, name, value):
         raise ValueError("Cannot modify %s" % name)
 
-class L2vpnErrors(object):
+class L2vpnErrors(with_metaclass(ROClass, object)):
 
     """
     It is not meant to be instantiated and will raise an exception if
     an attempt is made to do so.
     """
-    # Make sure nobody is able to modify a constant
-    __metaclass__ = ROClass
 
     _l2vpn_errors = {
         'EI': 'encapsulation invalid',
@@ -65,14 +65,12 @@ class L2vpnErrors(object):
             return "No such errcode"
 # end L2vpnErrors
 
-class L2cktErrors(object):
+class L2cktErrors(with_metaclass(ROClass, object)):
 
     """
     It is not meant to be instantiated and will raise an exception if
     an attempt is made to do so.
     """
-    # Make sure nobody is able to modify a constant
-    __metaclass__ = ROClass
 
     _l2ckt_errors = {
         'EI': 'encapsulation invalid',

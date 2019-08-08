@@ -1,3 +1,6 @@
+from builtins import object
+
+
 class MsgBundle(object):
 
     JOB_TEMPLATE_MISSING = 1,
