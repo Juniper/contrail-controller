@@ -16,6 +16,12 @@ class BgpXmppChannelManager;
 class IFMapServer;
 class TaskTrigger;
 
+#define CONTROL_NODE_EXIT(message)                       \
+    do {                                                 \
+        LOG(ERROR, "Control-Node Terminated: " message); \
+        ControlNode::Exit(false);                        \
+    } while (false)
+
 class ControlNode {
 public:
     static void SetDefaultSchedulingPolicy();
@@ -32,7 +38,7 @@ public:
         const BgpXmppChannelManager *xmpp_channel_mgr,
         const IFMapServer *ifmap_server, const string &build_info);
     static void Shutdown();
-    static void Exit(int status, bool do_assert = false);
+    static void Exit(bool do_assert);
     static std::string GetProcessState(bool bgpHasSelfConfiguration,
         bool bgpIsAdminDown, bool configEndOfRibComputed,
         process::ProcessState::type *state, std::string *message);
