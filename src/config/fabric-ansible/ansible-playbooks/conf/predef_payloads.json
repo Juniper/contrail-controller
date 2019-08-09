@@ -1408,7 +1408,7 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["Route-Reflector", "ERB-UCAST-Gateway"]
+                "rb_roles": ["CRB-Access","Route-Reflector", "ERB-UCAST-Gateway"]
               }
             ]
           }
