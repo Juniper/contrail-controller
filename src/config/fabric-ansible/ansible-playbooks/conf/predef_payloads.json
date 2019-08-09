@@ -1398,7 +1398,7 @@
         },
         {
           "fq_name": [
-            "default-global-system-config", "juniper-qfx5k-erb-only"
+            "default-global-system-config", "juniper-qfx5120"
           ],
           "name": "juniper-qfx5120",
           "node_profile_vendor": "Juniper",
@@ -1408,7 +1408,7 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["Route-Reflector", "ERB-UCAST-Gateway"]
+                "rb_roles": ["CRB-Access","Route-Reflector","AR-Client","ERB-UCAST-Gateway"]
               }
             ]
           }
