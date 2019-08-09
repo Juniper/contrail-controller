@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3c284bb8_7dfa399e",
+        "filename": "src/bgp/test/cat/tests/test_xmpp_peers_scale.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 805
+      },
+      "writtenOn": "2019-08-09T20:02:48Z",
+      "side": 1,
+      "message": "Can you please uncomment this line.",
+      "revId": "18d657d3a7b65c9cf21a7df7596817e98aba1afb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
