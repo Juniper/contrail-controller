@@ -38,12 +38,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.16"
+__version__ = "1.17"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.17
+  - Use cfgm_common.utils.decode_string to make obj_fq_name_str in same format
+    as fq_name_str
 * 1.16
   - The heal_fq_name_index does not properly extract resource UUID from the
     FQ name index table
@@ -1302,6 +1305,8 @@ class DatabaseChecker(DatabaseManager):
                         % (obj_uuid, obj_type, fq_name_str)))
                     continue
                 obj_fq_name_str = ':'.join(json.loads(obj_cols['fq_name']))
+                obj_fq_name_str = cfgm_common.utils.decode_string(
+                    obj_fq_name_str)
                 if fq_name_str != obj_fq_name_str:
                     ret_errors.append(FQNMismatchError(
                         'Mismatched FQ Name %s (index) vs %s (object)'
@@ -1323,6 +1328,7 @@ class DatabaseChecker(DatabaseManager):
                 continue
             obj_type = json.loads(cols['type'])
             fq_name_str = ':'.join(json.loads(cols['fq_name']))
+            fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
             uuid_table_all.append((obj_type, fq_name_str, obj_uuid))
 
         logger.debug("Got %d objects", len(uuid_table_all))
