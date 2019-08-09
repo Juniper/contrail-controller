@@ -347,6 +347,10 @@ void FlowStatsManager::Init(uint64_t flow_stats_interval,
 }
 
 void FlowStatsManager::InitDone() {
+    if (agent_->tsn_enabled()) {
+        /* In TSN mode, we don't register FlowStatscb */
+        return;
+    }
     AgentProfile *profile = agent_->oper_db()->agent_profile();
     profile->RegisterFlowStatsCb(boost::bind(&FlowStatsManager::SetProfileData,
                                              this, _1));
