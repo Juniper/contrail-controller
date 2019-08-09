@@ -3927,7 +3927,7 @@ class DBInterface(object):
                 if subnet_id == port_db['fixed_ips'][0]['subnet_id']:
                     break
             else:
-                self._raise_contrail_exception('RouterInterfaceNotFound',
+                self._raise_contrail_exception('RouterInterfaceNotFoundForSubnet',
                                                router_id=router_id,
                                                subnet_id=subnet_id)
 
