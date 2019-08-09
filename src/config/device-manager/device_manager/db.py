@@ -2851,7 +2851,15 @@ class VirtualPortGroupDM(DBBaseDM):
 
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
-            if interface.pi_name == pi_obj.name:
+            pi_ae_interface_id = self.pi_ae_map.get(
+                pi_obj.uuid, None
+            )
+            if pi_ae_interface_id is not None:
+                ae_intf_name = "ae" + str(pi_ae_interface_id)
+                if interface.pi_name == ae_intf_name:
+                    return vlan_tag_check
+
+            elif interface.pi_name == pi_obj.name:
                 return vlan_tag_check
 
         return False
