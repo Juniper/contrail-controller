@@ -2,36 +2,40 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-import copy
-import sys
-sys.setdefaultencoding('UTF8')
-from netaddr import IPNetwork, IPAddress
-import itertools
-import cfgm_common as common
-from schema_transformer.resources._resource_base import ResourceBaseST
-from vnc_api.gen.resource_xsd import AddressType, PortType
-from vnc_api.gen.resource_xsd import MatchConditionType, VirtualNetworkType
-from vnc_api.gen.resource_xsd import VirtualNetworkPolicyType, SequenceType
-from vnc_api.gen.resource_xsd import AclRuleType, AclEntriesType
-from vnc_api.gen.resource_xsd import InstanceTargetType, ActionListType
-
-from vnc_api.gen.resource_client import InstanceIp
-
-from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
-from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfigTrace
-from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig
-from schema_transformer.sandesh.st_introspect import ttypes as sandesh
-from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV6
-from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV4
-from schema_transformer.utils import RULE_IMPLICIT_ALLOW_UUID
-from schema_transformer.utils import RULE_IMPLICIT_DENY_UUID
-from schema_transformer.resources._access_control_list import _access_control_list_update
 try:
     # python2.7
     from collections import OrderedDict
-except:
+except Exception:
     # python2.6
     from ordereddict import OrderedDict
+
+import copy
+import itertools
+import sys
+
+import cfgm_common as common
+from cfgm_common.exceptions import NoIdError, RefsExistError
+from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig
+from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfigTrace
+from netaddr import IPNetwork
+from vnc_api.gen.resource_client import InstanceIp
+from vnc_api.gen.resource_xsd import AclEntriesType, AclRuleType
+from vnc_api.gen.resource_xsd import ActionListType, AddressType
+from vnc_api.gen.resource_xsd import InstanceTargetType, MatchConditionType
+from vnc_api.gen.resource_xsd import PortType, SequenceType
+from vnc_api.gen.resource_xsd import VirtualNetworkPolicyType
+from vnc_api.gen.resource_xsd import VirtualNetworkType
+
+from schema_transformer.resources._access_control_list import \
+    _access_control_list_update
+from schema_transformer.resources._resource_base import ResourceBaseST
+from schema_transformer.sandesh.st_introspect import ttypes as sandesh
+from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV4
+from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV6
+from schema_transformer.utils import RULE_IMPLICIT_ALLOW_UUID
+from schema_transformer.utils import RULE_IMPLICIT_DENY_UUID
+
+sys.setdefaultencoding('UTF8')
 
 
 # a struct to store attributes related to Virtual Networks needed by
@@ -39,11 +43,12 @@ except:
 class VirtualNetworkST(ResourceBaseST):
     _dict = {}
     obj_type = 'virtual_network'
-    ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
-                  'bgpvpn', 'network_ipam', 'virtual_network', 'routing_policy']
+    ref_fields = ['network_policy', 'virtual_machine_interface',
+                  'route_table', 'bgpvpn', 'network_ipam',
+                  'virtual_network', 'routing_policy']
     prop_fields = ['virtual_network_properties', 'route_target_list',
-                   'multi_policy_service_chains_enabled', 'is_provider_network',
-                   'fabric_snat']
+                   'multi_policy_service_chains_enabled',
+                   'is_provider_network', 'fabric_snat']
 
     def me(self, name):
         return name in (self.name, 'any')
@@ -102,7 +107,8 @@ class VirtualNetworkST(ResourceBaseST):
     def get_routes(self):
         routes = set()
         for rt in self.route_tables:
-            rt_obj = ResourceBaseST.get_obj_type_map().get('route_table').get(rt)
+            rt_obj = ResourceBaseST.get_obj_type_map().get(
+                'route_table').get(rt)
             if rt_obj:
                 routes |= set(rt_obj.routes)
         return routes
@@ -114,17 +120,21 @@ class VirtualNetworkST(ResourceBaseST):
         old_policies = set(self.network_policys.keys())
         self.network_policys = OrderedDict()
         for policy_ref in self.obj.get_network_policy_refs() or []:
-            self.add_policy(':'.join(policy_ref['to']), policy_ref.get('attr'))
+            self.add_policy(':'.join(policy_ref['to']),
+                            policy_ref.get('attr'))
 
-        for policy_name in ResourceBaseST.get_obj_type_map().get('network_policy').get_internal_policies(self.name):
+        for policy_name in ResourceBaseST.get_obj_type_map().get(
+                'network_policy').get_internal_policies(self.name):
             self.add_policy(policy_name)
         for policy_name in old_policies - set(self.network_policys.keys()):
-            policy = ResourceBaseST.get_obj_type_map().get('network_policy').get(policy_name)
+            policy = ResourceBaseST.get_obj_type_map().get(
+                'network_policy').get(policy_name)
             if policy:
                 policy.virtual_networks.discard(self.name)
 
         for policy_name in set(self.network_policys.keys()) - old_policies:
-            policy = ResourceBaseST.get_obj_type_map().get('network_policy').get(policy_name)
+            policy = ResourceBaseST.get_obj_type_map().get(
+                'network_policy').get(policy_name)
             if policy:
                 policy.virtual_networks.add(self.name)
 
@@ -148,26 +158,29 @@ class VirtualNetworkST(ResourceBaseST):
 
     def _update_primary_ri_to_service_ri_connection(self, sc, si_name,
                                                     multi_policy_enabled):
-            primary_ri = self.get_primary_routing_instance()
-            service_ri_name = self.get_service_name(sc.name, si_name)
-            service_ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(service_ri_name)
-            if service_ri is None:
-                return
-            if (multi_policy_enabled and
-                    service_ri_name in primary_ri.connections):
-                primary_ri.delete_connection(service_ri)
-                # add primary ri's route target to service ri
-                rt_obj = ResourceBaseST.get_obj_type_map().get('route_target').get(self.get_route_target())
-                service_ri.obj.add_route_target(rt_obj.obj,
-                                                InstanceTargetType('import'))
-                self._vnc_lib.routing_instance_update(service_ri.obj)
-            elif (not multi_policy_enabled and
-                    service_ri_name not in primary_ri.connections):
-                primary_ri.add_connection(service_ri)
-                # delete primary ri's route target from service ri
-                rt_obj = ResourceBaseST.get_obj_type_map().get('route_target').get(self.get_route_target())
-                service_ri.obj.del_route_target(rt_obj.obj)
-                self._vnc_lib.routing_instance_update(service_ri.obj)
+        primary_ri = self.get_primary_routing_instance()
+        service_ri_name = self.get_service_name(sc.name, si_name)
+        service_ri = ResourceBaseST.get_obj_type_map().get(
+            'routing_instance').get(service_ri_name)
+        if service_ri is None:
+            return
+        if (multi_policy_enabled and
+                service_ri_name in primary_ri.connections):
+            primary_ri.delete_connection(service_ri)
+            # add primary ri's route target to service ri
+            rt_obj = ResourceBaseST.get_obj_type_map().get(
+                'route_target').get(self.get_route_target())
+            service_ri.obj.add_route_target(rt_obj.obj,
+                                            InstanceTargetType('import'))
+            self._vnc_lib.routing_instance_update(service_ri.obj)
+        elif (not multi_policy_enabled and
+                service_ri_name not in primary_ri.connections):
+            primary_ri.add_connection(service_ri)
+            # delete primary ri's route target from service ri
+            rt_obj = ResourceBaseST.get_obj_type_map().get(
+                'route_target').get(self.get_route_target())
+            service_ri.obj.del_route_target(rt_obj.obj)
+            self._vnc_lib.routing_instance_update(service_ri.obj)
     # end _update_primary_ri_to_service_ri_connection
 
     def check_multi_policy_service_chain_status(self):
@@ -182,12 +195,14 @@ class VirtualNetworkST(ResourceBaseST):
                     si_name = sc.service_list[0]
                     other_vn_name = sc.right_vn
                     other_si_name = sc.service_list[-1]
-                    right_si = ResourceBaseST.get_obj_type_map().get('service_instance').get(other_si_name)
+                    right_si = ResourceBaseST.get_obj_type_map().get(
+                        'service_instance').get(other_si_name)
                 elif sc.right_vn == self.name:
                     si_name = sc.service_list[-1]
                     other_vn_name = sc.left_vn
                     other_si_name = sc.service_list[0]
-                    right_si = ResourceBaseST.get_obj_type_map().get('service_instance').get(si_name)
+                    right_si = ResourceBaseST.get_obj_type_map().get(
+                        'service_instance').get(si_name)
                 else:
                     continue
                 other_vn = VirtualNetworkST.get(other_vn_name)
@@ -241,14 +256,16 @@ class VirtualNetworkST(ResourceBaseST):
 
     def delete_obj(self):
         for policy_name in self.network_policys:
-            policy = ResourceBaseST.get_obj_type_map().get('network_policy').get(policy_name)
+            policy = ResourceBaseST.get_obj_type_map().get(
+                'network_policy').get(policy_name)
             if not policy:
                 continue
             policy.virtual_networks.discard(self.name)
         self.update_multiple_refs('virtual_machine_interface', {})
         self.delete_inactive_service_chains(self.service_chains)
         for ri_name in self.routing_instances:
-            ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
             # Don't delete default RI, API server will do and schema will
             # clean RT and its internal when it will receive the RI delete
             # notification. That prevents ST to fail to delete RT because RI
@@ -280,13 +297,14 @@ class VirtualNetworkST(ResourceBaseST):
             return False
         self.network_policys[policy_name] = attrib
         self.network_policys = OrderedDict(sorted(self.network_policys.items(),
-                                           key=lambda t:(t[1].sequence.major,
-                                                         t[1].sequence.minor)))
+                                           key=lambda t: (t[1].sequence.major,
+                                           t[1].sequence.minor)))
         return True
     # end add_policy
 
     def get_primary_routing_instance(self):
-        return ResourceBaseST.get_obj_type_map().get('routing_instance').get(self._default_ri_name)
+        return ResourceBaseST.get_obj_type_map().get(
+            'routing_instance').get(self._default_ri_name)
     # end get_primary_routing_instance
 
     def add_connection(self, vn_name):
@@ -347,14 +365,16 @@ class VirtualNetworkST(ResourceBaseST):
             services = prule.action_list.apply_service
             service_chain_list = self.service_chains.setdefault(remote_vn, [])
             if self.me(dvn):
-                service_chain = ResourceBaseST.get_obj_type_map().get('service_chain').find_or_create(
+                service_chain = ResourceBaseST.get_obj_type_map().get(
+                    'service_chain').find_or_create(
                     remote_vn, self.name, prule.direction, prule.src_ports,
                     prule.dst_ports, proto, services)
                 service_chain_ris[remote_vn] = (
                     None, self.get_service_name(service_chain.name,
                                                 services[-1]))
             else:
-                service_chain = ResourceBaseST.get_obj_type_map().get('service_chain').find_or_create(
+                service_chain = ResourceBaseST.get_obj_type_map().get(
+                    'service_chain').find_or_create(
                     self.name, remote_vn, prule.direction, prule.src_ports,
                     prule.dst_ports, proto, services)
                 service_chain_ris[remote_vn] = (
@@ -400,7 +420,8 @@ class VirtualNetworkST(ResourceBaseST):
         if ip_dict:
             return ip_dict.get('ip_address'), ip_dict.get('ipv6_address')
         ip_dict = {}
-        sc_ipam_obj = ResourceBaseST.get_obj_type_map().get('service_chain')._get_service_chain_ipam()
+        sc_ipam_obj = ResourceBaseST.get_obj_type_map().get(
+            'service_chain')._get_service_chain_ipam()
         v4_iip_uuid, v4_address = \
             self.create_instance_ip(sc_name, 'v4', ipam_obj=sc_ipam_obj)
         if v4_iip_uuid:
@@ -430,7 +451,8 @@ class VirtualNetworkST(ResourceBaseST):
         elif ip_dict.get('ip_address'):
             # To Handle old scheme
             try:
-                self._vnc_lib.virtual_network_ip_free(self.obj, ip_dict[ip_address])
+                self._vnc_lib.virtual_network_ip_free(self.obj,
+                                                      ip_dict[ip_address])
             except NoIdError:
                 pass
 
@@ -442,7 +464,8 @@ class VirtualNetworkST(ResourceBaseST):
         elif ip_dict.get('ipv6_address'):
             # To Handle old scheme
             try:
-                self._vnc_lib.virtual_network_ip_free(self.obj, ip_dict[ipv6_address])
+                self._vnc_lib.virtual_network_ip_free(self.obj,
+                                                      ip_dict[ipv6_address])
             except NoIdError:
                 pass
         self._object_db.remove_service_chain_ip(sc_name)
@@ -456,24 +479,28 @@ class VirtualNetworkST(ResourceBaseST):
             ri_name = ri.get_fq_name_str()
             self._route_target = self._object_db.get_route_target(ri_name)
         rtgt_name = "target:%s:%d" % (
-                    ResourceBaseST.get_obj_type_map().get('global_system_config').get_autonomous_system(),
+                    ResourceBaseST.get_obj_type_map().get(
+                        'global_system_config').get_autonomous_system(),
                     self._route_target)
         return rtgt_name
     # end get_route_target
 
     def set_route_target(self, rtgt_name):
         _, asn, target = rtgt_name.split(':')
-        if int(asn) != ResourceBaseST.get_obj_type_map().get('global_system_config').get_autonomous_system():
+        if int(asn) != ResourceBaseST.get_obj_type_map().get(
+                'global_system_config').get_autonomous_system():
             return
         self._route_target = int(target)
     # end set_route_target
 
     @staticmethod
     def _ri_needs_external_rt(vn_name, ri_name):
-        sc_id = ResourceBaseST.get_obj_type_map().get('routing_instance')._get_service_id_from_ri(ri_name)
+        sc_id = ResourceBaseST.get_obj_type_map().get(
+            'routing_instance')._get_service_id_from_ri(ri_name)
         if sc_id is None:
             return False
-        sc = ResourceBaseST.get_obj_type_map().get('service_chain').get(sc_id)
+        sc = ResourceBaseST.get_obj_type_map().get(
+            'service_chain').get(sc_id)
         if sc is None:
             return False
         if vn_name == sc.left_vn:
@@ -517,7 +544,8 @@ class VirtualNetworkST(ResourceBaseST):
                 else:
                     continue
                 ri_name = self.get_service_name(service_chain.name, si_name)
-                ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+                ri = ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').get(ri_name)
                 if not ri:
                     continue
                 if self.allow_transit:
@@ -528,7 +556,8 @@ class VirtualNetworkST(ResourceBaseST):
                 else:
                     # if the network is not a transit network any more, then we
                     # need to delete the route target from service RIs
-                    ri.update_route_target_list(rt_del=[self.get_route_target()])
+                    ri.update_route_target_list(
+                        rt_del=[self.get_route_target()])
                 ret = True
         return ret
     # end set_properties
@@ -555,7 +584,8 @@ class VirtualNetworkST(ResourceBaseST):
         self.bgpvpn_import_rt_list = set()
         self.bgpvpn_export_rt_list = set()
         for bgpvpn_name in self.bgpvpns:
-            bgpvpn = ResourceBaseST.get_obj_type_map().get('bgpvpn').get(bgpvpn_name)
+            bgpvpn = ResourceBaseST.get_obj_type_map().get(
+                'bgpvpn').get(bgpvpn_name)
             if bgpvpn is not None:
                 self.bgpvpn_rt_list |= bgpvpn.rt_list
                 self.bgpvpn_import_rt_list |= bgpvpn.import_rt_list
@@ -609,7 +639,8 @@ class VirtualNetworkST(ResourceBaseST):
                                         rt_del=rt_del)
         for ri_name in self.routing_instances:
             if self._ri_needs_external_rt(self.name, ri_name):
-                service_ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+                service_ri = ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').get(ri_name)
                 service_ri.update_route_target_list(rt_add_export=rt_add,
                                                     rt_del=rt_del)
         for route in self.get_routes():
@@ -642,7 +673,8 @@ class VirtualNetworkST(ResourceBaseST):
 
         for rt in rt_del - (rt_add | rt_add_export | rt_add_import):
             try:
-                ResourceBaseST.get_obj_type_map().get('route_target').delete_vnc_obj(rt)
+                ResourceBaseST.get_obj_type_map().get(
+                    'route_target').delete_vnc_obj(rt)
             except RefsExistError:
                 # if other routing instances are referring to this target,
                 # it will be deleted when those instances are deleted
@@ -654,7 +686,8 @@ class VirtualNetworkST(ResourceBaseST):
     # be an auto policy instance. This function will get the left vn for that
     # service instance and get the primary and service routing instances
     def _get_routing_instance_from_route(self, next_hop):
-        si = ResourceBaseST.get_obj_type_map().get('service_instance').get(next_hop)
+        si = ResourceBaseST.get_obj_type_map().get(
+            'service_instance').get(next_hop)
         if si is None:
             self._logger.error("Cannot find service instance %s" % next_hop)
             return (None, None)
@@ -719,7 +752,8 @@ class VirtualNetworkST(ResourceBaseST):
     def get_analyzer_vn_and_ip(analyzer_name):
         vn_analyzer = None
         ip_analyzer = None
-        si = ResourceBaseST.get_obj_type_map().get('service_instance').get(analyzer_name)
+        si = ResourceBaseST.get_obj_type_map().get(
+            'service_instance').get(analyzer_name)
         if si is None:
             return (None, None)
         vm_analyzer = list(si.virtual_machines)
@@ -727,14 +761,17 @@ class VirtualNetworkST(ResourceBaseST):
         if not vm_analyzer and not pt_list:
             return (None, None)
         if pt_list:
-            vm_pt = ResourceBaseST.get_obj_type_map().get('port_tuple').get(pt_list[0])
+            vm_pt = ResourceBaseST.get_obj_type_map().get(
+                'port_tuple').get(pt_list[0])
         else:
-            vm_pt = ResourceBaseST.get_obj_type_map().get('virtual_machine').get(vm_analyzer[0])
+            vm_pt = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine').get(vm_analyzer[0])
         if vm_pt is None:
             return (None, None)
         vmis = vm_pt.virtual_machine_interfaces
         for vmi_name in vmis:
-            vmi = ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(vmi_name)
+            vmi = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(vmi_name)
             if vmi and vmi.is_left():
                 vn_analyzer = vmi.virtual_network
                 ip_version = None
@@ -777,13 +814,14 @@ class VirtualNetworkST(ResourceBaseST):
             return pproto
         if ethertype == 'IPv6':
             return _PROTO_STR_TO_NUM_IPV6.get(pproto.lower())
-        else: # IPv4
+        else:  # IPv4
             return _PROTO_STR_TO_NUM_IPV4.get(pproto.lower())
     # end protocol_policy_to_acl
 
     def address_list_policy_to_acl(self, addr):
         if addr.network_policy:
-            pol = ResourceBaseST.get_obj_type_map().get('network_policy').get(addr.network_policy)
+            pol = ResourceBaseST.get_obj_type_map().get(
+                'network_policy').get(addr.network_policy)
             if not pol:
                 self._logger.error(
                     "Policy %s not found while applying policy "
@@ -803,7 +841,8 @@ class VirtualNetworkST(ResourceBaseST):
         dp_list = prule.dst_ports
         rule_uuid = prule.get_rule_uuid()
 
-        arule_proto = self.protocol_policy_to_acl(prule.protocol, prule.ethertype)
+        arule_proto = self.protocol_policy_to_acl(prule.protocol,
+                                                  prule.ethertype)
         if arule_proto is None:
             self._logger.error("Unknown protocol %s" % prule.protocol)
             return result_acl_rule_list
@@ -831,14 +870,12 @@ class VirtualNetworkST(ResourceBaseST):
                 if dvn == "local":
                     dvn = self.name
                     daddr_match.virtual_network = self.name
-                if self.me(dvn):
-                    remote_network_name = svn
-                elif self.me(svn):
-                    remote_network_name = dvn
+                if self.me(dvn) or self.me(svn):
+                    continue
                 elif not dvn and dpol:
-                    dp_obj = ResourceBaseST.get_obj_type_map().get('network_policy').get(dpol)
+                    dp_obj = ResourceBaseST.get_obj_type_map().get(
+                        'network_policy').get(dpol)
                     if self.name in dp_obj.virtual_networks:
-                        remote_network_name = svn
                         daddr_match.network_policy = None
                         daddr_match.virtual_network = self.name
                     else:
@@ -850,9 +887,9 @@ class VirtualNetworkST(ResourceBaseST):
                         continue
 
                 elif not svn and spol:
-                    sp_obj = ResourceBaseST.get_obj_type_map().get('network_policy').get(spol)
+                    sp_obj = ResourceBaseST.get_obj_type_map().get(
+                        'network_policy').get(spol)
                     if self.name in sp_obj.virtual_networks:
-                        remote_network_name = dvn
                         saddr_match.network_policy = None
                         saddr_match.virtual_network = self.name
                     else:
@@ -893,22 +930,23 @@ class VirtualNetworkST(ResourceBaseST):
                         continue
                     if self.me(svn):
                         da_list = [AddressType(
-                                       virtual_network=x,
-                                       subnet=daddr_match.subnet,
-                                       subnet_list=daddr_match.subnet_list)
+                                   virtual_network=x,
+                                   subnet=daddr_match.subnet,
+                                   subnet_list=daddr_match.subnet_list)
                                    for x in service_ris]
                     elif self.me(dvn):
                         sa_list = [AddressType(
-                                       virtual_network=x,
-                                       subnet=saddr_match.subnet,
-                                       subnet_list=saddr_match.subnet_list)
+                                   virtual_network=x,
+                                   subnet=saddr_match.subnet,
+                                   subnet_list=saddr_match.subnet_list)
                                    for x in service_ris]
 
                 for sp, dp, sa, da in itertools.product(sp_list, dp_list,
                                                         sa_list, da_list):
                     service_ri = None
                     if self.me(sa.virtual_network):
-                        service_ri = service_ris.get(da.virtual_network, [None])[0]
+                        service_ri = service_ris.get(da.virtual_network,
+                                                     [None])[0]
                     elif self.me(da.virtual_network):
                         service_ri = service_ris.get(sa.virtual_network,
                                                      [None, None])[1]
@@ -935,13 +973,15 @@ class VirtualNetworkST(ResourceBaseST):
         for ri_name in self.routing_instances:
             if ri_name == self._default_ri_name:
                 continue
-            ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
             if ri is None:
                 continue
             if ri.obj.get_routing_instance_has_pnf():
                 has_pnf = True
                 break
-        default_ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(self._default_ri_name)
+        default_ri = ResourceBaseST.get_obj_type_map().get(
+            'routing_instance').get(self._default_ri_name)
         if (default_ri and
                 default_ri.obj.get_routing_instance_has_pnf() != has_pnf):
             default_ri.obj.set_routing_instance_has_pnf(has_pnf)
@@ -962,7 +1002,7 @@ class VirtualNetworkST(ResourceBaseST):
         dynamic_acl_entries = None
         # add a static acl in case of provider-network
         if (not self.network_policys and
-            (self.is_provider_network or self.virtual_networks or \
+            (self.is_provider_network or self.virtual_networks or
              (self.fabric_snat == True))):
             static_acl_entries = AclEntriesType(dynamic=False)
 
@@ -978,7 +1018,8 @@ class VirtualNetworkST(ResourceBaseST):
                     dynamic_acl_entries = AclEntriesType(dynamic=True)
                 acl_entries = dynamic_acl_entries
                 dynamic = True
-            policy = ResourceBaseST.get_obj_type_map().get('network_policy').get(policy_name)
+            policy = ResourceBaseST.get_obj_type_map().get(
+                'network_policy').get(policy_name)
             if policy is None:
                 continue
             for prule in policy.rules:
@@ -1014,19 +1055,23 @@ class VirtualNetworkST(ResourceBaseST):
                                 # case we shouldn't connect the two networks
                                 # directly
                                 nat_service = False
-                                sc_list = self.service_chains[connected_network]
+                                sc_list = \
+                                    self.service_chains[connected_network]
                                 for sc in sc_list:
                                     if sc is not None and sc.created:
                                         right_si_name = sc.service_list[-1]
-                                        right_si = ResourceBaseST.get_obj_type_map().get('service_instance').get(
-                                            right_si_name)
+                                        right_si = \
+                                            ResourceBaseST.get_obj_type_map(
+                                            ).get('service_instance').get(
+                                                right_si_name)
                                         if (right_si.get_service_mode() ==
                                                 'in-network-nat'):
                                             nat_service = True
                                             break
 
-                                if (other_vn.multi_policy_service_chains_enabled
-                                        and not nat_service):
+                                if (other_vn.
+                                        multi_policy_service_chains_enabled and
+                                        not nat_service):
                                     self.add_connection(connected_network)
                             continue
 
@@ -1059,32 +1104,35 @@ class VirtualNetworkST(ResourceBaseST):
             if self.fabric_snat == True:
                 # Allow this-vn to fab-vn trffic
                 this_vn_to_provider_acl = self.add_acl_rule(
-                                AddressType(virtual_network=self.name),
-                                PortType(),
-                                AddressType(virtual_network='default-domain:default-project:ip-fabric'),
-                                PortType(),
-                                "any",
-                                RULE_IMPLICIT_ALLOW_UUID,
-                                ActionListType(simple_action='pass'),
-                                '<>')
+                    AddressType(virtual_network=self.name),
+                    PortType(),
+                    AddressType(virtual_network='default-domain:'
+                                                'default-project:ip-fabric'),
+                    PortType(),
+                    "any",
+                    RULE_IMPLICIT_ALLOW_UUID,
+                    ActionListType(simple_action='pass'),
+                    '<>')
 
                 # Deny any-vn to any-vn trffic
                 this_vn_to_any_vn = self.add_acl_rule(
-                                AddressType(virtual_network=self.name),
-                                PortType(),
-                                AddressType(virtual_network="any"),
-                                PortType(),
-                                "any",
-                                RULE_IMPLICIT_DENY_UUID,
-                                ActionListType("deny"),
-                                '<>')
+                    AddressType(virtual_network=self.name),
+                    PortType(),
+                    AddressType(virtual_network="any"),
+                    PortType(),
+                    "any",
+                    RULE_IMPLICIT_DENY_UUID,
+                    ActionListType("deny"),
+                    '<>')
                 acl_list.append(this_vn_to_provider_acl)
                 acl_list.append(this_vn_to_any_vn)
 
             if self._manager._args.logical_routers_enabled:
                 for rule in static_acl_entries.get_acl_rule():
-                    src_address = copy.deepcopy(rule.match_condition.src_address)
-                    dst_address = copy.deepcopy(rule.match_condition.dst_address)
+                    src_address = \
+                        copy.deepcopy(rule.match_condition.src_address)
+                    dst_address = \
+                        copy.deepcopy(rule.match_condition.dst_address)
                     if src_address.virtual_network:
                         src_address.subnet = None
                         src_address.subnet_list = []
@@ -1154,20 +1202,22 @@ class VirtualNetworkST(ResourceBaseST):
                                                        dynamic_acl_entries)
 
         for vmi_name in self.virtual_machine_interfaces:
-            vmi = ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(vmi_name)
+            vmi = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(vmi_name)
             if (vmi and vmi.interface_mirror is not None and
-                vmi.interface_mirror.mirror_to is not None and
-                vmi.interface_mirror.mirror_to.analyzer_name is not None):
-                    vmi.process_analyzer()
+                    vmi.interface_mirror.mirror_to is not None and
+                    vmi.interface_mirror.mirror_to.analyzer_name is not None):
+                vmi.process_analyzer()
 
         # This VN could be the VN for an analyzer interface. If so, we need
         # to create a link from all VNs containing a policy with that
         # analyzer
-        for policy in ResourceBaseST.get_obj_type_map().get('network_policy').values():
+        for policy in ResourceBaseST.get_obj_type_map().get(
+                'network_policy').values():
             for prule in policy.rules:
                 if (prule.action_list is None or
-                    prule.action_list.mirror_to is None or
-                    prule.action_list.mirror_to.analyzer_name is None):
+                        prule.action_list.mirror_to is None or
+                        prule.action_list.mirror_to.analyzer_name is None):
                     continue
                 (vn_analyzer, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
                     prule.action_list.mirror_to.analyzer_name)
@@ -1208,7 +1258,8 @@ class VirtualNetworkST(ResourceBaseST):
             # end for service_chain
         # end for remote_vn_name
 
-        self.delete_inactive_service_chains(old_service_chains, self.service_chains)
+        self.delete_inactive_service_chains(old_service_chains,
+                                            self.service_chains)
 
         primary_ri = self.get_primary_routing_instance()
         if primary_ri:
@@ -1216,20 +1267,23 @@ class VirtualNetworkST(ResourceBaseST):
             old_rp_set = set(primary_ri.routing_policys.keys())
             new_rp_set = set(self.routing_policys.keys())
             for rp in new_rp_set - old_rp_set:
-                rp_obj = ResourceBaseST.get_obj_type_map().get('routing_policy').get(rp)
+                rp_obj = ResourceBaseST.get_obj_type_map().get(
+                    'routing_policy').get(rp)
                 seq = self.routing_policys[rp].sequence
                 rp_obj.add_routing_instance(primary_ri, seq)
                 primary_ri.routing_policys[rp] = seq
 
             for rp in old_rp_set - new_rp_set:
-                rp_obj = ResourceBaseST.get_obj_type_map().get('routing_policy').get(rp)
+                rp_obj = ResourceBaseST.get_obj_type_map().get(
+                    'routing_policy').get(rp)
                 rp_obj.delete_routing_instance(primary_ri)
                 del primary_ri.routing_policys[rp]
 
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
         for ri_name in self.routing_instances:
-            ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
             if ri:
                 ri.update_routing_policy_and_aggregates()
         self.uve_send()
@@ -1278,6 +1332,7 @@ class VirtualNetworkST(ResourceBaseST):
 
     def get_gateway(self, address):
         """Returns the default gateway of the network
+
         to which the 'address' belongs
         """
         for ipam in self.ipams.values():
@@ -1288,6 +1343,7 @@ class VirtualNetworkST(ResourceBaseST):
                     return ipam_subnet.default_gateway
     # end get_gateway
 # end class VirtualNetworkST
+
 
 class AclRuleListST(object):
 
@@ -1320,12 +1376,12 @@ class AclRuleListST(object):
         l_subnets = lhs.subnet_list or []
         if lhs.subnet:
             l_subnets.append(lhs.subnet)
-        l_subnets = [IPNetwork('%s/%d'%(s.ip_prefix, s.ip_prefix_len))
+        l_subnets = [IPNetwork('%s/%d' % (s.ip_prefix, s.ip_prefix_len))
                      for s in l_subnets]
         r_subnets = rhs.subnet_list or []
         if rhs.subnet:
             r_subnets.append(rhs.subnet)
-        r_subnets = [IPNetwork('%s/%d'%(s.ip_prefix, s.ip_prefix_len))
+        r_subnets = [IPNetwork('%s/%d' % (s.ip_prefix, s.ip_prefix_len))
                      for s in r_subnets]
         for l_subnet in l_subnets:
             for r_subnet in r_subnets:
@@ -1335,16 +1391,16 @@ class AclRuleListST(object):
             return False
         return True
 
-
     def _rule_is_subset(self, rule):
         for elem in self._list:
             lhs = rule.match_condition
             rhs = elem.match_condition
             if (self._port_is_subset(lhs.src_port, rhs.src_port) and
-                self._port_is_subset(lhs.dst_port, rhs.dst_port) and
-                rhs.protocol in [lhs.protocol, 'any'] and
-                self._address_is_subset(lhs.src_address, rhs.src_address) and
-                self._address_is_subset(lhs.dst_address, rhs.dst_address)):
+                    self._port_is_subset(lhs.dst_port, rhs.dst_port) and
+                    rhs.protocol in [lhs.protocol, 'any'] and
+                    self._address_is_subset(lhs.src_address,
+                                            rhs.src_address) and
+                    self._address_is_subset(lhs.dst_address, rhs.dst_address)):
 
                 if not self.dynamic:
                     return True

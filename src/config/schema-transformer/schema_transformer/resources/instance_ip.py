@@ -2,8 +2,9 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
 from netaddr import IPAddress
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 
 
 class InstanceIpST(ResourceBaseST):

@@ -2,13 +2,12 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
+from cfgm_common.exceptions import BadRequest, NoIdError
 from cfgm_common.exceptions import HttpError, RequestSizeError
+from vnc_api.gen.resource_client import AccessControlList
+
 from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.utils import _raise_and_send_uve_to_sandesh
-from vnc_api.vnc_api import *
-from schema_transformer.sandesh.st_introspect import ttypes as sandesh
-from cfgm_common.uve.config_req.ttypes import *
 
 
 def _access_control_list_update(acl_obj, name, obj, entries):
@@ -35,7 +34,8 @@ def _access_control_list_update(acl_obj, name, obj, entries):
     else:
         if entries is None:
             try:
-                ResourceBaseST._vnc_lib.access_control_list_delete(id=acl_obj.uuid)
+                ResourceBaseST._vnc_lib.access_control_list_delete(
+                    id=acl_obj.uuid)
             except NoIdError:
                 pass
             return None
@@ -55,8 +55,9 @@ def _access_control_list_update(acl_obj, name, obj, entries):
                 "HTTP error while updating acl %s for %s: %d, %s" %
                 (name, obj.get_fq_name_str(), he.status_code, he.content))
         except NoIdError:
-            ResourceBaseST._logger.error("NoIdError while updating acl %s for %s" %
-                                   (name, obj.get_fq_name_str()))
+            ResourceBaseST._logger.error(
+                "NoIdError while updating acl %s for %s" %
+                (name, obj.get_fq_name_str()))
         except RequestSizeError as e:
             # log the error and raise an alarm
             ResourceBaseST._logger.error(

@@ -2,14 +2,17 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
 from netaddr import IPAddress
+
+from schema_transformer.resources._resource_base import ResourceBaseST
+
 
 class FloatingIpST(ResourceBaseST):
     _dict = {}
     obj_type = 'floating_ip'
     prop_fields = ['floating_ip_address']
     ref_fields = ['virtual_machine_interface']
+
     def __init__(self, name, obj=None):
         self.name = name
         self.virtual_machine_interface = None

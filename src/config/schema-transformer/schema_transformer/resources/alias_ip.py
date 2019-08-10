@@ -3,7 +3,9 @@
 #
 
 from netaddr import IPAddress
+
 from schema_transformer.resources._resource_base import ResourceBaseST
+
 
 class AliasIpST(ResourceBaseST):
     _dict = {}
