@@ -2,15 +2,18 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+import copy
+
+from vnc_api.gen.resource_xsd import AclEntriesType, AclRuleType
+from vnc_api.gen.resource_xsd import ActionListType, MatchConditionType
+from vnc_api.gen.resource_xsd import PortType
+
+from schema_transformer.resources._access_control_list import \
+    _access_control_list_update
 from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
-from vnc_api.gen.resource_xsd import AclEntriesType, PortType
-from vnc_api.gen.resource_xsd import ActionListType, MatchConditionType
-from vnc_api.gen.resource_xsd import AclRuleType, MatchConditionType
-import copy
-from schema_transformer.resources._access_control_list import _access_control_list_update
-from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV6,\
-      _PROTO_STR_TO_NUM_IPV4, _create_pprinted_prop_list
+from schema_transformer.utils import _create_pprinted_prop_list, \
+    _PROTO_STR_TO_NUM_IPV4, _PROTO_STR_TO_NUM_IPV6
 
 
 # a struct to store attributes related to Security Group needed by schema
@@ -152,7 +155,7 @@ class SecurityGroupST(ResourceBaseST):
             return pproto
         if ethertype == 'IPv6':
             return _PROTO_STR_TO_NUM_IPV6.get(pproto.lower())
-        else: # IPv4
+        else:  # IPv4
             return _PROTO_STR_TO_NUM_IPV4.get(pproto.lower())
 
     def policy_to_acl_rule(self, prule):
@@ -179,7 +182,8 @@ class SecurityGroupST(ResourceBaseST):
             for sp in prule.src_ports or [PortType()]:
                 for daddr in prule.dst_addresses:
                     daddr_match = copy.deepcopy(daddr)
-                    if not self._convert_security_group_name_to_id(daddr_match):
+                    if not self._convert_security_group_name_to_id(
+                            daddr_match):
                         continue
                     if daddr.security_group == 'local':
                         daddr_match.security_group = None

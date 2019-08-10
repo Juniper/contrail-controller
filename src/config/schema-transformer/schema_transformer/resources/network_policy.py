@@ -3,10 +3,12 @@
 #
 
 import itertools
+
+from vnc_api.gen.resource_xsd import VirtualNetworkPolicyType
+
 from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from schema_transformer.utils import _create_pprinted_prop_list
-from vnc_api.gen.resource_xsd import VirtualNetworkPolicyType
 
 
 # a struct to store attributes related to Network Policy needed by schema
@@ -34,17 +36,20 @@ class NetworkPolicyST(ResourceBaseST):
         for vn_ref in self.obj.get_virtual_network_back_refs() or []:
             vn_name = ':'.join(vn_ref['to'])
             self.virtual_networks.add(vn_name)
-            vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn_name)
+            vn = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vn_name)
             if vn is None:
                 continue
             vnp = VirtualNetworkPolicyType(**vn_ref['attr'])
             vn.add_policy(name, vnp)
-        self.network_policys = NetworkPolicyST._network_policys.get(name, set())
+        self.network_policys = NetworkPolicyST._network_policys.get(name,
+                                                                    set())
         self.update_multiple_refs('security_logging_object', self.obj)
     # end __init__
 
     def skip_evaluate(self, from_type):
-        if from_type == 'virtual_network' and self.has_subnet_only_rules == True:
+        if from_type == 'virtual_network' and \
+                self.has_subnet_only_rules == True:
             return True
         return False
     # end skip_evaluate
@@ -54,7 +59,7 @@ class NetworkPolicyST(ResourceBaseST):
             for address in itertools.chain(rule.src_addresses,
                                            rule.dst_addresses):
                 if (address.virtual_network not in (None, 'local') or
-                    address.network_policy):
+                        address.network_policy):
                     self.has_subnet_only_rules = False
     # end update_subnet_only_rules
 
@@ -100,7 +105,7 @@ class NetworkPolicyST(ResourceBaseST):
             if prule.action_list is None:
                 continue
             if (prule.action_list.mirror_to and
-                prule.action_list.mirror_to.analyzer_name):
+                    prule.action_list.mirror_to.analyzer_name):
                 si_set.add(prule.action_list.mirror_to.analyzer_name)
             if prule.action_list.apply_service:
                 si_set = si_set.union(prule.action_list.apply_service)
@@ -139,7 +144,8 @@ class NetworkPolicyST(ResourceBaseST):
                 si_list.discard(self.name)
             if not si_list:
                 del self._service_instances[si_name]
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(si_name)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(si_name)
             if si is None:
                 continue
             si.network_policys.discard(self.name)
@@ -147,7 +153,8 @@ class NetworkPolicyST(ResourceBaseST):
         for si_name in si_set - old_si_set:
             si_list = self._service_instances.setdefault(si_name, set())
             si_list.add(self.name)
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(si_name)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(si_name)
             if si is None:
                 continue
             si.network_policys.add(self.name)
@@ -158,7 +165,8 @@ class NetworkPolicyST(ResourceBaseST):
         self.add_rules(None)
         self._internal_policies.discard(self.name)
         for vn_name in self.virtual_networks:
-            vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn_name)
+            vn = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vn_name)
             if vn is None:
                 continue
             if self.name in vn.network_policys:

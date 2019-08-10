@@ -45,7 +45,8 @@ class RouteTableST(ResourceBaseST):
                 rt_list.discard(self.name)
             if not rt_list:
                 del self._service_instances[si_name]
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(si_name)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(si_name)
             if si is None:
                 continue
             si.route_tables.discard(self.name)
@@ -53,7 +54,8 @@ class RouteTableST(ResourceBaseST):
         for si_name in si_set - old_si_set:
             rt_list = self._service_instances.setdefault(si_name, set())
             rt_list.add(self.name)
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(si_name)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(si_name)
             if si is None:
                 continue
             si.route_tables.add(self.name)

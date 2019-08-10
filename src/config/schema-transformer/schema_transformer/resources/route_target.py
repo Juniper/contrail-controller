@@ -2,10 +2,10 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
+from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_client import RouteTarget
 
-from cfgm_common.exceptions import NoIdError
+from schema_transformer.resources._resource_base import ResourceBaseST
 
 
 class RouteTargetST(ResourceBaseST):
@@ -26,7 +26,8 @@ class RouteTargetST(ResourceBaseST):
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
         for ri, val in cls._object_db._rt_cf.get_range():
             rt = val['rtgt_num']
-            asn = ResourceBaseST.get_obj_type_map().get('global_system_config').get_autonomous_system()
+            asn = ResourceBaseST.get_obj_type_map().get(
+                'global_system_config').get_autonomous_system()
             rt_key = "target:%s:%s" % (asn, rt)
             if rt_key not in cls:
                 cls._object_db.free_route_target(ri, asn)
@@ -35,8 +36,9 @@ class RouteTargetST(ResourceBaseST):
         # In case we upgrade to a release containing support to 4 Byte ASN
         # Once all the RTs are recreated in ZK in their new path, delete
         # the old path for RTs in ZK
-        cls._object_db.delete_route_target_directory('%s%s'
-            % (cls._object_db._zk_path_pfx, "/id/bgp/route-targets"))
+        cls._object_db.delete_route_target_directory(
+            '%s%s' % (cls._object_db._zk_path_pfx,
+                      "/id/bgp/route-targets"))
     # end reinit
 
     def __init__(self, rt_key, obj=None):
