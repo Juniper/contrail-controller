@@ -2,9 +2,10 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
 from vnc_api.gen.resource_xsd import SecurityLoggingObjectRuleListType
 from vnc_api.gen.resource_xsd import SecurityLoggingObjectRuleEntryType
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.utils import _create_pprinted_prop_list
 
 
@@ -51,11 +52,13 @@ class SecurityLoggingObjectST(ResourceBaseST):
                 # network policy or security group
                 # and include all rules in them.
                 # Use the default rule rate in the SLO.
-                np_sg_st_obj = (ResourceBaseST.get_obj_type_map().get('network_policy').get(np_sg) or
-                                ResourceBaseST.get_obj_type_map().get('security_group').get(np_sg))
-                np_sg_rule_list = getattr(np_sg_st_obj.obj,
-                                         'get_'+rule_type+'_entries')(
-                                             ).get_policy_rule()
+                np_sg_st_obj = (ResourceBaseST.get_obj_type_map().get(
+                    'network_policy').get(np_sg) or
+                    ResourceBaseST.get_obj_type_map().get(
+                    'security_group').get(np_sg))
+                np_sg_rule_list = getattr(
+                    np_sg_st_obj.obj, 'get_'+rule_type+'_entries')(
+                    ).get_policy_rule()
             for rule_entry in np_sg_rule_list:
                 rate_to_use = (getattr(rule_entry, 'rate', None) or
                                self.security_logging_object_rate)

@@ -2,10 +2,11 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
-from vnc_api.gen.resource_xsd import RouteTargetList
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, RefsExistError
+from vnc_api.gen.resource_xsd import RouteTargetList
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
@@ -14,6 +15,7 @@ class LogicalRouterST(ResourceBaseST):
     obj_type = 'logical_router'
     ref_fields = ['virtual_machine_interface', 'route_table', 'bgpvpn']
     prop_fields = ['configured_route_target_list']
+
     def __init__(self, name, obj=None):
         self.name = name
         self.virtual_machine_interfaces = set()
@@ -33,20 +35,24 @@ class LogicalRouterST(ResourceBaseST):
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
             rtgt_num = int(rt_key.split(':')[-1])
-            asn = ResourceBaseST.get_obj_type_map().get('global_system_config').get_autonomous_system()
+            asn = ResourceBaseST.get_obj_type_map().get(
+                'global_system_config').get_autonomous_system()
             if rtgt_num < common.get_bgp_rtgt_min_id(asn):
                 old_rt_key = rt_key
                 rt_ref = None
         if not rt_ref:
-            asn = ResourceBaseST.get_obj_type_map().get('global_system_config').get_autonomous_system()
+            asn = ResourceBaseST.get_obj_type_map().get(
+                'global_system_config').get_autonomous_system()
             rtgt_num = self._object_db.alloc_route_target(name, asn, True)
             rt_key = "target:%s:%d" % (asn, rtgt_num)
-            rtgt_obj = ResourceBaseST.get_obj_type_map().get('route_target').locate(rt_key)
+            rtgt_obj = ResourceBaseST.get_obj_type_map().get(
+                'route_target').locate(rt_key)
             self.obj.set_route_target(rtgt_obj.obj)
             self._vnc_lib.logical_router_update(self.obj)
 
         if old_rt_key:
-            ResourceBaseST.get_obj_type_map().get('route_target').delete_vnc_obj(old_rt_key)
+            ResourceBaseST.get_obj_type_map().get(
+                'route_target').delete_vnc_obj(old_rt_key)
         self.route_target = rt_key
     # end __init__
 
@@ -62,14 +68,16 @@ class LogicalRouterST(ResourceBaseST):
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
         self.delete_route_targets([self.route_target])
-        asn = ResourceBaseST.get_obj_type_map().get('global_system_config').get_autonomous_system()
+        asn = ResourceBaseST.get_obj_type_map().get(
+            'global_system_config').get_autonomous_system()
         self._object_db.free_route_target(self.name, asn)
     # end delete_obj
 
     def update_virtual_networks(self):
         vn_set = set()
         for vmi in self.virtual_machine_interfaces:
-            vmi_obj = ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(vmi)
+            vmi_obj = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(vmi)
             if vmi_obj is not None:
                 vn_set.add(vmi_obj.virtual_network)
         if vn_set == self.virtual_networks:
@@ -84,7 +92,8 @@ class LogicalRouterST(ResourceBaseST):
             self.virtual_networks = vn_set
             return
         for vn in self.virtual_networks - vn_set:
-            vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn)
+            vn_obj = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
                 # error due to inconsistency in db
@@ -100,7 +109,8 @@ class LogicalRouterST(ResourceBaseST):
                 ri_obj.update_route_target_list(rt_add=set(), rt_del=rt_del)
                 self.delete_route_targets(rt_del - set([self.route_target]))
         for vn in vn_set - self.virtual_networks:
-            vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn)
+            vn_obj = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
                 rt_add = (self.rt_list |
@@ -120,7 +130,8 @@ class LogicalRouterST(ResourceBaseST):
             return
         rtgt_num = int(old_rt.split(':')[-1])
         rt_key = "target:%s:%d" % (asn, rtgt_num)
-        rtgt_obj = ResourceBaseST.get_obj_type_map().get('route_target').locate(rt_key)
+        rtgt_obj = ResourceBaseST.get_obj_type_map().get(
+            'route_target').locate(rt_key)
         try:
             obj = self.read_vnc_obj(fq_name=self.name)
             obj.set_route_target(rtgt_obj.obj)
@@ -134,7 +145,8 @@ class LogicalRouterST(ResourceBaseST):
         # to the Routing Instance of all the connected VNs
         if not self.vxlan_routing:
             for vn in self.virtual_networks:
-                vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn)
+                vn_obj = ResourceBaseST.get_obj_type_map().get(
+                    'virtual_network').get(vn)
                 if vn_obj is not None:
                     ri_obj = vn_obj.get_primary_routing_instance()
                     ri_obj.update_route_target_list(rt_del=[old_rt],
@@ -159,7 +171,8 @@ class LogicalRouterST(ResourceBaseST):
         self.bgpvpn_import_rt_list = set()
         self.bgpvpn_export_rt_list = set()
         for bgpvpn_name in self.bgpvpns:
-            bgpvpn = ResourceBaseST.get_obj_type_map().get('bgpvpn').get(bgpvpn_name)
+            bgpvpn = ResourceBaseST.get_obj_type_map().get(
+                'bgpvpn').get(bgpvpn_name)
             if bgpvpn is not None:
                 self.bgpvpn_rt_list |= bgpvpn.rt_list
                 self.bgpvpn_import_rt_list |= bgpvpn.import_rt_list
@@ -183,19 +196,23 @@ class LogicalRouterST(ResourceBaseST):
         if self.logical_router_type == 'vxlan-routing':
             vn = ':'.join((self.obj.fq_name[:-1] +
                              [common.get_lr_internal_vn_name(self.obj.uuid)]))
-            vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn)
+            vn_obj = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
-                ri_obj.update_route_target_list(rt_add=rt_add,
+                ri_obj.update_route_target_list(
+                                            rt_add=rt_add,
                                             rt_add_import=rt_add_import,
                                             rt_add_export=rt_add_export,
                                             rt_del=rt_del)
         else:
             for vn in self.virtual_networks:
-                vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn)
+                vn_obj = ResourceBaseST.get_obj_type_map().get(
+                    'virtual_network').get(vn)
                 if vn_obj is not None:
                     ri_obj = vn_obj.get_primary_routing_instance()
-                    ri_obj.update_route_target_list(rt_add=rt_add,
+                    ri_obj.update_route_target_list(
+                                                rt_add=rt_add,
                                                 rt_add_import=rt_add_import,
                                                 rt_add_export=rt_add_export,
                                                 rt_del=rt_del)
@@ -206,7 +223,8 @@ class LogicalRouterST(ResourceBaseST):
     def delete_route_targets(route_targets=None):
         for rt in route_targets or []:
             try:
-                ResourceBaseST.get_obj_type_map().get('route_target').delete_vnc_obj(rt)
+                ResourceBaseST.get_obj_type_map().get(
+                    'route_target').delete_vnc_obj(rt)
             except RefsExistError:
                 pass
 

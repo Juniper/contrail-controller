@@ -2,10 +2,11 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
+import cfgm_common as common
 from vnc_api.gen.resource_client import RouteTarget
 from vnc_api.gen.resource_xsd import InstanceTargetType
-import cfgm_common as common
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 
 
 class GlobalSystemConfigST(ResourceBaseST):
@@ -68,7 +69,8 @@ class GlobalSystemConfigST(ResourceBaseST):
         # changed ASN, and update the routing instances' referred
         # by the route target
 
-        for route_tgt in ResourceBaseST.get_obj_type_map().get('route_target').values():
+        for route_tgt in ResourceBaseST.get_obj_type_map().get(
+                'route_target').values():
             _, asn, target = route_tgt.obj.get_fq_name()[0].split(':')
             if int(asn) != cls.get_autonomous_system():
                 continue
@@ -77,26 +79,32 @@ class GlobalSystemConfigST(ResourceBaseST):
 
             asn = cls._autonomous_system
             new_target = target
-            if ( (new_asn > 0xFFFF) and (asn <= 0xFFFF) or
-                 (new_asn <= 0xFFFF and asn > 0xFFFF)):
-                ri_fq_name_in_str = cls._object_db.get_ri_from_route_target(int(target),asn)
+            if ((new_asn > 0xFFFF) and (asn <= 0xFFFF) or
+                    (new_asn <= 0xFFFF and asn > 0xFFFF)):
+                ri_fq_name_in_str = cls._object_db.get_ri_from_route_target(
+                    int(target), asn)
                 # free_route_target has to be called before alloc_route_target.
                 # as get_route_target(ri_fq_name) inside free_route_target will return
                 # wrong values if this order is changed.
-                cls._object_db.free_route_target(ri_fq_name_in_str,asn)
-                new_target = cls._object_db.alloc_route_target(ri_fq_name_in_str,new_asn)
+                cls._object_db.free_route_target(ri_fq_name_in_str, asn)
+                new_target = cls._object_db.alloc_route_target(
+                    ri_fq_name_in_str, new_asn)
 
             new_rtgt_name = "target:%s:%s" % (new_asn, new_target)
-            new_rtgt_obj = ResourceBaseST.get_obj_type_map().get('route_target').locate(new_rtgt_name)
+            new_rtgt_obj = ResourceBaseST.get_obj_type_map().get(
+                'route_target').locate(new_rtgt_name)
             old_rtgt_name = "target:%d:%s" % (cls._autonomous_system, target)
             old_rtgt_obj = RouteTarget(old_rtgt_name)
 
-            route_tgt.obj = ResourceBaseST.get_obj_type_map().get('route_target').read_vnc_obj(
+            route_tgt.obj = ResourceBaseST.get_obj_type_map().get(
+                'route_target').read_vnc_obj(
                 fq_name=[old_rtgt_name],
-                fields=['logical_router_back_refs', 'routing_instance_back_refs'])
+                fields=['logical_router_back_refs',
+                        'routing_instance_back_refs'])
 
             for ri_ref in route_tgt.obj.get_routing_instance_back_refs() or []:
-                rt_inst = ResourceBaseST.get_obj_type_map().get('routing_instance').get(':'.join(ri_ref['to']))
+                rt_inst = ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').get(':'.join(ri_ref['to']))
                 if rt_inst:
                     ri = rt_inst.obj
                 else:
@@ -119,9 +127,10 @@ class GlobalSystemConfigST(ResourceBaseST):
 
             # Updating the logical router referred by the route target with
             # new route target.
-            for router_ref in route_tgt.obj.get_logical_router_back_refs() or []:
-                lr = ResourceBaseST.get_obj_type_map().get('logical_router').\
-			        get(':'.join(router_ref['to']))
+            for router_ref in route_tgt.obj.get_logical_router_back_refs() \
+                    or []:
+                lr = ResourceBaseST.get_obj_type_map().get(
+                    'logical_router').get(':'.join(router_ref['to']))
                 if lr:
                     logical_router = lr.obj
                 else:
@@ -133,32 +142,37 @@ class GlobalSystemConfigST(ResourceBaseST):
                 # We need to execute this code only in case of SNAT routing.
                 # If vxlan_routing is enabled, LR RTs will not have a back_ref
                 # to the Routing Instance of all the connected VNs
-                proj_obj = ResourceBaseST.get_obj_type_map().get('logical_router').read_vnc_obj(logical_router.parent_uuid,
-                                             obj_type='project',
-                                             fields=['vxlan_routing'])
+                proj_obj = ResourceBaseST.get_obj_type_map().get(
+                    'logical_router').read_vnc_obj(logical_router.parent_uuid,
+                                                   obj_type='project',
+                                                   fields=['vxlan_routing'])
                 vxlan_routing = proj_obj.get_vxlan_routing()
                 if not vxlan_routing:
                     for vn in lr.virtual_networks:
-                        vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn)
+                        vn_obj = ResourceBaseST.get_obj_type_map().get(
+                            'virtual_network').get(vn)
                         if vn_obj is not None:
                             ri_obj = vn_obj.get_primary_routing_instance()
-                            ri_obj.update_route_target_list(rt_del=[old_rtgt_name],
-                                                            rt_add=[new_rtgt_name])
+                            ri_obj.update_route_target_list(
+                                rt_del=[old_rtgt_name],
+                                rt_add=[new_rtgt_name])
                 lr.route_target = new_rtgt_name
 
-            ResourceBaseST.get_obj_type_map().get('route_target').\
-		delete_vnc_obj(old_rtgt_obj.get_fq_name()[0])
+            ResourceBaseST.get_obj_type_map().get(
+                'route_target').delete_vnc_obj(old_rtgt_obj.get_fq_name()[0])
 
         cls._autonomous_system = int(new_asn)
         return True
     # end update_autonomous_system
 
     def evaluate(self, **kwargs):
-        for router in ResourceBaseST.get_obj_type_map().get('bgp_router').values():
+        for router in ResourceBaseST.get_obj_type_map().get(
+                'bgp_router').values():
             router.update_global_asn(self._autonomous_system)
             router.update_peering()
         # end for router
-        for router in ResourceBaseST.get_obj_type_map().get('logical_router').values():
+        for router in ResourceBaseST.get_obj_type_map().get(
+                'logical_router').values():
             router.update_autonomous_system(self._autonomous_system)
         # end for router
         if self.obj.bgpaas_parameters:

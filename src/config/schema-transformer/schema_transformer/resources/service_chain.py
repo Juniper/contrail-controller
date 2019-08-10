@@ -2,15 +2,17 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
-from vnc_api.gen.resource_xsd import InstanceTargetType
-from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
+import copy
 import json
 import jsonpickle
-import copy
 import uuid
-from cfgm_common.uve.virtual_network.ttypes import UveServiceChainData
+
 from cfgm_common.uve.virtual_network.ttypes import UveServiceChain
+from cfgm_common.uve.virtual_network.ttypes import UveServiceChainData
+from vnc_api.gen.resource_xsd import InstanceTargetType
+from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
@@ -20,10 +22,12 @@ class ServiceChain(ResourceBaseST):
 
     @classmethod
     def init(cls):
-        # When schema transformer restarts, read all service chains from cassandra
+        # When schema transformer restarts, read all service chains
+        # from cassandra
         for (name, columns) in cls._object_db.list_service_chain_uuid():
             json_dict = json.loads(columns['value'])
-            json_dict.update({"py/object": '%s.%s' % (cls.__module__, cls.__name__)})
+            json_dict.update({"py/object": '%s.%s' %
+                             (cls.__module__, cls.__name__)})
             chain = jsonpickle.loads(json.dumps(json_dict))
 
             # Some service chains may not be valid any more. We may need to
@@ -47,7 +51,8 @@ class ServiceChain(ResourceBaseST):
     def _get_service_chain_ipam(cls):
         if cls.sc_ipam_obj:
             return cls.sc_ipam_obj
-        fq_name = ['default-domain', 'default-project', 'service-chain-flat-ipam']
+        fq_name = ['default-domain', 'default-project',
+                   'service-chain-flat-ipam']
         cls.sc_ipam_obj = cls._vnc_lib.network_ipam_read(fq_name=fq_name)
         return cls.sc_ipam_obj
     # end _get_service_chain_ipam
@@ -96,13 +101,13 @@ class ServiceChain(ResourceBaseST):
              service_list):
         for sc in ServiceChain.values():
             if (left_vn == sc.left_vn and
-                right_vn == sc.right_vn and
-                sp_list == sc.sp_list and
-                dp_list == sc.dp_list and
-                direction == sc.direction and
-                protocol == sc.protocol and
-                service_list == sc.service_list):
-                    return sc
+                    right_vn == sc.right_vn and
+                    sp_list == sc.sp_list and
+                    dp_list == sc.dp_list and
+                    direction == sc.direction and
+                    protocol == sc.protocol and
+                    service_list == sc.service_list):
+                return sc
         # end for sc
         return None
     # end find
@@ -128,17 +133,21 @@ class ServiceChain(ResourceBaseST):
         if not self.created:
             return
         if self.left_vn == vn2_name:
-            vn1 = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.right_vn)
+            vn1 = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(self.right_vn)
         if self.right_vn == vn2_name:
-            vn1 = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.left_vn)
+            vn1 = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(self.left_vn)
 
-        vn2 = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn2_name)
+        vn2 = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(vn2_name)
         if vn1 is None or vn2 is None:
             return
 
         for service in self.service_list:
             service_name = vn1.get_service_name(self.name, service)
-            service_ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(service_name)
+            service_ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(service_name)
             if service_ri is None:
                 continue
             service_ri.add_service_info(vn2, service)
@@ -152,12 +161,14 @@ class ServiceChain(ResourceBaseST):
     # end log_error
 
     def _get_vm_pt_info(self, vm_pt, mode):
-        # From a ResourceBaseST.get_obj_type_map().get('virtual_machine') or ResourceBaseST.get_obj_type_map().get('port_tuple') object, create a vm_info
-        # dict to be used during service chain creation
+        # From a ResourceBaseST.get_obj_type_map().get('virtual_machine') or
+        # ResourceBaseST.get_obj_type_map().get('port_tuple') object,
+        # create a vm_info dict to be used during service chain creation
         vm_info = {'vm_uuid': vm_pt.uuid}
 
         for interface_name in vm_pt.virtual_machine_interfaces:
-            interface = ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(interface_name)
+            interface = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(interface_name)
             if not interface:
                 continue
             if not (interface.is_left() or interface.is_right()):
@@ -180,7 +191,7 @@ class ServiceChain(ResourceBaseST):
                            vm_pt.name)
             return None
         if ('right' not in vm_info and mode != 'in-network-nat' and
-            self.direction == '<>'):
+                self.direction == '<>'):
             self.log_error('Right interface not found for %s' %
                            vm_pt.name)
             return None
@@ -196,14 +207,16 @@ class ServiceChain(ResourceBaseST):
         # service instances so that we don't have to find them again
         ret_dict = {}
         for service in self.service_list:
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(service)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(service)
             if si is None:
                 self.log_error("Service instance %s not found " % service)
                 return None
             vm_list = si.virtual_machines
             pt_list = si.port_tuples
             if not vm_list and not pt_list:
-                self.log_error("No vms/pts found for service instance " + service)
+                self.log_error("No vms/pts found for service instance "
+                               + service)
                 return None
             mode = si.get_service_mode()
             if mode is None:
@@ -211,7 +224,8 @@ class ServiceChain(ResourceBaseST):
                 return None
             vm_info_list = []
             for service_vm in vm_list:
-                vm_obj = ResourceBaseST.get_obj_type_map().get('virtual_machine').get(service_vm)
+                vm_obj = ResourceBaseST.get_obj_type_map().get(
+                    'virtual_machine').get(service_vm)
                 if vm_obj is None:
                     self.log_error('virtual machine %s not found' % service_vm)
                     return None
@@ -219,7 +233,8 @@ class ServiceChain(ResourceBaseST):
                 if vm_info:
                     vm_info_list.append(vm_info)
             for pt in pt_list:
-                pt_obj = ResourceBaseST.get_obj_type_map().get('port_tuple').get(pt)
+                pt_obj = ResourceBaseST.get_obj_type_map().get(
+                    'port_tuple').get(pt)
                 if pt_obj is None:
                     self.log_error('virtual machine %s not found' % pt)
                     return None
@@ -285,17 +300,21 @@ class ServiceChain(ResourceBaseST):
 
     def _create(self, si_info):
         self.partially_created = True
-        vn1_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').locate(self.left_vn)
-        vn2_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').locate(self.right_vn)
+        vn1_obj = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').locate(self.left_vn)
+        vn2_obj = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').locate(self.right_vn)
         if not vn1_obj or not vn2_obj:
             self.log_error("vn1_obj or vn2_obj is None")
             return
 
         right_si_name = self.service_list[-1]
-        right_si = ResourceBaseST.get_obj_type_map().get('service_instance').get(right_si_name)
+        right_si = ResourceBaseST.get_obj_type_map().get(
+            'service_instance').get(right_si_name)
         multi_policy_enabled = (vn1_obj.multi_policy_service_chains_enabled and
                                 vn2_obj.multi_policy_service_chains_enabled and
-                                right_si.get_service_mode() != 'in-network-nat')
+                                right_si.get_service_mode() !=
+                                'in-network-nat')
         service_ri2 = None
         if not multi_policy_enabled:
             service_ri2 = vn1_obj.get_primary_routing_instance()
@@ -306,9 +325,12 @@ class ServiceChain(ResourceBaseST):
         for service in self.service_list:
             service_name1 = vn1_obj.get_service_name(self.name, service)
             service_name2 = vn2_obj.get_service_name(self.name, service)
-            has_pnf = (si_info[service]['virtualization_type'] == 'physical-device')
-            ri_obj = ResourceBaseST.get_obj_type_map().get('routing_instance').create(service_name1, vn1_obj, has_pnf)
-            service_ri1 = ResourceBaseST.get_obj_type_map().get('routing_instance').locate(service_name1, ri_obj)
+            has_pnf = (si_info[service]['virtualization_type'] ==
+                       'physical-device')
+            ri_obj = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').create(service_name1, vn1_obj, has_pnf)
+            service_ri1 = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').locate(service_name1, ri_obj)
             if service_ri1 is None:
                 self.log_error("service_ri1 is None")
                 return
@@ -316,7 +338,8 @@ class ServiceChain(ResourceBaseST):
                 service_ri2.add_connection(service_ri1)
             else:
                 # add primary ri's target to service ri
-                rt_obj = ResourceBaseST.get_obj_type_map().get('route_target').get(vn1_obj.get_route_target())
+                rt_obj = ResourceBaseST.get_obj_type_map().get(
+                    'route_target').get(vn1_obj.get_route_target())
                 service_ri1.obj.add_route_target(rt_obj.obj,
                                                  InstanceTargetType('import'))
                 self._vnc_lib.routing_instance_update(service_ri1.obj)
@@ -328,8 +351,10 @@ class ServiceChain(ResourceBaseST):
                               (self.name, mode))
 
             if not nat_service:
-                ri_obj = ResourceBaseST.get_obj_type_map().get('routing_instance').create(service_name2, vn2_obj, has_pnf)
-                service_ri2 = ResourceBaseST.get_obj_type_map().get('routing_instance').locate(service_name2, ri_obj)
+                ri_obj = ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').create(service_name2, vn2_obj, has_pnf)
+                service_ri2 = ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').locate(service_name2, ri_obj)
                 if service_ri2 is None:
                     self.log_error("service_ri2 is None")
                     return
@@ -383,7 +408,8 @@ class ServiceChain(ResourceBaseST):
                     vn2_obj.get_primary_routing_instance())
             else:
                 # add primary ri's target to service ri
-                rt_obj = ResourceBaseST.get_obj_type_map().get('route_target').get(vn2_obj.get_route_target())
+                rt_obj = ResourceBaseST.get_obj_type_map().get(
+                    'route_target').get(vn2_obj.get_route_target())
                 service_ri2.obj.add_route_target(rt_obj.obj,
                                                  InstanceTargetType('import'))
                 self._vnc_lib.routing_instance_update(service_ri2.obj)
@@ -391,7 +417,8 @@ class ServiceChain(ResourceBaseST):
         self.created = True
         self.partially_created = False
         self.error_msg = None
-        self._object_db.add_service_chain_uuid(self.name, jsonpickle.encode(self))
+        self._object_db.add_service_chain_uuid(self.name,
+                                               jsonpickle.encode(self))
     # end _create
 
     def add_pbf_rule(self, vmi, ri, v4_address, v6_address, vlan):
@@ -449,16 +476,20 @@ class ServiceChain(ResourceBaseST):
         self._object_db.add_service_chain_uuid(self.name,
                                                jsonpickle.encode(self))
 
-        vn1_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.left_vn)
-        vn2_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.right_vn)
+        vn1_obj = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.left_vn)
+        vn2_obj = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.right_vn)
 
         for service in self.service_list:
             if vn1_obj:
                 service_name1 = vn1_obj.get_service_name(self.name, service)
-                ResourceBaseST.get_obj_type_map().get('routing_instance').delete(service_name1, True)
+                ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').delete(service_name1, True)
             if vn2_obj:
                 service_name2 = vn2_obj.get_service_name(self.name, service)
-                ResourceBaseST.get_obj_type_map().get('routing_instance').delete(service_name2, True)
+                ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').delete(service_name2, True)
         # end for service
     # end destroy
 
@@ -508,4 +539,3 @@ class ServiceChain(ResourceBaseST):
         return resp
     # end handle_st_object_req
 # end ServiceChain
-

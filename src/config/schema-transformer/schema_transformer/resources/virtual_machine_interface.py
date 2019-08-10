@@ -2,14 +2,15 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
+import copy
+import jsonpickle
+
+from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_xsd import AddressType, PortType
 from vnc_api.gen.resource_xsd import VrfAssignTableType, MatchConditionType
 from vnc_api.gen.resource_xsd import VrfAssignRuleType, SubnetType
-import jsonpickle
-import copy
-from vnc_api.vnc_api import *
-from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
@@ -78,7 +79,8 @@ class VirtualMachineInterfaceST(ResourceBaseST):
 
     def get_any_instance_ip_address(self, ip_version=0):
         for ip_name in self.instance_ips:
-            ip = ResourceBaseST.get_obj_type_map().get('instance_ip').get(ip_name)
+            ip = ResourceBaseST.get_obj_type_map().get(
+                'instance_ip').get(ip_name)
             if ip is None or ip.instance_ip_address is None:
                 continue
             if not ip.service_instance_ip:
@@ -90,8 +92,10 @@ class VirtualMachineInterfaceST(ResourceBaseST):
 
     def get_primary_instance_ip_address(self, ip_version=4):
         for ip_name in self.instance_ips:
-            ip = ResourceBaseST.get_obj_type_map().get('instance_ip').get(ip_name)
-            if ip.is_primary() and ip.instance_ip_address and ip_version == ip.ip_version:
+            ip = ResourceBaseST.get_obj_type_map().get(
+                'instance_ip').get(ip_name)
+            if ip.is_primary() and ip.instance_ip_address and \
+                    ip_version == ip.ip_version:
                 return ip.instance_ip_address
         return None
     # end get_primary_instance_ip_address
@@ -120,11 +124,13 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         old_ri_set = set(self.routing_instances.keys())
         new_ri_set = set(routing_instances.keys())
         for ri_name in old_ri_set - new_ri_set:
-            ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
             if ri:
                 ri.virtual_machine_interfaces.discard(self.name)
         for ri_name in new_ri_set - old_ri_set:
-            ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
             if ri:
                 ri.virtual_machine_interfaces.add(self.name)
         self.routing_instances = routing_instances
@@ -157,10 +163,13 @@ class VirtualMachineInterfaceST(ResourceBaseST):
 
     def get_virtual_machine_or_port_tuple(self):
         if self.port_tuples:
-            pt_list = [ResourceBaseST.get_obj_type_map().get('port_tuple').get(x) for x in self.port_tuples if x is not None]
+            pt_list = [ResourceBaseST.get_obj_type_map().get(
+                'port_tuple').get(x) for x in self.port_tuples
+                       if x is not None]
             return pt_list
         elif self.virtual_machine:
-            vm = ResourceBaseST.get_obj_type_map().get('virtual_machine').get(self.virtual_machine)
+            vm = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine').get(self.virtual_machine)
             return [vm] if vm is not None else []
         return []
     # end get_service_instance
@@ -173,21 +182,26 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         for vm_pt in vm_pt_list:
             if vm_pt.get_service_mode() != 'transparent':
                 return
-            for service_chain in ResourceBaseST.get_obj_type_map().get('service_chain').values():
+            for service_chain in ResourceBaseST.get_obj_type_map().get(
+                    'service_chain').values():
                 if vm_pt.service_instance not in service_chain.service_list:
                     continue
                 if not service_chain.created:
                     continue
                 if self.is_left():
-                    vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').locate(service_chain.left_vn)
+                    vn_obj = ResourceBaseST.get_obj_type_map().get(
+                        'virtual_network').locate(service_chain.left_vn)
                     vn1_obj = vn_obj
                 else:
-                    vn1_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').locate(service_chain.left_vn)
-                    vn_obj = ResourceBaseST.get_obj_type_map().get('virtual_network').locate(service_chain.right_vn)
+                    vn1_obj = ResourceBaseST.get_obj_type_map().get(
+                        'virtual_network').locate(service_chain.left_vn)
+                    vn_obj = ResourceBaseST.get_obj_type_map().get(
+                        'virtual_network').locate(service_chain.right_vn)
 
                 service_name = vn_obj.get_service_name(service_chain.name,
                                                        vm_pt.service_instance)
-                service_ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(service_name)
+                service_ri = ResourceBaseST.get_obj_type_map().get(
+                    'routing_instance').get(service_name)
                 v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
                     service_name)
                 vlan = self._object_db.allocate_service_chain_vlan(
@@ -195,22 +209,24 @@ class VirtualMachineInterfaceST(ResourceBaseST):
 
                 service_chain.add_pbf_rule(self, service_ri, v4_address,
                                            v6_address, vlan)
-            #end for service_chain
-        #end for vm_pt
+            # end for service_chain
+        # end for vm_pt
     # end _add_pbf_rules
 
     def set_virtual_network(self):
-        lr = ResourceBaseST.get_obj_type_map().get('logical_router').get(self.logical_router)
+        lr = ResourceBaseST.get_obj_type_map().get(
+            'logical_router').get(self.logical_router)
         if lr is not None:
             lr.update_virtual_networks()
     # end set_virtual_network
 
     def process_analyzer(self):
         if (self.interface_mirror is None or
-            self.interface_mirror.mirror_to is None or
-            self.virtual_network is None):
+                self.interface_mirror.mirror_to is None or
+                self.virtual_network is None):
             return
-        vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.virtual_network)
+        vn = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.virtual_network)
         if vn is None:
             return
 
@@ -234,7 +250,8 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         if not (self.is_left() or self.is_right()):
             self._set_vrf_assign_table(None)
             return
-        vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.virtual_network)
+        vn = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.virtual_network)
         if vn is None:
             self._set_vrf_assign_table(None)
             return
@@ -253,15 +270,18 @@ class VirtualMachineInterfaceST(ResourceBaseST):
 
             ip_list = []
             for ip_name in self.instance_ips:
-                ip = ResourceBaseST.get_obj_type_map().get('instance_ip').get(ip_name)
+                ip = ResourceBaseST.get_obj_type_map().get(
+                    'instance_ip').get(ip_name)
                 if ip and ip.instance_ip_address:
                     ip_list.append((ip.ip_version, ip.instance_ip_address))
             for ip_name in self.floating_ips:
-                ip = ResourceBaseST.get_obj_type_map().get('floating_ip').get(ip_name)
+                ip = ResourceBaseST.get_obj_type_map().get(
+                    'floating_ip').get(ip_name)
                 if ip and ip.floating_ip_address:
                     ip_list.append((ip.ip_version, ip.floating_ip_address))
             for ip_name in self.alias_ips:
-                ip = ResourceBaseST.get_obj_type_map().get('alias_ip').get(ip_name)
+                ip = ResourceBaseST.get_obj_type_map().get(
+                    'alias_ip').get(ip_name)
                 if ip and ip.alias_ip_address:
                     ip_list.append((ip.ip_version, ip.alias_ip_address))
             for (ip_version, ip_address) in ip_list:
@@ -275,9 +295,10 @@ class VirtualMachineInterfaceST(ResourceBaseST):
                                         src_port=PortType(),
                                         dst_port=PortType())
 
-                vrf_rule = VrfAssignRuleType(match_condition=mc,
-                                             routing_instance=vn._default_ri_name,
-                                             ignore_acl=False)
+                vrf_rule = VrfAssignRuleType(
+                    match_condition=mc,
+                    routing_instance=vn._default_ri_name,
+                    ignore_acl=False)
                 vrf_table.add_vrf_assign_rule(vrf_rule)
 
             si_name = vm_pt.service_instance
@@ -289,23 +310,26 @@ class VirtualMachineInterfaceST(ResourceBaseST):
                     if si_name not in service_chain.service_list:
                         continue
                     if ((si_name == service_list[0] and self.is_left()) or
-                        (si_name == service_list[-1] and self.is_right())):
+                            (si_name == service_list[-1] and self.is_right())):
                         # Do not generate VRF assign rules for 'book-ends'
                         continue
                     ri_name = vn.get_service_name(service_chain.name, si_name)
                     for sp in service_chain.sp_list:
                         for dp in service_chain.dp_list:
                             if self.is_left():
-                                mc = MatchConditionType(src_port=dp,
-                                                        dst_port=sp,
-                                                        protocol=service_chain.protocol)
+                                mc = MatchConditionType(
+                                    src_port=dp,
+                                    dst_port=sp,
+                                    protocol=service_chain.protocol)
                             else:
-                                mc = MatchConditionType(src_port=sp,
-                                                        dst_port=dp,
-                                                        protocol=service_chain.protocol)
-                            vrf_rule = VrfAssignRuleType(match_condition=mc,
-                                                         routing_instance=ri_name,
-                                                         ignore_acl=True)
+                                mc = MatchConditionType(
+                                    src_port=sp,
+                                    dst_port=dp,
+                                    protocol=service_chain.protocol)
+                            vrf_rule = VrfAssignRuleType(
+                                match_condition=mc,
+                                routing_instance=ri_name,
+                                ignore_acl=True)
                             vrf_table.add_vrf_assign_rule(vrf_rule)
                             policy_rule_count += 1
                         # end for dp
@@ -348,7 +372,8 @@ class VirtualMachineInterfaceST(ResourceBaseST):
     def get_v4_default_gateway(self):
         if not self.virtual_network:
             return None
-        vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.virtual_network)
+        vn = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.virtual_network)
         if not vn:
             return None
         v4_address = self.get_primary_instance_ip_address(ip_version=4)
@@ -360,7 +385,8 @@ class VirtualMachineInterfaceST(ResourceBaseST):
     def get_v6_default_gateway(self):
         if not self.virtual_network:
             return None
-        vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.virtual_network)
+        vn = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.virtual_network)
         if not vn:
             return None
         v6_address = self.get_primary_instance_ip_address(ip_version=6)
