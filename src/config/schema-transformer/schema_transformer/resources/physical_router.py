@@ -20,7 +20,8 @@ class PhysicalRouterST(ResourceBaseST):
     def update(self, obj=None):
         changed = self.update_vnc_obj(obj)
         if 'bgp_router' in changed:
-            bgp_rtr = ResourceBaseST.get_obj_type_map().get('bgp_router').locate(self.bgp_router)
+            bgp_rtr = ResourceBaseST.get_obj_type_map().get(
+                'bgp_router').locate(self.bgp_router)
             if bgp_rtr:
                 bgp_rtr.physical_router = self.name
                 bgp_rtr.physical_router_changed = True
