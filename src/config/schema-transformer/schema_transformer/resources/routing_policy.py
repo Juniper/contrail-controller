@@ -2,8 +2,9 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
 from vnc_api.gen.resource_xsd import RoutingPolicyType
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 
 
 class RoutingPolicyST(ResourceBaseST):
@@ -20,7 +21,8 @@ class RoutingPolicyST(ResourceBaseST):
         for ref in ri_refs:
             ri_name = ':'.join(ref['to'])
             self.routing_instances.add(ri_name)
-            ri = ResourceBaseST.get_obj_type_map().get('routing_instance').get(ri_name)
+            ri = ResourceBaseST.get_obj_type_map().get(
+                'routing_instance').get(ri_name)
             if ri:
                 ri.routing_policys[self.name] = ref['attr'].sequence
     # end __init__
@@ -32,11 +34,13 @@ class RoutingPolicyST(ResourceBaseST):
         new_refs = dict((':'.join(ref['to']), ref['attr'])
                         for ref in self.obj.get_service_instance_refs() or [])
         for ref in set(self.service_instances.keys()) - set(new_refs.keys()):
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(ref)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(ref)
             if si and self.name in si.routing_policys:
                 del si.routing_policys[self.name]
         for ref in set(new_refs.keys()):
-            si = ResourceBaseST.get_obj_type_map().get('service_instance').get(ref)
+            si = ResourceBaseST.get_obj_type_map().get(
+                'service_instance').get(ref)
             if si:
                 si.routing_policys[self.name] = new_refs[ref]
         self.service_instances = new_refs
