@@ -4,6 +4,7 @@
 
 from schema_transformer.resources._resource_base import ResourceBaseST
 
+
 class BgpvpnST(ResourceBaseST):
     _dict = {}
     obj_type = 'bgpvpn'

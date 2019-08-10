@@ -2,9 +2,11 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
-from netaddr import IPNetwork
 from cfgm_common.exceptions import NoIdError
+
+from netaddr import IPNetwork
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 
 
 class RouteAggregateST(ResourceBaseST):
@@ -25,13 +27,17 @@ class RouteAggregateST(ResourceBaseST):
         changed = self.update_vnc_obj(obj)
         if 'service_instance' in changed:
             new_refs = dict((':'.join(ref['to']), ref['attr'].interface_type)
-                            for ref in self.obj.get_service_instance_refs() or [])
-            for ref in set(self.service_instances.keys()) - set(new_refs.keys()):
-                si = ResourceBaseST.get_obj_type_map().get('service_instance').get(ref)
+                            for ref in self.obj.get_service_instance_refs() or
+                            [])
+            for ref in set(self.service_instances.keys()) - \
+                    set(new_refs.keys()):
+                si = ResourceBaseST.get_obj_type_map().get(
+                    'service_instance').get(ref)
                 if si and self.name in si.route_aggregates:
                     del si.route_aggregates[self.name]
             for ref in set(new_refs.keys()):
-                si = ResourceBaseST.get_obj_type_map().get('service_instance').get(ref)
+                si = ResourceBaseST.get_obj_type_map().get(
+                    'service_instance').get(ref)
                 if si:
                     si.route_aggregates[self.name] = new_refs[ref]
             self.service_instances = new_refs
@@ -41,7 +47,8 @@ class RouteAggregateST(ResourceBaseST):
     def add_routing_instance(self, ri):
         if ri.name in self.routing_instances:
             return
-        if not self.aggregate_route_entries or not self.aggregate_route_entries.route:
+        if not self.aggregate_route_entries or \
+                not self.aggregate_route_entries.route:
             return
         ip_version = IPNetwork(self.aggregate_route_entries.route[0]).version
         if ip_version == 4:

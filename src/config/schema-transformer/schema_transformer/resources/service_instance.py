@@ -2,12 +2,16 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
-from vnc_api.gen.resource_xsd import AddressType, ActionListType, PortType
-from vnc_api.gen.resource_xsd import PolicyRuleType, PolicyEntriesType
-from vnc_api.gen.resource_client import NetworkPolicy
-from cfgm_common.exceptions import NoIdError, RefsExistError
 from cfgm_common import svc_info
+from cfgm_common.exceptions import NoIdError, RefsExistError
+
+from vnc_api.gen.resource_client import NetworkPolicy
+
+from vnc_api.gen.resource_xsd import ActionListType, AddressType
+from vnc_api.gen.resource_xsd import PolicyEntriesType, PolicyRuleType
+from vnc_api.gen.resource_xsd import PortType
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from schema_transformer.utils import _create_pprinted_prop_list
 
@@ -30,12 +34,15 @@ class ServiceInstanceST(ResourceBaseST):
         self.port_tuples = set()
         self.route_aggregates = {}
         self.update(obj)
-        self.network_policys = ResourceBaseST.get_obj_type_map().get('network_policy').get_by_service_instance(self.name)
-        self.route_tables = ResourceBaseST.get_obj_type_map().get('route_table').get_by_service_instance(self.name)
+        self.network_policys = ResourceBaseST.get_obj_type_map().get(
+            'network_policy').get_by_service_instance(self.name)
+        self.route_tables = ResourceBaseST.get_obj_type_map().get(
+            'route_table').get_by_service_instance(self.name)
         for ref in self.obj.get_routing_policy_back_refs() or []:
             self.routing_policys[':'.join(ref['to'])] = ref['attr']
         for ref in self.obj.get_route_aggregate_back_refs() or []:
-            self.route_aggregates[':'.join(ref['to'])] = ref['attr']['interface_type']
+            self.route_aggregates[':'.join(ref['to'])] = \
+                ref['attr']['interface_type']
         self.set_children('port_tuple', self.obj)
     # end __init__
 
@@ -58,9 +65,11 @@ class ServiceInstanceST(ResourceBaseST):
     def get_allocated_interface_ip(self, side, version):
         vm_pt_list = []
         for vm_name in self.virtual_machines or []:
-            vm_pt_list.append(ResourceBaseST.get_obj_type_map().get('virtual_machine').get(vm_name))
+            vm_pt_list.append(ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine').get(vm_name))
         for pt_name in self.port_tuples or []:
-            vm_pt_list.append(ResourceBaseST.get_obj_type_map().get('port_tuple').get(pt_name))
+            vm_pt_list.append(ResourceBaseST.get_obj_type_map().get(
+                'port_tuple').get(pt_name))
         for vm_pt in vm_pt_list:
             if not vm_pt:
                 continue
@@ -76,7 +85,8 @@ class ServiceInstanceST(ResourceBaseST):
 
         st_refs = self.obj.get_service_template_refs()
         uuid = st_refs[0]['uuid']
-        st_obj = ResourceBaseST().read_vnc_obj(uuid, obj_type='service_template')
+        st_obj = ResourceBaseST().read_vnc_obj(uuid,
+                                               obj_type='service_template')
         st_props = st_obj.get_service_template_properties()
 
         st_if_list = st_props.get_interface_type() or []
@@ -100,7 +110,8 @@ class ServiceInstanceST(ResourceBaseST):
     def add_properties(self, props):
         left_vn_str, right_vn_str = self.get_virtual_networks(props)
         ret = (self.auto_policy == props.auto_policy)
-        if (left_vn_str, right_vn_str) != (self.left_vn_str, self.right_vn_str):
+        if (left_vn_str, right_vn_str) != (self.left_vn_str,
+                                           self.right_vn_str):
             self.left_vn_str = left_vn_str
             self.right_vn_str = right_vn_str
             ret = True
@@ -126,14 +137,17 @@ class ServiceInstanceST(ResourceBaseST):
                                action_list=action_list)
         pentry = PolicyEntriesType([prule])
         policy_obj = NetworkPolicy(policy_name, network_policy_entries=pentry)
-        policy = ResourceBaseST.get_obj_type_map().get('network_policy').locate(policy_name, policy_obj)
+        policy = ResourceBaseST.get_obj_type_map().get(
+            'network_policy').locate(policy_name, policy_obj)
         policy.virtual_networks = set([self.left_vn_str, self.right_vn_str])
 
         policy.set_internal()
-        vn1 = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.left_vn_str)
+        vn1 = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.left_vn_str)
         if vn1:
             vn1.add_policy(policy_name)
-        vn2 = ResourceBaseST.get_obj_type_map().get('virtual_network').get(self.right_vn_str)
+        vn2 = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(self.right_vn_str)
         if vn2:
             vn2.add_policy(policy_name)
     # add_properties
@@ -163,16 +177,19 @@ class ServiceInstanceST(ResourceBaseST):
 
     def delete_properties(self):
         policy_name = '_internal_' + self.name
-        policy = ResourceBaseST.get_obj_type_map().get('network_policy').get(policy_name)
+        policy = ResourceBaseST.get_obj_type_map().get(
+            'network_policy').get(policy_name)
         if policy is None:
             return
         for vn_name in policy.virtual_networks:
-            vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vn_name)
+            vn = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vn_name)
             if vn is None:
                 continue
             del vn.network_policys[policy_name]
         # end for vn_name
-        ResourceBaseST.get_obj_type_map().get('network_policy').delete(policy_name)
+        ResourceBaseST.get_obj_type_map().get(
+            'network_policy').delete(policy_name)
     # end delete_properties
 
     def delete_obj(self):
@@ -183,8 +200,9 @@ class ServiceInstanceST(ResourceBaseST):
 
     def _update_service_template(self):
         if self.service_template is None:
-            self._logger.error("service template is None for service instance "
-                               + self.name)
+            self._logger.error(
+                "service template is None for service instance " +
+                self.name)
             return
         try:
             st_obj = self.read_vnc_obj(fq_name=self.service_template,

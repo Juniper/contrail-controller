@@ -2,11 +2,12 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from schema_transformer.resources._resource_base import ResourceBaseST
-from vnc_api.gen.resource_xsd import BgpSession, BgpPeeringAttributes
-from vnc_api.gen.resource_xsd import BgpRouterParams
-from vnc_api.gen.resource_client import BgpRouter
 from cfgm_common.exceptions import ResourceExhaustionError
+from vnc_api.gen.resource_client import BgpPeeringAttributes
+from vnc_api.gen.resource_xsd import BgpRouter, BgpRouterParams
+from vnc_api.gen.resource_xsd import BgpSession
+
+from schema_transformer.resources._resource_base import ResourceBaseST
 
 
 class BgpAsAServiceST(ResourceBaseST):
@@ -37,11 +38,13 @@ class BgpAsAServiceST(ResourceBaseST):
 
     def set_bgpaas_clients(self):
         if (self.bgpaas_shared and self.bgp_routers):
-            bgpr = ResourceBaseST.get_obj_type_map().get('bgp_router').get(list(self.bgp_routers)[0])
+            bgpr = ResourceBaseST.get_obj_type_map().get(
+                'bgp_router').get(list(self.bgp_routers)[0])
             self.bgpaas_clients[self.obj.name] = bgpr.obj.get_fq_name_str()
         else:
             for bgp_router in self.bgp_routers:
-                bgpr = ResourceBaseST.get_obj_type_map().get('bgp_router').get(bgp_router)
+                bgpr = ResourceBaseST.get_obj_type_map().get(
+                    'bgp_router').get(bgp_router)
                 if bgpr is None:
                     continue
                 for vmi in self.virtual_machine_interfaces:
@@ -56,8 +59,7 @@ class BgpAsAServiceST(ResourceBaseST):
             session_attrib = self.bgpaas_session_attributes
             bgp_session = BgpSession()
             if session_attrib:
-                bgp_session.attributes=[session_attrib]
-            peering_attribs = BgpPeeringAttributes(session=[bgp_session])
+                bgp_session.attributes = [session_attrib]
             self.peering_attribs = BgpPeeringAttributes(session=[bgp_session])
         return changed
     # end update
@@ -82,16 +84,19 @@ class BgpAsAServiceST(ResourceBaseST):
             if not vmi_refs:
                 return
             # all vmis will have link to this bgp-router
-            vmis = [ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(':'.join(ref['to']))
-                       for ref in vmi_refs]
+            vmis = [ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(':'.join(ref['to']))
+                for ref in vmi_refs]
         else:
             # only current vmi will have link to this bgp-router
-            vmi = ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(name)
+            vmi = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(name)
             if not vmi:
                 self.virtual_machine_interfaces.discard(name)
                 return
             vmis = [vmi]
-        vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vmis[0].virtual_network)
+        vn = ResourceBaseST.get_obj_type_map().get(
+            'virtual_network').get(vmis[0].virtual_network)
         if not vn:
             return
         ri = vn.get_primary_routing_instance()
@@ -99,19 +104,22 @@ class BgpAsAServiceST(ResourceBaseST):
             return
 
         server_fq_name = ri.obj.get_fq_name_str() + ':bgpaas-server'
-        server_router = ResourceBaseST.get_obj_type_map().get('bgp_router').get(server_fq_name)
+        server_router = ResourceBaseST.get_obj_type_map().get(
+            'bgp_router').get(server_fq_name)
         if not server_router:
             server_router = BgpRouter('bgpaas-server', parent_obj=ri.obj)
             params = BgpRouterParams(router_type='bgpaas-server')
             server_router.set_bgp_router_parameters(params)
             self._vnc_lib.bgp_router_create(server_router)
-            ResourceBaseST.get_obj_type_map().get('bgp_router').locate(server_fq_name, server_router)
+            ResourceBaseST.get_obj_type_map().get(
+                'bgp_router').locate(server_fq_name, server_router)
         else:
             server_router = server_router.obj
 
         bgpr_name = self.obj.name if shared else vmi.obj.name
         router_fq_name = ri.obj.get_fq_name_str() + ':' + bgpr_name
-        bgpr = ResourceBaseST.get_obj_type_map().get('bgp_router').get(router_fq_name)
+        bgpr = ResourceBaseST.get_obj_type_map().get(
+            'bgp_router').get(router_fq_name)
         create = False
         update = False
         src_port = None
@@ -128,9 +136,11 @@ class BgpAsAServiceST(ResourceBaseST):
             bgp_router = self._vnc_lib.bgp_router_read(id=bgpr.obj.uuid)
             src_port = bgpr.source_port
 
-        ip = self.bgpaas_ip_address or vmis[0].get_primary_instance_ip_address()
+        ip = self.bgpaas_ip_address or \
+             vmis[0].get_primary_instance_ip_address()
         params = BgpRouterParams(
-            autonomous_system=int(self.autonomous_system) if self.autonomous_system else None,
+            autonomous_system=int(self.autonomous_system)
+            if self.autonomous_system else None,
             address=ip,
             identifier=ip,
             source_port=src_port,
@@ -140,13 +150,13 @@ class BgpAsAServiceST(ResourceBaseST):
             update = True
         if create:
             bgp_router.set_bgp_router_parameters(params)
-            bgp_router_id = self._vnc_lib.bgp_router_create(bgp_router)
+            self._vnc_lib.bgp_router_create(bgp_router)
             self.obj.add_bgp_router(bgp_router)
             self._vnc_lib.bgp_as_a_service_update(self.obj)
-            bgpr = ResourceBaseST.get_obj_type_map().get('bgp_router').locate(router_fq_name)
+            bgpr = ResourceBaseST.get_obj_type_map().get(
+                'bgp_router').locate(router_fq_name)
         elif update:
             self._vnc_lib.bgp_router_update(bgp_router)
-            bgp_router_id = bgp_router.uuid
 
         if shared:
             self.bgpaas_clients[self.obj.name] = router_fq_name

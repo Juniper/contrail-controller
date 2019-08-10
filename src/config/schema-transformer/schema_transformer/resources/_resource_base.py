@@ -3,6 +3,7 @@
 #
 
 from cfgm_common.vnc_db import DBBase
+
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from schema_transformer.utils import _pp_json_object
 
