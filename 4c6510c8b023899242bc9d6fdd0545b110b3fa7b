@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "45bd6450_88d613f2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 1411,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-08-11T23:34:11Z",
+      "side": 1,
+      "message": "Can you confirm QFX5120 doesnt support \"AR-Client\" rb_role?\nAlso a cosmetic comment, the node-profile name says \u0027erb-only\u0027 but the rb_role can be \u0027crb-access\u0027 too.",
+      "revId": "4c6510c8b023899242bc9d6fdd0545b110b3fa7b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
