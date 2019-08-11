@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0cdef57e_ff9dd54c",
+        "filename": "src/config/utils/provision_control.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 215,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-08-11T23:23:52Z",
+      "side": 1,
+      "message": "The above parser would make enable_4byte_as a string rather than boolean.\nWould suggest to use `action\u003d\u0027store_true\u0027` and change the caller accordingly at https://review.opencontrail.org/c/Juniper/contrail-container-builder/+/53029/2/containers/nodemgr/provision.sh to pass `--enable_4byte_as` only when 4byte-as is set to True else dont.\n\nOther option would be to do string comparison of \u0027True\u0027 and \u0027False\u0027 which wont be appropriate.\n\nBTW you may refer the sample usage of `store_true` below.\n\n        parser.add_argument(\"--graceful_restart_xmpp_helper_enable\",\n                            action\u003d\u0027store_true\u0027,\n                            help\u003d\"Enable helper mode for XMPP graceful restart\")",
+      "revId": "67be39f6b9b2652a35ac3e982a839bf3a09a7373",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
