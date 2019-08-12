@@ -2,15 +2,17 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from gevent import sleep
 from gevent import monkey
-monkey.patch_all()
+from gevent import sleep
+
+from test_case import STTestCase
+from test_route_target import VerifyRouteTarget
 
 from vnc_api.vnc_api import Bgpvpn
 from vnc_api.vnc_api import RouteTargetList
 
-from test_case import STTestCase
-from test_route_target import VerifyRouteTarget
+
+monkey.patch_all()
 
 
 class TestBgpvpnWithVirtualNetwork(STTestCase, VerifyRouteTarget):

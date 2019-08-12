@@ -3,18 +3,16 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Schema Transformer monitor logger
+"""Schema Transformer monitor logger.
 """
 
-from sandesh_common.vns.ttypes import Module
 from cfgm_common.vnc_logger import ConfigServiceLogger
+from sandesh_common.vns.ttypes import Module
 
 from schema_transformer.resources._resource_base import ResourceBaseST
-from schema_transformer.resources.virtual_network import VirtualNetworkST
 from schema_transformer.resources.routing_instance import RoutingInstanceST
 from schema_transformer.resources.service_chain import ServiceChain
-
+from schema_transformer.resources.virtual_network import VirtualNetworkST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
@@ -24,8 +22,8 @@ class SchemaTransformerLogger(ConfigServiceLogger):
         module = Module.SCHEMA_TRANSFORMER
         module_pkg = "schema_transformer"
         self.context = "to_bgp"
-        super(SchemaTransformerLogger, self).__init__(
-                module, module_pkg, args, http_server_port)
+        super(SchemaTransformerLogger, self).__init__(module, module_pkg,
+                                                      args, http_server_port)
 
     def sandesh_init(self, http_server_port=None):
         super(SchemaTransformerLogger, self).sandesh_init(http_server_port)
@@ -120,7 +118,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
             id_or_name = req.object_id_or_fq_name
             if id_or_name:
                 obj = obj_cls.get(id_or_name) or \
-                        obj_cls.get_by_uuid(id_or_name)
+                    obj_cls.get_by_uuid(id_or_name)
                 if obj is None:
                     continue
                 st_resp.objects.append(obj.handle_st_object_req())
