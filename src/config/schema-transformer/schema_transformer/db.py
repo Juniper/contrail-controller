@@ -6,14 +6,15 @@
 """
 Schema transformer DB to store ids allocated by it
 """
-from pycassa import NotFoundException
+import uuid
 
 import cfgm_common as common
 from cfgm_common.exceptions import VncError, NoIdError
-from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.vnc_object_db import VncObjectDBClient
+from cfgm_common.zkclient import IndexAllocator
+from pycassa import NotFoundException
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
-import uuid
+
 
 class SchemaTransformerDB(VncObjectDBClient):
 
@@ -61,9 +62,9 @@ class SchemaTransformerDB(VncObjectDBClient):
 
         cred = None
         if (self._args.cassandra_user is not None and
-            self._args.cassandra_password is not None):
-            cred={'username':self._args.cassandra_user,
-                  'password':self._args.cassandra_password}
+                self._args.cassandra_password is not None):
+            cred = {'username': self._args.cassandra_user,
+                    'password': self._args.cassandra_password}
 
         super(SchemaTransformerDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
@@ -230,7 +231,7 @@ class SchemaTransformerDB(VncObjectDBClient):
         return rtgt_num
     # end alloc_route_target
 
-    def free_route_target(self, ri_fq_name,asn):
+    def free_route_target(self, ri_fq_name, asn):
         try:
             rtgt = self.get_route_target(ri_fq_name)
             self._rt_cf.remove(ri_fq_name)
@@ -241,16 +242,16 @@ class SchemaTransformerDB(VncObjectDBClient):
         self.current_rt_allocator.delete(rtgt)
     # end free_route_target
 
-    def get_ri_from_route_target(self, rtgt_num,asn):
-       self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
-       return self.current_rt_allocator.read(rtgt_num)
+    def get_ri_from_route_target(self, rtgt_num, asn):
+        self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
+        return self.current_rt_allocator.read(rtgt_num)
 
     def delete_route_target_directory(self, path):
         for zk_node in self._zkclient.get_children(path):
             # The return value of read_node will be an list
             # where 0th element is fq_name and 1st element is node stat for
             # the Zookeeper node
-            znode  = self._zkclient.read_node(
+            znode = self._zkclient.read_node(
                 '%s/%s/%s' % (self._zk_path_pfx, path, zk_node),
                 include_timestamp=True)
             # Delete all the zk nodes that are not sub-directories

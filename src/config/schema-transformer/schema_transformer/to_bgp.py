@@ -8,67 +8,64 @@ configuration model/schema to a representation needed by VNC Control Plane
 (BGP-based)
 """
 
-import gevent
-# Import kazoo.client before monkey patching
-from cfgm_common.zkclient import ZookeeperClient
-from gevent import monkey
-monkey.patch_all()
-import sys
-import os
-reload(sys)
-sys.setdefaultencoding('UTF8')
-import requests
+import argparse
 import ConfigParser
+import hashlib
+import gevent
+import os
+import random
+import requests
 import signal
 import socket
-import random
+import sys
 import time
-import hashlib
-import argparse
 
+# Import kazoo.client before monkey patching
+from cfgm_common.zkclient import ZookeeperClient
 from cfgm_common import vnc_cgitb
-from cfgm_common.exceptions import *
+from cfgm_common.exceptions import NoIdError, ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
-from resources._resource_base import ResourceBaseST
-from resources.virtual_network import VirtualNetworkST
-from resources.virtual_machine import VirtualMachineST
-from resources.port_tuple import PortTupleST
-from resources.routing_instance import RoutingInstanceST
-from resources.route_target import RouteTargetST
-from resources.network_policy import NetworkPolicyST
-from resources.service_instance import ServiceInstanceST
-from resources.bgp_vpn import BgpvpnST
-from resources.physical_router import PhysicalRouterST
-from resources.security_group import SecurityGroupST
-from resources.logical_router import LogicalRouterST
-from resources.routing_policy import RoutingPolicyST
-from resources.global_system_config import GlobalSystemConfigST
-from resources.virtual_machine_interface import VirtualMachineInterfaceST
-from resources.service_chain import ServiceChain
-from resources.bgp_router import BgpRouterST
-from resources.bgp_as_a_service import BgpAsAServiceST
-from resources.instance_ip import InstanceIpST
-from resources.floating_ip import FloatingIpST
-from resources.security_logging_object import SecurityLoggingObjectST
-from resources.alias_ip import AliasIpST
-from resources.route_aggregate import RouteAggregateST
-from resources.route_table import RouteTableST
+from gevent import monkey
 
-
-from vnc_api.vnc_api import *
-from pysandesh.sandesh_base import *
-from pysandesh.sandesh_logger import *
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.sandesh_base import Sandesh, SandeshConfig
+from vnc_api.vnc_api import VncApi
+
 from db import SchemaTransformerDB
 from logger import SchemaTransformerLogger
 from st_amqp import STAmqpHandle
+from resources._resource_base import ResourceBaseST
+from resources.alias_ip import AliasIpST
+from resources.bgp_as_a_service import BgpAsAServiceST
+from resources.bgp_router import BgpRouterST
+from resources.bgp_vpn import BgpvpnST
+from resources.floating_ip import FloatingIpST
+from resources.global_system_config import GlobalSystemConfigST
+from resources.instance_ip import InstanceIpST
+from resources.logical_router import LogicalRouterST
+from resources.network_policy import NetworkPolicyST
+from resources.physical_router import PhysicalRouterST
+from resources.port_tuple import PortTupleST
+from resources.route_aggregate import RouteAggregateST
+from resources.route_table import RouteTableST
+from resources.route_target import RouteTargetST
+from resources.routing_instance import RoutingInstanceST
+from resources.routing_policy import RoutingPolicyST
+from resources.security_group import SecurityGroupST
+from resources.security_logging_object import SecurityLoggingObjectST
+from resources.service_chain import ServiceChain
+from resources.service_instance import ServiceInstanceST
+from resources.virtual_machine import VirtualMachineST
+from resources.virtual_machine_interface import VirtualMachineInterfaceST
+from resources.virtual_network import VirtualNetworkST
 
 
+monkey.patch_all()
+reload(sys)
+sys.setdefaultencoding('UTF8')
 # connection to api-server
 _vnc_lib = None
 # zookeeper client connection
@@ -125,7 +122,8 @@ class SchemaTransformer(object):
             'network_policy': ['virtual_machine', 'port_tuple']
         },
         'network_policy': {
-            'self': ['security_logging_object', 'virtual_network', 'network_policy', 'service_instance'],
+            'self': ['security_logging_object', 'virtual_network',
+                     'network_policy', 'service_instance'],
             'service_instance': ['virtual_network'],
             'network_policy': ['virtual_network'],
             'virtual_network': ['virtual_network', 'network_policy',
@@ -188,11 +186,12 @@ class SchemaTransformer(object):
         },
     }
     _schema_transformer = None
+
     class STtimer:
         def __init__(self,
-                zk_timeout,
-                yield_in_evaluate=False,
-                print_stats=False):
+                     zk_timeout,
+                     yield_in_evaluate=False,
+                     print_stats=False):
             self.timeout = time.time()
             self.max_time = zk_timeout / 6
             if self.max_time < 60:
@@ -204,6 +203,7 @@ class SchemaTransformer(object):
         #
         # Sleep if we are continuously running without yielding
         #
+
         def timed_yield(self, is_evaluate_yield=False):
             now = time.time()
             if now > self.timeout:
@@ -215,10 +215,9 @@ class SchemaTransformer(object):
                             now, self.total_yield_stats)
                     if is_evaluate_yield:
                         self.total_yield_in_evaluate_stats += 1
-                        print "Yielded at: %s, Total yields in evaluate: %s" %  (
-                                now, self.total_yield_in_evaluate_stats)
+                        print "Yielded at: %s, Total yields in evaluate: %s" %\
+                              (now, self.total_yield_in_evaluate_stats)
         # end timed_yield
-
 
     def __init__(self, st_logger=None, args=None):
         self._args = args
@@ -226,7 +225,7 @@ class SchemaTransformer(object):
         self.timer_obj = self.STtimer(
             self._args.zk_timeout,
             self._args.yield_in_evaluate,
-            print_stats=False) # print_stats: True for debugging
+            print_stats=False)  # print_stats: True for debugging
 
         if st_logger is not None:
             self.logger = st_logger
@@ -308,8 +307,8 @@ class SchemaTransformer(object):
                         ri_dict[ri.get_fq_name_str()] = ri
                 except Exception as e:
                     self.logger.error(
-                        "Error while reinitializing routing instance %s: %s"%(
-                        ri.get_fq_name_str(), str(e)))
+                        "Error while reinitializing routing instance %s: %s" %
+                        (ri.get_fq_name_str(), str(e)))
             if delete:
                 try:
                     ri_obj = RoutingInstanceST(ri.get_fq_name_str(), ri)
@@ -318,8 +317,8 @@ class SchemaTransformer(object):
                     pass
                 except Exception as e:
                     self.logger.error(
-                        "Error while deleting routing instance %s: %s"%(
-                        ri.get_fq_name_str(), str(e)))
+                        "Error while deleting routing instance %s: %s" % (
+                         ri.get_fq_name_str(), str(e)))
             self.timer_obj.timed_yield()
         # end for ri
 
@@ -327,7 +326,9 @@ class SchemaTransformer(object):
         sg_id_list = [sg.uuid for sg in sg_list]
         sg_acl_dict = {}
         vn_acl_dict = {}
-        for acl in ResourceBaseST.list_vnc_obj('access_control_list', fields=['access_control_list_hash']):
+        for acl in ResourceBaseST.list_vnc_obj(
+                'access_control_list',
+                fields=['access_control_list_hash']):
             delete = False
             if acl.parent_type == 'virtual-network':
                 if acl.parent_uuid in vn_id_list:
@@ -348,7 +349,7 @@ class SchemaTransformer(object):
                 except NoIdError:
                     pass
                 except Exception as e:
-                    self.logger.error("Error while deleting acl %s: %s"%(
+                    self.logger.error("Error while deleting acl %s: %s" % (
                             acl.uuid, str(e)))
             self.timer_obj.timed_yield()
         # end for acl
@@ -428,8 +429,9 @@ class SchemaTransformer(object):
                 vn_obj.evaluate(**evaluate_kwargs)
                 self.timer_obj.timed_yield()
             except Exception as e:
-                self.logger.error("Error in reinit evaluate virtual network %s: %s" % (
-                    vn_obj.name, str(e)))
+                self.logger.error(
+                    "Error in reinit evaluate virtual network %s: %s" % (
+                     vn_obj.name, str(e)))
         for cls in ResourceBaseST.get_obj_type_map().values():
             if cls is VirtualNetworkST:
                 continue
@@ -483,11 +485,14 @@ class SchemaTransformer(object):
                     collectors = config.get('DEFAULTS', 'collectors')
                     if type(collectors) is str:
                         collectors = collectors.split()
-                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        new_chksum = hashlib.md5(
+                            "".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
                             self._chksum = new_chksum
-                            config.random_collectors = random.sample(collectors, len(collectors))
-                        # Reconnect to achieve load-balance irrespective of list
+                            config.random_collectors = \
+                                random.sample(collectors, len(collectors))
+                        # Reconnect to achieve load-balance
+                        # irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
                 except ConfigParser.NoOptionError as e:
                     pass
@@ -572,8 +577,8 @@ def parse_args(args_str):
             ksopts.update(dict(config.items("KEYSTONE")))
 
         if 'CASSANDRA' in config.sections():
-                cassandraopts.update(dict(config.items('CASSANDRA')))
-        SandeshConfig.update_options(sandeshopts, config);
+            cassandraopts.update(dict(config.items('CASSANDRA')))
+        SandeshConfig.update_options(sandeshopts, config)
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -590,6 +595,7 @@ def parse_args(args_str):
     defaults.update(cassandraopts)
     defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
+
     def _bool(s):
         """Convert string to bool (in argparse context)."""
         if s.lower() not in ['true', 'false']:
@@ -792,6 +798,7 @@ def server_main():
     vnc_cgitb.enable(format='text')
     main()
 # end server_main
+
 
 if __name__ == '__main__':
     server_main()
