@@ -19,7 +19,9 @@ _PROTO_STR_TO_NUM = {
     'any': 'any',
 }
 
+
 class VerifySecurityGroup(VerifyPolicy):
+
     def __init__(self, vnc_lib):
         self._vnc_lib = vnc_lib
 
@@ -84,8 +86,8 @@ class VerifySecurityGroup(VerifyPolicy):
         self.assertTrue(acl != None)
         match = False
         for rule in acl.access_control_list_entries.acl_rule:
-             self.assertEqual(rule.match_condition.protocol,
-                              _PROTO_STR_TO_NUM.get(protocol.lower()))
+            self.assertEqual(rule.match_condition.protocol,
+                             _PROTO_STR_TO_NUM.get(protocol.lower()))
 
     @retries(5)
     def check_no_policies_for_sg(self, fq_name):

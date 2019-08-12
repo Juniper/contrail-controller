@@ -10,6 +10,7 @@ Sechmatransformer  amqp handler
 import socket
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
+
 from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.resources.virtual_network import VirtualNetworkST
 

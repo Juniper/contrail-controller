@@ -2,30 +2,27 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import sys
 import gevent
 import gevent.monkey
 gevent.monkey.patch_all()
-from testtools.matchers import Contains
+import uuid
 
 from cfgm_common.exceptions import BadRequest
+from cfgm_common.tests import test_common
+from test_case import STTestCase, retries, VerifyCommon
 from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
         VirtualNetworkPolicyType, NoIdError, SecurityLoggingObjectRuleEntryType,
         SecurityLoggingObjectRuleListType, SecurityLoggingObject, SecurityGroup,
         PolicyRuleType, AddressType, SubnetType, PortType, PolicyEntriesType,
         ActionListType)
 
-from test_case import STTestCase, retries, VerifyCommon
-from cfgm_common.tests import test_common
 
 from schema_transformer import to_bgp
 from schema_transformer.resources._resource_base import ResourceBaseST
-
-from schema_transformer.resources.virtual_network import VirtualNetworkST
 from schema_transformer.resources.security_logging_object import\
     SecurityLoggingObjectST
+from schema_transformer.resources.virtual_network import VirtualNetworkST
 
-import uuid
 
 class VerifyPolicy(VerifyCommon):
     def __init__(self, vnc_lib):
@@ -44,14 +41,16 @@ class VerifyPolicy(VerifyCommon):
         for ri_ref in ri.get_routing_instance_refs() or []:
             if ri_ref['to'] == to_fq_name:
                 return
-        raise Exception('ri_ref not found from %s to %s' % (fq_name, to_fq_name))
+        raise Exception('ri_ref not found from %s to %s' % (fq_name,
+                                                            to_fq_name))
 
     @retries(5)
     def check_ri_ref_not_present(self, fq_name, to_fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         for ri_ref in ri.get_routing_instance_refs() or []:
             if ri_ref['to'] == to_fq_name:
-                raise Exception('ri_ref found from %s to %s' % (fq_name, to_fq_name))
+                raise Exception('ri_ref found from %s to %s' % (fq_name,
+                                                                to_fq_name))
 
     @retries(5)
     def check_ri_refs_are_deleted(self, fq_name):
@@ -143,7 +142,8 @@ class VerifyPolicy(VerifyCommon):
     @retries(5)
     def check_route_target_in_routing_instance(self, ri_name, rt_list):
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
-        ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
+        ri_rt_refs = \
+            set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
         self.assertTrue(set(rt_list) <= ri_rt_refs)
 
     @retries(5)
@@ -155,13 +155,16 @@ class VerifyPolicy(VerifyCommon):
         if not rule_list:
             self.assertTrue(len(st_slo.security_logging_object_rules) == 0)
         else:
-            slo_vnc = self._vnc_lib.security_logging_object_read(id=st_slo.obj.uuid)
-            slo_vnc_rules = slo_vnc.get_security_logging_object_rules().get_rule()
+            slo_vnc = \
+                self._vnc_lib.security_logging_object_read(id=st_slo.obj.uuid)
+            slo_vnc_rules = \
+                slo_vnc.get_security_logging_object_rules().get_rule()
             if set(rule_list) != st_slo.security_logging_object_rules:
                 raise Exception('Rule not found in slo object')
             elif set(rule_list) != set(slo_vnc_rules):
                 raise Exception('Rule not found in vnc object')
         return
+
 
 class TestPolicy(STTestCase, VerifyPolicy):
 
@@ -222,18 +225,21 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.check_ri_ref_present(self.get_ri_name(vn2_obj),
                                   self.get_ri_name(vn1_obj))
 
-        np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'deny'
+        np1.network_policy_entries.policy_rule[0].action_list.simple_action = \
+            'deny'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
         self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
 
-        np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'pass'
+        np1.network_policy_entries.policy_rule[0].action_list.simple_action = \
+            'pass'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
                                   self.get_ri_name(vn2_obj))
 
-        np2.network_policy_entries.policy_rule[0].action_list.simple_action = 'deny'
+        np2.network_policy_entries.policy_rule[0].action_list.simple_action = \
+            'deny'
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
         self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
@@ -262,12 +268,15 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np1 = self.create_network_policy(vn1_obj, vn2_obj)
         np2 = self.create_network_policy(vn2_obj, vn1_obj)
 
-        np1.network_policy_entries.policy_rule[0].dst_addresses[0].virtual_network = None
-        np1.network_policy_entries.policy_rule[0].dst_addresses[0].network_policy = np2.get_fq_name_str()
+        np1.network_policy_entries.policy_rule[
+            0].dst_addresses[0].virtual_network = None
+        np1.network_policy_entries.policy_rule[
+            0].dst_addresses[0].network_policy = np2.get_fq_name_str()
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
 
-        np2.network_policy_entries.policy_rule[0].src_addresses[0].virtual_network = 'local'
+        np2.network_policy_entries.policy_rule[
+            0].src_addresses[0].virtual_network = 'local'
         np2.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
         seq = SequenceType(1, 1)
@@ -341,25 +350,26 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
         orignal_vn_eval = VirtualNetworkST.evaluate
-        # if we dont sleep now for some time than following mock function gets picked
-        # for the above vn update
+        # if we dont sleep now for some time than following
+        # mock function gets picked for the above vn update
         gevent.sleep(3)
 
-        # Mock the VirtualNetworkST evaluate function and attach the policy to vn2
+        # Mock the VirtualNetworkST evaluate function and
+        # attach the policy to vn2
         # Test fails if vn1 evaluate funcation is hit.
         def mock_vn_evaluate(vn_obj):
             if vn1.get_fq_name_str() == vn_obj.name:
-                self.assertTrue(False, 'Error: Should not have run evaluate of vn1')
+                self.assertTrue(False,
+                                'Error: Should not have run evaluate of vn1')
             orignal_vn_eval(vn_obj)
         # end evaluate
         VirtualNetworkST.evaluate = mock_vn_evaluate
         vn2.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn2)
-        # if we dont sleep now for some time than for the above code original vn evaluate gets
-        # picked up due to the next line
+        # if we dont sleep now for some time than for the above code
+        # original vn evaluate gets picked up due to the next line
         gevent.sleep(3)
         VirtualNetworkST.evaluate = orignal_vn_eval
-
 
         # cleanup
         self.delete_network_policy(np, auto_policy=True)
@@ -369,7 +379,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
         self.check_vn_is_deleted(uuid=vn2.uuid)
-    #end test_policy_processing_time_optimization
+    # end test_policy_processing_time_optimization
 
     def test_policy_processing_time_optimization_acl_with_vn(self):
         # Create VNs
@@ -400,6 +410,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # if we dont sleep now for some time than following mock function gets
         # picked for the above vn update
         vn1.vn_evaluate_hit = False
+
         def mock_vn_evaluate(vn_obj):
             if vn1.get_fq_name_str() == vn_obj.name:
                 vn1.vn_evaluate_hit = True
@@ -409,7 +420,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         VirtualNetworkST.evaluate = mock_vn_evaluate
         vn2.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn2)
-        # if we dont sleep now for some time than for the above code original vn
+        # if we dont sleep now for some time than for the
+        # above code original vn
         # evaluate gets picked up due to the next line
         gevent.sleep(3)
         if vn1.vn_evaluate_hit == False:
@@ -424,7 +436,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
         self.check_vn_is_deleted(uuid=vn2.uuid)
-    #end test_policy_processing_time_optimization
+    # end test_policy_processing_time_optimization
 
     def test_policy_with_cidr(self):
         vn1_name = self.id() + 'vn1'
@@ -496,7 +508,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
 
-        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain',
+                                                      u'default-project'])
         slo_name = self.id() + '_slo1'
         slo_obj = SecurityLoggingObject(name=slo_name,
                                         parent_obj=project,
@@ -510,16 +523,19 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np_fqdn = np.get_fq_name_str()
         np_rule_uuid = np_rule.get_rule_uuid()
 
-        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        slo_obj = self._vnc_lib.security_logging_object_read(
+            fq_name=slo_obj.get_fq_name())
         slo_rule_entries = []
-        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule_uuid,
-                                                                   rate=200))
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(
+            np_rule_uuid,
+            rate=200))
 
         slo_rule_list = SecurityLoggingObjectRuleListType(slo_rule_entries)
         slo_obj.add_network_policy(np, slo_rule_list)
         self._vnc_lib.security_logging_object_update(slo_obj)
 
-        expected_rule_list = [SecurityLoggingObjectRuleEntryType(np_rule_uuid, rate=200)]
+        expected_rule_list = \
+            [SecurityLoggingObjectRuleEntryType(np_rule_uuid, rate=200)]
         st_slo = to_bgp.SecurityLoggingObjectST.get(slo_obj.get_fq_name_str())
         self.check_rules_in_slo(st_slo, np_fqdn, expected_rule_list)
 
@@ -533,7 +549,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.delete_network_policy(np, auto_policy=True)
         self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
 
-        self._vnc_lib.security_logging_object_delete(fq_name=slo_obj.get_fq_name())
+        self._vnc_lib.security_logging_object_delete(
+            fq_name=slo_obj.get_fq_name())
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
@@ -564,7 +581,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
 
-        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain',
+                                                      u'default-project'])
         slo_name = self.id() + '_slo1'
         slo_obj = SecurityLoggingObject(name=slo_name,
                                         parent_obj=project,
@@ -581,12 +599,15 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np_rule2_uuid = np_rule2.get_rule_uuid()
 
         slo_rule_entries = []
-        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule1_uuid,
-                                                                   rate=300))
-        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule2_uuid,
-                                                                   rate=300))
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(
+            np_rule1_uuid,
+            rate=300))
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(
+            np_rule2_uuid,
+            rate=300))
 
-        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        slo_obj = self._vnc_lib.security_logging_object_read(
+            fq_name=slo_obj.get_fq_name())
         slo_obj.add_network_policy(np, None)
         self._vnc_lib.security_logging_object_update(slo_obj)
 
@@ -603,7 +624,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.delete_network_policy(np, auto_policy=True)
         self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
 
-        self._vnc_lib.security_logging_object_delete(fq_name=slo_obj.get_fq_name())
+        self._vnc_lib.security_logging_object_delete(
+            fq_name=slo_obj.get_fq_name())
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
@@ -620,7 +642,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)
 
-        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain',
+                                                      u'default-project'])
         slo_name = self.id() + '_slo1'
         slo_obj = SecurityLoggingObject(name=slo_name,
                                         parent_obj=project,
@@ -637,22 +660,24 @@ class TestPolicy(STTestCase, VerifyPolicy):
         npr_uuid = str(uuid.uuid4())
         action_list = ActionListType()
         action_list.simple_action = 'pass'
-        np_rule = PolicyRuleType(rule_uuid=npr_uuid,
-                                 direction='>',
-                                 protocol='tcp',
-                                 src_addresses=[AddressType(subnet=SubnetType('11.0.0.0', 24))],
-                                 src_ports=[PortType(0, 65535)],
-                                 dst_addresses=[AddressType(subnet=SubnetType('10.0.0.0', 24))],
-                                 dst_ports=[PortType(0, 65535)],
-                                 ether_type='IPv4',
-                                 action_list=action_list
-                                 )
+        np_rule = PolicyRuleType(
+            rule_uuid=npr_uuid,
+            direction='>',
+            protocol='tcp',
+            src_addresses=[AddressType(subnet=SubnetType('11.0.0.0', 24))],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[AddressType(subnet=SubnetType('10.0.0.0', 24))],
+            dst_ports=[PortType(0, 65535)],
+            ether_type='IPv4',
+            action_list=action_list)
         np.set_network_policy_entries(PolicyEntriesType([np_rule]))
 
         self._vnc_lib.network_policy_update(np)
 
-        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
-        expected_rule_list = [SecurityLoggingObjectRuleEntryType(npr_uuid, rate=300)]
+        slo_obj = self._vnc_lib.security_logging_object_read(
+            fq_name=slo_obj.get_fq_name())
+        expected_rule_list = [SecurityLoggingObjectRuleEntryType(npr_uuid,
+                                                                 rate=300)]
 
         st_slo = to_bgp.SecurityLoggingObjectST.get(slo_obj.get_fq_name_str())
         self.check_rules_in_slo(st_slo, np_fqdn, expected_rule_list)
@@ -667,7 +692,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.delete_network_policy(np, auto_policy=True)
         self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
 
-        self._vnc_lib.security_logging_object_delete(fq_name=slo_obj.get_fq_name())
+        self._vnc_lib.security_logging_object_delete(
+            fq_name=slo_obj.get_fq_name())
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
@@ -692,19 +718,21 @@ class TestPolicy(STTestCase, VerifyPolicy):
         sg_obj = SecurityGroup(name=self.id() + '_sg1')
         self._vnc_lib.security_group_create(sg_obj)
         sgr_uuid = str(uuid.uuid4())
-        sg_rule = PolicyRuleType(rule_uuid=sgr_uuid,
-                                 direction='>',
-                                 protocol='tcp',
-                                 src_addresses=[AddressType(subnet=SubnetType('11.0.0.0', 24))],
-                                 src_ports=[PortType(0, 65535)],
-                                 dst_addresses=[AddressType(security_group='local')],
-                                 dst_ports=[PortType(0, 65535)],
-                                 ether_type='IPv4')
+        sg_rule = PolicyRuleType(
+            rule_uuid=sgr_uuid,
+            direction='>',
+            protocol='tcp',
+            src_addresses=[AddressType(subnet=SubnetType('11.0.0.0', 24))],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[AddressType(security_group='local')],
+            dst_ports=[PortType(0, 65535)],
+            ether_type='IPv4')
         sg_policy_rules = PolicyEntriesType([sg_rule])
         sg_obj.set_security_group_entries(sg_policy_rules)
         self._vnc_lib.security_group_update(sg_obj)
 
-        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain',
+                                                      u'default-project'])
         slo_name = self.id() + '_slo1'
         slo_obj = SecurityLoggingObject(name=slo_name,
                                         parent_obj=project,
@@ -719,12 +747,14 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np_rule1_uuid = np_rule1.get_rule_uuid()
 
         slo_rule_entries = []
-        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule1_uuid,
-                                                                   rate=300))
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(
+            np_rule1_uuid,
+            rate=300))
         slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(sgr_uuid,
                                                                    rate=300))
 
-        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        slo_obj = self._vnc_lib.security_logging_object_read(
+            fq_name=slo_obj.get_fq_name())
         slo_obj.add_network_policy(np, None)
         sg_obj = self._vnc_lib.security_group_read(id=sg_obj.get_uuid())
         slo_obj.add_security_group(sg_obj, None)
@@ -744,14 +774,15 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.delete_network_policy(np, auto_policy=True)
         self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
 
-        self._vnc_lib.security_logging_object_delete(fq_name=slo_obj.get_fq_name())
+        self._vnc_lib.security_logging_object_delete(
+            fq_name=slo_obj.get_fq_name())
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
     # end test_security_logging_object_with_policy_and_security_group
 
     def test_provider_network(self):
-        '''
+        """
         Verify:
             1. Check creating a non-provider VNs with
                non-provider VNs connected to it is not allowed
@@ -783,7 +814,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
             16. Adding a (VN -> provider-VN),PASS acl rule at VN removes
                (VN -> provider-VN),DENY acl rule
         Assumption: ip-fabric VN is the provider-VN
-        '''
+        """
         # create two VNs - vn1, vn2
         vn1_name = self.id() + '_vn1'
         vn2_name = self.id() + '_vn2'
