@@ -2,12 +2,14 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from cfgm_common.exceptions import NoIdError, RefsExistError
+from vnc_api.gen.resource_client import BgpRouter
+from vnc_api.gen.resource_xsd import AddressFamilies, BgpSessionAttributes
+from vnc_api.gen.resource_xsd import BgpPeeringAttributes, BgpSession
+
 from schema_transformer.resources._resource_base import ResourceBaseST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
-from vnc_api.gen.resource_xsd import AddressFamilies, BgpSessionAttributes
-from vnc_api.gen.resource_xsd import BgpSession, BgpPeeringAttributes
-from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
-from vnc_api.gen.resource_client import BgpRouter
+
 
 class BgpRouterST(ResourceBaseST):
     _dict = {}
@@ -46,8 +48,9 @@ class BgpRouterST(ResourceBaseST):
     # end delete_ref
 
     def is_cluster_id_changed(self, params):
-        if ((self.cluster_id is None and params.cluster_id is not None)
-            or (self.cluster_id is not None and params.cluster_id is None)):
+        if ((self.cluster_id is None and params.cluster_id is not None) or
+                (self.cluster_id is not None and
+                 params.cluster_id is None)):
             return True
 
         return False
@@ -67,8 +70,8 @@ class BgpRouterST(ResourceBaseST):
         if self.router_type not in ('bgpaas-client', 'bgpaas-server'):
             if self.vendor == 'contrail':
                 self.update_global_asn(
-                    ResourceBaseST.get_obj_type_map().\
-			get('global_system_config').get_autonomous_system())
+                    ResourceBaseST.get_obj_type_map().get(
+                        'global_system_config').get_autonomous_system())
             else:
                 self.update_autonomous_system(params.autonomous_system)
     # end set_params
@@ -96,7 +99,8 @@ class BgpRouterST(ResourceBaseST):
 
     def evaluate(self, **kwargs):
         if self.router_type == 'bgpaas-client':
-            bgpaas = ResourceBaseST.get_obj_type_map().get('bgp_as_a_service').get(self.bgp_as_a_service)
+            bgpaas = ResourceBaseST.get_obj_type_map().get(
+                'bgp_as_a_service').get(self.bgp_as_a_service)
             ret = self.update_bgpaas_client(bgpaas)
             if ret == -1:
                 if bgpaas:
@@ -109,12 +113,13 @@ class BgpRouterST(ResourceBaseST):
                 for vmi in vmis:
                     try:
                         # remove bgp-router ref from vmi
-                        self._vnc_lib.ref_update(obj_uuid=vmi['uuid'],
-                                                 obj_type='virtual_machine_interface',
-                                                 ref_uuid=self.obj.uuid,
-                                                 ref_fq_name=self.obj.fq_name,
-                                                 ref_type='bgp-router',
-                                                 operation='DELETE')
+                        self._vnc_lib.ref_update(
+                            obj_uuid=vmi['uuid'],
+                            obj_type='virtual_machine_interface',
+                            ref_uuid=self.obj.uuid,
+                            ref_fq_name=self.obj.fq_name,
+                            ref_type='bgp-router',
+                            operation='DELETE')
                     except NoIdError:
                         pass
                 try:
@@ -140,10 +145,11 @@ class BgpRouterST(ResourceBaseST):
             return -1
         if bgpaas.bgpaas_shared:
             if (bgpaas.virtual_machine_interfaces and
-                self.name in bgpaas.bgpaas_clients.values()):
+                    self.name in bgpaas.bgpaas_clients.values()):
                 vmi_names = list(bgpaas.virtual_machine_interfaces)
-                vmis = [ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(vmi_name)
-                        for vmi_name in vmi_names]
+                vmis = [ResourceBaseST.get_obj_type_map().get(
+                    'virtual_machine_interface').get(vmi_name)
+                    for vmi_name in vmi_names]
                 vmi = vmis[0]
             elif self.name in bgpaas.bgpaas_clients.values():
                 del bgpaas.bgpaas_clients[bgpaas.obj.name]
@@ -160,15 +166,17 @@ class BgpRouterST(ResourceBaseST):
                 del bgpaas.bgpaas_clients[vmi_name]
                 return -1
 
-            vmi = ResourceBaseST.get_obj_type_map().get('virtual_machine_interface').get(vmi_name)
+            vmi = ResourceBaseST.get_obj_type_map().get(
+                'virtual_machine_interface').get(vmi_name)
             if vmi is None or vmi.virtual_network is None:
                 del bgpaas.bgpaas_clients[vmi_name]
                 return -1
-            vn = ResourceBaseST.get_obj_type_map().get('virtual_network').get(vmi.virtual_network)
-            if not vn or self.obj.get_parent_fq_name_str() != vn._default_ri_name:
+            vn = ResourceBaseST.get_obj_type_map().get(
+                'virtual_network').get(vmi.virtual_network)
+            if not vn or self.obj.get_parent_fq_name_str() != \
+                    vn._default_ri_name:
                 del bgpaas.bgpaas_clients[vmi_name]
                 return -1
-            vmi_names = [vmi_name]
             vmis = [vmi]
 
         update = False
@@ -214,11 +222,12 @@ class BgpRouterST(ResourceBaseST):
 
         old_refs = self.obj.get_virtual_machine_interface_back_refs() or []
         old_uuids = set([ref['uuid'] for ref in old_refs])
-        new_uuids = set([vmi.obj.uuid for vmi in vmis])
+        new_uuids = set([vmi_item.obj.uuid for vmi_item in vmis])
 
         # add vmi->bgp-router link
         for vmi_id in new_uuids - old_uuids:
-            self._vnc_lib.ref_update(obj_uuid=vmi_id,
+            self._vnc_lib.ref_update(
+                obj_uuid=vmi_id,
                 obj_type='virtual_machine_interface',
                 ref_uuid=self.obj.uuid,
                 ref_type='bgp_router',
@@ -226,15 +235,16 @@ class BgpRouterST(ResourceBaseST):
                 operation='ADD')
         # remove vmi->bgp-router links for old vmi if any
         for vmi_id in old_uuids - new_uuids:
-            self._vnc_lib.ref_update(obj_uuid=vmi_id,
+            self._vnc_lib.ref_update(
+                obj_uuid=vmi_id,
                 obj_type='virtual_machine_interface',
                 ref_uuid=self.obj.uuid,
                 ref_type='bgp_router',
                 ref_fq_name=self.obj.get_fq_name_str(),
                 operation='DELETE')
         if old_uuids != new_uuids:
-            refs = [{'to': vmi.obj.fq_name, 'uuid': vmi.obj.uuid}
-                       for vmi in vmis]
+            refs = [{'to': vmi_item.obj.fq_name, 'uuid': vmi_item.obj.uuid}
+                    for vmi_item in vmis]
             self.obj.virtual_machine_interface_back_refs = refs
         return update
     # end update_bgpaas_client
@@ -259,10 +269,12 @@ class BgpRouterST(ResourceBaseST):
         phy_rtr_peer_name = router.physical_router
 
         if phy_rtr_name and phy_rtr_peer_name:
-            phy_rtr = ResourceBaseST.get_obj_type_map().get('physical_router').get(phy_rtr_name)
+            phy_rtr = ResourceBaseST.get_obj_type_map().get(
+                'physical_router').get(phy_rtr_name)
             fabric = phy_rtr.fabric
 
-            phy_rtr_peer = ResourceBaseST.get_obj_type_map().get('physical_router').get(phy_rtr_peer_name)
+            phy_rtr_peer = ResourceBaseST.get_obj_type_map().get(
+                'physical_router').get(phy_rtr_peer_name)
             fabric_peer = phy_rtr_peer.fabric
 
             # Ignore peering if fabric of self-bgp-router and peer-bgp-router
@@ -274,14 +286,15 @@ class BgpRouterST(ResourceBaseST):
     # end skip_fabric_bgp_router_peering_add
 
     def skip_bgp_router_peering_add(self, router, cluster_rr_supported,
-                                   control_rr_supported):
+                                    control_rr_supported):
         # If there is no RR, always add peering in order to create full mesh.
         if not cluster_rr_supported and not control_rr_supported:
             return False
 
         # Always create peering between control-nodes until control-node can
         # be a route-reflector server (or bgp-router can support ermvpn afi)
-        if (not control_rr_supported) and self.router_type == 'control-node' and \
+        if (not control_rr_supported) and \
+                self.router_type == 'control-node' and \
                 router.router_type == 'control-node':
             return False
 
@@ -303,33 +316,34 @@ class BgpRouterST(ResourceBaseST):
     # end update_full_mesh_to_rr_peering
 
     def update_peering(self, rr_changed=False):
-        if not ResourceBaseST.get_obj_type_map().\
-                        get('global_system_config').get_ibgp_auto_mesh():
+        if not ResourceBaseST.get_obj_type_map().get(
+                'global_system_config').get_ibgp_auto_mesh():
             return
         if self.router_type in ('bgpaas-server', 'bgpaas-client'):
             return
 
         fabric = None
         if self.physical_router:
-            phy_rtr = ResourceBaseST.get_obj_type_map().get('physical_router').get(self.physical_router)
+            phy_rtr = ResourceBaseST.get_obj_type_map().get(
+                'physical_router').get(self.physical_router)
             fabric = phy_rtr.fabric
 
-        global_asn = int(ResourceBaseST.get_obj_type_map().\
-                        get('global_system_config').get_autonomous_system())
+        global_asn = int(ResourceBaseST.get_obj_type_map().get(
+            'global_system_config').get_autonomous_system())
         # if it's a fabric or sub cluster bgp router, ignore
         # global asn check that we do to determine e-bgp router
         if (self.sub_cluster is None and fabric is None and
-            self.asn != global_asn):
+                self.asn != global_asn):
             return
         try:
             obj = self.read_vnc_obj(fq_name=self.name)
         except NoIdError as e:
             self._logger.error("NoIdError while reading bgp router "
-                                   "%s: %s"%(self.name, str(e)))
+                               "%s: %s" % (self.name, str(e)))
             return
 
         cluster_rr_supported, control_rr_supported = \
-                                     self._is_route_reflector_supported()
+            self._is_route_reflector_supported()
         peerings_set = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
 
         new_peerings_list = []
@@ -359,20 +373,21 @@ class BgpRouterST(ResourceBaseST):
             new_peerings_attrs.append(attr)
             obj.add_bgp_router(router_obj, attr)
 
-        new_peerings_set = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
+        new_peerings_set = [ref['to'] for ref in (
+            obj.get_bgp_router_refs() or [])]
         if rr_changed:
             obj.set_bgp_router_list(new_peerings_list, new_peerings_attrs)
             try:
                 self._vnc_lib.bgp_router_update(obj)
             except NoIdError as e:
                 self._logger.error("NoIdError while updating bgp router "
-                                   "%s: %s"%(self.name, str(e)))
+                                   "%s: %s" % (self.name, str(e)))
         elif new_peerings_set != peerings_set:
             try:
                 self._vnc_lib.bgp_router_update(obj)
             except NoIdError as e:
                 self._logger.error("NoIdError while updating bgp router "
-                                   "%s: %s"%(self.name, str(e)))
+                                   "%s: %s" % (self.name, str(e)))
     # end update_peering
 
     def handle_st_object_req(self):
