@@ -51,6 +51,13 @@ class ControlProvisioner(BgpProvisioner):
         print "Perfroming provisioning of global BGP parameters"
         gsc_obj = self._vnc_lib.global_system_config_read(
                 fq_name=['default-global-system-config'])
+        # enable_4byte_as flag and router_asn can not be updated in same call,
+        # so 2 calls need to be made if both need to be updated here
+        if gsc_obj.get_enable_4byte_as() != self._args.enable_4byte_as:
+            gsc_obj.set_enable_4byte_as(self._args.enable_4byte_as)
+            if (self._args.router_asn != '64512'):
+                self._vnc_lib.global_system_config_update(gsc_obj)
+
         # global asn might have been modified in clusters.
         # so provision_control should not set back to 64512(default)
         if (self._args.router_asn != '64512'):
@@ -72,7 +79,6 @@ class ControlProvisioner(BgpProvisioner):
             gr_params.set_xmpp_helper_enable(
                 self._args.graceful_restart_xmpp_helper_enable)
             gsc_obj.set_graceful_restart_parameters(gr_params)
-        gsc_obj.set_enable_4byte_as(self._args.enable_4byte_as)
         self._vnc_lib.global_system_config_update(gsc_obj)
 
     def check_if_provision_is_needed(self):
@@ -137,7 +143,7 @@ class ControlProvisioner(BgpProvisioner):
         Eg. python provision_control.py --host_name a3s30.contrail.juniper.net
                                         --host_ip 10.1.1.1
                                         --router_asn 64512
-                                        --enable_4byte_as False
+                                        --enable_4byte_as
                                         --ibgp_auto_mesh|--no_ibgp_auto_mesh
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
@@ -166,7 +172,7 @@ class ControlProvisioner(BgpProvisioner):
 
         defaults = {
             'router_asn': '64512',
-            'enable_4byte_as': False,
+            'enable_4byte_as': None,
             'bgp_server_port': 179,
             'local_autonomous_system': None,
             'ibgp_auto_mesh': None,
@@ -212,7 +218,7 @@ class ControlProvisioner(BgpProvisioner):
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
         parser.add_argument(
-            "--enable_4byte_as", help="If set, AS Number can be 4 byte wide")
+            "--enable_4byte_as", help="If set, AS Number can be 4 byte wide", dest='enable_4byte_as', action='store_true')
         parser.add_argument(
             "--bgp_server_port", help="BGP server port number (Default: 179)")
         parser.add_argument(
