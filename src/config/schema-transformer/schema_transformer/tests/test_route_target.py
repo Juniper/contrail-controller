@@ -3,13 +3,15 @@
 #
 
 import gevent
-import sys
-from schema_transformer.resources.routing_instance import RoutingInstanceST
+
+from cfgm_common.tests import test_common
+
 from vnc_api.vnc_api import RouteTargetList, NoIdError
 from vnc_cfg_api_server import db_manage
-from test_case import STTestCase, retries
+
+from schema_transformer.resources.routing_instance import RoutingInstanceST
+from test_case import retries, STTestCase
 from test_policy import VerifyPolicy
-from cfgm_common.tests import test_common
 
 
 class VerifyRouteTarget(VerifyPolicy):
@@ -46,20 +48,24 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self._vnc_lib.virtual_network_update(vn1_obj)
 
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True,
+                            'export')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True,
+                            'import')
 
         exp_rtgt_list.route_target.append('target:1:1')
         vn1_obj.set_export_route_target_list(exp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True,
+                            'export')
 
         imp_rtgt_list.route_target.append('target:1:1')
         vn1_obj.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True,
+                            'import')
 
         exp_rtgt_list = RouteTargetList(route_target=['target:2:1'])
         vn1_obj.set_export_route_target_list(exp_rtgt_list)
@@ -67,8 +73,10 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         vn1_obj.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True,
+                            'export')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True,
+                            'import')
 
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])

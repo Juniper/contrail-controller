@@ -7,14 +7,13 @@
 Schema Transformer monitor logger
 """
 
-from sandesh_common.vns.ttypes import Module
 from cfgm_common.vnc_logger import ConfigServiceLogger
+from sandesh_common.vns.ttypes import Module
 
 from schema_transformer.resources._resource_base import ResourceBaseST
-from schema_transformer.resources.virtual_network import VirtualNetworkST
 from schema_transformer.resources.routing_instance import RoutingInstanceST
 from schema_transformer.resources.service_chain import ServiceChain
-
+from schema_transformer.resources.virtual_network import VirtualNetworkST
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 
