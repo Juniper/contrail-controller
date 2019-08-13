@@ -22,7 +22,7 @@ class TestCAT(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # CAT.delete_all_files()
+        CAT.delete_all_files()
         return
 
     def setUp(self):
@@ -41,7 +41,7 @@ class TestCAT(unittest.TestCase):
             name = "agent" + str(i+1)
             agent = CAT.add_agent(self.test, name, [c1, c2])
             agents.append(agent)
-        ret, ms = CAT.check_connection([c1, c2], agents, 5, 3)
+        ret, ms = CAT.check_connection([c1, c2], agents, 5, 10)
         self.assertTrue(ret, msg=ms)
 
     def test_2_config(self):
@@ -69,6 +69,22 @@ class TestCAT(unittest.TestCase):
             agent = CAT.add_agent(self.test, name, [c1, c2])
             agents.append(agent)
         ret, ms = CAT.check_connection([c1], agents, 15, 20)
+        self.assertTrue(ret, msg=ms)
+
+    def test_4_all_config(self):
+        print(Fore.CYAN + "\nInjecting all Configuration" + Style.RESET_ALL)
+        conf1 = CAT.create_config_file(self.test, "conf1")
+        conf1.add_virtual_network("vn", 2, "default-domain", "admin")
+        conf1.add_virtual_machine()
+        conf1.add_network_ipam()
+        c1 = CAT.add_control_node(self.test, "control-node1",
+                                  conf=conf1.filename)
+        a1 = CAT.add_agent(self.test, "agent1", [c1])
+        ret, ms = CAT.check_connection([c1], [a1], 15, 20)
+        self.assertTrue(ret, msg=ms)
+        conf1.add_virtual_router("agent1")
+        c1.restart_control_node()
+        ret, ms = CAT.check_connection([c1], [a1], 15, 20)
         self.assertTrue(ret, msg=ms)
 
 def main():
