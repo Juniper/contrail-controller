@@ -1,0 +1,7 @@
+---
+# defaults file for import_hardware_inventory_info
+output: {
+              "status": "Success",
+              "message": "Hardware inventory import for device: {{prouter_name}} successful"
+        }
+
