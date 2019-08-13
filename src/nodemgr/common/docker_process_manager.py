@@ -2,12 +2,16 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+from builtins import str
+from builtins import next
+from builtins import object
 import docker
 import time
 
-from docker_mem_cpu import DockerMemCpuUsageData
+from .docker_mem_cpu import DockerMemCpuUsageData
 from sandesh_common.vns.ttypes import Module
-import common_process_manager as cpm
+from . import common_process_manager as cpm
 
 
 # code calculates name from labels and then translate it to unit_name

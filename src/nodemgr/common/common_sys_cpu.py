@@ -1,7 +1,11 @@
+from __future__ import division
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import psutil
 
 class SysCpuShare(object):
@@ -32,7 +36,7 @@ class SysCpuShare(object):
         if interval_time == 0:
             return 0
 
-        sys_percent = 100 * sys_time / interval_time
-        usr_percent = 100 * usr_time / interval_time
-        cpu_share = round((sys_percent + usr_percent) / self.num_cpu, 2)
+        sys_percent = old_div(100 * sys_time, interval_time)
+        usr_percent = old_div(100 * usr_time, interval_time)
+        cpu_share = round(old_div((sys_percent + usr_percent), self.num_cpu), 2)
         return cpu_share
