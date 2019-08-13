@@ -67,7 +67,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         rt_table_delete_bmap_(0),
         route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
         layer2_control_word_(false),
-        rd_(0) {
+        rd_(0), routing_vrf_(false) {
         nh_.reset();
 }
 
@@ -584,6 +584,9 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     name_tree_.insert( VrfNamePair(key->name_, vrf));
 
     vrf->vn_.reset(agent()->vn_table()->Find(data->vn_uuid_));
+    if (vrf->vn_) {
+        vrf->set_routing_vrf(vrf->vn_->vxlan_routing_vn());
+    }
     vrf->isid_ = data->isid_;
     vrf->bmac_vrf_name_ = data->bmac_vrf_name_;
     vrf->learning_enabled_ = data->learning_enabled_;

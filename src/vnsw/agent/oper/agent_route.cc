@@ -625,6 +625,13 @@ bool AgentRoute::DeleteAllBgpPath(DBTablePartBase *part,
             peer->GetType() == Peer::EVPN_ROUTING_PEER ||
             peer->GetType() == Peer::MULTICAST_FABRIC_TREE_BUILDER) {
             DeletePathFromPeer(part, table, path);
+        } else if (peer->GetType() == Peer::LOCAL_VM_PEER) {
+            // Delete LOCAL_VM_PEER paths only from routes belonging to
+            // routing VRFs
+            VrfEntry *vrf = vrf_;
+            if (vrf && vrf->routing_vrf() && (table->GetTableType() == Agent::EVPN)) {
+                DeletePathFromPeer(part, table, path);
+            }
         }
     }
 

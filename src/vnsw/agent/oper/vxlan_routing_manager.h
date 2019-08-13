@@ -70,6 +70,7 @@ struct VxlanRoutingState : public DBState {
     AgentRouteTable *inet4_table_;
     AgentRouteTable *inet6_table_;
     AgentRouteTable *evpn_table_;
+    bool is_bridge_vrf_; // tracks if the VRF is bridge vrf
 };
 
 /**
@@ -231,7 +232,7 @@ public:
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmiNotify(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void HandleDefaultRoute(const VrfEntry *vrf);
+    void HandleDefaultRoute(const VrfEntry *vrf, bool bridge_vrf=false);
     void FillSandeshInfo(VxlanRoutingResp *resp);
     DBTable::ListenerId vn_listener_id() const {
         return vn_listener_id_;
