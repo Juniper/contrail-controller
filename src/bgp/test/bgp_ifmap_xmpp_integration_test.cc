@@ -198,6 +198,7 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         vnc_cfg_Server_ModuleInit(config_db_, config_graph_);
         bgp_schema_JsonParserInit(config_json_parser);
         bgp_schema_Server_ModuleInit(config_db_, config_graph_);
+        ifmap_server_->Initialize();
         // "overcloud-contrailcontroller-1" for att db.
         string self = "nodea27";
         if (getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_SELF_NAME"))
