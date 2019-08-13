@@ -104,15 +104,17 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         self.api.global_system_config_update(gsc)
 
     def test_update_both_global_asn_and_asn_flag(self):
-        # For simplicity, we don't allow update of both autonomous_system
-        # and enable_4byte_as in the same request.
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
 
         # First, enable 4byte AS flag.
         gsc.enable_4byte_as = True
         gsc.autonomous_system = 61450
-        self.assertRaises(BadRequest, self.api.global_system_config_update,
-                          gsc)
+        self.api.global_system_config_update(gsc)
+
+        # Set the enable_4_byte back to false
+        gsc.enable_4byte_as = False
+        gsc.autonomous_system = self.DEFAULT_ASN
+        self.api.global_system_config_update(gsc)
 
     def test_update_2_byte_asn_range_check(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)

@@ -67,12 +67,16 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         return (True, '')
 
     @classmethod
-    def check_asn_range(cls, asn):
-        fields = ['enable_4byte_as']
-        ok, result = cls._get_global_system_config(fields)
-        if not ok:
-            return False, result
-        enable_4byte_as = result.get('enable_4byte_as', False)
+    def check_asn_range(cls, asn, enable_4byte_as_in_dict=None):
+        if enable_4byte_as_in_dict:
+            enable_4byte_as = enable_4byte_as_in_dict
+        else:
+            fields = ['enable_4byte_as']
+            ok, result = cls._get_global_system_config(fields)
+            if not ok:
+                return False, result
+            enable_4byte_as = result.get('enable_4byte_as', False)
+
         if enable_4byte_as:
             # 4 Byte AS is allowed. So the range should be
             # between 1-0xffFFffFF
@@ -90,18 +94,17 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
 
     @classmethod
     def _check_asn(cls, obj_dict):
-        # For the case of simplicity, we won't allow edit of both
-        # enable_4byte_as and autonomous_system in same request
-        if ('enable_4byte_as' in obj_dict and
-                'autonomous_system' in obj_dict):
-            return False, (400, 'Cannot edit both ASN and enable_4byte_as '
-                                'in same request')
+        enable_4byte_as_in_dict = None
+        if 'enable_4byte_as' in obj_dict:
+            enable_4byte_as_in_dict = obj_dict['enable_4byte_as']
 
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
             return True, ''
 
-        ok, result = cls.check_asn_range(global_asn)
+        ok, result = cls.check_asn_range(
+            global_asn,
+            enable_4byte_as_in_dict=enable_4byte_as_in_dict)
         if not ok:
             return ok, result
 
