@@ -1,0 +1,12 @@
+---
+# vars file for import_hardware_inventory_info
+pb_input: "{{playbook_input.input}}"
+prouter_name: "{{playbook_input.device_fqname[-1]}}"
+prouter_fqname: "{{playbook_input.device_fqname}}"
+prouter_vendor: "{{playbook_input.vendor | lower}}"
+pr_product_name: "{{playbook_input.product_name}}"
+prouter_family: "{{playbook_input.device_family | lower}}"
+username: "{{playbook_input.device_username}}"
+host: "{{playbook_input.device_management_ip}}"
+password: "{{playbook_input.device_password}}"
+schema_file: "{{playbook_dir}}/schema/hardware_inventory_info_schema.json"
