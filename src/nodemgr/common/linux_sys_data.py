@@ -2,14 +2,19 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+from __future__ import division
+from builtins import str
+from builtins import object
+from past.utils import old_div
 import os
 import subprocess
 import psutil
 
-from common_sys_cpu import SysCpuShare
+from .common_sys_cpu import SysCpuShare
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo, CpuLoadAvg
-from sandesh.nodeinfo.process_info.ttypes import DiskPartitionUsageStats
+from .sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo, CpuLoadAvg
+from .sandesh.nodeinfo.process_info.ttypes import DiskPartitionUsageStats
 
 
 class LinuxSysData(object):
@@ -43,11 +48,11 @@ class LinuxSysData(object):
     def get_sys_mem_info(self, node_type):
         virtmem_info = psutil.virtual_memory()
         sys_mem_info = SysMemInfo()
-        sys_mem_info.total = virtmem_info.total / 1024
-        sys_mem_info.used = virtmem_info.used / 1024
-        sys_mem_info.free = virtmem_info.free / 1024
-        sys_mem_info.buffers = virtmem_info.buffers / 1024
-        sys_mem_info.cached = virtmem_info.cached / 1024
+        sys_mem_info.total = old_div(virtmem_info.total, 1024)
+        sys_mem_info.used = old_div(virtmem_info.used, 1024)
+        sys_mem_info.free = old_div(virtmem_info.free, 1024)
+        sys_mem_info.buffers = old_div(virtmem_info.buffers, 1024)
+        sys_mem_info.cached = old_div(virtmem_info.cached, 1024)
         sys_mem_info.node_type = node_type
         return sys_mem_info
 

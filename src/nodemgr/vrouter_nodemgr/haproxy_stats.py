@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 import os
 import socket
 import sys
@@ -66,7 +68,7 @@ class HaproxyStats(object):
 
     def _get_stats(self, row, name):
         stats = dict((k, row.get(v, ''))
-                     for k, v in STATS_MAP.items())
+                     for k, v in list(STATS_MAP.items()))
         stats['name'] = name
         stats['vrouter'] = socket.getfqdn(self.host_ip)
         if stats['status'] in ['no check', 'UP', 'OPEN']:

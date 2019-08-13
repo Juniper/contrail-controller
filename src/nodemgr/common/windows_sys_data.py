@@ -2,10 +2,14 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+from __future__ import division
+from builtins import object
+from past.utils import old_div
 import psutil
 
 from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
-from common_sys_cpu import SysCpuShare
+from .common_sys_cpu import SysCpuShare
 
 
 class WindowsSysData(object):
@@ -19,17 +23,17 @@ class WindowsSysData(object):
         return psutil.cpu_count()
 
     def get_num_core_per_socket(self):
-        return psutil.cpu_count(logical=False) / self.get_num_socket()
+        return old_div(psutil.cpu_count(logical=False), self.get_num_socket())
 
     def get_num_thread_per_core(self):
-        return psutil.cpu_count(logical=False) / psutil.cpu_count()
+        return old_div(psutil.cpu_count(logical=False), psutil.cpu_count())
 
     def get_sys_mem_info(self, node_type):
         sys_mem_info = SysMemInfo()
         virtmem_info = psutil.virtual_memory()
-        sys_mem_info.total = virtmem_info.total / 1024
-        sys_mem_info.used = virtmem_info.used / 1024
-        sys_mem_info.free = virtmem_info.free / 1024
+        sys_mem_info.total = old_div(virtmem_info.total, 1024)
+        sys_mem_info.used = old_div(virtmem_info.used, 1024)
+        sys_mem_info.free = old_div(virtmem_info.free, 1024)
         sys_mem_info.node_type = node_type
         return sys_mem_info
 
