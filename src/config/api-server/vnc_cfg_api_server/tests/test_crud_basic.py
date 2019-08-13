@@ -395,6 +395,12 @@ class TestCrud(test_case.ApiServerTestCase):
         vn = VirtualNetwork('vn-%s' %(self.id()))
         self._vnc_lib.virtual_network_create(vn)
 
+        vmi_name = self.id() + '-main_port'
+        logger.info('Creating port %s', vmi_name)
+        main_port_obj = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        main_port_obj.add_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(main_port_obj)
+
         id_perms = IdPermsType(enable=True)
         vmi_prop = VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=256)
         port_obj = VirtualMachineInterface(
@@ -403,6 +409,7 @@ class TestCrud(test_case.ApiServerTestCase):
                    id_perms=id_perms)
         port_obj.uuid = port_obj.name
         port_obj.set_virtual_network(vn)
+        port_obj.set_virtual_machine_interface(main_port_obj)
 
         #create port with sub_interface_vlan_tag specified
         port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
