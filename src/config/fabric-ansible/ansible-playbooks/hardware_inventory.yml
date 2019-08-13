@@ -1,0 +1,18 @@
+---
+- name: Get the Hardware Inventory Information by reading the Prouter object
+
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
+  roles:
+    - import_hardware_inventory_info
+  vars:
+    - hardware_inventory_dict: {}
+  tasks:
+    - set_fact:
+        output: "{{output}}"
