@@ -1,12 +1,13 @@
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import absolute_import
 
 from gevent import monkey
 monkey.patch_all()
 
 from sandesh_common.vns.ttypes import Module
-from loadbalancer_stats import LoadbalancerStatsUVE
+from .loadbalancer_stats import LoadbalancerStatsUVE
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.vrouter_nodemgr.process_stat import VrouterProcessStat
