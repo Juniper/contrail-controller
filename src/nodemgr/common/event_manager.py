@@ -2,7 +2,13 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import ConfigParser
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import next
+from builtins import str
+from builtins import object
+import configparser
 import copy
 import gevent
 import hashlib
@@ -11,7 +17,7 @@ import random
 import signal
 import socket
 import time
-from ConfigParser import NoOptionError
+from configparser import NoOptionError
 
 from buildinfo import build_info
 from pysandesh.connection_info import ConnectionState
@@ -28,19 +34,19 @@ from sandesh_common.vns.constants import (INSTANCE_ID_DEFAULT, Module2NodeType,
                                           ModuleNames, NodeTypeNames,
                                           ServiceHttpPortMap, UVENodeTypeNames)
 
-from process_stat import ProcessStat
-import utils
+from .process_stat import ProcessStat
+from . import utils
 import os
 try:
-    from docker_process_manager import DockerProcessInfoManager
+    from .docker_process_manager import DockerProcessInfoManager
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
     DockerProcessInfoManager = None
 if platform.system() == 'Windows':
-    from windows_sys_data import WindowsSysData
-    from windows_process_manager import WindowsProcessInfoManager
+    from .windows_sys_data import WindowsSysData
+    from .windows_process_manager import WindowsProcessInfoManager
 else:
-    from linux_sys_data import LinuxSysData
+    from .linux_sys_data import LinuxSysData
 
 
 class EventManagerTypeInfo(object):
@@ -360,7 +366,7 @@ class EventManager(object):
         self.prev_fail_status_bits = self.fail_status_bits
         fail_status_bits = self.fail_status_bits
         state, description = self._get_process_state(fail_status_bits)
-        conn_infos = ConnectionState._connection_map.values()
+        conn_infos = list(ConnectionState._connection_map.values())
         (cb_state, cb_description) = ConnectionState.get_conn_state_cb(conn_infos)
         if (cb_state == ProcessState.NON_FUNCTIONAL):
             state = ProcessState.NON_FUNCTIONAL
@@ -535,13 +541,13 @@ class EventManager(object):
 
     def nodemgr_sighup_handler(self):
         collector_list = list()
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read([self.config.config_file_path])
         if 'COLLECTOR' in config.sections():
             try:
                 collector = config.get('COLLECTOR', 'server_list')
                 collector_list = collector.split()
-            except ConfigParser.NoOptionError:
+            except configparser.NoOptionError:
                 pass
         collector_list.sort()
         new_chksum = hashlib.md5("".join(collector_list)).hexdigest()

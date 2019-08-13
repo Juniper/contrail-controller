@@ -3,6 +3,8 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import division
+from past.utils import old_div
 import logging
 import subprocess
 import sys
@@ -78,9 +80,9 @@ def is_cluster_partitioned(options):
     else:
         num_nodes = len(nodes_status)
     nodes_up_status = dict((node_id, node_status) for \
-        node_id, node_status in nodes_status.items() if 'U' in node_status)
+        node_id, node_status in list(nodes_status.items()) if 'U' in node_status)
     num_up_nodes = len(nodes_up_status)
-    if num_up_nodes < (num_nodes/2) + 1:
+    if num_up_nodes < (old_div(num_nodes,2)) + 1:
         return True
     else:
         return False

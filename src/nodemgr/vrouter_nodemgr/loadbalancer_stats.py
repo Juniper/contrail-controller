@@ -1,7 +1,10 @@
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import os
 import sys
 
-from haproxy_stats import HaproxyStats
+from .haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
     LoadbalancerStats, UveLoadbalancerStats, UveLoadbalancerTrace
 from pysandesh.sandesh_logger import SandeshLogger
