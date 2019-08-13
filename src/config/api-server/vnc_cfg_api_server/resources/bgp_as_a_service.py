@@ -29,14 +29,21 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
 
     @classmethod
     def _check_asn(cls, obj_dict):
-        local_asn = obj_dict.get('autonomous_system')
-        if not local_asn:
-            return True, ''
+        asn = obj_dict.get('autonomous_system')
+        if asn and asn != 'null':
+            ok, result = cls.server.get_resource_class(
+                'global_system_config').check_asn_range(asn)
+            if not ok:
+                return ok, result
 
-        ok, result = cls.server.get_resource_class(
-            'global_system_config').check_asn_range(local_asn)
-        if not ok:
-            return ok, result
+        bgp_session_attr = obj_dict.get('bgpaas_session_attributes')
+        if bgp_session_attr:
+            local_asn = bgp_session_attr.get('local_autonomous_system')
+            if local_asn and local_asn != 'null':
+                ok, result = cls.server.get_resource_class(
+                    'global_system_config').check_asn_range(local_asn)
+                if not ok:
+                    return ok, result
 
         return True, ''
 
