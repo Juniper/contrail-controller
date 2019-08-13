@@ -39,6 +39,15 @@
       set_fact:
         upgrade_plan: "{{job_ctx | hitless_device_info(pr_uuid)}}"
 
+    - name: Check for errors
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{upgrade_plan.error_msg}}"
+            jl_err_message: "Failed creating upgrade plan: {{upgrade_plan.error_msg}}"
+      when: upgrade_plan.status == 'failure'
+
     - name: Get advanced parameters
       set_fact:
         advanced_params: "{{upgrade_plan.advanced_parameters}}"
