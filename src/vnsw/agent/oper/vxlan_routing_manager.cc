@@ -34,6 +34,9 @@ VxlanRoutingState::VxlanRoutingState(VxlanRoutingManager *mgr,
     evpn_id_ = evpn_table_->
         Register(boost::bind(&VxlanRoutingManager::RouteNotify,
                              mgr, _1, _2));
+    if (vrf->vn() && (vrf->vn()->vxlan_routing_vn() == false)) {
+        is_bridge_vrf_ = true;
+    }
 }
 
 VxlanRoutingState::~VxlanRoutingState() {
@@ -512,6 +515,7 @@ void VxlanRoutingManager::VrfNotify(DBTablePartBase *partition,
                              GetState(partition->parent(), vrf_listener_id_));
     if (vrf->IsDeleted()) {
         if (state) {
+            HandleDefaultRoute(vrf, state->is_bridge_vrf_);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
             delete state;
         }
@@ -522,9 +526,12 @@ void VxlanRoutingManager::VrfNotify(DBTablePartBase *partition,
             state = new VxlanRoutingState(this, vrf);
             vrf->SetState(partition->parent(), vrf_listener_id_, state);
         }
+        if (vrf->vn() && vrf->vn()->vxlan_routing_vn()) {
+            vrf->set_routing_vrf(true);
+        }
     }
 
-    HandleDefaultRoute(vrf);
+    HandleDefaultRoute(vrf, state->is_bridge_vrf_);
 }
 
 void VxlanRoutingManager::VmiNotify(DBTablePartBase *partition,
@@ -821,7 +828,7 @@ bool VxlanRoutingManager::RouteNotify(DBTablePartBase *partition,
     return true;
 }
 
-void VxlanRoutingManager::HandleDefaultRoute(const VrfEntry *vrf) {
+void VxlanRoutingManager::HandleDefaultRoute(const VrfEntry *vrf, bool bridge_vrf) {
     if (vrf->vn() && (vrf->vn()->vxlan_routing_vn() == false)) {
         const VrfEntry *routing_vrf =
             vrf_mapper_.GetRoutingVrfUsingVn(vrf->vn());
@@ -829,6 +836,10 @@ void VxlanRoutingManager::HandleDefaultRoute(const VrfEntry *vrf) {
             DeleteDefaultRoute(vrf);
         } else {
             UpdateDefaultRoute(vrf, routing_vrf);
+        }
+    } else if (bridge_vrf) {
+        if (vrf->IsDeleted()) {
+            DeleteDefaultRoute(vrf);
         }
     }
 }
