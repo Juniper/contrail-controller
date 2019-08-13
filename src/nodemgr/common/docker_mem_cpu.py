@@ -1,7 +1,11 @@
+from __future__ import division
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import hex
+from builtins import object
+from past.utils import old_div
 import os
 import docker
 
@@ -45,9 +49,9 @@ class DockerMemCpuUsageData(object):
         self.last_time = current_time
 
         if interval_time > 0:
-            sys_percent = 100 * sys_time / interval_time
-            usr_percent = 100 * usr_time / interval_time
-            cpu_share = round((sys_percent + usr_percent) / cpu_count, 2)
+            sys_percent = old_div(100 * sys_time, interval_time)
+            usr_percent = old_div(100 * usr_time, interval_time)
+            cpu_share = round(old_div((sys_percent + usr_percent), cpu_count), 2)
             return cpu_share
 
         return 0
@@ -58,6 +62,6 @@ class DockerMemCpuUsageData(object):
         mem_stats = stats['memory_stats']
         process_mem_cpu = ProcessCpuInfo()
         process_mem_cpu.cpu_share = self._get_process_cpu_share(cpu_stats)
-        process_mem_cpu.mem_virt = mem_stats.get('usage', 0) / 1024
-        process_mem_cpu.mem_res = mem_stats.get('stats', dict()).get('rss', 0) / 1024
+        process_mem_cpu.mem_virt = old_div(mem_stats.get('usage', 0), 1024)
+        process_mem_cpu.mem_res = old_div(mem_stats.get('stats', dict()).get('rss', 0), 1024)
         return process_mem_cpu

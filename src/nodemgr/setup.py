@@ -10,6 +10,8 @@ setup(
     install_requires=[
         'pyyaml',
         'psutil>=0.6.0,!=5.5.0,!=5.5.1',
+        'future',
+        'configparser',
     ],
     packages=['nodemgr',
               'nodemgr.analytics_nodemgr',
