@@ -1,4 +1,10 @@
+from __future__ import division
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.#
+from builtins import next
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 from gevent import monkey
 monkey.patch_all()
 
@@ -144,7 +150,7 @@ class CassandraManager(object):
                 event_mgr.fail_status_bits &= ~event_mgr.FAIL_STATUS_DISK_SPACE_NA
 
                 disk_space = int(total_disk_space_used) + int(total_disk_space_available)
-                if (disk_space / (1024 * 1024) < self.minimum_diskgb):
+                if (old_div(disk_space, (1024 * 1024)) < self.minimum_diskgb):
                     # TODO: here was a call that stops cassandra's service
                     event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE
 

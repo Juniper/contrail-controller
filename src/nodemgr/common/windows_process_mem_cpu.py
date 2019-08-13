@@ -1,7 +1,10 @@
+from __future__ import division
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
+from past.utils import old_div
 import psutil
 import time
 
@@ -27,8 +30,8 @@ class WindowsProcessMemCpuUsageData(object):
         self.last_time = current_time
 
         if interval_time > 0:
-            usage_percent = 100 * usage_time / interval_time
-            cpu_share = round(usage_percent / psutil.cpu_count(), 2)
+            usage_percent = old_div(100 * usage_time, interval_time)
+            cpu_share = round(old_div(usage_percent, psutil.cpu_count()), 2)
             return cpu_share
         else:
             return 0
@@ -37,6 +40,6 @@ class WindowsProcessMemCpuUsageData(object):
         process_mem_cpu = ProcessCpuInfo()
         p = psutil.Process(self.pid)
         process_mem_cpu.cpu_share = self._get_process_cpu_share(p.cpu_times())
-        process_mem_cpu.mem_virt = p.memory_info().vms / 1024
-        process_mem_cpu.mem_res = p.memory_info().rss / 1024
+        process_mem_cpu.mem_virt = old_div(p.memory_info().vms, 1024)
+        process_mem_cpu.mem_res = old_div(p.memory_info().rss, 1024)
         return process_mem_cpu
