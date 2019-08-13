@@ -2,11 +2,15 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+from builtins import next
+from builtins import str
+from builtins import object
 import psutil
 import time
 
-import common_process_manager as cpm
-from windows_process_mem_cpu import WindowsProcessMemCpuUsageData
+from . import common_process_manager as cpm
+from .windows_process_mem_cpu import WindowsProcessMemCpuUsageData
 
 
 def _get_process_by_name(name):
