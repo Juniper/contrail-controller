@@ -2,6 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
 def dummy_process_info(name):
     info = dict()
     info['name'] = name
