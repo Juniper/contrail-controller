@@ -1,0 +1,51 @@
+{%- macro create_dict(item, parent, create_payload_list) %}
+{%-      set new_dict = {} %}
+{%-      set x=new_dict.__setitem__("module", item.get('name') if item.get('name') else "") %}
+{%-      set x=new_dict.__setitem__("model", item.get('model') if item.get('model') else "") %}
+{%-      set x=new_dict.__setitem__("model_number", item.get('model-number') if item.get('model-number') else "") %}
+{%-      set x=new_dict.__setitem__("part_number", item.get('part-number')if item.get('part-number') else "") %}
+{%-      set x=new_dict.__setitem__("version", item.get('version')if item.get('version') else "") %}
+{%-      set x=new_dict.__setitem__("serial_number", item.get('serial-number')if item.get('serial-number') else "") %}
+{%-      set x=new_dict.__setitem__("description", item.get('description')if item.get('description') else "") %}
+{%-      set x=new_dict.__setitem__("parent_module", parent) %}
+{{hardware_inventory_payload.append(new_dict)}}
+{%- endmacro %}
+
+{%- if device_info is defined and device_info != None %}
+{%-     set hardware_inventory_payload = [] %}
+{%-     if device_info.chassis is defined and device_info.chassis != None %}
+{%-         set chassis_info = device_info.chassis %}
+{%-         if chassis_info is mapping %}
+{%-             set chassis_info = [chassis_info] %}
+{%-         endif %}
+{%-         for item in chassis_info %}
+{{ create_dict(item, "", create_payload_list) }}
+{%-             if item.get('chassis-module') is defined and item.get('chassis-module') != None %}
+{%-                 set chassis_module = item.get('chassis-module') %}
+{%-                 if chassis_module is mapping %}
+{%-                     set chassis_module = [chassis_module] %}
+{%-                 endif %}
+{%-                 for chassis_module_item in chassis_module %}
+{{ create_dict(chassis_module_item, item.name, create_payload_list) }}
+{%-                     if chassis_module_item.get('chassis-sub-module') is
+defined and chassis_module_item.get('chassis-sub-module') != None %}
+{%-                         set chassis_sub_module = chassis_module_item.get
+('chassis-sub-module') %}
+{%-                        for chassis_sub_module_item in chassis_sub_module %}
+{{ create_dict(chassis_sub_module_item, chassis_module_item.name, create_payload_list) }}
+{%-                             if chassis_sub_module_item.get
+('chassis-sub-sub-module') is defined and chassis_sub_module_item.get('chassis-sub-sub-module') !=None %}
+{%-                                 set chassis_sub_sub_module =
+chassis_sub_module_item.get('chassis-sub-sub-module') %}
+{%-                                  for ultra_item in chassis_sub_sub_module %}
+{{ create_dict(ultra_item, chassis_sub_module_item.name, create_payload_list) }}
+{%-                                  endfor -%}
+{%-                             endif %}
+{%-                         endfor -%}
+{%-                     endif %}
+{%-                 endfor -%}
+{%-             endif %}
+{%-         endfor -%}
+{%-     endif %}
+{%- endif %}
+{{hardware_inventory_payload}}

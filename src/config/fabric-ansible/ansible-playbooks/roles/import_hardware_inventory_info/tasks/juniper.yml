@@ -1,0 +1,20 @@
+- import_role:
+    name: Juniper.junos
+
+- name: READ INVENTORY INFO
+  juniper_junos_command:
+    commands:
+      - show chassis hardware
+    display: xml
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: 30
+  register: execute_command_resp
+
+- set_fact:
+    device_info: "{{execute_command_resp.parsed_output.get('chassis-inventory')}}"
+
+- debug: var=device_info verbosity=1
