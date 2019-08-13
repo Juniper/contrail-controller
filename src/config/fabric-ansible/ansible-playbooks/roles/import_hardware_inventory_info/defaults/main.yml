@@ -1,0 +1,9 @@
+---
+# defaults file for import_hardware_inventory_info
+percent_init_dict: { 'total_task_count':1, 'task_weightage_array':[100] }
+device_info: {}
+output: {
+              "status": "Success",
+              "message": "Hardware inventory import for device: {{prouter_name}} successful"
+        }
+
