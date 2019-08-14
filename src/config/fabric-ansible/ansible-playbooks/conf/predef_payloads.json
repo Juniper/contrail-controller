@@ -1986,7 +1986,7 @@
     },
     {
       "from_type": "node-profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-erb-only" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-32c" ]
     },
