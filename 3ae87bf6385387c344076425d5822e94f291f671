@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7b75dcf5_7346261f",
+        "filename": "src/config/utils/provision_control.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-08-14T03:35:54Z",
+      "side": 1,
+      "message": "Just so you know, enable_4byte_as would never be NoneType since `store_true` would set it to `True` if set otherwise default value is `False`. However its just a no-op.\n\n```\nroot@5b12s10-node2:~# python test.py\nvalue of reset is False\nroot@5b12s10-node2:~# python test.py --reset\nvalue of reset is True\n```",
+      "revId": "3ae87bf6385387c344076425d5822e94f291f671",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
