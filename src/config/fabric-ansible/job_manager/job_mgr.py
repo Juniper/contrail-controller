@@ -143,8 +143,11 @@ class ExecutableManager(object):
                 try:
                     exec_process = subprocess32.Popen([exec_path,
                                                    "--job-input",
-                                                   json.dumps(job_input_args)],
-                                                  close_fds=True, cwd='/')
+                                                   json.dumps(job_input_args),
+                                                   '--debug', 'True'],
+                                                  close_fds=True, cwd='/',
+                                                  stdout=subprocess32.PIPE,
+                                                  stderr=subprocess32.PIPE)
                     self.job_file_write.write_to_file(
                         self.job_execution_id,
                         "job_summary",
@@ -152,8 +155,10 @@ class ExecutableManager(object):
                         {"job_status": "INPROGRESS"})
                     msg = "Child process pid = " + str(exec_process.pid)
                     self._logger.info(msg)
-                    exec_process.wait(timeout=self.executable_timeout)
+                    (out, err) = exec_process.communicate(timeout=self.executable_timeout)
 
+                    self._logger.notice(str(out))
+                    self._logger.notice(str(err))
                 except subprocess32.TimeoutExpired as timeout_exp:
                     if exec_process is not None:
                         os.kill(exec_process.pid, 9)
@@ -165,11 +170,6 @@ class ExecutableManager(object):
 
                 self._logger.info(exec_process.returncode)
                 self._logger.info("Executable Completed")
-                self.job_file_write.write_to_file(
-                        self.job_execution_id,
-                        "job_summary",
-                        JobFileWrite.JOB_LOG,
-                        {"job_status": "COMPLETED"})
                 if exec_process.returncode != 0:
                      self.job_file_write.write_to_file(
                          self.job_execution_id,
@@ -179,8 +179,13 @@ class ExecutableManager(object):
                      msg = MsgBundle.getMessage(MsgBundle.
                                    EXECUTABLE_RETURN_WITH_ERROR,
                                    exec_uri=exec_path)
-
-                     raise JobException(msg, self.job_execution_id)
+                     self._logger.error(msg)
+                else:
+                    self.job_file_write.write_to_file(
+                        self.job_execution_id,
+                        "job_summary",
+                        JobFileWrite.JOB_LOG,
+                        {"job_status": "COMPLETED"})
 
 
         except JobException as exp:
