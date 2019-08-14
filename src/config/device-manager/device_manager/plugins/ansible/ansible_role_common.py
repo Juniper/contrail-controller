@@ -191,10 +191,18 @@ class AnsibleRoleCommon(AnsibleConf):
         highest_encapsulation = encapsulation_priorities[0]
 
         ri = RoutingInstance(name=ri_name)
+
         if vn:
             is_nat = True if fip_map else False
             ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat,
                                                  router_external))
+            if is_internal_vn:
+                lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
+                    ri_name)
+                lr = LogicalRouterDM.get(lr_uuid)
+                if lr:
+                    ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
+
         self.ri_map[ri_name] = ri
 
         ri.set_virtual_network_id(str(network_id))
@@ -228,6 +236,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
         if is_internal_vn:
             self.internal_vn_ris.append(ri)
+
 
         if is_internal_vn or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
@@ -327,6 +336,8 @@ class AnsibleRoleCommon(AnsibleConf):
             if highest_encapsulation == "VXLAN":
                 vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
                 vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
+                desc = "Virtual Network - %s" % vn.name
+                vlan.set_description(desc)
                 self.vlan_map[vlan.get_name()] = vlan
                 for interface in interfaces:
                     self.add_ref_to_list(vlan.get_interfaces(), interface.name)
@@ -556,12 +567,21 @@ class AnsibleRoleCommon(AnsibleConf):
                     else:
                         ae_link_members[ae_intf_name] = []
                         ae_link_members[ae_intf_name].append(pi.name)
+                else:
+                    pi_obj = PhysicalInterfaceDM.get(pi_uuid)
+                    if pi_obj:
+                        lag = LinkAggrGroup(description="Virtual Port Group : %s" %
+                                                        vpg_obj.name)
+                        intf, _ = self.set_default_pi(pi_obj.name, 'regular')
+                        intf.set_link_aggregation_group(lag)
 
             for ae_intf_name, link_members in ae_link_members.iteritems():
                 self._logger.info("LAG obj_uuid: %s, link_members: %s, name: %s" %
                                   (vpg_uuid, link_members, ae_intf_name))
                 lag = LinkAggrGroup(lacp_enabled=True,
-                                    link_members=link_members)
+                                    link_members=link_members,
+                                    description="Virtual Port Group : %s" %
+                                                vpg_obj.name)
                 intf, _ = self.set_default_pi(ae_intf_name, 'lag')
                 intf.set_link_aggregation_group(lag)
                 intf.set_comment("ae interface")
@@ -896,6 +916,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
             export_set = None
             import_set = None
+
             for ri_id in vn_obj.routing_instances:
                 # Find the primary RI by matching the name
                 ri_obj = RoutingInstanceDM.get(ri_id)
@@ -1021,6 +1042,7 @@ class AnsibleRoleCommon(AnsibleConf):
         #left vrf
         vn_obj = VirtualNetworkDM.get(left_vrf_info.get('vn_id'))
         if vn_obj:
+
             vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
                                              vn_obj.vn_network_id, 'l3')
 

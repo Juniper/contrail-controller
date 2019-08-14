@@ -26,6 +26,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-dat
 {%     for vlan in device_abstract_config.get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id', '') %}
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
 {%         for irb_int in vlan.get('interfaces', []) %}
 {%             set int_name = irb_int.get('name') %}
 {%             if 'irb' not in int_name %}

@@ -176,6 +176,7 @@
     <xsd:all>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="description" type="xsd:string"/>
        <xsd:element name="virtual-network-uuid" type="xsd:string"/>
        <xsd:element name="virtual-network-id" type="xsd:string"/>
        <xsd:element name="virtual-network-mode" type="xsd:string"/>
@@ -235,6 +236,7 @@
 <xsd:complexType name="Vlan">
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="description" type="xsd:string"/>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="vlan-id" type="xsd:integer"/>
        <xsd:element name="vxlan-id" type="xsd:integer"/>
@@ -271,6 +273,7 @@
        <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="lacp-enabled" type="xsd:boolean"/>
        <xsd:element name="link-members" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="description" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
