@@ -26,6 +26,7 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:01:00:01
 {%     for vlan in device_abstract_config.features.get('l3-gateway').get('vlans', []) %}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
 {%         for intf in vlan.get('interfaces', []) %}
 {%             set int_name = intf.get('name') %}
 set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
