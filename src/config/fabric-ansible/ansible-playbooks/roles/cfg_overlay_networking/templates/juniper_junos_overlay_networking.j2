@@ -1,3 +1,4 @@
+{%     set ns = namespace(public_network='') %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') == 'irb' %}
 set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
@@ -115,6 +116,7 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 set groups {{cfg_group}} policy-options policy-statement {{l3_vrf_export}} term t1 then accept
 {%                     endif %}
 {%                     if ('l3' in ri_vn_mode) and ('l3' in ri.name) and (ri.get('is_public_network') == true)  %}
+{%                         set ns.public_network = true %}
 {%                         set contrail_l3_ri = ri.name %}
 {%                         set vn_id  = ri.get('virtual_network_id')  %}
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
@@ -127,10 +129,12 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%                             endif %}
 {%                         endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vn_id}} then routing-instance {{contrail_l3_ri}}
-set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route 0.0.0.0/0 next-table inet.0
 {%                     endif %}
 {%                 endfor %}
+{%                 if ns.public_network == true %}
+set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
+{%                 endif %}
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
