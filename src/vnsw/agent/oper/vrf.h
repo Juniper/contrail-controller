@@ -207,6 +207,8 @@ public:
     }
     int rd() const {return rd_;}
     void set_rd(int rd) {rd_ = rd;}
+    void set_routing_vrf(bool val) {routing_vrf_ = val;}
+    bool routing_vrf() {return routing_vrf_;}
 
 private:
     friend class VrfTable;
@@ -238,6 +240,7 @@ private:
     bool l2_;
     VrfEntryRef forwarding_vrf_;
     int rd_;
+    bool routing_vrf_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
