@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from datetime import datetime
 import sys
 import json
@@ -15,7 +16,7 @@ from cfgm_common.exceptions import NoIdError
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 from cfgm_common.tests import test_common
 import requests
-import test_case
+from . import test_case
 
 try:
     from neutron_lib import constants

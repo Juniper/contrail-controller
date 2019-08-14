@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import sys
 import json
 import uuid
@@ -16,7 +17,7 @@ from pysandesh.connection_info import ConnectionState
 from cfgm_common.tests import test_common
 from cfgm_common.tests import test_utils
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 
