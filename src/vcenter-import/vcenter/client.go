@@ -76,8 +76,9 @@ func (c *Client) DataCenterHostSystems(ctx context.Context, datacenter string) (
 		hosts := c.readESXIHosts(ctx, hss)
 		log.Debug("hosts ", hosts)
 		esxiHosts = append(esxiHosts, hosts...)
+		return esxiHosts, nil
 	}
-	return esxiHosts, nil
+	return nil, fmt.Errorf("DataCenter with name %s not found", datacenter)
 }
 
 // ESXIPort contains the vmnic details of ESXI-Host, read from vCenter
