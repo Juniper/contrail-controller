@@ -34,6 +34,24 @@
       "revId": "3ae87bf6385387c344076425d5822e94f291f671",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9f8c72ac_9fafabec",
+        "filename": "src/config/utils/provision_control.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-08-14T04:00:08Z",
+      "side": 1,
+      "message": "Didnt check the defaults settings below. Ignore my comment.",
+      "parentUuid": "4e454608_5cc53c47",
+      "revId": "3ae87bf6385387c344076425d5822e94f291f671",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
