@@ -18,7 +18,8 @@
         ],
         "scons_test_targets" : [
             "controller/src/vcenter-import:test"
-        ]
+        ],
+        "misc_test_targets" : [ ]
     },
     "contrail-config" : {
         "source_directories" : [
