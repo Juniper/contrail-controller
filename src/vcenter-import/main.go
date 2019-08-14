@@ -69,6 +69,7 @@ func main() {
 	if debugFlag {
 		log.SetLevel(log.DebugLevel)
 	}
+	log.SetOutput(os.Stdout)
 
 	cfg := &jobManagerCfg{}
 	err := json.Unmarshal([]byte(inputData), cfg)

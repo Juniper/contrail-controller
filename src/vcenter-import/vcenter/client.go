@@ -58,10 +58,12 @@ func (c *Client) DataCenterHostSystems(ctx context.Context, datacenter string) (
 		return nil, err
 	}
 	var esxiHosts []ESXIHost
+	dataCenterFound := false
 	for _, dc := range dcs {
 		if dc.Name != datacenter {
 			continue
 		}
+		dataCenterFound = true
 		log.Debug("Checking datacenter: ", dc.Name)
 		v, err := c.m.CreateContainerView(ctx, dc.Reference(), []string{"HostSystem"}, true)
 		if err != nil {
@@ -76,6 +78,9 @@ func (c *Client) DataCenterHostSystems(ctx context.Context, datacenter string) (
 		hosts := c.readESXIHosts(ctx, hss)
 		log.Debug("hosts ", hosts)
 		esxiHosts = append(esxiHosts, hosts...)
+	}
+	if !dataCenterFound {
+		return nil, fmt.Errorf("DataCenter with name %s not found", datacenter)
 	}
 	return esxiHosts, nil
 }
