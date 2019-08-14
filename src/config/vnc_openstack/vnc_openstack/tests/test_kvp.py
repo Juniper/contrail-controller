@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import sys
 import json
 import uuid
@@ -10,12 +11,12 @@ from testtools.matchers import Equals, Contains, Not
 from testtools import content, content_type
 
 from vnc_api.vnc_api import *
-import fake_neutron
+from . import fake_neutron
 import vnc_openstack
 
 from cfgm_common.tests import test_common
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 

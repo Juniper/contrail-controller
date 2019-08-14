@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import sys
 import json
 import uuid
@@ -9,7 +10,7 @@ import webtest.app
 
 from vnc_api.vnc_api import *
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 

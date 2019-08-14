@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
@@ -9,7 +10,7 @@ import ConfigParser
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
-from neutron_plugin_db import DBInterface
+from .neutron_plugin_db import DBInterface
 from cfgm_common.utils import CacheContainer
 
 @bottle.error(400)

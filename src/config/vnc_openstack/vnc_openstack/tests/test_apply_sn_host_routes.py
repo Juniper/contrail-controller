@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 import testscenarios
 import testtools
-import fake_neutron
+from . import fake_neutron
 
 from vnc_openstack.neutron_plugin_db import DBInterface
 

@@ -4,6 +4,7 @@
 """
 .. attention:: Fix the license string
 """
+from __future__ import absolute_import
 import sys
 import copy
 from collections import namedtuple
@@ -34,7 +35,7 @@ from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, UUID_PATTERN
 import vnc_openstack
 import vnc_cfg_api_server.context
-from context import get_context, use_context
+from .context import get_context, use_context
 import datetime
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import TagTypeIdToName

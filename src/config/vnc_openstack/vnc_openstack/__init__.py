@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -34,13 +35,13 @@ from vnc_api import vnc_api
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
-import neutron_plugin_interface as npi
-from context import use_context
-from neutron_plugin_db import DBInterface as npd
-from neutron_plugin_db import _NEUTRON_FWAAS_TAG_TYPE
-from neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME
-from neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME
-from neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME
+from . import neutron_plugin_interface as npi
+from .context import use_context
+from .neutron_plugin_db import DBInterface as npd
+from .neutron_plugin_db import _NEUTRON_FWAAS_TAG_TYPE
+from .neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_GROUP_POLICY_NAME
+from .neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV4_RULE_NAME
+from .neutron_plugin_db import _NEUTRON_FIREWALL_DEFAULT_IPV6_RULE_NAME
 
 Q_CREATE = 'create'
 Q_DELETE = 'delete'
