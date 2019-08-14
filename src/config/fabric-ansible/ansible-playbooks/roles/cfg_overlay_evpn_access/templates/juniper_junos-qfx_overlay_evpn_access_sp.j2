@@ -1,8 +1,11 @@
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') != 'irb' %}
+{%             set name = phy_int.get('name') %}
+{%             if phy_int.get('link_aggregation_group') %}
+set groups {{cfg_group}} interfaces {{name}} description "{{phy_int.get('link_aggregation_group').get('description')}}"
+{%             endif %}
 {%             for li in phy_int.get('logical_interfaces', []) %}
 {%                 if 'EVPN' in li.get('comment', '') %}
-{%                     set name = phy_int.get('name') %}
 {%                     set unit = li.get('unit') %}
 {%                     set vlan_id = li.get('vlan_tag') %}
 set groups {{cfg_group}} interfaces {{name}} mtu 9192
@@ -21,6 +24,7 @@ set groups {{cfg_group}} interfaces {{name}} native-vlan-id {{vlan_id}}
 {%         set vlan_name = vlan.get('name') %}
 {%         set vni = vlan.get('vxlan_id') %}
 {%         set intfs = vlan.get('interfaces',[]) %}
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
 {%         for each in intfs %}
 {%             set int_name = each.get('name', '') %}
 {%             if 'irb' in int_name %}

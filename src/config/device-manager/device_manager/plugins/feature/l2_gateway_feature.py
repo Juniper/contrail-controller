@@ -49,6 +49,8 @@ class L2GatewayFeature(FeatureBase):
             vlan = Vlan(name=DMUtils.make_bridge_name(vxlan_id),
                         vxlan_id=vxlan_id)
             vlan.set_comment(DMUtils.vn_bd_comment(vn, 'VXLAN'))
+            desc = "Virtual Network - %s" % vn.name
+            vlan.set_description(desc)
             feature_config.add_vlans(vlan)
             for interface in interfaces:
                 self._add_ref_to_list(vlan.get_interfaces(), interface.li_name)

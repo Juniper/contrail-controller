@@ -79,7 +79,7 @@ class VnInterconnectFeature(FeatureBase):
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
         ri = RoutingInstance(
-            name=ri_name, virtual_network_mode='l3',
+            name=ri_name, description=ri_name, virtual_network_mode='l3',
             export_targets=export_targets, import_targets=import_targets,
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
             is_public_network=vn.router_external, routing_instance_type='vrf',
@@ -109,8 +109,10 @@ class VnInterconnectFeature(FeatureBase):
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
                 continue
-            ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                            vn_obj.vn_network_id, 'l3')
+
+            lr_obj = db.LogicalRouterDM.get(vn_obj.logical_router)
+            ri_name = "__contrail_%s_%s" % (lr_obj.name, vn_obj.logical_router)
+
             export_targets, import_targets = self._get_export_import_targets(
                 vn_obj, ri_obj)
 
