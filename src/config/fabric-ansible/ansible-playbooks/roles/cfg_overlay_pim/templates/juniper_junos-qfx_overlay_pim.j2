@@ -1,9 +1,15 @@
 {% for ri in device_abstract_config.get('routing_instances', []) %}
+{%     set ns = namespace(name='') %}
+{%     if ri.get('description', '') %}
+{%         set ns.name = ri.get('description') %}
+{%     else %}
+{%         set ns.name = ri.get('name') %}
+{%     endif %}
 {%     for protocol in ri.get('protocols', []) %}
 {%         for pim in protocol.get('pim', []) %}
 {%             if 'PNF-Service-Chaining' in pim.get('comment','') %}
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim rp static address {{pim.rp.ip_address}}
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface all distributed-dr
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim rp static address {{pim.rp.ip_address}}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim interface all distributed-dr
 {%             endif %}
 {%         endfor %}
 {%     endfor %}

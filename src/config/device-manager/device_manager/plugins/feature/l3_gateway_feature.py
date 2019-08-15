@@ -51,7 +51,10 @@ class L3GatewayFeature(FeatureBase):
                                          network_id)
             for (irb_ip, gateway) in irb_ips:
                 self._add_ip_address(irb, irb_ip, gateway=gateway)
+
         vlan = Vlan(name=DMUtils.make_bridge_name(vxlan_id), vxlan_id=vxlan_id)
+        desc = "Virtual Network - %s" % vn.name
+        vlan.set_description(desc)
         feature_config.add_vlans(vlan)
         self._add_ref_to_list(vlan.get_interfaces(), irb.get_name())
 
