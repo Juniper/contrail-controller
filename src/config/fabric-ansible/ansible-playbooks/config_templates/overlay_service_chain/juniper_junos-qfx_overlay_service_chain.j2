@@ -1,0 +1,130 @@
+{# Config for the configuring eBGP on a /29 subnet on QFX routing instances as endpoint to SRX #}
+{% for ri in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) %}
+{%     set ns = namespace(name='') %}
+{%     if ri.get('description', '') %}
+{%         set ns.name = ri.get('description') %}
+{%     else %}
+{%         set ns.name = ri.get('name') %}
+{%     endif %}
+{%     for protocol in ri.get('protocols', []) %}
+{%         for bgp in protocol.get('bgp', []) %}
+{%             set sys_config = device_abstract_config.get('system', None) %}
+{%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%             if 'PNF-Servicechain' in sys_roles %}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols evpn ip-prefix-routes export PL-ITR-DEFAULT
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT term DEFAULT-ITR1 from protocol bgp
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT term DEFAULT-ITR1 from route-filter 0.0.0.0/0 exact
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT term DEFAULT-ITR1 then accept
+set groups {{cfg_group}} policy-options policy-statement PL-ITR-DEFAULT then reject
+{%             endif %}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} export {{bgp.name}}-export
+{%                 for peer in bgp.peers %}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
+{%                 endfor %}
+set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term DIRECT from protocol direct
+set groups {{cfg_group}} policy-options policy-statement {{bgp.name}}-export term DIRECT then accept
+{%         endfor %}
+{%     endfor %}
+{%     set vxlan_id = ri.get('vxlan_id', '') %}
+{%     if (vxlan_id != '') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
+{%         for export_target in ri.get('export_targets', []) %}
+set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target | rtfilter}}
+{%         endfor %}{# for export targets #}
+{%     endif %}{# if virtual-switch #}
+{%     if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%         set name = ri.get('description') %}
+{%         for intf in ri.get('routing_interfaces', []) %}
+{%             set irb_name = intf.get('name') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface {{irb_name}} family inet
+set groups {{cfg_group}} routing-instances {{name}} protocols pim interface {{irb_name}} mode sparse-dense
+{%             for irb_int in ri.get('routing_interfaces', []) %}
+{%                 set irb_name = irb_int.get('name') %}
+set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
+{%             endfor %}
+{%         endfor %}{# for intf in ri #}
+{%     endif %}{# if vn is internal #}
+{% endfor %}{# for device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) #}
+
+{# Config for PIM #}
+{% for ri in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) %}
+{%     set ns = namespace(name='') %}
+{%     if ri.get('description', '') %}
+{%         set ns.name = ri.get('description') %}
+{%     else %}
+{%         set ns.name = ri.get('name') %}
+{%     endif %}
+{%     for protocol in ri.get('protocols', []) %}
+{%         for pim in protocol.get('pim', []) %}
+{%             if 'PNF-Service-Chaining' in pim.get('comment','') %}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim rp static address {{pim.rp.ip_address}}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim interface all distributed-dr
+{%             endif %}{# if PNF-Service-Chaining #}
+{%         endfor %}{# ri.protocols.get('pim',[]) #}
+{%     endfor %}{# if pim #}
+{% endfor %}{# for device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('routing_instances', []) #}
+
+{# Config for vlans #}
+{%     for vlan in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vni = vlan.get('vxlan_id', '') %}
+{%         for irb_int in vlan.get('interfaces', []) %}
+{%             set int_name = irb_int.get('name') %}
+{%             if 'irb' in int_name %}
+set groups {{cfg_group}} vlans {{vlan_name}} l3-interface {{int_name}}
+{%             endif %}
+{%         endfor %}
+{%         if vlan.get('comment','') == 'PNF-Service-Chaining' %}
+{%             set vlan_id = vlan.get('vlan_id') %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%         elif device_model.startswith('qfx51') %}
+{%             set vlan_id = vlan.get('vxlan_id', '') %}
+{%             if vlan_id != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id {{vlan_id}}
+{%             endif %}
+{%         else %}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+{%         endif %}
+{%         if vni != '' %}
+set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+{%         endif %}
+{%     endfor %}
+
+{# Config for irb #}
+{% for phy_int in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('physical_interfaces',[]) %}
+{%         if phy_int.get('interface_type') == 'irb' %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 set unit = li.get('unit') %}
+{%                 for ip_addr in li.get('ip_addresses', []) %}
+{%                     set address = ip_addr.get('address') %}
+{%                     set family = ip_addr.get('family', 'inet') %}
+{%                     set gw = ip_addr.get('gateway', '') %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
+{%                     if family == 'inet' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                     elif family == 'inet6' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+{%                     endif %}
+{%                     if gw != '' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
+{%                     endif %}
+{%                 endfor %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
+{%             endfor %}
+{%         endif %}
+{% endfor%}
+
+{# Config for the interfaces of QFX to be in trunk mode #}
+{% for phy_int in device_abstract_config.get('features', {}).get('pnf-service-chaining', {}).get('physical_interfaces',[]) %}
+{%    for li in phy_int.get('logical_interfaces',[]) %}
+{%        if li.get('comment','') == 'PNF-Service-Chaining' %}
+set groups {{cfg_group}} interfaces {{phy_int.get('name')}} unit {{li.get('unit')}} family {{li.get('family')}} interface-mode trunk
+{%            for vlan in li.get('vlans',[]) %}
+set groups {{cfg_group}} interfaces {{phy_int.get('name')}} unit {{li.get('unit')}} family {{li.get('family')}} vlan members {{vlan.get('name')}}
+{%            endfor %}
+{%        endif %}
+{%    endfor %}
+{% endfor %}
