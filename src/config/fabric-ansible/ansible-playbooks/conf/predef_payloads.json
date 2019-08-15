@@ -1535,6 +1535,14 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "juniper-qfx5120", "basic"
+          ],
+          "name": "basic",
+          "parent_type": "node-profile",
+          "role_config_config": "{\"snmp\": {\"communities\": [{\"readonly\": true, \"name\": \"public\"}]}}"
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "juniper-qfx10k-lean", "basic"
           ],
           "name": "basic",
@@ -2026,7 +2034,7 @@
     },
     {
       "from_type": "node-profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx5k-erb-only" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx5120-32c" ]
     },
@@ -2237,6 +2245,12 @@
     {
       "from_type": "node-profile",
       "from_fq_name": [ "default-global-system-config", "juniper-qfx5k" ],
+      "to_type": "job_template",
+      "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "node-profile",
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx5120" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
     },
