@@ -52,7 +52,7 @@ class VncKombuClientBase(object):
         self._subscribe_cb = subscribe_cb
         self._logger = logger
         self._publish_queue = Queue()
-        self._conn_lock = Semaphore()
+        self._running = False
         self._heartbeat_seconds = heartbeat_seconds
 
         self.obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
@@ -73,57 +73,63 @@ class VncKombuClientBase(object):
         # override this method
         return
 
-    def _reconnect(self, delete_old_q=False):
-        if self._conn_lock.locked():
-            # either connection-monitor or publisher should have taken
-            # the lock. The one who acquired the lock would re-establish
-            # the connection and releases the lock, so the other one can
-            # just wait on the lock, till it gets released
-            self._conn_lock.wait()
-            if self._conn_state == ConnectionStatus.UP:
-                return
+    def _reconnect_drain(self, delete_old_q=False):
+        msg = "RabbitMQ drainer connection down"
+        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+        self._update_sandesh_status(ConnectionStatus.DOWN)
+        self._conn_state = ConnectionStatus.DOWN
 
-        with self._conn_lock:
-            msg = "RabbitMQ connection down"
-            self._logger(msg, level=SandeshLevel.SYS_NOTICE)
-            self._update_sandesh_status(ConnectionStatus.DOWN)
-            self._conn_state = ConnectionStatus.DOWN
+        self._conn_drain.close()
 
-            self._conn.close()
+        self._conn_drain.ensure_connection()
+        self._conn_drain.connect()
 
-            self._conn.ensure_connection()
-            self._conn.connect()
+        self._update_sandesh_status(ConnectionStatus.UP)
+        self._conn_state = ConnectionStatus.UP
+        msg = 'RabbitMQ drainer connection ESTABLISHED %s' % repr(self._conn_drain)
+        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
-            self._update_sandesh_status(ConnectionStatus.UP)
-            self._conn_state = ConnectionStatus.UP
-            msg = 'RabbitMQ connection ESTABLISHED %s' % repr(self._conn)
-            self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+        self._channel_drain = self._conn_drain.channel()
+        if self._subscribe_cb is not None:
+            if delete_old_q:
+                # delete the old queue in first-connect context
+                # as db-resync would have caught up with history.
+                try:
+                    bound_q = self._update_queue_obj(self._channel_drain)
+                    bound_q.delete()
+                except Exception as e:
+                    msg = 'Unable to delete the old ampq queue: %s' %(str(e))
+                    self._logger(msg, level=SandeshLevel.SYS_ERR)
 
-            self._channel = self._conn.channel()
-            if self._subscribe_cb is not None:
-                if delete_old_q:
-                    # delete the old queue in first-connect context
-                    # as db-resync would have caught up with history.
-                    try:
-                        bound_q = self._update_queue_obj(self._channel)
-                        bound_q.delete()
-                    except Exception as e:
-                        msg = 'Unable to delete the old ampq queue: %s' %(str(e))
-                        self._logger(msg, level=SandeshLevel.SYS_ERR)
+            self._consumer = kombu.Consumer(self._channel_drain,
+                                            queues=self._update_queue_obj,
+                                            callbacks=[self._subscribe])
+    # end _reconnect_drain
 
-                self._consumer = kombu.Consumer(self._channel,
-                                               queues=self._update_queue_obj,
-                                               callbacks=[self._subscribe])
-            else: # only a producer
-                self._consumer = None
+    def _reconnect_publish(self):
+        msg = "RabbitMQ publish connection down"
+        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+        self._update_sandesh_status(ConnectionStatus.DOWN)
+        self._conn_state = ConnectionStatus.DOWN
 
-            self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
-    # end _reconnect
+        self._conn_publish.close()
+
+        self._conn_publish.ensure_connection()
+        self._conn_publish.connect()
+
+        self._update_sandesh_status(ConnectionStatus.UP)
+        self._conn_state = ConnectionStatus.UP
+        msg = 'RabbitMQ publish connection ESTABLISHED %s' % repr(self._conn_publish)
+        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
+
+        self._channel_publish = self._conn_publish.channel()
+        self._producer = kombu.Producer(self._channel_publish, exchange=self.obj_upd_exchange)
+    # end _reconnect_publish
 
     def _delete_queue(self):
         # delete the queue
         try:
-            bound_q = self._update_queue_obj(self._channel)
+            bound_q = self._update_queue_obj(self._channel_drain)
             if bound_q:
                 bound_q.delete()
         except Exception as e:
@@ -136,17 +142,17 @@ class VncKombuClientBase(object):
             self._reconnect()
 
         self.prepare_to_consume()
-        while True:
+        while self._running:
             try:
                 self._consumer.consume()
-                self._conn.drain_events()
-            except self._conn.connection_errors + self._conn.channel_errors as e:
-                self._reconnect()
+                self._conn_drain.drain_events()
+            except self._conn_drain.connection_errors + self._conn_drain.channel_errors as e:
+                self._reconnect_drain()
     # end _connection_watch
 
     def _connection_watch_forever(self):
         connected = True
-        while True:
+        while self._running:
             try:
                 self._connection_watch(connected)
             except Exception as e:
@@ -157,12 +163,12 @@ class VncKombuClientBase(object):
     # end _connection_watch_forever
 
     def _connection_heartbeat(self):
-        while True:
+        while self._running:
             try:
-                if self._conn.connected:
-                    self._conn.heartbeat_check()
+                if self._conn_drain.connected:
+                    self._conn_drain.heartbeat_check()
             except Exception as e:
-                msg = 'Error in rabbitmq heartbeat greenlet: %s' %(str(e))
+                msg = 'Error in rabbitmq heartbeat greenlet for drain: %s' %(str(e))
                 self._logger(msg, level=SandeshLevel.SYS_ERR)
             finally:
                 gevent.sleep(float(self._heartbeat_seconds/2))
@@ -170,29 +176,23 @@ class VncKombuClientBase(object):
 
     def _publisher(self):
         message = None
-        connected = True
-        while True:
+        while self._running:
             try:
-                if not connected:
-                    self._reconnect()
-                    connected = True
+                self._reconnect_publish()
 
-                if not message:
-                    # earlier was sent fine, dequeue one more
-                    message = self._publish_queue.get()
-
-                while True:
-                    try:
-                        self._producer.publish(message)
-                        message = None
-                        break
-                    except self._conn.connection_errors + self._conn.channel_errors as e:
-                        self._reconnect()
+                while self._running:
+                    if not message:
+                        # earlier was sent fine, dequeue one more
+                        message = self._publish_queue.get()
+                    self._producer.publish(message)
+                    message = None
+            except self._conn_publish.connection_errors + self._conn_publish.channel_errors as e:
+                # No need to print these errors in log
+                # Don't reconnect, it will be done as part of the outer for loop above
+                pass
             except Exception as e:
                 log_str = "Error in rabbitmq publisher greenlet: %s" %(str(e))
                 self._logger(log_str, level=SandeshLevel.SYS_ERR)
-                # avoid 'reconnect()' here as that itself might cause exception
-                connected = False
     # end _publisher
 
     def _subscribe(self, body, message):
@@ -203,7 +203,9 @@ class VncKombuClientBase(object):
 
 
     def _start(self, client_name):
-        self._reconnect(delete_old_q=True)
+        self._running = True
+        self._reconnect_drain(delete_old_q=True)
+        self._reconnect_publish()
 
         self._publisher_greenlet = vnc_greenlets.VncGreenlet(
                                                'Kombu ' + client_name,
@@ -225,13 +227,15 @@ class VncKombuClientBase(object):
         return ret
 
     def shutdown(self):
+        self._running = False
         self._publisher_greenlet.kill()
         self._connection_monitor_greenlet.kill()
         if self._connection_heartbeat_greenlet:
             self._connection_heartbeat_greenlet.kill()
         if self._consumer:
             self._delete_queue()
-        self._conn.close()
+        self._conn_drain.close()
+        self._conn_publish.close()
 
     def reset(self):
         self._publish_queue = Queue()
@@ -332,8 +336,12 @@ class VncKombuClientV2(VncKombuClientBase):
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
         self._update_sandesh_status(ConnectionStatus.INIT)
         self._conn_state = ConnectionStatus.INIT
-        self._conn = kombu.Connection(self._urls, ssl=self._ssl_params,
-                                      heartbeat=heartbeat_seconds)
+        self._conn_drain = kombu.Connection(self._urls, ssl=self._ssl_params,
+                                      heartbeat=heartbeat_seconds,
+                                      transport_options={'confirm_publish': True})
+        self._conn_publish = kombu.Connection(self._urls, ssl=self._ssl_params,
+                                      heartbeat=heartbeat_seconds,
+                                      transport_options={'confirm_publish': True})
         queue_args = {"x-ha-policy": "all"} if rabbit_ha_mode else None
         if q_name:
             self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
