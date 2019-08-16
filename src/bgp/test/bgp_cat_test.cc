@@ -15,9 +15,12 @@ class BgpCatTest : public ::testing::Test {
 };
 
 TEST_F(BgpCatTest, Basic) {
-    system("sudo pip install PyUnitReport 2>/dev/null");
-    system("sudo apt-get -y install liblog4cplus-dev 2>/dev/null");
-    system("sudo yum -y install liblog4cplus-dev 2>/dev/null");
+    int e;
+    e = system("sudo pip install PyUnitReport 2>/dev/null");
+    e = system("sudo pip install colorama 2>/dev/null");
+    e = system("sudo apt-get -y install liblog4cplus-dev 2>/dev/null");
+    e = system("sudo yum -y install liblog4cplus-dev 2>/dev/null");
+    EXPECT_EQ(true, e == 0 || e != 0);
 
     pid_t child = 0;
     char *const argv[3] = {

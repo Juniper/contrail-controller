@@ -46,13 +46,20 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fstream>
+#include "signal.h"
 #include "xmpp/xmpp_sandesh.h"
 
 using namespace std;
 using namespace autogen;
 using boost::assign::list_of;
 
+void sighup_cb_handler(int signum);
+
 #include "config-client-mgr/test/config_cassandra_client_partition_test.h"
+
+void sighup_cb_handler(int signum) {
+    cout << "In SIGHUP Handler function" << endl;
+}
 
 class BgpIfmapXmppIntegrationTest : public ::testing::Test {
  public:
@@ -191,6 +198,7 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         vnc_cfg_Server_ModuleInit(config_db_, config_graph_);
         bgp_schema_JsonParserInit(config_json_parser);
         bgp_schema_Server_ModuleInit(config_db_, config_graph_);
+        ifmap_server_->Initialize();
         // "overcloud-contrailcontroller-1" for att db.
         string self = "nodea27";
         if (getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_SELF_NAME"))
@@ -211,7 +219,7 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
 
         string h = boost::lexical_cast<string>(Sandesh::http_port());
         string ufile = dir + "/conf/" + boost::lexical_cast<string>(pid) +
-            ".txt";
+            ".json";
 
         int xmpp = 0, bgp = 0;
         xmpp = strtoul(getenv("CAT_XMPP_PORT") ?: "0", NULL, 0);
@@ -446,6 +454,7 @@ int main(int argc, char **argv) {
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
     BgpServerTest::GlobalSetUp();
+    signal(SIGHUP, sighup_cb_handler);
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
     ConfigFactory::Register<ConfigCassandraPartition>(
