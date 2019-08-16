@@ -4,6 +4,7 @@
 
 import docker
 import time
+import os
 
 from docker_mem_cpu import DockerMemCpuUsageData
 from sandesh_common.vns.ttypes import Module
@@ -88,8 +89,9 @@ class DockerProcessInfoManager(object):
 
     def _get_name_from_labels(self, container):
         labels = container.get('Labels', dict())
-        pod = labels.get('net.juniper.contrail.pod')
-        service = labels.get('net.juniper.contrail.service')
+        vendor_domain = os.getenv('VENDOR_DOMAIN', 'net.juniper.contrail')
+        pod = labels.get(vendor_domain + '.pod')
+        service = labels.get(vendor_domain + '.service')
 
         if not pod:
             # try to detect pod from Env.NODE_TYPE
@@ -109,7 +111,7 @@ class DockerProcessInfoManager(object):
         if pod and service:
             return pod + '-' + service
 
-        name = labels.get('net.juniper.contrail')
+        name = labels.get(vendor_domain)
         if not name:
             name = container.get('Name')
         return name

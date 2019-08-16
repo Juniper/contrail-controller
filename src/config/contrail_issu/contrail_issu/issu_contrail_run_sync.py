@@ -11,6 +11,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from issu_contrail_common import ICCassandraClient
 from issu_contrail_common import ICCassandraInfo
 import issu_contrail_config
+import os
 
 
 class ICAmqpInfo():
@@ -41,9 +42,10 @@ class ICKombuClient(VncKombuClient):
                                             q_name, subscribe_cb, logger)
 
     def _reinit_control(self):
+        vendor_domain = os.getenv('VENDOR_DOMAIN', 'net.juniper.contrail')
         cmd_cid = ('sudo docker ps'
-                   ' --filter "label=net.juniper.contrail.pod=control"'
-                   ' --filter "label=net.juniper.contrail.service=control"'
+                   ' --filter "label=' + vendor_domain + '.pod=control"'
+                   ' --filter "label=' + vendor_domain + '.service=control"'
                    ' -q')
         cmd_reinit = 'sudo docker kill --signal="SIGUSR1" {}'
 
