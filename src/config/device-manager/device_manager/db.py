@@ -2820,15 +2820,14 @@ class VirtualPortGroupDM(DBBaseDM):
             if self.uuid not in pr_obj.virtual_port_groups:
                 pr_obj.set_associated_lags(self.uuid)
 
-    def get_attached_sgs(self, vlan_tag):
+    def get_attached_sgs(self, vlan_tag, interface):
         sg_list = []
         for vmi_uuid in self.virtual_machine_interfaces:
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
             if not vmi_obj:
                 return sg_list
-            if vmi_obj.vlan_tag == \
-                int(vlan_tag) or (not vmi_obj.vlan_tag and
-                                  int(vlan_tag) == int(vmi_obj.port_vlan_tag)):
+            if self._check_if_correct_vmi_object(vmi_obj, interface,
+                                                 vlan_tag):
                 for sg in vmi_obj.security_groups or []:
                     sg = SecurityGroupDM.get(sg)
                     if sg and sg not in sg_list:
@@ -2839,6 +2838,12 @@ class VirtualPortGroupDM(DBBaseDM):
     def _check_if_correct_vmi_object(self, vmi_obj, interface,
                                      vlan_tag):
         vlan_tag_check = False
+        interface_pi_name = None
+
+        if 'ifd_name' in vars(interface):
+            interface_pi_name = interface.ifd_name
+        else:
+            interface_pi_name = interface.pi_name
 
         if interface.vlan_tag:
             if vmi_obj.vlan_tag == int(vlan_tag):
@@ -2856,10 +2861,10 @@ class VirtualPortGroupDM(DBBaseDM):
             )
             if pi_ae_interface_id is not None:
                 ae_intf_name = "ae" + str(pi_ae_interface_id)
-                if interface.pi_name == ae_intf_name:
+                if interface_pi_name == ae_intf_name:
                     return vlan_tag_check
 
-            elif interface.pi_name == pi_obj.name:
+            elif interface_pi_name == pi_obj.name:
                 return vlan_tag_check
 
         return False
