@@ -9,8 +9,20 @@ import itertools
 from functools import wraps
 import logging
 from cfgm_common import jsonutils as json
-from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
-from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
+try:
+    from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
+    from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
+except ImportError as err:
+    # must be older release, assigning old path
+    print "WARN: Ignoring ImportError (%s)" % err
+    BGP_RTGT_ALLOC_PATH_TYPE0 = '/id/bgp/route-targets'
+    BGP_RTGT_ALLOC_PATH_TYPE1_2 = '/id/bgp/route-targets'
+try:
+    from cfgm_common import get_bgp_rtgt_min_id
+except ImportError as err:
+    # must be older release, assigning default min ID
+    print "WARN: Ignoring ImportError (%s)" % err
+    get_bgp_rtgt_min_id = lambda _get_bgp_rtgt_min_id: 8000000
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 import argparse
@@ -38,12 +50,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.17"
+__version__ = "1.18"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.18
+  - v1.15 is not compatilible to older releases. Restore compatability
 * 1.17
   - Use cfgm_common.utils.decode_string to make obj_fq_name_str in same format
     as fq_name_str
@@ -110,8 +124,7 @@ except AttributeError:
     VN_ID_MIN_ALLOC = 1
 SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
 def _get_rt_id_min_alloc(asn):
-    return cfgm_common.get_bgp_rtgt_min_id(asn)
-
+    return get_bgp_rtgt_min_id(asn)
 
 def _parse_rt(rt):
     if isinstance(rt, basestring):
@@ -521,7 +534,8 @@ class DatabaseManager(object):
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         num_bad_rts = 0
         for id in self._zk_client.get_children(base_path) or []:
-            res_fq_name_str = self._zk_client.get(base_path + id)[0]
+            rt_zk_path = os.path.join(base_path, id)
+            res_fq_name_str = self._zk_client.get(rt_zk_path)[0]
             id = int(id)
             zk_set.add((id, res_fq_name_str))
             if id < _get_rt_id_min_alloc(self.global_asn):
