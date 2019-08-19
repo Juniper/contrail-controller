@@ -22,7 +22,7 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             ResourceBaseST._logger.error(
                 "Error while creating acl %s for %s: %s" %
                 (name, obj.get_fq_name_str(), str(e)))
-        except RequestSizeError as e:
+        except RequestSizeError:
             # log the error and raise an alarm
             ResourceBaseST._logger.error(
                 "Bottle request size error while creating acl %s for %s" %
@@ -58,7 +58,7 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             ResourceBaseST._logger.error(
                 "NoIdError while updating acl %s for %s" %
                 (name, obj.get_fq_name_str()))
-        except RequestSizeError as e:
+        except RequestSizeError:
             # log the error and raise an alarm
             ResourceBaseST._logger.error(
                 "Bottle request size error while creating acl %s for %s" %
