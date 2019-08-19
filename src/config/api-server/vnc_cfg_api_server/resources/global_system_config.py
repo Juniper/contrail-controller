@@ -202,7 +202,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             try:
                 ipam_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq)
             except NoIdError as e:
-                return (False, str(e))
+                return False, (e.status_code, e.content)
 
         api_server = cls.server
 
@@ -214,7 +214,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             try:
                 ok, ipam_obj = api_server.internal_request_create(
                     obj_type, json.loads(ipam_dict))
-            except HttpError:
+            except HttpError as e:
                 return False, (e.status_code, e.content)
 
             ipam_obj = ipam_obj.get(obj_type)

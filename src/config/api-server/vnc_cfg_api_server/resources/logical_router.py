@@ -544,7 +544,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             except HttpError as e:
                 if e.status_code != 404:
                     return False, (e.status_code, e.content), None
-            except NoIdError as e:
+            except NoIdError:
                 pass
 
             def undo_int_vn_delete():
