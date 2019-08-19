@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cbd2c23a_7e0a8dc5",
+        "filename": "src/vcenter-import/main.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 72,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-19T16:02:29Z",
+      "side": 1,
+      "message": "logs should default to stderr",
+      "revId": "3199d482eafac0093493830d7f84a56cd2539c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "927f04e6_f1d693b4",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 80,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-19T16:02:29Z",
+      "side": 1,
+      "message": "return esxiHosts, nil",
+      "revId": "3199d482eafac0093493830d7f84a56cd2539c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a7d10bc8_6168ad07",
+        "filename": "src/vcenter-import/vcenter/client.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 84,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-19T16:02:29Z",
+      "side": 1,
+      "message": "return nil, fmt.Errorf(\"DataCenter with name %s not found\", datacenter)",
+      "revId": "3199d482eafac0093493830d7f84a56cd2539c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
