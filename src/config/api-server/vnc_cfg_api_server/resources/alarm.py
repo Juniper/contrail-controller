@@ -4,6 +4,7 @@
 
 import json
 
+import six
 from vnc_api.gen.resource_common import Alarm
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
@@ -55,10 +56,11 @@ class AlarmServer(ResourceMixin, Alarm):
                                        "operation")
                                 return False, (400, msg)
                             val = json.loads(json_val)
+                            valid_types = (six.integer_types, float)
                             if not (isinstance(val, list) and
                                     len(val) == 2 and
-                                    isinstance(val[0], (int, long, float)) and
-                                    isinstance(val[1], (int, long, float)) and
+                                    isinstance(val[0], valid_types) and
+                                    isinstance(val[1], valid_types) and
                                     val[0] < val[1]):
                                 msg = ("Invalid json_value %s for 'range' "
                                        "operation. json_value should be "

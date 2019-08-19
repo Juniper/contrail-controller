@@ -7,6 +7,7 @@ from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common.exceptions import VncError
 from netaddr import AddrFormatError
 from netaddr import IPAddress
+import six
 from vnc_api.gen.resource_common import RouteTarget
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
@@ -17,7 +18,7 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
     @staticmethod
     def _parse_route_target_name(name):
         try:
-            if isinstance(name, basestring):
+            if isinstance(name, six.string_types):
                 prefix, asn, target = name.split(':')
             elif isinstance(name, list):
                 prefix, asn, target = name

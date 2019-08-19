@@ -515,6 +515,6 @@ class DeviceManager(object):
                                 collectors, len(collectors))
                         # Reconnect to achieve loadbalance irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
-                except ConfigParser.NoOptionError as _:
+                except ConfigParser.NoOptionError:
                     pass
     # end sighup_handler

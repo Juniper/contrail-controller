@@ -904,6 +904,7 @@ class PhysicalRouterDM(DBBaseDM):
                     }
 
                 ]
+
         """
         preference = 0
         static_routes = {}
