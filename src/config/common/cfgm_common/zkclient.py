@@ -22,61 +22,8 @@ import uuid
 import sys
 import socket
 
-from vnc_cfg_api_server import DatabaseManager
 
 LOG_DIR = '/var/log/contrail/'
-class IndexJSONAllocator(IndexAllocator):
-    def __init__(self, db_manager, path, size=0, start_idx=0, 
-            reverse=False, alloc_list=None, max_alloc=0):
-        self._size = size
-        self._start_idx = start_idx
-        if alloc_list is None:
-            self._alloc_list = [{'start': start_idx, 'end': start_idx+size}]
-        else:
-            sorted_alloc_list = sorted(alloc_list, key=lambda k: k['start'])
-            self._alloc_list = sorted_alloc_list
-
-        size = self._get_range_size(self._alloc_list)
-
-        if max_alloc == 0:
-            self._max_alloc = size
-        else:
-            self._max_alloc = max_alloc
-        
-        self._db_manager = db_manager
-        self._path = path
-        self._in_use = bitarray('0')
-        self._reverse = reverse
-        for idx in self._db_manager.zk_get_children(path):
-            idx_int = self._get_bit_from_zk_index(int(idx))
-            if idx_int >= 0:
-                self._set_in_use(self._in_use, idx_int)
-        # end for idx
-    # end __init__
-
-    # Override Implementation 
-    def alloc(self, value=None, pools=None):
-        if pools:
-            idx = self._alloc_from_pools(pools)
-        else:
-            # Allocates a index from the allocation list
-            if self._in_use.all():
-                idx = self._in_use.length()
-                if idx > self._max_alloc:
-                    raise ResourceExhaustionError()
-                self._in_use.append(1)
-            else:
-                idx = self._in_use.index(0)
-                self._in_use[idx] = 1
-
-        idx = self._get_zk_index_from_bit(idx)
-        try:
-            # Create a node at path and return its integer value
-            id_str = "%(#)010d" % {'#': idx}
-            self._zookeeper_client.create_node(self._path + id_str, value)
-            return idx
-        except ResourceExistsError:
-            return self.alloc(value, pools)
 
 class IndexAllocator(object):
 
@@ -675,3 +622,58 @@ class ZookeeperClient(object):
             identifier = '%s-%s' % (socket.getfqdn(self.host_ip),
                     os.getpid())
         return self._zk_client.WriteLock(path, identifier)
+
+
+""" Begin IndexJSONAllocator """
+class IndexJSONAllocator(IndexAllocator):
+    def __init__(self, db_manager, path, size=0, start_idx=0, 
+            reverse=False, alloc_list=None, max_alloc=0):
+        self._size = size
+        self._start_idx = start_idx
+        if alloc_list is None:
+            self._alloc_list = [{'start': start_idx, 'end': start_idx+size}]
+        else:
+            sorted_alloc_list = sorted(alloc_list, key=lambda k: k['start'])
+            self._alloc_list = sorted_alloc_list
+
+        size = self._get_range_size(self._alloc_list)
+
+        if max_alloc == 0:
+            self._max_alloc = size
+        else:
+            self._max_alloc = max_alloc
+        
+        self._db_manager = db_manager
+        self._path = path
+        self._in_use = bitarray('0')
+        self._reverse = reverse
+        for idx in self._db_manager.zk_get_children(path):
+            idx_int = self._get_bit_from_zk_index(int(idx))
+            if idx_int >= 0:
+                self._set_in_use(self._in_use, idx_int)
+        # end for idx
+    # end __init__
+
+    # Override Implementation 
+    def alloc(self, value=None, pools=None):
+        if pools:
+            idx = self._alloc_from_pools(pools)
+        else:
+            # Allocates a index from the allocation list
+            if self._in_use.all():
+                idx = self._in_use.length()
+                if idx > self._max_alloc:
+                    raise ResourceExhaustionError()
+                self._in_use.append(1)
+            else:
+                idx = self._in_use.index(0)
+                self._in_use[idx] = 1
+
+        idx = self._get_zk_index_from_bit(idx)
+        try:
+            # Create a node at path and return its integer value
+            id_str = "%(#)010d" % {'#': idx}
+            self._zookeeper_client.create_node(self._path + id_str, value)
+            return idx
+        except ResourceExistsError:
+            return self.alloc(value, pools)
