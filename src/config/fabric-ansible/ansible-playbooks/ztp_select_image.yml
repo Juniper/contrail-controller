@@ -14,7 +14,7 @@
     pr_product_name: "{{playbook_input.product_name}}"
     final_task_dict:
       total_task_count: 4
-      task_weightage_array: [5, 40, 45, 10]
+      task_weightage_array: [5, 45, 10, 10]
 
   tasks:
     - name: Include global variables
