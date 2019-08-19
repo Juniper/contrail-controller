@@ -25,6 +25,8 @@ class FilterModule(object):
             if not fpc.get('state') or fpc.get('state').lower() != 'online':
                 return False
             pic_slots = fpc.get('pic')
+            if pic_slots is None:
+                return False
             if isinstance(pic_slots, dict):
                 pic_slots = [pic_slots]
             for pic in pic_slots:
@@ -34,3 +36,4 @@ class FilterModule(object):
         return True
     # end is_juniper_device_online
 # end FilterModule
+

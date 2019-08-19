@@ -76,4 +76,13 @@
           {% else -%}
             Validating image version on device.
           {%- endif %}
+
+    - import_role:
+        name: wait_for_fpc_online
+
+    - name: Append job logs with percentage
+      include_tasks: percentage_update.yml
+      vars:
+        jl_message: "Fpc online for {{pr_vendor}} device, {{prouter_name}}"
+
   when: task_fail is not defined
