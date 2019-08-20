@@ -16,6 +16,24 @@
       "revId": "7a6a0ff68cbdf28472769bb3046cd445921837e0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ca9bcd46_411fe3a6",
+        "filename": "src/analytics/database/utils/contrail-cassandra-status.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-08-20T10:26:49Z",
+      "side": 1,
+      "message": "It is converted using future module automatically. It will be good to use.",
+      "parentUuid": "1724b8cf_9200c861",
+      "revId": "7a6a0ff68cbdf28472769bb3046cd445921837e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
