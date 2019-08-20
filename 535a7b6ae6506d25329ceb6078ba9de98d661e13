@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7ad1c727_0ae97e41",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 1
+      },
+      "lineNbr": 2073,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-08-20T04:10:23Z",
+      "side": 1,
+      "message": "If we make it similar to qfx10k, then it supports all roles effectively? Did we confirm if this can support CRB_GW functionality (without multicast)?",
+      "revId": "535a7b6ae6506d25329ceb6078ba9de98d661e13",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
