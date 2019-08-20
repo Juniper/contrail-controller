@@ -1418,6 +1418,15 @@ class FilterModule(object):
             vnc_api.physical_interface_delete(id=pi_uuid)
             _task_done()
 
+        # delete all the hardware items 
+        for hardware_item in list(device_obj.get_hardware_inventorys() or []):
+            hr_uuid = str(hardware_item.get('uuid'))
+            hr_obj = vnc_api.hardware_inventory_read(id=hr_uuid)
+            _task_log(
+                "Deleting the hardware inventory object %s" % (str(hr_obj.fq_name)))
+            vnc_api.hardware_inventory_delete(id=hr_uuid)
+            _task_done()
+
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
