@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
@@ -133,7 +134,7 @@ class TestIssu(test_case.STTestCase, VerifyPolicy):
         self.new_api_server_info = test_common.create_api_server_instance(
             self.id(), extra_config_knobs)
         self.new_api_server = self.new_api_server_info['api_server']
-        print "launched the 2nd api server"
+        print("launched the 2nd api server")
         self.new_api_server._db_conn._db_resync_done.wait()
 
         self._issu_rmq_greenlet = gevent.spawn(_issu_rmq_main)
@@ -149,7 +150,7 @@ class TestIssu(test_case.STTestCase, VerifyPolicy):
 
         ifmap_diff = set(_graph_v1.keys()) - set(_graph_v2.keys())
         if not ifmap_diff:
-            print "issu ut successful"
+            print("issu ut successful")
 
 #end class TestIssu
 
