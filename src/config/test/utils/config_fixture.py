@@ -22,7 +22,7 @@ pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
 sys.path.insert(
     0, os.path.realpath('build/debug/config_test/lib/python%s/site-packages/vnc_cfg_api_server'
                         % (pyver)))
-import vnc_cfg_api_server
+import vnc_api_server
 sys.path.insert(1, os.path.realpath(
     'build/debug/config_test/lib/python%s/site-packages/svc_monitor' % (pyver)))
 import svc_monitor
@@ -130,7 +130,7 @@ class ApiServer(object):
                 ' --ifmap_server_ip 127.0.0.1' +
                 ' --zk_server_ip 127.0.0.1:' + str(self._config_fixture.zoo.port) +
                 ' --cassandra_server_list 127.0.0.1:' + str(self._config_fixture.cassandra_port))
-        gevent.spawn(vnc_cfg_api_server.main, args)
+        gevent.spawn(vnc_api_server.main, args)
         self._logger.info('Setting up ApiServer: %s' % args)
     # end start
 
