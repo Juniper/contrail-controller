@@ -5,6 +5,7 @@
 """
 This file contains implementation of managing ironic notifications
 """
+from __future__ import absolute_import
 
 import gevent
 from gevent import monkey
@@ -41,7 +42,7 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
 from sandesh.ironic_notification_manager.ttypes import *
-from ironic_kombu import IronicKombuClient
+from .ironic_kombu import IronicKombuClient
 
 
 class IronicNotificationManager(object):
