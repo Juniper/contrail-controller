@@ -1,10 +1,11 @@
+from __future__ import absolute_import
 from svc_monitor.config_db import *
 from os.path import dirname, exists, join
 import logging
 import yaml
 
 try:
-    from custom_attributes.haproxy_validator \
+    from .custom_attributes.haproxy_validator \
         import validate_custom_attributes as get_valid_attrs
 except ImportError:
     custom_attr_dict = {}

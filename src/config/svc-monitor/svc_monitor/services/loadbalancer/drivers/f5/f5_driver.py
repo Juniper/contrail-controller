@@ -2,6 +2,8 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+
 import uuid
 import netaddr
 
@@ -184,7 +186,7 @@ class OpencontrailF5LoadbalancerDriver(
                 self.connected = True
 
             except Exception as exc:
-                print 'Could not connect to iControl devices: ', exc.message
+                print('Could not connect to iControl devices: ', exc.message)
 
     def find_ifl(self, physical_router, net_obj):
         for vmi in net_obj.virtual_machine_interfaces:
@@ -1225,7 +1227,7 @@ class OpencontrailF5LoadbalancerDriver(
         try:
             self._api.virtual_machine_interface_create(port_obj)
         except Exception as e:
-            print str(e)
+            print(str(e))
             pass
         return port_obj
     # end _create_vmi

@@ -2,6 +2,8 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+
 import uuid
 
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
@@ -13,7 +15,7 @@ from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 from vnc_api.vnc_api import FatFlowProtocols, ProtocolType
 
 from svc_monitor.config_db import *
-import haproxy_config
+from . import haproxy_config
 
 LOADBALANCER_SERVICE_TEMPLATE = [
     'default-domain',
