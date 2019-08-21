@@ -1,0 +1,188 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1f5b233b_c2c7d3d4",
+        "filename": "src/bgp/extended-community/SConscript",
+        "patchSetId": 5
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "Nit, can you please put them in alphabetical order?",
+      "range": {
+        "startLine": 28,
+        "startChar": 38,
+        "endLine": 28,
+        "endChar": 46
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "09f797bb_9efc64e6",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5983f518_7db271fc",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "lets change the type to as_t everywhere for asn",
+      "range": {
+        "startLine": 36,
+        "startChar": 31,
+        "endLine": 36,
+        "endChar": 35
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "336cce61_708aa126",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "how do we parse the community with 4 byte asn? we should be able to figure out from type or something?",
+      "range": {
+        "startLine": 97,
+        "startChar": 7,
+        "endLine": 97,
+        "endChar": 20
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ca693649_a04b0ba6",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "are we saying that we only support 2 byte asn? That should not be the case",
+      "range": {
+        "startLine": 99,
+        "startChar": 20,
+        "endLine": 99,
+        "endChar": 32
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "18e3e363_3a00e9da",
+        "filename": "src/bgp/extended-community/sub_cluster.h",
+        "patchSetId": 5
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "it should be 2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 16,
+        "endLine": 2,
+        "endChar": 26
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "97c587ad_193af8b4",
+        "filename": "src/bgp/extended-community/sub_cluster.h",
+        "patchSetId": 5
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "it should return value of type as_t which can be uint16_t or uint32_t",
+      "range": {
+        "startLine": 26,
+        "startChar": 5,
+        "endLine": 26,
+        "endChar": 10
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6e1d144a_a1338357",
+        "filename": "src/bgp/extended-community/test/SConscript",
+        "patchSetId": 5
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-21T04:17:59Z",
+      "side": 1,
+      "message": "Nit: please add in alphabetical order",
+      "range": {
+        "startLine": 81,
+        "startChar": 4,
+        "endLine": 81,
+        "endChar": 13
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
