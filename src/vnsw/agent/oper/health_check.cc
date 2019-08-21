@@ -258,6 +258,7 @@ HealthCheckInstanceService::~HealthCheckInstanceService() {
     if (service()->IsSegmentHealthCheckService() && other_intf_.get()) {
         VmInterface *vmi = static_cast<VmInterface *>(other_intf_.get());
         vmi->DeleteHealthCheckInstance(this);
+        EnqueueResync(service(), other_intf_.get());
     }
 }
 
