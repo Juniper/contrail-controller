@@ -1,16 +1,17 @@
+from __future__ import absolute_import
 import copy
 import uuid
 
 from vnc_api.vnc_api import *
 
-from agent import Agent
+from .agent import Agent
 from cfgm_common import exceptions as vnc_exc
 from cfgm_common import svc_info
-from config_db import VirtualNetworkSM, LogicalRouterSM, \
+from .config_db import VirtualNetworkSM, LogicalRouterSM, \
     VirtualMachineInterfaceSM, ServiceInstanceSM, ServiceTemplateSM, \
     ProjectSM, DBBaseSM
-from module_logger import ServiceMonitorModuleLogger,MessageID
-from sandesh.snat_agent import ttypes as sandesh
+from .module_logger import ServiceMonitorModuleLogger,MessageID
+from .sandesh.snat_agent import ttypes as sandesh
 
 
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
