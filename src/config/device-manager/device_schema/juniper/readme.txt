@@ -3,11 +3,11 @@
 #
 #  Help document which describes the usage of Generated Python API
 # 
-#  Schema File: juniper_common.xsd
+#  Schema File: juniper_common.xsddd
 #  Generated Py API: juniper_common_xsd.py
 # 
 #  Build: API is generated when device manager scons is invoked
-#
+#####
 
 # Import the generated file
 from juniper_common_xsd import *
