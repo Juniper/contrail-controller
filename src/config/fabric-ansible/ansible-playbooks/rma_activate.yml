@@ -8,6 +8,7 @@
   vars:
     rma_devices: "{{playbook_input.input.rma_devices}}"
     output: {"status":"", "message":""}
+    os_version: ""
 
   tasks:
     - name: Include global variables
