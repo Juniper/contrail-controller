@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d12546f1_52c56c70",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 218,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-21T10:43:07Z",
+      "side": 1,
+      "message": "In case of error you need to retrun False and a tuple which contains an HTTP error code and a message:\n\n return False, (e.status_code, e.content)",
+      "revId": "f9b9c3e2b7e27570cf42fc35a2e4ad67b44c1124",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
