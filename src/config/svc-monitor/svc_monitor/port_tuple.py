@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright (c) 2014 Cloudwatt
@@ -18,10 +19,10 @@
 # @author: Rudra Rugge
 
 from vnc_api.vnc_api import *
-from config_db import *
-from agent import Agent
-from module_logger import ServiceMonitorModuleLogger,MessageID
-from sandesh.port_tuple import ttypes as sandesh
+from .config_db import *
+from .agent import Agent
+from .module_logger import ServiceMonitorModuleLogger,MessageID
+from .sandesh.port_tuple import ttypes as sandesh
 
 class PortTupleAgent(Agent):
 

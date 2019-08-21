@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright (c) 2014 Cloudwatt
@@ -24,7 +25,7 @@ import uuid
 from cfgm_common import analytics_client
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
-from config_db import *
+from .config_db import *
 
 
 @six.add_metaclass(abc.ABCMeta)
