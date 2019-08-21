@@ -17,11 +17,13 @@
 #
 # @author: Rudra Rugge
 
+from __future__ import absolute_import
+
 from vnc_api.vnc_api import *
-from config_db import *
-from agent import Agent
-from module_logger import ServiceMonitorModuleLogger,MessageID
-from sandesh.port_tuple import ttypes as sandesh
+from .config_db import *
+from .agent import Agent
+from .module_logger import ServiceMonitorModuleLogger,MessageID
+from .sandesh.port_tuple import ttypes as sandesh
 
 class PortTupleAgent(Agent):
 
