@@ -179,12 +179,10 @@ class Component:
     def create_component(self, read_port):
         new_pid = os.fork()
         if new_pid == 0:
-            self.pid = os.getpid()
             self.execute_child()
-        else:
-            self.pid = new_pid
-            if read_port:
-                self.read_port_numbers()
+        self.pid = new_pid
+        if read_port:
+            self.read_port_numbers()
 
     def create_directory(self, component):
         directory = self.user
@@ -254,10 +252,9 @@ class ControlNode(Component):
             if os.path.exists(self.filename):
                 with open(self.filename) as f:
                     data = json.load(f)
-                    for p in data['ControllerDetails']:
-                        self.xmpp_port = p['XMPPPORT']
-                        self.bgp_port = p['BGPPORT']
-                        self.http_port = p['HTTPPORT']
+                    self.xmpp_port = data['XmppPort']
+                    self.bgp_port = data['BgpPort']
+                    self.http_port = data['HttpPort']
                 read = 0
             else:
                 time.sleep(1)
@@ -1182,8 +1179,8 @@ class Virtual_machine_interface:
         vm = str("ref:virtual_machine:" + str(self.vm.uid))
         prop.update({vm: "{\"is_weakref\": false, \"attr\": null}"})
 
-        route_inst = str("ref:routing_instance:" + str(self.vn.route_inst))
-        prop.update({route_inst: "{}"})
+        route_inst = str("ref:routing_instance:" + str(self.vn.route_inst.uid))
+        prop.update({route_inst: "{\"is_weakref\": false, \"attr\": null}"})
 
         perms2 = str("{\"owner\": \"" + str(self.project_uid) +"\", " +
                     "\"owner_access\": 7, " + "\"global_access\": 0, " +

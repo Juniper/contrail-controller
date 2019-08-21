@@ -14,7 +14,7 @@ using std::string;
 class BgpCatTest : public ::testing::Test {
 };
 
-TEST_F(BgpCatTest, Basic) {
+TEST_F(BgpCatTest, BasicPython) {
     int e;
     e = system("sudo pip install PyUnitReport 2>/dev/null");
     e = system("sudo pip install colorama 2>/dev/null");
@@ -33,7 +33,25 @@ TEST_F(BgpCatTest, Basic) {
     int status = 0;
     waitpid(child, &status, 0);
     if (WEXITSTATUS(status))
-        cout << "CAT TESTS FAILED" << endl;
+        cout << "CAT PYTHON TESTS FAILED" << endl;
+    EXPECT_EQ(0, WEXITSTATUS(status));
+}
+
+TEST_F(BgpCatTest, BasicGoLang) {
+    pid_t child = 0;
+    char *const argv[3] = {
+        (char *) "go",
+        (char *) "test",
+        NULL
+    };
+    if (!(child = vfork())) {
+        chdir("controller/src/bgp/test/cat/lib");
+        execv("../../../../../../third_party/go/bin/go", argv);
+    }
+    int status = 0;
+    waitpid(child, &status, 0);
+    if (WEXITSTATUS(status))
+        cout << "CAT GOLANG TESTS FAILED" << endl;
     EXPECT_EQ(0, WEXITSTATUS(status));
 }
 
