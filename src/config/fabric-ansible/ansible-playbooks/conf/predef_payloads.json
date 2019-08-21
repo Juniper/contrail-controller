@@ -2070,7 +2070,7 @@
     },
     {
       "from_type": "node-profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k-lean" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-60c" ]
     },
