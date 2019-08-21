@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ad17518_1738632b",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1424,
+      "author": {
+        "id": 35
+      },
+      "writtenOn": "2019-08-21T21:00:56Z",
+      "side": 1,
+      "message": "We dont need to read entire object. Since we are interested only in fq_name, we should read specific field only. Please file a P2 bug to improve all delete operations.",
+      "revId": "70abfac4e60164e1ea7d0263998a4a0bcb97bdf3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
