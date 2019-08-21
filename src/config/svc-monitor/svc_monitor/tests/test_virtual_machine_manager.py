@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 import mock
 import unittest
 from vnc_api.vnc_api import *
 from svc_monitor.virtual_machine_manager import VirtualMachineManager
 from svc_monitor.config_db import *
-import test_common_utils as test_utils
+from . import test_common_utils as test_utils
 
 class VirtualMachineManagerTest(unittest.TestCase):
     def setUp(self):
