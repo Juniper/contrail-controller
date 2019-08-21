@@ -1,7 +1,8 @@
+from __future__ import absolute_import
 import uuid
 from vnc_api.vnc_api import *
-from instance_manager import InstanceManager
-from config_db import (
+from .instance_manager import InstanceManager
+from .config_db import (
     VirtualMachineSM,
     VirtualMachineInterfaceSM,
     ServiceApplianceSetSM,

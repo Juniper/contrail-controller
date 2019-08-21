@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import mock
 import unittest
 from mock import patch
@@ -8,7 +9,7 @@ from svc_monitor.logger import ServiceMonitorLogger
 from cfgm_common.vnc_db import DBBase
 from svc_monitor import config_db
 from vnc_api.vnc_api import *
-import test_common_utils as test_utils
+from . import test_common_utils as test_utils
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.vnc_kombu import VncKombuClient
 
@@ -90,8 +91,8 @@ sas_del_info = {
                 u'owner': u'admin',
                 u'owner_access': 7},
             u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 11604282682608356844L,
-                u'uuid_mslong': 11461005920023169084L}},
+            u'uuid': {u'uuid_lslong': 11604282682608356844,
+                u'uuid_mslong': 11461005920023169084}},
         u'parent_type': u'global-system-config',
         u'service_appliance_driver': u'svc_monitor.tests.fake_lb_driver.OpencontrailFakeLoadbalancerDriver',
         u'service_appliance_set_properties': {u'key_value_pair': [{u'key': u'sync_mode',
@@ -134,7 +135,7 @@ sa_del_info = {
                 u'owner': u'admin',
                 u'owner_access': 7},
             u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 10774623880662702549L,
+            u'uuid': {u'uuid_lslong': 10774623880662702549,
                 u'uuid_mslong': 1841697908979158050}},
         u'parent_type': u'service-appliance-set',
         u'service_appliance_ip_address': u'10.102.44.30',
@@ -179,7 +180,7 @@ pool_del_info = {
                 u'owner': u'neutron',
                 u'owner_access': 7},
             u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 12634730708897037914L,
+            u'uuid': {u'uuid_lslong': 12634730708897037914,
                 u'uuid_mslong': 8496742968641014440}},
         u'loadbalancer_pool_properties': {u'admin_state': True,
             u'loadbalancer_method': u'ROUND_ROBIN',
@@ -238,7 +239,7 @@ member_del_info = {
                 u'owner': u'neutron',
                 u'owner_access': 7},
             u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 11430999649654180201L,
+            u'uuid': {u'uuid_lslong': 11430999649654180201,
                 u'uuid_mslong': 400579646949638960}},
             u'loadbalancer_member_properties': {u'address': u'1.1.4.5',
                 u'admin_state': True,
@@ -285,8 +286,8 @@ vip_del_info = {
                 u'owner': u'neutron',
                 u'owner_access': 7},
             u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 9959603007601504245L,
-                u'uuid_mslong': 16499857160913372641L}},
+            u'uuid': {u'uuid_lslong': 9959603007601504245,
+                u'uuid_mslong': 16499857160913372641}},
             u'loadbalancer_pool_refs': [{u'to': [u'default-domain',
                 u'admin',
                 u'Test-pool'],
