@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f857fec0_189f030f",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 4
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-21T16:51:04Z",
+      "side": 1,
+      "message": "Can you add the Jira ticket associated to that fix please?\nCan you also try to follow git commit message guidelines https://wiki.openstack.org/wiki/GitCommitMessages please",
+      "revId": "86494b40a887f1c956246a5a71fc5c3ea1e2d168",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "055e645b_bb6caf3a",
+        "filename": "src/config/schema-transformer/schema_transformer/to_bgp.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 792,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-21T16:51:04Z",
+      "side": 1,
+      "message": "Global transformer variable can be none if that instance was never elected, no?",
+      "revId": "86494b40a887f1c956246a5a71fc5c3ea1e2d168",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
