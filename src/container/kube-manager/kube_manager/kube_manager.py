@@ -5,6 +5,7 @@
 """
 Kubernetes network manager
 """
+from __future__ import absolute_import
 
 import random
 import socket
@@ -18,22 +19,22 @@ import greenlet
 from gevent.queue import Queue
 import gevent
 
-from vnc.config_db import DBBaseKM
-from vnc.reaction_map import REACTION_MAP
+from .vnc.config_db import DBBaseKM
+from .vnc.reaction_map import REACTION_MAP
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.zkclient import ZookeeperClient
-import common.logger as common_logger
-import common.args as kube_args
-import vnc.vnc_kubernetes as vnc_kubernetes
-import kube.kube_monitor as kube_monitor
-import kube.namespace_monitor as namespace_monitor
-import kube.pod_monitor as pod_monitor
-import kube.service_monitor as service_monitor
-import kube.network_policy_monitor as network_policy_monitor
-import kube.endpoint_monitor as endpoint_monitor
-import kube.ingress_monitor as ingress_monitor
-import kube.network_monitor as network_monitor
-from sandesh.kube_introspect import ttypes as introspect
+from . import common.logger as common_logger
+from . import common.args as kube_args
+from . import vnc.vnc_kubernetes as vnc_kubernetes
+from . import kube.kube_monitor as kube_monitor
+from . import kube.namespace_monitor as namespace_monitor
+from . import kube.pod_monitor as pod_monitor
+from . import kube.service_monitor as service_monitor
+from . import kube.network_policy_monitor as network_policy_monitor
+from . import kube.endpoint_monitor as endpoint_monitor
+from . import kube.ingress_monitor as ingress_monitor
+from . import kube.network_monitor as network_monitor
+from .sandesh.kube_introspect import ttypes as introspect
 
 
 class KubeNetworkManager(object):

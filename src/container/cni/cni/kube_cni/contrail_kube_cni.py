@@ -8,6 +8,7 @@
 """
 Contrail CNI plugin for Kubernetes
 """
+from __future__ import absolute_import
 
 
 import inspect
@@ -23,8 +24,8 @@ from contrail.contrail_cni import ContrailCni as ContrailCni
 from common.cni import Cni as Cni
 from common.cni import Error as CniError
 from contrail.contrail_cni import Error as ContrailError
-from kube_params import Error as K8SParamsError
-from kube_params import K8SParams as K8SParams
+from .kube_params import Error as K8SParamsError
+from .kube_params import K8SParams as K8SParams
 
 
 # Error codes

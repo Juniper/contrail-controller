@@ -5,6 +5,8 @@
 """
 VNC service management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import uuid
 
@@ -22,7 +24,7 @@ from kube_manager.vnc.vnc_kubernetes_config import (
 from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.label_cache import XLabelCache
 from kube_manager.vnc.vnc_pod import VncPod
-from vnc_security_policy import VncSecurityPolicy
+from .vnc_security_policy import VncSecurityPolicy
 
 class VncNamespace(VncCommon):
 

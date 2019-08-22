@@ -5,10 +5,11 @@
 """
 Link-local service management functions.
 """
+from __future__ import absolute_import
 
 import socket
 from vnc_api.vnc_api import *
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 def _get_linklocal_entry_name(name, k8s_ns):
     if not k8s_ns:

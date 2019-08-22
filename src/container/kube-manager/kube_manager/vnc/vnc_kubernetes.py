@@ -5,6 +5,8 @@
 """
 VNC management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import gevent
 from gevent.queue import Empty
@@ -22,14 +24,14 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
 import kube_manager.common.args as kube_args
-from config_db import *
-import db
-import label_cache
-from label_cache import XLabelCache
-from reaction_map import REACTION_MAP
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_common import VncCommon
-import flow_aging_manager
+from .config_db import *
+from . import db
+from . import label_cache
+from .label_cache import XLabelCache
+from .reaction_map import REACTION_MAP
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_common import VncCommon
+from . import flow_aging_manager
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -40,7 +42,7 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from vnc_security_policy import VncSecurityPolicy
+from .vnc_security_policy import VncSecurityPolicy
 
 class VncKubernetes(VncCommon):
 
