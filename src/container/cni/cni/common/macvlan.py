@@ -7,6 +7,7 @@
 CNI implementation
 Demultiplexes on the CNI_COMMAND and runs the necessary operation
 """
+from __future__ import absolute_import
 import ctypes
 import errno
 import inspect
@@ -19,9 +20,9 @@ import logging
 from pyroute2 import NetlinkError, IPRoute
 
 
-from interface import Interface as CniInterface
-from interface import CniNamespace as CniNamespace
-from cni import Error as Error
+from .interface import Interface as CniInterface
+from .interface import CniNamespace as CniNamespace
+from .cni import Error as Error
 
 CNI_ERROR_GET_PARENT_INTF = 401
 

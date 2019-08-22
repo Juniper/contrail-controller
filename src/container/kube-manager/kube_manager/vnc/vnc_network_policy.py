@@ -5,16 +5,18 @@
 """
 VNC service management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import uuid
 
 from vnc_api.vnc_api import *
-from config_db import *
+from .config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
 from kube_manager.common.kube_config_db import NetworkPolicyKM
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_common import VncCommon
-from vnc_security_policy import VncSecurityPolicy
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_common import VncCommon
+from .vnc_security_policy import VncSecurityPolicy
 from kube_manager.vnc.label_cache import XLabelCache
 
 class VncNetworkPolicy(VncCommon):
