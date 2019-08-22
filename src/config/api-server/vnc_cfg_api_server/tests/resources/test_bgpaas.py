@@ -6,6 +6,7 @@ import logging
 from cfgm_common.exceptions import BadRequest
 from vnc_api.vnc_api import BGPaaSControlNodeZoneAttributes
 from vnc_api.vnc_api import BgpAsAService
+from vnc_api.vnc_api import BgpSessionAttributes
 from vnc_api.vnc_api import ControlNodeZone
 from vnc_api.vnc_api import GlobalSystemConfig
 
@@ -41,11 +42,26 @@ class TestBgpaas(test_case.ApiServerTestCase):
         bgpaas_uuid = self.api.bgp_as_a_service_create(bgpaas_obj)
         return bgpaas_uuid, bgpaas_obj
 
+    def create_bgpaas_with_local_asn(self):
+        proj = self.api.project_read(
+            fq_name=["default-domain", "default-project"])
+        bgp_session_attr = BgpSessionAttributes(local_autonomous_system=64500)
+
+        bgpaas_obj = BgpAsAService(name='bgpaas',
+                                   parent_obj=proj,
+                                   bgpaas_session_attributes=bgp_session_attr)
+
+        bgpaas_obj.autonomous_system = 64512
+        bgpaas_uuid = self.api.bgp_as_a_service_create(bgpaas_obj)
+        return bgpaas_uuid, bgpaas_obj
+
     def test_bgpaas_create_with_valid_2_byte_asn(self):
         proj = self.api.project_read(
             fq_name=["default-domain", "default-project"])
+        bgp_session_attr = BgpSessionAttributes(local_autonomous_system=64500)
         bgpaas_obj = BgpAsAService(name='bgpaas',
-                                   parent_obj=proj)
+                                   parent_obj=proj,
+                                   bgpaas_session_attributes=bgp_session_attr)
         # Set a valid ASN and create bgpaas object
         bgpaas_obj.autonomous_system = 64512
         bgpaas_uuid = self.api.bgp_as_a_service_create(bgpaas_obj)
@@ -61,8 +77,12 @@ class TestBgpaas(test_case.ApiServerTestCase):
 
         proj = self.api.project_read(
             fq_name=["default-domain", "default-project"])
+        bgp_session_attr = BgpSessionAttributes(
+            local_autonomous_system=700001)
+
         bgpaas_obj = BgpAsAService(name='bgpaas',
-                                   parent_obj=proj)
+                                   parent_obj=proj,
+                                   bgpaas_session_attributes=bgp_session_attr)
         # Set a valid ASN and create bgpaas object
         bgpaas_obj.autonomous_system = 700000
         bgpaas_uuid = self.api.bgp_as_a_service_create(bgpaas_obj)
@@ -72,17 +92,35 @@ class TestBgpaas(test_case.ApiServerTestCase):
         gsc.enable_4byte_as = False
         self.api.global_system_config_update(gsc)
 
-    def test_bgpaas_create_within_invalid_2_byte_asn(self):
+    def test_bgpaas_create_with_invalid_2_byte_asn(self):
         proj = self.api.project_read(
             fq_name=["default-domain", "default-project"])
+        bgp_session_attr = BgpSessionAttributes(local_autonomous_system=64500)
+
         bgpaas_obj = BgpAsAService(name='bgpaas',
-                                   parent_obj=proj)
+                                   parent_obj=proj,
+                                   bgpaas_session_attributes=bgp_session_attr)
         # Set a invalid ASN and create bgpaas object
         bgpaas_obj.autonomous_system = 700000
         self.assertRaises(BadRequest, self.api.bgp_as_a_service_create,
                           bgpaas_obj)
 
-    def test_bgpaas_create_within_invalid_4_byte_asn(self):
+    def test_bgpaas_create_with_invalid_2_byte_local_asn(self):
+        proj = self.api.project_read(
+            fq_name=["default-domain", "default-project"])
+
+        # Set a invalid Local ASN and create bgpaas object
+        bgp_session_attr = BgpSessionAttributes(
+            local_autonomous_system=700001)
+
+        bgpaas_obj = BgpAsAService(name='bgpaas',
+                                   parent_obj=proj,
+                                   bgpaas_session_attributes=bgp_session_attr)
+        bgpaas_obj.autonomous_system = 64512
+        self.assertRaises(BadRequest, self.api.bgp_as_a_service_create,
+                          bgpaas_obj)
+
+    def test_bgpaas_create_with_invalid_4_byte_asn(self):
         gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
         # Enable 4 byte ASN flag in GSC
         gsc.enable_4byte_as = True
@@ -101,12 +139,47 @@ class TestBgpaas(test_case.ApiServerTestCase):
         gsc.enable_4byte_as = False
         self.api.global_system_config_update(gsc)
 
+    def test_bgpaas_create_with_invalid_4_byte_local_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        # Set a invalid Local ASN and create bgpaas object
+        proj = self.api.project_read(
+            fq_name=["default-domain", "default-project"])
+        bgp_session_attr = BgpSessionAttributes(
+            local_autonomous_system=0x1FFFFFFFF)
+
+        bgpaas_obj = BgpAsAService(name='bgpaas',
+                                   parent_obj=proj,
+                                   bgpaas_session_attributes=bgp_session_attr)
+        bgpaas_obj.autonomous_system = 0x7000001
+        self.assertRaises(BadRequest, self.api.bgp_as_a_service_create,
+                          bgpaas_obj)
+
+        # Finally, disable 4 byte ASN flag
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
     def test_bgpaas_update_with_valid_2_byte_asn(self):
         # Create bgpaas object with ASN 64512
         bgpaas_uuid, bgpaas_obj = self.create_bgpaas()
 
         # Update ASN with a valid value
         bgpaas_obj.autonomous_system = 64500
+        self.api.bgp_as_a_service_update(bgpaas_obj)
+
+        # Finally, delete the bgpaas object
+        self.api.bgp_as_a_service_delete(id=bgpaas_uuid)
+
+    def test_bgpaas_update_with_valid_2_byte_local_asn(self):
+        # Create bgpaas object with ASN 64512 and Local ASN 64500
+        bgpaas_uuid, bgpaas_obj = self.create_bgpaas_with_local_asn()
+
+        # Update Local ASN with a valid value
+        bgp_session_attr = BgpSessionAttributes(local_autonomous_system=64000)
+        bgpaas_obj.set_bgpaas_session_attributes(bgp_session_attr)
         self.api.bgp_as_a_service_update(bgpaas_obj)
 
         # Finally, delete the bgpaas object
@@ -132,12 +205,47 @@ class TestBgpaas(test_case.ApiServerTestCase):
         # Finally, delete the bgpaas object
         self.api.bgp_as_a_service_delete(id=bgpaas_uuid)
 
+    def test_bgpaas_update_with_valid_4_byte_local_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        # Create bgpaas object with ASN 64512 and Local ASN 64500
+        bgpaas_uuid, bgpaas_obj = self.create_bgpaas_with_local_asn()
+
+        # Update Local ASN with a valid value
+        bgp_session_attr = BgpSessionAttributes(local_autonomous_system=700002)
+        bgpaas_obj.set_bgpaas_session_attributes(bgp_session_attr)
+        self.api.bgp_as_a_service_update(bgpaas_obj)
+
+        # Disable 4 byte ASN flag
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+        # Finally, delete the bgpaas object
+        self.api.bgp_as_a_service_delete(id=bgpaas_uuid)
+
     def test_bgpaas_update_with_invalid_2_byte_asn(self):
         # Create bgpaas object with ASN 64512
         bgpaas_uuid, bgpaas_obj = self.create_bgpaas()
 
         # Update ASN with an invalid 2 byte value
         bgpaas_obj.autonomous_system = 700000
+        self.assertRaises(BadRequest, self.api.bgp_as_a_service_update,
+                          bgpaas_obj)
+
+        # Finally, delete the bgpaas object
+        self.api.bgp_as_a_service_delete(id=bgpaas_uuid)
+
+    def test_bgpaas_update_with_invalid_2_byte_local_asn(self):
+        # Create bgpaas object with ASN 64512 and Local ASN 64500
+        bgpaas_uuid, bgpaas_obj = self.create_bgpaas_with_local_asn()
+
+        # Update Local ASN with an invalid value
+        bgp_session_attr = BgpSessionAttributes(local_autonomous_system=700001)
+        bgpaas_obj.set_bgpaas_session_attributes(bgp_session_attr)
+
         self.assertRaises(BadRequest, self.api.bgp_as_a_service_update,
                           bgpaas_obj)
 
@@ -155,6 +263,30 @@ class TestBgpaas(test_case.ApiServerTestCase):
 
         # Update ASN with an invalid 4 byte value
         bgpaas_obj.autonomous_system = 0x1FFFFFFFF
+        self.assertRaises(BadRequest, self.api.bgp_as_a_service_update,
+                          bgpaas_obj)
+
+        # Disable 4 byte ASN flag
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+
+        # Finally, delete the bgpaas object
+        self.api.bgp_as_a_service_delete(id=bgpaas_uuid)
+
+    def test_bgpaas_update_with_invalid_4_byte_local_asn(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        # Enable 4 byte ASN flag in GSC
+        gsc.enable_4byte_as = True
+        self.api.global_system_config_update(gsc)
+
+        # Create bgpaas object with ASN 64512 and Local ASN 64500
+        bgpaas_uuid, bgpaas_obj = self.create_bgpaas_with_local_asn()
+
+        # Update Local ASN with an invalid 4 byte value
+        bgp_session_attr = BgpSessionAttributes(
+            local_autonomous_system=0x1FFFFFFFF)
+        bgpaas_obj.set_bgpaas_session_attributes(bgp_session_attr)
+
         self.assertRaises(BadRequest, self.api.bgp_as_a_service_update,
                           bgpaas_obj)
 
