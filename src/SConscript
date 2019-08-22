@@ -34,7 +34,6 @@ if platform.system() != 'Windows':
         'config',
         'container',
         'control-node',
-        'server-manager',
         'utils',
         'vcenter-import',
     ]
