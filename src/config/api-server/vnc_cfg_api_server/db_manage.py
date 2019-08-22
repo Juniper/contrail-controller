@@ -50,12 +50,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.18"
+__version__ = "1.19"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.19:
+  - Fix typo at self.global_asn. CEM-8222
 * 1.18
   - v1.15 is not compatilible to older releases. Restore compatability
 * 1.17
@@ -635,7 +637,7 @@ class DatabaseManager(object):
                             (fq_name_str, uuid, list_name), set()).add(rt)
 
                     if (asn != self.global_asn or
-                            id < _get_rt_id_min_alloc(global_asn)):
+                            id < _get_rt_id_min_alloc(self.global_asn)):
                         num_user_rts += 1
                         continue  # all good
                     num_bad_rts += 1
