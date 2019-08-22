@@ -840,15 +840,18 @@ void
 DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
                     DnsItems &auth, DnsItems &add) {
     for (DnsItems::iterator it = ans.begin(); it != ans.end(); ++it) {
-        // find the matching entry in the request
         bool name_update_required = true;
-        for (DnsItems::const_iterator item = items_.begin();
-             item != items_.end(); ++item) {
-            if (it->name == item->name && it->eclass == item->eclass) {
-                it->name_plen = item->name_plen;
-                it->name_offset = item->offset;
-                name_update_required = false;
-                break;
+        // Do not update dns response msg offset, for default dns case
+        if (!DefaultMethodInUse()) {
+            // find the matching entry in the request
+            for (DnsItems::const_iterator item = items_.begin();
+                item != items_.end(); ++item) {
+                if (it->name == item->name && it->eclass == item->eclass) {
+                    it->name_plen = item->name_plen;
+                    it->name_offset = item->offset;
+                    name_update_required = false;
+                    break;
+                }
             }
         }
         UpdateOffsets(*it, name_update_required);
