@@ -656,7 +656,7 @@
           "display_name": "Fetch hardware chassis information",
           "job_template_description": "This command is used to fetch hardware inventory information from the device",
           "parent_type": "global-system-config",
-          "job_template_type": "device_operation",
+          "job_template_type": "workflow",
           "job_template_concurrency_level": "device",
           "job_template_playbooks": {
             "playbook_info": [
