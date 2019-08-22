@@ -1,0 +1,234 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f74964fd_fdd09ef3",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "can u use a argument parser or something and provide a help menu as well",
+      "range": {
+        "startLine": 14,
+        "startChar": 0,
+        "endLine": 14,
+        "endChar": 19
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4f3bda8b_059234f2",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "instead of using globals and defining variables and stuff, can you write a class which will have class variables that can be used effectively",
+      "range": {
+        "startLine": 15,
+        "startChar": 1,
+        "endLine": 17,
+        "endChar": 44
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "57a619ff_c8224283",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "again you can move appropriate functions into the class",
+      "range": {
+        "startLine": 19,
+        "startChar": 0,
+        "endLine": 19,
+        "endChar": 21
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "18adb126_88bdcdae",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "remove these comments, you dont commit with print statements commented",
+      "range": {
+        "startLine": 22,
+        "startChar": 4,
+        "endLine": 22,
+        "endChar": 14
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f250cf0b_772d7308",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "again global, use class",
+      "range": {
+        "startLine": 24,
+        "startChar": 3,
+        "endLine": 24,
+        "endChar": 17
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "16ba0f4a_24bb786e",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "why 8 here ? indentation should be 2 and increment with +2 for each level, and the incremental value should be defined in a variable",
+      "range": {
+        "startLine": 25,
+        "startChar": 4,
+        "endLine": 25,
+        "endChar": 15
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5174d4cb_14727a56",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "have a proper main function to start the program, this is not a shell script",
+      "range": {
+        "startLine": 56,
+        "startChar": 0,
+        "endLine": 57,
+        "endChar": 17
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "52581487_39cc2308",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "remove these",
+      "range": {
+        "startLine": 68,
+        "startChar": 0,
+        "endLine": 68,
+        "endChar": 4
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b1e91215_101d7667",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "why are you skipping 4 elements here ? can u explain",
+      "range": {
+        "startLine": 70,
+        "startChar": 8,
+        "endLine": 70,
+        "endChar": 34
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e8f6a63_95a8ee2d",
+        "filename": "src/vnsw/agent/gdb/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 86,
+      "author": {
+        "id": 570
+      },
+      "writtenOn": "2019-08-22T19:10:32Z",
+      "side": 1,
+      "message": "why is this hard coded, is it always Snh ?",
+      "range": {
+        "startLine": 86,
+        "startChar": 30,
+        "endLine": 86,
+        "endChar": 37
+      },
+      "revId": "9a321ac23efdd3af75d28e96a10b20a9513fb0cc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
