@@ -433,7 +433,8 @@ class AnsibleRoleCommon(AnsibleConf):
             if not vpg_obj:
                 continue
 
-            sg_list_temp = vpg_obj.get_attached_sgs(unit.get_vlan_tag())
+            sg_list_temp = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
+                                                    interface)
             for sg in sg_list_temp:
                 if sg not in sg_list:
                     sg_list.append(sg)
