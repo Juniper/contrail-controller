@@ -5,14 +5,15 @@
 """
 Database for Kubernetes objects.
 """
+from __future__ import absolute_import
 
 import json
 
 from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from ast import literal_eval
-from utils import (get_vn_fq_name_from_dict_string, get_dict_from_dict_string)
-from utils import get_fip_pool_fq_name_from_dict_string
+from .utils import (get_vn_fq_name_from_dict_string, get_dict_from_dict_string)
+from .utils import get_fip_pool_fq_name_from_dict_string
 
 class KubeDBBase(DBBase):
     obj_type = __name__

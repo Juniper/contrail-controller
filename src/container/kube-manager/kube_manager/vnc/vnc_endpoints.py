@@ -5,6 +5,7 @@
 """
 VNC endpoints management for kubernetes
 """
+from __future__ import print_function
 
 
 from cfgm_common import importutils

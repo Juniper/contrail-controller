@@ -7,6 +7,7 @@
 CNI implementation
 Demultiplexes on the CNI_COMMAND and runs the necessary operation
 """
+from __future__ import print_function
 import ctypes
 import errno
 import inspect
@@ -72,7 +73,7 @@ def ErrorExit(logger, code, msg):
     resp['msg'] = msg
     json_data = json.dumps(resp, indent=4)
     logger.error('CNI Error : ' + json_data)
-    print json_data
+    print(json_data)
     sys.exit(code)
     return
 
@@ -621,5 +622,5 @@ class Cni():
 
         json_data = json.dumps(resp, indent=4)
         logger.debug('CNI output : ' + json_data)
-        print json_data
+        print(json_data)
         return
