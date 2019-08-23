@@ -924,6 +924,7 @@ class TestDefaultQuota(test_case.ApiServerTestCase):
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
         super(TestDefaultQuota, cls).tearDownClass(*args, **kwargs)
+        QuotaHelper.default_quota = {'defaults': -1}
 
     def test_default_quota_is_used_if_not_set_in_project(self):
         project = Project('project-%s' % self.id())
