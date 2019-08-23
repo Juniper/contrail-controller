@@ -57,6 +57,7 @@ class Client(object):
         client_count = len(self.analytics_api_servers)
         # once you have a starting index, we need to traverse through
         # entire list in case of failure.
+        last_exc = None
         for index in range(client_count):
             try:
                 analytics_ip = self.analytics_api_servers[
@@ -75,11 +76,13 @@ class Client(object):
             except Exception as e:
                 # In case of failure, continue till we check all other
                 # available servers
+                last_exc = e
                 analytics_server_index = self.round_robin()
                 continue
 
         # If we reach here, raise the last encountered exception
-        raise e
+        raise (last_exc if last_exc else
+               Exception("Analytics servers are not accessible."))
 
     def _get_req_params(self, user_token, data=None):
         req_params = {

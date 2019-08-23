@@ -37,7 +37,7 @@ class OpServerUtils(object):
             request_args['auth'] = HTTPBasicAuth(user, password)
         try:
             response = requests.post(url, **request_args)
-        except requests.exceptions.ConnectionError, e:
+        except requests.exceptions.ConnectionError as e:
             logger.error("Connection to %s failed %s" % (url, str(e)))
             return None
         if response.status_code == 202 or response.status_code == 200:

@@ -214,7 +214,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             try:
                 ok, ipam_obj = api_server.internal_request_create(
                     obj_type, json.loads(ipam_dict))
-            except HttpError:
+            except HttpError as e:
                 return False, (e.status_code, e.content)
 
             ipam_obj = ipam_obj.get(obj_type)

@@ -362,7 +362,7 @@ class SecurityResourceBase(ResourceMixin):
                        % (cls.object_type.replace('_', ' ').title(),
                           ':'.join(obj_dict['fq_name'])))
                 return False, (400, msg)
-            except NoIdError as e:
+            except NoIdError:
                 pass
 
         obj_dict['parent_type'] = PolicyManagement.resource_type
