@@ -2,18 +2,15 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
-from __future__ import print_function
-from __future__ import absolute_import
 import time
 import paramiko
 import logging
 import ast
 from cfgm_common.vnc_kombu import VncKombuClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from .issu_contrail_common import ICCassandraClient
-from .issu_contrail_common import ICCassandraInfo
-from . import issu_contrail_config
-import os
+from issu_contrail_common import ICCassandraClient
+from issu_contrail_common import ICCassandraInfo
+import issu_contrail_config
 
 
 class ICAmqpInfo():
@@ -76,19 +73,19 @@ class ICKombuClient(VncKombuClient):
         try:
             self.logger("Config sync initiated...",
                         level=SandeshLevel.SYS_INFO)
-            print("Config Sync initiated...")
+            print "Config Sync initiated..."
             self._cassandra_inst.issu_merge_copy(self._keyspace)
             self.logger("Config sync done...", level=SandeshLevel.SYS_INFO)
-            print("Config Sync done...")
+            print "Config Sync done..."
         except Exception as e:
             self.logger(e, level=SandeshLevel.SYS_INFO)
         self.logger("Started runtime sync...", level=SandeshLevel.SYS_INFO)
 
-        print("Started runtime sync...")
+        print "Started runtime sync..."
         self._reinit_control()
 
         self.logger("Start Compute upgrade...", level=SandeshLevel.SYS_INFO)
-        print("Start Compute upgrade...")
+        print "Start Compute upgrade..."
 
 
 class ICRMQMain():
