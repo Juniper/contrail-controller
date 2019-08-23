@@ -1,0 +1,8 @@
+            CAT(Control-node Agent Testing) FRAMEWORK
+
+Example Test File: controller/src/cat/test/basic_test.go
+
+Run the Framework:
+
+cd $SANDBOX/controller/src/cat/test
+../../../../third_party/go/bin/go test

@@ -104,7 +104,6 @@ else:
                 ['-Wl,--whole-archive',
                  '-rdynamic',
                  '-lbase',
-                 '-lboost_filesystem',
                  '-lbgp_inet',
                  '-lbgp_ermvpn',
                  '-lbgp_mvpn',
@@ -133,6 +132,7 @@ env.Append(LIBS = [
     'rabbitmq',
     'cassandra',
     'gendb',
+    'boost_filesystem',
 ])
 
 env.Append(LIBS = ['route', 'routing_instance', 'routing_policy', 'net'])
