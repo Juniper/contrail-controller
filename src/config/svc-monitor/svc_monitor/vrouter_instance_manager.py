@@ -1,5 +1,6 @@
 # @author: Bartlomiej Biernacki
 
+from builtins import range
 from .instance_manager import VRouterHostedManager
 from vnc_api.vnc_api import *
 from .config_db import VirtualRouterSM, VirtualMachineSM

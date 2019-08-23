@@ -18,6 +18,8 @@ from __future__ import absolute_import
 #
 # @author: Rudra Rugge
 
+from builtins import str
+from builtins import range
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from .instance_manager import InstanceManager

@@ -1,3 +1,4 @@
+from builtins import object
 import copy
 import json
 import mock
@@ -196,7 +197,7 @@ class SnatAgentTest(unittest.TestCase):
             if hasattr(obj, 'serialize_to_json'):
                 return obj.serialize_to_json(obj.get_pending_updates())
             else:
-                return dict((k, v) for k, v in obj.__dict__.iteritems())
+                return dict((k, v) for k, v in obj.__dict__.items())
 
         return json.loads(json.dumps(obj, default=to_json))
 

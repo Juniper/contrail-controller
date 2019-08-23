@@ -1,3 +1,7 @@
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import mock
 from mock import patch
 import unittest
@@ -6,7 +10,7 @@ from svc_monitor import config_db
 from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
-import ConfigParser
+import configparser
 
 class LoadbalancerAgentTest(unittest.TestCase):
     def setUp(self):
@@ -39,7 +43,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
 
         def list_pools():
             ret_list = []
-            for each_entry_id, each_entry_data in self._db.iteritems() or []:
+            for each_entry_id, each_entry_data in iter(self._db.items()) or []:
                 config_info_obj_dict = each_entry_data['config_info']
                 driver_info_obj_dict = None
                 if 'driver_info' in each_entry_data:
@@ -71,7 +75,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
             raise NoIdError("xxx")
         self.vnc_lib.service_appliance_set_read = mock.Mock(side_effect=no_id_side_effect)
         conf_parser = argparse.ArgumentParser(add_help=False)
-        config = ConfigParser.SafeConfigParser({'admin_token': None})
+        config = configparser.ConfigParser({'admin_token': ''})
         self._args, remaining_argv = conf_parser.parse_known_args()
         self._args.config_sections = config
 

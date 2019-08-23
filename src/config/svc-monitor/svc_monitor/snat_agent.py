@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from builtins import str
 import copy
 import uuid
 
@@ -31,9 +32,9 @@ class SNATAgent(Agent):
         self.logger.add_messages(**log_funcs)
 
     def audit_snat_instances(self):
-        for lr in LogicalRouterSM.values():
+        for lr in list(LogicalRouterSM.values()):
             self.update_snat_instance(lr)
-        for si in ServiceInstanceSM.values():
+        for si in list(ServiceInstanceSM.values()):
             si_name = si.fq_name[-1]
             st_obj = ServiceTemplateSM.get(si.service_template)
             if st_obj == None or \
