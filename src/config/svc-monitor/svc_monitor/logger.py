@@ -8,6 +8,7 @@ Service monitor logger
 """
 from __future__ import absolute_import
 
+from builtins import str
 from cfgm_common import svc_info
 from cfgm_common.uve.service_instance.ttypes import UveSvcInstanceConfig,\
         UveSvcInstanceVMConfig, UveSvcInstanceConfigTrace
@@ -58,7 +59,7 @@ class ServiceMonitorLogger(ConfigServiceLogger):
 
     def sandesh_si_handle_request(self, req):
         si_resp = sandesh.ServiceInstanceListResp(si_names=[])
-        for si in ServiceInstanceSM.values():
+        for si in list(ServiceInstanceSM.values()):
             if req.si_name and req.si_name != si.name:
                 continue
 

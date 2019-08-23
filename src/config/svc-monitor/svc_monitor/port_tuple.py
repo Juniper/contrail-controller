@@ -18,6 +18,7 @@ from __future__ import absolute_import
 #
 # @author: Rudra Rugge
 
+from builtins import range
 from vnc_api.vnc_api import *
 from .config_db import *
 from .agent import Agent
@@ -127,7 +128,7 @@ class PortTupleAgent(Agent):
 
     def update_health_check_iip(self, si, port, vmi):
         allocate_hc_iip = False
-        for health_id, if_type in si.service_health_checks.items():
+        for health_id, if_type in list(si.service_health_checks.items()):
             health = ServiceHealthCheckSM.get(health_id)
             if not health:
                 continue
@@ -342,12 +343,12 @@ class PortTupleAgent(Agent):
             port['static-route-enable'] = st_if.get('static_route_enable')
             port['allowed-address-pairs'] = si_if.get('allowed_address_pairs')
             port['interface-route-tables'] = []
-            for irt_id, if_type in si.interface_route_tables.items():
+            for irt_id, if_type in list(si.interface_route_tables.items()):
                 irt = InterfaceRouteTableSM.get(irt_id)
                 if irt and if_type['interface_type'] == port['type']:
                     port['interface-route-tables'].append(irt.uuid)
             port['service-health-checks'] = []
-            for health_id, if_type in si.service_health_checks.items():
+            for health_id, if_type in list(si.service_health_checks.items()):
                 health = ServiceHealthCheckSM.get(health_id)
                 if health and if_type['interface_type'] == port['type']:
                     port['service-health-checks'].append(health.uuid)
@@ -402,10 +403,10 @@ class PortTupleAgent(Agent):
             self.set_port_static_routes(port, vmi)
 
     def update_port_tuples(self):
-        for si in ServiceInstanceSM.values():
+        for si in list(ServiceInstanceSM.values()):
             for pt_id in si.port_tuples:
                 self.update_port_tuple(pt_id=pt_id)
-        for iip in InstanceIpSM.values():
+        for iip in list(InstanceIpSM.values()):
             self.delete_shared_iip(iip)
-        for vmi in VirtualMachineInterfaceSM.values():
+        for vmi in list(VirtualMachineInterfaceSM.values()):
             self.delete_old_vmi_links(vmi)

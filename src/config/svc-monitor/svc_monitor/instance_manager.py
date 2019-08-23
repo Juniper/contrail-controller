@@ -18,6 +18,9 @@ from __future__ import absolute_import
 #
 # @author: Rudra Rugge
 
+from builtins import str
+from builtins import range
+from builtins import object
 import abc
 import six
 import uuid
@@ -58,7 +61,7 @@ class InstanceManager(object):
 
     def _get_default_security_group(self, vn):
         sg_fq_name = vn.fq_name[:-1] + ['default']
-        for sg in SecurityGroupSM.values():
+        for sg in list(SecurityGroupSM.values()):
             if sg.fq_name == sg_fq_name:
                 sg_obj = SecurityGroup()
                 sg_obj.uuid = sg.uuid
@@ -81,7 +84,7 @@ class InstanceManager(object):
 
     def _get_project_obj(self, proj_fq_name):
         proj_obj = None
-        for proj in ProjectSM.values():
+        for proj in list(ProjectSM.values()):
             if proj.fq_name == proj_fq_name:
                 proj_obj = Project()
                 proj_obj.uuid = proj.uuid
@@ -100,7 +103,7 @@ class InstanceManager(object):
         iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
         iip_obj.add_virtual_network(vn_obj)
         iip_obj.set_service_instance_ip(True)
-        for iip in InstanceIpSM.values():
+        for iip in list(InstanceIpSM.values()):
             if iip.name == iip_name:
                 iip_obj.uuid = iip.uuid
                 return iip_obj
@@ -240,7 +243,7 @@ class InstanceManager(object):
         rt_fq_name = self._get_if_route_table_name(nic['type'], si)
         rt_obj = InterfaceRouteTable(name=rt_fq_name[-1],
                                      parent_obj=proj_obj, interface_route_table_routes=static_routes)
-        for irt in InterfaceRouteTableSM.values():
+        for irt in list(InterfaceRouteTableSM.values()):
             if irt.fq_name == rt_fq_name:
                 rt_obj.set_interface_route_table_routes(static_routes)
                 self._vnc_lib.interface_route_table_update(rt_obj)
@@ -560,7 +563,7 @@ class InstanceManager(object):
         port_name = ('__').join([instance_name, nic['type'], nic['index']])
         port_fq_name = proj_obj.fq_name + [port_name]
         vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
-        for vmi in VirtualMachineInterfaceSM.values():
+        for vmi in list(VirtualMachineInterfaceSM.values()):
             if vmi.fq_name == port_fq_name:
                 vmi_obj.uuid = vmi.uuid
                 vmi_obj.fq_name = vmi.fq_name
