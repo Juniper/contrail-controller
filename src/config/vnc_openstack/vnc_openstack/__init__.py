@@ -940,7 +940,8 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         self._sandesh_logger = sandesh.logger()
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
-        fill_keystone_opts(self, conf_sections)
+        if 'KEYSTONE' in self._config_sections.sections():
+            fill_keystone_opts(self, conf_sections)
 
         self._vnc_lib = None
         self._resync_extension_manager = None
@@ -965,12 +966,16 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         while True:
             try:
                 tries = tries + 1
-                self._vnc_lib = vnc_api.VncApi(
-                    api_server_host=self._vnc_api_ip,
-                    api_server_port=self._vnc_api_port,
-                    username=self._auth_user,
-                    password=self._auth_passwd,
-                    tenant_name=self._admin_tenant)
+                vnc_kw_args = {'api_server_host': self._vnc_api_ip,
+                               'api_server_port': self._vnc_api_port}
+                #connect with username and password if auth not noauth
+                if (getattr(self, '_auth_user', None) and
+                    getattr(self, '_auth_passwd', None) and
+                    getattr(self, '_admin_tenant', None)):
+                    vnc_kw_args.update({'password': self._auth_passwd,
+                                        'username': self._auth_user,
+                                        'tenant_name': self._admin_tenant})
+                self._vnc_lib = vnc_api.VncApi(**vnc_kw_args)
                 self._connected_to_api_server.set()
 
                 vnc_lib = self._vnc_lib
