@@ -1,4 +1,6 @@
 
+from builtins import str
+from builtins import object
 from novaclient import client as nc
 from novaclient import exceptions as nc_exc
 
@@ -39,12 +41,12 @@ class ServiceMonitorNovaClient(object):
         except nc_exc.NotFound:
             self.logger.error(
                 "%s %s=%s not found in project %s"
-                % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
+                % (resource, list(kwargs.keys())[0], list(kwargs.values())[0], proj_name))
             raise
         except nc_exc.NoUniqueMatch:
             self.logger.error(
                 "Multiple %s %s=%s found in project %s"
-                % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
+                % (resource, list(kwargs.keys())[0], list(kwargs.values())[0], proj_name))
             return None
         except nc_exc.Unauthorized:
             raise
@@ -64,5 +66,5 @@ class ServiceMonitorNovaClient(object):
             except nc_exc.Unauthorized:
                 self.logger.error(
                     "%s %s=%s not authorized in project %s"
-                    % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
+                    % (resource, list(kwargs.keys())[0], list(kwargs.values())[0], proj_name))
                 return None

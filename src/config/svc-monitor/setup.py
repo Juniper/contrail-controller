@@ -21,6 +21,8 @@ setuptools.setup(
 
     test_suite='svc_monitor.tests',
 
+    install_requires=['configparser', 'future'],
+
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
