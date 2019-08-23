@@ -6,3 +6,5 @@ bottle
 kazoo
 pyyaml
 contrail-config-common
+future==0.16.0
+configparser==3.5.3

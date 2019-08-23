@@ -15,12 +15,14 @@
 #
 # @author: Varun Lodaya, Symantec.
 
+from future import standard_library
+standard_library.install_aliases()
 import unittest
 import mock
 import svc_monitor.services.loadbalancer.drivers.ha_proxy.custom_attributes.haproxy_validator as validator
 from sys import version_info
 if version_info.major == 2:
-    import __builtin__ as builtins
+    import builtins as builtins
 else:
     import builtins
 
@@ -61,8 +63,8 @@ class CustomAttributeTest(unittest.TestCase):
         }
         resp_dict = validator.validate_custom_attributes(custom_attributes_dict,
                                                          'global', fake_config)
-        self.assertFalse('key1' in resp_dict.keys() or \
-                         'key2' in resp_dict.keys())
+        self.assertFalse('key1' in list(resp_dict.keys()) or \
+                         'key2' in list(resp_dict.keys()))
 
     def test_mixed_custom_attributes(self):
         fake_config = {
@@ -70,5 +72,5 @@ class CustomAttributeTest(unittest.TestCase):
         }
         resp_dict = validator.validate_custom_attributes(custom_attributes_dict,
                                                          'default', fake_config)
-        self.assertTrue('key' not in resp_dict.keys() and \
-                        'server_timeout' in resp_dict.keys())
+        self.assertTrue('key' not in list(resp_dict.keys()) and \
+                        'server_timeout' in list(resp_dict.keys()))
