@@ -17,6 +17,7 @@
 #
 # @author: Edouard Thuleau, Cloudwatt.
 
+from builtins import object
 import mock
 import unittest
 import six
