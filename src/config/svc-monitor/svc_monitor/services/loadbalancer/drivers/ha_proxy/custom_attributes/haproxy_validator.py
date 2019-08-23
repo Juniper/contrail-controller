@@ -1,3 +1,6 @@
+from builtins import str
+from builtins import range
+from builtins import object
 import logging
 import inspect
 import os
@@ -30,7 +33,7 @@ def validate_custom_attributes(custom_attributes_dict, section,
                                custom_attributes):
     section_dict = {}
     if custom_attributes and section in custom_attributes_dict:
-        for key, value in custom_attributes.iteritems():
+        for key, value in custom_attributes.items():
             if key in custom_attributes_dict[section]:
                 #Sanitize the value
                 try:

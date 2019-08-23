@@ -1,4 +1,6 @@
 from __future__ import absolute_import
+from builtins import str
+from builtins import range
 from svc_monitor.config_db import *
 from os.path import dirname, exists, join
 import logging
@@ -94,7 +96,7 @@ def get_custom_attributes_v2(lb):
 
 def set_globals(uuid, custom_attr_dict, custom_attrs):
     agg_custom_attrs = {}
-    for key, value in custom_attrs.iteritems():
+    for key, value in custom_attrs.items():
         agg_custom_attrs.update(custom_attrs[key])
 
     global_custom_attrs = get_valid_attrs(custom_attr_dict, 'global',
@@ -132,7 +134,7 @@ def set_globals(uuid, custom_attr_dict, custom_attrs):
     conf.append('stats socket %s mode 0666 level user' % sock_path)
 
     # Adding custom_attributes config
-    for key, value in global_custom_attrs.iteritems():
+    for key, value in global_custom_attrs.items():
         cmd = custom_attr_dict['global'][key]['cmd']
         conf.append(cmd % value)
 
@@ -141,7 +143,7 @@ def set_globals(uuid, custom_attr_dict, custom_attrs):
 
 def set_defaults(custom_attr_dict, custom_attrs):
     agg_custom_attrs = {}
-    for key, value in custom_attrs.iteritems():
+    for key, value in custom_attrs.items():
         agg_custom_attrs.update(custom_attrs[key])
     default_custom_attrs = get_valid_attrs(custom_attr_dict, 'default',
                                            agg_custom_attrs)
@@ -171,7 +173,7 @@ def set_defaults(custom_attr_dict, custom_attrs):
     ]
 
     # Adding custom_attributes config
-    for key, value in default_custom_attrs.iteritems():
+    for key, value in default_custom_attrs.items():
         cmd = custom_attr_dict['default'][key]['cmd']
         conf.append(cmd % value)
 
@@ -208,7 +210,7 @@ def set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs):
                                                 custom_attrs[pool.uuid])
         lconf.append('default_backend %s' % pool.uuid)
         # Adding custom_attributes config
-        for key, value in frontend_custom_attrs.iteritems():
+        for key, value in frontend_custom_attrs.items():
             cmd = custom_attr_dict['frontend'][key]['cmd']
             lconf.append(cmd % value)
         res = "\n\t".join(lconf) + '\n\n'
@@ -249,7 +251,7 @@ def set_backend_v1(pool, custom_attr_dict, custom_attrs):
         conf.append(server)
 
     # Adding custom_attributes config
-    for key, value in backend_custom_attrs.iteritems():
+    for key, value in backend_custom_attrs.items():
         cmd = custom_attr_dict['backend'][key]['cmd']
         conf.append(cmd % value)
 
@@ -372,7 +374,7 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
                     conf.append('default_backend %s' % pool.uuid)
 
                 # Adding custom_attributes config
-                for key, value in frontend_custom_attrs.iteritems():
+                for key, value in frontend_custom_attrs.items():
                     cmd = custom_attr_dict['frontend'][key]['cmd']
                     conf.append(cmd % value)
                 conf.append("\n")
@@ -419,7 +421,7 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
         conf.append(server)
 
     # Adding custom_attributes config
-    for key, value in backend_custom_attrs.iteritems():
+    for key, value in backend_custom_attrs.items():
         cmd = custom_attr_dict['backend'][key]['cmd']
         conf.append(cmd % value)
 
@@ -477,7 +479,7 @@ def _get_codes(codes):
             continue
         elif '-' in code:
             low, hi = code.split('-')[:2]
-            response.update(str(i) for i in xrange(int(low), int(hi) + 1))
+            response.update(str(i) for i in range(int(low), int(hi) + 1))
         else:
             response.add(code)
     return response

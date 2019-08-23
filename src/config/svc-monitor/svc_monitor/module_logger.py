@@ -47,6 +47,7 @@ Log Function Identifier/ID --> String that is mapped to a Message Log Function.
 
 """
 
+from builtins import object
 class MessageID(object):
     """
     Default log function identifiers.
@@ -154,7 +155,7 @@ class ServiceMonitorModuleLogger(object):
         Parameters:
             **kwargs - message function keyword arguments.
         """
-        for msg_id, msg_func in kwargs.iteritems():
+        for msg_id, msg_func in kwargs.items():
             self.logger_functions[msg_id] = msg_func
 
     def emergency(self, log_msg, msg_func = None, id = None):

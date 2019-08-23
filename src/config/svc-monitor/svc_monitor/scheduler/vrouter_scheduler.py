@@ -17,6 +17,8 @@
 #
 # @author: Edouard Thuleau, Cloudwatt.
 
+from builtins import str
+from builtins import object
 import abc
 import ast
 from distutils.version import StrictVersion as V
@@ -85,7 +87,7 @@ class VRouterScheduler(object):
                     continue
 
                 # check if hosts are active & enabled
-                for host,host_status in az.hosts.iteritems():
+                for host,host_status in az.hosts.items():
                     if (('nova-compute' in host_status) and \
                         host_status['nova-compute']['available'] and \
                         host_status['nova-compute']['active']):
@@ -125,7 +127,7 @@ class VRouterScheduler(object):
             self._logger.error(str(e))
             return
 
-        for vr in VirtualRouterSM.values():
+        for vr in list(VirtualRouterSM.values()):
             if az_vrs and vr.name not in az_vrs:
                 vr.set_agent_state(False)
                 continue
@@ -164,7 +166,7 @@ class VRouterScheduler(object):
         if vm.virtual_router:
             return [vm.virtual_router]
 
-        vr_list = VirtualRouterSM._dict.keys()
+        vr_list = list(VirtualRouterSM._dict.keys())
         for vm_id in si.virtual_machines:
             if vm_id == vm.uuid:
                 continue
@@ -175,7 +177,7 @@ class VRouterScheduler(object):
                 except ValueError:
                     pass
 
-        for vr in VirtualRouterSM.values():
+        for vr in list(VirtualRouterSM.values()):
             if not vr.agent_state:
                 try:
                     vr_list.remove(vr.uuid)

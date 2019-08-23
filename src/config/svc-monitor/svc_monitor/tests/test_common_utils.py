@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 from svc_monitor.config_db import *
 from vnc_api.vnc_api import *
 
@@ -226,7 +228,7 @@ def create_test_iip(fq_name_str, iip_uuid='fake-iip-uuid'):
 def get_vn_id_for_fq_name(obj_type, fq_name):
     if obj_type != 'virtual-network':
         return
-    for vn in VirtualNetworkSM.values():
+    for vn in list(VirtualNetworkSM.values()):
         if vn.fq_name == fq_name:
             return vn.uuid
     raise NoIdError(fq_name)

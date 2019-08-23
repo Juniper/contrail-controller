@@ -7,6 +7,10 @@ Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
@@ -16,8 +20,8 @@ monkey.patch_all(thread=not 'unittest' in sys.modules)
 
 from cfgm_common.zkclient import ZookeeperClient
 import requests
-import ConfigParser
-import cStringIO
+import configparser
+import io
 import argparse
 import signal
 import socket
@@ -84,7 +88,8 @@ class SvcMonitor(object):
         if 'host_ip' in self._args:
             host_ip = self._args.host_ip
         else:
-            host_ip = socket.gethostbyname(socket.getfqdn())
+            host_ip = '127.0.0.1'
+            # host_ip = socket.gethostbyname(socket.getfqdn())
         self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger,
                 DBBaseSM, REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
                 host_ip, self._args.trace_file)
@@ -236,10 +241,10 @@ class SvcMonitor(object):
             return
 
     def upgrade(self):
-        for lr in LogicalRouterSM.values():
+        for lr in list(LogicalRouterSM.values()):
             self.snat_agent.upgrade(lr)
 
-        for si in ServiceInstanceSM.values():
+        for si in list(ServiceInstanceSM.values()):
             st = ServiceTemplateSM.get(si.service_template)
             if not st:
                 continue
@@ -272,17 +277,17 @@ class SvcMonitor(object):
                 self.delete_service_instance(vm)
 
     def launch_services(self):
-        for si in ServiceInstanceSM.values():
+        for si in list(ServiceInstanceSM.values()):
             self.create_service_instance(si)
 
     def sync_sm(self):
         # Read and Sync all DBase
-        for cls in DBBaseSM.get_obj_type_map().values():
+        for cls in list(DBBaseSM.get_obj_type_map().values()):
             for obj in cls.list_obj():
                 cls.locate(obj['uuid'], obj)
 
         # Link SI and VM
-        for vm in VirtualMachineSM.values():
+        for vm in list(VirtualMachineSM.values()):
             if vm.service_instance:
                 continue
             for vmi_id in vm.virtual_machine_interfaces:
@@ -301,19 +306,19 @@ class SvcMonitor(object):
         self.loadbalancer_agent.load_drivers()
 
         # Invoke the health monitors
-        for hm in HealthMonitorSM.values():
+        for hm in list(HealthMonitorSM.values()):
             hm.sync()
 
         # Invoke the loadbalancers
-        for lb in LoadbalancerSM.values():
+        for lb in list(LoadbalancerSM.values()):
             lb.sync()
 
         # Invoke the loadbalancer listeners
-        for lb_listener in LoadbalancerListenerSM.values():
+        for lb_listener in list(LoadbalancerListenerSM.values()):
             lb_listener.sync()
 
         # Invoke the loadbalancer pools
-        for lb_pool in LoadbalancerPoolSM.values():
+        for lb_pool in list(LoadbalancerPoolSM.values()):
             lb_pool.sync()
 
         # Audit the lb pools
@@ -336,7 +341,7 @@ class SvcMonitor(object):
                              (domain_name, st_name, hypervisor_type))
 
         domain_obj = None
-        for domain in DomainSM.values():
+        for domain in list(DomainSM.values()):
             if domain.fq_name == domain_fq_name:
                 domain_obj = Domain()
                 domain_obj.uuid = domain.uuid
@@ -346,7 +351,7 @@ class SvcMonitor(object):
             self.logger.error("%s domain not found" % (domain_name))
             return
 
-        for st in ServiceTemplateSM.values():
+        for st in list(ServiceTemplateSM.values()):
             if st.fq_name == st_fq_name:
                 self.logger.info("%s exists uuid %s" %
                                      (st.name, str(st.uuid)))
@@ -414,7 +419,7 @@ class SvcMonitor(object):
             return
         si_fq_name = vmi.name.split('__')[0:3]
         index = int(vmi.name.split('__')[3]) - 1
-        for si in ServiceInstanceSM.values():
+        for si in list(ServiceInstanceSM.values()):
             if si.fq_name != si_fq_name:
                 continue
             st = ServiceTemplateSM.get(si.service_template)
@@ -511,12 +516,12 @@ class SvcMonitor(object):
 
     @staticmethod
     def reset():
-        for cls in DBBaseSM.get_obj_type_map().values():
+        for cls in list(DBBaseSM.get_obj_type_map().values()):
             cls.reset()
 
     def sighup_handler(self):
         if self._conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.ConfigParser()
             config.read(self._conf_file)
             if 'DEFAULTS' in config.sections():
                 try:
@@ -529,7 +534,7 @@ class SvcMonitor(object):
                             config.random_collectors = random.sample(collectors, len(collectors))
                         # Reconnect to achieve load-balance irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
-                except ConfigParser.NoOptionError as e:
+                except configparser.NoOptionError as e:
                      pass
     # end sighup_handler
 
@@ -555,7 +560,7 @@ def skip_check_service(si):
 def timer_callback(monitor):
     # delete orphan shared iips
     iip_delete_list = []
-    for iip in InstanceIpSM.values():
+    for iip in list(InstanceIpSM.values()):
         if not iip.instance_ip_secondary or not iip.service_instance_ip:
             continue
         if iip.service_instance:
@@ -568,7 +573,7 @@ def timer_callback(monitor):
 
     # delete vms without si
     vm_delete_list = []
-    for vm in VirtualMachineSM.values():
+    for vm in list(VirtualMachineSM.values()):
         si = ServiceInstanceSM.get(vm.service_instance)
         if not si and vm.virtualization_type:
             vm_delete_list.append(vm)
@@ -577,7 +582,7 @@ def timer_callback(monitor):
 
     # delete vmis with si but no vms
     vmi_delete_list = []
-    for vmi in VirtualMachineInterfaceSM.values():
+    for vmi in list(VirtualMachineInterfaceSM.values()):
         for si_uuid in vmi.service_instances:
             si = ServiceInstanceSM.get(si_uuid)
             if si and not vmi.virtual_machine:
@@ -599,7 +604,7 @@ def timer_callback(monitor):
             monitor._relaunch_service_instance(si)
 
     # check vns to be deleted
-    for project in ProjectSM.values():
+    for project in list(ProjectSM.values()):
         if project.service_instances:
             continue
 
@@ -630,7 +635,7 @@ def launch_timer(monitor):
 
 
 def cgitb_error_log(monitor):
-    string_buf = cStringIO.StringIO()
+    string_buf = io.BytesIO()
     cgitb_hook(file=string_buf, format="text")
     monitor.logger.log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
@@ -737,7 +742,7 @@ def parse_args(args_str):
     sandeshopts = SandeshConfig.get_default_options()
 
     saved_conf_file = args.conf_file
-    config = ConfigParser.SafeConfigParser()
+    config = configparser.ConfigParser()
     if args.conf_file:
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
