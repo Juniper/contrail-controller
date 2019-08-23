@@ -185,7 +185,7 @@ def parse_args(args_str):
         "--redis_server_port",
         help="Port of redis server")
     parser.add_argument(
-        "--auth", choices=['keystone', 'no-auth'],
+        "--auth", choices=['keystone', 'noauth', 'no-auth'],
         help="Type of authentication for user-requests")
     parser.add_argument(
         "--reset_config", action="store_true",
