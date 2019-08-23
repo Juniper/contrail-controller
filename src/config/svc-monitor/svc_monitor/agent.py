@@ -15,12 +15,12 @@
 #
 # @author: Sylvain Afchain
 
+from builtins import object
 import abc
+from future.utils import with_metaclass
 
 
-class Agent(object):
-    __metaclass__ = abc.ABCMeta
-
+class Agent(with_metaclass(abc.ABCMeta, object)):
     def __init__(self, svc_mon, vnc_lib, object_db, config_section):
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
