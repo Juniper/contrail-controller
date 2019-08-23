@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from builtins import str
 from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
@@ -101,7 +102,7 @@ class LoadbalancerAgent(Agent):
             ServiceApplianceSetSM.locate(sa_set_uuid)
 
     def load_drivers(self):
-        for sas in ServiceApplianceSetSM.values():
+        for sas in list(ServiceApplianceSetSM.values()):
             if sas.driver:
                 config = self._args.config_sections
                 config.add_section(sas.name)
@@ -536,7 +537,7 @@ class LoadbalancerAgent(Agent):
                'status': self._get_object_status(health_monitor)}
 
         props = health_monitor.params
-        for key, mapping in self._loadbalancer_health_type_mapping.iteritems():
+        for key, mapping in self._loadbalancer_health_type_mapping.items():
             if key in props and props[key]:
                 res[mapping] = props[key]
 
@@ -575,7 +576,7 @@ class LoadbalancerAgent(Agent):
         res['tenant_id'] = pool.parent_uuid.replace('-', '')
 
         props = member.params
-        for key, mapping in self._loadbalancer_member_type_mapping.iteritems():
+        for key, mapping in self._loadbalancer_member_type_mapping.items():
             if key in props and props[key]:
                 res[mapping] = props[key]
 
@@ -617,7 +618,7 @@ class LoadbalancerAgent(Agent):
 
         props = pool.params
         if props:
-            for key, mapping in self._loadbalancer_pool_type_mapping.iteritems():
+            for key, mapping in self._loadbalancer_pool_type_mapping.items():
                 if key in props and props[key]:
                     res[mapping] = props[key]
 

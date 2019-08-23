@@ -2,6 +2,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 import uuid
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
 
@@ -152,7 +153,7 @@ class OpencontrailLoadbalancerDriver(
                 ip_id = fip_id
                 idx = pool.lb_floating_ips.index(ip_id)
                 del pool.lb_floating_ips[idx]
-            if ip_id in pool.lb_fips.keys():
+            if ip_id in list(pool.lb_fips.keys()):
                 del pool.lb_fips[ip_id]
 
     def _update_pool_member_props(self, lb, lb_props):
@@ -175,7 +176,7 @@ class OpencontrailLoadbalancerDriver(
                     self._update_pool_ip_list(pool, "del", fip_id=fip_id)
                 for iip_id in lb_props['new_instance_ips'] or []:
                     fip = self._get_floating_ip(iip_id=iip_id)
-                    for member_id in pool.member_vmis.keys():
+                    for member_id in list(pool.member_vmis.keys()):
                         vmi = pool.member_vmis[member_id]
                         member = LoadbalancerMemberSM.get(member_id)
                         if not member:
@@ -186,7 +187,7 @@ class OpencontrailLoadbalancerDriver(
                     self._update_pool_ip_list(pool, "add", iip_id=iip_id, fip=fip)
                 for fip_id in lb_props['new_floating_ips'] or []:
                     fip = self._get_floating_ip(fip_id=fip_id)
-                    for member_id in pool.member_vmis.keys():
+                    for member_id in list(pool.member_vmis.keys()):
                         vmi = pool.member_vmis[member_id]
                         member = LoadbalancerMemberSM.get(member_id)
                         if not member:
@@ -476,7 +477,7 @@ class OpencontrailLoadbalancerDriver(
         if pool is None:
             return
 
-        if member_id in pool.member_vmis.keys():
+        if member_id in list(pool.member_vmis.keys()):
             vmi = pool.member_vmis[member_id]
         else:
             try:
@@ -491,7 +492,7 @@ class OpencontrailLoadbalancerDriver(
             protocol = 'UDP'
         else:
             protocol = 'TCP'
-        for key in pool.lb_fips.keys():
+        for key in list(pool.lb_fips.keys()):
             fip = pool.lb_fips[key]
             fip.add_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
@@ -509,7 +510,7 @@ class OpencontrailLoadbalancerDriver(
         if pool is None:
             return
 
-        if member_id in pool.member_vmis.keys():
+        if member_id in list(pool.member_vmis.keys()):
             vmi = pool.member_vmis[member_id]
             del pool.member_vmis[member_id]
         else:
@@ -523,7 +524,7 @@ class OpencontrailLoadbalancerDriver(
         if len(pool.members) == 1 and list(pool.members)[0] == member_id:
             port_map_delete = True
 
-        for key in pool.lb_fips.keys():
+        for key in list(pool.lb_fips.keys()):
             fip = pool.lb_fips[key]
             fip.del_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
@@ -555,7 +556,7 @@ class OpencontrailLoadbalancerDriver(
         props = ServiceHealthCheckType()
         setattr(props, 'health_check_type', 'link-local')
 
-        for key, mapping in _service_health_check_type_mapping.iteritems():
+        for key, mapping in _service_health_check_type_mapping.items():
             if mapping in hm.params:
                 setattr(props, key, hm.params[mapping])
 

@@ -5,6 +5,7 @@
 """
 This file contains implementation of data model for SVC monitor
 """
+from builtins import range
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
 from cfgm_common import svc_info
@@ -805,7 +806,7 @@ class VirtualNetworkSM(DBBaseSM):
             if si.params:
                 intf_list = si.params.get('interface_list', [])
             for intf in intf_list:
-                if (':').join(self.fq_name) in intf.values():
+                if (':').join(self.fq_name) in list(intf.values()):
                     self._manager.create_service_instance(si)
 
 # end class VirtualNetworkSM

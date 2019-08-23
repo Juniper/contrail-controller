@@ -1,3 +1,7 @@
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import mock
 from mock import patch
 import unittest
@@ -6,7 +10,7 @@ from svc_monitor import config_db
 from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
-import ConfigParser
+import configparser
 
 class F5LBTest(unittest.TestCase):
     def setUp(self):
@@ -51,7 +55,7 @@ class F5LBTest(unittest.TestCase):
         self.object_db.pool_remove = mock.Mock(side_effect=remove_db)
 
         conf_parser = argparse.ArgumentParser(add_help=False)
-        config = ConfigParser.SafeConfigParser({'admin_token': None})
+        config = configparser.ConfigParser({'admin_token': ''})
         self._args, remaining_argv = conf_parser.parse_known_args()
         self._args.config_sections = config
 
@@ -245,7 +249,7 @@ OpencontrailLoadbalancerDriver")
             if hasattr(obj, 'serialize_to_json'):
                 return obj.serialize_to_json(obj.get_pending_updates())
             else:
-                return dict((k, v) for k, v in obj.__dict__.iteritems())
+                return dict((k, v) for k, v in obj.__dict__.items())
 
         return json.loads(json.dumps(obj, default=to_json))
     # end obj_to_dict
