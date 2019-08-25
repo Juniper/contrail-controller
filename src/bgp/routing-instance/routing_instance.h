@@ -174,6 +174,8 @@ public:
 
     void AddRoutingPolicy(RoutingPolicyPtr policy);
 
+    bool IsServiceChainRoute(const BgpRoute *route) const;
+
     bool ProcessRoutingPolicy(const BgpRoute *route, BgpPath *path) const;
 
     // Check whether the route is aggregate route
