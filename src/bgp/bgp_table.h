@@ -133,6 +133,8 @@ public:
     void ProcessDefaultTunnelEncapsulation(const RibOut *ribout,
         ExtCommunityDB *extcomm_db, BgpAttr *attr) const;
 
+    BgpAttrPtr AddExtCommunitySubCluster(BgpAttr *attr,
+            uint16_t subcluster_id);
     virtual void UpdateSecondaryTablesForReplication(BgpRoute *rt,
                      TableSet *secondary_tables) {
     }
