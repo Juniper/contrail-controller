@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "8704808d_00a88d0c",
+        "filename": "src/bgp/extended-community/SConscript",
+        "patchSetId": 5
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1f5b233b_c2c7d3d4",
+      "range": {
+        "startLine": 28,
+        "startChar": 38,
+        "endLine": 28,
+        "endChar": 46
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "09f797bb_9efc64e6",
         "filename": "src/bgp/extended-community/sub_cluster.cc",
         "patchSetId": 5
@@ -45,6 +69,30 @@
       "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "674cd96b_9d1c6305",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "09f797bb_9efc64e6",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -71,6 +119,30 @@
     },
     {
       "key": {
+        "uuid": "226ba340_797da044",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5983f518_7db271fc",
+      "range": {
+        "startLine": 36,
+        "startChar": 31,
+        "endLine": 36,
+        "endChar": 35
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "336cce61_708aa126",
         "filename": "src/bgp/extended-community/sub_cluster.cc",
         "patchSetId": 5
@@ -91,6 +163,30 @@
       "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c7807d06_3a82b063",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Have added \u0027L\u0027 at the end of asn if it is AS4, just like rtarget",
+      "parentUuid": "336cce61_708aa126",
+      "range": {
+        "startLine": 97,
+        "startChar": 7,
+        "endLine": 97,
+        "endChar": 20
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -117,6 +213,30 @@
     },
     {
       "key": {
+        "uuid": "e11295aa_847d3175",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 5
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done. Have addedd support for AS4",
+      "parentUuid": "ca693649_a04b0ba6",
+      "range": {
+        "startLine": 99,
+        "startChar": 20,
+        "endLine": 99,
+        "endChar": 32
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "18e3e363_3a00e9da",
         "filename": "src/bgp/extended-community/sub_cluster.h",
         "patchSetId": 5
@@ -137,6 +257,30 @@
       "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bba329ca_63c74e7a",
+        "filename": "src/bgp/extended-community/sub_cluster.h",
+        "patchSetId": 5
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "18e3e363_3a00e9da",
+      "range": {
+        "startLine": 2,
+        "startChar": 16,
+        "endLine": 2,
+        "endChar": 26
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -163,6 +307,30 @@
     },
     {
       "key": {
+        "uuid": "2142b86d_a4ce6173",
+        "filename": "src/bgp/extended-community/sub_cluster.h",
+        "patchSetId": 5
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "97c587ad_193af8b4",
+      "range": {
+        "startLine": 26,
+        "startChar": 5,
+        "endLine": 26,
+        "endChar": 10
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6e1d144a_a1338357",
         "filename": "src/bgp/extended-community/test/SConscript",
         "patchSetId": 5
@@ -183,6 +351,30 @@
       "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "202dceaf_cca5613f",
+        "filename": "src/bgp/extended-community/test/SConscript",
+        "patchSetId": 5
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-08-25T12:20:15Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6e1d144a_a1338357",
+      "range": {
+        "startLine": 81,
+        "startChar": 4,
+        "endLine": 81,
+        "endChar": 13
+      },
+      "revId": "ca7a7fb0c252334d2c2c588cf6425c38aed9672f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
