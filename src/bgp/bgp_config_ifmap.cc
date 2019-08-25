@@ -666,8 +666,10 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
     }
     data_.set_hold_time(params.hold_time);
 
-    // reset subcluster name, will be set again if mapping is found in schema
+    // reset subcluster name and subcluster asn,
+    // will be set again if mapping is found in schema
     data_.reset_subcluster_name();
+    data_.reset_subcluster_id();
     // get subcluster name this router is associated with
     IFMapNode *node = node_proxy_.node();
     if (!node)
@@ -678,6 +680,11 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
         if (strcmp(adj->table()->Typename(), "sub-cluster") == 0) {
             data_.set_subcluster_name(adj->name());
+            const autogen::SubCluster *sc =
+                static_cast<autogen::SubCluster *>(adj->GetObject());
+            if (sc) {
+                data_.set_subcluster_id(sc->asn());
+            }
             break;
         }
     }

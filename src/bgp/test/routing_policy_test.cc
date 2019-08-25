@@ -3962,7 +3962,7 @@ TEST_F(RoutingPolicyTest, ProtocolMatchStaticRoute) {
 // 1. two routing instance test_0 and test_1
 // 2. Routing instnaces are connected with each other,
 // 3. two routing policies to edit local pref of matching route.
-// Verify that routing policy is not applied to replicated route.
+// Verify that routing policy is applied to replicated route.
 // Also, with above configuration, validate that route notify doesn't trigger
 // re-addition of replicated route paths.
 //
@@ -3991,7 +3991,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     BgpRoute *rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 1);
+    ASSERT_TRUE(rt->count() == 2);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     const BgpAttr *attr = rt->BestPath()->GetAttr();
@@ -4001,14 +4001,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 100);
 
-    // Since the routing policy is not applied on the replicated route,
-    // the replicated route in test_1.inet6.0 table retains its
-    // local-pref of 200 and remains the best path.
-    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_FALSE(path->IsReplicated());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -4022,7 +4025,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     orig_attr = rt->BestPath()->GetOriginalAttr();
     original_local_pref = orig_attr->local_pref();
     policy_local_pref = attr->local_pref();
-    ASSERT_TRUE(policy_local_pref == 200);
+    ASSERT_TRUE(policy_local_pref == 50);
     ASSERT_TRUE(original_local_pref == 200);
 
     // Take the time stamp of the replicated path on the route.
@@ -4049,16 +4052,19 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
     rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 1);
+    ASSERT_TRUE(rt->count() == 2);
 
-    // Since the routing policy is not applied on the replicated route,
-    // the replicated route in test_1.inet6.0 table retains its
-    // local-pref of 200 and remains the best path.
-    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_FALSE(path->IsReplicated());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -4090,7 +4096,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate) {
 // 1. two routing instance test_0 and test_1
 // 2. Routing instnaces are connected with each other,
 // 3. two routing policies to edit local pref of matching route.
-// Verify that routing policy is not applied to replicated route.
+// Verify that routing policy is applied to replicated route.
 // Now modify the rules of the policy applied on the routing instance and
 // verify that update of policy doesn't trigger route change.
 //
@@ -4119,7 +4125,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
     BgpRoute *rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 1);
+    ASSERT_TRUE(rt->count() == 2);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     const BgpAttr *attr = rt->BestPath()->GetAttr();
@@ -4129,14 +4135,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
     ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 100);
 
-    // Since the routing policy is not applied on the replicated route,
-    // the replicated route in test_1.inet6.0 table retains its
-    // local-pref of 200 and remains the best path.
-    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_FALSE(path->IsReplicated());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -4150,7 +4159,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
     orig_attr = rt->BestPath()->GetOriginalAttr();
     original_local_pref = orig_attr->local_pref();
     policy_local_pref = attr->local_pref();
-    ASSERT_TRUE(policy_local_pref == 200);
+    ASSERT_TRUE(policy_local_pref == 50);
     ASSERT_TRUE(original_local_pref == 200);
 
 
@@ -4164,7 +4173,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
     rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 1);
+    ASSERT_TRUE(rt->count() == 2);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     attr = rt->BestPath()->GetAttr();
@@ -4174,14 +4183,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
     ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 100);
 
-    // Since the routing policy is not applied on the replicated route,
-    // the replicated route in test_1.inet6.0 table retains its
-    // local-pref of 200 and remains the best path.
-    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_FALSE(path->IsReplicated());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -4195,8 +4207,21 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
     orig_attr = rt->BestPath()->GetOriginalAttr();
     original_local_pref = orig_attr->local_pref();
     policy_local_pref = attr->local_pref();
-    ASSERT_TRUE(policy_local_pref == 200);
+    ASSERT_TRUE(policy_local_pref == 75);
     ASSERT_TRUE(original_local_pref == 200);
+
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 75.
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+         it != rt->GetPathList().end(); it++) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 75);
+        }
+    }
 
     DeleteRoute<Inet6Definition>(peers_[0], "test_0.inet6.0",
                              "2001:db8:85a3::8a2e:370:7335/128");
@@ -4212,7 +4237,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_0) {
 // 2. Routing instnaces are connected with each other,
 // 3. two routing policies(basic_0 & basic_1) to edit local pref is applied on
 // test_0 & test_1 routing instances respectively
-// Verify that routing policy is not applied to replicated route.
+// Verify that routing policy is applied to replicated route.
 // Now apply new policy(basic_2) on the routing instance(test_0) and
 // verify that update of policy doesn't trigger route change.
 //
@@ -4241,7 +4266,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
     BgpRoute *rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 1);
+    ASSERT_TRUE(rt->count() == 2);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     const BgpAttr *attr = rt->BestPath()->GetAttr();
@@ -4251,14 +4276,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
     ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 100);
 
-    // Since the routing policy is not applied on the replicated route,
-    // the replicated route in test_1.inet6.0 table retains its
-    // local-pref of 200 and remains the best path.
-    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_FALSE(path->IsReplicated());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -4272,7 +4300,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
     orig_attr = rt->BestPath()->GetOriginalAttr();
     original_local_pref = orig_attr->local_pref();
     policy_local_pref = attr->local_pref();
-    ASSERT_TRUE(policy_local_pref == 200);
+    ASSERT_TRUE(policy_local_pref == 50);
     ASSERT_TRUE(original_local_pref == 200);
 
 
@@ -4286,7 +4314,7 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
     rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
                                             "2001:db8:85a3::8a2e:370:7335/128");
     ASSERT_TRUE(rt != NULL);
-    ASSERT_TRUE(rt->count() == 1);
+    ASSERT_TRUE(rt->count() == 2);
     VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
     ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
     attr = rt->BestPath()->GetAttr();
@@ -4296,14 +4324,17 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
     ASSERT_TRUE(policy_local_pref == 200);
     ASSERT_TRUE(original_local_pref == 100);
 
-    // Since the routing policy is not applied on the replicated route,
-    // the replicated route in test_1.inet6.0 table retains its
-    // local-pref of 200 and remains the best path.
-    // So it is no longer replicated to connected VRF test_0.inet6.0 table.
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_FALSE(path->IsReplicated());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
     }
 
     rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
@@ -4317,8 +4348,21 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
     orig_attr = rt->BestPath()->GetOriginalAttr();
     original_local_pref = orig_attr->local_pref();
     policy_local_pref = attr->local_pref();
-    ASSERT_TRUE(policy_local_pref == 200);
+    ASSERT_TRUE(policy_local_pref == 50);
     ASSERT_TRUE(original_local_pref == 200);
+
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 50.
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+         it != rt->GetPathList().end(); it++) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 50);
+        }
+    }
 
     DeleteRoute<Inet6Definition>(peers_[0], "test_0.inet6.0",
                              "2001:db8:85a3::8a2e:370:7335/128");
@@ -4329,6 +4373,95 @@ TEST_F(RoutingPolicyTest, Policy_RouteReplicate_PolicyUpdate_1) {
                                   "routing-instance", "test_1", "connection");
 }
 
+//
+// 1. two routing instance test_0 and test_1
+// 2. Routing instnaces are connected with each other,
+// 3. two routing policies to edit local pref of matching route.
+// Verify that virtul-network route policy is applied to secondary routes also
+//
+TEST_F(RoutingPolicyTest, Policy_ReplicatedPathApplyPolicy) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_7i.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    ifmap_test_util::IFMapMsgLink(&config_db_, "routing-instance", "test_0",
+                                  "routing-instance", "test_1", "connection");
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+
+    AddRoute<Inet6Definition>(peers_[0], "test_0.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7335/128", 100, list_of("23:13"));
+    AddRoute<Inet6Definition>(peers_[1], "test_1.inet6.0",
+                  "2001:db8:85a3::8a2e:370:7335/128", 100, list_of("23:13"));
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test_1.inet6.0"));
+    VERIFY_EQ(1, RouteCount("test_0.inet6.0"));
+    BgpRoute *rt = RouteLookup<Inet6Definition>("test_0.inet6.0",
+                                            "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    const BgpAttr *orig_attr = rt->BestPath()->GetOriginalAttr();
+    uint32_t original_local_pref = orig_attr->local_pref();
+    uint32_t policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 200);
+    ASSERT_TRUE(original_local_pref == 100);
+
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_0.inet6.0 will also
+    // become 200.
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+         it != rt->GetPathList().end(); it++) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 200);
+        }
+    }
+
+    rt = RouteLookup<Inet6Definition>("test_1.inet6.0",
+                                      "2001:db8:85a3::8a2e:370:7335/128");
+    ASSERT_TRUE(rt != NULL);
+    ASSERT_TRUE(rt->count() == 2);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    ASSERT_TRUE(rt->BestPath()->IsFeasible() == true);
+    ASSERT_TRUE(rt->BestPath()->IsReplicated() == true);
+    attr = rt->BestPath()->GetAttr();
+    orig_attr = rt->BestPath()->GetOriginalAttr();
+    original_local_pref = orig_attr->local_pref();
+    policy_local_pref = attr->local_pref();
+    ASSERT_TRUE(policy_local_pref == 50);
+    ASSERT_TRUE(original_local_pref == 200);
+
+    // Since the routing policy is now applied on the replicated route,
+    // the local-pref of the replicated route in test_1.inet6.0 will also
+    // become 50.
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+         it != rt->GetPathList().end(); it++) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->IsReplicated()) {
+            attr = path->GetAttr();
+            policy_local_pref = attr->local_pref();
+            ASSERT_TRUE(policy_local_pref == 50);
+        }
+    }
+
+    DeleteRoute<Inet6Definition>(peers_[0], "test_0.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7335/128");
+    DeleteRoute<Inet6Definition>(peers_[1], "test_1.inet6.0",
+                             "2001:db8:85a3::8a2e:370:7335/128");
+    task_util::WaitForIdle();
+    ifmap_test_util::IFMapMsgUnlink(&config_db_, "routing-instance", "test_0",
+                                  "routing-instance", "test_1", "connection");
+}
 
 
 static void ValidateShowRoutingPolicyResponse(
