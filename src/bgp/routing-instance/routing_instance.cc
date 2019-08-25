@@ -1813,6 +1813,23 @@ bool RoutingInstance::HasExportTarget(const ExtCommunity *extcomm) const {
     return false;
 }
 
+bool RoutingInstance::IsServiceChainRoute(const BgpRoute *route) const {
+    const BgpTable *table = route->table();
+    if (!table) {
+        return false;
+    }
+    const BgpInstanceConfig *rt_config = this->config();
+    if (!rt_config) {
+        return false;
+    }
+    const ServiceChainConfig *sc_config =
+           rt_config->service_chain_info(table->family());
+    if (!sc_config) {
+        return false;
+    }
+    return true;
+}
+
 //
 // On given route/path apply the routing policy
 //    Called from
@@ -1822,9 +1839,10 @@ bool RoutingInstance::HasExportTarget(const ExtCommunity *extcomm) const {
 
 bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
                                            BgpPath *path) const {
-    // Don't apply routing policy on secondary path
-    if (path->IsReplicated())
+    if (IsServiceChainRoute(route) && path->IsReplicated()) {
+        // Don't apply routing policy on secondary path for service chain route
         return true;
+    }
     const RoutingPolicyMgr *policy_mgr = server()->routing_policy_mgr();
     // Take snapshot of original attribute
     BgpAttr *out_attr = new BgpAttr(*(path->GetOriginalAttr()));
