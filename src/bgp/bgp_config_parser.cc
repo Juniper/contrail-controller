@@ -606,12 +606,13 @@ bool BgpConfigParser::ParseSubCluster(const xml_node &node,
     string subcluster_name(node.attribute("name").value());
     assert(!subcluster_name.empty());
 
-    auto_ptr<autogen::SubCluster::StringProperty> subcluster_property(
-        new autogen::SubCluster::StringProperty);
+    auto_ptr<autogen::SubCluster::NtProperty> subcluster_property(
+        new autogen::SubCluster::NtProperty);
 
-    if (node.child("sub-cluster-asn"))
-        subcluster_property->data = string(node.child_value("sub-cluster-asn"));
-
+    if (node.child("sub-cluster-asn")) {
+        std::stringstream sub_cluster_asn(string(node.child_value("sub-cluster-asn")));
+        sub_cluster_asn >> subcluster_property->data;
+    }
     if (add_change) {
         MapObjectSetProperty("sub-cluster", subcluster_name,
             "sub-cluster-asn", subcluster_property.release(), requests);
