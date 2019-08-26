@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "30ec4045_2225d2ee",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-08-26T09:54:17Z",
+      "side": 1,
+      "message": "it\u0027s better to import configparser from six always. it works for all python versions.",
+      "revId": "6d4b0462dfa41dbd3c718416e37346b97003297f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
