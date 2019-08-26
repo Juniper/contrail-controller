@@ -3178,7 +3178,7 @@ class DMCassandraDB(VncObjectDBClient):
         pr_entries = dict(cf.get_range())
         for pr_uuid in pr_entries.keys():
             pr_entry = pr_entries[pr_uuid] or {}
-            asn = pr_entry.get('asn')
+            asn = int(pr_entry.get('asn'))
             if asn:
                 if pr_uuid not in self.pr_asn_map:
                     self.pr_asn_map[pr_uuid] = asn
@@ -3205,7 +3205,7 @@ class DMCassandraDB(VncObjectDBClient):
     # end
 
     def add_asn(self, pr_uuid, asn):
-        self.add(self._PR_ASN_CF, pr_uuid, {'asn': asn})
+        self.add(self._PR_ASN_CF, pr_uuid, {'asn': str(asn)})
         self.pr_asn_map[pr_uuid] = asn
         self.asn_pr_map[asn] = pr_uuid
     # end add_asn
