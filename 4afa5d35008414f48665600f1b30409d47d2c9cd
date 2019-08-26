@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5c3374ff_fea4b070",
+        "filename": "src/config/common/cfgm_common/analytics_client.py",
+        "patchSetId": 10
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-26T02:17:06Z",
+      "side": 1,
+      "message": "Why is this class variable and others are not?",
+      "range": {
+        "startLine": 74,
+        "startChar": 20,
+        "endLine": 74,
+        "endChar": 29
+      },
+      "revId": "4afa5d35008414f48665600f1b30409d47d2c9cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
