@@ -2077,9 +2077,19 @@ class VncApiServer(object):
 
             command = "contrail-version contrail-config | grep 'contrail-config'"
             version = os.popen(command).read()
-            _, rpm_version, build_num = version.split()
+            if version:
+                version = version.split()
+            if not version or len(version) != 3:
+                # In case of setup from source there is no RPM and version is available in env     
+                version_str = os.environ.get('CONTRAIL_VERSION', 'tf-master-latest')
+                version = re.split('\.|-', version_str)[-3:]
+                if len(version) != 3:
+                    # in CI version is like changedid-changeset
+                    version = ['tf', version_str, version_str]
+            _, build_id, build_num = version[:3]
+
             cfgm_cpu_uve.build_info = build_info + '"build-id" : "' + \
-                                      rpm_version + '", "build-number" : "' + \
+                                      build_id + '", "build-number" : "' + \
                                       build_num + '"}]}'
 
             cpu_info_trace = ModuleCpuStateTrace(data=cfgm_cpu_uve, sandesh=self._sandesh)
