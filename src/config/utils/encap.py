@@ -20,6 +20,6 @@ if __name__ == "__main__":
     elif sys.argv[1] == "delete":
         conf_id=handle.get_default_global_vrouter_config_id()
         handle.global_vrouter_config_delete(id=conf_id)
-    else:    
+    else:
         print 'Usage: python encap_set.py <add|update|delete> <username> <password> <tenant_name> <config_node_ip>'
 

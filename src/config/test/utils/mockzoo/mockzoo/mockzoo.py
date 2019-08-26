@@ -10,7 +10,7 @@
 # This module helps start and stop zookeeper instances for unit testing
 # java must be pre-installed for this to work
 #
-    
+
 import os
 import subprocess
 import logging
@@ -47,7 +47,7 @@ def start_zoo(cport):
     confdir = cassbase + basefile + "/conf/"
     output,_ = call_command_("mkdir " + cassbase)
 
-    logging.info('Installing zookeeper in ' + cassbase) 
+    logging.info('Installing zookeeper in ' + cassbase)
     os.system("cat " + zookeeper_bdir + zookeeper_dl + " | tar -xpzf - -C " + cassbase)
 
     output,_ = call_command_("cp " + confdir + "zoo_sample.cfg " + confdir + "zoo.cfg")
@@ -86,7 +86,7 @@ def stop_zoo(cport):
     logging.info('Killing zookeeper %d' % cport)
     output,_ = call_command_(cassbase + basefile + '/bin/zkServer.sh stop')
     output,_ = call_command_("rm -rf " + cassbase)
-    
+
 def replace_string_(filePath, findreplace):
     "replaces all findStr by repStr in file filePath"
     print filePath

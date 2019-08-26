@@ -26,7 +26,7 @@ class AssociateVirtualDns(object):
             if self._args.tenant_dns_servers:
                 print 'tenant_dns_servers should not be configured when ipam_dns_method is none/default-dns-server'
                 return
-        
+
         ipam_dns_srv_obj = None
         if self._args.ipam_dns_method == "virtual-dns-server":
             if not self._args.vdns_fqname:
@@ -42,8 +42,8 @@ class AssociateVirtualDns(object):
             ipam_dns_srv_obj = IpamDnsAddressType(tenant_dns_server_address=dict_servers, virtual_dns_server_name=None)
 
         try:
-            dp_obj = DnsProvisioner(self._args.admin_user, self._args.admin_password, 
-                                    self._args.admin_tenant_name, 
+            dp_obj = DnsProvisioner(self._args.admin_user, self._args.admin_password,
+                                    self._args.admin_tenant_name,
                                     self._args.api_server_ip, self._args.api_server_port)
         except ConnectionError:
              print 'Connection to API server failed '
@@ -61,7 +61,7 @@ class AssociateVirtualDns(object):
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-        
+
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         defaults = {
@@ -92,7 +92,7 @@ class AssociateVirtualDns(object):
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
         parser.add_argument("--admin_password", help = "Password of keystone admin user")
         parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
-    
+
         self._args = parser.parse_args(remaining_argv)
 
     #end _parse_args

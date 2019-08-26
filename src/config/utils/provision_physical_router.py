@@ -45,9 +45,9 @@ class VncProvisioner(object):
             router_external = False
             if self._args.public_vrf_test is not None and self._args.public_vrf_test == 'True':
                 router_external = True
-            vxlan = None 
-            if self._args.vxlan is not None: 
-                vxlan = self._args.vxlan 
+            vxlan = None
+            if self._args.vxlan is not None:
+                vxlan = self._args.vxlan
             self.add_physical_router_config(router_external, vxlan)
         elif self._args.op == 'delete_basic':
             print 'calling delete_physical_router_config\n'
@@ -85,7 +85,7 @@ class VncProvisioner(object):
         pr.physical_router_management_ip = mgmt_ip
         pr.physical_router_vendor_name = 'juniper'
         pr.physical_router_product_name = 'mx'
-        pr.physical_router_vnc_managed = True 
+        pr.physical_router_vnc_managed = True
         uc = UserCredentials('root', password)
         pr.set_physical_router_user_credentials(uc)
         pr.set_bgp_router(bgp_router)
@@ -108,8 +108,8 @@ class VncProvisioner(object):
             vn1_obj = self._vnc_lib.virtual_network_read(fq_name=[u'default-domain', u'default-project', u'vn1'])
         except NoIdError:
             pass
- 
-        if vn1_obj is None: 
+
+        if vn1_obj is None:
             vn1_obj = VirtualNetwork('vn1')
             if router_external == True:
                 vn1_obj.set_router_external(True)
@@ -127,7 +127,7 @@ class VncProvisioner(object):
             pr = self._vnc_lib.physical_router_read(fq_name=[u'default-global-system-config', u'a7-mx-80'])
         except NoIdError:
             pass
- 
+
         if pr is None:
             bgp_router, pr = self.create_router('a7-mx-80', '10.84.63.133', 'abc123')
             pr.set_virtual_network(vn1_obj)
@@ -159,14 +159,14 @@ class VncProvisioner(object):
             li = self._vnc_lib.logical_interface_read(fq_name=[u'default-global-system-config', u'a7-mx-80', u'ge-1/0/5', u'ge-1/0/5.0'])
         except NoIdError:
             pass
-       
+
         if li is None:
             li = LogicalInterface('ge-1/0/5.0', parent_obj = pi)
             li.vlan_tag = 100
             li.set_virtual_machine_interface(vmi)
             li_id = self._vnc_lib.logical_interface_create(li)
 
-    # end 
+    # end
 
     def delete_physical_router_config(self):
 
@@ -176,7 +176,7 @@ class VncProvisioner(object):
             li = self._vnc_lib.logical_interface_read(fq_name=[u'default-global-system-config', u'a7-mx-80', u'ge-1/0/5', u'ge-1/0/5.0'])
         except NoIdError:
             pass
-       
+
         if li is not None:
             self._vnc_lib.logical_interface_delete(li.get_fq_name())
 
@@ -201,7 +201,7 @@ class VncProvisioner(object):
             pr = self._vnc_lib.physical_router_read(fq_name=[u'default-global-system-config', u'a7-mx-80'])
         except NoIdError:
             pass
- 
+
         if pr is not None:
             self._vnc_lib.physical_router_delete(pr.get_fq_name())
 
@@ -210,7 +210,7 @@ class VncProvisioner(object):
             br = self._vnc_lib.bgp_router_read(fq_name=[u'default-domain', u'default-project', u'ip-fabric', u'__default__', u'a7-mx-80'])
         except NoIdError:
             pass
- 
+
         if br is not None:
             self._vnc_lib.bgp_router_delete(br.get_fq_name())
 
@@ -219,8 +219,8 @@ class VncProvisioner(object):
             vn1_obj = self._vnc_lib.virtual_network_read(fq_name=[u'default-domain', u'default-project', u'vn1'])
         except NoIdError:
             pass
- 
-        if vn1_obj is not None: 
+
+        if vn1_obj is not None:
             vn1_uuid = self._vnc_lib.virtual_network_delete(vn1_obj.get_fq_name())
 
         ipam_obj = None
@@ -241,7 +241,7 @@ class VncProvisioner(object):
             pr = self._vnc_lib.physical_router_read(fq_name=[u'default-global-system-config', u'a2-mx-80'])
         except NoIdError:
             pass
- 
+
         if pr is not None:
             self._vnc_lib.physical_router_delete(pr.get_fq_name())
 
@@ -250,11 +250,11 @@ class VncProvisioner(object):
             br = self._vnc_lib.bgp_router_read(fq_name=[u'default-domain', u'default-project', u'ip-fabric', u'__default__', u'a2-mx-80'])
         except NoIdError:
             pass
- 
+
         if br is not None:
             self._vnc_lib.bgp_router_delete(br.get_fq_name())
 
-        #TOR 
+        #TOR
         li = None
         try:
             li = self._vnc_lib.logical_interface_read(fq_name=[u'default-global-system-config', u'qfx-1', u'xe-0/0/0', u'xe-0/0/0.0'])
@@ -268,7 +268,7 @@ class VncProvisioner(object):
             ip_obj1 = self._vnc_lib.instance_ip_read(fq_name=[u'inst-ip-1'])
         except NoIdError:
             pass
-       
+
         if ip_obj1 is not None:
             self._vnc_lib.instance_ip_delete(ip_obj1.get_fq_name())
 
@@ -277,8 +277,8 @@ class VncProvisioner(object):
             fip_obj = self._vnc_lib.floating_ip_read(fq_name=[u'default-domain', u'default-project', u'vn-public', u'vn_public_fip_pool', u'fip-1'])
         except NoIdError:
             pass
- 
-        if fip_obj is not None: 
+
+        if fip_obj is not None:
             self._vnc_lib.floating_ip_delete(fip_obj.get_fq_name())
 
         fip_pool = None
@@ -286,8 +286,8 @@ class VncProvisioner(object):
             fip_pool = self._vnc_lib.floating_ip_pool_read(fq_name=[u'default-domain', u'default-project', u'vn-public', u'vn_public_fip_pool'])
         except NoIdError:
             pass
- 
-        if fip_pool is not None: 
+
+        if fip_pool is not None:
             self._vnc_lib.floating_ip_pool_delete(fip_pool.get_fq_name())
 
         pi_tor = None
@@ -320,7 +320,7 @@ class VncProvisioner(object):
             br = self._vnc_lib.bgp_router_read(fq_name=[u'default-domain', u'default-project', u'ip-fabric', u'__default__', u'qfx-1'])
         except NoIdError:
             pass
- 
+
         if br is not None:
             self._vnc_lib.bgp_router_delete(br.get_fq_name())
 
@@ -329,8 +329,8 @@ class VncProvisioner(object):
             vn2_obj = self._vnc_lib.virtual_network_read(fq_name=[u'default-domain', u'default-project', u'vn-public'])
         except NoIdError:
             pass
- 
-        if vn2_obj is not None: 
+
+        if vn2_obj is not None:
             self._vnc_lib.virtual_network_delete(vn2_obj.get_fq_name())
 
         ipam2_obj = None
@@ -346,8 +346,8 @@ class VncProvisioner(object):
             vn1_obj = self._vnc_lib.virtual_network_read(fq_name=[u'default-domain', u'default-project', u'vn-private'])
         except NoIdError:
             pass
- 
-        if vn1_obj is not None: 
+
+        if vn1_obj is not None:
             vn1_uuid = self._vnc_lib.virtual_network_delete(vn1_obj.get_fq_name())
 
         ipam_obj = None
@@ -358,7 +358,7 @@ class VncProvisioner(object):
         if ipam_obj is not None:
             self._vnc_lib.network_ipam_delete(ipam_obj.get_fq_name())
 
-    # end 
+    # end
 
     # python provision_physical_router.py --api_server_ip 127.0.0.1 --api_server_port 8082 --admin_user admin --admin_password c0ntrail123 --admin_tenant_name default-domain --op fip_test
     def add_bms_config(self):
@@ -377,8 +377,8 @@ class VncProvisioner(object):
             vn1_obj = self._vnc_lib.virtual_network_read(fq_name=[u'default-domain', u'default-project', u'vn-private'])
         except NoIdError:
             pass
- 
-        if vn1_obj is None: 
+
+        if vn1_obj is None:
             vn1_obj = VirtualNetwork('vn-private')
             vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType([IpamSubnetType(SubnetType("10.0.0.0", 24))]))
             vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
@@ -388,7 +388,7 @@ class VncProvisioner(object):
             pr = self._vnc_lib.physical_router_read(fq_name=[u'default-global-system-config', u'a2-mx-80'])
         except NoIdError:
             pass
- 
+
         if pr is None:
             bgp_router, pr = self.create_router('a2-mx-80', '10.84.7.253', 'abc123')
         pr.add_virtual_network(vn1_obj)
@@ -400,7 +400,7 @@ class VncProvisioner(object):
         pr.physical_router_vnc_managed = True
         self._vnc_lib.physical_router_update(pr)
 
-        #TOR 
+        #TOR
         pr_tor = None
         try:
             pr_tor = self._vnc_lib.physical_router_read(fq_name=[u'default-global-system-config', u'qfx-1'])
@@ -439,7 +439,7 @@ class VncProvisioner(object):
             li = self._vnc_lib.logical_interface_read(fq_name=[u'default-global-system-config', u'qfx-1', u'xe-0/0/0', u'xe-0/0/0.0'])
         except NoIdError:
             pass
-       
+
         if li is None:
             li = LogicalInterface('xe-0/0/0.0', parent_obj = pi_tor)
             li.set_virtual_machine_interface(vmi)
@@ -472,10 +472,10 @@ class VncProvisioner(object):
             vn2_obj = self._vnc_lib.virtual_network_read(fq_name=[u'default-domain', u'default-project', u'vn-public'])
         except NoIdError:
             pass
- 
-        if vn2_obj is None: 
+
+        if vn2_obj is None:
             vn2_obj = VirtualNetwork('vn-public')
-            vn2_obj.set_router_external(True)      
+            vn2_obj.set_router_external(True)
             vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType([IpamSubnetType(SubnetType("192.168.7.0", 24))]))
             vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
             pr.add_virtual_network(vn2_obj)
@@ -487,7 +487,7 @@ class VncProvisioner(object):
         except NoIdError:
             pass
         if fip_pool is None:
-            fip_pool_name = 'vn_public_fip_pool'   
+            fip_pool_name = 'vn_public_fip_pool'
             fip_pool = FloatingIpPool(fip_pool_name, vn2_obj)
             self._vnc_lib.floating_ip_pool_create(fip_pool)
 
@@ -497,17 +497,17 @@ class VncProvisioner(object):
         except NoIdError:
             pass
         if fip_obj is None:
-            fip_obj = FloatingIp("fip-1", fip_pool) 
+            fip_obj = FloatingIp("fip-1", fip_pool)
             fip_obj.set_virtual_machine_interface(vmi)
             default_project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
-            fip_obj.set_project(default_project)   
+            fip_obj.set_project(default_project)
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
 
-    # end 
+    # end
 
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_physical_router.py 
+        Eg. python provision_physical_router.py
                                    --api_server_ip 127.0.0.1
                                    --api_server_port 8082
         '''

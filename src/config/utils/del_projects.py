@@ -36,17 +36,17 @@ class DeleteProjects(object):
 
     def _parse_args(self, args_str):
         '''
-        Eg. python del_projects.py --username admin --password contrail123 
+        Eg. python del_projects.py --username admin --password contrail123
                 --proj-uuid a98559a9-b8a8-4888-a1b6-ffb24b360bf4 --debug
         '''
 
         # Turn off help, so we print all options in response to -h
         parser = argparse.ArgumentParser(description='Add a Node to Puppet Config.')
-        
+
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-        
+
         conf_parser.add_argument("-c", "--conf_file",
                                  help="Specify config file", metavar="FILE")
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
@@ -101,7 +101,7 @@ class DeleteProjects(object):
         proj_url = "http://%s:%s/project/%s" %(
             self._server_ip, self._server_port, self._proj_uuid)
         self._delete_ref_object(proj_url)
-        
+
 def main(args_str=None):
     dp = DeleteProjects(args_str)
     dp._delete_project()
@@ -112,4 +112,4 @@ if __name__ == "__main__":
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
     logger.setLevel(logging.ERROR)
-    main() 
+    main()

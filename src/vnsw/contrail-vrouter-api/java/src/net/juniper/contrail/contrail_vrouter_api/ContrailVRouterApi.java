@@ -72,7 +72,7 @@ public class ContrailVRouterApi {
         try {
             transport.open();
         } catch (TTransportException tte) {
-            s_logger.error(rpc_address + ":" + rpc_port + 
+            s_logger.error(rpc_address + ":" + rpc_port +
                     " Create TTransportException: " + tte.getMessage());
             return null;
         }
@@ -111,7 +111,7 @@ public class ContrailVRouterApi {
             client.AddPort(lports);
             return true;
         } catch (TException te) {
-            s_logger.error(rpc_address + ":" + rpc_port + 
+            s_logger.error(rpc_address + ":" + rpc_port +
                     " Resynchronize TException: " + te.getMessage());
             client = null;
             return false;
@@ -130,7 +130,7 @@ public class ContrailVRouterApi {
      * Add a port to the agent. The information is stored in the ports
      * map since the vrouter agent may not be running at the
      * moment or the RPC may fail.
-     * 
+     *
      * @param vif_uuid         UUID of the VIF/Port
      * @param vm_uuid          UUID of the instance
      * @param interface_name   Name of the VIF/Port
@@ -139,7 +139,7 @@ public class ContrailVRouterApi {
      * @param network_uuid     UUID of the associated virtual network
      */
     public boolean AddPort(UUID vif_uuid, UUID vm_uuid, String interface_name,
-            InetAddress interface_ip, byte[] mac_address, UUID network_uuid, short vlanId, 
+            InetAddress interface_ip, byte[] mac_address, UUID network_uuid, short vlanId,
             short primaryVlanId, String vm_name) {
         Port aport = new Port(UUIDToArray(vif_uuid), UUIDToArray(vm_uuid),
                 interface_name, interface_ip.getHostAddress(),
@@ -150,9 +150,9 @@ public class ContrailVRouterApi {
         ports.put(vif_uuid, aport);
         if (client == null) {
             if (!CreateAndResynchronizeRpcClient()) {
-                s_logger.error(rpc_address + ":" + rpc_port + 
+                s_logger.error(rpc_address + ":" + rpc_port +
                         " AddPort: " + vif_uuid + "(" + interface_name +
-                        ") FAILED"); 
+                        ") FAILED");
                 return false;
             }
         } else {
@@ -161,7 +161,7 @@ public class ContrailVRouterApi {
             try {
                 client.AddPort(aports);
             } catch (TException te) {
-                s_logger.error(rpc_address + ":" + rpc_port + 
+                s_logger.error(rpc_address + ":" + rpc_port +
                         " AddPort: " + vif_uuid + "(" +
                         interface_name + ") TException: " + te.getMessage());
                 client = null;
@@ -174,14 +174,14 @@ public class ContrailVRouterApi {
     /**
      * Delete a port from the agent. The port is first removed from the
      * internal ports map
-     *   
+     *
      * @param vif_uuid  UUID of the VIF/Port
      */
     public boolean DeletePort(UUID vif_uuid) {
         ports.remove(vif_uuid);
         if (client == null) {
             if (!CreateAndResynchronizeRpcClient()) {
-                s_logger.error(rpc_address + ":" + rpc_port + 
+                s_logger.error(rpc_address + ":" + rpc_port +
                         " DeletePort: " + vif_uuid + " FAILED");
                 return false;
             }
@@ -189,8 +189,8 @@ public class ContrailVRouterApi {
             try {
                 client.DeletePort(UUIDToArray(vif_uuid));
             } catch (TException te) {
-                s_logger.error(rpc_address + ":" + rpc_port + 
-                        " AddPort: " + vif_uuid + 
+                s_logger.error(rpc_address + ":" + rpc_port +
+                        " AddPort: " + vif_uuid +
                         " TException: " + te.getMessage());
                 client = null;
                 return false;
@@ -207,7 +207,7 @@ public class ContrailVRouterApi {
     public void PeriodicConnectionCheck() {
         if (client == null) {
             if (!CreateAndResynchronizeRpcClient()) {
-                s_logger.error(rpc_address + ":" + rpc_port + 
+                s_logger.error(rpc_address + ":" + rpc_port +
                         " PeriodicConnectionCheck: FAILED");
                 return;
             }
@@ -215,11 +215,11 @@ public class ContrailVRouterApi {
         try {
             client.KeepAliveCheck();
         } catch (TException te) {
-            s_logger.error(rpc_address + ":" + rpc_port + 
+            s_logger.error(rpc_address + ":" + rpc_port +
                     " KeepAliveCheck: TException: " +
                     te.getMessage());
             client = null;
-        }		
+        }
     }
 }
 

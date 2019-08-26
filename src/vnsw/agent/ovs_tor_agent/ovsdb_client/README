@@ -60,7 +60,7 @@ immediately, which results in traffic disrupption for existing unicast stream
 To Avoid this disrupption ToR agent runs a HA stale peer for all the ToRs
 managed by ToR Agent(both active and backup), which publish a low priority
 route. this in turn ensures that in failure scenarios we hold on to the routes
-exported by ToR for the timeout window to allow unicast traffic to continue 
+exported by ToR for the timeout window to allow unicast traffic to continue
 
 As a side effect any MAC aging will result in Stale route of low priority to
 be present for an extended configured timeout

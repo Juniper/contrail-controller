@@ -61,7 +61,7 @@
        <src-port> <start-port>6</start-port> <end-port>6</end-port> </src-port>
        <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
        <dst-port> <start-port>6</start-port> <end-port>6</end-port> </dst-port>
-      </match-condition> 
+      </match-condition>
       <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
      </acl-rule>
      <acl-rule>

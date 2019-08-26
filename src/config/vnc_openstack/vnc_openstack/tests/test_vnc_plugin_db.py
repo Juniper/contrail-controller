@@ -190,5 +190,5 @@ class TestDbInterface(unittest.TestCase):
             sg_obj = flexmock(operational=True,
                               name="default",
                               parent_uuid=tenant_uuid)
-            dbi._zookeeper_client.create_node( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid)) 
+            dbi._zookeeper_client.create_node( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid))
             dbi.security_group_delete(context, sg_uuid)

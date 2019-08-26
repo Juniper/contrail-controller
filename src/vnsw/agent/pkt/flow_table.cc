@@ -734,7 +734,7 @@ void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
     if (req->ksync_event() == KSyncEntry::DEL_ACK) {
         return;
     }
-    
+
     // if transaction id is not same, then ignore the old
     // vrouter add-ack response. this is possible that
     // after vrouter add-ack response, flows will be evicted

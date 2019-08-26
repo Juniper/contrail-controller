@@ -31,7 +31,7 @@
     <validate name="validate-1">
         <flow name="l2-vxlan-tcp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="10" sip="1.1.1.2"
          dip="1.1.1.1" proto="tcp" sport="1" dport="1" svn="vn1"
-         dvn="vn1" action="pass"/> 
+         dvn="vn1" action="pass"/>
     </validate>
 
 
@@ -40,14 +40,14 @@
      smac="00:00:00:00:01:02" dmac="00:00:00:00:01:01"
      sip="1.1.1.2" dip="1.1.1.1" proto="tcp" sport="1" dport="2"
      type="flow" hash_id="1"/>
- 
+
     <validate name="validate-2">
         <flow name="l2-vxlan-tcp-to-vm-vxlan-2" uuid="1" vrf="vrf1" nh="10" sip="1.1.1.2"
          dip="1.1.1.1" proto="tcp" sport="1" dport="1" svn="vn1"
-         dvn="vn1" deleted="true"/> 
+         dvn="vn1" deleted="true"/>
         <flow name="l2-gre-tcp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="14" sip="1.1.1.2"
          dip="1.1.1.1" proto="tcp" sport="1" dport="2" svn="vn1"
-         dvn="vn1" action="pass"/> 
+         dvn="vn1" action="pass"/>
     </validate>
 
     <fdb uuid="1" id="1" name="fdb_1" delete="1" mac="00:00:00:00:01:02" vrf="vrf1"

@@ -26,21 +26,21 @@ class ForwardingModeSetup(object):
             self._args.api_server_ip,
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
-        
+
         #import pdb;pdb.set_trace()
         vxlan_id = self._args.vxlan_id
         vn_name = self._args.vn_name
         forwarding_mode = self._args.forwarding_mode
         project_fq_name_str = self._args.project_fq_name
         project_fq_name = project_fq_name_str.split(':')
-        
+
         #Figure out VN
         vni_list = self._vnc_lib.virtual_networks_list(
                         parent_fq_name = project_fq_name)['virtual-networks']
         found = False
         for vni_record in vni_list:
             if (vni_record['fq_name'][0] == project_fq_name[0] and
-                vni_record['fq_name'][1] == project_fq_name[1] and 
+                vni_record['fq_name'][1] == project_fq_name[1] and
                 vni_record['fq_name'][2] == vn_name):
                 vni_obj = self._vnc_lib.virtual_network_read(
                                     id = vni_record['uuid'])
@@ -56,12 +56,12 @@ class ForwardingModeSetup(object):
         if not found:
             print "No Virtual Network  %s" %(vn_name)
             sys.exit(1)
-        
+
     # end __init__
-    
+
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_forwarding_mode.py 
+        Eg. python provision_forwarding_mode.py
                                         --project_fq_name 'default-domain:admin'
                                         --vn_name vn1
                                         --vxlan_id 100
@@ -130,7 +130,7 @@ class ForwardingModeSetup(object):
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 
-# end class ForwardingModeSetup 
+# end class ForwardingModeSetup
 
 
 def main(args_str=None):

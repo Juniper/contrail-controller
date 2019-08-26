@@ -32,7 +32,7 @@ class SanityTestFabricDeletion(SanityBase):
             'default-global-system-config', fabric_name]
 
         job_execution_info = self._api.execute_job(
-            job_template_fq_name=job_template_fq_name, 
+            job_template_fq_name=job_template_fq_name,
             job_input={
                 "fabric_fq_name": fabric_fq_name
             }

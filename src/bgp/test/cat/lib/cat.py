@@ -275,7 +275,7 @@ class ControlNode(Component):
             "BGP_IFMAP_XMPP_INTEGRATION_TEST_INTROSPECT": str(self.http_port),
             "BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE": "1",
             "" if self.logs else "LOG_DISABLE" : "1",
-            "" if not self.conf_file else 
+            "" if not self.conf_file else
             "BGP_IFMAP_XMPP_INTEGRATION_TEST_DATA_FILE": str(self.conf_file),
             "LD_LIBRARY_PATH": "build/lib",
             "CONTRAIL_CAT_FRAMEWORK": "1",
@@ -421,7 +421,7 @@ class Configuration(Component):
         if not self.filename:
             #print("No conf file yet. Creating one.")
             base_temp = self.__create_basic_template()
-            self.__initialize_config_file(base_temp[0], "default-domain", 
+            self.__initialize_config_file(base_temp[0], "default-domain",
                             "default-project", "default-global-system-config")
             self.filename = str(self.user_dir + "/" + self.name + ".json")
         else:
@@ -1432,7 +1432,7 @@ class Bgp_router:
         prop.update({"type": "\"bgp_router\""})
 
         rout_params = "prop:bgp_router_parameters"
-  
+
         key = str("{\"vendor\": \"contrail\", \"admin_down\": false, \"" +
               "ipv6_gateway_address\": null, \"local_autonomous_system\": " +
               "null, \"auth_data\": null, \"autonomous_system\": 100, \"" +

@@ -402,7 +402,7 @@ gmph_next_group_xmit (gmph_group *group)
     thread *thread_ptr;
     gmph_group *next_group;
 
-    thread_ptr = 
+    thread_ptr =
 	thread_circular_thread_next(&group->hgroup_intf->hintf_xmit_head,
 				    &group->hgroup_xmit_thread);
     next_group = gmph_xmit_thread_to_group(thread_ptr);

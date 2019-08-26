@@ -44,7 +44,7 @@ class ContrailVRouterApi(object):
             network_uuid = ''
             if 'vn_id' in kwargs:
                 network_uuid = kwargs['vn_id']
-            
+
             display_name=''
             if 'display_name' in kwargs:
                 display_name = kwargs['display_name']

@@ -219,7 +219,7 @@ class FilterModule(object):
             port_dict['uuid'] = port_uuid
             if not port_dict.get('name', None):
                 port_dict['name'] = "p-" + mac.replace(":", "")[6:]
-            port_dict['fq_name'] = ['default-global-system-config', 
+            port_dict['fq_name'] = ['default-global-system-config',
                                     node_dict['name'],
                                     port_dict['name'] ]
 
@@ -246,8 +246,8 @@ class FilterModule(object):
                 generated_hostname = "auto-" + port_list[0]['mac_address'].replace(":", "")[6:]
 
         return generated_hostname
-    
-        
+
+
     def create_cc_node(self, node_dict, cc_node_obj):
         port_list = node_dict.get('ports',[])
 

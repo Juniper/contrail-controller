@@ -35,8 +35,8 @@ function mpls_udp.dissector(tvbuf,pktinfo,root)
     -- The label is present in first 20 bits of MPLS header
     local mpls_field = tvbuf:range(0,4):uint()
     tree:add(pf_mpls_label, bit.rshift(mpls_field,12))
-   
-    -- Now check if inner packet is layer-2 
+
+    -- Now check if inner packet is layer-2
     local inner_type = tvbuf:range(16,2):uint()
     local version = tvbuf:range(18,1):uint()
     version = bit.rshift(version,4)

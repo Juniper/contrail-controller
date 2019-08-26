@@ -27,7 +27,7 @@ class ContrailZKIssu():
             "Issu contrail zookeeper initialized...",
             level=SandeshLevel.SYS_INFO,
         )
- 
+
     # end __init__
 
     # Create new path recursively
@@ -100,7 +100,7 @@ class ContrailZKIssu():
         if self._zk_new.exists(new_prefix):
             children = self._zk_new.get_children(new_prefix)
             for _path in children:
-                if _path in self._Znode_Issu_List: 
+                if _path in self._Znode_Issu_List:
                     self._logger(
                         "Issu contrail zookeeper ,issu_zk_start, deleted paths"
                         + str((new_prefix + str(_path))),
@@ -120,7 +120,7 @@ class ContrailZKIssu():
 
         for _path in children:
             # Ignore zookeeper replication
-            if _path in self._Znode_Issu_List: 
+            if _path in self._Znode_Issu_List:
                 new_path = new_prefix + str(_path)
                 old_path = old_prefix + str(_path)
                 time.sleep(1)

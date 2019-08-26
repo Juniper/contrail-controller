@@ -333,7 +333,7 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
             }
         }
     }
-    
+
     tunnel_bmap_ = encap;
     if ((encap != TunnelType::MplsoMplsType()) ||
             ((encap == TunnelType::MplsoMplsType()) &&
@@ -395,7 +395,7 @@ ControllerMplsRoute *ControllerMplsRoute::MakeControllerMplsRoute(
                                          bool ecmp_suppressed,
                                          const EcmpLoadBalance &ecmp_load_balance,
                                          bool etree_leaf) {
- 
+
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     // Make Labelled Tunnel-NH request
     nh_req.key.reset(new LabelledTunnelNHKey(default_vrf, router_id, tunnel_dest, false,
@@ -456,7 +456,7 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         InetUnicastAgentRouteTable *table =
             (InetUnicastAgentRouteTable *)path->GetDependentTable();
 
-        AgentPathEcmpComponentPtrList new_list; 
+        AgentPathEcmpComponentPtrList new_list;
         AgentPathEcmpComponentPtr member( new AgentPathEcmpComponent(
                                         tunnel_dest_, label_,
                                         path->GetParentRoute()));
@@ -604,7 +604,7 @@ bool ControllerMplsRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         path->set_tunnel_bmap(tunnel_bmap_);
         ret = true;
     }
- 
+
     agent->nexthop_table()->Process(nh_req_);
     LabelledTunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), tunnel_dest_,
                     false, TunnelType::MPLS_OVER_MPLS, rewrite_dmac_, label_);

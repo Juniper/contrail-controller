@@ -173,7 +173,7 @@ KSyncSock::KSyncSock() :
     rx_buff_(NULL), read_inline_(true), bulk_msg_context_(NULL),
     use_wait_tree_(true), process_data_inline_(false),
     ksync_bulk_sandesh_context_(), uve_bulk_sandesh_context_(),
-    tx_count_(0), ack_count_(0), err_count_(0), 
+    tx_count_(0), ack_count_(0), err_count_(0),
     rx_process_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
                     boost::bind(&KSyncSock::ProcessRxData, this, _1)) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();

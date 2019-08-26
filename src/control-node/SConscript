@@ -45,7 +45,7 @@ env.Depends(process_info_pkg, control_node_pkg)
 rel_path = Dir('control_node').path
 def BuildInfoAction(target, source, env):
     env.GenerateBuildInfoPyCode(path=rel_path)
-    
+
 build_info_rules = [env.Command(target='control_node/buildinfo.py', source = None, action=BuildInfoAction)]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
@@ -149,7 +149,7 @@ libs = MapBuildDir(['base',
                     'control-node',
                     'db',
                     'ifmap',
-                    'io', 
+                    'io',
                     'net',
                     'route',
                     'xmpp',
@@ -203,9 +203,9 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_base.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_extend_community.path])
 
-buildinfo_dep_libs = ['../bgp/libbgp.a', 
+buildinfo_dep_libs = ['../bgp/libbgp.a',
                       '../bgp/libbgp_ifmap_config.a',
-                      '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
+                      '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a',
                       '../schema/libxmpp_multicast.a', '../schema/libxmpp_enet.a',
                       '../schema/libxmpp_mvpn.a',
                       '../control-node/libcontrol_node.a',
@@ -214,9 +214,9 @@ buildinfo_dep_libs = ['../bgp/libbgp.a',
                       '../bgp/routing-policy/librouting_policy.a',
                       '../bgp/origin-vn/liborigin_vn.a',
                       '../bgp/extended-community/libextended_community.a',
-                      '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a', 
-                      '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a', 
-                      '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a', 
+                      '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a',
+                      '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a',
+                      '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a',
                       '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
                       '../db/libdb.a', '../io/libio.a', '../base/libbase.a', '../base/libcpuinfo.a', '../base/libprocess_info.a',
                       '../base/libnodeinfo.a', '../../lib/libpugixml.a',

@@ -215,7 +215,7 @@ void KSyncMemory::GetTableSize() {
     string ksync_agent_vrouter_sock_path = KSYNC_AGENT_VROUTER_SOCK_PATH;
     ksync_agent_vrouter_sock_path =
     ksync_->agent()->params()->cat_is_agent_mocked()?
-    ksync_->agent()->params()->cat_ksocketdir() + 
+    ksync_->agent()->params()->cat_ksocketdir() +
     "dpdk_netlink" : ksync_agent_vrouter_sock_path;
 
 #ifdef AGENT_VROUTER_TCP

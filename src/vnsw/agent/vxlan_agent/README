@@ -174,7 +174,7 @@ Contrail-Vxlan-Agent is split into two layers.
     Linux Vxlan KSync
     -----------------
     The current reference implementation uses Linux Kernel as datapath. The
-    "Linux Vxlan KSync" layer is responsible to provide implmentations for 
+    "Linux Vxlan KSync" layer is responsible to provide implmentations for
     classes defined in "Vxlan Ksync" layer to program Linux Kernel. The
     reference implementation invokes Linux commands "brctl", "route" etc...
     to program Linux Kernel.

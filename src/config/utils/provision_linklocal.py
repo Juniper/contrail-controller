@@ -27,7 +27,7 @@ class MetadataProvisioner(object):
             self._args.api_server_ip,
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
-        
+
         linklocal_obj=LinklocalServiceEntryType(
                  linklocal_service_name=self._args.linklocal_service_name,
                  linklocal_service_ip=self._args.linklocal_service_ip,
@@ -70,16 +70,16 @@ class MetadataProvisioner(object):
             if not found and self._args.oper == "add":
                 new_linklocal.append(linklocal_obj)
             obj[key] = new_linklocal
-        
+
         conf_obj=GlobalVrouterConfig(linklocal_services=obj)
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
         print 'Updated.%s'%(result)
 
     # end __init__
-    
+
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_metadata.py 
+        Eg. python provision_metadata.py
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --api_server_use_ssl False

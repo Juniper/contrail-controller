@@ -151,7 +151,7 @@ class ISSUContrailPreProvisioner(object):
 
         for k,v in self._args.control_host_info.items():
             router_params = BgpRouterParams(router_type='control-node',
-                               vendor='contrail' , 
+                               vendor='contrail' ,
                                autonomous_system=64512,
                                identifier=k,
                                address=k,

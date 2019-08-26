@@ -31,12 +31,12 @@ class SetDefaultGlobalQos(object):
         if self._args.dns < 0 or self._args.dns > 63:
             print 'Invalid DNS DSCP value ' , self._args.dns
             return
-        
+
         print "Control ", hex(self._args.control)
         print "Analytics ", hex(self._args.analytics)
         print "DNS ", hex(self._args.dns)
-        self._vnc_lib = VncApi(self._args.admin_user, self._args.admin_password, 
-                               self._args.admin_tenant_name, 
+        self._vnc_lib = VncApi(self._args.admin_user, self._args.admin_password,
+                               self._args.admin_tenant_name,
                                self._args.api_server_ip, self._args.api_server_port, '/')
         name = 'default-global-system-config:default-global-qos-config'
         try:
@@ -44,7 +44,7 @@ class SetDefaultGlobalQos(object):
         except NoIdError:
             print 'Global Qos Config ' + name + ' not found!'
             return
- 
+
         value = ControlTrafficDscpType(control=self._args.control, analytics=self._args.analytics, dns=self._args.dns)
         qos_obj.set_control_traffic_dscp(value)
         self._vnc_lib.global_qos_config_update(qos_obj)
@@ -54,20 +54,20 @@ class SetDefaultGlobalQos(object):
         except NoIdError:
             print 'Global Qos Config ' + name + ' not found!'
             return
- 
+
         print "Updated global qos config ", str(qos_obj)
 
     #end __init__
 
     def _parse_args(self, args_str):
         '''
-        Eg. python update_default_global_qos_config.py --control 0x2c --analytics 0x38 --dns 0x40 
+        Eg. python update_default_global_qos_config.py --control 0x2c --analytics 0x38 --dns 0x40
         '''
 
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-        
+
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         defaults = {
@@ -97,9 +97,9 @@ class SetDefaultGlobalQos(object):
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
         parser.add_argument("--admin_password", help = "Password of keystone admin user")
         parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
-    
+
         self._args = parser.parse_args(remaining_argv)
-        
+
     #end _parse_args
 
 # end class SetDefaultGlobalQos

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <test_suite name="pkt-parse">
 <test name="vrf-vn-1" verbose="0">
-    <virtual-network uuid="1" name="vn1" vxlan-id="2" network-id="2" 
+    <virtual-network uuid="1" name="vn1" vxlan-id="2" network-id="2"
         flood-unknown-unicast="true"/>
     <virtual-machine uuid="1" name="vm1"/>
     <vrf uuid="1" name="vrf1" />
@@ -44,8 +44,8 @@
     <!-- Packet with unknown dest mac and unknown dest mac
          originating from VM -->
     <packet uuid="2" id="2" name="l2-vxlan-unknown-mac1" intf="1" fwd_mode="l2"
-     smac="00:00:00:00:01:01" dmac="00:00:00:00:03:03"   
-     sip="1.1.1.1" dip="2.2.2.11" proto="udp" sport="1" dport="1"   
+     smac="00:00:00:00:01:01" dmac="00:00:00:00:03:03"
+     sip="1.1.1.1" dip="2.2.2.11" proto="udp" sport="1" dport="1"
      type="flow"/>
 
     <validate name="validate-2">
@@ -57,12 +57,12 @@
         dvn="vn1" action="pass"/>
     </validate>
 
-    <!-- Add FDB entry for IP 2.2.2.11, hence flow uuid 1, should 
+    <!-- Add FDB entry for IP 2.2.2.11, hence flow uuid 1, should
          be denied, since SG rule drops such packet -->
     <fdb uuid="1" id="1" name="fdb_1" mac="00:00:00:00:02:02" vrf="vrf1"
         vn="vn1" vxlan_id="2" tunnel-dest="2.2.2.10" tunnel-type="vxlan" sg="2"
         label="5" />
-   
+
     <validate name="validate-3">
        <flow name="l2-vxlan-unknown-mac" uuid="1" vrf="vrf1" nh="10"
         sip="2.2.2.10" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
@@ -76,7 +76,7 @@
          unknown dest/source mac would be dropped -->
     <virtual-network uuid="1" name="vn1" vxlan-id="2" network-id="2"
         flood-unknown-unicast="false"/>
-    
+
     <validate name="validate-4">
         <flow name="l2-vxlan-unknown-mac1" uuid="1" vrf="vrf1" nh="13"
             sip="1.1.1.1" dip="2.2.2.11" proto="udp" sport="1" dport="1" svn="vn1"

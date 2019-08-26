@@ -408,7 +408,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl9) {
 
     FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
             10, 20, nh_id);
-    // Since this is a short-flow, it may have been deleted by 
+    // Since this is a short-flow, it may have been deleted by
     // flow_stats_colletor hence we need to perform null check.
     if (fe != NULL) {
 	EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);

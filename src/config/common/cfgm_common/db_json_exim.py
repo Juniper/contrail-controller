@@ -142,7 +142,7 @@ class DatabaseExim(object):
         import_zk_dirs = set([p_v_ts[0].split('/')[1]
             for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
 
-        for non_empty in ((existing_zk_dirs & import_zk_dirs) - 
+        for non_empty in ((existing_zk_dirs & import_zk_dirs) -
                           set(['zookeeper'])):
             non_empty_errors.append(
                 'Zookeeper has entries at /%s.' %(non_empty))

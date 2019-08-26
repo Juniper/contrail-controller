@@ -2,7 +2,7 @@
 agent/pkt directory
 
 Handles the exception packets sent from vrouter. Packets are received on the
-pkt0 tap interface, parsed and sent to appropriate module. Following are the 
+pkt0 tap interface, parsed and sent to appropriate module. Following are the
 packet handling modules:
     - Flow
     - Arp

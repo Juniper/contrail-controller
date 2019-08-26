@@ -110,7 +110,7 @@ class ConfigDBTest(unittest.TestCase):
         return lb_obj
     # end add_lb
 
-    def add_lb_listener(self, name, uuid, lb_obj, proj_obj, protocol, port, 
+    def add_lb_listener(self, name, uuid, lb_obj, proj_obj, protocol, port,
                         target_port):
         id_perms = IdPermsType(enable=True)
         ll = LoadbalancerListener(name, proj_obj, id_perms=id_perms,
@@ -136,7 +136,7 @@ class ConfigDBTest(unittest.TestCase):
         return ll_obj
     # end add_lb_listener
 
-    def add_lb_pool(self, name, uuid, ll_obj, proj_obj): 
+    def add_lb_pool(self, name, uuid, ll_obj, proj_obj):
         props = LoadbalancerPoolType()
         props.set_protocol("TCP")
         id_perms = IdPermsType(enable=True)
@@ -154,7 +154,7 @@ class ConfigDBTest(unittest.TestCase):
         return pool_obj
     # end add_lb_listener
 
-    def add_lb_member(self, name, uuid, pool_obj, address="10.20.30.41", 
+    def add_lb_member(self, name, uuid, pool_obj, address="10.20.30.41",
                       port=3000, annotations=None):
         props = LoadbalancerMemberType(address=address, protocol_port=port)
         id_perms = IdPermsType(enable=True)

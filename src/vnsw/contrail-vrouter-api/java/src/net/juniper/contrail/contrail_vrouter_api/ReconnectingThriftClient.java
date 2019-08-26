@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
- * 
+ *
  * Code copied from http://blog.liveramp.com/2014/04/10/reconnecting-thrift-client/
  */
 

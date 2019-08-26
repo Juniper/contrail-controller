@@ -83,23 +83,23 @@ define dump_uc_v4_route_entries
        help dump_uc_v4_route_entries
    else
        pdb_table_entries $arg0 uc_route_entry_format
-   end 
+   end
 end
 
 define dump_mc_v4_route_entries
    if $argc != 1
        help dump_mc_v4_route_entries
-   else 
+   else
        pdb_table_entries $arg0 mc_route_entry_format
-   end 
+   end
 end
 
 define dump_l2_route_entries
    if $argc != 1
        help dump_l2_route_entries
-   else 
+   else
        pdb_table_entries $arg0 l2_route_entry_format
-   end 
+   end
 end
 
 define dump_route_paths
@@ -125,12 +125,12 @@ document dump_uc_v4_route_entries
 end
 
 document dump_mc_v4_route_entries
-     Prints all route entries in given table 
+     Prints all route entries in given table
      Syntax: dump_mc_v4_route_entries <table>: Prints all route entries in MC v4 route table
 end
 
 document dump_l2_route_entries
-     Prints all L2 route entries in given table 
+     Prints all L2 route entries in given table
      Syntax: dump_l2_route_entries <table>: Prints all route entries in L2 route table
 end
 

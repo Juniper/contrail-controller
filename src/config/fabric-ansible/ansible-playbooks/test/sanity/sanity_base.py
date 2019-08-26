@@ -742,7 +742,7 @@ class SanityBase(object):
         )
         return status
     # end workflow_abort
-    
+
     def _exit_with_error(self, errmsg):
         self._logger.error(errmsg)
         sys.exit(1)

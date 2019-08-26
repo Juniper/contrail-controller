@@ -19,7 +19,7 @@
 /*
  * Destination addresses
  */
-static u_int8_t mld_all_hosts[IPV6_ADDR_LEN] = 
+static u_int8_t mld_all_hosts[IPV6_ADDR_LEN] =
     {0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01};
 static u_int8_t mld_all_routers[IPV6_ADDR_LEN] =
     {0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x02};
@@ -304,7 +304,7 @@ gmp_mld_trace_bad_pkt(u_int len, const u_int8_t *addr, gmpx_intf_id intf_id,
 
 /*
  * gmp_mld_trace_pkt
- * 
+ *
  * Trace an MLD packet
  */
 void
@@ -506,7 +506,7 @@ mld_format_v1_packet (gmp_role role, gmp_packet *gen_packet,
 	break;
 
       case GMP_REPORT_PACKET:
-	    
+
 	/*
 	 * Format a report packet.  Note that there may be multiple
 	 * group records on this (since V2 supports that).  We just
@@ -1060,7 +1060,7 @@ mld_parse_v1_packet(mld_packet *packet, gmp_packet *gen_packet,
 	/* Copy the group address. */
 
         memmove(query_pkt->gmp_query_group.gmp_addr, v1_pkt->mld_v1_pkt_group, IPV6_ADDR_LEN);
-	
+
 	/*
 	 * If the group address is nonzero, flag that we've got a
 	 * group query.
@@ -1254,7 +1254,7 @@ mld_parse_v2_query_packet(mld_packet *packet, gmp_packet *gen_packet,
     /* Copy the group address. */
 
     memmove(query_pkt->gmp_query_group.gmp_addr, v2_query_pkt->mld_v2_query_group, IPV6_ADDR_LEN);
-	
+
     /*
      * If the group address is nonzero, flag that we've got a
      * group query.
@@ -1287,7 +1287,7 @@ mld_parse_v2_query_packet(mld_packet *packet, gmp_packet *gen_packet,
 	return FALSE;
 
     packet_len -= sizeof(mld_v2_query);
-    
+
     /*
      * If the remaining packet length doesn't match the count of sources, flag
      * a parse error.

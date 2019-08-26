@@ -21,7 +21,7 @@
 
 /*
  * gmph_get_client
- * 
+ *
  * Return an client pointer, given a client ID.
  *
  * Verifies that the client ID is valid.
@@ -75,7 +75,7 @@ gmph_create_client (gmph_instance *instance)
 	gmpx_free_block(gmph_client_tag, client);
 	return NULL;
     }
-					       
+
     /* Link the client into the instance. */
 
     client->hclient_magic = GMPH_CLIENT_MAGIC;

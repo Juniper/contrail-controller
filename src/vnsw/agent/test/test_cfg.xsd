@@ -18,10 +18,10 @@
      Property('val', 'test') -->
 
 <xsd:element name="foo-bar"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('foo-bar', 'foo', 'bar', ['has']) -->
 <xsd:element name="foo-test"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('foo-test', 'foo', 'test', ['has']) -->
 
 <xsd:complexType name="DataType">
@@ -39,7 +39,7 @@
      Property('val', 'B') -->
 
 <xsd:element name="A-B-data" type="DataType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('A-B-data',
           'A', 'B', ['ref']) -->
 

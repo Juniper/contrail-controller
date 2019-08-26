@@ -356,13 +356,13 @@ gmpr_set_intf_params (gmp_instance_id instance_id, gmpx_intf_id intf_id,
     return gmpr_intf_set_params(instance, intf_id, params);
 }
 
-void 
-gmpr_chk_grp_limit (gmp_instance_id instance_id, 
+void
+gmpr_chk_grp_limit (gmp_instance_id instance_id,
                     gmpx_intf_id intf_id)
 {
    gmpr_intf *intf;
    // gmpr_instance *instance;
- 
+
    // instance = gmpr_get_instance(instance_id);
    intf = gmpr_intf_lookup(instance_id, intf_id);
    gmpr_check_grp_limit(intf, FALSE);
@@ -376,7 +376,7 @@ gmpr_immediate_leave_intf_count (gmpr_instance *instance)
 {
     int intf_count = 0;
     gmpr_intf *intf = NULL;
-    
+
     intf = gmpr_next_instance_intf(instance, NULL);
     while (intf) {
 	if (intf->rintf_fast_leaves) {
@@ -405,18 +405,18 @@ gmpr_disable_host_tracking (gmp_instance_id instance_id,
     /* Get the instance. */
     instance = gmpr_get_instance(instance_id);
     intf = gmpr_intf_lookup(instance, intf_id);
-    
+
     /* If interface doesn't exist. */
     if (!intf)
 	return 1;
 
     /* Blast all of the hosts on the interface. */
     gmpr_destroy_intf_hosts(intf);
-    
+
     /* Disable host tracking if this is the last interface */
     if (gmpr_immediate_leave_intf_count(instance) == 0)
         instance->rinst_host_tracking = FALSE;
-    
+
     return 0;
 }
 
@@ -531,7 +531,7 @@ gmpr_return_notification (gmpr_client_notification *notification)
 
 /*
  * gmpr_return_host_notification
- * 
+ *
  * Free up a previously-delivered host notification.
  */
 void
@@ -999,7 +999,7 @@ gmpr_get_intf_groups (gmp_instance_id instance_id, gmpx_intf_id intf_id)
  * The pointer should be returned via gmpr_destroy_intf_group() when the
  * caller is done.
  *
- * While the per-interface version of this code does not scale and is 
+ * While the per-interface version of this code does not scale and is
  * considered to be heinous, a single host should not have too much join
  * state, so this should be OK.
  */
@@ -1040,7 +1040,7 @@ gmpr_get_host_groups (gmp_instance_id instance_id,
 
     group_list = NULL;
     host_group_node = NULL;
-    
+
     while (TRUE) {
         host_group_node = gmpx_patricia_get_next(host->rhost_group_root,
                                                  host_group_node);
@@ -1149,7 +1149,7 @@ gmpr_host_is_active (gmpr_host *host)
  * gmpr_get_intf_hosts
  *
  * Get a list of all active hosts on the specified interface.  Returns a
- * pointer  to a host entry, to which other host entries are linked.  
+ * pointer  to a host entry, to which other host entries are linked.
  * Returns NULL* if there are no active hosts on the interface.
  *
  * The pointer should be returned via gmpr_destroy_host_group() when the
@@ -1196,7 +1196,7 @@ gmpr_get_intf_hosts (gmp_instance_id instance_id, gmpx_intf_id intf_id)
         if (!gmpr_host_is_active(host)) {
             continue;
         }
-        
+
 	/* Got an active host.  Allocate an entry. */
 
 	cur_host = gmpx_malloc_block(gmpr_intf_host_tag);
@@ -1211,7 +1211,7 @@ gmpr_get_intf_hosts (gmp_instance_id instance_id, gmpx_intf_id intf_id)
         /*
          * Link the new entry to the list.
          */
-        if (host_list) 
+        if (host_list)
             cur_host->gih_next = host_list;
         host_list = cur_host;
     }

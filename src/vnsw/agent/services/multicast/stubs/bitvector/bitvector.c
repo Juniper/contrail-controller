@@ -428,7 +428,7 @@ bv_ent_create (bit_vector *bv, bv_bitnum_t bit_number)
 	bv->bv_freed_ord == BV_BAD_BITNUM) {
 	next_ent = bv_next_entry(bv, bv_ent);
 	next_ord = bv_ent->bv_start + BV_BITSIZE;
-	if (next_ent && next_ent->bv_start == next_ord) 
+	if (next_ent && next_ent->bv_start == next_ord)
 	    next_ord = BV_BAD_BITNUM;	/* No hole here. */
 	bv->bv_freed_ord = next_ord;
     }
@@ -628,7 +628,7 @@ bv_clean (bit_vector *bv)
     bv_destroy_tree(bv);
 }
 
-	    
+
 /*
  * bv_set_bit
  *
@@ -1970,7 +1970,7 @@ bv_copy_vector (bit_vector *src, bit_vector *dest, bv_callback callback,
 /*
  * bv_walk_vector
  *
- * Walk a bit vector, 
+ * Walk a bit vector,
  *
  * Returns 0 if all ok, or -1 if out of memory.
  *

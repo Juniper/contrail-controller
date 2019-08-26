@@ -496,9 +496,9 @@ private:
     int tx_count_;
     int ack_count_;
     int err_count_;
-    
-    // IO context can defer ksync event processing 
-    // by defering them to this work queue, this queue gets 
+
+    // IO context can defer ksync event processing
+    // by defering them to this work queue, this queue gets
     // processed in Agent::KSync context
     KSyncRxWorkQueue  rx_process_queue_;
     static std::auto_ptr<KSyncSock> sock_;

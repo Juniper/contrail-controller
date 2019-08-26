@@ -14,7 +14,7 @@ class ServiceMonitorNovaClient(object):
             client = self._nova.get(proj_name)
             if client is not None:
                 return client
-    
+
         auth_url = self._args.auth_protocol + '://' + self._args.auth_host \
                    + ':' + self._args.auth_port + '/' + self._args.auth_version
         self._nova[proj_name] = nc.Client(

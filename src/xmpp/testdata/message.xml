@@ -8,13 +8,13 @@
                         <af>1</af>
                         <address>10.1.2.1/32</address>
                     </nlri>
-                    <next-hop>     
+                    <next-hop>
                         <af>1</af>
                         <address>20.1.2.1</address>
-                    </next-hop>     
+                    </next-hop>
                     <version>1</version>
                     <label>10000</label>      <!-- 24 bit number -->
-                </entry>  
+                </entry>
             </item>
         </items>
     </events>

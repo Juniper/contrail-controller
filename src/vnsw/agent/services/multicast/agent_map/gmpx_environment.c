@@ -11,7 +11,7 @@
 static inline gmp_proto
 mc_af_to_gmp_proto (const mc_af mcaf)
 {
-    switch (mcaf) { 
+    switch (mcaf) {
         case MCAST_AF_IPV4:
             return GMP_PROTO_IGMP;
         case MCAST_AF_IPV6:
@@ -149,7 +149,7 @@ gmpx_create_grouped_timer (gmp_timer_group group, void *inst_context,
 
 	/* Got one.  Initialize the block. */
 
-	timer->gmpxt_timer = 
+	timer->gmpxt_timer =
 	    task_timer_create_idle_leaf(gd->tp, name, 0, NULL,
 					gmpx_timer_expiry, timer);
 	timer->gmpxt_context = timer_context;
@@ -161,7 +161,7 @@ gmpx_create_grouped_timer (gmp_timer_group group, void *inst_context,
     return timer;
 }
 
-    
+
 /*
  * gmpx_create_timer
  *

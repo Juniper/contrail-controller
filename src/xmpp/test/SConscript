@@ -105,7 +105,7 @@ env.Alias('controller/src/xmpp:test', test)
 
 flaky_test = env.TestSuite('xmpp-flaky-test', flaky_test_suite)
 env.Alias('controller/src/xmpp:flaky-test', flaky_test)
- 
+
 env.Alias('controller/src/xmpp:all-test', [test, flaky_test])
 
 Return('test_suite')

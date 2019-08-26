@@ -760,7 +760,7 @@ TEST_F(RouteTest, InterASOptionC_test6) {
 //label inet route non ECMP
 //first add VPN route and then label inet routes
 TEST_F(RouteTest, InterASOptionC_test7) {
-    MplsVpnEcmpTunnelAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
+    MplsVpnEcmpTunnelAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
             remote_pe1_ip_, MplsTable::kStartLabel,
             remote_pe2_ip_, MplsTable::kStartLabel, vrf_name_);
     EXPECT_TRUE(RouteFind(vrf_name_, remote_vm_ip_, 32));
@@ -839,7 +839,7 @@ TEST_F(RouteTest, InterASOptionC_test7) {
     client->WaitForIdle();
 }
 // ecmp label inet route
-// ecmp vpn route 
+// ecmp vpn route
 TEST_F(RouteTest, InterASOptionC_test8) {
     MplsLabelInetEcmpTunnelAdd(bgp_peer_, agent_->fabric_vrf_name(),
             remote_pe1_ip_, 32, asbr1_ip_, MplsTable::kStartLabel,
@@ -884,7 +884,7 @@ TEST_F(RouteTest, InterASOptionC_test8) {
     EXPECT_TRUE(composite_nh->composite_nh_type() == Composite::ECMP);
     EXPECT_TRUE(composite_nh->GetNH(0)->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(composite_nh->GetNH(1)->GetType() == NextHop::COMPOSITE);
-    
+
     //verify component NHs
     const CompositeNH *comp_composite_nh =
         dynamic_cast<const CompositeNH *>(composite_nh->GetNH(0));

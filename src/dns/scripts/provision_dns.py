@@ -72,7 +72,7 @@ class DnsProvisioner(object):
         except NoIdError:
             print 'Domain ' + domain_name + ' not found!'
             return
-       
+
         if next_vdns and len(next_vdns):
             try:
                 next_vdns_obj = vnc_lib.virtual_DNS_read(fq_name_str = next_vdns)
@@ -84,16 +84,16 @@ class DnsProvisioner(object):
         vdns_data = VirtualDnsType(dns_domain, dyn_updates, rec_order, int(ttl),
                                    next_vdns, fip_record, external_visible,
                                    reverse_resolution)
-        dns_obj = VirtualDns(name, domain_obj, 
+        dns_obj = VirtualDns(name, domain_obj,
                              virtual_DNS_data = vdns_data)
         vnc_lib.virtual_DNS_create(dns_obj)
     #end add_virtual_dns
 
     def del_virtual_dns(self, vdns_fqname_str):
         vnc_lib = self._vnc_lib
-        vdns_fqname = vdns_fqname_str.split(':') 
+        vdns_fqname = vdns_fqname_str.split(':')
         #Verify this VDNS is not being referred by any other VDNSs as next-DNS
-        vdns_list = vnc_lib.virtual_DNSs_list() 
+        vdns_list = vnc_lib.virtual_DNSs_list()
         vdns_list = json.loads(vdns_list)
         for k, v in vdns_list.iteritems():
             for elem in v:
@@ -148,14 +148,14 @@ class DnsProvisioner(object):
             Before associating vdns with IPAM, make sure that
             vdns exists by doing a read of vnds
             '''
-            vdns_fqname = vdns_fqname_str.split(':') 
+            vdns_fqname = vdns_fqname_str.split(':')
             try:
                 vdns_obj = vnc_lib.virtual_DNS_read(vdns_fqname)
             except NoIdError:
                 print 'Virtual DNS ' + vdns_fqname_str + ' not found!'
                 return
             ipam_obj.add_virtual_DNS(vdns_obj)
-        
+
         ipam_mgmt_obj = ipam_obj.get_network_ipam_mgmt()
         if not ipam_mgmt_obj:
             ipam_mgmt_obj = IpamType()

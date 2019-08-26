@@ -104,7 +104,7 @@ class ProvisionVgwInterface(object):
             print "Done deleting virtual-gateway..."
 
     # end __init__
-    
+
     def execute_command(self, cmd):
         print cmd
         out = os.system(cmd)
@@ -129,7 +129,7 @@ class ProvisionVgwInterface(object):
 
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_vgw_interface.py 
+        Eg. python provision_vgw_interface.py
                                         --oper <create | delete>
                                         --interface vgw1
                                         --subnets 1.2.3.0/24 7.8.9.0/24
@@ -166,10 +166,10 @@ class ProvisionVgwInterface(object):
         parser.add_argument(
             "--interface", help="Name of the gateway interface")
         parser.add_argument(
-            "--subnets", nargs='+', 
+            "--subnets", nargs='+',
             help="List of subnets in virtual-network configured for gateway (Ex: 1.1.1.0/24 2.2.2.0/24)")
         parser.add_argument(
-            "--routes", nargs='+', 
+            "--routes", nargs='+',
             help="List of public routes injected into virtual-network routing-instance (Ex: 8.8.8.0/24 9.9.9.0/24)")
         parser.add_argument(
             "--vrf",

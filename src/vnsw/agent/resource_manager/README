@@ -55,7 +55,7 @@ After the notification walk through all the entries and remove the  stale.
 
 ResourceTable:
 -------------
-It maintains Resource Key & data Map table. 
+It maintains Resource Key & data Map table.
 
 Resource Manager requests, resource table  object to create & delete the resources
 based on type of the resources.
@@ -63,7 +63,7 @@ based on type of the resources.
 IndexResourceTable:
 ------------------
  This Class maintains the index resource vector for resourcekey.
- 
+
  For every resource key  a unique index will be allocated which will be
  represented as label or it can be represented as respective
  resource Index, This Resource Index will also be used to represent the stored  data

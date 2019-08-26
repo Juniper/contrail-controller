@@ -48,7 +48,7 @@
     <validate name="validate-4">
         <flow name="l2-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="19"
          sip="1.1.1.1" dip="1.1.1.2" proto="udp" sport="1" dport="11"
-         svn="vn1" dvn="vn1" action="pass"/> 
+         svn="vn1" dvn="vn1" action="pass"/>
     </validate>
 
     <fdb uuid="1" id="1" name="fdb_1" mac="00:00:00:00:01:01" vrf="vrf1"

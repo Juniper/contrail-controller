@@ -67,7 +67,7 @@
 
 /*
  * Context blocks
- * 
+ *
  * Statically allocated, indexed by client role (host/router).
  */
 static gmpp_context gmpp_context_block[GMP_NUM_ROLES];
@@ -208,7 +208,7 @@ gmpp_destroy_packet (gmp_packet *packet)
 	query_packet = &packet->gmp_packet_contents.gmp_packet_query;
 	gmp_destroy_addr_thread(query_packet->gmp_query_rcv_srcs);
 	break;
-	
+
       case GMP_REPORT_PACKET:
 
 	/* Report packet, toss all of the group records. */
@@ -239,10 +239,10 @@ gmpp_destroy_packet (gmp_packet *packet)
     gmpx_free_block(gmpp_packet_header_tag, packet);
 }
 
-    
+
 /*
  * gmpp_start_xmit
- * 
+ *
  * Initiate transmission on an interface.
  */
 void

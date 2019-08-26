@@ -10,7 +10,7 @@
 # This module helps start and stop IFMAP instances for unit testing
 # java must be pre-installed for this to work
 #
-    
+
 import os
 import subprocess
 import logging
@@ -64,7 +64,7 @@ def start_ifmap(cport1):
     conftemplate = os.path.dirname(os.path.abspath(__file__)) + "/publisher.properties"
 
     output, _ = call_command_("cp " + conftemplate + " " + confdir)
-    
+
     replace_string_(confdir + "log4j.properties",
         [("TRACE","DEBUG")])
 
@@ -79,7 +79,7 @@ def start_ifmap(cport1):
     replace_string_(confdir + "start.sh", \
          [("java -jar irond.jar","java -jar %sirond.jar" % confdir)])
     output, _ = call_command_("chmod +x %sstart.sh" % confdir)
-   
+
     commd = confdir + "start.sh"
     jcommd = "java -jar %sirond.jar" % confdir
     #import pdb; pdb.set_trace()
@@ -87,7 +87,7 @@ def start_ifmap(cport1):
     #                           stdout=subprocess.PIPE,
     #                           stderr=subprocess.PIPE)
     subprocess.Popen(jcommd.split(' '), cwd=confdir)
-    
+
     ns = {
         'env':   "http://www.w3.org/2003/05/soap-envelope",
         'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
@@ -129,7 +129,7 @@ def stop_ifmap(cport1):
     logging.info('Killing ifmap %d' % cport1)
     output,_ = call_command_("pkill -f %sirond.jar" % confdir)
     output,_ = call_command_("rm -rf " + cassbase)
-    
+
 def replace_string_(filePath, findreplace):
     "replaces all findStr by repStr in file filePath"
     print filePath

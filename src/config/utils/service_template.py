@@ -114,7 +114,7 @@ class ServiceTemplateCmd(object):
         list_parser = subparsers.add_parser('list')
         list_parser.set_defaults(func=self.list_st)
         self._args = parser.parse_args(remaining_argv)
-        
+
     # end _parse_args
 
     # create service template

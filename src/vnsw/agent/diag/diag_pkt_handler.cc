@@ -650,7 +650,7 @@ void DiagPktHandler::SendOverlayResponse() {
     boost::posix_time::ptime time = microsec_clock::universal_time();
     boost::posix_time::time_duration td = time - epoch;
     oamdata->timerecv_sec_ = htonl(td.total_seconds());
-    oamdata->timerecv_misec_ = htonl(td.total_microseconds() - 
+    oamdata->timerecv_misec_ = htonl(td.total_microseconds() -
                                  (td.total_seconds()*1000000));
 
     PhysicalInterfaceKey key1(agent->fabric_interface_name());

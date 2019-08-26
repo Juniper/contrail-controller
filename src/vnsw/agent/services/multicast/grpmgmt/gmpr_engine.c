@@ -48,7 +48,7 @@ gmpr_process_query_packet(gmpr_intf *intf, gmp_packet *packet)
     /* Post a warning if the version does not match. */
 
     if (intf->rintf_ver != packet->gmp_packet_version ) {
-	gmpr_post_event(instance, GMP_VERSION_MISMATCH, intf->rintf_id, 
+	gmpr_post_event(instance, GMP_VERSION_MISMATCH, intf->rintf_id,
 			gmp_untranslate_version(instance->rinst_proto,
 						intf->rintf_ver),
 			gmp_untranslate_version(instance->rinst_proto,
@@ -191,7 +191,7 @@ gmpr_enqueue_group_query (gmpr_group *group)
 
     /* Lower the group timer to LMQT. */
 
-    if (!gmpx_timer_running(group->rgroup_group_timer) || 
+    if (!gmpx_timer_running(group->rgroup_group_timer) ||
 	(gmpx_timer_time_remaining(group->rgroup_group_timer) >
 	 intf->rintf_lmqt)) {
 	gmpx_start_timer(group->rgroup_group_timer, intf->rintf_lmqt, 0);
@@ -1488,7 +1488,7 @@ gmpr_process_report_packet(gmpr_intf *intf, gmp_packet *packet)
 		memmove(group->rgroup_last_reporter.gmp_addr,
             packet->gmp_packet_src_addr.gmp_addr,
             instance->rinst_addrlen);
- 
+
 		/* See if this is a current-state or state-change record. */
 
 		if (group_rcrd->gmp_rpt_type == GMP_RPT_IS_IN ||
@@ -1633,7 +1633,7 @@ gmpr_send_gss_query (gmpr_group *group)
 	    return NULL;
 	}
     }
-    
+
     /* Something to send.  Get a packet header and initialize it. */
 
     instance = intf->rintf_instance;
@@ -1689,7 +1689,7 @@ gmpr_send_group_query (gmpr_group *group)
 
     if (!intf->rintf_querier)
 	return NULL;
-    
+
     /* Something to send.  Get a packet header and initialize it. */
 
     instance = intf->rintf_instance;

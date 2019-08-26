@@ -145,7 +145,7 @@ class VncIngress(VncCommon):
         if fip_pool_fq_name is None:
             ns = self._get_namespace(ns_name)
             fip_pool_fq_name = ns.get_annotated_ns_fip_pool_fq_name()
-        if fip_pool_fq_name is None: 
+        if fip_pool_fq_name is None:
             if not vnc_kube_config.is_public_fip_pool_configured():
                 return None
             try:

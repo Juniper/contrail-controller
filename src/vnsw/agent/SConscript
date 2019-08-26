@@ -84,7 +84,7 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/diag',
     'vnsw/agent/filter',
     'vnsw/agent/init',
-    'vnsw/agent/kstate', 
+    'vnsw/agent/kstate',
     'vnsw/agent/mac_learning',
     'vnsw/agent/port_ipc',
     'vnsw/agent/oper',
@@ -128,7 +128,7 @@ env.Prepend(LIBS = [
     'bgp_schema',
     'ifmap_vnc',
     'ifmap_agent',
-    'ifmap_common', 
+    'ifmap_common',
     'net',
     'sandeshflow',
     'sandeshvns',
@@ -472,7 +472,7 @@ def code_coverage(target, source, env):
     #import pdb; pdb.set_trace()
     ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
 
-    # Get test alias from agent-test test suite 
+    # Get test alias from agent-test test suite
     for test in env.ans['agent-test'].sources:
         cmd = test.sources[0].path
         print(cmd)
@@ -500,7 +500,7 @@ def run_ut(target, source, env):
     #import pdb; pdb.set_trace()
     ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
 
-    # Get test alias from agent-test test suite 
+    # Get test alias from agent-test test suite
     for test in env.ans['agent-test'].sources:
         cmd = test.sources[0].path
         log = test.sources[0].path + '.log'

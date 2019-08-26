@@ -31,7 +31,7 @@ class StaticRouteProvisioner(object):
             self._args.api_server_ip,
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
-        
+
         prefix = self._args.prefix
         vmi_id_got = self._args.virtual_machine_interface_id
         route_table_name = self._args.route_table_name
@@ -45,12 +45,12 @@ class StaticRouteProvisioner(object):
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
         project_fq_name = project_fq_name_str.split(':')
         project_obj = self._vnc_lib.project_read(fq_name=project_fq_name)
-        
+
         route_table = RouteTableType(route_table_name)
         route_table.set_route([])
         intf_route_table = InterfaceRouteTable(
                                 interface_route_table_routes = route_table,
-                                parent_obj=project_obj, 
+                                parent_obj=project_obj,
                                 name=route_table_name)
         try:
             route_table_obj = self._vnc_lib.interface_route_table_read(
@@ -64,13 +64,13 @@ class StaticRouteProvisioner(object):
             intf_route_table_id = self._vnc_lib.interface_route_table_create(
                                     intf_route_table)
         intf_route_table_obj = self._vnc_lib.interface_route_table_read(
-                                    id = intf_route_table_id) 
+                                    id = intf_route_table_id)
         if self._args.oper == 'add':
             intf_route_table_obj = self.add_route(intf_route_table_obj, prefix)
         elif self._args.oper == 'del':
             intf_route_table_obj = self.del_route(intf_route_table_obj, prefix)
         self._vnc_lib.interface_route_table_update(intf_route_table_obj)
-        
+
         #Update the VMI Object now
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id = vmi_id_got)
         if self._args.oper == 'add':

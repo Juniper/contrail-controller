@@ -21,7 +21,7 @@ thread gmpr_global_instance_thread;	/* Thread of instances */
 
 /*
  * gmpr_query_smear_expiry
- * 
+ *
  * The query timer smear timer has expired.  Smear the query timers and
  * restart the smear timer.
  */
@@ -118,7 +118,7 @@ gmpr_instance_create (gmp_proto proto, void *inst_context)
 
 	/* Initialize the patricia trees. */
 
-	instance->rinst_intfs = 
+	instance->rinst_intfs =
 	    gmpx_patroot_init(sizeof(gmpx_intf_id),
 			      GMPX_PATRICIA_OFFSET(gmpr_intf,
 						   rintf_inst_patnode,
@@ -185,7 +185,7 @@ gmpr_instance_create (gmp_proto proto, void *inst_context)
 
 /*
  * gmpr_get_instance
- * 
+ *
  * Return an instance pointer, given an instance ID.
  *
  * Verifies that the instance ID is valid.
@@ -272,7 +272,7 @@ gmpr_instance_destroy (gmpr_instance *instance)
     }
     if (!found_proto)
 	gmpp_enab_disab_proto(GMP_ROLE_ROUTER, inst_proto, FALSE);
-	
+
     /* If that was the last instance, deregister with the packet handler. */
 
     if (thread_circular_thread_empty(&gmpr_global_instance_thread))

@@ -21,7 +21,7 @@ class DockerMemCpuUsageData(object):
         return self.client.stats(self._id, decode=True, stream=False)
 
     def _get_process_cpu_share(self, current_cpu):
-        # sometimes docker returns empty arrays 
+        # sometimes docker returns empty arrays
         if "cpu_usage" not in current_cpu or "percpu_usage" not in current_cpu["cpu_usage"]:
             return 0
 

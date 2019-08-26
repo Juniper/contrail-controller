@@ -18,7 +18,7 @@ class AddVirtualDnsRecord(object):
         self._parse_args(args_str)
 
         if self._args.rec_ttl < 0 or self._args.rec_ttl > 2147483647:
-            print 'Invalid ttl value ' , self._args.rec_ttl 
+            print 'Invalid ttl value ' , self._args.rec_ttl
             return
 
         if not DnsProvisioner.is_valid_ipv4_address(self._args.api_server_ip):
@@ -53,32 +53,32 @@ class AddVirtualDnsRecord(object):
             return
 
         try:
-            dp_obj = DnsProvisioner(self._args.admin_user, self._args.admin_password, 
-                                    self._args.admin_tenant_name, 
+            dp_obj = DnsProvisioner(self._args.admin_user, self._args.admin_password,
+                                    self._args.admin_tenant_name,
                                     self._args.api_server_ip, self._args.api_server_port)
         except ConnectionError:
              print 'Connection to API server failed '
              return
 
-        dp_obj.add_virtual_dns_record(self._args.name, self._args.vdns_fqname, 
-                                      rec_name, self._args.rec_type, 
+        dp_obj.add_virtual_dns_record(self._args.name, self._args.vdns_fqname,
+                                      rec_name, self._args.rec_type,
                                       self._args.rec_class, self._args.rec_data,
                                       self._args.rec_ttl)
     #end __init__
 
     def _parse_args(self, args_str):
         '''
-        Eg. python add_virtual_dns_record.py --name vdns_rec1 
+        Eg. python add_virtual_dns_record.py --name vdns_rec1
                                              --vdns_fqname default-domain:vdns1
                                              --rec_name one --rec_type A
                                              --rec_class IN --rec_data 23.0.0.41
-                                             --rec_ttl 60000 
+                                             --rec_ttl 60000
         '''
 
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-        
+
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         defaults = {
@@ -112,7 +112,7 @@ class AddVirtualDnsRecord(object):
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
         parser.add_argument("--admin_password", help = "Password of keystone admin user")
         parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
-    
+
         self._args = parser.parse_args(remaining_argv)
 
     #end _parse_args

@@ -31,7 +31,7 @@ static bvx_block_tag context_tag;
 
 /*
  * ord_create_context
- * 
+ *
  * Create a new ordinal context.
  *
  * Returns a context pointer, or NULL if out of memory.

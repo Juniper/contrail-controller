@@ -1874,7 +1874,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         #              -------
         # Test case is to check if the VMI corresponding
         # to the common right VMI can handle multiple PTs.
-        
+
         #create vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
@@ -1890,12 +1890,12 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         si1 = [self.id() + '_s1']
         si2_name = self.id() + '_s2'
 
-        # Creating a SI(ver2) between VN1 and VN3 
+        # Creating a SI(ver2) between VN1 and VN3
         np1 = self.create_network_policy(vn1_obj, vn3_obj, si1,
                                         auto_policy=False,
                                         service_mode='in-network',
                                         version=2)
-        
+
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
 
@@ -1915,7 +1915,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         right_vmi = self._vnc_lib.virtual_machine_interface_read(fq_name=[u'default-domain',
                                                                  u'default-project',
                                                                  si1[0] + 'right'])
-        # Creating a network policy between VN2 and VN3 but with the 
+        # Creating a network policy between VN2 and VN3 but with the
         # right VMI for the SI skipped.
         np2 = self.create_network_policy(vn2_obj, vn3_obj,
                                          [self.id() + '_s2'],
@@ -1938,8 +1938,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn2_obj)
         self._vnc_lib.virtual_network_update(vn3_obj)
 
-        si2_sc_ri_uuid = self.wait_to_get_sc(left_vn=vn2_obj.get_fq_name_str(), 
-                                             right_vn=vn3_obj.get_fq_name_str(), 
+        si2_sc_ri_uuid = self.wait_to_get_sc(left_vn=vn2_obj.get_fq_name_str(),
+                                             right_vn=vn3_obj.get_fq_name_str(),
                                              check_create=True)
         si2_sc_ri_name = 'service-' + si2_sc_ri_uuid +\
                          '-default-domain_default-project_' +\
@@ -2059,8 +2059,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         # Create SC
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, 
-                                        service_list = [service_name], 
+        np = self.create_network_policy(vn1_obj, vn2_obj,
+                                        service_list = [service_name],
                                         version = 2,
                                         service_mode = 'in-network')
         seq = SequenceType(1, 1)

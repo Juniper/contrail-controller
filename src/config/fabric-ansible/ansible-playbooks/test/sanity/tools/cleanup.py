@@ -6,7 +6,7 @@ from vnc_api.gen.resource_client import (
     NetworkIpam
 )
 
-    
+
 vnc_api = VncApi()
 
 #import pdb; pdb.set_trace()
@@ -19,11 +19,11 @@ for fab in fabs:
     # remove fabric->vn refs
     fab.set_virtual_network_list([])
     vnc_api.fabric_update(fab)
-    
-    # remove fabric->node_profile refs     
+
+    # remove fabric->node_profile refs
     fab.set_node_profile_list([])
     vnc_api.fabric_update(fab)
-   
+
     # remove fabric
     vnc_api.fabric_delete(id=fab.uuid)
 

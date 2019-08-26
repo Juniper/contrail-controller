@@ -57,7 +57,7 @@ class TestRandomScheduler(unittest.TestCase):
 
         self.scheduler = \
             scheduler.RandomScheduler(self.vnc_mock, mock.MagicMock(),
-                mock.MagicMock(), mock.MagicMock(), 
+                mock.MagicMock(), mock.MagicMock(),
                 mock.MagicMock(netns_availability_zone=False,analytics_server_list='127.0.0.2:8081'))
 
     def tearDown(self):
@@ -90,7 +90,7 @@ class TestRandomScheduler(unittest.TestCase):
 
         # test same vrouter returned if already scheduled
         candidates = self.scheduler._get_candidates(si, vm1)
-        self.assertEqual(len(candidates), 1) 
+        self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates, [vr1.uuid])
 
         # test all candidates returned

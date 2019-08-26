@@ -35,7 +35,7 @@ BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
     if (!agent_->isMockMode()) {
         backup_dir_ = agent_->params()->restart_backup_dir();
     }
-    else { 
+    else {
       backup_dir_ = "/tmp/" + agent_->AgentGUID() +
       agent_->params()->restart_backup_dir();
     }

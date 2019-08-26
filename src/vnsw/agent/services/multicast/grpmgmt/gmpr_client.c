@@ -60,7 +60,7 @@ static void gmpr_flush_notifications_client(gmpr_client *client);
 
 /*
  * gmpr_get_client
- * 
+ *
  * Return an client pointer, given a client ID.
  *
  * Verifies that the client ID is valid.
@@ -343,7 +343,7 @@ gmpr_delete_notification (gmpr_notify_block *notification,
 	group_addr = gmpr_client_notification_to_addr_entry(notification,
 							    client_ord);
 	if (gmpr_group_addr_deleted(group_addr)) {
-	     notify_block_freed = 
+	     notify_block_freed =
                  gmpr_attempt_free_deleted_addr_entry(group_addr);
 	}
 	break;
@@ -922,7 +922,7 @@ gmpr_build_full_notification (gmpr_instance *instance,
 
 /*
  * gmpr_build_delta_notification
- * 
+ *
  * Build a delta notification.
  */
 static void
@@ -1068,7 +1068,7 @@ gmpr_fill_client_notification (gmpr_instance *instance,
     /* First, figure out the group. */
 
     switch (notification->gmpr_notify_type) {
-      case GMPR_NOTIFY_GROUP: 	
+      case GMPR_NOTIFY_GROUP:
 	group_addr = NULL;
 	group = gmpr_client_notification_to_group(notification,
 						  client->rclient_ordinal);
@@ -1205,7 +1205,7 @@ gmpr_client_get_notification (gmpr_client *client,
 		   client->rclient_cb_context.rctx_full_notifications);
 
     /* Pick up the top of the notification thread. */
- 
+
     thread_ptr = thread_circular_top(&client->rclient_notif_head);
     notification = gmpr_thread_to_notify_block(thread_ptr);
 
@@ -1230,7 +1230,7 @@ gmpr_client_get_notification (gmpr_client *client,
     }
 
     /* Fill in the non-common fields. */
-    
+
     group = gmpr_fill_client_notification(instance, notification, client,
 					  client_notif);
 
@@ -1291,7 +1291,7 @@ gmpr_client_get_notification (gmpr_client *client,
     }
     if (thread_ptr) {
 	notification = gmpr_thread_to_notify_block(thread_ptr);
-	if (notification && 
+	if (notification &&
 	    notification->gmpr_notify_type == GMPR_NOTIFY_GROUP) {
 	    client_notif->notif_last_sg = TRUE;
 	}

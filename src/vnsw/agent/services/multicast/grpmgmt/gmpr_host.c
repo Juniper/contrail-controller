@@ -966,7 +966,7 @@ gmpr_fill_client_host_notif (gmpr_instance *instance,
 	gmpx_assert(FALSE);
 	host_group = NULL;		/* Quiet the compiler */
 	break;
-    }	    
+    }
 
     return host_group;
 }
@@ -974,7 +974,7 @@ gmpr_fill_client_host_notif (gmpr_instance *instance,
 
 /*
  * gmpr_client_free_host_notification
- * 
+ *
  * Free a host notification block.
  */
 void
@@ -1037,9 +1037,9 @@ gmpr_client_get_host_notification (gmpr_client *client,
 	client_notif = last_notification;
 	memset(client_notif, 0, sizeof(gmpr_client_host_notification));
     }
-	
+
     /* Dequeue the top of the notification thread. */
- 
+
     thread_ptr = thread_circular_dequeue_top(&client->rclient_host_notif_head);
     notification = gmpr_thread_to_notify_block(thread_ptr);
 
@@ -1063,7 +1063,7 @@ gmpr_client_get_host_notification (gmpr_client *client,
     }
 
     /* Fill in the non-common fields. */
-    
+
     host_group = gmpr_fill_client_host_notif(instance, notification,
 					     client, client_notif);
     host = host_group->rhgroup_host;
@@ -1235,7 +1235,7 @@ gmpr_create_host (gmpr_intf *intf, uint8_t *host_addr)
 static void
 gmpr_delete_host_source (gmpr_host_group_addr *hg_addr)
 {
-    gmpr_host *host; 
+    gmpr_host *host;
     gmpr_host_group *host_group;
     gmpr_group_addr_entry *group_addr_entry;
 

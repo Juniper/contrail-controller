@@ -5,7 +5,7 @@
 #           are entirely non instrumental
 #           do not depend on any "inline"(s) - e.g. size(), [], etc
 #       are extremely tolerant to debugger settings
-#                                                                                 
+#
 #   This file should be "included" in .gdbinit as following:
 #   source stl-views.gdb or just paste it into your .gdbinit file
 #

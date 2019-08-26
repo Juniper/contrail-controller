@@ -336,7 +336,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self._vnc_lib.network_policy_update(np)
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
-   
+
         # Attach policy to vn1
         vn1.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1)

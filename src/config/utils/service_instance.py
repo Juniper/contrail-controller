@@ -187,7 +187,7 @@ class ServiceInstanceCmd(object):
                 return
         else:
             self._mgmt_vn_fq_name = []
-            
+
 
         # create si
         print "Creating service instance %s" % (self._args.instance_name)

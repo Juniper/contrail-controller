@@ -550,7 +550,7 @@ gmpr_create_intf (gmpr_instance *instance, gmpx_intf_id intf_id)
 
     /* Initialize the input group tree. */
 
-    intf->rintf_group_root = 
+    intf->rintf_group_root =
 	gmpx_patroot_init(instance->rinst_addrlen,
 			  GMPX_PATRICIA_OFFSET(gmpr_group, rgroup_intf_patnode,
 					       rgroup_addr));
@@ -561,7 +561,7 @@ gmpr_create_intf (gmpr_instance *instance, gmpx_intf_id intf_id)
 
     /* Initialize the output group tree. */
 
-    intf->rintf_oif_group_root = 
+    intf->rintf_oif_group_root =
 	gmpx_patroot_init(instance->rinst_addrlen,
 			  GMPX_PATRICIA_OFFSET(gmpr_ogroup,
 					       rogroup_intf_patnode,
@@ -574,7 +574,7 @@ gmpr_create_intf (gmpr_instance *instance, gmpx_intf_id intf_id)
 
     /* Create the host tree. */
 
-    intf->rintf_host_root = 
+    intf->rintf_host_root =
 	gmpx_patroot_init(instance->rinst_addrlen,
 			  GMPX_PATRICIA_OFFSET(gmpr_host, rhost_node,
 					       rhost_addr));
@@ -639,7 +639,7 @@ gmpr_create_intf (gmpr_instance *instance, gmpx_intf_id intf_id)
 	gmpx_create_timer(instance->rinst_context,
 			  "GMP router other querier present",
 			  gmpr_other_querier_present_expiry, intf);
-    
+
     /* Initialized to null, will be created if log-interval is configured */
 
     /* Set up the query timer. */
@@ -784,7 +784,7 @@ gmpr_intf_set_params (gmpr_instance *instance, gmpx_intf_id intf_id,
     intf->rintf_lmq_ivl = params->gmpr_ifparm_lmqi;
     intf->rintf_fast_leaves = params->gmpr_ifparm_fast_leave;
     intf->rintf_channel_limit = params->gmpr_ifparm_chan_limit;
-    
+
     if(intf->rintf_channel_count > intf->rintf_channel_limit)
         intf->rintf_limit_state = GMPR_ABOVE_LIMIT;
     else
@@ -805,7 +805,7 @@ gmpr_intf_set_params (gmpr_instance *instance, gmpx_intf_id intf_id,
 	intf->rintf_channel_threshold = 0 ;
 	intf->rintf_log_interval = 0;
     }
-    
+
     intf->rintf_passive_receive = params->gmpr_ifparm_passive_receive;
     intf->rintf_suppress_gen_query = params->gmpr_ifparm_suppress_gen_query;
     intf->rintf_suppress_gs_query = params->gmpr_ifparm_suppress_gs_query;
@@ -859,7 +859,7 @@ gmpr_intf_set_params (gmpr_instance *instance, gmpx_intf_id intf_id,
     } else {
 	intf->rintf_limit_state = GMPR_BELOW_THRESHOLD;
     }
-   
+
     /*
      * If queries are suppressed, zap the startup query counter,
      * since it isn't relevant and may get in the way later.

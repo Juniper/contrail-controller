@@ -18,25 +18,25 @@ class DelVirtualDnsRecord(object):
         self._parse_args(args_str)
 
         try:
-            dp_obj = DnsProvisioner(self._args.admin_user, self._args.admin_password, 
-                                    self._args.admin_tenant_name, 
+            dp_obj = DnsProvisioner(self._args.admin_user, self._args.admin_password,
+                                    self._args.admin_tenant_name,
                                     self._args.api_server_ip, self._args.api_server_port)
         except ConnectionError:
              print 'Connection to API server failed '
              return
-    
+
         dp_obj.del_virtual_dns_record(self._args.fq_name)
     #end __init__
 
     def _parse_args(self, args_str):
         '''
-        Eg. python del_virtual_dns_record.py --fq_name default-domain:vdns1:rec1 
+        Eg. python del_virtual_dns_record.py --fq_name default-domain:vdns1:rec1
         '''
 
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-        
+
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         defaults = {
@@ -64,7 +64,7 @@ class DelVirtualDnsRecord(object):
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
         parser.add_argument("--admin_password", help = "Password of keystone admin user")
         parser.add_argument("--admin_tenant_name", help = "Tenamt name for keystone admin user")
-    
+
         self._args = parser.parse_args(remaining_argv)
 
     #end _parse_args

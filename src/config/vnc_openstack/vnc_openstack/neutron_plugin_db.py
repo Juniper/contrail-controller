@@ -470,7 +470,7 @@ class DBInterface(object):
             ))
 
         # (SATHISH) This is a temp fix for fixing lost update problem during
-        # Parallel creation of Security Group Rule 
+        # Parallel creation of Security Group Rule
         try:
             acquired_lock = scope_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
 
@@ -517,7 +517,7 @@ class DBInterface(object):
         finally:
             scope_lock.release()
 
-    # end _security_group_rule_create 
+    # end _security_group_rule_create
 
     def _security_group_rule_find(self, sgr_id, project_uuid=None):
         # Get all security group for a project if project uuid is specified
@@ -3434,7 +3434,7 @@ class DBInterface(object):
     #end subnet_read
 
     def subnet_update(self, subnet_id, subnet_q):
-        net_id = self._subnet_get_vn_uuid(subnet_id) 
+        net_id = self._subnet_get_vn_uuid(subnet_id)
         return self._subnet_update(net_id, subnet_id,subnet_q)
 
 

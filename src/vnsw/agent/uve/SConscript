@@ -52,7 +52,7 @@ env.Depends(sandesh_init_rules, vrouter_pkg)
 rel_path = Dir('vrouter').path
 def BuildInfoAction(target, source, env):
     env.GenerateBuildInfoPyCode(path=rel_path)
-    
+
 build_info_rules = [env.Command(target='buildinfo.py', source = None, action=BuildInfoAction)]
 
 sdist_depends = []

@@ -1905,7 +1905,7 @@ class VncApiServer(object):
             self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
         else:
             self.aaa_mode = "cloud-admin"
-        
+
         api_proto = 'https' if self._args.config_api_ssl_enable else 'http'
         api_host_name = socket.getfqdn(self._args.listen_ip_addr)
         self._base_url = "%s://%s:%s" % (api_proto, api_host_name,
@@ -2215,7 +2215,7 @@ class VncApiServer(object):
     @enable_4byte_as.setter
     def enable_4byte_as(self, enable_4byte_as):
         self._enable_4byte_as = enable_4byte_as
- 
+
     @property
     def default_domain(self):
         if not self._default_domain:

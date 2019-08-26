@@ -52,20 +52,20 @@ class VrouterProvisioner(object):
 
     def _parse_args(self, args_str):
         '''
-        Eg: python provision_physical_device.py --device_name my_router 
-                                                --vendor_name Juniper  
+        Eg: python provision_physical_device.py --device_name my_router
+                                                --vendor_name Juniper
                                                 --product_name QFX5100
                                                 --device_mgmt_ip 10.204.217.39
                                                 --device_tunnel_ip 34.34.34.34
-                                                --device_tor_agent nodec45-1 
-                                                --device_tsn nodec45 
-                                                --api_server_ip 10.204.221.33 
-                                                --api_server_port 8082 
+                                                --device_tor_agent nodec45-1
+                                                --device_tsn nodec45
+                                                --api_server_ip 10.204.221.33
+                                                --api_server_port 8082
                                                 --api_server_use_ssl False
                                                 --oper <add | del>
-                                                --admin_user admin 
-                                                --admin_password contrail123 
-                                                --admin_tenant_name admin  
+                                                --admin_user admin
+                                                --admin_password contrail123
+                                                --admin_tenant_name admin
                                                 --openstack_ip 10.204.221.34
                                                 --snmp_monitor
                                                 --local_port 161
@@ -168,7 +168,7 @@ class VrouterProvisioner(object):
             pr_id = self._vnc_lib.physical_router_update(pr)
         else:
             pr_id = self._vnc_lib.physical_router_create(pr)
-        
+
         # Associate TSN and Tor agent with Physical Device
         for member in [self._args.device_tsn, self._args.device_tor_agent]:
             vrouter_tmp = GetVrouter(self._vnc_lib, member)
@@ -226,12 +226,12 @@ class GetDevice():
         uuid=''
         phy_rt_list=self.handle.physical_routers_list()
         for i in range(len(phy_rt_list['physical-routers'])):
-            if unicode(self.physical_device_name) == phy_rt_list['physical-routers'][i]['fq_name'][1]: 
+            if unicode(self.physical_device_name) == phy_rt_list['physical-routers'][i]['fq_name'][1]:
                 uuid=phy_rt_list['physical-routers'][i]['uuid']
         return uuid
 # end class GetDevice
 
-  
+
 
 def main(args_str=None):
     VrouterProvisioner(args_str)

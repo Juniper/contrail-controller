@@ -52,7 +52,7 @@ class MxProvisioner(object):
             'router_asn': '64513',
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
-            'api_server_use_ssl': False, 
+            'api_server_use_ssl': False,
             'admin_user': None,
             'admin_password': None,
             'admin_tenant_name': None

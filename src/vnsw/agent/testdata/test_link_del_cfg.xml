@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <config>
-    <delete> 
+    <delete>
         <link>
             <node type="foo">
                 <name>testfoo</name>

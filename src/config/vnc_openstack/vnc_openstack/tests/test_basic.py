@@ -1319,7 +1319,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         net_q = self.create_resource('network', proj_id)
         subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
         return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'], 'port_security_enabled':False})
-    
+
     def test_create_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         with ExpectedException(webtest.app.AppError):
@@ -1333,9 +1333,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
     def test_allowed_address_with_extra_space(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         net_q = self.create_resource('network', proj_obj.uuid)
-        subnet_q = self.create_resource('subnet', proj_obj.uuid, 
-                                        extra_res_fields={'network_id': net_q['id'], 
-                                                          'cidr': '10.2.0.0/24', 
+        subnet_q = self.create_resource('subnet', proj_obj.uuid,
+                                        extra_res_fields={'network_id': net_q['id'],
+                                                          'cidr': '10.2.0.0/24',
                                                           'ip_version': 4})
         # adding extra space in IPv6 address is invalid. But for IPv4 address adding extra space is still valid.
         with ExpectedException(webtest.app.AppError):

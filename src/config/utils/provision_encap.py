@@ -50,10 +50,10 @@ class EncapsulationProvision(object):
                     fq_name=global_vrouter_fq_name)
             result = self._vnc_lib.global_vrouter_config_update(conf_obj)
     # end __init__
-    
+
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_encap.py 
+        Eg. python provision_encap.py
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --api_server_use_ssl False

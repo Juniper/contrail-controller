@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/python
 """
 Common utility functions for Contrail scripts
 
@@ -36,12 +36,12 @@ def format_dict(dict, style='table'):
     elif style == 'shell':
         from StringIO import StringIO
         import pipes
-        
+
         s = StringIO()
         for (k,v) in sorted(dict.items()):
             s.write("%s=%s\n" % (k, pipes.quote(v)))
         return s.getvalue()
-    
+
     elif style == 'python':
         import pprint
         pprint.pprint(dict)
@@ -53,7 +53,7 @@ def sudo(str, args=None, **opts):
     """shortcut to nova.utils.execute.
     Breaks str into array using shlex and allows %-substitutions for args
     """
-    
+
     # run as root by default
     if 'run_as_root' not in opts:
         opts['run_as_root']=True
@@ -131,13 +131,13 @@ def new_interface_name(suffix='', prefix='tap', maxlen=15, max_retries=100, exis
     # default: look only in the default namespace
     if not exists_func:
         exists_func = link_exists_func()
-        
+
     suflen = maxlen - len(prefix)
     sufmax = int('f' * suflen, 16)
     def rand_suf():
         return ('%x' % random.randint(1, sufmax)).zfill(suflen)
 
-    # try the user-supplied suffix to start, but fall back to  
+    # try the user-supplied suffix to start, but fall back to
     suffix = suffix[-suflen:]
     if len(suffix) == 0:
         suffix = rand_suf()

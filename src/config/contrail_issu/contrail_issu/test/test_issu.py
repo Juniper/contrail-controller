@@ -21,7 +21,7 @@ sys.modules['paramiko'] = flexmock()
 
 import issu_contrail_config
 
-import issu_contrail_pre_sync 
+import issu_contrail_pre_sync
 from issu_contrail_pre_sync import _issu_cassandra_pre_sync_main
 
 import issu_contrail_run_sync
@@ -58,7 +58,7 @@ issu_contrail_config.should_receive('issu_info_pre').and_return([
         'service_chain_uuid_table': {}}),
     (None, 'useragent', {'useragent_keyval_table': {}}),
     (None, 'svc_monitor_keyspace', {
-        'pool_table': {}, 'service_instance_table': {}})]) 
+        'pool_table': {}, 'service_instance_table': {}})])
 issu_contrail_config.should_receive('issu_info_post').and_return([
     (None, 'to_bgp_keyspace', {
         'route_target_table': {}, 'service_chain_table': {},

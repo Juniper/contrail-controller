@@ -547,7 +547,7 @@ gmph_send_query_response (gmph_intf *intf, u_int buffer_len)
 						 instance->hinst_addrlen);
 		    if (!group_record)
 			break;			/* Out of memory */
-		    
+
 		    /* Set the record type and the address list pointer. */
 
 		    group_record->gmp_rpt_type = GMP_RPT_IS_IN;
@@ -1006,7 +1006,7 @@ gss_query_callback (void *context, bv_bitnum_t bitnum,
 
     addr_entry = gmp_lookup_addr_entry(addr_list, bitnum);
     gmpx_assert(addr_entry);
-    
+
     /* Enqueue the entry on the transmit list. */
 
     gmp_enqueue_xmit_addr_entry(addr_entry);

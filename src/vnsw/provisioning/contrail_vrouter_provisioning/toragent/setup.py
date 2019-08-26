@@ -138,7 +138,7 @@ class TorAgentBaseSetup(ContrailSetup):
             cmd += " --product_name %s" %(self._args.tor_product_name)
         cmd += " --oper add "
         local(cmd)
-    
+
     def update_supervisor(self):
         if self._args.restart:
             local("sudo supervisorctl -c /etc/contrail/supervisord_vrouter.conf update", warn_only=True)
@@ -196,7 +196,7 @@ class TorAgentSetup(ContrailSetup):
             --tsn_ip 10.204.221.33 --tor_ovs_protocol tcp
             --tor_agent_ovs_ka 10000
         '''
-        parser = argparse.ArgumentParser() 
+        parser = argparse.ArgumentParser()
         parser.add_argument("--cfgm_ip", help = "IP Address of the config node")
         parser.add_argument("--self_ip", help="IP Address of this(compute) node")
         parser.add_argument(
@@ -208,7 +208,7 @@ class TorAgentSetup(ContrailSetup):
         parser.add_argument("--admin_password", help = "AuthServer admin user's password")
         parser.add_argument("--admin_tenant_name", help = "AuthServer admin tenant name")
         parser.add_argument("--auth_protocol", help = "AuthServer(keystone) running protocol")
-        
+
         parser.add_argument("--tor_name", help="Name of the TOR agent")
         parser.add_argument("--http_server_port", help="Port number for the HTTP server.")
         parser.add_argument("--tor_ip", help="TOR Switch IP")

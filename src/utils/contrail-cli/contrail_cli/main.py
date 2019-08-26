@@ -153,7 +153,7 @@ class ContrailCliApp(App):
                 '-h', '--help',
                 action=HelpAction,
                 nargs=0,
-                default=self,  
+                default=self,
                 help="Show this help message and exit.",
             )
         parser.add_argument(

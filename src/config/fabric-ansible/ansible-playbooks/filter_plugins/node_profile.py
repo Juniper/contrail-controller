@@ -225,8 +225,8 @@ class FilterModule(object):
             cc_host = job_input.get('contrail_command_host')
             cc_username = job_input.get('cc_username')
             cc_password = job_input.get('cc_password')
-            cc_node_profile_obj = CreateCCNodeProfile(cc_host, 
-                                                      cluster_id, 
+            cc_node_profile_obj = CreateCCNodeProfile(cc_host,
+                                                      cluster_id,
                                                       cluster_token,
                                                       cc_username,
                                                       cc_password)

@@ -45,7 +45,7 @@ function agent.dissector(tvbuf,pktinfo,root)
     -- Now let's add our if_index under our agent protocol tree we just created.
     -- The if_index starts at offset 0, for 2 bytes length.
     tree:add(pf_if_index, tvbuf:range(offset,2))
-    
+
     -- now add more to the main agent tree
     tree:add(pf_vrf, tvbuf:range(offset+2,2))
     tree:add(pf_cmd, tvbuf:range(offset+4,2))
@@ -111,7 +111,7 @@ function agent.dissector(tvbuf,pktinfo,root)
                 end
             end
             return
-        end 
+        end
         Dissector.get("ip"):call(tvbuf(58):tvb(),pktinfo,root)
     elseif inner_type == 34525 then
         Dissector.get("ipv6"):call(tvbuf(58):tvb(),pktinfo,root)

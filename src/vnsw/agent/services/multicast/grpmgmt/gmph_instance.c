@@ -28,7 +28,7 @@ gmph_inst_master_clock_expiry (gmpx_timer *timer, void *context GMPX_UNUSED)
 {
     gmpx_start_timer(timer, 0xffffffff, 0);
 }
-    
+
 
 /*
  * gmph_instance_create
@@ -60,7 +60,7 @@ gmph_instance_create (gmp_proto proto, void *inst_context)
 
 	/* Initialize the patricia tree. */
 
-	instance->hinst_intfs = 
+	instance->hinst_intfs =
 	    gmpx_patroot_init(sizeof(gmpx_intf_id),
 			      GMPX_PATRICIA_OFFSET(gmph_intf,
 						   hintf_inst_patnode,
@@ -127,7 +127,7 @@ gmph_instance_create (gmp_proto proto, void *inst_context)
 
 /*
  * gmph_get_instance
- * 
+ *
  * Return an instance pointer, given an instance ID.
  *
  * Verifies that the instance ID is valid.
@@ -205,7 +205,7 @@ gmph_instance_destroy (gmph_instance *instance)
     }
     if (!found_proto)
 	gmpp_enab_disab_proto(GMP_ROLE_HOST, inst_proto, FALSE);
-	
+
     /* If that was the last instance, deregister with the packet handler. */
 
     if (thread_circular_thread_empty(&gmph_global_instance_thread))

@@ -32,7 +32,7 @@ public class ContrailVRouterApiTest {
     private ContrailVRouterApi apiTest;
     private static final Logger s_logger =
         Logger.getLogger(ContrailVRouterApiTest.class);
-        
+
     @Before
     public void setUp() throws Exception {
         s_logger.debug("Setting up ContrailVRouterApiTest");

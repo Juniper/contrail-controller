@@ -60,7 +60,7 @@ parser.add_argument("net1_uuid", help="UUIDs of subnets to join")
 parser.add_argument("net2_uuid")
 parser.set_defaults(**arg_defaults)
 args = parser.parse_args()
-    
+
 urlparts = urlparse(args.auth_url)
 auth_proto = urlparts.scheme
 auth_host, auth_port = urlparts.netloc.split(':')

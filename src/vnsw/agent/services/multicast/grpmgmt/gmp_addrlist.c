@@ -439,7 +439,7 @@ gmp_lock_adcat_entry (gmp_addr_catalog *catalog, ordinal_t ordinal)
  * gmp_lookup_addr_cat_entry
  *
  * Look up an address catalog entry by address.
- * 
+ *
  * Returns a pointer to the entry, or NULL if not found.
  */
 gmp_addr_cat_entry *
@@ -534,7 +534,7 @@ gmp_free_generic_addr_list_entry (gmp_addr_list_entry *addr_entry)
 
 /*
  * gmp_addr_list_empty
- * 
+ *
  * Returns TRUE if the address list is empty, or FALSE if not.
  */
 boolean
@@ -649,7 +649,7 @@ gmp_flush_xmit_list (gmp_addr_list *addr_list)
  */
 void
 gmp_enqueue_xmit_addr_entry (gmp_addr_list_entry *addr_entry)
-{ 
+{
     gmp_addr_list *addr_list;
 
    /* Enqueue it if it's not already on a queue. */
@@ -671,7 +671,7 @@ gmp_enqueue_xmit_addr_entry (gmp_addr_list_entry *addr_entry)
 void
 gmp_dequeue_xmit_addr_entry (gmp_addr_list_entry *addr_entry)
 {
-    gmp_addr_list *addr_list;    
+    gmp_addr_list *addr_list;
     if (thread_node_on_thread(&addr_entry->addr_ent_xmit_thread)) {
 	addr_list = addr_entry->addr_ent_list;
 	thread_remove(&addr_entry->addr_ent_xmit_thread);
@@ -683,7 +683,7 @@ gmp_dequeue_xmit_addr_entry (gmp_addr_list_entry *addr_entry)
 
 /*
  * gmp_xmit_addr_list_empty
- * 
+ *
  * Returns TRUE if the transmit thread on an address list is empty, or
  * FALSE if not.
  */
@@ -1220,7 +1220,7 @@ gmp_addr_vect_fill (gmp_addr_vect *addr_vect, gmp_addr_thread *addr_thread)
 	addr = gmp_next_addr_thread_addr(addr_thread, &thread_entry);
 	if (!addr)
 	    break;
-	
+
 	/* Look up or create an address catalog entry. */
 
 	ordinal = gmp_lookup_create_addr_cat_entry(addr_vect->av_catalog,
@@ -1289,7 +1289,7 @@ gmp_addr_list_clean (gmp_addr_list *addr_list)
  *
  * If a callback is provided, it will be called for each bit set or
  * changed in the intersection of the two vectors according to cb_opt.
- * 
+ *
  * The destination may be NULL, or may be one of the two parameters.
  *
  * Returns 0 if all OK, or -1 if out of memory.
@@ -1312,7 +1312,7 @@ int gmp_addr_vect_inter (gmp_addr_vect *src1, gmp_addr_vect *src2,
  *
  * If a callback is provided, it will be called for each bit set or
  * changed in the union of the two vectors according to cb_opt.
- * 
+ *
  * The destination may be NULL, or may be one of the two parameters.
  *
  * Returns 0 if all OK, or -1 if out of memory.
