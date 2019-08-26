@@ -3,7 +3,6 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from __future__ import print_function
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
@@ -18,7 +17,7 @@ def _myprint(x, level):
     logging.info(prefix + str(x))
 
 def lognprint(x, level):
-    print(x)
+    print x
     prefix = SandeshLevel._VALUES_TO_NAMES[level] + " "
     logging.info(prefix + str(x))
 

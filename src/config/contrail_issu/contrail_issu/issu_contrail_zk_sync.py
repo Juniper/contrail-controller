@@ -3,11 +3,10 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from __future__ import absolute_import
 import time
 import logging
 import logging.handlers
-from . import issu_contrail_config
+import issu_contrail_config
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.zkclient import ZookeeperClient
