@@ -14,7 +14,13 @@
       timeout: 30
   register: execute_command_resp
 
-- set_fact:
-    device_info: "{{execute_command_resp.parsed_output.get('chassis-inventory')}}"
+- name: Print the error
+  debug: var=execute_command_resp verbosity=1
 
-- debug: var=device_info verbosity=1
+- name: Update the job logs when command execution fails
+  job_objectlog:
+    job_ctx: "{{ job_ctx}}"
+    message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
+    device_name: "{{prouter_name}}"
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+  when: "'failed' in execute_command_resp and execute_command_resp.failed == true"

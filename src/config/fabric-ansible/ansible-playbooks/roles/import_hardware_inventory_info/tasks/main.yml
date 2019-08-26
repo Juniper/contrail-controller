@@ -25,80 +25,81 @@
       when: p.stat.exists == False
 
     # validate schema including to check if the device_info is set as part of the ansible file
-    - name: Validate Input Schema -- device_inventory
-      set_fact:
-        schema_validation_resp: "{{'input_schema' | validate_schema(schema_file, device_info, prouter_name)}}"
+    - name: Execute following tasks only if junos command is successful
+      block:
+        - set_fact:
+            device_info: "{{execute_command_resp.parsed_output.get('chassis-inventory')}}"
 
-    - name: Perform the necessary error handling when there is a schema validation error
-      include_tasks: error_handler.yml
-      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
-      vars:
-        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
-        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
-#
-    - name: Parse hardware inventory info obtained to get data into appropriate format. Ensure Jinja template does not have any new lines
-      set_fact:
-        hardware_inventory_payload: "{{lookup('template', jinja_file_path)}}"
-      register: parser_output
+        - debug: var=device_info verbosity=1
 
-    - name: Print the hardware iventory info
-      debug:
-        var=hardware_inventory_payload verbosity=1
+        - name: Validate Input Schema -- device_inventory
+          set_fact:
+            schema_validation_resp: "{{'input_schema' | validate_schema(schema_file, device_info, prouter_name)}}"
 
-    - debug: var=hardware_inventory_payload verbosity=1
+        - name: Perform the necessary error handling when there is a schema validation error
+          include_tasks: error_handler.yml
+          when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+          vars:
+            op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+            jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+    #
+        - name: Parse hardware inventory info obtained to get data into appropriate format. Ensure Jinja template does not have any new lines
+          set_fact:
+            hardware_inventory_payload: "{{lookup('template', jinja_file_path)}}"
+          register: parser_output
 
-      #validate schema to check if the hardware inventory payload is of the correct output schema
-    - name: Validate Output Schema
-      set_fact:
-        schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, hardware_inventory_payload, prouter_name)}}"
+        - name: Print the hardware iventory info
+          debug:
+            var=hardware_inventory_payload verbosity=1
 
-    - name: Perform the necessary error handling when there is a schema validation error
-      include_tasks: error_handler.yml
-      when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
-      vars:
-        op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
-        jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+        - debug: var=hardware_inventory_payload verbosity=1
 
-     #Call the vnc filter plugin for hardware inventory import
-    - name: Call the vnc filter plugin for hardware inventory import
-      set_fact:
-        inventory_import_result: "{{job_ctx | import_hardware_inventory_info(prouter_name, pr_product_name, prouter_vendor, hardware_inventory_payload) }}"
+          #validate schema to check if the hardware inventory payload is of the correct output schema
+        - name: Validate Output Schema
+          set_fact:
+            schema_validation_resp: "{{'output_schema' | validate_schema(schema_file, hardware_inventory_payload, prouter_name)}}"
 
-    - name: Set the inventory_import response
-      set_fact:
-        inventory_import_resp: "{{inventory_import_result.hardware_inventory_import_resp}}"
+        - name: Perform the necessary error handling when there is a schema validation error
+          include_tasks: error_handler.yml
+          when: "'status' in schema_validation_resp and schema_validation_resp.status == 'failure'"
+          vars:
+            op_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
+            jl_err_message: "Error while trying to validate the schema on {{prouter_vendor}} device, {{prouter_name}}: {{schema_validation_resp.error_msg}}"
 
-    - name: Handle any exception or error cases
-      include_tasks: error_handler.yml
-      when: "'status' in inventory_import_result and inventory_import_result.status == 'failure'"
-      vars:
-        op_err_message: "Unable to import hardware inventory info due to the following error: {{ inventory_import_result.error_msg }}"
-        jl_err_message: "Failed to import hardware inventory info due to error: {{ inventory_import_result.error_msg }}. Here is the inventory_import_log: {{inventory_import_result.hardware_inventory_import_log}}"
+         #Call the vnc filter plugin for hardware inventory import
+        - name: Call the vnc filter plugin for hardware inventory import
+          set_fact:
+            inventory_import_result: "{{job_ctx | import_hardware_inventory_info(prouter_name, pr_product_name, prouter_vendor, hardware_inventory_payload) }}"
 
-    - name: Update Job log with inventory fetch successs with percentage
+        - name: Set the inventory_import response
+          set_fact:
+            inventory_import_resp: "{{inventory_import_result.hardware_inventory_import_resp}}"
+
+        - name: Handle any exception or error cases
+          include_tasks: error_handler.yml
+          when: "'status' in inventory_import_result and inventory_import_result.status == 'failure'"
+          vars:
+            op_err_message: "Unable to import hardware inventory info due to the following error: {{ inventory_import_result.error_msg }}"
+            jl_err_message: "Failed to import hardware inventory info due to error: {{ inventory_import_result.error_msg }}. Here is the inventory_import_log: {{inventory_import_result.hardware_inventory_import_log}}"
+
+        - name: Update Job log with inventory fetch successs with percentage
+          include_tasks: percentage_update.yml
+          vars:
+            current_index: 1
+            jl_message: "Imported inventory information"
+      when: execute_command_resp and execute_command_resp.failed == false
+
+  rescue:
+    - name: Perform the necessary error handling when parsing the device_info
+      job_objectlog:
+        job_ctx: "{{job_ctx}}"
+        message: "Error while parsing the hardware inventory information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
+        device_name: "{{prouter_name}}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+      when: "parsed_output is defined and 'failed' in parser_output and parser_output.failed == true"
+
+    - name: Bump up the percentage to 100 if there are any other failures, make it non blocking
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Imported inventory information"
-
-  rescue:
-    - name: Perform the necessary error handling while trying to execute command
-      include_tasks: error_handler.yml
-      when: "'failed' in execute_command_resp and execute_command_resp.failed == true"
-      vars:
-        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp.msg}}"
-        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{execute_command_resp .msg}}"
-
-    - name: debug
-      debug:
-        var=parser_output verbosity=1
-
-    - name: Perform the necessary error handling when parsing the device_info
-      include_tasks: error_handler.yml
-      when: "'failed' in parser_output and parser_output.failed == true"
-      vars:
-        op_err_message: "Error while parsing the hardware inventory information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
-        jl_err_message: "Error while parsing the hardware inventory information on {{prouter_vendor}} device, {{prouter_name}}: {{parser_output.msg}}"
-
-    # this is when the playbook has to end for other unhandled failures
-    - meta: end_play
+        jl_message: "Hardware inventory information import failed"
