@@ -49,6 +49,15 @@
       set_fact:
         device_info: "{{job_ctx | hitless_device_info(pr_uuid)}}"
 
+    - name: Check for errors
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{device_info.error_msg}}"
+            jl_err_message: "Failed getting device info: {{device_info.error_msg}}"
+      when: device_info.status == 'failure'
+
     - name: Get advanced parameters
       set_fact:
         advanced_params: "{{device_info.advanced_parameters}}"
