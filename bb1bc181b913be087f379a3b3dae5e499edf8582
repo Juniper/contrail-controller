@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7d3f2d77_4a36fe3a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 188,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-26T19:20:20Z",
+      "side": 1,
+      "message": "perhaps we should keep both no-auth and noauth for compatibility with existing configuration",
+      "revId": "bb1bc181b913be087f379a3b3dae5e499edf8582",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "33856178_cd3aa3e3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 3265,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-26T19:20:20Z",
+      "side": 1,
+      "message": "Probably more logical to check if we are using keystone to authenticate as the resync extension permits to sync domains/project from keystone",
+      "revId": "bb1bc181b913be087f379a3b3dae5e499edf8582",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
