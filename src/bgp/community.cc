@@ -374,6 +374,8 @@ bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
          it != communities_.end(); ++it) {
         if (ExtCommunity::is_origin_vn(*it) && *it == val)
             return true;
+        if (ExtCommunity::is_origin_vn4(*it) && *it == val)
+            return true;
     }
     return false;
 }
@@ -392,10 +394,10 @@ bool ExtCommunity::ContainsOriginVn(as_t asn, uint32_t vn_index) const {
         OriginVn origin_vn(asn, vn_index);
         return ContainsOriginVn(origin_vn.GetExtCommunity());
     }
-    OriginVn4ByteAs origin_vn4(asn, AS_TRANS);
+    OriginVn origin_vn4(asn, AS_TRANS);
     OriginVn origin_vn(AS_TRANS, vn_index);
     return (ContainsOriginVn(origin_vn.GetExtCommunity()) &&
-                ContainsOriginVn(origin_vn4.GetExtCommunity()));
+                ContainsOriginVn4(origin_vn4.GetExtCommunity()));
 }
 
 bool ExtCommunity::ContainsSourceAs(const ExtCommunityValue &val) const {

@@ -20,6 +20,7 @@
 
 class BgpAttr;
 class OriginVnPathDB;
+class OriginVnPath4ByteDB;
 class BgpServer;
 
 struct OriginVnPathSpec : public BgpAttribute {
