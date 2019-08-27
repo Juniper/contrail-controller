@@ -378,21 +378,12 @@ bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
     return false;
 }
 
-bool ExtCommunity::ContainsOriginVn4(const ExtCommunityValue &val) const {
-    for (ExtCommunityList::const_iterator it = communities_.begin();
-         it != communities_.end(); ++it) {
-        if (ExtCommunity::is_origin_vn4(*it) && *it == val)
-            return true;
-    }
-    return false;
-}
-
 bool ExtCommunity::ContainsOriginVn(as_t asn, uint32_t vn_index) const {
     if (asn <= 0xffffffff) {
         OriginVn origin_vn(asn, vn_index);
         return ContainsOriginVn(origin_vn.GetExtCommunity());
     }
-    OriginVn4ByteAs origin_vn4(asn, AS_TRANS);
+    OriginVn origin_vn4(asn, AS_TRANS);
     OriginVn origin_vn(AS_TRANS, vn_index);
     return (ContainsOriginVn(origin_vn.GetExtCommunity()) &&
                 ContainsOriginVn(origin_vn4.GetExtCommunity()));
@@ -496,12 +487,10 @@ void ExtCommunity::RemoveVrfRouteImport() {
 void ExtCommunity::RemoveOriginVn() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
-        if (ExtCommunity::is_origin_vn(*it) ||
-                ExtCommunity::is_origin_vn4(*it)) {
+        if (ExtCommunity::is_origin_vn(*it))
             it = communities_.erase(it);
-        } else {
+        else
             ++it;
-        }
     }
 }
 

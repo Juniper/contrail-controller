@@ -153,6 +153,46 @@ TEST_F(SourceAsTest, FromStringType0_4) {
     EXPECT_EQ("source-as:65412:4294967295", sas.ToString());
 }
 
+TEST_F(SourceAsTest, FromStringType2_1) {
+    boost::system::error_code ec;
+    SourceAs sas =
+        SourceAs::FromString("source-as:6541200:1690", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, sas.Type());
+    EXPECT_EQ(9, sas.Subtype());
+    EXPECT_EQ("source-as:6541200:1690", sas.ToString());
+}
+
+TEST_F(SourceAsTest, FromStringType2_2) {
+    boost::system::error_code ec;
+    SourceAs sas =
+        SourceAs::FromString("source-as:6541200:6730", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, sas.Type());
+    EXPECT_EQ(9, sas.Subtype());
+    EXPECT_EQ("source-as:6541200:6730", sas.ToString());
+}
+
+TEST_F(SourceAsTest, FromStringType2_3) {
+    boost::system::error_code ec;
+    SourceAs sas =
+        SourceAs::FromString("source-as:6541200:0", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, sas.Type());
+    EXPECT_EQ(9, sas.Subtype());
+    EXPECT_EQ("source-as:6541200:0", sas.ToString());
+}
+
+TEST_F(SourceAsTest, FromStringType2_4) {
+    boost::system::error_code ec;
+    SourceAs sas =
+        SourceAs::FromString("source-as:4294967295:65412", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, sas.Type());
+    EXPECT_EQ(9, sas.Subtype());
+    EXPECT_EQ("source-as:4294967295:65412", sas.ToString());
+}
+
 // Does not contain the second colon.
 TEST_F(SourceAsTest, Error) {
     boost::system::error_code ec;
@@ -176,15 +216,17 @@ TEST_F(SourceAsTest, ErrorType0_2) {
     boost::system::error_code ec;
     SourceAs sas =
         SourceAs::FromString("source-as:65535:100", &ec);
-    EXPECT_NE(0, ec.value());
-    EXPECT_TRUE(sas.IsNull());
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(0, sas.Type());
+    EXPECT_EQ(9, sas.Subtype());
+    EXPECT_EQ("source-as:65535:100", sas.ToString());
 }
 
-// AS number is greater than 65535.
+// AS number is greater than 4294967295.
 TEST_F(SourceAsTest, ErrorType0_3) {
     boost::system::error_code ec;
     SourceAs sas =
-        SourceAs::FromString("source-as:65536:100", &ec);
+        SourceAs::FromString("source-as:4294967296:100", &ec);
     EXPECT_NE(0, ec.value());
     EXPECT_TRUE(sas.IsNull());
 }

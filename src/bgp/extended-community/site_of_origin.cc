@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/address.h"
+#include "bgp/bgp_common.h"
 
 using std::copy;
 using std::string;
@@ -27,6 +28,12 @@ string SiteOfOrigin::ToString() const {
     if (data[0] == 0) {
         uint16_t asn = get_value(data + 2, 2);
         uint32_t num = get_value(data + 4, 4);
+        char temp[50];
+        snprintf(temp, sizeof(temp), "soo:%u:%u", asn, num);
+        return string(temp);
+    } else if (data[0] == 2) {
+        uint32_t asn = get_value(data + 2, 4);
+        uint16_t num = get_value(data + 6, 2);
         char temp[50];
         snprintf(temp, sizeof(temp), "soo:%u:%u", asn, num);
         return string(temp);
@@ -80,7 +87,7 @@ SiteOfOrigin SiteOfOrigin::FromString(const string &str,
     if (ec.value() != 0) {
         // Not an IP address. Try ASN
         int64_t asn = strtol(second.c_str(), &endptr, 10);
-        if (asn == 0 || asn >= 65535 || *endptr != '\0') {
+        if (asn == 0 || asn > 0xFFFFFFFF || *endptr != '\0') {
             if (errorp != NULL) {
                 *errorp =
                     make_error_code(boost::system::errc::invalid_argument);
@@ -88,10 +95,16 @@ SiteOfOrigin SiteOfOrigin::FromString(const string &str,
             return SiteOfOrigin::null_soo;
         }
 
-        data[0] = BgpExtendedCommunityType::TwoOctetAS;
+        if (asn > AS2_MAX) {
+            data[0] = BgpExtendedCommunityType::FourOctetAS;
+            put_value(&data[2], 4, asn);
+            offset = 6;
+        } else {
+            data[0] = BgpExtendedCommunityType::TwoOctetAS;
+            put_value(&data[2], 2, asn);
+            offset = 4;
+        }
         data[1] = BgpExtendedCommunitySubType::RouteOrigin;
-        put_value(&data[2], 2, asn);
-        offset = 4;
     } else {
         data[0] = BgpExtendedCommunityType::IPv4Address;
         data[1] = BgpExtendedCommunitySubType::RouteOrigin;

@@ -21,13 +21,13 @@ public:
     typedef boost::array<uint8_t, kSize> bytes_type;
 
     OriginVn();
-    OriginVn(as2_t asn, uint32_t vn_idx);
+    OriginVn(as_t asn, uint32_t vn_idx);
     explicit OriginVn(const bytes_type &data);
 
     bool IsNull() { return operator==(OriginVn::null_originvn); }
     bool IsGlobal() const;
 
-    as2_t as_number() const;
+    as_t as_number() const;
     int vn_index() const;
 
     const bytes_type &GetExtCommunity() const {
