@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d7912633_05848a12",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 11
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-08-27T04:09:11Z",
+      "side": 1,
+      "message": "This is not correct, right? it should be \u0026data_[2], 4",
+      "range": {
+        "startLine": 32,
+        "startChar": 22,
+        "endLine": 32,
+        "endChar": 35
+      },
+      "revId": "7fcb5a8b7171bdd2fd909615dbde64af08ea89e7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
