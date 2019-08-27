@@ -209,13 +209,10 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
                             deleted = true;
                     }
 
-                    OriginVn src_origin_vn(
-                        server->autonomous_system(), src_vn_index);
                     const OriginVnPath *ovnpath =
                         attr ? attr->origin_vn_path() : NULL;
                     if (ovnpath && ovnpath->Contains(
                                 server->autonomous_system(), src_vn_index)) {
-                        //ovnpath->Contains(src_origin_vn.GetExtCommunity())) {
                         deleted = true;
                     }
                 }
@@ -417,6 +414,13 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
     int vn_index = dest_routing_instance()->virtual_network_index();
     BgpServer *server = dest_routing_instance()->server();
     OriginVn origin_vn(server->autonomous_system(), vn_index);
+    OriginVn origin_vn4(server->autonomous_system(), AS_TRANS);
+    OriginVn origin_vn_trans(AS_TRANS, vn_index);
+    const OriginVnPath::OriginVnValue origin_vn_bytes = origin_vn.GetExtCommunity();
+    const OriginVnPath::OriginVnValue origin_vn_trans_bytes =
+              origin_vn_trans.GetExtCommunity();
+    const OriginVnPath::OriginVnValue origin_vn4_bytes =
+              origin_vn4.GetExtCommunity();
 
     SiteOfOrigin soo;
     ExtCommunity::ExtCommunityList sgid_list;
@@ -462,8 +466,16 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
     ExtCommunityDB *extcomm_db = server->extcomm_db();
     BgpMembershipManager *membership_mgr = server->membership_mgr();
     OriginVnPathDB *ovnpath_db = server->ovnpath_db();
-    OriginVnPathPtr new_ovnpath =
-        ovnpath_db->PrependAndLocate(orig_ovnpath, origin_vn.GetExtCommunity());
+    OriginVnPathPtr new_ovnpath;
+    if (server->autonomous_system() > AS2_MAX && vn_index > 0xffff) {
+        new_ovnpath = ovnpath_db->PrependAndLocate(orig_ovnpath,
+                                                   origin_vn4_bytes);
+        new_ovnpath = ovnpath_db->PrependAndLocate(new_ovnpath.get(),
+                                                   origin_vn_trans_bytes);
+    } else {
+        new_ovnpath = ovnpath_db->PrependAndLocate(
+                                  orig_ovnpath, origin_vn_bytes);
+    }
 
     ConnectedPathIdList new_path_ids;
     for (Route::PathList::iterator it =
@@ -520,8 +532,15 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
 
         // Replace the OriginVn with the value from the original route
         // or the value associated with the dest routing instance.
-        new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
-            new_ext_community.get(), origin_vn.GetExtCommunity());
+        if (server->autonomous_system() > AS2_MAX && vn_index > 0xffff) {
+            new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
+                                new_ext_community.get(), origin_vn4_bytes);
+            new_ext_community = extcomm_db->AppendAndLocate(
+                                new_ext_community.get(), origin_vn_trans_bytes);
+        } else {
+            new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
+                                new_ext_community.get(), origin_vn_bytes);
+        }
 
         // Replace extended community, community and origin vn path.
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(

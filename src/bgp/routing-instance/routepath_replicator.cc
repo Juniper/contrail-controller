@@ -381,6 +381,30 @@ void RoutePathReplicator::DBStateSync(BgpTable *table, TableState *ts,
     }
 }
 
+static ExtCommunityPtr UpdateOriginVn(BgpServer *server,
+                                      const ExtCommunity *ext_community,
+                                      int vn_index) {
+    as_t asn = server->autonomous_system();
+    ExtCommunityPtr extcomm_ptr;
+    if (vn_index) {
+        if (asn > AS2_MAX && vn_index > 0xffff) {
+            OriginVn origin_vn(asn, AS_TRANS);
+            extcomm_ptr = server->extcomm_db()->ReplaceOriginVnAndLocate(
+                ext_community, origin_vn.GetExtCommunity());
+            OriginVn origin_vn2(AS_TRANS, vn_index);
+            extcomm_ptr = server->extcomm_db()->AppendAndLocate(
+                extcomm_ptr.get(), origin_vn2.GetExtCommunity());
+        } else {
+            OriginVn origin_vn(asn, vn_index);
+            extcomm_ptr = server->extcomm_db()->ReplaceOriginVnAndLocate(
+                ext_community, origin_vn.GetExtCommunity());
+            return extcomm_ptr;
+        }
+    }
+    extcomm_ptr = server->extcomm_db()->RemoveOriginVnAndLocate(ext_community);
+    return extcomm_ptr;
+}
+
 //
 // Update the ExtCommunity with the RouteTargets from the export list
 // and the OriginVn. The OriginVn is derived from the RouteTargets in
@@ -418,18 +442,7 @@ static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
     // Add the OriginVn if we have a valid vn index.
     int vn_index =
         server->routing_instance_mgr()->GetVnIndexByExtCommunity(ext_community);
-    if (vn_index) {
-        OriginVn origin_vn(server->autonomous_system(), vn_index);
-        extcomm_ptr = server->extcomm_db()->ReplaceOriginVnAndLocate(
-            ext_community, origin_vn.GetExtCommunity());
-        return extcomm_ptr;
-    } else {
-        extcomm_ptr = server->extcomm_db()->RemoveOriginVnAndLocate(
-            ext_community);
-        return extcomm_ptr;
-    }
-
-    return ExtCommunityPtr(ext_community);
+    return UpdateOriginVn(server, ext_community, vn_index);
 }
 
 //
@@ -558,9 +571,7 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
         if (!vn_index && !rtinstance->IsMasterRoutingInstance() &&
             path->IsVrfOriginated() && rtinstance->virtual_network_index()) {
             vn_index = rtinstance->virtual_network_index();
-            OriginVn origin_vn(server_->autonomous_system(), vn_index);
-            extcomm_ptr = server_->extcomm_db()->ReplaceOriginVnAndLocate(
-                extcomm_ptr.get(), origin_vn.GetExtCommunity());
+            extcomm_ptr = UpdateOriginVn(server_, extcomm_ptr.get(), vn_index);
         }
 
         // Replicate path to all destination tables.
@@ -579,10 +590,8 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
             if (!vn_index && dest_rtinstance->virtual_network_index() &&
                 dest_rtinstance->HasExportTarget(ext_community)) {
                 int dest_vn_index = dest_rtinstance->virtual_network_index();
-                OriginVn origin_vn(server_->autonomous_system(), dest_vn_index);
-                new_extcomm_ptr =
-                        server_->extcomm_db()->ReplaceOriginVnAndLocate(
-                                extcomm_ptr.get(), origin_vn.GetExtCommunity());
+                new_extcomm_ptr = UpdateOriginVn(server_, extcomm_ptr.get(),
+                                                 dest_vn_index);
             }
 
             // Replicate the route to the destination table.  The destination

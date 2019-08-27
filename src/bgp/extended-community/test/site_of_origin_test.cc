@@ -114,6 +114,57 @@ TEST_F(SiteOfOriginTest, ByteArrayType1_4) {
     EXPECT_EQ("soo:10.1.1.1:65535", soo.ToString());
 }
 
+TEST_F(SiteOfOriginTest, ByteArrayType2_1) {
+    SiteOfOrigin::bytes_type data =
+    { { BgpExtendedCommunityType::FourOctetAS,
+          BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0x01, 0x02, 0x03, 0x04 } };
+    SiteOfOrigin soo(data);
+    EXPECT_FALSE(soo.IsNull());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:4286841090:772", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, ByteArrayType2_2) {
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::FourOctetAS,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0x04, 0x03, 0x02, 0x01
+    } };
+    SiteOfOrigin soo(data);
+    EXPECT_FALSE(soo.IsNull());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:4286841859:513", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, ByteArrayType2_3) {
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::FourOctetAS,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0x00, 0x00, 0x00, 0x00
+    } };
+    SiteOfOrigin soo(data);
+    EXPECT_FALSE(soo.IsNull());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:4286840832:0", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, ByteArrayType2_4) {
+    SiteOfOrigin::bytes_type data = { {
+        BgpExtendedCommunityType::FourOctetAS,
+        BgpExtendedCommunitySubType::RouteOrigin,
+        0xff, 0x84, 0xFF, 0xFF, 0xFF, 0xFF
+    } };
+    SiteOfOrigin soo(data);
+    EXPECT_FALSE(soo.IsNull());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:4286906367:65535", soo.ToString());
+}
+
 TEST_F(SiteOfOriginTest, FromStringType0_1) {
     boost::system::error_code ec;
     SiteOfOrigin soo =
@@ -192,6 +243,46 @@ TEST_F(SiteOfOriginTest, FromStringType1_4) {
     EXPECT_EQ(1, soo.Type());
     EXPECT_EQ(3, soo.Subtype());
     EXPECT_EQ("soo:10.1.1.1:65535", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, FromStringType2_1) {
+    boost::system::error_code ec;
+    SiteOfOrigin soo =
+        SiteOfOrigin::FromString("soo:6541200:200", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:6541200:200", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, FromStringType2_2) {
+    boost::system::error_code ec;
+    SiteOfOrigin soo =
+        SiteOfOrigin::FromString("soo:6541200:6730", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:6541200:6730", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, FromStringType2_3) {
+    boost::system::error_code ec;
+    SiteOfOrigin soo =
+        SiteOfOrigin::FromString("soo:6541200:0", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:6541200:0", soo.ToString());
+}
+
+TEST_F(SiteOfOriginTest, FromStringType2_4) {
+    boost::system::error_code ec;
+    SiteOfOrigin soo =
+        SiteOfOrigin::FromString("soo:4294967295:65535", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(2, soo.Type());
+    EXPECT_EQ(3, soo.Subtype());
+    EXPECT_EQ("soo:4294967295:65535", soo.ToString());
 }
 
 // Does not contain a colon.
