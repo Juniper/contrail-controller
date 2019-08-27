@@ -245,7 +245,7 @@ class FilterModule(object):
             'device_vendor': self.device_vendor,
             'device_name': self.device_name,
             'device_username': self.device_username,
-            'device_password': self.device_password,
+            'device_password': "(hidden)",
             'is_delete': self.is_delete,
             'enterprise_style': self.enterprise_style,
             'onboard_log': FilterLog.instance().dump(),
@@ -253,6 +253,7 @@ class FilterModule(object):
             'status': "success"
         }
         _task_error_log("render_output: %s" %(render_output))
+        render_output['device_password'] = self.device_password
         return render_output
 
     def render_fabric_config(self, job_ctx):
