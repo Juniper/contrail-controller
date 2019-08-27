@@ -1,0 +1,65 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
+#
+import os
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+source_files = ['setup.py',
+                'MANIFEST.in',
+                'stats/__init__.py',
+                'stats/main.py',
+                'stats/tests/__init__.py',
+                'stats/tests/test_common.py',
+                'requirements.txt',
+                ]
+
+source_rules = []
+for file in source_files:
+    if len(file.split('/')) > 1:
+        idir = '/'.join(file.split('/')[:-1])
+    else:
+        idir = ''
+    source_rules.append(
+        env.Install(idir, "#/controller/src/stats/" + file))
+
+test_sources = [
+           'requirements.txt',
+           'test-requirements.txt',
+           '.stestr.conf',
+           'tox.ini',
+           'stats/tests',
+          ]
+
+test_sources_rules = []
+for file in test_sources:
+    test_sources_rules.append(
+       env.Install(Dir('.'), "#controller/src/stats/" + file))
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_depends = []
+sdist_depends.extend(source_rules)
+sdist_depends.extend(test_sources_rules)
+sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+
+test_target = env.SetupPyTestSuite(sdist_gen, use_tox=True)
+
+# This add'l alias is to allow retry of UT in CI
+env.Alias('controller/src/stats/stats:test', test_target)
+
+# Local Variables:
+# mode: python
+# End:
