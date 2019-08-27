@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a92bc2c9_f626f71d",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/import_hardware_inventory_info/tasks/juniper.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-08-27T05:51:02Z",
+      "side": 1,
+      "message": "need to add ignore_errors. Else if command fails , playbook will fail and end cause it would be an ansible error?\n\n- name: READ INVENTORY INFO\n  juniper_junos_command:\n    commands:\n      - show chassis hardware\n    display: xml\n    provider:\n      host: \"{{host}}\"\n      username: \"{{username}}\"\n      password: \"{{password}}\"\n      port: 22\n      timeout: 30\n  register: execute_command_resp\n  ignore_errors: yes",
+      "revId": "aa59e03bb562edf83dcad47241886e538074f0b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
