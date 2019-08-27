@@ -2,18 +2,13 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import gevent
-
-try:
-    import to_bgp
-except ImportError:
-    from schema_transformer import to_bgp
-from vnc_api.vnc_api import (RouteTargetList, RouteTable, RouteTableType,
-        VirtualNetwork, VirtualMachineInterface, NetworkIpam, VnSubnetsType, IpamSubnetType,
-        LogicalRouter, SubnetType, RouteType, CommunityAttributes)
-
-from test_case import STTestCase, retries
+from test_case import retries, STTestCase
 from test_policy import VerifyPolicy
+from vnc_api.vnc_api import CommunityAttributes, IpamSubnetType, LogicalRouter
+from vnc_api.vnc_api import NetworkIpam, RouteTableType, RouteTargetList
+from vnc_api.vnc_api import RouteTable, RouteType, SubnetType
+from vnc_api.vnc_api import VirtualMachineInterface, VirtualNetwork
+from vnc_api.vnc_api import VnSubnetsType
 
 
 class VerifyRouteTable(VerifyPolicy):
@@ -139,18 +134,19 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
 
     def test_public_snat_routes(self):
 
-        #create private vn
+        # create private vn
         vn_private_name = self.id() + 'vn1'
         vn_private = self.create_virtual_network(vn_private_name, "1.0.0.0/24")
 
         # create virtual machine interface
         vmi_name = self.id() + 'vmi1'
         vmi = VirtualMachineInterface(vmi_name, parent_type='project',
-                        fq_name=['default-domain', 'default-project', vmi_name])
+                                      fq_name=['default-domain',
+                                               'default-project', vmi_name])
         vmi.add_virtual_network(vn_private)
         self._vnc_lib.virtual_machine_interface_create(vmi)
 
-        #create public vn
+        # create public vn
         vn_public_name = 'vn-public'
         vn_public = VirtualNetwork(vn_public_name)
         vn_public.set_router_external(True)
@@ -160,8 +156,8 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
         self._vnc_lib.virtual_network_create(vn_public)
 
-        #create logical router, set route targets,
-        #add private network and extend lr to public network
+        # create logical router, set route targets,
+        # add private network and extend lr to public network
         lr_name = self.id() + 'lr1'
         lr = LogicalRouter(lr_name)
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
@@ -197,7 +193,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
                 si = si_list.get("service-instances")[0]
                 si = self._vnc_lib.service_instance_read(id=si.get("uuid"))
                 raise
-            except:
+            except Exception:
                 pass
 
         @retries(5)
@@ -211,8 +207,10 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
 
         si = _wait_to_get_si()
         si_props = si.get_service_instance_properties().get_interface_list()[1]
-        ri_name = si_props.virtual_network + ":" + si_props.virtual_network.split(':')[-1]
-        lr_rtgt = self._vnc_lib.logical_router_read(id=lr.uuid).route_target_refs[0]['to'][0]
+        ri_name = si_props.virtual_network + ":" + \
+            si_props.virtual_network.split(':')[-1]
+        lr_rtgt = self._vnc_lib.logical_router_read(
+            id=lr.uuid).route_target_refs[0]['to'][0]
         _match_route_table(['target:1:1', lr_rtgt], ri_name)
 
         rtgt_list = RouteTargetList(route_target=['target:2:2'])
@@ -224,9 +222,10 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         self._vnc_lib.logical_router_update(lr)
         _wait_to_delete_si()
 
-        #cleanup
+        # cleanup
         self._vnc_lib.logical_router_delete(fq_name=lr.get_fq_name())
-        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi.get_fq_name())
+        self._vnc_lib.virtual_machine_interface_delete(
+            fq_name=vmi.get_fq_name())
         _wait_to_delete_ip(vn_private.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn_private.get_fq_name())
         _wait_to_delete_ip(vn_public.get_fq_name())
