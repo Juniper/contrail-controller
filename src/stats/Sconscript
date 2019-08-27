@@ -1,0 +1,39 @@
+#
+# Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
+#
+import os
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+sources = [
+    'setup.py',
+    'requirements.txt',
+    'test-requirements.txt',
+    'tox.ini',
+    'stats/__init__.py',
+    'stats/main.py',
+    'stats/tests/__init__.py',
+    'stats/tests/test_common.py'
+]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist/stats-0.1dev.tar.gz',
+                        sources,
+                        cd_cmd + 'python setup.py sdist')
+env.Alias('controller/src/stats:sdist', sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, sources,
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
+    env.Alias('install', install_cmd)
+
+test_target = env.SetupPyTestSuite(sdist_gen, use_tox=True)
+
+test_target = env['TOP'][1:] + 'stats:test'
+env.Alias('controller/src/stats:test', test_target)
+
+# Local Variables:
+# mode: python
+# End:
