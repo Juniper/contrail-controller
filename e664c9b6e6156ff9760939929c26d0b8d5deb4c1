@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "95f3d4d8_bb82ef21",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/import_asn_info/tasks/juniper.yml",
+        "patchSetId": 4
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-08-27T19:29:38Z",
+      "side": 1,
+      "message": "if this command fails, we need to handle so that we dont error out and stop the on boarding process.",
+      "revId": "e664c9b6e6156ff9760939929c26d0b8d5deb4c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
