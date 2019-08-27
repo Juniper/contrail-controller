@@ -1,0 +1,265 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7ae5ffcf_c3198a05",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "cmd os.Cmd",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "21dc76ae_7779415d",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "test isn\u0027t necessary",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9938a78b_fcdf96b9",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "if err :\u003d a.Start(); err !\u003d nil {\n  return nil, err\n}\nreturn a, nil",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe228fbf_204f0740",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "this is pretty awful but for now works \nmove this to a const right above\n\nconst vRouterAgentBinary \u003d \"../../../../build/debug/vnsw/agent/contrail/contrail-vrouter-agent\"\n\ntype envMap map[string]string\n\nfunc (e envMap) Env() []string{\n  var envs []string\n  for k, v :\u003d range e {\n    envs \u003d append(envs, fmt.Sprintf(\"%s\u003d%q\", k, v)\n  }\n  return envs\n}\n\nfunc (a *Agent) Start() error {\n if _, err :\u003d os.Stat(vRouterAgentBinary); os.IsNotExist(err) {\n   return fmt.Errorf(\"failed to start agent: %v\", err)\n }\n env :\u003d envMap{\n   \"LD_LIBRARY_PATH\": \"../../../../build/lib\",\n   \"LOGNAME\":         os.Getenv(\"USER\"),\n }\n cmd :\u003d exec.Command(c1, \"--config_file\u003d\"+a.Component.ConfFile)\n cmd.Env \u003d env.Env()\n if err :\u003d cmd.Start(); err !\u003d nil {\n   return fmt.Errorf(\"failed to start agent: %v\", err)\n }\n a.Component.Config.Pid \u003d cmd.Process.Pid\n a.cmd \u003d cmd\n return nil\n}",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "af9d93c5_b8b54de1",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 72,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "const defaultConfig \u003d \"../agent/contrail-vrouter-agent.conf\"\n\nfunc (a *Agent) createConfiguration() error {\n    file, err :\u003d os.Open(defaultConfig)\n    if err !\u003d nil {\n        return err\n    }\n    defer file.Close()\n    var config []string\n    scanner :\u003d bufio.NewScanner(file)\n    for scanner.Scan() {\n        line :\u003d scanner.Text()\n        var confLine string\n        switch {\n        case default:\n          confLine \u003d line\n        case strings.Contains(line, \"xmpp_port\"):\n          confLine \u003d \"servers\u003d\"\n          for _, p :\u003d range a.XMPPPorts {\n            confLine \u003d fmt.Sprintf(\"%s127.0.0.1:%d \", confLine, p)\n          }\n        case strings.Contains(line, \"agent_name\"):\n          confLine \u003d fmt.Sprintf(agent_name\u003d%s\", a.Component.Name)\n        case strings.Contains(line, \"log_file\") {\n          confLine \u003d fmt.Sprintf(\"log_file\u003d%s/%s.log\", a.Component.LogDir, a.Component.Name)\n        }\n        config \u003d append(config, confLine)\n    }\n    a.Component.ConfFile \u003d fmt.Sprintf(\"%s/%s.conf\", a.Component.ConfDir, a.Component.Name)\n    if err :\u003d ioutil.WriteFile(a.Component.ConfFile, []byte(strings.Join(config, \"\\n\")); err !\u003d nil {\n      return err\n    }\n  return nil\n}",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7313c677_f9be2bcb",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 41,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "do not wrap lines there is no line limit in golang - please read the ez/style guide",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b11e2c7e_e04a6109",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "don\u0027t print\n\nreturn nil, fmt.Errorf(\"failed to create report directory: %v, err)",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3b72bafa_8c9748a6",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "you can log this but don\u0027t  print",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3122d885_9d3fa4ec",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "why  do you invoke python here?",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c4f03dcc_1abdb18e",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 122,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "here and everywhere else don\u0027t wrap lines",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0a50c9f6_37286f55",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "add err handling here with at most a log\nalso this can be refactored in the future to not need a syscall",
+      "range": {
+        "startLine": 38,
+        "startChar": 0,
+        "endLine": 38,
+        "endChar": 4
+      },
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "10dca951_67f1f459",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "no reason for keeping this object around if you are tearing down the sut after each test",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aa241bc1_d788d284",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "remove this",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "22a26807_0fad4f9f",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "tests :\u003d []struct{\n  desc string\n  controlNodes int\n  agents int\n}{{\n  desc: \"SingleControlNodeSingleAgent\",\n  controlNodes: 1,\n  agents: 1,\n}}\nfor _, tt :\u003d range tests {\n  t.Run(tt.desc, func(t *testing.T){\n    sut, err :\u003d cat.New()\n    if err !\u003d nil {\n      t.Fatalf(err)\n    }\n    if err :\u003d setup(sut,tt.controlNodes, tt.agents); err !\u003d nil {\n      t.Fatalf(err)\n    }\n    \u003cokay now start testing\u003e\n  })\n}",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8f3de20f_7437daad",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 83,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-27T16:08:12Z",
+      "side": 1,
+      "message": "func setup(c *CAT, numNodes, numAgents int) error {\n  for i :\u003d 0; i \u003c numNodes; i++ {\n    if _, err :\u003d c.AddControlNode(test, fmt.Sprintf(\"control-node-%d\", i), 0); err !\u003d nil {\n      return err\n    }\n  }\n  for i :\u003d 0; i \u003c numAgents; i++ {\n    if _, err :\u003d c.AddAgent(fmt.Sprintf(\"agent-%d\", i)); err !\u003d nil {\n      return err\n    } \n  }\n  return c.IsHealthly()\n}",
+      "revId": "f81d149d3d3e2652b9b98410ae3e79710ae7ae3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
