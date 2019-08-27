@@ -65,7 +65,8 @@ class EventManager(object):
     FAIL_STATUS_NTP_SYNC = 0x8
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
-    def __init__(self, config, type_info, unit_names, update_process_list=False):
+    def __init__(self, config, type_info, unit_names, update_process_list=False,
+                 vrouter_hostname=None):
         self.config = config
         self.type_info = type_info
         self.max_cores = 4
@@ -80,7 +81,8 @@ class EventManager(object):
         self.curr_build_info = None
         self.new_build_info = None
         self.hostip = self.config.hostip
-        self.hostname = socket.getfqdn(self.hostip)
+        self.hostname = socket.getfqdn(self.hostip) if vrouter_hostname is None \
+                        else vrouter_hostname
 
         self.collector_chksum = 0
         self.random_collectors = list()

@@ -19,7 +19,8 @@ class VrouterEventManager(EventManager):
             object_table='ObjectVRouter',
             sandesh_packages=['vrouter.loadbalancer'])
         super(VrouterEventManager, self).__init__(config, type_info,
-                unit_names, update_process_list=True)
+                unit_names, update_process_list=True,
+                vrouter_hostname=config.vrouter_hostname)
         self.host_ip = config.hostip
         self.lb_stats = LoadbalancerStatsUVE(self.logger, self.host_ip)
 
