@@ -1,9 +1,9 @@
 #  Schema to APIs are generated using the following python lib
 #     https://pypi.python.org/pypi/generateDS 
 #
-#  Help document which describes the usage of Generated Python API
-# 
-#  Schema File: juniper_common.xsd
+#  Help document which describes dthe usage of Generated Python API
+# xcldkcasds,,ddd
+#  Schema File: juniper_common.xsden
 #  Generated Py API: juniper_common_xsd.py
 # 
 #  Build: API is generated when device manager scons is invoked
