@@ -16,6 +16,24 @@
       "revId": "aa59e03bb562edf83dcad47241886e538074f0b0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "95985914_02d112c9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/import_hardware_inventory_info/tasks/juniper.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-08-27T16:17:45Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a92bc2c9_f626f71d",
+      "revId": "aa59e03bb562edf83dcad47241886e538074f0b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
