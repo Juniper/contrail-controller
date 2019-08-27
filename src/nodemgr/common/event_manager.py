@@ -80,7 +80,8 @@ class EventManager(object):
         self.curr_build_info = None
         self.new_build_info = None
         self.hostip = self.config.hostip
-        self.hostname = socket.getfqdn(self.hostip)
+        self.hostname = socket.getfqdn(self.hostip) if self.config.hostname is None \
+                        else self.config.hostname
 
         self.collector_chksum = 0
         self.random_collectors = list()
@@ -156,7 +157,7 @@ class EventManager(object):
             proc_name = self._get_process_name(proc_info)
             proc_pid = int(proc_info['pid'])
 
-            stat = ProcessStat(proc_name, host_ip=self.hostip)
+            stat = ProcessStat(proc_name, host_ip=self.hostip, hostname=self.hostname)
             stat.process_state = proc_info['statename']
             if 'start' in proc_info:
                 stat.start_time = str(proc_info['start'])
@@ -312,7 +313,7 @@ class EventManager(object):
                 if pname in self.process_state_db[group]:
                     proc_stat = self.process_state_db[group][pname]
         else:
-            proc_stat = ProcessStat(pname, host_ip=self.hostip)
+            proc_stat = ProcessStat(pname, host_ip=self.hostip, hostname=self.hostname)
 
         pstate = process_info['state']
         proc_stat.process_state = pstate

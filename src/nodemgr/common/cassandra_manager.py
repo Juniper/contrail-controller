@@ -19,12 +19,13 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_owner, table,
                  hostip, minimum_diskgb, db_port, db_jmx_port, db_use_ssl,
-                 db_user, db_password, process_info_manager):
+                 db_user, db_password, process_info_manager, hostname=None):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_owner = db_owner
         self.table = table
         self.hostip = hostip
-        self.hostname = socket.getfqdn(self.hostip)
+        self.hostname = socket.getfqdn(self.hostip) if hostname is None \
+                        else hostname
         self.minimum_diskgb = minimum_diskgb
         self.db_port = db_port
         self.db_jmx_port = db_jmx_port

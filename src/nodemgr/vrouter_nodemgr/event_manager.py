@@ -2,6 +2,7 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+import socket
 from gevent import monkey
 monkey.patch_all()
 
@@ -21,10 +22,14 @@ class VrouterEventManager(EventManager):
         super(VrouterEventManager, self).__init__(config, type_info,
                 unit_names, update_process_list=True)
         self.host_ip = config.hostip
-        self.lb_stats = LoadbalancerStatsUVE(self.logger, self.host_ip)
+        self.hostname = socket.getfqdn(self.hostip) \
+                        if config.hostname is None else config.hostname
+        self.lb_stats = LoadbalancerStatsUVE(self.logger, self.host_ip,
+                                             hostname=self.hostname)
 
     def get_process_stat_object(self, pname):
-        return VrouterProcessStat(pname, self.host_ip, self.logger)
+        return VrouterProcessStat(pname, self.host_ip, self.logger,
+                                  hostname=self.hostname)
 
     def do_periodic_events(self):
         super(VrouterEventManager, self).do_periodic_events()
