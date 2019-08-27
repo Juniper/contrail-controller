@@ -252,7 +252,9 @@ class FilterModule(object):
             'results': {},
             'status': "success"
         }
-        _task_error_log("render_output: %s" %(render_output))
+        render_output_log = render_output.copy()
+        render_output_log['device_password'] = "(hidden)"
+        _task_error_log("render_output: %s" %(render_output_log))
         return render_output
 
     def render_fabric_config(self, job_ctx):
