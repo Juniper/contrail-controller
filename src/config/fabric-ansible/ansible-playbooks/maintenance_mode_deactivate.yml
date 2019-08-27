@@ -20,6 +20,7 @@
         job_ctx: "{{job_ctx|combine(final_task_array)}}"
         standalone: true
         is_hitless_upgrade: true
+        percentage_auto_increment: true
         additional_error_handler: "maintenance_mode_errors.yml"
 
     - set_fact:

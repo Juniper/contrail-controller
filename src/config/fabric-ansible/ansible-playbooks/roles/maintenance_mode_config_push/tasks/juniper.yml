@@ -76,10 +76,12 @@
     - block:
         - name: Get possible lag groups from results
           set_fact:
-              interface_groups_info: "{{results_json_cfg.groups| selectattr('interfaces','defined')| list}}"
+              interface_groups_info: "{{bgp_group_info.groups| selectattr('interfaces','defined')| list}}"
+          when: bgp_group_info.groups is defined
 
         - name: Print group_info
           debug: msg="{{interface_groups_info}}" verbosity=1
+          when: interface_groups_info is defined
 
         #Lag group names without a config group
         - name: Get lag group names without config groups
