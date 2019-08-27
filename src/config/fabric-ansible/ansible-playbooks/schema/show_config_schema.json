@@ -1,0 +1,93 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "config_type": {
+         "$id": "/properties/config_type",
+         "title": "Configuration type",
+         "type": "string",
+         "enum": [
+           "current",
+           "rollback 1",
+           "rollback 2"
+         ],
+         "default": "current"
+      },
+      "config_filter": {
+         "$id": "/properties/config_filter",
+         "title": "Configuration filter",
+         "type": "string",
+         "enum": [
+           "all",
+           "system",
+           "system/login",
+           "system/services",
+           "system/syslog",
+           "interfaces",
+           "interfaces/irb",
+           "chassis",
+           "services",
+           "snmp",
+           "forwarding-options",
+           "event-options",
+           "policy-options",
+           "class-of-service",
+           "firewall",
+           "protocols",
+           "routing-instances",
+           "routing-options",
+           "switch-options",
+           "vlans"
+         ],
+         "default": "all"
+      },
+      "compare_configurations": {
+         "$id": "/properties/compare_configurations",
+         "title": "Compare selected configuration with current",
+         "type": "boolean",
+         "default": false
+      }
+    },
+    "required": ["config_type", "config_filter", "compare_configurations"]
+  },
+  "input_ui_schema": {
+    "config_type": {
+      "ui:help": "Select one type at a time"
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Show configuration Output",
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Array holding the specific output details in case of success. Each object of the array would be command_output and device name pair.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "device_name": {
+              "type": "string",
+              "title": "Device Name",
+              "description": "name of the device for which results are displayed"
+            },
+            "command_output": {
+              "type": "object",
+              "title": "Each playbook's command_output for this specific command.",
+              "description": "Results of the show interfaces command executed on the device. The jinja template matching this command, vendor and family would give output of the below format. This command_output translates to device_op_results in the PR uve",
+              "properties": {
+                "config_output": {
+                  "type": "string",
+                  "title": "Device Configuration",
+                  "description": "Display Device Configuration output"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

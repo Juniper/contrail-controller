@@ -1,0 +1,108 @@
+---
+- name: "Read configuration type and filter"
+  set_fact:
+    config_filter: "{{input_params.get('config_filter', '') | trim}}"
+    config_type: "{{input_params.get('config_type', '') | trim}}"
+    compare_configurations: "{{input_params.get('compare_configurations', '') | trim}}"
+
+- name: "Print configuration type"
+  debug:
+    var: config_type
+
+- name: "Print configuration filter"
+  debug:
+    var: config_filter
+
+- name: "Print compare_configurations"
+  debug:
+    var: compare_configurations
+
+- set_fact:
+    rollback_value: "{{ config_type | regex_replace('rollback ') }}"
+
+- name: "Print rollback value"
+  debug:
+    var: rollback_value
+
+- name: Getting config ... please wait
+  block:
+    - import_role:
+        name: Juniper.junos
+
+    - name: Execute commands on a Juniper Device to get info (current)...
+      juniper_junos_config:
+        retrieve: committed
+        check: false
+        commit: false
+        format: text
+        options:
+          inherit: "inherit"
+        filter: "{{ omit if config_filter == 'all' else config_filter }}"
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: command_resp_current
+      when: config_type == "current"
+
+    - name: Execute commands on a Juniper Device to get info (rollback)...
+      juniper_junos_config:
+        retrieve: candidate
+        check: false
+        commit: false
+        rollback: "{{rollback_value}}"
+        format: text
+        diff: "{{compare_configurations}}"
+        options:
+          inherit: "inherit"
+        filter: "{{ omit if config_filter == 'all' else config_filter }}"
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: command_resp_rollback
+      ignore_errors: true
+      when: config_type != "current"
+
+    - set_fact:
+        command_resp: "{{command_resp_current}}"
+      when: not (command_resp_current.skipped is defined and command_resp_current.skipped)
+
+    - set_fact:
+        command_resp_rollback: "{{ command_resp_rollback | combine({ 'config': 'Rollback configuration not available'}, recursive=true) }}"
+      when: command_resp_rollback is defined and command_resp_rollback.msg is defined and "Unable to load the rollback" in command_resp_rollback.msg
+    - set_fact:
+        command_resp: "{{command_resp_rollback}}"
+      when: not (command_resp_rollback.skipped is defined and command_resp_rollback.skipped)
+
+    - name: "Print unmodified result"
+      debug:
+        var: command_resp
+
+    - set_fact:
+        format_resp: "{{command_resp.config}}"
+    - set_fact:
+        format_resp: "{{command_resp.diff}}"
+      when: compare_configurations and not config_type == "current"
+
+    - set_fact:
+       command_resp: "{{ format_resp | replace('\n', '\\r\\n') }}"
+    - name: "Print modified result"
+      debug:
+        var: command_resp
+    - set_fact:
+       device_config_message_job_log: "Junos config response message for device '{{ device_name }}' \n{{ command_resp }}"
+
+  rescue:
+    - include_tasks: error_handler.yml
+      vars:
+        op_err_message: "Unable to query config on the device, Junos config query task failed with following error:\n{{command_resp}}"
+        results: |
+          {
+            "device_name": "{{ device_name }}",
+            "msg": "Junos config push task failed"
+          }
