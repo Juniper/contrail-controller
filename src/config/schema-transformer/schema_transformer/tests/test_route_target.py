@@ -3,13 +3,15 @@
 #
 
 import gevent
-import sys
-from schema_transformer.resources.routing_instance import RoutingInstanceST
+
+from cfgm_common.tests import test_common
+
 from vnc_api.vnc_api import RouteTargetList, NoIdError
 from vnc_cfg_api_server import db_manage
-from test_case import STTestCase, retries
+
+from schema_transformer.resources.routing_instance import RoutingInstanceST
+from test_case import retries, STTestCase
 from test_policy import VerifyPolicy
-from cfgm_common.tests import test_common
 
 
 class VerifyRouteTarget(VerifyPolicy):
@@ -35,7 +37,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
         self.wait_to_get_object(RoutingInstanceST,
-                                vn1_obj.get_fq_name_str()+':'+vn1_name)
+                                vn1_obj.get_fq_name_str() + ':' + vn1_name)
 
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         vn1_obj.set_route_target_list(rtgt_list)
@@ -46,20 +48,24 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self._vnc_lib.virtual_network_update(vn1_obj)
 
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True,
+                            'export')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True,
+                            'import')
 
         exp_rtgt_list.route_target.append('target:1:1')
         vn1_obj.set_export_route_target_list(exp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True,
+                            'export')
 
         imp_rtgt_list.route_target.append('target:1:1')
         vn1_obj.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True,
+                            'import')
 
         exp_rtgt_list = RouteTargetList(route_target=['target:2:1'])
         vn1_obj.set_export_route_target_list(exp_rtgt_list)
@@ -67,19 +73,21 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         vn1_obj.set_import_route_target_list(imp_rtgt_list)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:1:1', True)
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True, 'export')
-        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True, 'import')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:2:1', True,
+                            'export')
+        self.check_rt_in_ri(self.get_ri_name(vn1_obj), 'target:3:1', True,
+                            'import')
 
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
-        self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
+        self.check_ri_is_deleted(fq_name=vn1_obj.fq_name + [vn1_obj.name])
     # end test_configured_targets
 
     @retries(5)
     def wait_for_route_target(self, vn_obj):
         ri_obj = self._vnc_lib.routing_instance_read(
-                vn_obj.get_routing_instances()[0]['to'])
+            vn_obj.get_routing_instances()[0]['to'])
         return self._vnc_lib.route_target_read(
-                ri_obj.get_route_target_refs()[0]['to'])
+            ri_obj.get_route_target_refs()[0]['to'])
 
     def test_db_manage_zk_route_target_missing(self):
         vn_obj = self.create_virtual_network('vn_' + self.id(), '10.0.0.0/24')
