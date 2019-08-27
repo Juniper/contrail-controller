@@ -103,7 +103,8 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
 
     # end test_virtual_port_group_delete
 
-    def _create_prerequisites(self, enterprise_style_flag=True):
+    def _create_prerequisites(self, enterprise_style_flag=True,
+                              create_second_pr=False):
         # Create project first
         proj_obj = Project('%s-project' % (self.id()))
         self.api.project_create(proj_obj)
@@ -114,11 +115,18 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         fabric_uuid = self.api.fabric_create(fabric_obj)
         fabric_obj = self.api.fabric_read(id=fabric_uuid)
 
-        # Create physical router and physical interface
+        # Create physical router
         pr_name = self.id() + '_physical_router'
         pr = PhysicalRouter(pr_name)
         pr_uuid = self._vnc_lib.physical_router_create(pr)
         pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
+
+        if create_second_pr:
+            pr_name_2 = self.id() + '_physical_router_2'
+            pr = PhysicalRouter(pr_name_2)
+            pr_uuid_2 = self._vnc_lib.physical_router_create(pr)
+            pr_obj_2 = self._vnc_lib.physical_router_read(id=pr_uuid_2)
+            return proj_obj, fabric_obj, [pr_obj, pr_obj_2]
 
         return proj_obj, fabric_obj, pr_obj
 
@@ -488,7 +496,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
 
-    def test_different_vn_on_different_vlan_across_vpgs_in_enterprise(self):
+    def test_different_vn_on_same_vlan_across_vpgs_in_enterprise(self):
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
 
         # Create Physical Interface for VPG-1
@@ -583,7 +591,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
 
-    def test_two_vns_in_vpg_with_same_vlan_for_service_provider(self):
+    def test_single_vn_in_vpg_with_same_vlan_twice_for_service_provider(self):
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites(
             enterprise_style_flag=False)
 
@@ -653,7 +661,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
 
-    def test_two_vns_in_vpg_with_different_vlan_for_service_provider(self):
+    def test_single_vn_in_vpg_with_different_vlan_for_service_provider(self):
         proj_obj, fabric_obj, pr_obj = self._create_prerequisites(
             enterprise_style_flag=False)
 
@@ -720,4 +728,94 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.virtual_port_group_delete(id=vpg_obj.uuid)
         self.api.physical_interface_delete(id=pi_uuid)
         self.api.physical_router_delete(id=pr_obj.uuid)
+        self.api.fabric_delete(id=fabric_obj.uuid)
+
+    def test_vmi_update(self):
+        proj_obj, fabric_obj, pr_objs = self._create_prerequisites(
+            enterprise_style_flag=False, create_second_pr=True)
+
+        pr_obj_1 = pr_objs[0]
+        pr_obj_2 = pr_objs[1]
+
+        # Create first PI
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        pi_name = self.id() + '_physical_interface1'
+        pi_1 = PhysicalInterface(name=pi_name,
+                                 parent_obj=pr_obj_1,
+                                 ethernet_segment_identifier=esi_id)
+        pi_uuid_1 = self._vnc_lib.physical_interface_create(pi_1)
+        pi_obj_1 = self._vnc_lib.physical_interface_read(id=pi_uuid_1)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi_fq_name_1 = pi_obj_1.get_fq_name()
+
+        # Create second PI
+        pi_name = self.id() + '_physical_interface2'
+        pi_2 = PhysicalInterface(name=pi_name,
+                                 parent_obj=pr_obj_2,
+                                 ethernet_segment_identifier=esi_id)
+        pi_uuid_2 = self._vnc_lib.physical_interface_create(pi_2)
+        pi_obj_2 = self._vnc_lib.physical_interface_read(id=pi_uuid_2)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi_fq_name_2 = pi_obj_2.get_fq_name()
+
+        # Create VPG
+        vpg_name = "vpg-1"
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name = vpg_obj.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj = VirtualMachineInterface(self.id() + "1",
+                                          parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn1)
+
+        # Populate binding profile to be used in VMI create
+        binding_profile = {'local_link_information': [
+            {'port_id': pi_fq_name_1[2],
+             'switch_id': pi_fq_name_1[2],
+             'fabric': fabric_name[-1],
+             'switch_info': pi_fq_name_1[1]},
+            {'port_id': pi_fq_name_2[2],
+             'switch_id': pi_fq_name_2[2],
+             'fabric': fabric_name[-1],
+             'switch_info': pi_fq_name_2[1]}]}
+
+        kv_pairs = KeyValuePairs(
+            [KeyValuePair(key='vpg', value=vpg_name[-1]),
+             KeyValuePair(key='vif_type', value='vrouter'),
+             KeyValuePair(key='vnic_type', value='baremetal'),
+             KeyValuePair(key='profile',
+                          value=json.dumps(binding_profile))])
+
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=42))
+        vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj)
+        vpg_obj.add_virtual_machine_interface(vmi_obj)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        # Now, remove one of the local_link_information
+        binding_profile = {'local_link_information': [
+            {'port_id': pi_fq_name_1[2],
+             'switch_id': pi_fq_name_1[2],
+             'fabric': fabric_name[-1],
+             'switch_info': pi_fq_name_1[1]}]}
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+        self.api.virtual_machine_interface_update(vmi_obj)
+
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        self.api.physical_interface_delete(id=pi_uuid_1)
+        self.api.physical_interface_delete(id=pi_uuid_2)
+        self.api.physical_router_delete(id=pr_obj_1.uuid)
+        self.api.physical_router_delete(id=pr_obj_2.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
