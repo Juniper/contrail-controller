@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "808caf52_fd49fd50",
+        "filename": "src/nodemgr/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 169,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-08-27T22:08:10Z",
+      "side": 1,
+      "message": "Rather than making the config entry specific to vrouter, would it be better to make it generic like \"hostname\" and then let the entrypoint.sh update the \"hostname\" key for nodemgr type vrouter alone.\nSo in future if anyother service like control-node also demands a similar change then all we need to do is change entrypoint.sh(provision code) and not the software code.",
+      "revId": "31deaaaf8f2d76e052a905c31f10f980a7c07fa7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
