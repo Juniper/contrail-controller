@@ -165,8 +165,6 @@ class AnsibleConf(AnsibleBase):
 
         for pi_obj, li_obj, iip_obj in self.\
                 fetch_pi_li_iip(self.physical_router.physical_interfaces):
-            if pi_obj.interface_type != 'fabric':
-                continue
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
                 pi, li_map = self.set_default_pi(pi_obj.name, 'regular')
                 pi.set_comment(DMUtils.ip_clos_comment())
