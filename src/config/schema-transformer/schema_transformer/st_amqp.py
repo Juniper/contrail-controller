@@ -3,9 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Sechmatransformer  amqp handler
-"""
+"""Sechmatransformer  amqp handler."""
 
 import socket
 

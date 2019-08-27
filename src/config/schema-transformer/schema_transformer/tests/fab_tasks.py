@@ -2,7 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import sys
-from fabric.api import task, lcd, prefix, execute, local
+
+from fabric.api import execute, lcd, local, prefix, task
 
 
 @task

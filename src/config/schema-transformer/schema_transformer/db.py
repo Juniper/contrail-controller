@@ -3,17 +3,16 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-"""
-Schema transformer DB to store ids allocated by it
-"""
-from pycassa import NotFoundException
+"""Schema transformer DB to store ids allocated by it."""
+import uuid
 
 import cfgm_common as common
-from cfgm_common.exceptions import VncError, NoIdError
-from cfgm_common.zkclient import IndexAllocator
+from cfgm_common.exceptions import NoIdError, VncError
 from cfgm_common.vnc_object_db import VncObjectDBClient
+from cfgm_common.zkclient import IndexAllocator
+from pycassa import NotFoundException
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
-import uuid
+
 
 class SchemaTransformerDB(VncObjectDBClient):
 
@@ -61,9 +60,9 @@ class SchemaTransformerDB(VncObjectDBClient):
 
         cred = None
         if (self._args.cassandra_user is not None and
-            self._args.cassandra_password is not None):
-            cred={'username':self._args.cassandra_user,
-                  'password':self._args.cassandra_password}
+                self._args.cassandra_password is not None):
+            cred = {'username': self._args.cassandra_user,
+                    'password': self._args.cassandra_password}
 
         super(SchemaTransformerDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
@@ -85,7 +84,7 @@ class SchemaTransformerDB(VncObjectDBClient):
             zkclient.delete_node(
                 self._zk_path_pfx + common.BGP_RTGT_ALLOC_PATH_TYPE1_2, True)
             zkclient.delete_node(
-                 self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
+                self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
             zkclient.delete_node(
                 self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH, True)
 
@@ -94,10 +93,12 @@ class SchemaTransformerDB(VncObjectDBClient):
             bgpaas_port_end = self._args.bgpaas_port_end
             gsc_fq_name = ['default-global-system-config']
 
-            gsc_uuid = self._object_db.fq_name_to_uuid(obj_type='global_system_config',
-                                                       fq_name=gsc_fq_name)
+            gsc_uuid = self._object_db.fq_name_to_uuid(
+                obj_type='global_system_config',
+                fq_name=gsc_fq_name)
 
-            _, cfg = self._object_db.object_read('global_system_config', [gsc_uuid])
+            _, cfg = self._object_db.object_read('global_system_config',
+                                                 [gsc_uuid])
             cfg_bgpaas_ports = cfg[0].get('bgpaas_parameters')
             if cfg_bgpaas_ports:
                 bgpaas_port_start = cfg_bgpaas_ports['port_start']
@@ -108,11 +109,12 @@ class SchemaTransformerDB(VncObjectDBClient):
                 bgpaas_port_end - bgpaas_port_start, bgpaas_port_start)
 
             self._rt_allocator = IndexAllocator(
-                zkclient, self._zk_path_pfx+common.BGP_RTGT_ALLOC_PATH_TYPE0,
+                zkclient, self._zk_path_pfx + common.BGP_RTGT_ALLOC_PATH_TYPE0,
                 common._BGP_RTGT_MAX_ID_TYPE0, common._BGP_RTGT_MIN_ID_TYPE0)
             self._rt_allocator_4 = IndexAllocator(
-                zkclient, self._zk_path_pfx+common.BGP_RTGT_ALLOC_PATH_TYPE1_2,
-                common._BGP_RTGT_MAX_ID_TYPE1_2, common._BGP_RTGT_MIN_ID_TYPE1_2)
+                zkclient, self._zk_path_pfx + common.BGP_RTGT_ALLOC_PATH_TYPE1_2,
+                common._BGP_RTGT_MAX_ID_TYPE1_2,
+                common._BGP_RTGT_MIN_ID_TYPE1_2)
 
         _init_index_allocators()
 
@@ -134,14 +136,14 @@ class SchemaTransformerDB(VncObjectDBClient):
                 # in the old format, item was vm id followed by 10 digit vlan
                 # id allocated. Try to parse it to determine if it is still in
                 # old format
-                vm_id = uuid.UUID(item[:-10])
-                vlan_id = int(item[-10:])
+                uuid.UUID(item[:-10])
+                int(item[-10:])
             except ValueError:
                 continue
-            sc_id = self._zkclient.read_node(vlan_alloc_path+item)
-            self._zkclient.delete_node(vlan_alloc_path+item)
+            sc_id = self._zkclient.read_node(vlan_alloc_path + item)
+            self._zkclient.delete_node(vlan_alloc_path + item)
             self._zkclient.create_node(
-                vlan_alloc_path+item[:-10]+'/'+item[-10:], sc_id)
+                vlan_alloc_path + item[:-10] + '/' + item[-10:], sc_id)
         # end for item
 
     def allocate_service_chain_vlan(self, service_vm, service_chain):
@@ -230,7 +232,7 @@ class SchemaTransformerDB(VncObjectDBClient):
         return rtgt_num
     # end alloc_route_target
 
-    def free_route_target(self, ri_fq_name,asn):
+    def free_route_target(self, ri_fq_name, asn):
         try:
             rtgt = self.get_route_target(ri_fq_name)
             self._rt_cf.remove(ri_fq_name)
@@ -241,21 +243,22 @@ class SchemaTransformerDB(VncObjectDBClient):
         self.current_rt_allocator.delete(rtgt)
     # end free_route_target
 
-    def get_ri_from_route_target(self, rtgt_num,asn):
-       self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
-       return self.current_rt_allocator.read(rtgt_num)
+    def get_ri_from_route_target(self, rtgt_num, asn):
+        self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
+        return self.current_rt_allocator.read(rtgt_num)
 
     def delete_route_target_directory(self, path):
         for zk_node in self._zkclient.get_children(path):
             # The return value of read_node will be an list
             # where 0th element is fq_name and 1st element is node stat for
             # the Zookeeper node
-            znode  = self._zkclient.read_node(
+            znode = self._zkclient.read_node(
                 '%s/%s/%s' % (self._zk_path_pfx, path, zk_node),
                 include_timestamp=True)
             # Delete all the zk nodes that are not sub-directories
             if znode is not None and znode[1].numChildren == 0:
-                self._zkclient.delete_node('%s/%s/%s' % (self._zk_path_pfx, path, zk_node))
+                self._zkclient.delete_node('%s/%s/%s' % (self._zk_path_pfx,
+                                                         path, zk_node))
 
     def get_service_chain_ip(self, sc_name):
         return self.get(self._SC_IP_CF, sc_name)
