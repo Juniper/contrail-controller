@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a7d03ef6_6d5890d9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-27T13:45:17Z",
+      "side": 1,
+      "message": "How that bgp_as_a_service property could be equal to the string \u0027null\u0027? API server should take care to be a an integer between 1 to 4294967295 https://github.com/Juniper/contrail-api-client/blob/master/schema/vnc_cfg.xsd#L690-L695",
+      "range": {
+        "startLine": 33,
+        "startChar": 19,
+        "endLine": 33,
+        "endChar": 32
+      },
+      "revId": "ee02f034239db9a6a69590711ee87b064362ced4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ecc7ca0d_abc958e2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-27T13:45:17Z",
+      "side": 1,
+      "message": "same as above",
+      "revId": "ee02f034239db9a6a69590711ee87b064362ced4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
