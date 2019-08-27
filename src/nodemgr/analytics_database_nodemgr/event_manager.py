@@ -27,7 +27,7 @@ class AnalyticsDatabaseEventManager(EventManager):
             config.hostip, config.minimum_diskgb,
             config.db_port, config.db_jmx_port, config.db_use_ssl,
             config.db_user, config.db_password,
-            self.process_info_manager)
+            self.process_info_manager, hostname=config.hostname)
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
         return self.cassandra_mgr.get_failbits_nodespecific_desc(
