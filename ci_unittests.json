@@ -21,6 +21,15 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "stats" : {
+        "source_directories" : [
+            "controller/src/stats"
+        ],
+        "scons_test_targets" : [
+            "controller/src/stats:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-config" : {
         "source_directories" : [
             "controller/src/config"
