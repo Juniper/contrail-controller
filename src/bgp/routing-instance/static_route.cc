@@ -355,9 +355,19 @@ ExtCommunityPtr StaticRoute<T>::UpdateExtCommunity(const BgpAttr *attr) const {
 
     int vn_index = routing_instance()->virtual_network_index();
     if (export_list.empty() && vn_index) {
-        OriginVn origin_vn(server->autonomous_system(), vn_index);
-        new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
-            new_ext_community.get(), origin_vn.GetExtCommunity());
+        as_t asn = server->autonomous_system();
+        if (asn > AS2_MAX && vn_index > 0xffff) {
+            OriginVn origin_vn(asn, AS_TRANS);
+            new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
+                new_ext_community.get(), origin_vn.GetExtCommunity());
+            OriginVn origin_vn2(AS_TRANS, vn_index);
+            new_ext_community = extcomm_db->AppendAndLocate(
+                new_ext_community.get(), origin_vn2.GetExtCommunity());
+        } else {
+            OriginVn origin_vn(server->autonomous_system(), vn_index);
+            new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
+                new_ext_community.get(), origin_vn.GetExtCommunity());
+        }
     }
     return new_ext_community;
 }
