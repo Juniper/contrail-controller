@@ -4,6 +4,7 @@
 
 import logging
 
+from cfgm_common import utils
 from vnc_api.gen.resource_client import Fabric
 
 from vnc_cfg_api_server.tests import test_case
@@ -53,4 +54,4 @@ class TestFabric(test_case.ApiServerTestCase):
             fabric_obj.get_fabric_credentials().get_device_credential()[0]
         self.assertIsNotNone(dev_cred.credential.password)
         self.assertEqual(dev_cred.credential.password,
-                         'P0Sy94TU0CJqMhM2Y/YrEpxZ4w6MIiS/LkzEIL60iDk=')
+                         'nFnjDowiJL8uTMQgvrSIOQ==' + utils.PWD_ENCRYPTED)
