@@ -7,6 +7,10 @@ import setuptools
 setuptools.setup(
     name='contrail-vrouter-provisioning',
     version='0.1dev',
+    install_requires=[
+        'future',
+        'configparser',
+    ],
     packages=setuptools.find_packages(),
 
     # metadata

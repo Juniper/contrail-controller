@@ -3,10 +3,13 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
 import os
 import sys
 import argparse
-import ConfigParser
+import configparser
 import platform
 import re
 import subprocess
@@ -14,7 +17,7 @@ import signal
 import logging
 
 from contrail_vrouter_provisioning import local
-from setup import TorAgentSetup
+from .setup import TorAgentSetup
 from contrail_vrouter_provisioning.base import ContrailSetup
 from distutils.version import LooseVersion
 
@@ -117,7 +120,7 @@ class TorAgentBaseCleanup(ContrailSetup):
 
     def delete_torid_config(self, tor_id):
         tor_conf_file = '/etc/contrail/contrail-tor-agent-' + tor_id + '.conf'
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read(tor_conf_file)
         self.tor_name = config.get('TOR', 'tor_name')
         self.tor_vendor_name = config.get('TOR', 'tor_vendor_name')
