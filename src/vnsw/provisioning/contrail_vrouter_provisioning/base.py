@@ -4,6 +4,8 @@
 #
 """Base Contrail Provisioning module."""
 
+from builtins import str
+from builtins import object
 import os
 import re
 import stat
@@ -100,12 +102,12 @@ class ContrailSetup(object):
                 i = el.findex(p.match)
                 exec(el[i])
                 el[i] = 'GRUB_CMDLINE_LINUX="%s crashkernel=128M"' % (
-                        ' '.join(filter(lambda x: not x.startswith(
-                            'crashkernel='), GRUB_CMDLINE_LINUX.split())))
+                        ' '.join([x for x in GRUB_CMDLINE_LINUX.split() if not x.startswith(
+                            'crashkernel=')]))
                 exec(el[i])
                 el[i] = 'GRUB_CMDLINE_LINUX="%s kvm-intel.nested=1"' % (
-                        ' '.join(filter(lambda x: not x.startswith(
-                            'kvm-intel.nested='), GRUB_CMDLINE_LINUX.split())))
+                        ' '.join([x for x in GRUB_CMDLINE_LINUX.split() if not x.startswith(
+                            'kvm-intel.nested=')]))
 
                 with open('%s/grub' % self._temp_dir_name, 'w') as f:
                     f.write('\n'.join(el))
@@ -145,13 +147,12 @@ class ContrailSetup(object):
                     continue
                 exec(el[i])
                 el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s intel_iommu=on"' % (
-                        ' '.join(filter(lambda x: not x.startswith(
-                            'intel_iommu='),
-                            GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                        ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                            'intel_iommu=')]))
                 exec(el[i])
                 el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s iommu=pt"' % (
-                        ' '.join(filter(lambda x: not x.startswith(
-                            'iommu='), GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                        ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                            'iommu=')]))
                 exec(el[i])
                 with open('%s/grub' % self._temp_dir_name, 'w') as f:
                     f.write('\n'.join(el))
@@ -198,36 +199,31 @@ class ContrailSetup(object):
                     continue
                 exec(el[i])
                 el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s "' % (
-                        ' '.join(filter(lambda x: not (x.startswith(
+                        ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not (x.startswith(
                               'default_hugepagesz') or x.startswith('hugepagesz')
-                              or x.startswith('hugepages')),
-                              GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                              or x.startswith('hugepages'))]))
                 exec(el[i])
                 if self._args.vrouter_1G_hugepages != '0':
                     el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s default_hugepagesz=1G"' % (
-                            ' '.join(filter(lambda x: not x.startswith(
-                                'default_hugepagesz='),
-                                GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                            ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                                'default_hugepagesz=')]))
                     exec(el[i])
                     el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepagesz=1G"' % (
-                            ' '.join(filter(lambda x: not x.startswith(
-                                'hugepagesz=1'), GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                            ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                                'hugepagesz=1')]))
                     exec(el[i])
                     el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepages=%s"' % (
-                            ' '.join(filter(lambda x: not x.startswith(
-                                'hugepages='),
-                                GRUB_CMDLINE_LINUX_DEFAULT.split())), self._args.vrouter_1G_hugepages)
+                            ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                                'hugepages=')]), self._args.vrouter_1G_hugepages)
                     exec(el[i])
                 if self._args.vrouter_2M_hugepages != '0':
                     el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepagesz=2M"' % (
-                            ' '.join(filter(lambda x: not x.startswith(
-                                'hugepagesz=2'),
-                                GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                            ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                                'hugepagesz=2')]))
                     exec(el[i])
                     el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepages_2M=%s"' % (
-                            ' '.join(filter(lambda x: not x.startswith(
-                                'hugepages_2M'),
-                                GRUB_CMDLINE_LINUX_DEFAULT.split())), self._args.vrouter_2M_hugepages)
+                            ' '.join([x for x in GRUB_CMDLINE_LINUX_DEFAULT.split() if not x.startswith(
+                                'hugepages_2M')]), self._args.vrouter_2M_hugepages)
                     el[i] = el[i].replace('hugepages_2M', 'hugepages')
                     exec(el[i])
 

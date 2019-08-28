@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
 import os
 import sys
 import argparse
