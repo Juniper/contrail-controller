@@ -411,14 +411,15 @@ class SvcMonitor(object):
 
         if len(vmi.name.split('__')) < 4:
             return
-        si_fq_name = vmi.name.split('__')[0:3]
-        index = int(vmi.name.split('__')[3]) - 1
+
         for si in ServiceInstanceSM.values():
-            if si.fq_name != si_fq_name:
-                continue
-            st = ServiceTemplateSM.get(si.service_template)
-            self.vm_manager.link_si_to_vm(si, st, index, vm.uuid)
-            return
+            # form the vmi prefix name from si fq_name
+            vmi_prefix_name = ('__').join(si.fq_name) + '__'
+            if (vmi_prefix_name in vmi.name):
+              index = int(vmi.name.split(vmi_prefix_name)[1].split('__')[0]) - 1
+              st = ServiceTemplateSM.get(si.service_template)
+              self.vm_manager.link_si_to_vm(si, st, index, vm.uuid)
+              return
 
     def create_service_instance(self, si):
         if si.state == 'active':
