@@ -3,6 +3,9 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import map
+from builtins import str
+from builtins import object
 import os
 import re
 import glob
@@ -389,8 +392,8 @@ HWADDR=%s
             if 'bond' in dev.lower():
                 iters = re.finditer('^\s*auto\s', cfg_file, re.M)
                 indices = [pat_match.start() for pat_match in iters]
-                matches = map(cfg_file.__getslice__, indices,
-                              indices[1:] + [len(cfg_file)])
+                matches = list(map(cfg_file.__getslice__, indices,
+                              indices[1:] + [len(cfg_file)]))
                 for each in matches:
                     each = each.strip()
                     if re.match('^auto\s+%s' % dev, each):

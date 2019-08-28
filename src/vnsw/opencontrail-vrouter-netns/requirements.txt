@@ -2,3 +2,5 @@ contrail-vrouter-api
 eventlet
 netaddr
 requests >= 2.20.0
+future
+configparser

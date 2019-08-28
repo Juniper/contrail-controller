@@ -7,8 +7,12 @@
 # This sceipt is called by the vrouter agent for CRUD
 # of IPSEC tunnels
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import argparse
-import ConfigParser
+import configparser
 import json
 import logging
 import requests
@@ -48,14 +52,14 @@ class ContrailCryptTunnelClient(object):
            ret=res.json()
            result=ret['Result']
            if (_SUCCESS in result) or (_EXISTS in result):
-               print _SUCCESS
+               print(_SUCCESS)
                return _SUCCESS
            else:
-               print err
+               print(err)
                return err
         except Exception as ex:
                logging.error(ex)
-               print err
+               print(err)
                return err
 
     def deleteCryptTunnel(self):
@@ -69,14 +73,14 @@ class ContrailCryptTunnelClient(object):
            ret=res.json()
            result=ret['Result']
            if _SUCCESS in result:
-              print _SUCCESS
+              print(_SUCCESS)
               return _SUCCESS
            else:
-              print err
+              print(err)
               return err
         except Exception as ex:
                logging.error(ex)
-               print err
+               print(err)
                return err
 
     def statusCryptTunnel(self):
@@ -90,14 +94,14 @@ class ContrailCryptTunnelClient(object):
            ret=res.json()
            result=ret['Result']
            if _SUCCESS in result:
-              print _SUCCESS
+              print(_SUCCESS)
               return _SUCCESS
            else:
-              print err
+              print(err)
               return err
         except Exception as ex:
                 logging.error(ex)
-                print err
+                print(err)
                 return err
 
 def initialize(oper, leftIP, rightIP):
@@ -135,7 +139,7 @@ def parse_args(args_str):
        if not (args.source_ip and args.remote_ip):
           parser.error('Missing API server credentials and / or the route parameters')
     else:
-        print "Unsupported operaton on ContrailCryptTunnelClient object. Supported operations are create / delete / status"
+        print("Unsupported operaton on ContrailCryptTunnelClient object. Supported operations are create / delete / status")
         exit(1)
     return args
 
