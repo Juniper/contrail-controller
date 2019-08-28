@@ -42,6 +42,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import rest
+from cfgm_common import utils
 vnc_cgitb.enable(format='text')
 
 from cfgm_common.tests import test_common
@@ -448,7 +449,7 @@ class TestCrud(test_case.ApiServerTestCase):
         phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_rout.uuid)
         user_cred_read = phy_rout_obj.get_physical_router_user_credentials()
         self.assertIsNotNone(user_cred_read.password)
-        self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
+        self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==' + utils.PWD_ENCRYPTED)
        # end test_physical_router_credentials
 
     def test_physical_router_w_no_user_credentials(self):
@@ -744,15 +745,17 @@ class TestCrud(test_case.ApiServerTestCase):
         for rtr in phy_rtr_list:
             user_cred_read = rtr.get_physical_router_user_credentials()
             if user_cred_read.username == 'test_user':
-                self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
+                self.assertEqual(user_cred_read.password,
+                                 'LhipWpxez6Skw5kUIzyV0g==' + utils.PWD_ENCRYPTED)
             if user_cred_read.username == 'test_user_2':
-                self.assertEqual(user_cred_read.password, 'QLAijg7KFHQo2mIedyPKiw==')
+                self.assertEqual(user_cred_read.password,
+                                 'QLAijg7KFHQo2mIedyPKiw==' + utils.PWD_ENCRYPTED)
             if user_cred_read.username == 'test_user_3':
                 self.assertEqual(user_cred_read.password,
-                    'hmRxjIpYG3nJzT1RifrRpr3Ip3J2/WAzHvCC4E5PCuY=')
+                    'hmRxjIpYG3nJzT1RifrRpr3Ip3J2/WAzHvCC4E5PCuY=' + utils.PWD_ENCRYPTED)
             if user_cred_read.username == 'test_user_4':
                 self.assertEqual(user_cred_read.password,
-                    'J4DD30YPSd5dkh4ZAlO8PZi2Auc5NtncltwvxfCh4NbJlaUdc+yufddcFY5DI+d8')
+                    'J4DD30YPSd5dkh4ZAlO8PZi2Auc5NtncltwvxfCh4NbJlaUdc+yufddcFY5DI+d8' + utils.PWD_ENCRYPTED)
        # end test_physical_router_credentials
 
     def test_allowed_address_pair_prefix_len(self):
