@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e3c6a3c1_f07f36e8",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric_config_filters.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 255,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-08-28T22:19:34Z",
+      "side": 1,
+      "message": "we can update the password in the dict after displaying for the log and update the field before return? Instead of having to make a copy of the dict?",
+      "revId": "7777bfbd57b8197322ddc7598e68a4c4a38c6c83",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
