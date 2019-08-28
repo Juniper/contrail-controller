@@ -28,6 +28,7 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
+from cfgm_common import utils
 
 import copy
 from cfgm_common import jsonutils as json
@@ -1262,6 +1263,36 @@ class VncDbClient(object):
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
                         self._object_db.object_update('virtual_machine_interface',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'physical_router':
+                    # Encrypt PR pwd if not already done
+                    if obj_dict.get('physical_router_user_credentials') and \
+                            obj_dict.get('physical_router_user_credentials',
+                                         {}).get('password'):
+                        dict_password = obj_dict.get(
+                            'physical_router_user_credentials',
+                            {}).get('password')
+                        encryption_type = obj_dict.get(
+                            'physical_router_encryption_type', 'none')
+                        if dict_password is not None and \
+                                encryption_type == 'none':
+                            encrypt_pwd = utils.encrypt_password(
+                                obj_dict['uuid'], dict_password)
+                            obj_dict[
+                                'physical_router_user_credentials'][
+                                'password'] = encrypt_pwd
+                            obj_dict[
+                                'physical_router_encryption_type'] = 'local'
+                            self._object_db.object_update(
+                                'physical_router',
+                                obj_uuid, obj_dict)
+
+                elif obj_type == 'fabric':
+                    # No longer using fabric credentials, so remove
+                    if obj_dict.get('fabric_credentials'):
+                        obj_dict['fabric_credentials'] = {}
+                        self._object_db.object_update('fabric',obj_uuid,
+                                                      obj_dict)
+
                 elif obj_type == 'access_control_list':
                     if not obj_dict.get('access_control_list_hash'):
                         rules = obj_dict.get('access_control_list_entries')
@@ -1343,7 +1374,6 @@ class VncDbClient(object):
             return self.dbe_uve_trace(*args)
         uve_workers.map(format_args_for_dbe_uve_trace, uve_trace_list)
     # end _dbe_resync
-
 
     def _dbe_check(self, obj_type, obj_uuids):
         for obj_uuid in obj_uuids:
