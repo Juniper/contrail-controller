@@ -36,6 +36,7 @@ class DeviceInfo(object):
         self.fabric_uuid = module.params['fabric_uuid']
         self.total_retry_timeout = float(module.params['total_retry_timeout'])
         self._job_file_write = JobFileWrite(self.logger)
+        self.credentials = []
 
     def initial_processing(self, concurrent):
         self.serial_num_flag = False
@@ -91,12 +92,6 @@ class DeviceInfo(object):
 
         # get credentials and serial number if greenfield
         if self.total_retry_timeout:
-            # get device credentials
-            fabric = self.vncapi.fabric_read(id=self.fabric_uuid)
-            fabric_object = self.vncapi.obj_to_dict(fabric)
-            self.credentials = fabric_object.get('fabric_credentials').get(
-                'device_credential')
-
             # get serial numbers
             fabric_namespace_obj_list = self.vncapi.fabric_namespaces_list(
                 parent_id=self.fabric_uuid, detail=True)
@@ -114,16 +109,18 @@ class DeviceInfo(object):
                     for sn in outer_list:
                         self.all_serial_num.append(sn)
 
+            device_auth = self.job_ctx['job_input'].get('device_auth', [])
+            if device_auth:
+                self.credentials = [{
+                    'credential': {
+                        'username': 'root',
+                        'password': device_auth['root_password']}
+                    }
+                ]
         else:
-            self.credentials = self.module.params['credentials']
-
-        for cred in self.credentials:
-            if cred.get('credential', {}).get('password'):
-                cred['credential']['password'] = JobVncApi.decrypt_password(
-                    encrypted_password=cred.get('credential', {}).get(
-                        'password'),
-                    admin_password=self.job_ctx.get('vnc_api_init_params').get(
-                        'admin_password'))
+            self.credentials = [
+                {'credential': cred} for cred in
+                self.job_ctx['job_input'].get('device_auth', [])]
 
     def ping_sweep(self, host):
         try:

@@ -5,6 +5,7 @@
 # This file contains implementation for fabric related Ansible filter plugins
 #
 import argparse
+import copy
 import json
 import socket
 import struct
@@ -674,18 +675,15 @@ class FilterModule(object):
             name=fab_name,
             fq_name=fq_name,
             display_name=fab_display_name,
-            parent_type='global-system-config',
-            fabric_credentials={
-                'device_credential': [
-                    {
-                        'credential': device_auth
-                    } for device_auth in fabric_info.get('device_auth')
-                ]
-            }
+            parent_type='global-system-config'
         )
+        # Hide credentials when caching job input
+        device_auth = copy.deepcopy(fabric_info.get('device_auth', []))
+        fabric_info['device_auth'] = []
         fab.set_annotations(KeyValuePairs([
             KeyValuePair(key='user_input', value=json.dumps(fabric_info))
         ]))
+        fabric_info['device_auth'] = device_auth
 
         try:
             vnc_api.fabric_create(fab)
@@ -1015,10 +1013,14 @@ class FilterModule(object):
             ja.cache_job_input(fabric_obj.uuid, job_template_fqname[-1],
                                def_job_input)
 
+        # Hide credentials when caching job input
+        device_auth = copy.deepcopy(job_input.get('device_auth', []))
+        job_input['device_auth'] = []
         # Now update the fabric onboarding annotation with the current
         # job input
         ja.cache_job_input(fabric_obj.uuid, onboard_job_template_fqname[-1],
                            job_input)
+        job_input['device_auth'] = device_auth
     # end _add_fabric_annotations
 
     # ***************** delete_fabric filter **********************************
