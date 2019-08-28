@@ -23,11 +23,24 @@ class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
                 admin_password = cls.server._auth_svc._conf_info.get(
                     'admin_password')
 
-            key = admin_password.rjust(16)
+            # AES is a block cipher that only works with block of 16 chars.
+            # We need to pad both key and text so that their length is equal
+            # to next higher multiple of 16
+            # Used https://stackoverflow.com/a/33299416
+
+            key_padding_len = (len(admin_password) + 16 - 1) // 16
+            if key_padding_len == 0:
+                key_padding_len = 1
+            key = admin_password.rjust(16 * key_padding_len)
             cipher = AES.new(key, AES.MODE_ECB)
 
-            padded_text = (obj_dict.get('physical_router_user_credentials',
-                                        {}).get('password')).rjust(32)
+            dict_password = obj_dict.get('physical_router_user_credentials',
+                                         {}).get('password')
+            text_padding_len = (len(dict_password) + 16 - 1) // 16
+            if text_padding_len == 0:
+                text_padding_len = 1
+            padded_text = dict_password.rjust(16 * text_padding_len)
+
             password = base64.b64encode(cipher.encrypt(padded_text))
             obj_dict['physical_router_user_credentials']['password'] = password
 
