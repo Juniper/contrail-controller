@@ -28,6 +28,7 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
+from cfgm_common import utils
 
 import copy
 from cfgm_common import jsonutils as json
@@ -47,6 +48,7 @@ from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
 import functools
 
 import sys
+
 
 def get_trace_id():
     try:
@@ -1262,6 +1264,42 @@ class VncDbClient(object):
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
                         self._object_db.object_update('virtual_machine_interface',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'physical_router':
+                    # Encrypt PR pwd if not already done
+                    if obj_dict.get('physical_router_user_credentials') and \
+                            obj_dict.get('physical_router_user_credentials',
+                                         {}).get('password'):
+                        dict_password = obj_dict.get(
+                            'physical_router_user_credentials',
+                            {}).get('password')
+                        if dict_password is not None and \
+                                utils.PWD_ENCRYPTED not in dict_password:
+                            encrypt_pwd = self.encrypt_password(dict_password)
+                            obj_dict[
+                                'physical_router_user_credentials'][
+                                'password'] = encrypt_pwd
+                            self._object_db.object_update(
+                                'physical_router',
+                                obj_uuid, obj_dict)
+
+                elif obj_type == 'fabric':
+                    # Encrypt fabric pwd if not already done
+                    if obj_dict.get('fabric_credentials') and \
+                            obj_dict.get('fabric_credentials', {}).get(
+                                'device_credential'):
+                        creds = obj_dict.get('fabric_credentials', {}).get(
+                            'device_credential')
+                        for idx in range(len(creds)):
+                            dict_password = creds[idx].get(
+                                'credential',{}).get('password')
+                            if utils.PWD_ENCRYPTED not in dict_password:
+                                password = self.encrypt_password(dict_password)
+                                obj_dict.get('fabric_credentials', {}).get(
+                                    'device_credential')[idx]['credential'][
+                                    'password'] = password
+                        self._object_db.object_update('fabric',obj_uuid,
+                                                      obj_dict)
+
                 elif obj_type == 'access_control_list':
                     if not obj_dict.get('access_control_list_hash'):
                         rules = obj_dict.get('access_control_list_entries')
@@ -1343,6 +1381,15 @@ class VncDbClient(object):
             return self.dbe_uve_trace(*args)
         uve_workers.map(format_args_for_dbe_uve_trace, uve_trace_list)
     # end _dbe_resync
+
+    def encrypt_password(self, dict_password):
+        vnc_args = self._api_svr_mgr.get_args()
+        if vnc_args.auth == 'keystone':
+            admin_password = vnc_args.admin_password
+        else:
+            admin_password = vnc_args.get('admin_password')
+        return utils.encrypt_password(admin_password, dict_password)
+    # end encrypt_password
 
 
     def _dbe_check(self, obj_type, obj_uuids):
