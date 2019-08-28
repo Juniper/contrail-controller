@@ -8,6 +8,7 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
+from cfgm_common.exceptions import RefsExistError
 from sandesh_common.vns import constants
 from vnc_api.gen.resource_xsd import QuotaType
 
@@ -242,6 +243,8 @@ class ResourceMixin(object):
             obj_dict[ref_name] = copy.deepcopy(kwargs[ref_name])
         try:
             cls.server.internal_request_create(cls.resource_type, obj_dict)
+        except RefsExistError:
+            pass
         except HttpError as e:
             return False, (e.status_code, e.content)
         try:
