@@ -10,6 +10,7 @@ import json
 import random
 import traceback
 
+from cfgm_common import utils
 from Crypto.Cipher import AES
 from inflection import camelize
 from job_exception import JobException
@@ -21,7 +22,6 @@ from vnc_api.vnc_api import VncApi
 
 
 PLAYBOOK_EOL_PATTERN = "*EOL*\n"
-
 
 class JobStatus(Enum):
     STARTING = "STARTING"
@@ -65,6 +65,10 @@ class JobVncApi(object):
 
         if encrypted_password is None:
             raise ValueError("No password to decrypt")
+
+        # strip the encryption indicator
+        encrypted_password = encrypted_password.replace(
+            utils.PWD_ENCRYPTED, "")
 
         key = admin_password.rjust(16)
         cipher = AES.new(key, AES.MODE_ECB)

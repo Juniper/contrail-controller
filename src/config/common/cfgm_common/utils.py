@@ -21,6 +21,7 @@
 # @author: Numan Siddique, eNovance.
 
 
+import base64
 import urllib
 from collections import OrderedDict
 import sys
@@ -28,6 +29,7 @@ import cStringIO
 from ConfigParser import NoOptionError
 
 from cfgm_common import vnc_cgitb
+from Crypto.Cipher import AES
 from vnc_api.utils import (
     CamelCase, str_to_class, obj_type_to_vnc_class, getCertKeyCaBundle)
 
@@ -38,6 +40,7 @@ _DEFAULT_ZK_COUNTER_PATH_PREFIX = '/vnc_api_server_obj_create/'
 _DEFAULT_ZK_LOCK_PATH_PREFIX = '/vnc_api_server_locks/'
 _DEFAULT_ZK_LOCK_TIMEOUT = 5
 
+PWD_ENCRYPTED = "-encrypted"
 
 def cgitb_hook(info=None, **kwargs):
     vnc_cgitb.Hook(**kwargs).handle(info or sys.exc_info())
@@ -200,3 +203,25 @@ def get_domain_scope_kwargs(args):
         scope_kwargs.update(**domain_id)
     return scope_kwargs
 # end get_domain_scope_kwargs
+
+
+def encrypt_password(admin_password, dict_password):
+    # AES is a block cipher that only works with block of 16 chars.
+    # We need to pad both key and text so that their length is equal
+    # to next higher multiple of 16
+    # Used https://stackoverflow.com/a/33299416
+
+    key_padding_len = (len(admin_password) + 16 - 1) // 16
+    if key_padding_len == 0:
+        key_padding_len = 1
+    key = admin_password.rjust(16 * key_padding_len)
+    cipher = AES.new(key, AES.MODE_ECB)
+
+    text_padding_len = (len(dict_password) + 16 - 1) // 16
+    if text_padding_len == 0:
+        text_padding_len = 1
+    padded_text = dict_password.rjust(16 * text_padding_len)
+
+    password = base64.b64encode(cipher.encrypt(padded_text))
+    password += PWD_ENCRYPTED
+    return password
