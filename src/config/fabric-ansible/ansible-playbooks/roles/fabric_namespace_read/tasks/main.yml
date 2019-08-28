@@ -16,22 +16,6 @@
          fabric_fq_name: "{{ fq_name.fq_name }}"
       when: fabric_uuid is defined
 
-    - name: get credentials
-      vnc_db_mod:
-        job_ctx: "{{ job_ctx }}"
-        object_type: "fabric"
-        object_op: "read"
-        object_dict: |
-          {
-            "fq_name": "{{ fabric_fq_name }}"
-          }
-      register: device_credentials
-      no_log: True
-
-    - set_fact:
-         credentials: "{{ device_credentials.obj.fabric_credentials.device_credential }}"
-      no_log: True
-
     - name: get tag uuid
       vnc_db_mod:
         job_ctx: "{{ job_ctx }}"

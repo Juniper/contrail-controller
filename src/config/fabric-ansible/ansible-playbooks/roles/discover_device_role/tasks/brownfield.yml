@@ -2,7 +2,6 @@
   discover_device:
     fabric_uuid: "{{ fabric_uuid }}"
     job_ctx: "{{ job_ctx }}"
-    credentials: "{{ credentials }}"
     subnets: "{{ host_prefix }}"
     version: "v2c"
     community: "public"

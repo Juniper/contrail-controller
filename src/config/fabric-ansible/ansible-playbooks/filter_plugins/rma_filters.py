@@ -159,5 +159,4 @@ class FilterModule(object):
         return JobVncApi.decrypt_password(
             encrypted_password=device_obj.physical_router_user_credentials.
             get_password(),
-            admin_password=self.job_ctx.get('vnc_api_init_params').
-            get('admin_password'))
+            pwd_key=device_obj.uuid)
