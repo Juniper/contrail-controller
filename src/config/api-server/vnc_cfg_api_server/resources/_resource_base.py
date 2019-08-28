@@ -10,6 +10,7 @@ from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from sandesh_common.vns import constants
 from vnc_api.gen.resource_xsd import QuotaType
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 from vnc_cfg_api_server.vnc_quota import QuotaHelper
 
@@ -243,7 +244,12 @@ class ResourceMixin(object):
         try:
             cls.server.internal_request_create(cls.resource_type, obj_dict)
         except HttpError as e:
-            return False, (e.status_code, e.content)
+            if e.status_code != 409:
+                return False, (e.status_code, e.content)
+            else:
+                # Ignore the refsExistError.
+                cls.db_conn.config_log('Ignoring the refsExistError',
+                                       level=SandeshLevel.SYS_DEBUG)
         try:
             uuid = cls.db_conn.fq_name_to_uuid(cls.object_type, fq_name)
         except NoIdError as e:
