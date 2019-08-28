@@ -242,6 +242,8 @@ class ResourceMixin(object):
             obj_dict[ref_name] = copy.deepcopy(kwargs[ref_name])
         try:
             cls.server.internal_request_create(cls.resource_type, obj_dict)
+        except RefsExistError:
+            pass
         except HttpError as e:
             return False, (e.status_code, e.content)
         try:
