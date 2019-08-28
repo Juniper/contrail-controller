@@ -296,6 +296,7 @@ class RoutingInstanceST(ResourceBaseST):
                                 vn.get_route_target())
                 update_ri |= \
                     self.import_default_ri_route_target_to_service_ri()
+
                 if update_ri:
                     try:
                         self._vnc_lib.routing_instance_update(self.obj)
