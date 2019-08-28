@@ -1,15 +1,17 @@
 """
 This script associates a network namespace with a docker instance.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import argparse
 import socket
 import subprocess
 import sys
 
-from instance_provisioner import Provisioner
-from lxc_manager import LxcManager
-from vrouter_control import interface_register, interface_unregister
+from .instance_provisioner import Provisioner
+from .lxc_manager import LxcManager
+from .vrouter_control import interface_register, interface_unregister
 
 def build_network_name(project_name, network_name):
     if network_name.find(':') >= 0:
@@ -35,7 +37,7 @@ def main():
 
     args = parser.parse_args(sys.argv[1:])
     if not args.start and not args.stop:
-        print "Please specify --start or --stop action"
+        print("Please specify --start or --stop action")
         sys.exit(1)
 
     manager = LxcManager()

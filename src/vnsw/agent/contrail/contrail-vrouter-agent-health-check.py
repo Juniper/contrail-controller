@@ -3,13 +3,15 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import object
 import os
 import sys
 from threading import Event
 from subprocess import call
 from argparse import ArgumentParser
 
-class HealthCheckBase():
+class HealthCheckBase(object):
     def __init__(self, event, ip, timer, timeout, retries, uri):
         self.event = event
         self.ip = ip
