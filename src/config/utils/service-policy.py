@@ -10,12 +10,8 @@ import time
 import argparse
 
 sys.path.insert(0, os.path.realpath('/usr/lib/python2.7/site-packages'))
-sys.path.insert(
-    0,
-    os.path.realpath('/usr/lib/python2.7/site-packages/vnc_cfg_api_server/'))
 
 from vnc_api.vnc_api import *
-import vnc_cfg_api_server
 from svc_monitor import svc_monitor
 
 
