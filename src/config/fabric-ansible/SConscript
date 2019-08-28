@@ -27,9 +27,9 @@ setup_sources = [
            'requirements.txt',
            'test-requirements.txt',
            '.testr.conf',
-           '.coveragerc',
            'tox.ini',
            'test',
+           'ansible-playbooks'
           ]
 
 setup_sources_rules = []

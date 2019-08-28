@@ -8,7 +8,9 @@ import sys
 import logging
 from flexmock import flexmock
 import json
-from collections import OrderedDict
+from cfgm_common.exceptions import (
+    RefsExistError
+)
 
 sys.path.append('../common/cfgm_common/tests')
 
@@ -18,9 +20,9 @@ from test_utils import FakeKazooClient
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-#sys.path.append('../fabric-ansible/ansible-playbooks/filter_plugins')
+sys.path.append('../fabric-ansible/ansible-playbooks/filter_plugins')
 
-#from hitless_upgrade_filters import FilterModule
+from hitless_upgrade_filters import FilterModule
 
 sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
 
@@ -158,8 +160,8 @@ mock_upgrade_plan = {
             "name": "batch_4"
         }
     ],
-    "device_table": OrderedDict([
-        (DEV_UUID1, {
+    "device_table": {
+        DEV_UUID1: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -187,8 +189,8 @@ mock_upgrade_plan = {
             "role": "CRB-Gateway@spine",
             "uuid": DEV_UUID1,
             "batch_index": 2
-        }),
-        (DEV_UUID4, {
+        },
+        DEV_UUID4: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -216,8 +218,8 @@ mock_upgrade_plan = {
             "role": "CRB-Gateway@spine",
             "uuid": DEV_UUID4,
             "batch_index": 3
-        }),
-        (DEV_UUID2, {
+        },
+        DEV_UUID2: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -249,8 +251,8 @@ mock_upgrade_plan = {
             "role": "CRB-Access@leaf",
             "uuid": DEV_UUID2,
             "batch_index": 0
-        }),
-        (DEV_UUID3, {
+        },
+        DEV_UUID3: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -282,8 +284,8 @@ mock_upgrade_plan = {
             "role": "CRB-Access@leaf",
             "uuid": DEV_UUID3,
             "batch_index": 1
-        }),
-        (DEV_UUID5, {
+        },
+        DEV_UUID5: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -315,8 +317,8 @@ mock_upgrade_plan = {
             "role": "CRB-Access@leaf",
             "uuid": DEV_UUID5,
             "batch_index": 0
-        }),
-        (DEV_UUID6, {
+        },
+        DEV_UUID6: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -348,8 +350,8 @@ mock_upgrade_plan = {
             "role": "CRB-Access@leaf",
             "uuid": DEV_UUID6,
             "batch_index": 1
-        }),
-        (DEV_UUID7, {
+        },
+        DEV_UUID7: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -377,8 +379,8 @@ mock_upgrade_plan = {
             "role": "CRB-Access@leaf",
             "uuid": DEV_UUID7,
             "batch_index": 0
-        }),
-        (DEV_UUID8, {
+        },
+        DEV_UUID8: {
             "basic": {
                 "device_family": "qfx",
                 "device_fqname": [
@@ -406,8 +408,8 @@ mock_upgrade_plan = {
             "role": "CRB-Access@leaf",
             "uuid": DEV_UUID8,
             "batch_index": 0
-        })
-    ])
+        }
+    }
 }
 
 mock_device_image_db = {
@@ -877,7 +879,7 @@ mock_upgrade_plan_result = {
                  'dfb0cd32-46ca-4996-b155-806878d4e517',
                  'dfb0cd32-46ca-4996-b155-806878d4e518']
     },
-    'skipped_device_table': OrderedDict(),
+    'skipped_device_table': {},
     'batches': [{
         'device_names': ['device_2', 'device_5', 'device_7', 'device_8'],
         'name': 'Batch 1',
@@ -1486,7 +1488,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
         flexmock(self._vnc_lib).should_receive('job_template_read').\
             and_return(self.mockJobTemplate("hitless_upgrade_strategy_template"))
 
-    def _test_get_hitless_upgrade_plan(self):
+    def test_get_hitless_upgrade_plan(self):
         hitless_filter = FilterModule()
         upgrade_plan = hitless_filter.get_hitless_upgrade_plan(mock_job_ctx,
                         mock_image_upgrade_list)
@@ -1498,20 +1500,20 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
         mock_upgrade_plan_result['device_table'] = json.loads(json.dumps(mock_upgrade_plan_result['device_table']))
         self.assertEqual(mock_upgrade_plan_result, upgrade_plan)
 
-    def _test_get_next_batch(self):
+    def test_get_next_batch(self):
         hitless_filter = FilterModule()
         next_batch = hitless_filter.get_next_batch(mock_job_ctx,
                                                    mock_upgrade_plan,
                                                    DEV_UUID4)
         self.assertEqual(mock_next_batch_result, next_batch)
 
-    def _test_get_all_devices(self):
+    def test_get_all_devices(self):
         hitless_filter = FilterModule()
         all_devices = hitless_filter.get_all_devices(mock_job_ctx,
                                                      mock_upgrade_plan)
         self.assertEqual(mock_all_devices_result, all_devices)
 
-    def _test_get_device_info(self):
+    def test_get_device_info(self):
         hitless_filter = FilterModule()
         device_info = hitless_filter.get_device_info(mock_job_ctx,
                                                      DEV_UUID1)
@@ -1535,6 +1537,8 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 KeyValuePair(key='hitless_upgrade_input', value=mock_job_template_input_schema)]))
 
             self._vnc_lib.fabric_create(fabric_obj)
+        except RefsExistError:
+            logger.info("Fabric {} already exists".format(id))
         except Exception as ex:
             logger.error("ERROR creating fabric {}: {}".format(id, ex))
 
@@ -1545,6 +1549,8 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 if fqname == jt['job-template']['fq_name'][-1]:
                     job_template_obj = JobTemplate().from_dict(**jt['job-template'])
                     return job_template_obj
+        except RefsExistError:
+            logger.info("Job template {} already exists".format(fqname))
         except Exception as ex:
             logger.error("ERROR creating job template {}: {}".format(fqname, ex))
             return None
@@ -1559,6 +1565,8 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
             )
             image_obj.uuid = id
             self._vnc_lib.device_image_create(image_obj)
+        except RefsExistError:
+            logger.info("Device image {} already exists".format(id))
         except Exception as ex:
             logger.error("ERROR creating device image {}: {}".format(id, ex))
 
@@ -1582,6 +1590,8 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
             )
             device_obj.uuid = id
             self._vnc_lib.physical_router_create(device_obj)
+        except RefsExistError:
+            logger.info("Physical router {} already exists".format(id))
         except Exception as ex:
             logger.error("ERROR creating physical router {}: {}".format(id, ex))
 
@@ -1594,6 +1604,8 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
             pi_obj.parent_uuid = pi['parent_uuid']
             pi_obj.fq_name = pi['fq_name']
             self._vnc_lib.physical_interface_create(pi_obj)
+        except RefsExistError:
+            logger.info("Physical interface {} already exists".format(id))
         except Exception as ex:
             logger.error("ERROR creating physical interface {}: {}".format(id, ex))
 
@@ -1618,5 +1630,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                     ref['uuid'],
                     {'attr': attr_obj.__dict__},
                     'ADD')
+        except RefsExistError:
+            logger.info("VPG {} already exists".format(id))
         except Exception as ex:
             logger.error("ERROR creating VPG {}: {}".format(id, ex))

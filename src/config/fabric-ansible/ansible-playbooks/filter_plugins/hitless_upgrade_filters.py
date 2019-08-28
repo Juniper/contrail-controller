@@ -205,6 +205,9 @@ class FilterModule(object):
             if role not in role_device_groups:
                 role_device_groups[role] = []
             role_device_groups[role].append(device_uuid)
+        # Sort lists
+        for role, group in role_device_groups.iteritems():
+            group.sort()
         return role_device_groups
     # end _generate_role_device_groups
 
