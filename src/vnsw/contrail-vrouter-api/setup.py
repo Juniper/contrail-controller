@@ -7,6 +7,9 @@ import setuptools
 setuptools.setup(
     name='contrail-vrouter-api',
     version='1.0',
+    install_requires=[
+        'future',
+    ],
     packages=setuptools.find_packages(),
 
     # metadata

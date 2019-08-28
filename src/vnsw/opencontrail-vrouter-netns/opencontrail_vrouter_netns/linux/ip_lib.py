@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2012 OpenStack Foundation
@@ -15,9 +16,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from builtins import zip
+from builtins import str
+from builtins import next
+from builtins import object
 import netaddr
 
-import utils
+from . import utils
 
 
 VETH_MAX_NAME_LENGTH = 15
@@ -292,7 +297,7 @@ class IpLinkCommand(IpDeviceCommandBase):
         keys = tokens[::2]
         values = [int(v) if v.isdigit() else v for v in tokens[1::2]]
 
-        retval = dict(zip(keys, values))
+        retval = dict(list(zip(keys, values)))
         return retval
 
 
@@ -434,13 +439,13 @@ class IpRouteCommand(IpDeviceCommandBase):
                                                 'match', subnet).split('\n')
             for subnet_route_line in subnet_route_list_lines:
                 i = iter(subnet_route_line.split())
-                while(i.next() != 'dev'):
+                while(next(i) != 'dev'):
                     pass
-                device = i.next()
+                device = next(i)
                 try:
-                    while(i.next() != 'src'):
+                    while(next(i) != 'src'):
                         pass
-                    src = i.next()
+                    src = next(i)
                 except Exception:
                     src = ''
                 if device != interface_name:
@@ -502,7 +507,7 @@ class IpNetnsCommand(IpCommandBase):
         env_params = []
         if addl_env:
             env_params = (['env'] +
-                          ['%s=%s' % pair for pair in addl_env.items()])
+                          ['%s=%s' % pair for pair in list(addl_env.items())])
         return utils.execute(
             ns_params + env_params + list(cmds),
             root_helper=self._parent.root_helper,
