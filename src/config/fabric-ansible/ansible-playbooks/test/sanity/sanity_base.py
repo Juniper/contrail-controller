@@ -76,37 +76,6 @@ class SanityBase(object):
             tenant_name=self._api_server['tenant'])
     # end __init__
 
-    def create_fabric(self, fab_name, prouter_passwords):
-        """create fabric with list of device passwords"""
-        self._logger.info('Creating fabric: %s', fab_name)
-        fq_name = ['default-global-system-config', fab_name]
-        fab = Fabric(
-            name=fab_name,
-            fq_name=fq_name,
-            parent_type='global-system-config',
-            fabric_credentials={
-                'device_credential': [{
-                    'credential': {
-                        'username': 'root', 'password': passwd
-                    },
-                    'vendor': 'Juniper',
-                    'device_family': None
-                } for passwd in prouter_passwords]
-            }
-        )
-        try:
-            fab_uuid = self._api.fabric_create(fab)
-            fab = self._api.fabric_read(id=fab_uuid)
-        except RefsExistError:
-            self._logger.warn("Fabric '%s' already exists", fab_name)
-            fab = self._api.fabric_read(fq_name=fq_name)
-
-        self._logger.debug(
-            "Fabric created:\n%s",
-            pprint.pformat(self._api.obj_to_dict(fab), indent=4))
-        return fab
-    # end _create_fabric
-
     def add_mgmt_ip_namespace(self, fab, name, cidrs):
         """add management ip prefixes as fabric namespace"""
         ns_name = 'mgmt_ip-' + name
