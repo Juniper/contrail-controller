@@ -43,6 +43,7 @@ import ssl
 import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
+from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 
 try:
     from vnc_db import VncServerCassandraClient
@@ -50,12 +51,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.19"
+__version__ = "1.20"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.20:
+  - Add new check and clean methods for RT backrefs to RI
 * 1.19:
   - Fix typo at self.global_asn. CEM-8222
 * 1.18
@@ -186,6 +189,7 @@ exceptions = [
     'RTMalformedError',
     'CassRTRangeError',
     'ZkRTRangeError',
+    'RTbackrefError',
     'ZkIpMissingError',
     'ZkIpExtraError',
     'ZkSubnetMissingError',
@@ -1157,7 +1161,186 @@ class DatabaseManager(object):
                 orphan_resources.setdefault(obj_type, []).append(obj_uuid)
 
         return orphan_resources, errors
-# end class DatabaseManager
+
+    def audit_route_targets_routing_instance_backrefs(self):
+        # System RT can have more than one RI back-ref if it is a LR's RT
+        # - one RI back-ref per LR VMI and the RI corresponds to the VMI's RT
+        # - one RI back-ref to the dedicated left VN RI used for SNAT stuff
+        #   if LR have a gateway
+
+        fq_name_table = self._cf_dict['obj_fq_name_table']
+        uuid_table = self._cf_dict['obj_uuid_table']
+
+        back_refs_to_remove = {}
+        errors = []
+        for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
+            fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
+            try:
+                asn, id = _parse_rt(fq_name_str)
+            except ValueError:
+                continue
+            if (asn != self.global_asn or
+                    id < _get_rt_id_min_alloc(self.global_asn)):
+                continue  # Ignore user defined RT
+            try:
+                cols = uuid_table.xget(uuid, column_start='backref:',
+                                       column_finish='backref;')
+            except pycassa.NotFoundException:
+                continue
+            id_str = "%(#)010d" % {'#': id}
+            rt_zk_path = os.path.join(self.base_rtgt_id_zk_path, id_str)
+            try:
+                zk_fq_name_str = self._zk_client.get(rt_zk_path)[0]
+            except kazoo.exceptions.NoNodeError:
+                msg = ("Cannot read zookeeper RT ID %s for RT %s(%s)" %
+                       (rt_zk_path, fq_name_str, uuid))
+                self._logger.warning(msg)
+                errors.append(RTbackrefError(msg))
+                continue
+            lr_uuids = []
+            ri_uuids = []
+            for col, _ in cols:
+                if col.startswith('backref:logical_router:'):
+                    lr_uuids.append(col.rpartition(':')[-1])
+                elif col.startswith('backref:routing_instance:'):
+                    ri_uuids.append(col.rpartition(':')[-1])
+
+            if len(lr_uuids) > 1:
+                msg = ("RT %s(%s) have more than one LR: %s" %
+                       (fq_name_str, uuid, ','.join(lr_uuids)))
+                self._logger.warning(msg)
+                errors.append(RTbackrefError(msg))
+                continue
+            elif not lr_uuids and len(ri_uuids) >= 1:
+                # Not LR's RT, so need to clean stale RI back-ref
+                # just keep back-ref to RI pointed by zookeeper
+                try:
+                    zk_ri_fq_name_uuid_str = fq_name_table.get(
+                        'routing_instance',
+                        column_start='%s:' % zk_fq_name_str,
+                        column_finish='%s;' % zk_fq_name_str,
+                    )
+                except pycassa.NotFoundException:
+                    continue
+                zk_ri_uuid = zk_ri_fq_name_uuid_str.popitem()[
+                    0].rpartition(':')[-1]
+                try:
+                    # TODO(ethuleau): check import and export
+                    ri_uuids.remove(zk_ri_uuid)
+                except ValueError:
+                    # TODO(ethuleau): propose a heal method to add
+                    #                 missing RI back-refs
+                    msg = ("RT %s(%s) has no back-ref to the RI pointed by "
+                           "zookeeper %s(%s)" % (fq_name_str, uuid,
+                                                 zk_fq_name_str, zk_ri_uuid))
+                    self._logger.warning(msg)
+                    errors.append(RTbackrefError(msg))
+            elif len(lr_uuids) == 1:
+                lr_uuid = lr_uuids[0]
+                # check zookeeper pointed to that LR
+                try:
+                    lr_cols = dict(uuid_table.xget(lr_uuid))
+                except pycassa.NotFoundException:
+                    msg = ("Cannot read from cassandra LR %s back-referenced "
+                           "by RT %s(%s) in zookeeper" %
+                           (lr_uuid, fq_name_str, uuid))
+                    self._logger.warning(msg)
+                    errors.append(RTbackrefError(msg))
+                    continue
+                lr_fq_name = ':'.join(json.loads(lr_cols['fq_name']))
+                if zk_fq_name_str != lr_fq_name:
+                    msg = ("LR %s(%s) back-referenced does not correspond to "
+                           "the LR pointed by zookeeper %s for RT %s(%s)" %
+                           (lr_fq_name, lr_uuid, zk_fq_name_str, fq_name_str,
+                            uuid))
+                    self._logger.warning(msg)
+                    errors.append(RTbackrefError(msg))
+                    continue
+                # check RI back-refs correspond to LR VMIs
+                vmi_ris = []
+                for col, _ in lr_cols.items():
+                    if col.startswith('ref:service_instance:'):
+                        # if LR have gateway and SNAT, RT have back-ref to SNAT
+                        # left VN's RI (only import LR's RT to that RI)
+                        si_uuid = col.rpartition(':')[-1]
+                        try:
+                            si_cols = uuid_table.get(
+                                si_uuid, columns=['fq_name'])
+                        except pycassa.NotFoundException:
+                            msg = ("Cannot read from cassandra SI %s of LR "
+                                   "%s(%s) of RT %s(%s)" %
+                                   (si_uuid, lr_fq_name, lr_uuid, fq_name_str,
+                                    uuid))
+                            self._logger.warning(msg)
+                            errors.append(RTbackrefError(msg))
+                            continue
+                        si_fq_name = json.loads(si_cols['fq_name'])
+                        snat_ri_name = '%s_%s' % (
+                            _VN_SNAT_PREFIX_NAME, si_fq_name[-1])
+                        snat_ri_fq_name = si_fq_name[:-1] + 2 * [snat_ri_name]
+                        snat_ri_fq_name_str = ':'.join(snat_ri_fq_name)
+                        try:
+                            snat_ri_fq_name_uuid_str = fq_name_table.get(
+                                'routing_instance',
+                                column_start='%s:' % snat_ri_fq_name_str,
+                                column_finish='%s;' % snat_ri_fq_name_str,
+                            )
+                        except pycassa.NotFoundException:
+                            msg = ("Cannot read from cassandra SNAT RI %s of "
+                                   "LR %s(%s) of RT %s(%s)" %
+                                   (snat_ri_fq_name_str, lr_fq_name, lr_uuid,
+                                    fq_name_str, uuid))
+                            self._logger.warning(msg)
+                            errors.append(RTbackrefError(msg))
+                        snat_ri_uuid = snat_ri_fq_name_uuid_str.popitem()[
+                            0].rpartition(':')[-1]
+                        try:
+                            ri_uuids.remove(snat_ri_uuid)
+                            # TODO(ethuleau): check only import
+                        except ValueError:
+                            # TODO(ethuleau): propose a heal method to add
+                            #                 missing RI back-refs
+                            msg = ("RT %s(%s) has no back-ref to the SNAT RI "
+                                   "%s(%s) allocated for LR's %s(%s)" %
+                                   (fq_name_str, uuid, snat_ri_fq_name_str,
+                                    snat_ri_uuid, lr_fq_name, lr_uuid))
+                            self._logger.warning(msg)
+                            errors.append(RTbackrefError(msg))
+                        continue
+                    elif not col.startswith('ref:virtual_machine_interface:'):
+                        continue
+                    vmi_uuid = col.rpartition(':')[-1]
+                    try:
+                        vmi_cols = uuid_table.xget(
+                            vmi_uuid,
+                            column_start='ref:routing_instance:',
+                            column_finish='ref:routing_instance;')
+                    except pycassa.NotFoundException:
+                        msg = ("Cannot read from cassandra VMI %s of LR "
+                               "%s(%s) of RT %s(%s)" %
+                               (vmi_uuid, lr_fq_name, lr_uuid, fq_name_str,
+                                uuid))
+                        self._logger.warning(msg)
+                        errors.append(RTbackrefError(msg))
+                        continue
+                    for col, _ in vmi_cols:
+                        vmi_ri_uuid = col.rpartition(':')[-1]
+                        try:
+                            # TODO(ethuleau): check import and export
+                            ri_uuids.remove(vmi_ri_uuid)
+                        except ValueError:
+                            # TODO(ethuleau): propose a heal method to add
+                            #                 missing RI back-refs
+                            msg = ("RT %s(%s) has no back-ref to the RI "
+                                   "pointed by LR's %s(%s) VMI %s" %
+                                   (fq_name_str, uuid, lr_fq_name, lr_uuid,
+                                    vmi_uuid))
+                            self._logger.warning(msg)
+                            errors.append(RTbackrefError(msg))
+            if ri_uuids:
+                back_refs_to_remove[(fq_name_str, uuid)] = ri_uuids
+
+        return errors, back_refs_to_remove
 
 
 class DatabaseChecker(DatabaseManager):
@@ -1702,8 +1885,16 @@ class DatabaseChecker(DatabaseManager):
         # TODO detect all objects persisted that have discrepancy from
         # defined schema
         pass
-    # end check_schema_db_mismatch
-# end class DatabaseChecker
+
+    @checker
+    def check_route_targets_routing_instance_backrefs(self):
+        errors, back_refs_to_remove =\
+            self.audit_route_targets_routing_instance_backrefs()
+        for (rt_fq_name_str, rt_uuid), ri_uuids in back_refs_to_remove.items():
+            msg = ("Extra RI back-refs %s from RT %s(%s)" %
+                   (':'.join(ri_uuids), rt_fq_name_str, rt_uuid))
+            errors.append(RTbackrefError(msg))
+        return errors
 
 
 class DatabaseCleaner(DatabaseManager):
@@ -2428,7 +2619,31 @@ class DatabaseCleaner(DatabaseManager):
             ['routing_instance', 'logical_router'],
             ref_type='backref',
         )
-# end class DatabaseCleaner
+
+    @cleaner
+    def clean_route_targets_routing_instance_backrefs(self):
+        uuid_table = self._cf_dict['obj_uuid_table']
+
+        errors, back_refs_to_remove =\
+            self.audit_route_targets_routing_instance_backrefs()
+        for (rt_fq_name_str, rt_uuid), ri_uuids in back_refs_to_remove.items():
+            if not self._args.execute:
+                self._logger.info(
+                    "Would remove RI back-refs %s from RT %s(%s)",
+                    ':'.join(ri_uuids), rt_fq_name_str, rt_uuid)
+            else:
+                self._logger.info(
+                    "Removing RI back-refs %s from RT %s(%s)",
+                    ':'.join(ri_uuids), rt_fq_name_str, rt_uuid)
+                bch = uuid_table.batch()
+                for ri_uuid in ri_uuids:
+                    bch.remove(ri_uuid,
+                               columns=['ref:route_target:%s' % rt_uuid])
+                    bch.remove(
+                        rt_uuid,
+                        columns=['backref:routing_instance:%s' % ri_uuid])
+                bch.send()
+        return errors
 
 
 class DatabaseHealer(DatabaseManager):
@@ -2822,6 +3037,8 @@ def db_check(args, api_args):
     db_checker.check_orphan_resources()
     db_checker.check_fq_name_uuid_match()
     db_checker.check_duplicate_fq_name()
+    # Resource link inconsistencies
+    db_checker.check_route_targets_routing_instance_backrefs()
     # ID allocation inconsistencies
     db_checker.check_subnet_uuid()
     db_checker.check_subnet_addr_alloc()
@@ -2848,6 +3065,7 @@ def db_clean(args, api_args):
     db_cleaner.clean_stale_object()
     db_cleaner.clean_vm_with_no_vmi()
     db_cleaner.clean_stale_route_target()
+    db_cleaner.clean_route_targets_routing_instance_backrefs()
     db_cleaner.clean_stale_instance_ip()
     db_cleaner.clean_stale_back_refs()
     db_cleaner.clean_stale_refs()
