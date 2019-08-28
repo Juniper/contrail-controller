@@ -216,7 +216,7 @@ class FilterModule(object):
 
         # retrieve job input schema from job template to validate the job input
         fabric_onboard_template = vnc_api.job_template_read(
-            fq_name=job_template_fqname
+            fq_name=job_template_fqname, fields=['job_template_input_schema']
         )
         input_schema = fabric_onboard_template.get_job_template_input_schema()
         input_schema = json.loads(input_schema)
@@ -276,9 +276,13 @@ class FilterModule(object):
             'subnets of any existing fabric'
         )
         mgmt_networks = [IPNetwork(sn.get('cidr')) for sn in mgmt_subnets]
-        mgmt_tag = vnc_api.tag_read(fq_name=['label=fabric-management-ip'])
+        mgmt_tag = vnc_api.tag_read(fq_name=['label=fabric-management-ip'],
+                                    fields=['fabric_namespace_back_refs'])
         for ref in mgmt_tag.get_fabric_namespace_back_refs() or []:
-            namespace_obj = vnc_api.fabric_namespace_read(id=ref.get('uuid'))
+            namespace_obj = vnc_api.fabric_namespace_read(id=ref.get('uuid'),
+                                                          fields=['fq_name',
+                                                                  'fabric_namespace_type',
+                                                                  'fabric_namespace_value'])
 
             # skip namespaces belong to this fabric
             if _compare_fq_names(namespace_obj.fq_name[:-1], fab_fq_name):
@@ -1381,7 +1385,9 @@ class FilterModule(object):
         # delete all interfaces
         for pi_ref in list(device_obj.get_physical_interfaces() or []):
             pi_uuid = str(pi_ref.get('uuid'))
-            pi_obj = vnc_api.physical_interface_read(id=pi_uuid)
+            pi_obj = vnc_api.physical_interface_read(id=pi_uuid,fields=[
+                'fq_name','physical_interface_mac_addresses',
+                'logical_interfaces'] )
 
             # delete all the instance-ips for the fabric interfaces
             pi_mac = self._get_pi_mac(pi_obj)
@@ -1403,10 +1409,10 @@ class FilterModule(object):
             # delete all the logical interfaces for this physical interface
             for li_ref in list(pi_obj.get_logical_interfaces() or []):
                 li_uuid = str(li_ref.get('uuid'))
-                li_obj = vnc_api.logical_interface_read(id=li_uuid)
+                li_fq_name = str(li_ref.get('fq_name'))
                 _task_log(
                     "Deleting logical interface %s => %s"
-                    % (str(li_obj.fq_name[1]), str(li_obj.fq_name[3]))
+                    % (str(li_fq_name[1]), str(li_fq_name[3]))
                 )
                 vnc_api.logical_interface_delete(id=li_uuid)
                 _task_done()
@@ -1418,12 +1424,12 @@ class FilterModule(object):
             vnc_api.physical_interface_delete(id=pi_uuid)
             _task_done()
 
-        # delete all the hardware inventory items 
+        # delete all the hardware inventory items
         for hardware_item in list(device_obj.get_hardware_inventorys() or []):
             hr_uuid = str(hardware_item.get('uuid'))
-            hr_obj = vnc_api.hardware_inventory_read(id=hr_uuid)
+            hr_fq_name = str(hardware_item.get('fq_name'))
             _task_log(
-                "Deleting the hardware inventory object %s" % (str(hr_obj.fq_name)))
+                "Deleting the hardware inventory object %s" % (hr_fq_name))
             vnc_api.hardware_inventory_delete(id=hr_uuid)
             _task_done()
 
@@ -2269,11 +2275,11 @@ class FilterModule(object):
         try:
             ibgp_asn_namespace_obj = vnc_api.fabric_namespace_read(fq_name=[
                 'default-global-system-config', fabric_name, 'overlay_ibgp_asn'
-            ])
+            ], fields=['fabric_namespace_value'])
             return ibgp_asn_namespace_obj.fabric_namespace_value.asn.asn[0]
         except NoIdError:
             gsc_obj = vnc_api.global_system_config_read(
-                fq_name=[GSC]
+                fq_name=[GSC],fields=['autonomous_system']
             )
             return gsc_obj.autonomous_system
     # end _get_ibgp_asn
