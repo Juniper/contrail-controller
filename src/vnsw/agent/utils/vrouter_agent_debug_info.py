@@ -66,7 +66,13 @@ provider_config:
       ssh_pwd: c0ntrail123
   gcore_needed: true
 """
+from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 import subprocess
 import time
 import paramiko
@@ -75,7 +81,8 @@ import json
 import yaml
 import warnings
 warnings.filterwarnings(action='ignore',module='.*paramiko.*')
-from urllib2 import urlopen, URLError, HTTPError
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
 import xml.etree.ElementTree as ET
 
 class Debug(object):
@@ -381,7 +388,7 @@ class Debug(object):
 
     def get_vrouter_logs(self):
         print('\nTASK : copy vrouter logs')
-        print "\nDumping the output of commands to files"
+        print("\nDumping the output of commands to files")
         commands = ['nh --list', 'vrouter --info', 'dropstats',
                          'dropstats -l 0', 'vif --list', 'mpls --dump',
                          'vxlan --dump', 'vrfstats --dump', 'vrmemstats',
@@ -414,7 +421,7 @@ class Debug(object):
 
 
     def get_per_vrf_logs(self):
-        print "\nParsing through the vrfstats dump and getting logs per vrf"
+        print("\nParsing through the vrfstats dump and getting logs per vrf")
 
         myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c \
             "vrfstats --dump" >> /tmp/VRF_File1.txt'
@@ -477,7 +484,7 @@ class Debug(object):
     #end get_per_vrf_logs
 
     def get_virsh_individual_stats(self):
-        print "\nParsing through the virsh list and getting logs per virsh"
+        print("\nParsing through the virsh list and getting logs per virsh")
 
         myCmd = 'docker exec vrouter_vrouter-agent_1 /bin/sh -c \
             "virsh list" >> /tmp/VIRSH_File1.txt'
@@ -581,7 +588,7 @@ class Debug(object):
         subprocess.call(cmd, shell=True)
     # end delete_base_dir
 
-class Introspect:
+class Introspect(object):
     def __init__ (self, host, port):
         self.host_url = "http://" + host + ":" + str(port) + "/"
     # end __init__
@@ -593,14 +600,14 @@ class Introspect:
         try:
           response = urlopen(url)
         except HTTPError as e:
-            print 'The server couldn\'t fulfill the request.'
-            print 'URL: ' + url
-            print 'Error code: ', e.code
+            print('The server couldn\'t fulfill the request.')
+            print('URL: ' + url)
+            print('Error code: ', e.code)
             return 0
         except URLError as e:
-            print 'Failed to reach destination'
-            print 'URL: ' + url
-            print 'Reason: ', e.reason
+            print('Failed to reach destination')
+            print('URL: ' + url)
+            print('Reason: ', e.reason)
             return 0
         else:
             ISOutput = response.read()
@@ -650,7 +657,7 @@ class Introspect:
 USAGE_TEXT = __doc__
 
 def usage():
-    print USAGE_TEXT
+    print(USAGE_TEXT)
     sys.exit(1)
 # end usage
 

@@ -1,7 +1,8 @@
+from builtins import object
 import logging
 import exceptions
 
-class OSCert:
+class OSCert(object):
 
     def __init__(self, cert_container):
         self._cert_container = cert_container

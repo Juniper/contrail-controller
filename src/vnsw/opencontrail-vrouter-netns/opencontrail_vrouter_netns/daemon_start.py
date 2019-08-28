@@ -2,14 +2,15 @@
 This script creates and configures a linux network namespace such that an
 application can be executed under the context of a virtualized network.
 """
+from __future__ import absolute_import
 
 import argparse
 import socket
 import sys
 
-from instance_provisioner import Provisioner
-from lxc_manager import LxcManager
-from vrouter_control import interface_register
+from .instance_provisioner import Provisioner
+from .lxc_manager import LxcManager
+from .vrouter_control import interface_register
 
 
 def build_network_name(project_name, network_name):

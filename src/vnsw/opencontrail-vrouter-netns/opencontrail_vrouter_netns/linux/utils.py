@@ -17,6 +17,8 @@
 #
 # @author: Juliano Martinez, Locaweb.
 
+from builtins import map
+from builtins import str
 import fcntl
 import os
 import shlex
@@ -54,7 +56,7 @@ def create_process(cmd, root_helper=None, addl_env=None):
     """
     if root_helper:
         cmd = shlex.split(root_helper) + cmd
-    cmd = map(str, cmd)
+    cmd = list(map(str, cmd))
 
     env = os.environ.copy()
     if addl_env:

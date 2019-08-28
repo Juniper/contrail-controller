@@ -23,6 +23,9 @@ between two virtual networks. Such that an application can
 be executed under the context of a virtualized network.
 """
 from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 __docformat__ = "restructuredtext en"
 
 import argparse
@@ -36,9 +39,9 @@ import os
 import shlex
 
 
-from linux import ip_lib
-import haproxy_process
-from common import validate_uuid
+from .linux import ip_lib
+from . import haproxy_process
+from .common import validate_uuid
 
 
 class NetnsManager(object):

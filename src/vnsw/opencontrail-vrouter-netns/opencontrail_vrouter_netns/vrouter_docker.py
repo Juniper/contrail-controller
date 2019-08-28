@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import argparse
 import json
 import netaddr
@@ -7,8 +11,8 @@ import docker
 import sys
 import logging
 from docker.errors import APIError
-from vrouter_netns import NetnsManager
-from common import validate_uuid
+from .vrouter_netns import NetnsManager
+from .common import validate_uuid
 
 class VRouterDocker(object):
     """
@@ -29,7 +33,7 @@ class VRouterDocker(object):
             args = argv
         else:
             raise ValueError("argv or args_str must be suplied!")
-        print args
+        print(args)
         conf_parser = argparse.ArgumentParser(add_help=False)
         args, remaining_argv = conf_parser.parse_known_args(args)
         # Override with CLI options

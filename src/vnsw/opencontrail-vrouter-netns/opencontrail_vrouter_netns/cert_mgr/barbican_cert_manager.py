@@ -1,10 +1,14 @@
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import os
-import ConfigParser
+import configparser
 import logging
 import exceptions
 
-from tls import TLS
-from openstack_cert import OSCert
+from .tls import TLS
+from .openstack_cert import OSCert
 
 from keystoneclient import session
 from keystoneclient.auth.identity import v2 as v2_client
@@ -51,7 +55,7 @@ class BarbicanCertManager(object):
         return self.session
 
     def parse_args(self, auth_conf=None):
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         if (auth_conf):
             self.auth_conf = auth_conf
         else:
@@ -120,7 +124,7 @@ class BarbicanCertManager(object):
         for line in haproxy_config.split('\n'):
             if 'ssl crt' in line:
                 try:
-                    items = filter(lambda x: x.startswith('crt__'), line.split(' '))
+                    items = [x for x in line.split(' ') if x.startswith('crt__')]
                 except IndexError:
                     return None
                 for item in items or []:

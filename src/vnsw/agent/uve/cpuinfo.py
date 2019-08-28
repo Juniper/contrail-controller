@@ -1,7 +1,10 @@
+from __future__ import division
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
+from past.utils import old_div
 import os
 import psutil
 
@@ -21,19 +24,19 @@ class CpuInfoData(object):
     def _get_sys_mem_info(self):
         virtmem_info = psutil.virtual_memory()
         sys_mem_info = SysMemInfo()
-        sys_mem_info.total = virtmem_info.total/1024
-        sys_mem_info.used = virtmem_info.used/1024
-        sys_mem_info.free = virtmem_info.free/1024
-        sys_mem_info.buffers = virtmem_info.buffers/1024
-        sys_mem_info.cached = virtmem_info.cached/1024
+        sys_mem_info.total = old_div(virtmem_info.total,1024)
+        sys_mem_info.used = old_div(virtmem_info.used,1024)
+        sys_mem_info.free = old_div(virtmem_info.free,1024)
+        sys_mem_info.buffers = old_div(virtmem_info.buffers,1024)
+        sys_mem_info.cached = old_div(virtmem_info.cached,1024)
         return sys_mem_info
     #end _get_sys_mem_info
 
     def _get_mem_info(self):
         mem_info = MemInfo()
-        mem_info.virt = self._process.get_memory_info().vms/1024
+        mem_info.virt = old_div(self._process.get_memory_info().vms,1024)
         mem_info.peakvirt = mem_info.virt
-        mem_info.res = self._process.get_memory_info().rss/1024
+        mem_info.res = old_div(self._process.get_memory_info().rss,1024)
         return mem_info
     #end _get_mem_info
 
@@ -48,7 +51,7 @@ class CpuInfoData(object):
 
     def _get_cpu_share(self):
         cpu_percent = self._process.get_cpu_percent(interval=0.1)
-        return cpu_percent/self._get_num_cpu()
+        return old_div(cpu_percent,self._get_num_cpu())
     #end _get_cpu_share
 
     def get_cpu_info(self, system=True):

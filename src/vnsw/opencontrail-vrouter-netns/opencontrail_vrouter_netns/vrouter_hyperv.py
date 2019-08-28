@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from builtins import next
+from builtins import str
+from builtins import object
 import os
 import time
 import sys
@@ -11,7 +15,7 @@ import json
 import paramiko
 import socket
 
-from common import validate_uuid
+from .common import validate_uuid
 
 
 def call_powershell(cmds):

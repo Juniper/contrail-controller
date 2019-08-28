@@ -1,8 +1,9 @@
+from builtins import object
 import os
 
 from OpenSSL import crypto
 
-class TLS:
+class TLS(object):
 
     def __init__(self, id=None, certificate=None, private_key=None,
                  passphrase=None, intermediates=None, primary_cn=None):
@@ -42,5 +43,5 @@ class TLS:
         f = open(pem_file_name, 'w')
         f.write(pem)
         f.close()
-        os.chmod(pem_file_name, 0600)
+        os.chmod(pem_file_name, 0o600)
         return pem_file_name

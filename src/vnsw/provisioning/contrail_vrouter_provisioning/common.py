@@ -3,6 +3,11 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import os
 import socket
 import netaddr
@@ -129,7 +134,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         # get required size of hugetlbfs
         factor = int(dpdk_args['huge_pages'])
 
-        print dpdk_args
+        print(dpdk_args)
 
         if factor == 0:
             factor = 1
@@ -148,7 +153,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         if (reserved == ""):
             reserved = "0"
 
-        requested = ((int(memsize) * factor) / 100) / int(pagesize)
+        requested = old_div((old_div((int(memsize) * factor), 100)), int(pagesize))
 
         if (requested > int(reserved)):
             pattern = "^vm.nr_hugepages ="
@@ -176,7 +181,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         mounted = local("sudo mount | grep hugetlbfs | cut -d' ' -f 3",
                         capture=True, warn_only=False)
         if (mounted != ""):
-            print "hugepages already mounted on %s" % mounted
+            print("hugepages already mounted on %s" % mounted)
         else:
             local("sudo mkdir -p /hugepages", warn_only=False)
             pattern = "^hugetlbfs"
@@ -290,7 +295,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                  "VM core mask cannot be computed."
                                  % (dpdk_args))
 
-            all_cores = [x for x in xrange(cpu_count)]
+            all_cores = [x for x in range(cpu_count)]
 
             if 'x' in vr_coremask:  # String containing hexadecimal mask.
                 vr_coremask = int(vr_coremask, 16)
@@ -314,7 +319,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 for rng in vr_coremask:
                     if '-' in rng:  # If it's a range - expand it.
                         a, b = rng.split('-')
-                        vr_coremask_expanded += range(int(a), int(b) + 1)
+                        vr_coremask_expanded += list(range(int(a), int(b) + 1))
                     else:  # If not, just add to the list.
                         vr_coremask_expanded.append(int(rng))
 
@@ -363,7 +368,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             if uio_driver == "vfio-pci":
                 self.setup_sriov_grub(uio_driver)
         else:
-            print "No UIO driver defined for host, skipping..."
+            print("No UIO driver defined for host, skipping...")
             return
 
         if local('sudo modprobe %s'
@@ -652,8 +657,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                                  'routes': routes,
                                                  'routing_instance': vgw_public_vn_name[i]}
 
-            for section, key_vals in configs.items():
-                for key, val in key_vals.items():
+            for section, key_vals in list(configs.items()):
+                for key, val in list(key_vals.items()):
                     self.set_config(
                         '/etc/contrail/contrail-vrouter-agent.conf',
                         section, key, val)
@@ -703,8 +708,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         cfgfile = '/etc/contrail/contrail-lbaas-auth.conf'
         if not os.path.isfile(cfgfile):
             local('sudo touch %s' % cfgfile)
-        for section, key_vals in configs.items():
-            for key, val in key_vals.items():
+        for section, key_vals in list(configs.items()):
+            for key, val in list(key_vals.items()):
                 self.set_config(cfgfile, section, key, val)
 
     def fixup_vhost0_interface_configs(self):
@@ -867,8 +872,8 @@ SUBCHANNELS=1,2,3
                     'default_hw_queue': 'true',
                     'logical_queue': logical_queue}
 
-            for section, key_vals in configs.items():
-                for key, val in key_vals.items():
+            for section, key_vals in list(configs.items()):
+                for key, val in list(key_vals.items()):
                     self.set_config(
                         agent_conf,
                         section, key, val)
@@ -882,8 +887,8 @@ SUBCHANNELS=1,2,3
                     'scheduling': priority_scheduling[i],
                     'bandwidth': priority_bandwidth[i]}
 
-            for section, key_vals in configs.items():
-                for key, val in key_vals.items():
+            for section, key_vals in list(configs.items()):
+                for key, val in list(key_vals.items()):
                     self.set_config(
                         agent_conf,
                         section, key, val)
@@ -966,27 +971,27 @@ SUBCHANNELS=1,2,3
                     vrouter_module_params_args)
             else:
                 cmd = "options vrouter"
-                if 'mpls_labels' in vrouter_module_params_args.keys():
+                if 'mpls_labels' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_mpls_labels=%s" % vrouter_module_params_args['mpls_labels']
-                if 'nexthops' in vrouter_module_params_args.keys():
+                if 'nexthops' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_nexthops=%s" % vrouter_module_params_args['nexthops']
-                if 'vrfs' in vrouter_module_params_args.keys():
+                if 'vrfs' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_vrfs=%s" % vrouter_module_params_args['vrfs']
-                if 'macs' in vrouter_module_params_args.keys():
+                if 'macs' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_bridge_entries=%s" % vrouter_module_params_args['macs']
-                if 'flow_entries' in vrouter_module_params_args.keys():
+                if 'flow_entries' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_flow_entries=%s" % vrouter_module_params_args['flow_entries']
-                if 'oflow_entries' in vrouter_module_params_args.keys():
+                if 'oflow_entries' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_oflow_entries=%s" % vrouter_module_params_args['oflow_entries']
-                if 'mac_oentries' in vrouter_module_params_args.keys():
+                if 'mac_oentries' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_bridge_oentries=%s" % vrouter_module_params_args['mac_oentries']
-                if 'flow_hold_limit' in vrouter_module_params_args.keys():
+                if 'flow_hold_limit' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_flow_hold_limit=%s" % vrouter_module_params_args['flow_hold_limit']
-                if 'max_interface_entries' in vrouter_module_params_args.keys():
+                if 'max_interface_entries' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_interfaces=%s" % vrouter_module_params_args['max_interface_entries']
-                if 'vrouter_dbg' in vrouter_module_params_args.keys():
+                if 'vrouter_dbg' in list(vrouter_module_params_args.keys()):
                     cmd += " vrouter_dbg=%s" % vrouter_module_params_args['vrouter_dbg']
-                if 'vr_memory_alloc_checks' in vrouter_module_params_args.keys():
+                if 'vr_memory_alloc_checks' in list(vrouter_module_params_args.keys()):
                     cmd += " vr_memory_alloc_checks=%s" % vrouter_module_params_args['vr_memory_alloc_checks']
                 local(
                     "echo %s > %s" %
@@ -1029,7 +1034,7 @@ SUBCHANNELS=1,2,3
             mounted = local("sudo mount | grep hugepage_1G | cut -d' ' -f 3",
                             capture=True, warn_only=False)
             if (mounted != ""):
-                print "hugepages already mounted on %s" % mounted
+                print("hugepages already mounted on %s" % mounted)
             else:
                 local("sudo mkdir -p /mnt/hugepage_1G", warn_only=False)
                 local("sudo mount -t hugetlbfs -o pagesize=1G none /mnt/hugepage_1G", warn_only=False)
@@ -1053,7 +1058,7 @@ SUBCHANNELS=1,2,3
             mounted = local("sudo mount | grep hugepage_2M | cut -d' ' -f 3",
                             capture=True, warn_only=False)
             if (mounted != ""):
-                print "hugepages already mounted on %s" % mounted
+                print("hugepages already mounted on %s" % mounted)
             else:
                 local("sudo mkdir -p /mnt/hugepage_2M", warn_only=False)
                 local("sudo mount -t hugetlbfs -o pagesize=2M none /mnt/hugepage_2M", warn_only=False)
