@@ -1,7 +1,14 @@
+from __future__ import print_function
+from __future__ import division
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from past.utils import old_div
+from builtins import object
 import gevent
 from gevent import monkey; monkey.patch_all()
 import argparse
@@ -348,7 +355,7 @@ class MockGeneratorTest(object):
         node_type_name = NodeTypeNames[node_type]
         hostname = socket.getfqdn() + '-' + str(pid)
         hostnames = [hostname + '-' + str(x) for x in range(ngens)]
-        gen_factor = num_networks / num_networks_per_gen
+        gen_factor = old_div(num_networks, num_networks_per_gen)
         if gen_factor == 0:
             print("Number of virtual networks(%d) should be "
                 "greater than number of instances per generator(%d) times "
@@ -359,7 +366,7 @@ class MockGeneratorTest(object):
             for x in range(ngens)]
         end_vns = [((x % gen_factor) + 1) * num_networks_per_gen \
             for x in range(ngens)]
-        other_vn_adj = num_networks / 2
+        other_vn_adj = old_div(num_networks, 2)
         other_vns = [x - other_vn_adj if x >= other_vn_adj \
             else x + other_vn_adj for x in start_vns]
         num_ips_per_vn = int(math.ceil(float(ngens * num_networks_per_gen) / \
@@ -367,7 +374,7 @@ class MockGeneratorTest(object):
         start_ip_address = IPAddress(self._args.start_ip_address)
         ip_vns = [start_ip_address + num_ips_per_vn * x for x in \
             range(num_networks)]
-        start_ip_index = [x * num_networks_per_gen / num_networks for x in \
+        start_ip_index = [old_div(x * num_networks_per_gen, num_networks) for x in \
             range(ngens)]
         self._generators = [MockGenerator(hostnames[x], moduleid, \
             node_type_name, str(x), start_vns[x], end_vns[x], other_vns[x], \

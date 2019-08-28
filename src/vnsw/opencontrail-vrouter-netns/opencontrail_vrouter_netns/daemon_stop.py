@@ -1,14 +1,15 @@
 """
 Unconfigure the namespace created by daemon_start.
 """
+from __future__ import absolute_import
 
 import argparse
 import socket
 import sys
 
-from instance_provisioner import Provisioner
-from lxc_manager import LxcManager
-from vrouter_control import interface_unregister
+from .instance_provisioner import Provisioner
+from .lxc_manager import LxcManager
+from .vrouter_control import interface_unregister
 
 
 def daemon_stop():
