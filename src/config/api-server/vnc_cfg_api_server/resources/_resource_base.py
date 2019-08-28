@@ -243,7 +243,8 @@ class ResourceMixin(object):
         try:
             cls.server.internal_request_create(cls.resource_type, obj_dict)
         except HttpError as e:
-            return False, (e.status_code, e.content)
+            if e.status_code != 409:
+                return False, (e.status_code, e.content)
         try:
             uuid = cls.db_conn.fq_name_to_uuid(cls.object_type, fq_name)
         except NoIdError as e:
