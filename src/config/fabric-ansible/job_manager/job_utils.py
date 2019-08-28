@@ -60,14 +60,14 @@ class JobVncApi(object):
         return getattr(vnc_api.gen.resource_client, cls_name, None)
 
     @staticmethod
-    def decrypt_password(encrypted_password=None, admin_password=None):
-        if admin_password is None:
-            raise ValueError("Admin Password must be specified")
+    def decrypt_password(encrypted_password=None, pwd_key=None):
+        if pwd_key is None:
+            raise ValueError("Password key must be specified")
 
         if encrypted_password is None:
             raise ValueError("No password to decrypt")
 
-        key = admin_password.rjust(16)
+        key = pwd_key[-32:].rjust(16)
         cipher = AES.new(key, AES.MODE_ECB)
 
         password = cipher.decrypt(base64.b64decode(encrypted_password))
