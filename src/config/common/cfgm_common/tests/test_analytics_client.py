@@ -17,13 +17,16 @@
 #
 # @author: Sylvain Afchain, eNovance.
 
+import os
 import mock
 import unittest
 from requests.exceptions import ConnectionError
 from testtools import content, content_type, ExpectedException
 
 from cfgm_common.analytics_client import Client
+from cfgm_common.utils import find_buildroot
 
+builddir = find_buildroot(os.getcwd())
 
 class TestOpenContrailClient(unittest.TestCase):
 
@@ -180,4 +183,26 @@ class TestOpenContrailClient(unittest.TestCase):
         expected_data = {'arg1': 'aaa',
                          'key3': 'value3',
                          'key4': 'value4'}
+        self.assertEqual(expected_data, data)
+
+    def test_analytics_request_with_certificates(self):
+        api_params = {'ssl_enable': True,
+                      'insecure_enable': False,
+                      'ca_cert': builddir +'/opserver/test/data/ssl/ca-cert.pem',
+                      'keyfile': builddir + '/opserver/test/data/ssl/server-privkey.pem',
+                      'certfile': builddir + '/opserver/test/data/ssl/server.pem'}
+
+        self.client.set_analytics_api_ssl_params(analytics_api_ssl_params = \
+                                                 api_params)
+        self.client.request('fake/path/', 'fake_uuid')
+
+        call_args = self.get.call_args_list[0][0]
+        call_kwargs = self.get.call_args_list[0][1]
+
+        expected_url = ('https://127.0.0.1:8081/fake/path/fake_uuid')
+        self.assertEqual(expected_url, call_args[0])
+
+        data = call_kwargs.get('data')
+
+        expected_data = {'arg1': 'aaa'}
         self.assertEqual(expected_data, data)
