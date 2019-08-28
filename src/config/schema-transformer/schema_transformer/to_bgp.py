@@ -789,7 +789,7 @@ def main(args_str=None):
                                           os.getpid(), run_schema_transformer,
                                           st_logger, args)
     finally:
-        if trasformer:
+        if transformer:
             transformer.destroy_instance()
 # end main
 
