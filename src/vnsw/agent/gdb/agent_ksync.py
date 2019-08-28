@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 #  Copyright (c) 2016 Juniper Networks. All rights reserved.
 #
@@ -5,6 +6,8 @@
 #
 #  gdb macros to dump the vrouter agent KSync object/entries
 
+from builtins import next
+from builtins import str
 import gdb
 
 from libstdcxx.v6.printers import *

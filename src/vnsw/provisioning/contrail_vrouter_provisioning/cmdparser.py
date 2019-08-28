@@ -3,12 +3,15 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import os
 import re
 import ast
 import logging
 import argparse
-import ConfigParser
+import configparser
 
 
 log = logging.getLogger('contrail_vrouter_provisioning.cmdparser')
@@ -104,7 +107,7 @@ class ComputeArgsParser(object):
                 os.makedirs(conf_dir)
             with open(conf_file, 'w') as fd:
                 fd.write('')
-        self.config = ConfigParser.SafeConfigParser()
+        self.config = configparser.SafeConfigParser()
         self.config.read([conf_file])
 
     def evaluate(self, data):
