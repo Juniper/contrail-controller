@@ -10,6 +10,7 @@ from gevent import monkey
 monkey.patch_all()
 import gevent
 import gevent.event
+import base64
 
 import time
 from pprint import pformat
@@ -28,6 +29,7 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
+from Crypto.Cipher import AES
 
 import copy
 from cfgm_common import jsonutils as json
@@ -47,6 +49,9 @@ from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
 import functools
 
 import sys
+
+PR_PWD_ENCRYPTED = "-encrypted"
+
 
 def get_trace_id():
     try:
@@ -1262,6 +1267,24 @@ class VncDbClient(object):
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
                         self._object_db.object_update('virtual_machine_interface',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'physical_router':
+                    # Encrypt PR pwd if not already done
+                    if obj_dict.get('physical_router_user_credentials') and \
+                            obj_dict.get('physical_router_user_credentials',
+                                         {}).get('password'):
+                        dict_password = obj_dict.get(
+                            'physical_router_user_credentials',
+                            {}).get('password')
+                        if dict_password is not None and \
+                                PR_PWD_ENCRYPTED not in dict_password:
+                            encrypt_pwd = self.encrypt_password(dict_password)
+                            obj_dict[
+                                'physical_router_user_credentials'][
+                                'password'] = encrypt_pwd
+                            self._object_db.object_update(
+                                'physical_router',
+                                obj_uuid, obj_dict)
+
                 elif obj_type == 'access_control_list':
                     if not obj_dict.get('access_control_list_hash'):
                         rules = obj_dict.get('access_control_list_entries')
@@ -1343,6 +1366,35 @@ class VncDbClient(object):
             return self.dbe_uve_trace(*args)
         uve_workers.map(format_args_for_dbe_uve_trace, uve_trace_list)
     # end _dbe_resync
+
+    def encrypt_password(self, dict_password):
+        vnc_args = self._api_svr_mgr.get_args()
+        if vnc_args.auth == 'keystone':
+            admin_password = vnc_args.admin_password
+        else:
+            admin_password = vnc_args.get('admin_password')
+
+        # AES is a block cipher that only works with block of 16 chars.
+        # We need to pad both key and text so that their length is equal
+        # to next higher multiple of 16
+        # Used https://stackoverflow.com/a/33299416
+
+        key_padding_len = (len(admin_password) + 16 - 1) // 16
+        if key_padding_len == 0:
+            key_padding_len = 1
+        key = admin_password.rjust(16 * key_padding_len)
+        cipher = AES.new(key, AES.MODE_ECB)
+
+        text_padding_len = (len(dict_password) + 16 - 1) // 16
+        if text_padding_len == 0:
+            text_padding_len = 1
+        padded_text = dict_password.rjust(16 * text_padding_len)
+
+        encrypted_pwd = base64.b64encode(cipher.encrypt(padded_text))
+        encrypted_pwd = encrypted_pwd + PR_PWD_ENCRYPTED
+
+        return encrypted_pwd
+    # end encrypt_password
 
 
     def _dbe_check(self, obj_type, obj_uuids):

@@ -21,7 +21,7 @@ from vnc_api.vnc_api import VncApi
 
 
 PLAYBOOK_EOL_PATTERN = "*EOL*\n"
-
+PR_PWD_ENCRYPTED = "-encrypted"
 
 class JobStatus(Enum):
     STARTING = "STARTING"
@@ -65,6 +65,9 @@ class JobVncApi(object):
 
         if encrypted_password is None:
             raise ValueError("No password to decrypt")
+
+        # strip the encryption indicator
+        encrypted_password = encrypted_password.replace(PR_PWD_ENCRYPTED, "")
 
         key = admin_password.rjust(16)
         cipher = AES.new(key, AES.MODE_ECB)
