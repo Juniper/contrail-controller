@@ -22,7 +22,6 @@ from vnc_api.vnc_api import VncApi
 
 PLAYBOOK_EOL_PATTERN = "*EOL*\n"
 
-
 class JobStatus(Enum):
     STARTING = "STARTING"
     IN_PROGRESS = "IN_PROGRESS"

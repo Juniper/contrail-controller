@@ -670,14 +670,7 @@ class FilterModule(object):
             name=fab_name,
             fq_name=fq_name,
             display_name=fab_display_name,
-            parent_type='global-system-config',
-            fabric_credentials={
-                'device_credential': [
-                    {
-                        'credential': device_auth
-                    } for device_auth in fabric_info.get('device_auth')
-                ]
-            }
+            parent_type='global-system-config'
         )
         fab.set_annotations(KeyValuePairs([
             KeyValuePair(key='user_input', value=json.dumps(fabric_info))

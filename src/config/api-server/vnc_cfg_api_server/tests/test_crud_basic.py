@@ -744,9 +744,11 @@ class TestCrud(test_case.ApiServerTestCase):
         for rtr in phy_rtr_list:
             user_cred_read = rtr.get_physical_router_user_credentials()
             if user_cred_read.username == 'test_user':
-                self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
+                self.assertEqual(user_cred_read.password,
+                                 'LhipWpxez6Skw5kUIzyV0g==')
             if user_cred_read.username == 'test_user_2':
-                self.assertEqual(user_cred_read.password, 'QLAijg7KFHQo2mIedyPKiw==')
+                self.assertEqual(user_cred_read.password,
+                                 'QLAijg7KFHQo2mIedyPKiw==')
             if user_cred_read.username == 'test_user_3':
                 self.assertEqual(user_cred_read.password,
                     'hmRxjIpYG3nJzT1RifrRpr3Ip3J2/WAzHvCC4E5PCuY=')

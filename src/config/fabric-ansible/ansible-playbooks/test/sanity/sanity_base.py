@@ -83,16 +83,7 @@ class SanityBase(object):
         fab = Fabric(
             name=fab_name,
             fq_name=fq_name,
-            parent_type='global-system-config',
-            fabric_credentials={
-                'device_credential': [{
-                    'credential': {
-                        'username': 'root', 'password': passwd
-                    },
-                    'vendor': 'Juniper',
-                    'device_family': None
-                } for passwd in prouter_passwords]
-            }
+            parent_type='global-system-config'
         )
         try:
             fab_uuid = self._api.fabric_create(fab)
