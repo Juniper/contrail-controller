@@ -1,11 +1,14 @@
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
 import os
-import ConfigParser
+import configparser
 import subprocess
 import shlex
 import logging
 import itertools
 
-from cert_mgr.cert_manager import CertManager
+from .cert_mgr.cert_manager import CertManager
 
 LBAAS_DIR = "/var/lib/contrail/loadbalancer"
 HAPROXY_DIR = LBAAS_DIR + "/" + "haproxy"
@@ -24,7 +27,7 @@ log_levels = {
         'value': 35,
     },
 }
-for log_level_key in log_levels.keys():
+for log_level_key in list(log_levels.keys()):
     log_level = log_levels[log_level_key]
     logging.addLevelName(log_level['value'], log_level['name'])
 

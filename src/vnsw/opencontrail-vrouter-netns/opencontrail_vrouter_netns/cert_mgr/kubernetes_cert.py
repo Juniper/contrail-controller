@@ -1,5 +1,9 @@
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import os
-import ConfigParser
+import configparser
 import logging
 import exceptions
 
@@ -7,9 +11,9 @@ import requests
 import json
 import base64
 
-from tls import TLS
+from .tls import TLS
 
-class KubernetesCert:
+class KubernetesCert(object):
 
     def __init__(self, auth_conf=None):
         if auth_conf:
@@ -40,7 +44,7 @@ class KubernetesCert:
         self.beta_url = "%s/apis/extensions/v1beta1" % (self.url)
 
     def parse_args(self):
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read(self.auth_conf)
 
         self.kubernetes_token = config.get('KUBERNETES', 'kubernetes_token')
@@ -98,7 +102,7 @@ class KubernetesCert:
         for line in haproxy_config.split('\n'):
             if 'ssl crt' in line:
                 try:
-                    items = filter(lambda x: x.startswith('crt__'), line.split(' '))
+                    items = [x for x in line.split(' ') if x.startswith('crt__')]
                 except IndexError:
                     return None
                 for item in items or []:

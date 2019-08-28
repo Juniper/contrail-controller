@@ -1,5 +1,6 @@
 # Copyright (c) 2016 Juniper Networks, Inc
 
+from builtins import object
 import subprocess
 
 class ContrailVRouterApi(object):
@@ -19,7 +20,7 @@ class ContrailVRouterApi(object):
         """ Add all ports which we failed to add earlier """
         if (len(self._ports) == 0):
             return
-        for key in self._ports.keys():
+        for key in list(self._ports.keys()):
             ret_code = subprocess.call(self._ports[key])
             """ If port is added successfully, remove it from our list """
             if (ret_code == 0):
@@ -131,7 +132,7 @@ class ContrailVRouterApi(object):
         try:
             if self._semaphore:
                 self._semaphore.acquire()
-            if (vif_uuid_str in self._ports.keys()):
+            if (vif_uuid_str in list(self._ports.keys())):
                 self._ports.pop(vif_uuid_str, None)
                 return
 

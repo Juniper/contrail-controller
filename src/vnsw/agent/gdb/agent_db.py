@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 #  Copyright (c) 2016 Juniper Networks. All rights reserved.
 #
@@ -5,6 +6,9 @@
 #
 #  gdb macros to dump the vrouter agent DB object/entries
 
+from builtins import next
+from builtins import str
+from builtins import range
 import gdb
 
 from libstdcxx.v6.printers import *
@@ -217,9 +221,9 @@ def dump_ifmap_entries(table, filter_fn = default_filter):
 def print_iflink_entry(entry):
     iflink = entry.cast(gdb.lookup_type('IFMapLink'))
     left = iflink['node_']['left_node_']
-    print ("Left %s  name=%-40s - " % str(left), left['name_'])
+    print(("Left %s  name=%-40s - " % str(left), left['name_']))
     right = iflink['node_']['right_node_']
-    print ("Right %s  name=%-40s" % str(right), right['name_'])
+    print(("Right %s  name=%-40s" % str(right), right['name_']))
 
 def dump_ifmap_link_entries(table, filter_fn = default_filter):
     ifmap_table = gdb.parse_and_eval(str(table))
