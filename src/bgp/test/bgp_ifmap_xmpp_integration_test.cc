@@ -230,12 +230,14 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         string b = boost::lexical_cast<string>(
             server_->session_manager()->GetPort());
         string x = boost::lexical_cast<string>(xmpp_server_test_->GetPort());
+        string p = boost::lexical_cast<string>(pid);
 
         ofstream myfile;
         myfile.open (ufile.c_str());
-        string data = "{\"ControllerDetails\": [{ \"ProcessID\": " +
-            boost::lexical_cast<string>(pid) + ", \"BGPPORT\": "+ b +
-            ", \"XMPPPORT\": " + x + ", \"HTTPPORT\": " + h +"}]}" ;
+        string data = "{ \"Pid\": " + p +
+                      ", \"BGPPort\": " + b +
+                      ", \"XMPPPort\": " + x +
+                      ", \"HTTPPort\": " + h + "}";
         myfile << data;
         cout << data << endl;
         myfile.close();
