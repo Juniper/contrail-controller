@@ -61,7 +61,7 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
             try:
                 global_asn = cls.server.global_autonomous_system
             except VncError as e:
-                return False, (400, str(e)), None
+                return False, str(e), None
 
         if type(asn) == int:
             ok, result = cls.server.get_resource_class(
