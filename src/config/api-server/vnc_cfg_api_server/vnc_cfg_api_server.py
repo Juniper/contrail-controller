@@ -3779,7 +3779,7 @@ class VncApiServer(object):
             if obj_type == 'tag':
                 obj_dict = self._allocate_tag_id(obj_dict)
             if obj_type == 'security_group':
-                sg_id = self.alloc_security_group_id(fq_name)
+                sg_id = self.alloc_security_group_id(s_obj.get_fq_name_str())
                 obj_dict['security_group_id'] = sg_id
             self._db_conn.dbe_create(obj_type, obj_id, obj_dict)
             self.create_default_children(obj_type, s_obj)
