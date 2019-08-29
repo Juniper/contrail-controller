@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e4aec8fe_6b496cc9",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 189,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-29T21:14:53Z",
+      "side": 1,
+      "message": "Needs to be removed",
+      "range": {
+        "startLine": 189,
+        "startChar": 8,
+        "endLine": 189,
+        "endChar": 35
+      },
+      "revId": "36b19c1e30a0607db2296a4cb87b086227768a56",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "62563e30_9b19b68c",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 196,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-29T21:14:53Z",
+      "side": 1,
+      "message": "Can you remove all these spaces",
+      "range": {
+        "startLine": 196,
+        "startChar": 62,
+        "endLine": 196,
+        "endChar": 64
+      },
+      "revId": "36b19c1e30a0607db2296a4cb87b086227768a56",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "83919d96_e689dbec",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 506,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-08-29T21:14:53Z",
+      "side": 1,
+      "message": "can you replace this with something more readable ? Ex: \"pretty-print\"",
+      "range": {
+        "startLine": 506,
+        "startChar": 8,
+        "endLine": 506,
+        "endChar": 34
+      },
+      "revId": "36b19c1e30a0607db2296a4cb87b086227768a56",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
