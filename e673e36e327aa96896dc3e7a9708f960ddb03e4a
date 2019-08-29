@@ -1,0 +1,67 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7ed76a8c_45035e87",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 189,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T17:33:43Z",
+      "side": 1,
+      "message": "remove that",
+      "revId": "e673e36e327aa96896dc3e7a9708f960ddb03e4a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "df5174e0_bfa7490d",
+        "filename": "src/config/common/cfgm_common/zkclient.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T17:33:43Z",
+      "side": 1,
+      "message": "nit: this is not pep8 compliant",
+      "range": {
+        "startLine": 45,
+        "startChar": 0,
+        "endLine": 45,
+        "endChar": 8
+      },
+      "revId": "e673e36e327aa96896dc3e7a9708f960ddb03e4a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "201d7618_a6434239",
+        "filename": "src/config/common/cfgm_common/zkclient.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 681,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T17:33:43Z",
+      "side": 1,
+      "message": "Why are you override it? I don\u0027t see any diff from \u0027IndexAllocator.alloc\u0027",
+      "range": {
+        "startLine": 659,
+        "startChar": 4,
+        "endLine": 681,
+        "endChar": 43
+      },
+      "revId": "e673e36e327aa96896dc3e7a9708f960ddb03e4a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
