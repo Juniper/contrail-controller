@@ -944,6 +944,16 @@ bool AgentRoute::IsRPFInvalid() const {
     return path->is_subnet_discard();
 }
 
+bool AgentRoute::IsVhostSubnet() const {
+   const std::string prefix = ToString();
+   const std::string vhost_prefix = Agent::GetInstance()->vhost_prefix().to_string();
+   std::stringstream vhost_prefix_len_stream;
+   vhost_prefix_len_stream << Agent::GetInstance()->vhost_prefix_len();
+   const std::string vhost_prefix_len = vhost_prefix_len_stream.str();
+   const std::string vhost_subnet = vhost_prefix + "/" + vhost_prefix_len;
+   return (prefix == vhost_subnet);
+}
+
 void AgentRoute::HandleDeviceMastershipUpdate(AgentPath *path, bool del) {
     Agent *agent = Agent::GetInstance();
     PhysicalDeviceTable *table = agent->physical_device_table();
