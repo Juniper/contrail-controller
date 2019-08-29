@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f65c7f21_a98d980e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 3782,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-08-29T16:39:32Z",
+      "side": 1,
+      "message": "is this not same as line no. 3736?",
+      "revId": "102479d49f80a57078bca1557191f6ff5d1b4dd7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
