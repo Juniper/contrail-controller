@@ -50,12 +50,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.19"
+__version__ = "1.20"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.20:
+  - Fix SG ID allocation audit for SG __no_rule__ CEM-8607
 * 1.19:
   - Fix typo at self.global_asn. CEM-8222
 * 1.18
@@ -685,15 +687,19 @@ class DatabaseManager(object):
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_sgs = {}
         for sg_id in self._zk_client.get_children(base_path) or []:
+            sg_val = self._zk_client.get(base_path + '/' + sg_id)[0]
+
             # sg-id of 0 is reserved
             if int(sg_id) == 0:
-                sg_val = self._zk_client.get(base_path + '/' + sg_id)[0]
                 if sg_val != '__reserved__':
                     ret_errors.append(SG0UnreservedError(''))
                 continue
 
-            sg_fq_name_str = self._zk_client.get(base_path + '/' + sg_id)[0]
-            zk_all_sgs[int(sg_id)] = sg_fq_name_str
+            # Need due to the issue CEM-8607
+            if sg_val == "[u'default-domain', u'default-project', '__no_rule__']":
+                sg_val = 'default-domain:default-project:__no_rule__'
+
+            zk_all_sgs[int(sg_id)] = sg_val
 
         logger.debug("Got %d security-groups with id", len(zk_all_sgs))
 
