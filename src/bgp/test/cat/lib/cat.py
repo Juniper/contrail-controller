@@ -109,7 +109,7 @@ class CAT:
         parser.add_argument('-p', '--pause', action='store_true',
                        help='pause every test-case after each run')
         parser.add_argument('-l', '--logdir',
-                            default="/tmp/CAT/" + os.environ['USER'],
+                            default="/tmp/CAT_" + os.environ['USER'] + "/",
                             help='Redirect log files to this directory')
         parser.add_argument('-r', '--reportdir',
             default="/cs-shared/CAT/reports/" + os.environ['USER'],
