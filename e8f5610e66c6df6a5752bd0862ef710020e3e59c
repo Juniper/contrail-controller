@@ -1,0 +1,67 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fcf4bfbb_bb7759ec",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T08:19:07Z",
+      "side": 1,
+      "message": "You can be more precise if you use string method \u0027endswith\u0027:\n\n if not dict_password.endswith(cls.PWD_ENCRYPTED):",
+      "range": {
+        "startLine": 25,
+        "startChar": 16,
+        "endLine": 25,
+        "endChar": 57
+      },
+      "revId": "e8f5610e66c6df6a5752bd0862ef710020e3e59c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "27a547ba_04d12406",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T08:19:07Z",
+      "side": 1,
+      "message": "nit: to much indent",
+      "range": {
+        "startLine": 40,
+        "startChar": 0,
+        "endLine": 44,
+        "endChar": 55
+      },
+      "revId": "e8f5610e66c6df6a5752bd0862ef710020e3e59c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "43230f07_ab8cde3c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/fabric.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 80,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T08:19:07Z",
+      "side": 1,
+      "message": "same as above",
+      "revId": "e8f5610e66c6df6a5752bd0862ef710020e3e59c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
