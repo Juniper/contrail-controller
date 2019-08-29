@@ -16,6 +16,24 @@
       "revId": "102479d49f80a57078bca1557191f6ff5d1b4dd7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "63a61027_309c34cd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 3782,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-08-29T18:46:08Z",
+      "side": 1,
+      "message": "no this is the string version of the FQ name, not the python list of string",
+      "parentUuid": "f65c7f21_a98d980e",
+      "revId": "102479d49f80a57078bca1557191f6ff5d1b4dd7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
