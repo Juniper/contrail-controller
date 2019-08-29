@@ -949,7 +949,11 @@ AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
         rt = entry->GetUcRoute(key);
     }
     if (rt != NULL && rt->IsRPFInvalid()) {
-        return NULL;
+        if (rt->IsVhostSubnet()) {
+            return rt;
+        } else {
+            return NULL;
+        }
     }
     return rt;
 }

@@ -284,6 +284,7 @@ public:
     const NextHop *GetActiveNextHop() const;
     const std::string &dest_vn_name() const;
     bool IsRPFInvalid() const;
+    bool IsVhostSubnet() const;
 
     void EnqueueRouteResync() const;
     void ResyncTunnelNextHop();

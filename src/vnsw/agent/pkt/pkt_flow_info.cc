@@ -1161,9 +1161,12 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
     overlay_route_not_found = false;
     uint32_t src_tunnel_bmap = src_rt->GetActivePath()->tunnel_bmap();
     uint32_t dst_tunnel_bmap = dst_rt->GetActivePath()->tunnel_bmap();
+    const bool src_underlay = (src_tunnel_bmap & (1 << TunnelType::NATIVE))
+             || src_rt->IsVhostSubnet();
+    const bool dst_underlay = (dst_tunnel_bmap & (1 << TunnelType::NATIVE))
+             || dst_rt->IsVhostSubnet();
 
-     if ((src_tunnel_bmap & (1 << TunnelType::NATIVE)) &&
-         (dst_tunnel_bmap & (1 << TunnelType::NATIVE))) {
+     if (src_underlay && dst_underlay) {
          underlay_flow = true;
          //Set policy VRF for route tracking
          src_policy_vrf = intf->vrf()->vrf_id();
