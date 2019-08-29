@@ -47,9 +47,17 @@ static void WalkDone(DBTableBase *base)
     return;
 }
 
-static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result,
+                                    bool check_error) {
     //TBD
     //Validate the response by the expectation
+    BridgeRouteResp *resp = dynamic_cast<BridgeRouteResp *>(sandesh);
+    if (resp == NULL)
+        return;
+
+    const std::vector<RouteL2SandeshData> rt_list = resp->get_route_list();
+    if (check_error)
+        EXPECT_EQ(rt_list.size(), 1);
 }
 
 class TestL2RouteState : public DBState {
@@ -334,7 +342,7 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     MplsReq *mpls_list_req = new MplsReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
-                                               result));
+                                               result, false));
     mpls_list_req->HandleRequest();
     client->WaitForIdle();
     mpls_list_req->Release();
@@ -399,7 +407,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
 
     BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result, false));
     l2_req->set_vrf_index(1);
     l2_req->HandleRequest();
     client->WaitForIdle();
@@ -472,7 +480,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
     BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result, false));
     l2_req->set_vrf_index(1);
     l2_req->HandleRequest();
     client->WaitForIdle();
@@ -521,7 +529,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     EXPECT_TRUE(L2RouteFind(vrf_name_, remote_vm_mac_2_, remote_vm_ip4_2_));
     BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result, false));
     l2_req->set_vrf_index(1);
     l2_req->HandleRequest();
     client->WaitForIdle();
@@ -587,7 +595,7 @@ TEST_F(RouteTest, Bridge_route_key) {
 TEST_F(RouteTest, Sandesh_chaeck_with_invalid_vrf) {
     BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result, false));
     l2_req->set_vrf_index(100);
     l2_req->HandleRequest();
     client->WaitForIdle();
@@ -1788,6 +1796,32 @@ TEST_F(RouteTest, test_fmg_label_1) {
     DelVn("vn1");
     DelVrf("vrf2");
     DelVn("vn2");
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, BridgeRouteReqMacFilter) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    WAIT_FOR(100, 100, (VmPortActive(input, 0) == true));
+    BridgeRouteReq *l2_req = new BridgeRouteReq();
+    std::vector<int> result;
+    // Expect only one entry in sandesh response as mac filter is enabled, check error
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result, true));
+    l2_req->set_vrf_index(1);
+    // Filter brigde route for pkt0 interface
+    l2_req->set_mac("00:00:5e:00:01:00");
+    l2_req->HandleRequest();
+    client->WaitForIdle();
+    l2_req->Release();
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 }
 
