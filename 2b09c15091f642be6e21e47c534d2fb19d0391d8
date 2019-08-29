@@ -16,6 +16,24 @@
       "revId": "2b09c15091f642be6e21e47c534d2fb19d0391d8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ab7b8d1c_d4f9e4b0",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1409,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-08-29T20:54:14Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1321a0e3_bc545ca7",
+      "revId": "2b09c15091f642be6e21e47c534d2fb19d0391d8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
