@@ -62,9 +62,17 @@ class PnfConf(AnsibleRoleCommon):
     # end build_pnf_svc_sc_zone_policy_config
 
     def build_pnf_svc_ri_config(self, svc_params):
+        lr_name = []
         if svc_params.get('svc_inst_name'):
+            for lr_uuid in svc_params.get('logical_routers'):
+                lr = db.LogicalRouterDM.get(lr_uuid)
+                if lr:
+                    lr_name.append(lr.name+'_'+lr_uuid)
+
             ri_name = svc_params.get('svc_inst_name') + '_left_right'
             ri = RoutingInstance(name=ri_name)
+            ri.set_description(
+                "__contrail_%s" % ('_'.join(map(str, lr_name))))
             pim = Pim()
             protocol = RoutingInstanceProtocols()
             self.ri_map[ri_name] = ri
@@ -207,10 +215,12 @@ class PnfConf(AnsibleRoleCommon):
         for pt in pt_list or []:
             pt_obj = db.PortTupleDM.get(pt)
             if pt_obj:
+                lrs = pt_obj.logical_routers
                 si = pt_obj.svc_instance
                 si_obj = db.ServiceInstanceDM.get(si)
                 if si_obj:
                     svc_params = {}
+                    svc_params['logical_routers'] = lrs
                     svc_params['svc_inst_name'] = si_obj.name
                     svc_params['left_vlan'] = si_obj.left_svc_vlan
                     svc_params['right_vlan'] = si_obj.right_svc_vlan
