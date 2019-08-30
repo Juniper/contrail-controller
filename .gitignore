@@ -15,3 +15,6 @@ dist
 Doxygen
 *.retry
 .vscode
+go.sum
+src/cat/types
+src/cat/test/*.json
