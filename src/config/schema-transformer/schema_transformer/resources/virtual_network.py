@@ -35,8 +35,6 @@ from schema_transformer.utils import _PROTO_STR_TO_NUM_IPV6
 from schema_transformer.utils import RULE_IMPLICIT_ALLOW_UUID
 from schema_transformer.utils import RULE_IMPLICIT_DENY_UUID
 
-sys.setdefaultencoding('UTF8')
-
 
 # a struct to store attributes related to Virtual Networks needed by
 # schema transformer

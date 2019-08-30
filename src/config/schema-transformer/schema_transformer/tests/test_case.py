@@ -1,17 +1,18 @@
 import sys
 import uuid
 
+from cfgm_common.tests import test_common
 from gevent import sleep
 from gevent import spawn
-
-from cfgm_common.tests import test_common
-sys.path.insert(0, '../../../../build/production/config/schema-transformer/')
-
-from vnc_api.vnc_api import *
+from vnc_api.vnc_api import ActionListType, AddressType
+from vnc_api.vnc_api import InstanceIp, MirrorActionType, NetworkPolicy
+from vnc_api.vnc_api import PolicyEntriesType, PolicyRuleType, PortType
+from vnc_api.vnc_api import SubnetType
+from vnc_api.vnc_api import VirtualMachine, VirtualMachineInterface
 
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print >> sys.stderr, "."
+    print sys.stderr, "."
 
 
 # License: MIT
@@ -26,7 +27,7 @@ def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
             tries.reverse()
             for tries_remaining in tries:
                 try:
-                   return func(*args, **kwargs)
+                    return func(*args, **kwargs)
                 except exceptions as e:
                     if tries_remaining > 0:
                         if hook is not None:
@@ -75,10 +76,12 @@ class STTestCase(test_common.TestCase):
         super(STTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
         cluster_id = self._cluster_id
         self._svc_mon_greenlet = spawn(test_common.launch_svc_monitor,
-            cluster_id, self.id(), self._api_server_ip, self._api_server_port)
+                                       cluster_id, self.id(),
+                                       self._api_server_ip,
+                                       self._api_server_port)
         self._st_greenlet = spawn(test_common.launch_schema_transformer,
-            cluster_id, self.id(), self._api_server_ip, self._api_server_port,
-            extra_config_knobs)
+                                  cluster_id, self.id(), self._api_server_ip,
+                                  self._api_server_port, extra_config_knobs)
         test_common.wait_for_schema_transformer_up()
 
     def tearDown(self):
@@ -91,33 +94,34 @@ class STTestCase(test_common.TestCase):
         self._vnc_lib.virtual_machine_create(vm_instance)
         fq_name = [name]
         fq_name.append('0')
-        vmi = VirtualMachineInterface(parent_type = 'virtual-machine', fq_name = fq_name)
+        vmi = VirtualMachineInterface(parent_type='virtual-machine',
+                                      fq_name=fq_name)
         vmi.set_virtual_network(vn)
         self._vnc_lib.virtual_machine_interface_create(vmi)
         ip = InstanceIp(vm_instance.name + '.0')
         ip.set_virtual_machine_interface(vmi)
         ip.set_virtual_network(vn)
         ip.set_instance_ip_address(ipaddress)
-        uuid = self._vnc_lib.instance_ip_create(ip)
+        self._vnc_lib.instance_ip_create(ip)
         return vm_instance
 
     def vmi_clean(self, vm_instance):
         fq_name = vm_instance.fq_name
         fq_name.append('0')
         try:
-            vmi = self._vnc_lib.virtual_machine_interface_read(fq_name = fq_name)
+            vmi = self._vnc_lib.virtual_machine_interface_read(fq_name=fq_name)
         except NoIdError:
             return
 
         ips = vmi.get_instance_ip_back_refs()
         for ref in ips:
-            self._vnc_lib.instance_ip_delete(id = ref['uuid'])
+            self._vnc_lib.instance_ip_delete(id=ref['uuid'])
 
-        self._vnc_lib.virtual_machine_interface_delete(id = vmi.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
 
     def delete_virtual_machine(self, vm_instance):
         self.vmi_clean(vm_instance)
-        self._vnc_lib.virtual_machine_delete(id = vm_instance.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm_instance.uuid)
 
     def frame_rule_addresses(self, addr):
         addrs = [addr] if isinstance(addr, dict) else addr
@@ -129,18 +133,18 @@ class STTestCase(test_common.TestCase):
                     rule_kwargs.update({'virtual_network': vn})
                 else:
                     rule_kwargs.update(
-                            {'virtual_network': vn.get_fq_name_str()})
+                        {'virtual_network': vn.get_fq_name_str()})
             elif addr["type"] == "cidr_list":
                 subnets = []
                 for cidr in addr["value"]:
                     pfx, pfx_len = cidr.split('/')
                     subnets.append(SubnetType(pfx, int(pfx_len)))
-                rule_kwargs.update({'subnet_list' : subnets})
+                rule_kwargs.update({'subnet_list': subnets})
             else:
                 cidr = addr["value"].split('/')
                 pfx = cidr[0]
                 pfx_len = int(cidr[1])
-                rule_kwargs.update({'subnet' : SubnetType(pfx, pfx_len)})
+                rule_kwargs.update({'subnet': SubnetType(pfx, pfx_len)})
         rule_addr = AddressType(**rule_kwargs)
         return rule_addr
 
@@ -148,11 +152,13 @@ class STTestCase(test_common.TestCase):
         service_name_list = []
         service_list = rule.get('service_list', None)
         if service_list:
-            src_addresses = [rule['src']] if isinstance(rule['src'], dict) else rule['src']
-            dst_addresses = [rule['dst']] if isinstance(rule['dst'], dict) else rule['dst']
-            vn1_name = [addr["value"].get_fq_name_str()\
+            src_addresses = \
+                [rule['src']] if isinstance(rule['src'], dict) else rule['src']
+            dst_addresses = \
+                [rule['dst']] if isinstance(rule['dst'], dict) else rule['dst']
+            vn1_name = [addr["value"].get_fq_name_str()
                         for addr in src_addresses if addr["type"] == "vn"][0]
-            vn2_name = [addr["value"].get_fq_name_str()\
+            vn2_name = [addr["value"].get_fq_name_str()
                         for addr in dst_addresses if addr["type"] == "vn"][0]
             for service in service_list:
                 service_name_list.append(self._create_service(
@@ -164,14 +170,17 @@ class STTestCase(test_common.TestCase):
         mirror_si = None
         mirror_service = rule.get('mirror_service', None)
         if mirror_service:
-            src_addresses = [rule['src']] if isinstance(rule['src'], dict) else rule['src']
-            dst_addresses = [rule['dst']] if isinstance(rule['dst'], dict) else rule['dst']
-            vn1_name = [addr["value"].get_fq_name_str()\
+            src_addresses = \
+                [rule['src']] if isinstance(rule['src'], dict) else rule['src']
+            dst_addresses = \
+                [rule['dst']] if isinstance(rule['dst'], dict) else rule['dst']
+            vn1_name = [addr["value"].get_fq_name_str()
                         for addr in src_addresses if addr["type"] == "vn"][0]
-            vn2_name = [addr["value"].get_fq_name_str()\
+            vn2_name = [addr["value"].get_fq_name_str()
                         for addr in dst_addresses if addr["type"] == "vn"][0]
             mirror_si = self._create_service(
-                [('left', vn1_name), ('right', vn2_name)], mirror_service, False,
+                [('left', vn1_name), ('right', vn2_name)],
+                mirror_service, False,
                 service_mode='transparent', service_type='analyzer')
         return mirror_si
 
@@ -187,16 +196,17 @@ class STTestCase(test_common.TestCase):
             action_list = ActionListType()
             if mirror_service:
                 mirror = MirrorActionType(analyzer_name=mirror_service)
-                action_list.mirror_to=mirror
+                action_list.mirror_to = mirror
             if service_list:
-                action_list.apply_service=service_list
+                action_list.apply_service = service_list
             else:
-                action_list.simple_action=rule["action"]
-            prule = PolicyRuleType(rule_uuid=str(uuid.uuid4()),
-                               direction=rule["direction"], protocol=rule["protocol"],
-                               src_addresses=[addr1], dst_addresses=[addr2],
-                               src_ports=[src_port], dst_ports=[dst_port],
-                               action_list=action_list)
+                action_list.simple_action = rule["action"]
+            prule = PolicyRuleType(
+                rule_uuid=str(uuid.uuid4()),
+                direction=rule["direction"], protocol=rule["protocol"],
+                src_addresses=[addr1], dst_addresses=[addr2],
+                src_ports=[src_port], dst_ports=[dst_port],
+                action_list=action_list)
             pentrys.append(prule)
 
         pentry = PolicyEntriesType(pentrys)
@@ -213,16 +223,20 @@ class STTestCase(test_common.TestCase):
         if st.service_template_properties.version == 2:
             for pt_ref in si.get_port_tuples() or []:
                 pt = self._vnc_lib.port_tuple_read(id=pt_ref['uuid'])
-                for vmi_ref in pt.get_virtual_machine_interface_back_refs() or []:
-                    self._vnc_lib.virtual_machine_interface_delete(id=vmi_ref['uuid'])
+                for vmi_ref in \
+                        pt.get_virtual_machine_interface_back_refs() or []:
+                    self._vnc_lib.virtual_machine_interface_delete(
+                        id=vmi_ref['uuid'])
                 self._vnc_lib.port_tuple_delete(id=pt_ref['uuid'])
 
         self._vnc_lib.service_instance_delete(id=si.uuid)
         self._vnc_lib.service_template_delete(id=st.uuid)
 
-        if st.service_template_properties.service_virtualization_type == 'physical-device':
+        if st.service_template_properties.service_virtualization_type == \
+                'physical-device':
             sa_set_ref = st.get_service_appliance_set_refs()[0]
-            sa_set = self._vnc_lib.service_appliance_set_read(id=sa_set_ref['uuid'])
+            sa_set = self._vnc_lib.service_appliance_set_read(
+                id=sa_set_ref['uuid'])
             pr_list = set()
             pi_list = set()
             for sa_ref in sa_set.get_service_appliances() or []:
