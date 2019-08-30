@@ -660,6 +660,20 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         old_vlan = (read_result.get('virtual_machine_interface_properties') or
                     {}).get('sub_interface_vlan_tag') or 0
+        new_vlan = None
+        if 'virtual_machine_interface_properties' in obj_dict:
+            new_vlan = (obj_dict['virtual_machine_interface_properties'] or
+                        {}).get('sub_interface_vlan_tag') or 0
+            # vRouter has limitations for VLAN tag update.
+            # But, In case of neutron trunk port, subports are created first
+            # and then associated a VLAN tag
+            # To take care of limitations of vRouter for vlan tag update
+            # we will limit any vlan update once a port has been made
+            # a sub-interface
+            if (new_vlan != old_vlan and
+                    'virtual_machine_interface_refs' in read_result):
+                return False, (400, "Cannot change sub-interface VLAN tag ID")
+
         ret_dict = None
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
@@ -690,9 +704,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     if tor_port_vlan_id:
                         vlan_id = tor_port_vlan_id
                         is_untagged_vlan = True
+                        if (vlan_id != old_vlan and
+                           'virtual_machine_interface_refs' in read_result):
+                            return False, (400, "Cannot change VLAN ID")
                     else:
-                        vlan_id = old_vlan
-
+                        vlan_id = new_vlan
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
                         id, cls.server, db_conn, links, vpg_name,
                         vn_uuid, vlan_id, is_untagged_vlan)
@@ -703,19 +719,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
-
-        if 'virtual_machine_interface_properties' in obj_dict:
-            new_vlan = (obj_dict['virtual_machine_interface_properties'] or
-                        {}).get('sub_interface_vlan_tag') or 0
-            # vRouter has limitations for VLAN tag update.
-            # But, In case of neutron trunk port, subports are created first
-            # and then associated a VLAN tag
-            # To take care of limitations of vRouter for vlan tag update
-            # we will limit any vlan update once a port has been made
-            # a sub-interface
-            if (new_vlan != old_vlan and
-                    'virtual_machine_interface_refs' in read_result):
-                return False, (400, "Cannot change sub-interface VLAN tag ID")
 
         if 'virtual_machine_interface_bindings' in obj_dict or vmib:
             bindings_port = read_result.get(
@@ -892,6 +895,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_enterprise_restrictions(cls, all_vpgs, vpg_uuid, vn_uuid,
                                        vlan_id, is_untagged_vlan):
+
+        if vlan_id is None or vlan_id == 0:
+            return True, ''
+
         ok, result = cls._check_for_vlans_and_vns_across_vpg(
             all_vpgs,
             vn_uuid,
@@ -1063,6 +1070,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _check_service_provider_restrictions(cls, vpg_uuid, vn_uuid,
                                              vlan_id, is_untagged_vlan):
+        if vlan_id is None or vlan_id == 0:
+            return True, ''
         db_conn = cls.db_conn
         # Following restrictions exist for a service provider VLAN
         # 1. Only one native/untagged VLAN supported
