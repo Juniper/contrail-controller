@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0f52c9b5_dd545ed1",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_interface.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 56
+      },
+      "writtenOn": "2019-08-30T21:56:04Z",
+      "side": 1,
+      "message": "can we move this below copy right",
+      "revId": "e4295e64105c39b318da8886e517c36fc94154fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
