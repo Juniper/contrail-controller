@@ -400,22 +400,26 @@ class SvcMonitor(object):
     def port_delete_or_si_link(self, vm, vmi):
         if vmi.port_tuples:
             return
+
         if (vmi.service_instances and vmi.virtual_machine == None):
             self.vm_manager.cleanup_svc_vm_ports([vmi.uuid])
             return
 
         if not vm or vm.service_instance:
             return
+
         if not vmi.if_type:
             return
 
         if len(vmi.name.split('__')) < 4:
             return
-        si_fq_name = vmi.name.split('__')[0:3]
-        index = int(vmi.name.split('__')[3]) - 1
+
         for si in ServiceInstanceSM.values():
-            if si.fq_name != si_fq_name:
+            # form the vmi prefix name from si fq_name
+            vmi_prefix_name = ('__').join(si.fq_name) + '__'
+            if vmi_prefix_name not in vmi.name:
                 continue
+            index = int(vmi.name.split(vmi_prefix_name)[1].split('__')[0]) - 1
             st = ServiceTemplateSM.get(si.service_template)
             self.vm_manager.link_si_to_vm(si, st, index, vm.uuid)
             return
