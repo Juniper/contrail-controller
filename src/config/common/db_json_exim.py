@@ -67,8 +67,7 @@ class DatabaseExim(object):
 
     def _parse_args(self, args_str):
         parser = argparse.ArgumentParser()
-  
-        help="Path to contrail-api conf file, default /etc/contrail-api.conf"
+        help="Path to contrail-api conf file, default /etc/contrail/contrail-api.conf"
         parser.add_argument(
             "--api-conf", help=help, default="/etc/contrail/contrail-api.conf")
         parser.add_argument(
@@ -174,6 +173,11 @@ class DatabaseExim(object):
                        'zookeeper': {}}
 
         cassandra_contents = db_contents['cassandra']
+        creds = None
+        if (self._api_args.cassandra_user and
+            self._api_args.cassandra_password):
+            creds = {'username': self._api_args.cassandra_user,
+                     'password': self._api_args.cassandra_password}
         for ks_name in (set(KEYSPACES) -
                         set(self._args.omit_keyspaces or [])):
             if self._api_args.cluster_id:
@@ -181,16 +185,10 @@ class DatabaseExim(object):
             else:
                 full_ks_name = ks_name
             cassandra_contents[ks_name] = {}
-
             pool = pycassa.ConnectionPool(
                 full_ks_name, self._api_args.cassandra_server_list,
-                pool_timeout=120, max_retries=-1, timeout=5)
-
-            creds = None
-            if (self._api_args.cassandra_user and
-                self._api_args.cassandra_password):
-                creds = {'username': self._api_args.cassandra_user,
-                         'password': self._api_args.cassandra_password}
+                pool_timeout=120, max_retries=-1, timeout=5,
+                credentials=creds)
             sys_mgr = SystemManager(self._api_args.cassandra_server_list[0],
                 credentials=creds)
             for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
