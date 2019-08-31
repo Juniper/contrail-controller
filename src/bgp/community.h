@@ -186,23 +186,14 @@ public:
     int GetOriginVnIndex() const;
     static ExtCommunityList ExtCommunityFromString(const std::string &comm);
 
-    static bool is_origin_vn4(const ExtCommunityValue &val) {
-        //
-        // Origin VN extended community
-        // 2 Octet AS specific extended community
-        //
-        return (val[0] == BgpExtendedCommunityType::Experimental4ByteAs) &&
-               (val[1] ==
-                    BgpExtendedCommunityExperimentalSubType::OriginVn);
-    }
-
     static bool is_origin_vn(const ExtCommunityValue &val) {
         //
         // Origin VN extended community
         // 2 Octet AS specific extended community
         //
-        return (val[0] == BgpExtendedCommunityType::Experimental) &&
-               (val[1] == BgpExtendedCommunityExperimentalSubType::OriginVn);
+        return ((val[0] == BgpExtendedCommunityType::Experimental ||
+                    val[0] == BgpExtendedCommunityType::Experimental4ByteAs) &&
+               (val[1] == BgpExtendedCommunityExperimentalSubType::OriginVn));
     }
 
     static bool is_default_gateway(const ExtCommunityValue &val) {
