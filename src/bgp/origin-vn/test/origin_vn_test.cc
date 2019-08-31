@@ -121,6 +121,116 @@ TEST_F(OriginVnTest, FromString_5) {
     EXPECT_FALSE(origin_vn.IsGlobal());
 }
 
+TEST_F(OriginVnTest, ByteArray2_1) {
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x01, 0x02, 0x03, 0x04 }
+    };
+    OriginVn origin_vn(data);
+    EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(16909060, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:16909060", origin_vn.ToString());
+    EXPECT_TRUE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, ByteArray2_2) {
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x04, 0x03, 0x02, 0x01 }
+    };
+    OriginVn origin_vn(data);
+    EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(67305985, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:67305985", origin_vn.ToString());
+    EXPECT_TRUE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, ByteArray2_3) {
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x00, 0x00, 0x00, 0x00 }
+    };
+    OriginVn origin_vn(data);
+    EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(0, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:0", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, ByteArray2_4) {
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x7F, 0xFF, 0xFF, 0xFF }
+    };
+    OriginVn origin_vn(data);
+    EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(2147483647, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:2147483647", origin_vn.ToString());
+    EXPECT_TRUE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, ByteArray2_5) {
+    OriginVn::bytes_type data = {
+        { 0x80, 0x71, 0xff, 0x84, 0x00, 0x00, 0xff, 0xff }
+    };
+    OriginVn origin_vn(data);
+    EXPECT_FALSE(origin_vn.IsNull());
+    EXPECT_EQ(65412, origin_vn.as_number());
+    EXPECT_EQ(65535, origin_vn.vn_index());
+    EXPECT_EQ("originvn:65412:65535", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, FromString2_1) {
+    boost::system::error_code ec;
+    OriginVn origin_vn = OriginVn::FromString("originvn:6541200:1690", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(6541200, origin_vn.as_number());
+    EXPECT_EQ(1690, origin_vn.vn_index());
+    EXPECT_EQ("originvn:6541200:1690", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, FromString2_2) {
+    boost::system::error_code ec;
+    OriginVn origin_vn = OriginVn::FromString("originvn:6541200:6730", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(6541200, origin_vn.as_number());
+    EXPECT_EQ(6730, origin_vn.vn_index());
+    EXPECT_EQ("originvn:6541200:6730", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, FromString2_3) {
+    boost::system::error_code ec;
+    OriginVn origin_vn = OriginVn::FromString("originvn:654120:0", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(654120, origin_vn.as_number());
+    EXPECT_EQ(0, origin_vn.vn_index());
+    EXPECT_EQ("originvn:654120:0", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, FromString2_4) {
+    boost::system::error_code ec;
+    OriginVn origin_vn = OriginVn::FromString("originvn:6541200:21474", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(6541200, origin_vn.as_number());
+    EXPECT_EQ(21474, origin_vn.vn_index());
+    EXPECT_EQ("originvn:6541200:21474", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
+TEST_F(OriginVnTest, FromString2_5) {
+    boost::system::error_code ec;
+    OriginVn origin_vn = OriginVn::FromString("originvn:6541200:6553", &ec);
+    EXPECT_EQ(0, ec.value());
+    EXPECT_EQ(6541200, origin_vn.as_number());
+    EXPECT_EQ(6553, origin_vn.vn_index());
+    EXPECT_EQ("originvn:6541200:6553", origin_vn.ToString());
+    EXPECT_FALSE(origin_vn.IsGlobal());
+}
+
 // Does not contain a colon.
 TEST_F(OriginVnTest, Error_1) {
     boost::system::error_code ec;

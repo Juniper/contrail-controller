@@ -64,7 +64,7 @@ bool OriginVnPath::Contains(as_t asn, uint32_t vn_index) const {
         OriginVn origin_vn(asn, vn_index);
         return Contains(origin_vn.GetExtCommunity());
     }
-    OriginVn4ByteAs origin_vn4(asn, AS_TRANS);
+    OriginVn origin_vn4(asn, AS_TRANS);
     OriginVn origin_vn(AS_TRANS, vn_index);
     return (Contains(origin_vn.GetExtCommunity()) &&
                      Contains(origin_vn4.GetExtCommunity()));
