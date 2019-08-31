@@ -82,14 +82,14 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             # between 1-0xffFFffFF
             if asn < 1 or asn > 0xFFFFFFFF:
                 return (False,
-                        (400, 'ASN out of range, should be between '
-                              '1-0xFFFFFFFF'))
+                        ('ASN out of range, should be between '
+                         '1-0xFFFFFFFF'))
         else:
             # Only 2 Byte AS allowed. The range should be
             # between 1-0xffFF
             if asn < 1 or asn > 0xFFFF:
                 return (False,
-                        (400, 'ASN out of range, should be between 1-0xFFFF'))
+                        ('ASN out of range, should be between 1-0xFFFF'))
         return True, ''
 
     @classmethod
@@ -106,7 +106,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             global_asn,
             enable_4byte_as_in_dict=enable_4byte_as_in_dict)
         if not ok:
-            return ok, result
+            return ok, (400, result)
 
         # If the ASN has changed from 2 byte to 4 byte, we need to make sure
         # that there is enough space to reallocate the RT values in new
@@ -142,7 +142,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                 ok, result, _ = cls.server.get_resource_class(
                     'route_target').validate_route_target(rt, global_asn)
                 if not ok:
-                    return False, result
+                    return False, (400, result)
                 user_defined_rt = result
                 if not user_defined_rt:
                     founded_vn_using_asn.append((':'.join(vn['fq_name']),

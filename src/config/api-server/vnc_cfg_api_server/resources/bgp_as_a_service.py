@@ -51,7 +51,7 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         ok, result = cls._check_asn(obj_dict)
         if not ok:
-            return ok, result
+            return ok, (400, result)
 
         if 'control_node_zone_refs' in obj_dict:
             (ok, msg) = cls._validate_control_node_zone_dep(obj_dict)
@@ -68,7 +68,7 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls._check_asn(obj_dict)
         if not ok:
-            return ok, result
+            return ok, (400, result)
 
         result = None
         if 'control_node_zone_refs' in obj_dict:
