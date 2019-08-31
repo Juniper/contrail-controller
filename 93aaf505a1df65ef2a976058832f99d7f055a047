@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c18af76b_d87dc58a",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "why are you introducing globals like this?\n\nthese won\u0027t be thread safe without a lock\n\nalso don\u0027t you make\n\nvar (\n  FQNameTable \u003d map[string]map[string]string{}\n  UUIDTable  \u003d map[string]map[string]string{}\n)",
+      "revId": "93aaf505a1df65ef2a976058832f99d7f055a047",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fa865473_524a83e8",
+        "filename": "src/cat/config/global_system_config.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "if err :\u003d o.UpdateDB(); err !\u003d nil {\n  return nil, err\n}",
+      "revId": "93aaf505a1df65ef2a976058832f99d7f055a047",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "62c64005_311a93e0",
+        "filename": "src/cat/config/global_system_config.go",
+        "patchSetId": 4
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "This is not thread safe are you sure you want to be accessing a global map like this?",
+      "revId": "93aaf505a1df65ef2a976058832f99d7f055a047",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}

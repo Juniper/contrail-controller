@@ -1,0 +1,378 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "45aa9960_abe10cae",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "having all these \"relative paths\" seem very fragile\nalso move all \"paths\" to consts and out of code - see the ld path below",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "35af5560_124fe808",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "log.Debugf(\"Adding Virtual Port: %q\", cmd)",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f4207da_0b2889e7",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "Add docstring \n// WriteConfiguration writes the agent configuration to \"agentConfFile\"\nfunc (a *Agent) WriteConfiguration()",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bddf95bf_3b209af8",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "return error don\u0027t fatal",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "92966bfe_10084e47",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "SUT",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "897198bf_e5a8fcd5",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "BGPRouter\n\nadd docstring",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ada8d4a6_bb45edea",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "b",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1cc9c461_32565789",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "session_attributes :\u003d types.BgpSession {\n        Attributes: []types.BgpSessionAttributes{{\n            AdminDown: false,\n            Passive: false,\n            AsOverride: false,\n            LoopCount: 0,\n        }},\n    }",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6d560ba1_d885f2d5",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "i am assuming you planning on having more types?",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "77b09a7f_f28abb63",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "NewBGPRouter",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cd9251c9_32a11683",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "Family: []string{\"route-target\", \"inet-vpn\", \"e-vpn\", \"erm-vpn\", \"inet6-vpn\"},",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6c7c4441_12f80849",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "b",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ebb703f3_6622c9bf",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "if err :\u003d o.UpdateDB();err !\u003d nil {\n        return nil, err\n    }",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3c550aa4_854dc5d4",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "if this is a generated file - put that at the top of the file to make clear where these types are coming from as they don\u0027t match go style for naming",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b750ca20_ac53f6ca",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "you didn\u0027t address what these are or how they are meant to be used - in general globals are bad - global maps without locks are even worse",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "59b9204a_62df0611",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "routing_instance\n\nalso you are having alot of components that should likely be split into separate packages",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7430d1b2_633adca5",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "docstring",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6ba1ed28_f7a6edae",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "ri :\u003d",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7636cd87_3027d14e",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "ri RoutingInstance",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c615c7fd_27e1e61c",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "update doc string\n\n// ControlNode is a CAT component for contrail control nodes.",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e49be1ec_e94d17f6",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "add docstring",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c3f58b79_4aae0c79",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-08-31T19:30:05Z",
+      "side": 1,
+      "message": "use \n\n}{{\n  desc: ...\n}.{\n  ...\n}}\n\ncompressed format always",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
