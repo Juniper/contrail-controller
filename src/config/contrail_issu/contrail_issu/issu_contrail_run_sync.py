@@ -3,6 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 import time
+import os
 import paramiko
 import logging
 import ast
