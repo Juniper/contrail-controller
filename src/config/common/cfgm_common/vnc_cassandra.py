@@ -238,6 +238,22 @@ class VncCassandraClient(object):
                     if rows:
                         results[key] = rows
 
+            empty_keys = [key for key, value in results.items() if not value]
+            if empty_keys:
+                msg = ("Multiget for %d keys returned with an empty value "
+                       "CF (%s): Empty Keys (%s), columns (%s), start (%s), "
+                       "finish (%s). Retrying with xget" % (len(keys), cf_name,
+                           empty_keys, columns, start, finish))
+                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
+                # CEM-8595; some rows are None. fall back to xget
+                for key in empty_keys:
+                    rows = dict(cf.xget(key,
+                                        column_start=start,
+                                        column_finish=finish,
+                                        include_timestamp=timestamp))
+                    if rows:
+                        results[key] = rows
+
         if columns:
             max_key_range, _ = divmod(_thrift_limit_size, len(columns))
             if max_key_range > 1:
@@ -274,8 +290,8 @@ class VncCassandraClient(object):
             # deleting, pycassa could return key without value, ignore it
             if results[key] is None:
                 msg = ("Multiget result contains a key (%s) with an empty "
-                       "value. %s: keys (%s), columns (%s), start (%s), "
-                       "finish (%s)" % (key, cf_name, keys, columns, start,
+                       "value. %s: number of keys (%d), columns (%s), start (%s), "
+                       "finish (%s)" % (key, cf_name, len(keys), columns, start,
                                         finish))
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
                 empty_row_keys.append(key)
