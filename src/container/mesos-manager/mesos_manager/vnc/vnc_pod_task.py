@@ -7,10 +7,14 @@ VNC pod task management for  mesos
 """
 from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import json
 import uuid
 
-from cStringIO import StringIO
+from io import StringIO
 from cfgm_common.exceptions import RefsExistError, NoIdError
 from cfgm_common.utils import cgitb_hook
 from vnc_api.vnc_api import ( InstanceIp, VirtualMachine,
@@ -24,7 +28,7 @@ from mesos_manager.vnc.vnc_common import VncCommon
 from mesos_manager.vnc.vnc_mesos_config import (
     VncMesosConfig as vnc_mesos_config)
 from mesos_manager.mesos.pod_task_monitor import PodTaskMonitor
-from cStringIO import StringIO
+from io import StringIO
 from cfgm_common.utils import cgitb_hook
 
 class VncPodTask(VncCommon):
@@ -59,7 +63,7 @@ class VncPodTask(VncCommon):
 
         vr_uuid = VirtualRouterMM.get_ip_addr_to_uuid(node_ip)
         if vr_uuid is None:
-            for vr in VirtualRouterMM.values():
+            for vr in list(VirtualRouterMM.values()):
                 if vr.name == node_name:
                     vr_uuid = vr.uuid
         if vr_uuid is None:
@@ -196,7 +200,7 @@ class VncPodTask(VncCommon):
     def _clear_label_to_pod_cache(self, vm):
         if not vm.pod_labels:
             return
-        for label in vm.pod_labels.items() or []:
+        for label in list(vm.pod_labels.items()) or []:
             key = self._label_cache._get_key(label)
             pod_label_cache = self._label_cache.pod_label_cache
             self._label_cache._remove_label(key, pod_label_cache, label,
@@ -296,21 +300,21 @@ class MesosCniLabels(object):
             """Extract values from  args"""
             labels = event['labels']
             """Extract values from label"""
-            if 'domain-name' in labels.keys():
+            if 'domain-name' in list(labels.keys()):
                 self.domain_name = labels['domain-name']
-            if 'project-name' in labels.keys():
+            if 'project-name' in list(labels.keys()):
                 self.project_name = labels['project-name']
-            if 'networks' in labels.keys():
+            if 'networks' in list(labels.keys()):
                 self.networks = labels['networks']
-            if 'pod_subnets' in labels.keys():
+            if 'pod_subnets' in list(labels.keys()):
                 self.pod_subnets =  labels['pod-subnets']
-            if 'security-groups' in labels.keys():
+            if 'security-groups' in list(labels.keys()):
                 self.security_groups = labels['security-groups']
-            if 'floating-ips' in labels.keys():
+            if 'floating-ips' in list(labels.keys()):
                 self.floating_ips = labels['floating-ips']
-            if 'node-name' in labels.keys():
+            if 'node-name' in list(labels.keys()):
                 self.node_name = labels['node-name']
-            if 'node-ip' in labels.keys():
+            if 'node-ip' in list(labels.keys()):
                 self.node_ip = labels['node-ip']
             print ("Debug:{} {} {} {} {} {} {}"
                              .format(self.domain_name, self.project_name,

@@ -3,6 +3,7 @@ from __future__ import absolute_import
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 from vnc_api.vnc_api import *
 from kube_manager.vnc.config_db import *
 import uuid
@@ -359,7 +360,7 @@ class ServiceLbMemberManager(VncCommon):
         member_obj.set_loadbalancer_member_properties(props)
         if annotations:
             kvps = []
-            for key in annotations.keys():
+            for key in list(annotations.keys()):
                 kvp = {}
                 kvp['key'] = key
                 kvp['value'] = annotations[key]

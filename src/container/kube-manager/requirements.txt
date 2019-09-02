@@ -2,3 +2,5 @@ requests >= 2.20.0
 bitstring
 netaddr>=0.7.5
 contrail-config-common
+future
+configparser

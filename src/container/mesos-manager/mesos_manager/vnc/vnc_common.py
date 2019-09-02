@@ -2,6 +2,7 @@ from __future__ import absolute_import
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import object
 from .vnc_mesos_config import VncMesosConfig as vnc_mesos_config
 from vnc_api.vnc_api import (KeyValuePair,KeyValuePairs)
 from .config_db import DBBaseMM

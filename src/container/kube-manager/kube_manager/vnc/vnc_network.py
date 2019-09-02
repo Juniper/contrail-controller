@@ -7,6 +7,8 @@ VNC network management for kubernetes
 """
 from __future__ import print_function
 
+from builtins import str
+from past.builtins import basestring
 import uuid
 
 from vnc_api.vnc_api import (IpamSubnets, IpamSubnetType, NetworkIpam,

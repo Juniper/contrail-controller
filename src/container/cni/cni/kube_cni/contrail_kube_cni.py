@@ -11,6 +11,7 @@ Contrail CNI plugin for Kubernetes
 from __future__ import absolute_import
 
 
+from builtins import str
 import inspect
 import logging
 import os

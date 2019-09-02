@@ -7,6 +7,7 @@ Flow aging service management functions.
 """
 from __future__ import absolute_import
 
+from builtins import str
 from vnc_api.vnc_api import *
 from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 

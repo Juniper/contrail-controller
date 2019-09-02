@@ -1,7 +1,11 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-from cStringIO import StringIO
+from future import standard_library
+standard_library.install_aliases()
+from builtins import next
+from builtins import object
+from io import StringIO
 import json
 import socket
 import time

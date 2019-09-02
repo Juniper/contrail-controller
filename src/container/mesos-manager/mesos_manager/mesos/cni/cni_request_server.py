@@ -7,12 +7,13 @@ MESOS CNI Server
 """
 
 # Standard library import
+from builtins import object
 import bottle
 import json
 from cfgm_common.rest import LinkObject
 import json
 
-class MESOSCniDataObject:
+class MESOSCniDataObject(object):
 
     def __init__(self, data=None):
         self._data = data
@@ -122,7 +123,7 @@ class MesosCniServer(object):
             self.logger.info('Unable to parse publish request')
             self.logger.info(bottle.request.body.buf)
             bottle.abort(415, 'Unable to parse publish request')
-        for key, value in data.items():
+        for key, value in list(data.items()):
             json_req[key] = value
         #add argument to json list
         self.extract_arguments(json_req)
@@ -144,7 +145,7 @@ class MesosCniServer(object):
             self.logger.info('Unable to parse publish request')
             self.logger.info(bottle.request.body.buf)
             bottle.abort(415, 'Unable to parse publish request')
-        for key, value in data.items():
+        for key, value in list(data.items()):
             json_req[key] = value
         #add argument to json list
         self.extract_arguments(json_req)

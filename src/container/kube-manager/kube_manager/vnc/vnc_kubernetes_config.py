@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import object
 from kube_manager.common.utils import (get_vn_fq_name_from_dict_string,
                                      get_domain_name_from_vn_dict_string,
                                      get_project_name_from_vn_dict_string,

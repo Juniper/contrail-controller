@@ -7,6 +7,7 @@
 CNI implementation
 Demultiplexes on the CNI_COMMAND and runs the necessary operation
 """
+from builtins import object
 import argparse
 import inspect
 import json
@@ -33,7 +34,7 @@ CONTRAIL_CNI_UNSUPPORTED_CMD = 501
 logger = None
 
 
-class ContrailCni():
+class ContrailCni(object):
     # Additional CNI commands supported by Contrail. Used in debugging and
     # developement cycles
     CONTRAIL_CNI_CMD_GET = 'get'

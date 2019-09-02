@@ -3,6 +3,8 @@ from __future__ import print_function
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from future import standard_library
+standard_library.install_aliases()
 import socket
 import sys
 

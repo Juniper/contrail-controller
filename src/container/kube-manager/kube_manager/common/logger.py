@@ -7,6 +7,7 @@
 Contrail Kube Manager logger
 """
 
+from builtins import object
 import socket
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
