@@ -20,7 +20,6 @@ subdirs = [
            'net',
            'route',
            'sandesh',
-           'storage',
            'xml',
            'xmpp',
            'nodemgr',
