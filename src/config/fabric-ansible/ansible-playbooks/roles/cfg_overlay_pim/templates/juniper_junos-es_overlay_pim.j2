@@ -6,17 +6,23 @@ set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family {{li.get
 {%     endif %}
 {% endfor %}
 {% for ri in device_abstract_config.get('routing_instances', []) %}
+{%     set ns = namespace(name='') %}
+{%     if ri.get('description', '') %}
+{%         set ns.name = ri.get('description') %}
+{%     else %}
+{%         set ns.name = ri.get('name') %}
+{%     endif %}
 {%     for protocol in ri.get('protocols', []) %}
 {%         for pim in protocol.get('pim', []) %}
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from protocol direct
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM then accept 
 set groups {{cfg_group}} policy-options policy-statement from_aggregate then reject
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim join-prune-timeout 420
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim rp local family inet address {{pim.rp.ip_address}}
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim join-prune-timeout 420
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim rp local family inet address {{pim.rp.ip_address}}
 {%             for pim_intf in pim.get('pim_interfaces',[]) %}
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface {{pim_intf.interface.name}} mode sparse
-set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim interface {{pim_intf.interface.name}} version 2
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim interface {{pim_intf.interface.name}} mode sparse
+set groups {{cfg_group}} routing-instances {{ns.name}} protocols pim interface {{pim_intf.interface.name}} version 2
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}
