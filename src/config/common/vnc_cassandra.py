@@ -230,6 +230,16 @@ class VncCassandraClient(object):
                     if rows:
                         results[key] = rows
 
+            if not all(results.values()):
+                # CEM-8595; some rows are None. fall back to xget
+                for key in keys:
+                    rows = dict(cf.xget(key,
+                                        column_start=start,
+                                        column_finish=finish,
+                                        include_timestamp=timestamp))
+                    if rows:
+                        results[key] = rows
+
         if columns:
             max_key_range, _ = divmod(_thrift_limit_size, len(columns))
             if max_key_range > 1:
