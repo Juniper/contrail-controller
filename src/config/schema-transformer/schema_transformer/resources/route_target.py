@@ -32,6 +32,15 @@ class RouteTargetST(ResourceBaseST):
             if rt_key not in cls:
                 cls._object_db.free_route_target(ri, asn)
 
+        # When upgrade happens from earlier releases to a release that
+        # supports 4 byte ASN, we need to take care of changing the
+        # zookeeper path for route-targets
+        # it will now be in /id/bgp/route-targets/type0
+
+        old_path = '%s%s' % (cls._object_db._zk_path_pfx,
+                             "/id/bgp/route-targets")
+        cls._object_db.populate_route_target_directory(old_path, asn)
+
         # This is to handle upgrade scenarios.
         # In case we upgrade to a release containing support to 4 Byte ASN
         # Once all the RTs are recreated in ZK in their new path, delete
