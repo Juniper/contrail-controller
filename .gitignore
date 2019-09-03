@@ -15,3 +15,6 @@ dist
 Doxygen
 *.retry
 .vscode
+.tox
+.stestr
+testr.subunit
