@@ -35,7 +35,7 @@
         <xsd:element name="tunnel-destination-networks" type="dac:Subnet" maxOccurs="unbounded"/>
         <xsd:element name="assisted-replicator" type="dac:AssistedReplicator"/>
         <xsd:element name="storm-control" type="dac:StormControl" maxOccurs="unbounded"/>
-
+        <xsd:element name="telemetry" type="dac:TelemetryProfile" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -142,6 +142,41 @@
         <xsd:element name="traffic-type" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="actions" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="recovery-timeout" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="EnabledInterfaceParams">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="sample-rate" type="xsd:integer"/>
+        <xsd:element name="polling-interval" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="CollectorParams">
+    <xsd:all>
+        <xsd:element name="collector-ip" type="xsd:string"/>
+        <xsd:element name="port" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SflowProfile">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="sample-rate" type="xsd:integer"/>
+        <xsd:element name="polling-interval" type="xsd:integer"/>
+        <xsd:element name="agent-id" type="xsd:string"/>
+        <xsd:element name="collector-addresses" type="dac:CollectorParams" maxOccurs="unbounded"/>
+        <xsd:element name="adaptive-sample-rate" type="xsd:integer"/>
+        <xsd:element name="enabled-interface-type" type="xsd:string"/>
+        <xsd:element name="enabled-interface-params" type="dac:EnabledInterfaceParams" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="TelemetryProfile">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="sflow-profile" type="dac:SflowProfile"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -256,6 +291,7 @@
        <xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
        <xsd:element name="link-aggregation-group" type="dac:LinkAggrGroup"/>
        <xsd:element name="logical-interfaces" type="dac:LogicalInterface" maxOccurs="unbounded"/>
+       <xsd:element name="telemetry-profile" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
