@@ -1,28 +1,22 @@
 {# Config for eBGP endpoints #}
 {% for ri in device_abstract_config.get("routing_instances", []) %}
-{%     set ns = namespace(name='') %}
-{%     if ri.get('description', '') %}
-{%         set ns.name = ri.get('description') %}
-{%     else %}
-{%         set ns.name = ri.get('name') %}
-{%     endif %}
-set groups {{cfg_group}} routing-instances {{ns.name}} instance-type {{ri.routing_instance_type}}
+set groups {{cfg_group}} routing-instances {{ri.name}} instance-type {{ri.routing_instance_type}}
 {%     for lo_intf in ri.get('loopback_interfaces',[]) %}
-set groups {{cfg_group}} routing-instances {{ns.name}} interface {{lo_intf.name}}
+set groups {{cfg_group}} routing-instances {{ri.name}} interface {{lo_intf.name}}
 {%     endfor %}
 {%     for intf in ri.get('routing_interfaces',[]) %}
-set groups {{cfg_group}} routing-instances {{ns.name}} interface {{intf.name}}
+set groups {{cfg_group}} routing-instances {{ri.name}} interface {{intf.name}}
 {%     endfor %}
 {%     for protocol in ri.get('protocols', []) %}
 {%         for bgp in protocol.get('bgp', []) %}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} local-address {{bgp.ip_address}}
-set groups {{cfg_group}} routing-instances {{ns.name}} routing-options autonomous-system {{bgp.autonomous_system}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} type {{bgp.type_}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} local-address {{bgp.ip_address}}
+set groups {{cfg_group}} routing-instances {{ri.name}} routing-options autonomous-system {{bgp.autonomous_system}}
 {%             for peer in bgp.get('peers',[]) %}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
 {%                 if peer.get('comment','') %}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
 {%                 endif %}
 {%             endfor %}
 {%         endfor %}
@@ -31,22 +25,16 @@ set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp
 
 {# Config for advertising 0/0 from SRX to QFX #}
 {% for ri in device_abstract_config.get('routing_instances', []) %}
-{%     set ns = namespace(name='') %}
-{%     if ri.get('description', '') %}
-{%         set ns.name = ri.get('description') %}
-{%     else %}
-{%         set ns.name = ri.get('name') %}
-{%     endif %}
 set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 from protocol direct
 set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t1 then accept
 set groups {{cfg_group}} policy-options policy-statement aggregate_contribute term t2 then reject
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term AGGR from protocol aggregate
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term AGGR then accept
-set groups {{cfg_group}} routing-instances {{ns.name}} routing-options aggregate route 0.0.0.0/0 policy aggregate_contribute
+set groups {{cfg_group}} routing-instances {{ri.name}} routing-options aggregate route 0.0.0.0/0 policy aggregate_contribute
 {%     for protocol in ri.get('protocols', []) %}
 {%         for bgp in protocol.get('bgp', []) %}
-set groups {{cfg_group}} routing-instances {{ns.name}} protocols bgp group {{bgp.name}} export from_aggregate
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} export from_aggregate
 {%         endfor %}
 {%     endfor %}
 {% endfor %}
