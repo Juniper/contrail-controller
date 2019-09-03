@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2c016957_87f7ee7d",
+        "filename": "src/bgp/routing-instance/routing_instance.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 1843,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-03T04:58:58Z",
+      "side": 1,
+      "message": "Nit: we should check for replicated path first so that new function is not called for primary paths at least.",
+      "range": {
+        "startLine": 1843,
+        "startChar": 13,
+        "endLine": 1843,
+        "endChar": 30
+      },
+      "revId": "dca96d808f8d138c88be81dd66b51aa8f755cc56",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f5dbabf7_1153862d",
+        "filename": "src/bgp/test/routing_policy_test.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 3807,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-03T04:58:58Z",
+      "side": 1,
+      "message": "since you are using ASSERT_TRUE, this check is not needed",
+      "range": {
+        "startLine": 3807,
+        "startChar": 35,
+        "endLine": 3807,
+        "endChar": 43
+      },
+      "revId": "dca96d808f8d138c88be81dd66b51aa8f755cc56",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9f3213d5_f31eaab6",
+        "filename": "src/bgp/test/routing_policy_test.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 4388,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-03T04:58:58Z",
+      "side": 1,
+      "message": "This testcase looks similar to other one you modified: Policy_RouteReplicate.\nif there is no different, we don\u0027t need to add duplicate cases.",
+      "range": {
+        "startLine": 4388,
+        "startChar": 26,
+        "endLine": 4388,
+        "endChar": 50
+      },
+      "revId": "dca96d808f8d138c88be81dd66b51aa8f755cc56",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
