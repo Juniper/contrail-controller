@@ -1154,6 +1154,12 @@
             "default-global-system-config", "storm-control"
           ],
           "name": "storm-control"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "telemetry"
+          ],
+          "name": "telemetry"
         }
       ]
     },
@@ -1523,6 +1529,70 @@
       ]
     },
     {
+      "object_type": "telemetry-profile",
+      "objects": [
+        {
+          "fq_name": [
+            "default-domain", "default-project", "default-telemetry-profile-1"
+          ],
+          "name": "default-telemetry-profile-1",
+          "telemetry_profile_is_default": true
+        },
+        {
+          "fq_name": [
+            "default-domain", "default-project", "default-telemetry-profile-2"
+          ],
+          "name": "default-telemetry-profile-2",
+          "telemetry_profile_is_default": true
+        },
+        {
+          "fq_name": [
+            "default-domain", "default-project", "default-telemetry-profile-3"
+          ],
+          "name": "default-telemetry-profile-3",
+          "telemetry_profile_is_default": true
+        }
+      ]
+    },
+    {
+      "object_type": "sflow-profile",
+      "objects": [
+        {
+          "fq_name": [
+            "default-domain", "default-project", "sflow-all-interfaces"
+          ],
+          "name": "sflow-all-interfaces",
+          "sflow_profile_is_default": true,
+          "sflow_parameters": {
+            "enabled_interface_type": "all",
+            "stats_collection_frequency": {}
+          }
+        },
+        {
+          "fq_name": [
+            "default-domain", "default-project", "sflow-fabric-interfaces"
+          ],
+          "name": "sflow-fabric-interfaces",
+          "sflow_profile_is_default": true,
+          "sflow_parameters": {
+            "enabled_interface_type": "fabric",
+            "stats_collection_frequency": {}
+          }
+        },
+        {
+          "fq_name": [
+            "default-domain", "default-project", "sflow-access-interfaces"
+          ],
+          "name": "sflow-access-interfaces",
+          "sflow_profile_is_default": true,
+          "sflow_parameters": {
+            "enabled_interface_type": "access",
+            "stats_collection_frequency": {}
+          }
+        }
+      ]
+    },
+    {
       "object_type": "role-config",
       "objects": [
         {
@@ -1624,6 +1694,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
@@ -1642,6 +1718,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
@@ -1660,6 +1742,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "spine" ]
     },
@@ -1684,6 +1772,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-gateway" ]
     },
@@ -1708,6 +1802,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-gateway" ]
     },
@@ -1732,6 +1832,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-mcast-gateway" ]
     },
@@ -1756,6 +1862,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-mcast-gateway" ]
     },
@@ -1764,7 +1876,8 @@
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
-    },{
+    },
+    {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
       "to_type": "feature",
@@ -1775,6 +1888,12 @@
       "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
     },
     {
       "from_type": "role-definition",
@@ -1803,6 +1922,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
     },
@@ -1823,6 +1948,12 @@
       "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
     },
     {
       "from_type": "role-definition",
@@ -1847,6 +1978,12 @@
       "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
     },
     {
       "from_type": "role-definition",
@@ -1874,9 +2011,21 @@
     },
     {
       "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "ar-replicator-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
     },
     {
       "from_type": "role-definition",
@@ -1886,9 +2035,21 @@
     },
     {
       "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "ar-client-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "ar-client-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "telemetry" ]
     },
     {
       "from_type": "role-definition",
@@ -2285,6 +2446,24 @@
       "from_fq_name": [ "default-global-system-config", "juniper-srx" ],
       "to_type": "job_template",
       "to_fq_name": [ "default-global-system-config", "fabric_config_template" ]
+    },
+    {
+      "from_type": "telemetry-profile",
+      "from_fq_name": [ "default-domain", "default-project", "default-telemetry-profile-1" ],
+      "to_type": "sflow-profile",
+      "to_fq_name": [ "default-domain", "default-project", "sflow-all-interfaces" ]
+    },
+    {
+      "from_type": "telemetry-profile",
+      "from_fq_name": [ "default-domain", "default-project", "default-telemetry-profile-2" ],
+      "to_type": "sflow-profile",
+      "to_fq_name": [ "default-domain", "default-project", "sflow-fabric-interfaces" ]
+    },
+    {
+      "from_type": "telemetry-profile",
+      "from_fq_name": [ "default-domain", "default-project", "default-telemetry-profile-3" ],
+      "to_type": "sflow-profile",
+      "to_fq_name": [ "default-domain", "default-project", "sflow-access-interfaces" ]
     }
   ]
 }
