@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "a5464523_6137fbe0",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T22:10:44Z",
+      "side": 1,
+      "message": "Hmm I did not get what Id path here.. Right now, I have made this to work with CI. I would request feedback from engprod team to formalize these paths",
+      "parentUuid": "45aa9960_abe10cae",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "35af5560_124fe808",
         "filename": "src/cat/agent/agent.go",
         "patchSetId": 5
@@ -48,6 +66,24 @@
       "side": 1,
       "message": "Done",
       "parentUuid": "35af5560_124fe808",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "b023a3c1_2bbb7d3d",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T22:10:44Z",
+      "side": 1,
+      "message": "log.Debugf is not found in the go version installed under thirdparty",
+      "parentUuid": "fa0ee612_f8a4e207",
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
