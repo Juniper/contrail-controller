@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "fa0ee612_f8a4e207",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "35af5560_124fe808",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1f4207da_0b2889e7",
         "filename": "src/cat/agent/agent.go",
         "patchSetId": 5
@@ -50,6 +68,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2c466d4e_02f52a35",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1f4207da_0b2889e7",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "40326253_6fc3a134",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bddf95bf_3b209af8",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "92966bfe_10084e47",
         "filename": "src/cat/cat.go",
         "patchSetId": 5
@@ -84,6 +138,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "002ad617_7ffa464e",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "92966bfe_10084e47",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -104,6 +176,24 @@
     },
     {
       "key": {
+        "uuid": "a5f1ff91_80104a26",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "897198bf_e5a8fcd5",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ada8d4a6_bb45edea",
         "filename": "src/cat/config/bgp_router.go",
         "patchSetId": 5
@@ -118,6 +208,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1df469fd_07922a19",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ada8d4a6_bb45edea",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -138,6 +246,24 @@
     },
     {
       "key": {
+        "uuid": "61e02da7_175f547a",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1cc9c461_32565789",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6d560ba1_d885f2d5",
         "filename": "src/cat/config/bgp_router.go",
         "patchSetId": 5
@@ -149,6 +275,24 @@
       "writtenOn": "2019-08-31T19:30:05Z",
       "side": 1,
       "message": "i am assuming you planning on having more types?",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "686656ba_8ea2341a",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Yes. The format of this code shall be similar across various contrail configuration elements. Some may have a single reference, some may have multiple. This is to keep them uniform across all such elements processing code.",
+      "parentUuid": "6d560ba1_d885f2d5",
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -189,6 +333,24 @@
     },
     {
       "key": {
+        "uuid": "e0e653e0_1c23abf3",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cd9251c9_32a11683",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6c7c4441_12f80849",
         "filename": "src/cat/config/bgp_router.go",
         "patchSetId": 5
@@ -203,6 +365,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c4f9ff97_a10782ca",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6c7c4441_12f80849",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -223,6 +403,24 @@
     },
     {
       "key": {
+        "uuid": "e3b00a12_68ead27a",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ebb703f3_6622c9bf",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3c550aa4_854dc5d4",
         "filename": "src/cat/config/config.go",
         "patchSetId": 5
@@ -237,6 +435,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "75a48c77_7ea939aa",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "3c550aa4_854dc5d4",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -257,6 +473,24 @@
     },
     {
       "key": {
+        "uuid": "04bd6333_bb867dfb",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Ack. Changed it to be passed by the caller (test)",
+      "parentUuid": "b750ca20_ac53f6ca",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "59b9204a_62df0611",
         "filename": "src/cat/config/routing_instnace.go",
         "patchSetId": 5
@@ -268,6 +502,24 @@
       "writtenOn": "2019-08-31T19:30:05Z",
       "side": 1,
       "message": "routing_instance\n\nalso you are having alot of components that should likely be split into separate packages",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0c21e90e_3fb7040e",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Hmm, they sort of map 1:1 with auto-generated contrail configuration elements. We can do this later as the need arises..",
+      "parentUuid": "59b9204a_62df0611",
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -291,6 +543,24 @@
     },
     {
       "key": {
+        "uuid": "72ce6540_bc7b0af7",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7430d1b2_633adca5",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ba1ed28_f7a6edae",
         "filename": "src/cat/config/routing_instnace.go",
         "patchSetId": 5
@@ -305,6 +575,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b26e6127_0571139b",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done, as r instead of ri to be consistent with other changes (b for bgpRouter), etc.",
+      "parentUuid": "6ba1ed28_f7a6edae",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -325,6 +613,24 @@
     },
     {
       "key": {
+        "uuid": "989168d7_873930e7",
+        "filename": "src/cat/config/routing_instnace.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7636cd87_3027d14e",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c615c7fd_27e1e61c",
         "filename": "src/cat/controlnode/controlnode.go",
         "patchSetId": 5
@@ -339,6 +645,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6b8d1453_701dfd3f",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "c615c7fd_27e1e61c",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -373,6 +697,24 @@
       "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6a3e914a_8f5c43da",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 5
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-03T21:16:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "c3f58b79_4aae0c79",
+      "revId": "fd183b6d246c1c50f29174c74852abc90de89986",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
