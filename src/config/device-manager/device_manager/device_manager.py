@@ -28,9 +28,10 @@ from db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     PhysicalRouterDM, PortDM, PortProfileDM, PortTupleDM, RoleConfigDM, \
     RoleDefinitionDM, RoutingInstanceDM, SecurityGroupDM, ServiceApplianceDM, \
     ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
-    ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, \
-    StormControlProfileDM, TagDM, VirtualMachineInterfaceDM, \
-    VirtualNetworkDM, VirtualPortGroupDM
+    ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, SflowProfileDM, \
+    StormControlProfileDM, TagDM, TelemetryProfileDM, \
+    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM, \
+    FlowNodeDM
 from device_conf import DeviceConf
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
@@ -68,6 +69,7 @@ class DeviceManager(object):
             'service_object': [],
             'e2_service_provider': [],
             'node_profile': [],
+            'telemetry_profile': [],
             'role_config': [],
             'fabric': [],
             'fabric_namespace': [],
@@ -175,6 +177,13 @@ class DeviceManager(object):
         },
         'storm_control_profile': {
             'self': ['port_profile'],
+        },
+        'telemetry_profile': {
+            'self': ['physical_router'],
+            'sflow_profile': ['physical_router'],
+        },
+        'sflow_profile': {
+            'self': ['telemetry_profile'],
         },
         'service_appliance_set': {
             'self': [],
@@ -373,6 +382,7 @@ class DeviceManager(object):
         DBBaseDM._sandesh = self.logger._sandesh
 
         GlobalSystemConfigDM.locate_all()
+        FlowNodeDM.locate_all()
         FeatureDM.locate_all()
         PhysicalRoleDM.locate_all()
         OverlayRoleDM.locate_all()
@@ -402,6 +412,8 @@ class DeviceManager(object):
         AccessControlListDM.locate_all()
         PortProfileDM.locate_all()
         StormControlProfileDM.locate_all()
+        TelemetryProfileDM.locate_all()
+        SflowProfileDM.locate_all()
         ServiceInstanceDM.locate_all()
         ServiceApplianceSetDM.locate_all()
         ServiceApplianceDM.locate_all()
