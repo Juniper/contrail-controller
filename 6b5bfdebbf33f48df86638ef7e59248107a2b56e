@@ -1,0 +1,248 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e4e5fbc8_ab12831b",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "don\u0027t wrap lines",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45577a73_c3dbcfe7",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "handle errors - at least log them so the user can see what is failing",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "62f80050_7cda8a43",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "why isn\u0027t this just time.Sleep -  you never documented WHY start python",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ee3f77c3_3995fe6a",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "comments are always in the format of a sentence starting with\n\nBGPRouter is a ....",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d8c43546_694584c1",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "BGPRouter",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7f568f84_9f5be153",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "BGP\n\nand everywhere below",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a8e55b6e_a56d6e58",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "ContrailConfig",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d1517782_44e8d5b7",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "UUID",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e4786b43_3ef839b1",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "why is this a slice?",
+      "range": {
+        "startLine": 35,
+        "startChar": 27,
+        "endLine": 35,
+        "endChar": 34
+      },
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d67bd980_7988100d",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "FQDN",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bb65b026_9a2b309e",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "func (c *ContrailConfig) Map(b []byte) ...",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "15f5d04f_6028b1e3",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "v :\u003d \u0026map[string]interface{}{}",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "23f6c1ea_9b4fcf81",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "conf :\u003d map[string]string{}",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8fba22a9_7d20c0bf",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-03T23:33:30Z",
+      "side": 1,
+      "message": "What are attr\u0027s allowed to be?\n\nswitch {\ncase strings.HasSuffix(key, \"_refs\"):\n  if _, ok :\u003d v[key] !ok {\n      continue\n  }\n  refs, ok :\u003d v[key].([]interface{})\n  if !ok {\n    return nil, fmt.Errorf(\"%q invalid ref key %q\", c.DisplayName, key)\n  }\n  for _, r :\u003d range refs {\n    ref, ok :\u003d r.(map[string]interface{})\n    if !ok {\n      return nil, fmt.Errorf(\"%q invalid ref %v\", c.DisplayName, ref)\n    }\n    k :\u003d fmt.Sprintf(\"ref:%v:%v\", ref[\"type\"], ref[\"uuid\"])\n    ...\n    obj[k] \u003d string(c)\n  }\ncase ...\n\nand so on",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
