@@ -280,6 +280,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.node_profile = None
         self.plugins = None
         self.nc_handler_gl = None
+        self.telemetry_profile = None
         self.update(obj_dict)
 
         self.set_conf_sent_state(False)
@@ -405,6 +406,7 @@ class PhysicalRouterDM(DBBaseDM):
             self.fabric_obj = FabricDM.get(self.fabric)
         self.update_multiple_refs('service_endpoint', obj)
         self.update_multiple_refs('e2_service_provider', obj)
+        self.update_single_ref('telemetry_profile', obj)
         self.update_single_ref('node_profile', obj)
 
         self.physical_role = None
@@ -600,6 +602,7 @@ class PhysicalRouterDM(DBBaseDM):
         self._object_db.delete_pr(self.uuid)
         self.uve_send(True)
         self.update_single_ref('node_profile', {})
+        self.update_single_ref('telemetry_profile', {})
         self.update_single_ref('fabric', {})
         self.fabric_obj = None
     # end delete_handler
@@ -2753,6 +2756,84 @@ class StormControlProfileDM(DBBaseDM):
         self.update_single_ref('port_profile', {})
     # end delete_obj
 # end class StormControlProfileDM
+
+
+class TelemetryProfileDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'telemetry_profile'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.sflow_profile = None
+        self.physical_router = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('physical_router', obj)
+        self.update_single_ref('sflow_profile', obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_single_ref('sflow_profile', {})
+        self.update_single_ref('physical_router', {})
+    # end delete_obj
+# end class TelemetryProfileDM
+
+
+class SflowProfileDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'sflow_profile'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.telemetry_profile = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.sflow_params = obj.get('sflow_parameters')
+        self.update_single_ref('telemetry_profile', obj)
+    # end update
+
+    def delete_obj(self):
+        self.update_single_ref('telemetry_profile', {})
+    # end delete_obj
+# end class SflowProfileDM
+
+
+class FlowNodeDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'flow_node'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_network = None
+        self.virtual_ip_addr = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('virtual_network', obj)
+        self.virtual_ip_addr = obj.get('flow_node_load_balancer_ip')
+    # end update
+
+    def delete_obj(self):
+        self.update_single_ref('virtual_network', {})
+    # end delete_obj
+# end class FlowNodeDM
 
 
 class LinkAggregationGroupDM(DBBaseDM):

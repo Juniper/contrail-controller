@@ -57,9 +57,12 @@ from vnc_cfg_api_server.resources.storm_control_profile import\
 from vnc_cfg_api_server.resources.port_profile import PortProfileServer
 from vnc_cfg_api_server.resources.service_group import ServiceGroupServer
 from vnc_cfg_api_server.resources.service_template import ServiceTemplateServer
+from vnc_cfg_api_server.resources.sflow_profile import SflowProfileServer
 from vnc_cfg_api_server.resources.sub_cluster import SubClusterServer
 from vnc_cfg_api_server.resources.tag import TagServer
 from vnc_cfg_api_server.resources.tag_type import TagTypeServer
+from vnc_cfg_api_server.resources.telemetry_profile import\
+    TelemetryProfileServer
 from vnc_cfg_api_server.resources.virtual_dns import VirtualDnsServer
 from vnc_cfg_api_server.resources.virtual_dns_record import\
     VirtualDnsRecordServer

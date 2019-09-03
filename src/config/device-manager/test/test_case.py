@@ -73,6 +73,74 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
+    def create_sflow_profile(self, name, sample_rate=None,
+                             polling_interval=None,
+                             adaptive_sample_rate=None,
+                             agent_id=None,
+                             enbld_intf_type=None,
+                             enbld_intf_params=None):
+
+        sflow_params = SflowParameters()
+        stats_coll_freq = StatsCollectionFrequency()
+        if sample_rate:
+            stats_coll_freq.set_sample_rate(sample_rate)
+        if polling_interval:
+            stats_coll_freq.set_polling_interval(
+                polling_interval)
+
+        sflow_params.set_stats_collection_frequency(stats_coll_freq)
+
+        if adaptive_sample_rate:
+            sflow_params.set_adaptive_sample_rate(adaptive_sample_rate)
+
+        if agent_id:
+            sflow_params.set_agent_id(agent_id)
+
+        if enbld_intf_type:
+            sflow_params.set_enabled_interface_type(enbld_intf_type)
+
+        if enbld_intf_params:
+            for enbld_intf_param in enbld_intf_params:
+                en_intf_name = enbld_intf_param.get('name')
+                enbld_intf_param_obj = EnabledInterfaceParams(
+                    name=en_intf_name
+                )
+                enbld_intf_scf = enbld_intf_param.get(
+                    'stats_collection_frequency')
+                enbld_scf_obj = StatsCollectionFrequency()
+                if enbld_intf_scf:
+                    if enbld_intf_scf.get('sample_rate'):
+                        enbld_scf_obj.set_sample_rate(
+                            enbld_intf_scf.get('sample_rate')
+                        )
+                    if enbld_intf_scf.get('polling_interval'):
+                        enbld_scf_obj.set_polling_interval(
+                            enbld_intf_scf.get('polling_interval')
+                        )
+                    enbld_intf_param_obj.set_stats_collection_frequency(
+                        enbld_intf_scf
+                    )
+
+                sflow_params.add_enabled_interface_params(
+                    enbld_intf_param_obj
+                )
+        sf_profile_obj = SflowProfile(name=name,
+                                      sflow_parameters=sflow_params)
+
+        self._vnc_lib.sflow_profile_create(sf_profile_obj)
+        return sf_profile_obj
+    # end create_sflow_profile
+
+    def create_telemetry_profile(self, name, sflow_obj=None):
+
+        tm_profile_obj = TelemetryProfile(name=name)
+        if sflow_obj:
+            tm_profile_obj.set_sflow_profile(sflow_obj)
+        self._vnc_lib.telemetry_profile_create(tm_profile_obj)
+
+        return tm_profile_obj
+    # end create_telemetry_profile
+
     def create_storm_control_profile(self, name, bw_percent, traffic_type, actions, recovery_timeout=None):
 
         sc_params_list = StormControlParameters(
