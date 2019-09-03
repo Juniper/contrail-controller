@@ -237,8 +237,10 @@ role_to_feature_mapping:
 feature_based_plugin_roles:
   CRB-Access@leaf:
     - overlay_storm_control
+    - overlay_telemetry
   CRB-Access@spine:
     - overlay_storm_control
+    - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
     - overlay_bgp
     - overlay_evpn
@@ -247,30 +249,43 @@ feature_based_plugin_roles:
     - overlay_evpn_ucast_gateway
     - overlay_dhcp_relay
     - overlay_storm_control
+    - overlay_telemetry
   CRB-Gateway@spine:
     - overlay_dhcp_relay
+    - overlay_telemetry
   CRB-MCAST-Gateway@spine:
     - overlay_dhcp_relay
+    - overlay_telemetry
   DC-Gateway@spine:
     - overlay_dhcp_relay
+    - overlay_telemetry
   DCI-Gateway@spine:
     - overlay_dhcp_relay
+    - overlay_telemetry
   CRB-Gateway@leaf:
     - overlay_dhcp_relay
+    - overlay_telemetry
   CRB-MCAST-Gateway@leaf:
     - overlay_dhcp_relay
+    - overlay_telemetry
   DC-Gateway@leaf:
     - overlay_dhcp_relay
+    - overlay_telemetry
   DCI-Gateway@leaf:
     - overlay_dhcp_relay
+    - overlay_telemetry
   AR-Client@leaf:
     - overlay_assisted_replicator_client
+    - overlay_telemetry
   AR-Client@spine:
     - overlay_assisted_replicator_client
+    - overlay_telemetry
   AR-Replicator@leaf:
     - overlay_assisted_replicator
+    - overlay_telemetry
   AR-Replicator@spine:
     - overlay_assisted_replicator
+    - overlay_telemetry
 
 feature_apply_order:
   - basic
@@ -295,6 +310,7 @@ feature_apply_order:
   - overlay_assisted_replicator
   - overlay_assisted_replicator_client
   - overlay_storm_control
+  - overlay_telemetry
 
 DEVICE_FACTS_TIMEOUT: 120
 DEVICE_COMMAND_TIMEOUT: 600
