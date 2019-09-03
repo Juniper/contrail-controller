@@ -22,6 +22,19 @@ class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
                     return ok, err_msg
         return True, ''
 
+    @staticmethod
+    def validate_telemetry_back_refs(obj_dict):
+        telemetry_profile_refs = obj_dict.get('telemetry_profile_refs')
+        if telemetry_profile_refs and len(telemetry_profile_refs) > 1:
+            ref_list = [ref.get('to') for ref in telemetry_profile_refs]
+            return (False, (400, "Physical router %s has more than one "
+                            "telemetry profile refs %s" % (
+                                obj_dict.get('fq_name'),
+                                ref_list)))
+
+        return True, ''
+    # end validate_telemetry_back_refs
+
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         if obj_dict.get('physical_router_managed_state'):
@@ -63,4 +76,15 @@ class PhysicalRouterServer(ResourceMixin, PhysicalRouter):
             password = base64.b64encode(cipher.encrypt(padded_text))
             obj_dict['physical_router_user_credentials']['password'] = password
 
+        ok, result = cls.validate_telemetry_back_refs(obj_dict)
+        if not ok:
+            return ok, result
+
         return True, ''
+
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls.validate_telemetry_back_refs(obj_dict)
+    # end pre_dbe_update
