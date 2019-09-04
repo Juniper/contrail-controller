@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "8101d2ff_87ffae4a",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "e4e5fbc8_ab12831b",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "45577a73_c3dbcfe7",
         "filename": "src/cat/cat.go",
         "patchSetId": 6
@@ -53,6 +71,24 @@
     },
     {
       "key": {
+        "uuid": "4d88417d_12f9ff10",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "62f80050_7cda8a43",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ee3f77c3_3995fe6a",
         "filename": "src/cat/config/bgp_router.go",
         "patchSetId": 6
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "c388c69b_47a7001d",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ee3f77c3_3995fe6a",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d8c43546_694584c1",
         "filename": "src/cat/config/bgp_router.go",
         "patchSetId": 6
@@ -81,6 +135,24 @@
       "writtenOn": "2019-09-03T23:33:30Z",
       "side": 1,
       "message": "BGPRouter",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8d37e161_7cfdd565",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Hmm, I want this to be in line with our existing code where we use Bgp every where, not BGP...",
+      "parentUuid": "d8c43546_694584c1",
       "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -121,6 +193,24 @@
     },
     {
       "key": {
+        "uuid": "d941b5f7_d212da52",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a8e55b6e_a56d6e58",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d1517782_44e8d5b7",
         "filename": "src/cat/config/config.go",
         "patchSetId": 6
@@ -135,6 +225,24 @@
       "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "89b8d4de_c0db0693",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d1517782_44e8d5b7",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -178,6 +286,48 @@
     },
     {
       "key": {
+        "uuid": "40f12b8c_bce249e1",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "I want to be in line with existing naming, which is fq_name",
+      "parentUuid": "d67bd980_7988100d",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b00599b7_00394b16",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Yes, it is a list of tokens (which when joined by : becomes fqdn). This is part of the contrail db schema as defined years ago",
+      "parentUuid": "e4786b43_3ef839b1",
+      "range": {
+        "startLine": 35,
+        "startChar": 27,
+        "endLine": 35,
+        "endChar": 34
+      },
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "bb65b026_9a2b309e",
         "filename": "src/cat/config/config.go",
         "patchSetId": 6
@@ -192,6 +342,24 @@
       "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8f5f339f_cbc3ecee",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bb65b026_9a2b309e",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -212,6 +380,24 @@
     },
     {
       "key": {
+        "uuid": "3b9ad4db_a1c14aa2",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "15f5d04f_6028b1e3",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "23f6c1ea_9b4fcf81",
         "filename": "src/cat/config/config.go",
         "patchSetId": 6
@@ -229,6 +415,24 @@
     },
     {
       "key": {
+        "uuid": "17c5b148_cee4b581",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "23f6c1ea_9b4fcf81",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8fba22a9_7d20c0bf",
         "filename": "src/cat/config/config.go",
         "patchSetId": 6
@@ -240,6 +444,41 @@
       "writtenOn": "2019-09-03T23:33:30Z",
       "side": 1,
       "message": "What are attr\u0027s allowed to be?\n\nswitch {\ncase strings.HasSuffix(key, \"_refs\"):\n  if _, ok :\u003d v[key] !ok {\n      continue\n  }\n  refs, ok :\u003d v[key].([]interface{})\n  if !ok {\n    return nil, fmt.Errorf(\"%q invalid ref key %q\", c.DisplayName, key)\n  }\n  for _, r :\u003d range refs {\n    ref, ok :\u003d r.(map[string]interface{})\n    if !ok {\n      return nil, fmt.Errorf(\"%q invalid ref %v\", c.DisplayName, ref)\n    }\n    k :\u003d fmt.Sprintf(\"ref:%v:%v\", ref[\"type\"], ref[\"uuid\"])\n    ...\n    obj[k] \u003d string(c)\n  }\ncase ...\n\nand so on",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cdea759b_5383c7bb",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8fba22a9_7d20c0bf",
+      "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "a1616d99_7ae3526d",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 48,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-04T18:57:23Z",
+      "side": 1,
+      "message": "Intention here is to check for (json null) as this is how data is encoded in the config db",
       "revId": "6b5bfdebbf33f48df86638ef7e59248107a2b56e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
