@@ -1,0 +1,242 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "829dec35_08aed326",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "BGPRouter",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1b470d3c_199b8665",
+        "filename": "src/cat/config/config.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "Map()",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "56696d33_c2e69059",
+        "filename": "src/cat/config/global_system_config.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "g",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c61fa7cb_f5d85f75",
+        "filename": "src/cat/config/instance_ip.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "don\u0027t wrap",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "602f2934_c7a8d451",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "glog or logrus\n\nlog \"github.com/glog/glog\"",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3b713fe5_5d019104",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "move it up",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ebc571ec_6fdbe311",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 105,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "there is a retry on github\nor just rename \"read\" to retry",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "03b37304_2637726d",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 106,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "ioutil.ReadFile()",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8133e9f6_86d011d1",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 110,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "read--",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "04050dc1_ceff6c91",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 118,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "handle return as close as possble",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9f7414b6_8329334c",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 123,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "XMPP",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d2f02cb3_164b3c34",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "BGP",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b1a2d4dc_9f665a43",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 173,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "CheckBGP",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bbbf33eb_81af5245",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 7
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-04T22:38:39Z",
+      "side": 1,
+      "message": "let\u0027s get rid of signal and just at best do a bool for graceful",
+      "revId": "3ec5dac56dbb952055fc0a0131c57b68b5760e62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
