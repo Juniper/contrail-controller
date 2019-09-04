@@ -273,6 +273,7 @@ class FeatureBase(object):
             vpg_obj = db.VirtualPortGroupDM.get(vpg_uuid)
             if not vpg_obj:
                 continue
+            vpg_name = vpg_obj.name
             vpg_interfaces = vpg_obj.physical_interfaces
             for vmi_uuid in vpg_obj.virtual_machine_interfaces:
                 vmi_obj = db.VirtualMachineInterfaceDM.get(vmi_uuid)
@@ -299,7 +300,7 @@ class FeatureBase(object):
                     vn_dict.setdefault(vn_obj.uuid, []).append(
                         AttrDict(pi_name=pi_name, li_name=pi_name + '.' + unit,
                                  unit=unit, vlan_tag=vlan_tag,
-                                 port_vlan_tag=port_vlan_tag))
+                                 port_vlan_tag=port_vlan_tag, vpg_name=vpg_name))
         return vn_dict
     # end _get_vn_li_map
 
