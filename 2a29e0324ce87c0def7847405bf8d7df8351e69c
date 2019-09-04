@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d4354403_5951b6cb",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 177,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "please is the standard way of nesting in all code blocks",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d504817b_dac9c058",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 186,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "why multiple casts?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "52747a7f_47521eae",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 187,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "why cast again?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2cf3da91_f2ad689b",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 215,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "slave_intf_name can be null here",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "41b15171_37145817",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 220,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "slave_intf_drv_name can be null here",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "26970aee_2d2fb071",
+        "filename": "src/vnsw/agent/kstate/kstate.sandesh",
+        "patchSetId": 3
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "shall we say child_*?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3784f4c9_239dba80",
+        "filename": "src/vnsw/agent/kstate/kstate.sandesh",
+        "patchSetId": 3
+      },
+      "lineNbr": 108,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-04T15:15:11Z",
+      "side": 1,
+      "message": "Shall we name it as bond_child_intf_list?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
