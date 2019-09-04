@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "467b0001_a32b2e61",
+        "filename": "src/stats/test-requirements.txt",
+        "patchSetId": 7
+      },
+      "lineNbr": 4,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-09-04T06:01:06Z",
+      "side": 1,
+      "message": "you don\u0027t need contrail-api-client here. it\u0027s present in requirements.txt",
+      "revId": "924b2b1f9738b74e7ea440b660ea268fab9d1cea",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
