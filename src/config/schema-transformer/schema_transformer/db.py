@@ -257,6 +257,17 @@ class SchemaTransformerDB(VncObjectDBClient):
             if znode is not None and znode[1].numChildren == 0:
                 self._zkclient.delete_node('%s/%s/%s' % (self._zk_path_pfx, path, zk_node))
 
+    def populate_route_target_directory(self, old_path, asn):
+        self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
+        for zk_node in self._zkclient.get_children(old_path):
+            znode  = self._zkclient.read_node(
+                '%s/%s/%s' % (self._zk_path_pfx, old_path, zk_node),
+                include_timestamp=True)
+            # For all the zk nodes that are not sub-directories,
+            # create the node again in new path.
+            if znode and len(znode) == 2 and znode[1].numChildren == 0:
+                self.current_rt_allocator.reserve(int(zk_node), znode[0])
+
     def get_service_chain_ip(self, sc_name):
         return self.get(self._SC_IP_CF, sc_name)
 
