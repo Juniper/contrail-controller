@@ -957,7 +957,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 tor_vlan_ids.append(tor_port_vlan_id)
 
             all_vns = vmi_info.get('virtual_network_refs')
-            all_vn_ids.extend([ref['uuid'] for ref in all_vns])
+            all_vn_ids.extend([ref['uuid'] for ref in all_vns
+                               if ref['uuid'] != vn_uuid])
 
         if len(set(tor_vlan_ids)) > 1:
             msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
