@@ -3729,7 +3729,7 @@ class VncApiServer(object):
             ext.obj.resync_domains_projects()
     # end _resync_domains_projects
 
-    def create_singleton_entry(self, singleton_obj, user_visible=True):
+    def create_singleton_entry(self, singleton_obj, user_visible=False):
 
         s_obj = singleton_obj
         obj_type = s_obj.object_type
