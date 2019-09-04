@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import sys
 import uuid
 import json
@@ -13,7 +14,7 @@ from cfgm_common.tests.test_utils import FakeExtensionManager
 from cfgm_common.tests.test_utils import get_keystone_client
 from cfgm_common.tests.test_common import TestCase, setup_extra_flexmock
 
-import fake_neutron
+from . import fake_neutron
 import vnc_openstack
 
 

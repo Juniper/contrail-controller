@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 import unittest
 import uuid
 from flexmock import flexmock
 import sys
 
-import fake_neutron
+from . import fake_neutron
 from vnc_openstack import neutron_plugin_db as db
 from cfgm_common.tests.test_utils import FakeKazooClient
 
