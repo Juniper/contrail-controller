@@ -269,7 +269,15 @@
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/delete_fabric_devices.yml",
                 "multi_device_playbook": false,
                 "vendor": "Juniper",
-                "device_family": ""
+                "device_family": "",
+                "job_completion_weightage": 50
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/update_dhcp_config.yml",
+                "multi_device_playbook": false,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 50
               }
             ]
           },
