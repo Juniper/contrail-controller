@@ -200,3 +200,10 @@ def get_domain_scope_kwargs(args):
         scope_kwargs.update(**domain_id)
     return scope_kwargs
 # end get_domain_scope_kwargs
+
+def find_buildroot(path):
+    try:
+        return os.environ['BUILDTOP']
+    except:
+        return path + '/build/debug'
+#end find_buildroot
