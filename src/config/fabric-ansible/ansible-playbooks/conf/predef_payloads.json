@@ -270,6 +270,13 @@
                 "multi_device_playbook": false,
                 "vendor": "Juniper",
                 "device_family": ""
+              },
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/update_dhcp_config.yml",
+                "multi_device_playbook": false,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 50
               }
             ]
           },
