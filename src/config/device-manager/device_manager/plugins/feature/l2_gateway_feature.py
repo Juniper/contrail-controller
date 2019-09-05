@@ -64,8 +64,11 @@ class L2GatewayFeature(FeatureBase):
 
     def _build_l2_evpn_interface_config(self, interfaces, vn, vlan):
         interface_map = OrderedDict()
+        vpg_map = {}
+
         for interface in interfaces:
             interface_map.setdefault(interface.pi_name, []).append(interface)
+            vpg_map[interface.pi_name] = interface.vpg_name
 
         for pi_name, interface_list in interface_map.items():
             untagged = [int(i.port_vlan_tag) for i in interface_list
@@ -90,7 +93,11 @@ class L2GatewayFeature(FeatureBase):
                     "interfaces with same Vlan-id on same PI %s" %
                     pi_name)
                 continue
-            _, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
+            pi, li_map = self._add_or_lookup_pi(self.pi_map, pi_name)
+            lag = LinkAggrGroup(description="Virtual Port Group : %s" %
+                                            vpg_map[pi_name])
+            pi.set_link_aggregation_group(lag)
+
             for interface in interface_list:
                 if int(interface.vlan_tag) == 0:
                     is_tagged = False
