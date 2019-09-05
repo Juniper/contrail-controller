@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+#
 
 """Schema transformer DB to store ids allocated by it."""
 import uuid
