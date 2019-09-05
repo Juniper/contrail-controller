@@ -186,7 +186,7 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                 ep = db_obj_dict.get(ep_name)
                 if ep is None:
                     continue
-                for tag_name in set(ep.get('tags', [])):
+                for tag_name in set(ep.get('tags') or []):
                     ok, result = _get_tag_fq_name(tag_name)
                     if not ok:
                         return False, result
