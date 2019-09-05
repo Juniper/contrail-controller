@@ -19,7 +19,7 @@ from cfgm_common.vnc_object_db import VncObjectDBClient
 import gevent
 from job_manager.job_exception import JobException
 from job_manager.job_log_utils import JobLogUtils
-from job_manager.job_utils import JobStatus, JobVncApi
+from job_manager.job_utils import JobStatus
 
 
 class DeviceJobManager(object):
@@ -713,12 +713,8 @@ class DeviceJobManager(object):
             if user_cred:
                 device_json.update(
                     {"device_username": user_cred.get('username')})
-                decrypt_password = JobVncApi.decrypt_password(
-                    encrypted_password=user_cred.get('password'),
-                    admin_password=request_params.get('vnc_api_init_params').
-                    get('admin_password'))
                 device_json.update({"device_password":
-                                    decrypt_password})
+                                    user_cred.get('password')})
             if device_family:
                 device_json.update({"device_family": device_family})
 
