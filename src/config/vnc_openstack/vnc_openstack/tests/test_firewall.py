@@ -1046,9 +1046,11 @@ class TestFirewallRule(TestFirewallBase):
         subnet = ep1.get_subnet()
         prefix = '%s/%d' % (subnet.get_ip_prefix(), subnet.get_ip_prefix_len())
         self.assertEquals(prefix, '%s/32' % src_addr)
-        self.assertFalse(ep1.get_any())
+        self.assertIsNone(ep1.get_any())
         ep2 = fr.get_endpoint_2()
-        self.assertTrue(ep2.get_any())
+        self.assertIsNone(ep2.get_any())
+        self.assertEqual(ep2.get_subnet().ip_prefix, '0.0.0.0')
+        self.assertEqual(ep2.get_subnet().ip_prefix_len, 0)
         service = fr.get_service()
         self.assertEquals(service.protocol, protocol)
         self.assertEquals(service.src_ports, PortType(*src_ports))
@@ -1082,17 +1084,32 @@ class TestFirewallRule(TestFirewallBase):
         self.assertEquals(resp['exception'], 'FirewallRuleInvalidPortValue')
 
     def test_subnet(self):
-        neutron_fr = self.create_resource(
+        neutron_fr1 = self.create_resource(
             'firewall_rule',
             self.project_id,
             extra_res_fields={
                 'source_ip_address': '0/0',
             },
         )
-        self.assertEquals(neutron_fr['source_ip_address'], '0.0.0.0/0')
-        fr = self._vnc_lib.firewall_rule_read(id=neutron_fr['id'])
-        ep1 = fr.get_endpoint_1()
-        self.assertTrue(ep1.get_any())
+        self.assertEquals(neutron_fr1['source_ip_address'], '0.0.0.0/0')
+        fr1 = self._vnc_lib.firewall_rule_read(id=neutron_fr1['id'])
+        self.assertIsNone(fr1.get_endpoint_1().get_any())
+        self.assertEqual(fr1.get_endpoint_1().get_subnet().ip_prefix,
+                         '0.0.0.0')
+        self.assertEqual(fr1.get_endpoint_1().get_subnet().ip_prefix_len, 0)
+
+        neutron_fr2 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': '0:0::/0',
+            },
+        )
+        self.assertEquals(neutron_fr2['source_ip_address'], '::/0')
+        fr2 = self._vnc_lib.firewall_rule_read(id=neutron_fr2['id'])
+        self.assertIsNone(fr2.get_endpoint_1().get_any())
+        self.assertEqual(fr2.get_endpoint_1().get_subnet().ip_prefix, '::')
+        self.assertEqual(fr2.get_endpoint_1().get_subnet().ip_prefix_len, 0)
 
         self.create_resource(
             'firewall_rule',
@@ -1103,10 +1120,147 @@ class TestFirewallRule(TestFirewallBase):
             status="400 Bad Request",
         )
 
-    def test_firewall_group_as_source_or_destination(self):
+    def test_ip_version_match_rule_addresses(self):
+        self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'ip_version': 6,
+                'source_ip_address': '1.2.3.0/24',
+            },
+            status="400 Bad Request",
+        )
+        self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'ip_version': 6,
+                'destination_ip_address': '1.2.3.0/24',
+            },
+            status="400 Bad Request",
+        )
+        self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'ip_version': 4,
+                'source_ip_address': 'dead:beef::/64',
+            },
+            status="400 Bad Request",
+        )
+        self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'ip_version': 4,
+                'destination_ip_address': 'dead:beef::/64',
+            },
+            status="400 Bad Request",
+        )
+        self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': '1.2.3.0/24',
+                'destination_ip_address': 'dead:beef::/64',
+            },
+            status="400 Bad Request",
+        )
+        self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': 'dead:beef::/64',
+                'destination_ip_address': '1.2.3.0/24',
+            },
+            status="400 Bad Request",
+        )
+
+    def test_firewall_group_as_source_or_and_destination(self):
         neutron_fg1 = self.create_resource('firewall_group', self.project_id)
         neutron_fg2 = self.create_resource('firewall_group', self.project_id)
-        neutron_fr = self.create_resource(
+
+        neutron_fr1 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_firewall_group_id': neutron_fg1['id'],
+                'destination_firewall_group_id': None,
+            },
+        )
+        self.assertEquals(
+            neutron_fr1['source_firewall_group_id'], neutron_fg1['id'])
+        self.assertEquals(neutron_fr1['ip_version'], 4)
+        fr1 = self._vnc_lib.firewall_rule_read(id=neutron_fr1['id'])
+        ep1 = fr1.get_endpoint_1()
+        ep2 = fr1.get_endpoint_2()
+        self.assertEquals(len(ep1.get_tags()), 1)
+        self.assertEquals(ep1.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg1, self.project)[-1])
+        self.assertTrue(ep2.get_any())
+
+        neutron_fr2 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': None,
+                'destination_firewall_group_id': neutron_fg1['id'],
+            },
+        )
+        self.assertEquals(
+            neutron_fr2['destination_firewall_group_id'], neutron_fg1['id'])
+        self.assertEquals(neutron_fr2['ip_version'], 4)
+        fr2 = self._vnc_lib.firewall_rule_read(id=neutron_fr2['id'])
+        ep1 = fr2.get_endpoint_1()
+        ep2 = fr2.get_endpoint_2()
+        self.assertTrue(ep1.get_any())
+        self.assertEquals(len(ep2.get_tags()), 1)
+        self.assertEquals(ep2.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg1, self.project)[-1])
+
+        neutron_fr3 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_firewall_group_id': neutron_fg1['id'],
+                'destination_ip_address': '1.2.3.0/24',
+            },
+        )
+        self.assertEquals(
+            neutron_fr3['source_firewall_group_id'], neutron_fg1['id'])
+        self.assertEquals(neutron_fr3['ip_version'], 4)
+        fr3 = self._vnc_lib.firewall_rule_read(id=neutron_fr3['id'])
+        ep1 = fr3.get_endpoint_1()
+        ep2 = fr3.get_endpoint_2()
+        self.assertEquals(len(ep1.get_tags()), 1)
+        self.assertEquals(ep1.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg1, self.project)[-1])
+        self.assertIsNone(ep2.get_any())
+        self.assertEqual(ep2.get_subnet().ip_prefix, '1.2.3.0')
+        self.assertEqual(ep2.get_subnet().ip_prefix_len, 24)
+
+        neutron_fr4 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_firewall_group_id': neutron_fg1['id'],
+                'destination_ip_address': 'dead:beef::/64',
+            },
+        )
+        self.assertEquals(
+            neutron_fr4['source_firewall_group_id'], neutron_fg1['id'])
+        self.assertEquals(neutron_fr4['ip_version'], 6)
+        fr4 = self._vnc_lib.firewall_rule_read(id=neutron_fr4['id'])
+        ep1 = fr4.get_endpoint_1()
+        ep2 = fr4.get_endpoint_2()
+        self.assertEquals(len(ep1.get_tags()), 1)
+        self.assertEquals(ep1.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg1, self.project)[-1])
+        self.assertIsNone(ep2.get_any())
+        self.assertEqual(ep2.get_subnet().ip_prefix, 'dead:beef::')
+        self.assertEqual(ep2.get_subnet().ip_prefix_len, 64)
+
+        neutron_fr5 = self.create_resource(
             'firewall_rule',
             self.project_id,
             extra_res_fields={
@@ -1114,19 +1268,73 @@ class TestFirewallRule(TestFirewallBase):
                 'destination_firewall_group_id': neutron_fg2['id'],
             },
         )
-        self.assertEquals(
-            neutron_fr['source_firewall_group_id'], neutron_fg1['id'])
-        self.assertEquals(
-            neutron_fr['destination_firewall_group_id'], neutron_fg2['id'])
-        fr = self._vnc_lib.firewall_rule_read(id=neutron_fr['id'])
-        ep1 = fr.get_endpoint_1()
+        self.assertEquals(neutron_fr5['ip_version'], 4)
+        fr5 = self._vnc_lib.firewall_rule_read(id=neutron_fr5['id'])
+        ep1 = fr5.get_endpoint_1()
+        ep2 = fr5.get_endpoint_2()
         self.assertEquals(len(ep1.get_tags()), 1)
         self.assertEquals(ep1.get_tags()[0],
                           self._get_tag_fq_name(neutron_fg1, self.project)[-1])
-        ep2 = fr.get_endpoint_2()
         self.assertEquals(len(ep2.get_tags()), 1)
         self.assertEquals(ep2.get_tags()[0],
                           self._get_tag_fq_name(neutron_fg2, self.project)[-1])
+
+        neutron_fr6 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_firewall_group_id': neutron_fg1['id'],
+                'destination_firewall_group_id': neutron_fg2['id'],
+                'ip_version': 6,
+                'protocol': 'icmp',
+            },
+        )
+        self.assertEquals(neutron_fr6['ip_version'], 4)
+        fr6 = self._vnc_lib.firewall_rule_read(id=neutron_fr6['id'])
+        ep1 = fr6.get_endpoint_1()
+        ep2 = fr6.get_endpoint_2()
+        self.assertEquals(len(ep1.get_tags()), 1)
+        self.assertEquals(ep1.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg1, self.project)[-1])
+        self.assertEquals(len(ep2.get_tags()), 1)
+        self.assertEquals(ep2.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg2, self.project)[-1])
+
+    def test_firewall_rule_update_endpoint(self):
+        neutron_fg = self.create_resource('firewall_group', self.project_id)
+        neutron_fr = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': None,
+                'destination_firewall_group_id': None,
+            },
+        )
+        fr = self._vnc_lib.firewall_rule_read(id=neutron_fr['id'])
+        ep1 = fr.get_endpoint_1()
+        ep2 = fr.get_endpoint_2()
+        self.assertTrue(ep1.get_any())
+        self.assertTrue(ep2.get_any())
+
+        self.update_resource(
+            'firewall_rule',
+            neutron_fr['id'],
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': '1.2.3.0/24',
+                'destination_firewall_group_id': neutron_fg['id'],
+            },
+        )
+        fr = self._vnc_lib.firewall_rule_read(id=neutron_fr['id'])
+        ep1 = fr.get_endpoint_1()
+        ep2 = fr.get_endpoint_2()
+        self.assertIsNone(ep1.get_any())
+        self.assertEqual(ep1.get_subnet().ip_prefix, '1.2.3.0')
+        self.assertEqual(ep1.get_subnet().ip_prefix_len, 24)
+        self.assertIsNone(ep2.get_any())
+        self.assertEquals(len(ep2.get_tags()), 1)
+        self.assertEquals(ep2.get_tags()[0],
+                          self._get_tag_fq_name(neutron_fg, self.project)[-1])
 
     def test_firewall_rule_set_policy_refs(self):
         neutron_fr = self.create_resource('firewall_rule', self.project_id)
@@ -1296,3 +1504,32 @@ class TestFirewallRule(TestFirewallBase):
         self.assertEquals(neutron_fr3['protocol'], 'any')
         fr3 = self._vnc_lib.firewall_rule_read(id=neutron_fr3['id'])
         self.assertEquals(fr3.get_service().get_protocol(), 'any')
+
+    def test_firewall_rule_icmp_convert_to_ipv6_icmp(self):
+        neutron_fr1 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': 'dead:beef::/64',
+                'protocol': 'icmp',
+            },
+        )
+        fr1 = self._vnc_lib.firewall_rule_read(id=neutron_fr1['id'])
+        self.assertEqual(neutron_fr1['ip_version'], 6)
+        self.assertEqual(neutron_fr1['protocol'], 'ipv6-icmp')
+        self.assertEqual(fr1.get_service().get_protocol(), 'ipv6-icmp')
+        self.assertEqual(fr1.get_service().get_protocol_id(), 58)
+
+        neutron_fr2 = self.create_resource(
+            'firewall_rule',
+            self.project_id,
+            extra_res_fields={
+                'source_ip_address': '1.2.3.0/24',
+                'protocol': 'ipv6-icmp',
+            },
+        )
+        fr2 = self._vnc_lib.firewall_rule_read(id=neutron_fr2['id'])
+        self.assertEqual(neutron_fr2['ip_version'], 4)
+        self.assertEqual(neutron_fr2['protocol'], 'icmp')
+        self.assertEqual(fr2.get_service().get_protocol(), 'icmp')
+        self.assertEqual(fr2.get_service().get_protocol_id(), 1)

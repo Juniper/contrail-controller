@@ -5885,7 +5885,8 @@ class DBInterface(object):
                        "IP subnet" % subnet_str)
                 self._raise_contrail_exception(
                     'BadRequest', resource='firewall_rule', msg=msg)
-            return SubnetType(str(ip_network.network), ip_network.prefixlen)
+            return (ip_network.version,
+                    SubnetType(str(ip_network.network), ip_network.prefixlen))
 
     @staticmethod
     def _get_tag_list(firewall_group_id):
@@ -5985,11 +5986,68 @@ class DBInterface(object):
             perms2.set_global_access(PERMS_RWX)
             fr.set_perms2(perms2)
 
+        ip_src_version = None
+        if (set(['source_ip_address', 'source_firewall_group_id']) &
+                set(firewall_rule.keys())):
+            ep1 = FirewallRuleEndpointType()
+            src_prefix = firewall_rule.get('source_ip_address')
+            src_fg = firewall_rule.get('source_firewall_group_id')
+            if src_prefix and src_fg:
+                msg = ("Firewall rule cannot have a source IP address and a"
+                       "source firewall group ID in a mean time.")
+                self._raise_contrail_exception(
+                    'BadRequest', resource='firewall_rule', msg=msg)
+            elif src_prefix:
+                ip_src_version, subnet_type = self._get_subnet_type(src_prefix)
+                ep1.set_subnet(subnet_type)
+            elif src_fg:
+                ep1.set_tags(self._get_tag_list(src_fg))
+            else:
+                ep1.set_any(True)
+            fr.set_endpoint_1(ep1)
+
+        ip_dst_version = None
+        if (set(['destination_ip_address', 'destination_firewall_group_id']) &
+                set(firewall_rule.keys())):
+            ep2 = FirewallRuleEndpointType()
+            dst_prefix = firewall_rule.get('destination_ip_address')
+            dst_fg = firewall_rule.get('destination_firewall_group_id')
+            if dst_prefix and dst_fg:
+                msg = ("Firewall rule cannot have a destination IP address "
+                       "and a destination firewall group ID in a mean time.")
+                self._raise_contrail_exception(
+                    'BadRequest', resource='firewall_rule', msg=msg)
+            elif dst_prefix:
+                ip_dst_version, subnet_type = self._get_subnet_type(dst_prefix)
+                ep2.set_subnet(subnet_type)
+            elif dst_fg:
+                ep2.set_tags(self._get_tag_list(dst_fg))
+            else:
+                ep2.set_any(True)
+            fr.set_endpoint_2(ep2)
+
+        if (ip_src_version and ip_dst_version and
+                ip_src_version != ip_dst_version):
+            self._raise_contrail_exception('FirewallIpAddressConflict')
+
+        ip_version = firewall_rule.get('ip_version')
+        if (ip_version and
+                ((ip_src_version and ip_version != ip_src_version) or
+                 (ip_dst_version and ip_version != ip_dst_version))):
+            self._raise_contrail_exception('FirewallIpAddressConflict')
+
+        ip_version = ip_version or ip_src_version or ip_dst_version
         if (set(['protocol', 'source_port', 'destination_port']) &
                 set(firewall_rule.keys())):
             service = fr.get_service() or FirewallServiceType(protocol='any')
             if 'protocol' in firewall_rule:
-                service.set_protocol(firewall_rule['protocol'] or 'any')
+                if firewall_rule['protocol'] == 'icmp' and ip_version == 6:
+                    service.set_protocol('ipv6-icmp')
+                elif (firewall_rule['protocol'] == 'ipv6-icmp' and
+                        ip_version == 4):
+                    service.set_protocol('icmp')
+                else:
+                    service.set_protocol(firewall_rule['protocol'] or 'any')
             if 'source_port' in firewall_rule:
                 service.set_src_ports(
                     self._get_port_type(firewall_rule['source_port']))
@@ -5997,37 +6055,7 @@ class DBInterface(object):
                 service.set_dst_ports(
                     self._get_port_type(firewall_rule['destination_port']))
             fr.set_service(service)
-
-        if (set(['source_ip_address', 'source_firewall_group_id']) &
-                set(firewall_rule.keys())):
-            ep1 = fr.get_endpoint_1() or FirewallRuleEndpointType()
-            ip_prefix = firewall_rule.get('source_ip_address')
-            if ip_prefix:
-                subnet_type = self._get_subnet_type(ip_prefix)
-                if subnet_type == SubnetType('0.0.0.0', 0):
-                    ep1.set_any(True)
-                else:
-                    ep1.set_subnet(self._get_subnet_type(ip_prefix))
-            if 'source_firewall_group_id' in firewall_rule:
-                ep1.set_tags(self._get_tag_list(
-                    firewall_rule['source_firewall_group_id']))
-            fr.set_endpoint_1(ep1)
-
-        if (set(['destination_ip_address', 'destination_firewall_group_id']) &
-                set(firewall_rule.keys())):
-            ep2 = fr.get_endpoint_2() or FirewallRuleEndpointType()
-            ip_prefix = firewall_rule.get('destination_ip_address')
-            if ip_prefix:
-                subnet_type = self._get_subnet_type(ip_prefix)
-                if subnet_type == SubnetType('0.0.0.0', 0):
-                    ep2.set_any(True)
-                else:
-                    ep2.set_subnet(self._get_subnet_type(ip_prefix))
-            if 'destination_firewall_group_id' in firewall_rule:
-                ep2.set_tags(self._get_tag_list(
-                    firewall_rule['destination_firewall_group_id']))
-            fr.set_endpoint_2(ep2)
-
+            
         if 'action' in firewall_rule:
             fr.set_action_list(self._get_action(firewall_rule['action']))
 
@@ -6049,11 +6077,12 @@ class DBInterface(object):
         string
         """
         if endpoint_type.get_any():
-            return '0.0.0.0/0'
+             return None
         subnet_type = endpoint_type.get_subnet()
         if subnet_type:
             return '%s/%d' % (subnet_type.get_ip_prefix(),
                               subnet_type.get_ip_prefix_len())
+        return None
 
     @staticmethod
     def _get_firewall_group_id(tags):
@@ -6103,21 +6132,21 @@ class DBInterface(object):
                     self._get_port_range_str(service.get_dst_ports()),
             })
 
+        firewall_rule['ip_version'] = 4
         for target, ep_name in [('source', 'endpoint_1'),
                                 ('destination', 'endpoint_2')]:
             ep = getattr(fr, 'get_%s' % ep_name)()
             if not ep:
                 continue
+            ip_address = self._get_ip_prefix_str(ep)
             firewall_rule.update({
-                '%s_ip_address' % target:
-                    self._get_ip_prefix_str(ep),
+                '%s_ip_address' % target: ip_address,
                 '%s_firewall_group_id' % target:
                     self._get_firewall_group_id(ep.get_tags()),
             })
-            if ('ip_version' not in firewall_rule and
-                    firewall_rule.get('%s_ip_address' % target)):
+            if ip_address:
                 firewall_rule['ip_version'] = netaddr.IPNetwork(
-                    firewall_rule['%s_ip_address' % target]).version
+                    ip_address).version
 
         action = fr.get_action_list()
         if action:
