@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "54b13cf8_50518f8b",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T17:56:06Z",
+      "side": 0,
+      "message": "Can you add this back if it was not intentional.",
+      "range": {
+        "startLine": 61,
+        "startChar": 8,
+        "endLine": 62,
+        "endChar": 75
+      },
+      "revId": "5d96d89f128f5761d2bf70a88634e75394e8bf03",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0eb4b817_4b6bbc2d",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T17:56:06Z",
+      "side": 0,
+      "message": "Add this back",
+      "range": {
+        "startLine": 202,
+        "startChar": 12,
+        "endLine": 203,
+        "endChar": 50
+      },
+      "revId": "5d96d89f128f5761d2bf70a88634e75394e8bf03",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e002e47_263fa42f",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 217,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T17:56:06Z",
+      "side": 0,
+      "message": "Same here. Add this back",
+      "range": {
+        "startLine": 217,
+        "startChar": 35,
+        "endLine": 217,
+        "endChar": 64
+      },
+      "revId": "5d96d89f128f5761d2bf70a88634e75394e8bf03",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
