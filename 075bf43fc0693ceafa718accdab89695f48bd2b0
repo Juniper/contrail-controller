@@ -2,6 +2,167 @@
   "comments": [
     {
       "key": {
+        "uuid": "98996c61_55874f27",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 364,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "Can you add details that the input json has to be created with new option set in db_json_exim file",
+      "range": {
+        "startLine": 364,
+        "startChar": 14,
+        "endLine": 364,
+        "endChar": 22
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6c93d121_3178cd5a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 868,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "Does this work with older way of using db_manage script ? I don\u0027t understand what you are doing here.",
+      "range": {
+        "startLine": 868,
+        "startChar": 37,
+        "endLine": 868,
+        "endChar": 40
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "228fa9e5_a60368ce",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 2944,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "Just make it \"self.using_json is False\" instead",
+      "range": {
+        "startLine": 2944,
+        "startChar": 12,
+        "endLine": 2944,
+        "endChar": 43
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "eb1890f0_885c8df6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 2951,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "Just make it \"self.using_json is False\" instead",
+      "range": {
+        "startLine": 2951,
+        "startChar": 16,
+        "endLine": 2951,
+        "endChar": 47
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5dbd77b2_5b10f5ab",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 3090,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "What was the reason the KeyError added here now ?",
+      "range": {
+        "startLine": 3090,
+        "startChar": 61,
+        "endLine": 3090,
+        "endChar": 70
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c5094b50_ad2539ef",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 3102,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "Should we have indent\u003d4 here ?",
+      "range": {
+        "startLine": 3102,
+        "startChar": 8,
+        "endLine": 3102,
+        "endChar": 43
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a8836cc3_b11fd7b9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/db_manage.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 3176,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-09-05T20:47:15Z",
+      "side": 1,
+      "message": "Do we only support output to json file when \"in_json\" is specified ?",
+      "range": {
+        "startLine": 3176,
+        "startChar": 4,
+        "endLine": 3176,
+        "endChar": 34
+      },
+      "revId": "075bf43fc0693ceafa718accdab89695f48bd2b0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "ee64dc57_9c7284a5",
         "filename": "src/config/common/cfgm_common/db_json_exim.py",
         "patchSetId": 12
