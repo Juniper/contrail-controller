@@ -50,6 +50,7 @@ proto_dict = {
     'icmp': 1,
     'tcp': 6,
     'udp': 17,
+    'ipv6-icmp': 58,
 }
 
 def get_bgp_rtgt_min_id(asn):
