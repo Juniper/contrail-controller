@@ -2,6 +2,57 @@
   "comments": [
     {
       "key": {
+        "uuid": "e161a8ff_6699ff23",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 215,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "Why cast again here?",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7c53f3f8_c8807576",
+        "filename": "src/vnsw/agent/kstate/kstate.sandesh",
+        "patchSetId": 4
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "BondMemberIntfInfo\nAlso check if Master intf require in this struct.",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "22e8ec66_dbb3c7d4",
+        "filename": "src/vnsw/agent/oper/agent.sandesh",
+        "patchSetId": 4
+      },
+      "lineNbr": 182,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "Check whether master interface are also coming?",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "a2d48740_e12547f9",
         "filename": "src/vnsw/agent/test/test_util.cc",
         "patchSetId": 4
@@ -13,6 +64,74 @@
       "writtenOn": "2019-09-05T07:57:48Z",
       "side": 1,
       "message": "Can you attach the code coverage report for agent with and without your changes?",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8c3a3d42_ef705bb0",
+        "filename": "src/vnsw/agent/vrouter/ksync/vnswif_listener_base.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 388,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "add assert based on vector size.",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e6606196_144826b4",
+        "filename": "src/vnsw/agent/vrouter/ksync/vnswif_listener_base.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 389,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "Dont use constants. Use macro.",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2ed8da27_c8089373",
+        "filename": "src/vnsw/agent/vrouter/ksync/vnswif_listener_base.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 391,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "Add NULL check.\nuse lexical_cast.",
+      "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "49b55aba_a68b767e",
+        "filename": "src/vnsw/agent/vrouter/ksync/vnswif_listener_base.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 397,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T10:06:09Z",
+      "side": 1,
+      "message": "Use Macro",
       "revId": "404398fcf51d032ba096eb417a1623d377f74dfe",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
