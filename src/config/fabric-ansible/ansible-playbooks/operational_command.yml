@@ -9,6 +9,7 @@
     input: "{{ playbook_input.input }}"
     device_op: "{{ playbook_input.job_template_fqname[-1].split('_template')[0] }}"
     device_family: "{{ playbook_input.device_family }}"
+    device_uuid: "{{playbook_input.device_id}}"
     device_vendor: "{{ playbook_input.vendor | lower }}"
     device_management_ip: "{{playbook_input.device_management_ip}}"
     device_username: "{{playbook_input.device_username}}"
@@ -57,6 +58,7 @@
               template:
                 src: "roles/cmd_{{device_op}}/templates/{{device_vendor}}.j2"
                 dest: "{{ command_dir }}/{{device_management_ip}}.json"
+              when: info_acquired is not defined
           vars:
             input_params: "{{input}}"
             command_resp: "{{command_resp}}"
@@ -69,6 +71,7 @@
             - name: Execute commands on device using the vendor_family file and record the resp in command_resp
               include_tasks: "roles/cmd_{{device_op}}/tasks/{{device_vendor}}_{{device_family}}.yml"
 
+
             - name: Update Percentage and Job log with command executed on device status
               include_tasks: percentage_update.yml
               vars:
@@ -80,6 +83,8 @@
               template:
                 src: "roles/cmd_{{device_op}}/templates/{{device_vendor}}_{{device_family}}.j2"
                 dest: "{{ command_dir }}/{{device_management_ip}}.json"
+              when: info_acquired is not defined
+
           vars:
             input_params: "{{input}}"
             command_resp: "{{command_resp}}"
@@ -126,4 +131,5 @@
         current_index: 2
         jl_message: "Completed generic device operation for {{device_name}}"
         prouter_name: "{{device_name}}"
+
 
