@@ -16,13 +16,12 @@ class MxProvisioner(object):
 
     def __init__(self, args_str=None):
         self._args = None
+        self._peer_list = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
         if self._args.peer_list:
-            peer_list = self._args.peer_list.split(',')
-        else:
-            peer_list = None
+            self._peer_list = self._args.peer_list.split(',')
 
         self._vnc_lib = VncApiAdmin(
             self._args.use_admin_api, self._args.admin_user, self._args.admin_password,
@@ -158,7 +157,7 @@ class MxProvisioner(object):
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name, self._args.api_server_ip,
             self._args.api_server_port, self._args.api_server_use_ssl,
-            self._args.use_admin_api, peer_list=peer_list,
+            self._args.use_admin_api, peer_list=self._peer_list,
             sub_cluster_name=self._args.sub_cluster_name)
 
         if self._args.oper == 'add':
