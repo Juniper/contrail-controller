@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "e9fb8807_9684986c",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 177,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "I didn\u0027t get you on this",
+      "parentUuid": "d4354403_5951b6cb",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "d504817b_dac9c058",
         "filename": "src/vnsw/agent/kstate/kstate.cc",
         "patchSetId": 3
@@ -30,6 +48,24 @@
       "writtenOn": "2019-09-04T15:15:11Z",
       "side": 1,
       "message": "why multiple casts?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6ccaabb6_3807fb13",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 186,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "r-\u003eget_vifr_fab_name() is a vector and I am storing it as a string.\nSo first I am converting it as char pointer then from char pointer I am converting it as string below.",
+      "parentUuid": "d504817b_dac9c058",
       "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "8c02bc7d_9c1b1a4d",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 187,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "replied above.",
+      "parentUuid": "52747a7f_47521eae",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "2cf3da91_f2ad689b",
         "filename": "src/vnsw/agent/kstate/kstate.cc",
         "patchSetId": 3
@@ -64,6 +118,24 @@
       "writtenOn": "2019-09-04T15:15:11Z",
       "side": 1,
       "message": "slave_intf_name can be null here",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe222704_9d4b0920",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 215,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "slave_intf_name, this variable I am filling above thats why defined NULL above.",
+      "parentUuid": "2cf3da91_f2ad689b",
       "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "4a15df56_f181751b",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 220,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "slave_intf_drv_name, this variable I am filling above thats why defined NULL above",
+      "parentUuid": "41b15171_37145817",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "26970aee_2d2fb071",
         "filename": "src/vnsw/agent/kstate/kstate.sandesh",
         "patchSetId": 3
@@ -98,6 +188,24 @@
       "writtenOn": "2019-09-04T15:15:11Z",
       "side": 1,
       "message": "shall we say child_*?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fab7b85f_86513ac6",
+        "filename": "src/vnsw/agent/kstate/kstate.sandesh",
+        "patchSetId": 3
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "Do you want me to rename it?",
+      "parentUuid": "26970aee_2d2fb071",
       "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -121,6 +229,24 @@
     },
     {
       "key": {
+        "uuid": "df02ab10_d4e52796",
+        "filename": "src/vnsw/agent/kstate/kstate.sandesh",
+        "patchSetId": 3
+      },
+      "lineNbr": 108,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "Can be done",
+      "parentUuid": "3784f4c9_239dba80",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3fad7ec2_7fd5490c",
         "filename": "src/vnsw/agent/oper/agent.sandesh",
         "patchSetId": 3
@@ -138,6 +264,24 @@
     },
     {
       "key": {
+        "uuid": "75ae7608_3fcf1ddd",
+        "filename": "src/vnsw/agent/oper/agent.sandesh",
+        "patchSetId": 3
+      },
+      "lineNbr": 182,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "No this is structure",
+      "parentUuid": "3fad7ec2_7fd5490c",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "a55d211f_99958c0e",
         "filename": "src/vnsw/agent/oper/agent.sandesh",
         "patchSetId": 3
@@ -149,6 +293,24 @@
       "writtenOn": "2019-09-04T15:16:07Z",
       "side": 1,
       "message": "Is this a list of lists?",
+      "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e576c5e_bac3399c",
+        "filename": "src/vnsw/agent/oper/agent.sandesh",
+        "patchSetId": 3
+      },
+      "lineNbr": 337,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-05T05:53:39Z",
+      "side": 1,
+      "message": "It is a list of structure",
+      "parentUuid": "a55d211f_99958c0e",
       "revId": "2a29e0324ce87c0def7847405bf8d7df8351e69c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
