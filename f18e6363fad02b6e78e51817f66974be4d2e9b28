@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "454c687f_15ec2434",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6034,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-06T14:03:16Z",
+      "side": 1,
+      "message": "Rather can we ReleaseNote saying if both Source and Destination is a FirewallGroupID then we dont support icmp-v6.\nHaving both source and destination is a good to have feature for someone who is used to SecurityGroups.",
+      "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0dbaa06b_b391c773",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6053,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-06T14:03:16Z",
+      "side": 1,
+      "message": "Does contrail have a string representation for \u0027ipv6-icmp\u0027.\nLooking at https://github.com/Juniper/contrail-controller/blob/ff2cb4b42b07b4255b84ca5f9aced60ef8adfeae/src/config/api-server/vnc_cfg_api_server/resources/firewall_rule.py#L66 and https://github.com/Juniper/contrail-controller/blob/e34b3772489876de12470cf137652b74839c1e7f/src/config/common/cfgm_common/__init__.py#L48 it seems we could only use number here \u002758\u0027.\n\nFYI i had already validated with updating the Rule with number 58 and things were working fine.",
+      "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "75cdca4d_1a00de64",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6136,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-06T14:03:16Z",
+      "side": 1,
+      "message": "We may need to add a conversion here from \u0027ipv6-icmp\u0027 to \u0027icmp\u0027 for vnc-to-neutron",
+      "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
