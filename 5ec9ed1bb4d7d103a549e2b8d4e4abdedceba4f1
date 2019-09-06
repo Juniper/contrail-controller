@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2d5f57ab_494d2de5",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cmd_show_chassis_info/tasks/juniper.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2019-09-06T17:28:26Z",
+      "side": 1,
+      "message": "Just a small doubt here, the errors if any from the ansible juniper_junos_command module would be handled by the operational_command.yml in the outer level. Is there a specific reason, we have encapsulated here in block rescue ?",
+      "revId": "5ec9ed1bb4d7d103a549e2b8d4e4abdedceba4f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
