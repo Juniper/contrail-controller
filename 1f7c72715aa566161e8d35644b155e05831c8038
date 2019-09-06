@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ffd9080d_a9c63ecf",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_resource_base.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 246,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-09-06T06:37:08Z",
+      "side": 1,
+      "message": "Could you please add a comment and warn message?",
+      "revId": "1f7c72715aa566161e8d35644b155e05831c8038",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
