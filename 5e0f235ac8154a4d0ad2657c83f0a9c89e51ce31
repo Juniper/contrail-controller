@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "76dc1a99_8a055604",
+        "filename": "ci_unittests.json",
+        "patchSetId": 9
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:46:09Z",
+      "side": 1,
+      "message": "Since this depends on config modules, can you add this as part of scons targets under contrail_config as well ?",
+      "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb0de5e6_3c27d449",
+        "filename": "src/stats/setup.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:46:09Z",
+      "side": 1,
+      "message": "Shound\u0027t this all be TF specific URLs ?",
+      "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fd308973_82cd4931",
+        "filename": "src/stats/stats/tests/test_common.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:46:09Z",
+      "side": 1,
+      "message": "is there a server running at this port 8000 ? if so, then please use some epherrmal port to avoid port collisions",
+      "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
