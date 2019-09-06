@@ -1,0 +1,174 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c918f618_ddf9e225",
+        "filename": "src/bgp/bgp_config.h",
+        "patchSetId": 6
+      },
+      "lineNbr": 556,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "since we can have 4 byte sub-cluster-id if as is 2 bytes, can you make this uint32_t ?",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "de8eabc6_8a1a911d",
+        "filename": "src/bgp/bgp_config_ifmap.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 686,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "as discussed in email threads, asn is not good enough. This needs to be managed by api-server as a new id per sub-cluster",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5fb5c2ef_77eef841",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "can you keep this list sorted",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "56c15993_9518333c",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "same here",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "eadc0c95_a8a192d8",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 101,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "Can you move this to a separate function and call from here. Also this need not to go master branch now (R1910)",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "840e4aa5_ca343071",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 466,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "Trailing space ?",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "272b66a5_af2eaee0",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 756,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "Please wrap",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "216f1477_ebcb338a",
+        "filename": "src/bgp/community.h",
+        "patchSetId": 6
+      },
+      "lineNbr": 329,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "add two byte version too.. for completion sake.",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bdd90842_22a1c83d",
+        "filename": "src/bgp/test/bgp_attr_test.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "keep this sorted",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e6394e87_175bf1ab",
+        "filename": "src/bgp/test/bgp_attr_test.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 1291,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-06T21:55:15Z",
+      "side": 1,
+      "message": "can you add values with asn \u003e 65535 ?",
+      "revId": "164078f90ffd2e5ee1adb20c796118290296dc46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
