@@ -2231,7 +2231,6 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     const BgpPeer *peer_yx = VerifyPeerExists(bs_y_, bs_x_);
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_GE(32, peer_xy->get_socket_writes());
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -2398,8 +2397,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     //        3 end-of-rib (1 route-target, 1 inet-vpn, 1 inet)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(12, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(6, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_GE(peer_xy->get_tx_update(), 12);
+    TASK_UTIL_EXPECT_GE(peer_yx->get_tx_update(), 6);
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =
@@ -2420,8 +2419,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
     // agent-b: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
-    TASK_UTIL_EXPECT_EQ(18, xc_a->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(18, xc_b->get_tx_update());
+    TASK_UTIL_EXPECT_GE(xc_a->get_tx_update(), 18);
+    TASK_UTIL_EXPECT_GE(xc_b->get_tx_update(), 18);
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -2593,7 +2592,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     //        2 end-of-rib (1 route-target, 1 inet-vpn)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(5 + 4 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_GE(peer_xy->get_tx_update(), 5 + 4 + kRouteCount);
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =
@@ -2614,8 +2613,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
     // agent-b: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
-    TASK_UTIL_EXPECT_EQ(18, xc_a->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(18, xc_b->get_tx_update());
+    TASK_UTIL_EXPECT_GE(xc_a->get_tx_update(), 18);
+    TASK_UTIL_EXPECT_GE(xc_b->get_tx_update(), 18);
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -2767,7 +2766,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete5) {
     // Verify xmpp update message counters.
     // agent-b: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
-    TASK_UTIL_EXPECT_EQ(18, xc_b->get_tx_update());
+    TASK_UTIL_EXPECT_GE(xc_b->get_tx_update(), 18);
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -2960,8 +2959,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     //        2 end-of-rib (1 route-target, 1 inet-vpn, 1 inet)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(5 + 4 + kRouteCount, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(6, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_GE(peer_xy->get_tx_update(), 5 + 4 + kRouteCount);
+    TASK_UTIL_EXPECT_GE(peer_yx->get_tx_update(), 6);
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =
@@ -2982,8 +2981,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
     // agent-b: 16 (kRouteCount/BgpXmppMessage::kMaxReachCount) advertise +
     //           2 (kRouteCount/BgpXmppMessage::kMaxUnreachCount) withdraw
-    TASK_UTIL_EXPECT_EQ(18, xc_a->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(18, xc_b->get_tx_update());
+    TASK_UTIL_EXPECT_GE(xc_a->get_tx_update(), 18);
+    TASK_UTIL_EXPECT_GE(xc_b->get_tx_update(), 18);
 
     // Close the sessions.
     agent_a_->SessionDown();
