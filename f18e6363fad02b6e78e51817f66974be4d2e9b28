@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "050cb8a2_84147e51",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6034,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-06T16:48:34Z",
+      "side": 1,
+      "message": "Yes I was though we should continue to allow it but don\u0027t make any check on the protocol as we don\u0027t have any clue about the IP version used in that FG. User have to provide correct protocol filter.",
+      "parentUuid": "454c687f_15ec2434",
+      "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "0dbaa06b_b391c773",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
         "patchSetId": 1
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "36be29eb_66664c88",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6053,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-06T16:48:34Z",
+      "side": 1,
+      "message": "Oops, I forget to add modified file that introduced that ew protocol string in our list.",
+      "parentUuid": "0dbaa06b_b391c773",
+      "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "75cdca4d_1a00de64",
         "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
         "patchSetId": 1
@@ -47,6 +83,24 @@
       "writtenOn": "2019-09-06T14:03:16Z",
       "side": 1,
       "message": "We may need to add a conversion here from \u0027ipv6-icmp\u0027 to \u0027icmp\u0027 for vnc-to-neutron",
+      "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9a5f361e_c42671bb",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6136,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-06T16:48:34Z",
+      "side": 1,
+      "message": "Why? I prefer to let it as \u0027ipv6-icmp\u0027 if the FR filter \u0027ipv6-icmp\u0027 protocol",
+      "parentUuid": "75cdca4d_1a00de64",
       "revId": "f18e6363fad02b6e78e51817f66974be4d2e9b28",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
