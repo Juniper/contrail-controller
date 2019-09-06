@@ -15,8 +15,30 @@
     - name: Save fabric UUID
       set_fact:
         fabric_uuid: "{{ playbook_input.input.fabric_uuid }}"
+      when: playbook_input.input.fabric_uuid is defined
+    - name: Save fabric FQNAME
+      set_fact:
+        fabric_fq_name: "{{ playbook_input.input.fabric_fq_name }}"
+      when: playbook_input.input.fabric_fq_name is defined
 
   tasks:
+    - name: Get fabric fabric_uuid
+      vnc_db_mod:
+        enable_job_ctx: False
+        job_ctx: "{{ job_ctx }}"
+        object_type: "fabric"
+        object_op: "fq_name_to_id"
+        object_dict: |
+          {
+            "fq_name": "{{ fabric_fq_name }}"
+          }
+      register: fab_uuid
+      when: fabric_fq_name is defined and fabric_uuid is not defined
+
+    - set_fact:
+        fabric_uuid: "{{ fab_uuid.uuid }}"
+      when: "fab_uuid is defined and 'uuid' in fab_uuid"
+
     - name: Get fabric fq_name
       vnc_db_mod:
         enable_job_ctx: False
@@ -27,10 +49,17 @@
           {
             "uuid": "{{ fabric_uuid }}"
           }
-      register: fabric_fq_name
+      register: fabric_fqname
+      when: fabric_fq_name is not defined
+
+    - set_fact:
+        fabric_fq_name: "{{ fabric_fqname.fq_name }}"
+      when: "fabric_fqname is defined and 'fq_name' in fabric_fqname"
+
     - name: Save fabric name
       set_fact:
-        fabric_name: "{{ fabric_fq_name.fq_name[-1] }}"
+        fabric_name: "{{fabric_fq_name[-1]}}"
+
     - name: Save ZTP config directory
       set_fact:
         ztp_conf_dir: ./config/ztp
