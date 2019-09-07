@@ -1,5 +1,4 @@
 mock
-six>=1.9
 coverage
 flexmock
 webtest
