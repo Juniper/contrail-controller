@@ -7,13 +7,12 @@ package agent_test
 import (
     "cat"
     "cat/agent"
-    log "github.com/sirupsen/logrus"
     "os"
     "syscall"
     "testing"
 )
 
-func Test1(t *testing.T) {
+func TestAgent(t *testing.T) {
     c, err := cat.New(); if err != nil {
         t.Errorf("Failed to create CAT object: %v", err)
     }
@@ -23,7 +22,6 @@ func Test1(t *testing.T) {
         t.Errorf("Failed to create agent: %v", err)
     }
 
-    log.Debugf("%v", a)
     if a.Name != "agent" {
         t.Errorf("incorrect agent name %s; want %s", a.Name, "agent")
     }
@@ -35,10 +33,10 @@ func Test1(t *testing.T) {
     }
 
    // Verify that component directory is created
-    _, err = os.Stat(a.Component.ConfDir); if os.IsNotExist(err) {
+    if _, err := os.Stat(a.Component.ConfDir); err != nil {
         t.Errorf("%s: Conf directory %s is not created", a.Name, a.Component.ConfDir)
     }
-    _, err = os.Stat(a.Component.LogDir); if os.IsNotExist(err) {
+    if _, err := os.Stat(a.Component.LogDir); err != nil {
         t.Errorf("%s: Log directory %s is not created", a.Name, a.Component.LogDir)
     }
 
@@ -47,7 +45,7 @@ func Test1(t *testing.T) {
     }
 
     // Verify that process indeed went down.
-    err = syscall.Kill(pid, syscall.Signal(0)); if err != nil {
+    if err := syscall.Kill(pid, syscall.Signal(0)); err != nil {
         t.Fatalf("%s process %d did not die", a.Name, pid)
     }
 }

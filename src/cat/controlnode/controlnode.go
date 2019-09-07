@@ -60,7 +60,7 @@ func New(m sut.Manager, name, ip_address, conf_file, test string, http_port int)
 }
 
 func (c *ControlNode) start() error {
-    if _, err := os.Stat(controlNodeBinary); os.IsNotExist(err) {
+    if _, err := os.Stat(controlNodeBinary); err != nil {
         log.Fatal(err)
     }
 

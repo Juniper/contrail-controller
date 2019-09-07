@@ -77,7 +77,7 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 
 func setup(cat *cat.CAT, desc string, nc, na int) ([]*controlnode.ControlNode, []*agent.Agent, error) {
     log.Debugf("%s: Creating %d control-nodes and %d agents\n", desc, nc, na);
-    var configMap ConfigMapType = make(ConfigMapType)
+    configMap := ConfigMapType{}
     control_nodes := []*controlnode.ControlNode{}
 
     for i := 0; i < nc; i++ {
@@ -149,8 +149,8 @@ func createVirtualNetwork(fqNameTable *config.FQNameTableType, uuidTable *config
 }
 
 func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes []*controlnode.ControlNode) error {
-    fqNameTable := make(config.FQNameTableType)
-    uuidTable := make(config.UUIDTableType)
+    fqNameTable := config.FQNameTableType{}
+    uuidTable := config.UUIDTableType{}
     config.NewGlobalSystemsConfig(&fqNameTable, &uuidTable, "64512")
     vm1, err := config.NewConfigObject(&fqNameTable, &uuidTable, "virtual_machine", "vm1", "", []string{"vm1"})
     if err != nil {
