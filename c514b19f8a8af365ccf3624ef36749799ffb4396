@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d72e693f_8c87f6e6",
+        "filename": "src/cat/agent/agent_test.go",
+        "patchSetId": 11
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-07T04:01:03Z",
+      "side": 1,
+      "message": "if it is any error it will be wrong\n\nif _, err \u003d os.Stat(a.Component.ConfDir); err !\u003d nil {\n  t.Errorf(..)\n}",
+      "revId": "c514b19f8a8af365ccf3624ef36749799ffb4396",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7f8cda97_1808326d",
+        "filename": "src/cat/config/config_test.go",
+        "patchSetId": 11
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-07T04:01:03Z",
+      "side": 1,
+      "message": "don\u0027t call it test1 :P",
+      "revId": "c514b19f8a8af365ccf3624ef36749799ffb4396",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fd887c07_f166a69d",
+        "filename": "src/cat/config/config_test.go",
+        "patchSetId": 11
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-07T04:01:03Z",
+      "side": 1,
+      "message": "fqNameTable :\u003d config.FQNameTableType{}",
+      "revId": "c514b19f8a8af365ccf3624ef36749799ffb4396",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1ae9ddcd_340660f5",
+        "filename": "src/cat/config/config_test.go",
+        "patchSetId": 11
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-07T04:01:03Z",
+      "side": 1,
+      "message": "if _, err :\u003d config.NewConfigObject(\u0026fqNameTable, \u0026uuidTable, \"route_target\", tgt, \"\",[]string{tgt}); err !\u003d nil {\n            t.Errorf(\"Cannot create config object: %v\", err)\n        }\n\nand everywhere below",
+      "revId": "c514b19f8a8af365ccf3624ef36749799ffb4396",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a5eb7767_8d376fbf",
+        "filename": "src/cat/config/config_test.go",
+        "patchSetId": 11
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-07T04:01:03Z",
+      "side": 1,
+      "message": "in general don\u0027t output in tests via log\n\nt.Logf(...)\n\nif you really want output",
+      "revId": "c514b19f8a8af365ccf3624ef36749799ffb4396",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7b839f68_a5b5a156",
+        "filename": "src/cat/controlnode/controlnode_test.go",
+        "patchSetId": 11
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-07T04:01:03Z",
+      "side": 1,
+      "message": "remove logs unless you REALLY need  then t.Log",
+      "revId": "c514b19f8a8af365ccf3624ef36749799ffb4396",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
