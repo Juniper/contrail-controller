@@ -24,8 +24,8 @@
 import urllib
 from collections import OrderedDict
 import sys
-import cStringIO
-from ConfigParser import NoOptionError
+from six import StringIO
+from six.moves.configparser import NoOptionError
 
 from cfgm_common import vnc_cgitb
 from vnc_api.utils import (
@@ -45,7 +45,7 @@ def cgitb_hook(info=None, **kwargs):
 
 
 def detailed_traceback():
-    buf = cStringIO.StringIO()
+    buf = StringIO()
     cgitb_hook(format="text", file=buf)
     tb_txt = buf.getvalue()
     buf.close()

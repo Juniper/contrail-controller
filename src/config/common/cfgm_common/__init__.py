@@ -5,6 +5,7 @@
 import re
 import sys
 import uuid
+from six import unichr
 
 IP_FABRIC_VN_FQ_NAME = ['default-domain', 'default-project', 'ip-fabric']
 IP_FABRIC_RI_FQ_NAME = IP_FABRIC_VN_FQ_NAME + ['__default__']
