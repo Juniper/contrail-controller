@@ -7,21 +7,21 @@ package controlnode_test
 import (
     "cat"
     "cat/controlnode"
-    log "github.com/sirupsen/logrus"
     "os"
     "syscall"
     "testing"
 )
 
-func Test1(t *testing.T) {
-    c, err := cat.New(); if err != nil {
+func TestControlNode(t *testing.T) {
+    c, err := cat.New()
+    if err != nil {
         t.Errorf("Failed to create CAT object: %v", err)
     }
-    cn, err := controlnode.New(c.SUT.Manager, "control-node", "127.0.0.1", "conf_file", "test", 0); if err != nil {
+    cn, err := controlnode.New(c.SUT.Manager, "control-node", "127.0.0.1", "conf_file", "test", 0)
+    if err != nil {
         t.Errorf("Failed to create control-node: %v", err)
     }
 
-    log.Debugf("%v", cn)
     if cn.Name != "control-node" {
         t.Errorf("incorrect control-node name %s; want %s", cn.Name, "control-node")
     }
@@ -33,10 +33,10 @@ func Test1(t *testing.T) {
     }
 
    // Verify that component directory is created
-    _, err = os.Stat(cn.Component.ConfDir); if os.IsNotExist(err) {
+    if _, err := os.Stat(cn.Component.ConfDir); err != nil {
         t.Errorf("%s: Conf directory %s is not created", cn.Name, cn.Component.ConfDir)
     }
-    _, err = os.Stat(cn.Component.LogDir); if os.IsNotExist(err) {
+    if _, err := os.Stat(cn.Component.LogDir); err != nil {
         t.Errorf("%s: Log directory %s is not created", cn.Name, cn.Component.LogDir)
     }
 
@@ -56,7 +56,7 @@ func Test1(t *testing.T) {
 
     // Restart a few times..
     for i := 0; i < 3; i++ {
-        err = cn.Restart(); if err != nil {
+        if err := cn.Restart(); err != nil {
             t.Errorf("%s: restart failed %v", cn.Name, err)
         }
 
@@ -74,7 +74,7 @@ func Test1(t *testing.T) {
     }
 
     // Verify that process indeed went down.
-    err = syscall.Kill(pid, syscall.Signal(0)); if err != nil {
+    if err := syscall.Kill(pid, syscall.Signal(0)); err != nil {
         t.Fatalf("%s process %d did not die", cn.Name, pid)
     }
 }

@@ -58,7 +58,7 @@ func New(m sut.Manager, name, test string, xmpp_ports []int) (*Agent, error) {
 }
 
 func (a *Agent) Start() error {
-    if _, err := os.Stat(agentBinary); os.IsNotExist(err) {
+    if _, err := os.Stat(agentBinary); err != nil {
         return err
     }
     a.Cmd = exec.Command(agentBinary, "--config_file=" + a.Component.ConfFile)
