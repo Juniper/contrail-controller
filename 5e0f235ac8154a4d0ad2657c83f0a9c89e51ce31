@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "48fbc631_687c6c8b",
+        "filename": "ci_unittests.json",
+        "patchSetId": 9
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 733
+      },
+      "writtenOn": "2019-09-08T16:49:33Z",
+      "side": 1,
+      "message": "Unit tests of statistics client are not dependent of any Contrail modules or libs. VNC API is MOCK object in tests.",
+      "parentUuid": "76dc1a99_8a055604",
+      "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fb0de5e6_3c27d449",
         "filename": "src/stats/setup.py",
         "patchSetId": 9
