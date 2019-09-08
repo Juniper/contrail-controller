@@ -54,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "06419b61_66d2bb8c",
+        "filename": "src/stats/setup.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 733
+      },
+      "writtenOn": "2019-09-08T16:50:49Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fb0de5e6_3c27d449",
+      "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fd308973_82cd4931",
         "filename": "src/stats/stats/tests/test_common.py",
         "patchSetId": 9
@@ -68,6 +86,24 @@
       "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec0a43ca_bcb93375",
+        "filename": "src/stats/stats/tests/test_common.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 733
+      },
+      "writtenOn": "2019-09-08T16:50:49Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fd308973_82cd4931",
+      "revId": "5e0f235ac8154a4d0ad2657c83f0a9c89e51ce31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
