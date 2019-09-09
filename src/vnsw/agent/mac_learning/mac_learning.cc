@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
+#include <init/agent_param.h>
 #include <oper/vn.h>
 #include <oper/sg.h>
 #include <oper/vrf.h>
@@ -362,7 +363,7 @@ MacLearningSandeshResp::GetMacKey() {
 
 const MacLearningPartition*
 MacLearningSandeshResp::GetPartition() {
-    if (partition_id_ >= agent_->flow_thread_count()) {
+    if (partition_id_ >= agent_->params()->mac_learning_thread_count()) {
         return NULL;
     }
 
@@ -451,7 +452,7 @@ MacLearningSandeshResp::Run() {
         }
     }
 
-    if (partition_id_ < agent_->flow_thread_count()) {
+    if (partition_id_ < agent_->params()->mac_learning_thread_count()) {
         resp_->set_mac_key(GetMacKey());
     }
 
