@@ -18,6 +18,7 @@
 {%                 set src_ports = term_from.get('source_ports', []) %}
 {%                 set dst_ports = term_from.get('destination_ports', []) %}
 {%                 set ip_proto = term_from.get('ip_protocol') %}
+{%                 set ether_type = term_from.get('ether_type') %}
 {%                 set term_then = term.get('then') %}
 {%                 if term_then == None %}
 {%                     continue %}
@@ -40,7 +41,7 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 {%                 if ip_proto %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-protocol {{ip_proto}}
 {%                 endif %}
-{%                 if then_accept_or_reject == True %}
+{%                 if then_accept_or_reject == True and (ether_type != 'arp') %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
 {%                 endif %}
 {%             endfor %}
