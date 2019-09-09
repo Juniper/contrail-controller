@@ -356,6 +356,11 @@ class DeviceInfo(object):
                 physical_router_product_name=oid_mapped.get('product'),
                 physical_router_device_family=oid_mapped.get('family'),
                 physical_router_vnc_managed=True,
+                physical_router_snmp_credentials={
+                    'version': 2,
+                    'v2_community': 'public',
+                    'local_port': 161
+                }
                 physical_router_hostname=fq_name[-1],
                 display_name=fq_name[-1],
                 physical_router_serial_number=serial_num,
