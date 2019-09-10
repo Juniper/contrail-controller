@@ -20,9 +20,6 @@
 #include "services/metadata_proxy.h"
 #include "init/agent_param.h"
 
-#define MPLS_OVER_UDP_OLD_DEST_PORT 51234
-#define MPLS_OVER_UDP_NEW_DEST_PORT 6635
-#define VXLAN_UDP_DEST_PORT 4789
 
 SandeshTraceBufferPtr DhcpTraceBuf(SandeshTraceBufferCreate("Dhcp", 1000));
 SandeshTraceBufferPtr Dhcpv6TraceBuf(SandeshTraceBufferCreate("Dhcpv6", 1000));
@@ -136,11 +133,7 @@ bool ServicesModule::AllocateFd(uint16_t port_number, uint8_t l3_proto) {
         LOG(ERROR, "Failed to create socket, errno:" << strerror(errno));
         return false;
     }
-
-    int optval = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
-                    (const char*)&optval, sizeof(optval));
-
+    
     struct sockaddr_in address;
     memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;

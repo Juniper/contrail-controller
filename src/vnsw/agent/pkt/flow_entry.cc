@@ -243,8 +243,11 @@ bool VmFlowRef::AllocateFd(Agent *agent, uint8_t l3_proto) {
                                               flow_->key(), UTCTimestampUsec());
 
     // allow the socket to be reused upon close
-    int optval = 1;
-    setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof(optval));
+    if (l3_proto == IPPROTO_TCP) {
+        int optval = 1;
+        setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR,
+                (const char*)&optval, sizeof(optval));
+    }
 
     struct sockaddr_in address;
     memset(&address, 0, sizeof(address));
