@@ -51,12 +51,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.21"
+__version__ = "1.22"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.22:
+  - Typo fix for stale RT backrefs to RI
 * 1.21:
   - Add new check and clean methods for RT backrefs to RI
 * 1.20:
@@ -1921,8 +1923,8 @@ class DatabaseChecker(DatabaseManager):
         errors, back_refs_to_remove =\
             self.audit_route_targets_routing_instance_backrefs()
         for (rt_fq_name_str, rt_uuid), ri_uuids in back_refs_to_remove.items():
-            msg = ("Extra RI back-refs %s from RT %s(%s)" %
-                   (':'.join(ri_uuids), rt_fq_name_str, rt_uuid))
+            msg = ("Extra RI back-ref(s) %s from RT %s(%s)" %
+                   (', '.join(ri_uuids), rt_fq_name_str, rt_uuid))
             errors.append(RTbackrefError(msg))
         return errors
 
@@ -2660,11 +2662,11 @@ class DatabaseCleaner(DatabaseManager):
             if not self._args.execute:
                 self._logger.info(
                     "Would remove RI back-refs %s from RT %s(%s)",
-                    ':'.join(ri_uuids), rt_fq_name_str, rt_uuid)
+                    ', '.join(ri_uuids), rt_fq_name_str, rt_uuid)
             else:
                 self._logger.info(
                     "Removing RI back-refs %s from RT %s(%s)",
-                    ':'.join(ri_uuids), rt_fq_name_str, rt_uuid)
+                    ', '.join(ri_uuids), rt_fq_name_str, rt_uuid)
                 bch = uuid_table.batch()
                 for ri_uuid in ri_uuids:
                     bch.remove(ri_uuid,
