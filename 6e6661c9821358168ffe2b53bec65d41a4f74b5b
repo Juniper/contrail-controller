@@ -1,0 +1,96 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c0f382b8_5972ebb0",
+        "filename": "src/analytics/viz_collector.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 297,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-10T06:27:12Z",
+      "side": 1,
+      "message": "dont we need to check return value? i think we should keep trying until it succeeds at least few times.",
+      "range": {
+        "startLine": 297,
+        "startChar": 4,
+        "endLine": 297,
+        "endChar": 35
+      },
+      "revId": "6e6661c9821358168ffe2b53bec65d41a4f74b5b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9a28d51f_5d4c8610",
+        "filename": "src/analytics/viz_collector.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 317,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-10T06:27:12Z",
+      "side": 1,
+      "message": "same here. we should take some action if it fails.",
+      "range": {
+        "startLine": 317,
+        "startChar": 20,
+        "endLine": 317,
+        "endChar": 33
+      },
+      "revId": "6e6661c9821358168ffe2b53bec65d41a4f74b5b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "54ca1252_a964d6e7",
+        "filename": "src/analytics/viz_collector.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-10T06:27:12Z",
+      "side": 1,
+      "message": "Did it not require changing any test cases and may be some sanity scripts also?",
+      "range": {
+        "startLine": 67,
+        "startChar": 14,
+        "endLine": 67,
+        "endChar": 30
+      },
+      "revId": "6e6661c9821358168ffe2b53bec65d41a4f74b5b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "08207ec5_66077f5c",
+        "filename": "src/zookeeper/zookeeper_client.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 157,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-10T06:27:12Z",
+      "side": 1,
+      "message": "Is Collector only one using this API?",
+      "range": {
+        "startLine": 157,
+        "startChar": 12,
+        "endLine": 157,
+        "endChar": 23
+      },
+      "revId": "6e6661c9821358168ffe2b53bec65d41a4f74b5b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
