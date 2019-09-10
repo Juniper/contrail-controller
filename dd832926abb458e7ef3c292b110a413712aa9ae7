@@ -16,6 +16,24 @@
       "revId": "dd832926abb458e7ef3c292b110a413712aa9ae7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ae8462ac_018ed037",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/module_utils/device_info.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 360,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-09-10T16:46:31Z",
+      "side": 1,
+      "message": "it is already there in role config. Role config is used to push device config and not PR object parameters. This is needed to be updated in PR object",
+      "parentUuid": "69eea408_db911c30",
+      "revId": "dd832926abb458e7ef3c292b110a413712aa9ae7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
