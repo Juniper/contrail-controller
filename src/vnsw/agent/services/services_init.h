@@ -11,6 +11,10 @@
 #include <services/icmpv6_error_proto.h>
 #include <services/arp_proto.h>
 
+#define MPLS_OVER_UDP_OLD_DEST_PORT 51234
+#define MPLS_OVER_UDP_NEW_DEST_PORT 6635
+#define VXLAN_UDP_DEST_PORT 4789
+
 class MetadataProxy;
 
 class ServicesModule {

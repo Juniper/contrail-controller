@@ -2,10 +2,13 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 #include <base/os.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <base/address_util.h>
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
 #include "pkt/flow_table.h"
+#include "services/services_init.h"
 
 #define MAX_VNET 4
 int fd_table[MAX_VNET];
@@ -459,6 +462,43 @@ TEST_F(FlowTest, LinkLocalFlow_update) {
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowTableWait(0));
+}
+// test case to check that binding to reversed ports
+// is not allowed.
+TEST_F(FlowTest, LinkLocalFlow_reserved_port) {
+    int fd;
+    struct sockaddr_in address;
+    struct sockaddr_in bound_to;
+    socklen_t len;
+    int status;
+
+    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(MPLS_OVER_UDP_OLD_DEST_PORT);
+    status = ::bind(fd, (struct sockaddr*) &address, sizeof(address));
+    EXPECT_EQ(-1, status);
+    EXPECT_EQ(EADDRINUSE, errno);
+    close(fd);
+
+    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(MPLS_OVER_UDP_NEW_DEST_PORT);
+    status = ::bind(fd, (struct sockaddr*) &address, sizeof(address));
+    EXPECT_EQ(-1, status);
+    EXPECT_EQ(EADDRINUSE, errno);
+    close(fd);
+
+    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(VXLAN_UDP_DEST_PORT);
+    status = ::bind(fd, (struct sockaddr*) &address, sizeof(address));
+    EXPECT_EQ(-1, status);
+    EXPECT_EQ(EADDRINUSE, errno);
+    close(fd);
+
 }
 
 int main(int argc, char *argv[]) {
