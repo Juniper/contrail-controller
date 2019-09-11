@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c10a3904_b76f549e",
+        "filename": "src/stats/stats/tests/test_common.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-11T16:24:36Z",
+      "side": 1,
+      "message": "What I meant is that use port 0 so that you get a free one from the kernel. Otherwise multiple parallel test runs will have port collisions ?",
+      "revId": "cb674c9a9f4e17ca7f04305a9fec4366b92565d1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
