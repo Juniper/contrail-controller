@@ -43,6 +43,13 @@ struct KNHInfo {
 /**
  * Sandesh definition for interface in kernel
  */
+
+struct BondMemberIntfInfo {
+   1: string       child_bond_interface_name;
+   2: string       child_bond_interface_status;
+   3: string       child_bond_interface_drv_name;
+}
+
 struct KInterfaceInfo {
     1: i32          idx;
     2: string       type;
@@ -97,6 +104,8 @@ struct KInterfaceInfo {
    51: i32          isid;
    52: string       pbb_bmac;
    53: string       bridge_idx;
+   54: string       status;
+   55: list<BondMemberIntfInfo> bond_child_intf_list;
 }
 
 /**
