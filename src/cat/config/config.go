@@ -106,7 +106,7 @@ func createContrailConfig (fqNameTable *FQNameTableType, tp, name, parent_type s
     }
     us := u.String()
     if (*fqNameTable)[tp] == nil {
-        (*fqNameTable)[tp] = make(map[string]string)
+        (*fqNameTable)[tp] = map[string]string{}
     }
     ts := time.Now().String()
     c := ContrailConfig{
