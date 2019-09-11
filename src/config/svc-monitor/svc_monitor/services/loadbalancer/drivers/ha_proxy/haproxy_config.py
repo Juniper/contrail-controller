@@ -111,7 +111,7 @@ def set_globals(uuid, custom_attr_dict, custom_attrs):
             'ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:' \
             'RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS'
 
-    logger_socket = '/var/log/contrail/lbaas/haproxy.log.sock'
+    logger_socket = '/var/run/contrail/loadbalancer/haproxy.log.sock'
 
     conf = [
         'global',
