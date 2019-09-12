@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "78d3d77c_39515657",
+        "filename": "src/config/common/cfgm_common/vnc_cassandra.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 254,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-12T15:08:56Z",
+      "side": 1,
+      "message": "if row is none, that means the key is not in the table or the key does not have any columns that correspond to the filters in the request (aka column_start and column_finish). Imo, in that case we should remove the key from the results dict",
+      "revId": "32ad422ada294892d5f6959f321d001940b4dae8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
