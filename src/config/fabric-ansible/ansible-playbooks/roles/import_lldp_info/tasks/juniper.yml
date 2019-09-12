@@ -14,6 +14,24 @@
       timeout: "{{timeout}}"
   register: execute_command_resp
 
+- name: Retry to execute the previous command to find new neighbors
+  block:
+
+    - name: Update count to ("{{ count | int + 1 }}")
+      set_fact:
+        count: "{{ count | int + 1 }}"
+
+    - name: wait and retry if count is lesser than or equal retry limit
+      block:
+        - name: Wait for "{{ delay }}" seconds
+          wait_for:
+            timeout: "{{ delay }}"
+
+        - name: Retry no."{{count}}"
+          include_tasks: "juniper.yml"
+      when: count | int <= retries | int
+  when: '"parsed_output" in execute_command_resp and "lldp-neighbor-information" not in execute_command_resp.parsed_output["lldp-neighbors-information"]'
+
 # rewrite execute_command_resp to have neighbor information if found
 # else leave execute_command_resp at the previous step
 - name: Execute "show lldp neighbors interface <interface_name>" when there is at least one neighbor
@@ -55,7 +73,7 @@
       register: execute_command_resp
       with_items: "{{local_interfaces_list}}"
 
-  when: '"lldp-neighbor-information" in execute_command_resp.parsed_output["lldp-neighbors-information"]'
+  when: '"parsed_output" in execute_command_resp and "lldp-neighbor-information" in execute_command_resp.parsed_output["lldp-neighbors-information"]'
 
 - set_fact:
     device_info: "{{execute_command_resp}}"
