@@ -1,0 +1,12 @@
+- name: retry block
+  block:
+    - name: include tasks
+      include_tasks: "{{ task_file_path }}"
+      when: included_tasks_failed is undefined or included_tasks_failed == true
+    - set_fact:
+        included_tasks_failed: false
+  rescue:
+    - set_fact:
+        included_tasks_failed: true
+    - pause:
+        seconds: 15

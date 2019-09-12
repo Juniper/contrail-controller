@@ -17,11 +17,19 @@
         - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
       when: p.stat.exists == True
 
+    - set_fact:
+        included_tasks_failed: true
+
     # this is assuming device family does not matter
     - name: Execute commands from vendor specific template
       block:
-        - include_tasks: "{{prouter_vendor}}.yml"
+        - include_tasks: "proxy.yml"
+          with_sequence: count=9
       when: p.stat.exists == False
+
+    - name: fail when retry block fails
+      fail:
+      when: included_tasks_failed == true
 
     # validate schema including to check if the device_info is set as part of the ansible file
     - name: Validate Input Schema -- device_info

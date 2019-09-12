@@ -87,12 +87,20 @@
         delay: 0
         sleep: 5
 
+    - set_fact:
+        included_tasks_failed: true
+
     - name: Commit device specific supplemental config
-      include_tasks: "{{ task_file_path }}"
+      include_tasks: "proxy.yml"
+      with_sequence: count=9
       vars:
         load: "set"
         format: "set"
         device_config: "{{ supplemental_config }}"
+
+    - name: fail when retry block fails
+      fail:
+      when: included_tasks_failed == true
 
     - name: Print device response
       debug: msg="{{ device_push_response }}" verbosity=1
