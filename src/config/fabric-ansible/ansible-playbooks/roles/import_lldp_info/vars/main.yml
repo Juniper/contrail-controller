@@ -9,3 +9,6 @@ host: "{{playbook_input.device_management_ip}}"
 password: "{{playbook_input.device_password}}"
 timeout: "{{DEVICE_COMMAND_TIMEOUT | int}}"
 schema_file: "{{playbook_dir}}/schema/import_lldp_info_schema.json"
+delay: 5
+count: 0
+retries: 3
