@@ -44,28 +44,10 @@ public:
                  std::string resp_ctx, vr_interface_req &encoder, int id):
                  InterfaceKState(obj, resp_ctx, encoder, id),
                  TestKStateBase(verify, if_count, id) {}
-    virtual void SendResponse() { 
-        KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
-        vector<KInterfaceInfo> list;
-        resp->set_if_list(list);
-    }
+    virtual void SendResponse() { }
 
     virtual void Handler() {
-        KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
-        if (resp) {
-            UpdateFetchCount();
-            if (MoreData()) {
-                SendResponse();
-                SendNextRequest();
-            } else {
-                if (verify_) {
-                    EXPECT_EQ(expected_count_, fetched_count_);
-                }
-                handler_count_++;
-                more_context_ = boost::any();
-            }
-        }
-
+        BaseHandler();
         if (verify_idx_ != -1) {
             KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
             EXPECT_TRUE(resp != NULL);
@@ -81,6 +63,7 @@ public:
                 }
             }
         }
+        more_context_ = boost::any();
     }
 
     void PrintIfResp(KInterfaceResp *r) {

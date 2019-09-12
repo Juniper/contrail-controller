@@ -21,7 +21,6 @@
 #include "vr_nexthop.h"
 #include "vr_message.h"
 #include <net/if.h>
-#include <string>
 
 using namespace std;
 
@@ -172,46 +171,6 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     }
     if (r->get_vifr_pbb_mac().size()) {
         data.set_pbb_bmac(MacToString(r->get_vifr_pbb_mac()));
-    }
-    if(ist->TypeToString(r->get_vifr_type()) == "PHYSICAL")
-    {
-        std::vector<BondMemberIntfInfo> bond_interface_list;
-        const char *bond_link[] = {"DOWN", "UP"};
-
-        data.set_status(bond_link[(r->get_vifr_intf_status() & 0x01)]);
-
-        char *slave_intf_name = NULL;
-        char *slave_intf_drv_name = NULL;
-        if(!r->get_vifr_bond_slave_name().empty())
-            slave_intf_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_bond_slave_name())[0]));
-
-        if (!r->get_vifr_bond_slave_drv_name().empty())
-            slave_intf_drv_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_bond_slave_drv_name())[0]));
-
-        for (int i = 0; i < r->get_vifr_num_bond_slave(); i++) {
-            BondMemberIntfInfo entry;
-
-            entry.set_child_bond_interface_status(bond_link[(r->get_vifr_intf_status() >> (i + 1)) & 0x01]);
-            if(slave_intf_name)
-            {
-                std::string str(slave_intf_name);
-                entry.set_child_bond_interface_name(str);
-
-                slave_intf_name = strchr(slave_intf_name, '\0');
-                slave_intf_name++;
-            }
-            if(slave_intf_drv_name)
-            {
-                std::string str1(slave_intf_drv_name);
-                entry.set_child_bond_interface_drv_name(str1);
-
-                slave_intf_drv_name = strchr(slave_intf_drv_name, '\0');
-                slave_intf_drv_name++;
-            }
-            bond_interface_list.push_back(entry);
-        }
-
-        data.set_bond_child_intf_list(bond_interface_list);
     }
     list.push_back(data);
 
