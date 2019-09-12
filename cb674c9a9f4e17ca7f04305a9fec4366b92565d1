@@ -16,6 +16,24 @@
       "revId": "cb674c9a9f4e17ca7f04305a9fec4366b92565d1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ac2eb8b9_d82fbc7f",
+        "filename": "src/stats/stats/tests/test_common.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 733
+      },
+      "writtenOn": "2019-09-12T15:42:57Z",
+      "side": 1,
+      "message": "Sorry,  didn\u0027t explain yet.\nWhen we enable httpretty, the REAL python module \"socket\" is replaced by fake module. All modules (httpretty, urlllib2, requests) which are based on \"socket\" module, use fake module. So they don\u0027t use OS network ports. httpretty can take any valid port (1 - 65535 ) and they are only used in test module and not elsewhere. \nI made some additional tests:  I ran tests where httpretty uses ports 22, 80. In same hosts sshd and web services are up and running (127.0.0.1:22, 127.0.0.1:80). There were not any network conflicts.\nhttps://httpretty.readthedocs.io/en/latest/_modules/httpretty/core.html#httpretty.enable",
+      "parentUuid": "c10a3904_b76f549e",
+      "revId": "cb674c9a9f4e17ca7f04305a9fec4366b92565d1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
