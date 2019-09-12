@@ -1051,6 +1051,7 @@ class FakeKeystoneClient(object):
             self.name = name
             self.id = str(id or uuid.uuid4())
             self._domains[id] = self
+            return self
 
         def list(self):
             return self._domains.values()
@@ -1060,24 +1061,34 @@ class FakeKeystoneClient(object):
 
     class Tenants(object):
         _tenants = {}
+        _tenants_by_name = {}
+
         def add_tenant(self, id, name):
             self.id = id
             self.name = name
             self._tenants[id] = self
+            self._tenants_by_name[name] = self
 
         def delete_tenant(self, id):
-            del self._tenants[id]
+            tenant = self._tenants.pop(id, None)
+            if tenant and tenant.name:
+                self._tenants_by_name.pop(tenant.name, None)
 
         def create(self, name, id=None):
             self.name = name
             self.id = str(id or uuid.uuid4())
             self._tenants[id] = self
+            self._tenants_by_name[name] = self
+            return self
 
         def list(self):
             return self._tenants.values()
 
-        def get(self, id):
-            return self._tenants[str(uuid.UUID(id))]
+        def get(self, id=None, name=None):
+            if id:
+                return self._tenants.get(str(uuid.UUID(id)))
+            elif name:
+                return self._tenants_by_name.get(name)
 
     class Users(object):
         _users = {}
@@ -1086,6 +1097,7 @@ class FakeKeystoneClient(object):
             self.password = password
             self.tenant_id = tenant_id
             self._users[name] = self
+            return self
 
         def list(self):
             return self._users.values()
@@ -1102,9 +1114,16 @@ class FakeKeystoneClient(object):
         def create(self, name):
             self.name = name
             self._roles[name] = self
+            return self
 
         def list(self):
             return self._roles.values()
+
+        def get(self, name):
+            for x in self._roles.values():
+                if x.name == name:
+                    return x
+            return None
 
         def get_user_role(self, username, tenant_id):
             return self._roles_map[username][tenant_id]
