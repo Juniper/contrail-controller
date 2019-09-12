@@ -307,7 +307,7 @@ VnswInterfaceListenerLinux::HandleNetlinkIntfMsg(struct nlmsghdr *nlh) {
     } else {
         type = Event::ADD_INTERFACE;
     }
-    return new Event(type, port_name, ifi->ifi_flags, ifi->ifi_type);
+    return new Event(type, port_name, ifi->ifi_flags);
 }
 
 VnswInterfaceListenerBase::Event *

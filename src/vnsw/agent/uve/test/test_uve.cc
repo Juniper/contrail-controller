@@ -424,7 +424,7 @@ TEST_F(UveTest, StatsCollectorTest) {
     EXPECT_EQ(0, collector->interface_stats_errors_);
     EXPECT_EQ(0, collector->vrf_stats_errors_);
     EXPECT_EQ(0, collector->drop_stats_errors_);
-    EXPECT_EQ(2, collector->interface_stats_responses_);
+    EXPECT_EQ(1, collector->interface_stats_responses_);
     EXPECT_EQ(1, collector->vrf_stats_responses_);
     EXPECT_EQ(1, collector->drop_stats_responses_);
 
@@ -467,7 +467,7 @@ TEST_F(UveTest, StatsCollectorTest) {
     WAIT_FOR(100, 1000, (collector->interface_stats_errors_ == 0));
     WAIT_FOR(100, 1000, (collector->vrf_stats_errors_ == 0));
     WAIT_FOR(100, 1000, (collector->drop_stats_errors_ == 0));
-    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ == 2));
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ == 1));
     WAIT_FOR(100, 1000, (collector->vrf_stats_responses_ == 1));
     WAIT_FOR(100, 1000, (collector->drop_stats_responses_ == 1));
 
