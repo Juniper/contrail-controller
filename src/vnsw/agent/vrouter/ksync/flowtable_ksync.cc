@@ -264,6 +264,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_family(AF_INET6);
     req.set_fr_flow_vrf(flow_entry_->data().vrf);
     uint16_t flags = 0;
+    uint16_t flags1 = 0;
 
     if (op == sandesh_op::DEL) {
         if (hash_id_ == FlowEntry::kInvalidFlowHandle) {
@@ -271,6 +272,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         req.set_fr_flags(0);
+        req.set_fr_flags1(0);
         // Sync() is not called in case of delete. Copy the event to use
         // the right token
         last_event_ = (FlowEvent::Event)flow_entry_->last_event();
@@ -294,6 +296,17 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (action == VR_FLOW_ACTION_NAT &&
             flow_entry_->reverse_flow_entry() == NULL) {
             action = VR_FLOW_ACTION_DROP;
+        }
+
+        if ((fe_action) & (1 << TrafficAction::HBS)) {
+            if (flow_entry_->is_flags_set(FlowEntry::HbfFlow)) {
+                if (flow_entry_->GetHbsInterface() ==
+                    FlowEntry::HBS_INTERFACE_RIGHT) {
+                    flags1 |= VR_FLOW_FLAG1_HBS_RIGHT;
+                } else {
+                    flags1 |= VR_FLOW_FLAG1_HBS_LEFT;
+                }
+            }
         }
 
         if ((fe_action) & (1 << TrafficAction::MIRROR)) {
@@ -432,6 +445,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         req.set_fr_flags(flags);
+        req.set_fr_flags1(flags1);
         req.set_fr_action(action);
         req.set_fr_drop_reason(drop_reason);
         req.set_fr_qos_id(qos_config_idx);
