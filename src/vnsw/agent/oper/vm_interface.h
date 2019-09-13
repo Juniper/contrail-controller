@@ -449,6 +449,12 @@ public:
         AGGREGATE_PREFIX_MAX_VAL = AGGREGATE_SRC_DST_IPV4,
     };
 
+    enum HbsIntfType {
+        HBS_INTF_INVALID = 0,
+        HBS_INTF_LEFT,
+        HBS_INTF_RIGHT,
+    };
+
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
     typedef std::set<HealthCheckInstanceBase *> HealthCheckInstanceSet;
 
@@ -1204,6 +1210,7 @@ public:
     bool drop_new_flows() const { return drop_new_flows_; }
     VmInterface::DeviceType device_type() const {return device_type_;}
     VmInterface::VmiType vmi_type() const {return vmi_type_;}
+    VmInterface::HbsIntfType hbs_intf_type() const {return hbs_intf_type_;}
     bool admin_state() const { return admin_state_; }
     const AclDBEntry* vrf_assign_acl() const {
         return vrf_assign_rule_list_.vrf_assign_acl_.get();
@@ -1221,6 +1228,7 @@ public:
     bool etree_leaf() const { return etree_leaf_; }
     void set_etree_leaf(bool val) { etree_leaf_ = val; }
 
+    void set_hbs_intf_type(VmInterface::HbsIntfType val) { hbs_intf_type_ = val ;}
     bool pbb_interface() const { return pbb_interface_; }
 
     bool layer2_control_word() const { return layer2_control_word_; }
@@ -1680,6 +1688,7 @@ private:
     Ip4Address vm_ip_service_addr_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
+    VmInterface::HbsIntfType hbs_intf_type_;
     uint8_t configurer_;
     Ip4Address subnet_;
     uint8_t subnet_plen_;
@@ -1879,6 +1888,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::VmiReceiveRouteList receive_route_list_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
+    VmInterface::HbsIntfType hbs_intf_type_;
     // Parent physical-interface. Used in VMWare/ ToR logical-interface
     std::string physical_interface_;
     // Parent VMI. Set only for VM_VLAN_ON_VMI
