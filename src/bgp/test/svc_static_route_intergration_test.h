@@ -547,25 +547,32 @@ protected:
         mx_->Configure(config);
     }
 
+    SCAddress::Family GetSCFamily(Address::Family family) {
+        SCAddress sc_addr;
+        return (sc_addr.AddressFamilyToSCFamily(family));
+    }
+
     bool IsServiceChainQEmpty(BgpServerTest *server) {
-        return server->service_chain_mgr(family_)->IsQueueEmpty();
+        return server->service_chain_mgr(GetSCFamily(family_))->IsQueueEmpty();
     }
 
     void DisableServiceChainQ(BgpServerTest *server) {
-        server->service_chain_mgr(family_)->DisableQueue();
+        server->service_chain_mgr(GetSCFamily(family_))->DisableQueue();
     }
 
     void EnableServiceChainQ(BgpServerTest *server) {
-        server->service_chain_mgr(family_)->EnableQueue();
+        server->service_chain_mgr(GetSCFamily(family_))->EnableQueue();
     }
 
     void DisableServiceChainAggregation(BgpServerTest *server) {
-        IServiceChainMgr *imgr = server->service_chain_mgr(family_);
+        IServiceChainMgr *imgr = server->
+            service_chain_mgr(GetSCFamily(family_));
         imgr->set_aggregate_host_route(false);
     }
 
     void EnableServiceChainAggregation(BgpServerTest *server) {
-        IServiceChainMgr *imgr = server->service_chain_mgr(family_);
+        IServiceChainMgr *imgr = server->
+            service_chain_mgr(GetSCFamily(family_));
         imgr->set_aggregate_host_route(true);
     }
 

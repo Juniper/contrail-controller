@@ -25,6 +25,7 @@
 #include "base/lifetime.h"
 #include "base/address.h"
 #include "bgp/bgp_common.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "sandesh/sandesh_trace.h"
 

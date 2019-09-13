@@ -13,6 +13,7 @@
 #include "bgp/bgp_common.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_log.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
 
@@ -999,13 +1000,14 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
     if (config->IsPropertySet(
         autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
         ServiceChainConfig item = {
-            Address::INET,
+            SCAddress::INET,
             inet_chain.routing_instance,
             inet_chain.prefix,
             inet_chain.service_chain_address,
             inet_chain.service_instance,
             inet_chain.source_routing_instance,
-            inet_chain.service_chain_id
+            inet_chain.service_chain_id,
+            inet_chain.sc_head,
         };
         list.push_back(item);
     }
@@ -1015,13 +1017,48 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
     if (config->IsPropertySet(
         autogen::RoutingInstance::IPV6_SERVICE_CHAIN_INFORMATION)) {
         ServiceChainConfig item = {
-            Address::INET6,
+            SCAddress::INET6,
             inet6_chain.routing_instance,
             inet6_chain.prefix,
             inet6_chain.service_chain_address,
             inet6_chain.service_instance,
             inet6_chain.source_routing_instance,
-            inet6_chain.service_chain_id
+            inet6_chain.service_chain_id,
+            inet6_chain.sc_head,
+        };
+        list.push_back(item);
+    }
+
+    const autogen::ServiceChainInfo &evpn_chain =
+        config->evpn_service_chain_information();
+    if (config->IsPropertySet(
+        autogen::RoutingInstance::EVPN_SERVICE_CHAIN_INFORMATION)) {
+        ServiceChainConfig item = {
+            SCAddress::EVPN,
+            evpn_chain.routing_instance,
+            evpn_chain.prefix,
+            evpn_chain.service_chain_address,
+            evpn_chain.service_instance,
+            evpn_chain.source_routing_instance,
+            evpn_chain.service_chain_id,
+            evpn_chain.sc_head,
+        };
+        list.push_back(item);
+    }
+
+    const autogen::ServiceChainInfo &evpnv6_chain =
+        config->evpn_ipv6_service_chain_information();
+    if (config->IsPropertySet(
+        autogen::RoutingInstance::EVPN_IPV6_SERVICE_CHAIN_INFORMATION)) {
+        ServiceChainConfig item = {
+            SCAddress::EVPN6,
+            evpnv6_chain.routing_instance,
+            evpnv6_chain.prefix,
+            evpnv6_chain.service_chain_address,
+            evpnv6_chain.service_instance,
+            evpnv6_chain.source_routing_instance,
+            evpnv6_chain.service_chain_id,
+            evpnv6_chain.sc_head,
         };
         list.push_back(item);
     }
