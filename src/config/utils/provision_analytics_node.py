@@ -3,10 +3,18 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import time
 import argparse
-import ConfigParser
+
+try:
+    import configparser
+except:
+    from six.moves import configparser
 
 from vnc_api.vnc_api import *
 from vnc_admin_api import VncApiAdmin
@@ -50,8 +58,8 @@ class AnalyticsNodeProvisioner(object):
         elif self._args.oper == 'del':
             self.del_analytics_node()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 
@@ -86,7 +94,7 @@ class AnalyticsNodeProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():
@@ -154,7 +162,7 @@ class AnalyticsNodeProvisioner(object):
             try:
                 self._vnc_lib.analytics_node_create(analytics_node_obj)
             except RefsExistError:
-                print "Already created!"
+                print("Already created!")
 
     # end add_analytics_node
 
