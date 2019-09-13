@@ -522,13 +522,6 @@ class VncApiServer(object):
             self.config_log("Entered abort-job",
                             level=SandeshLevel.SYS_INFO)
 
-            # check if the job manager functionality is enabled
-            if not self._args.enable_fabric_ansible:
-                err_msg = "Fabric ansible job manager is disabled. " \
-                          "Please enable it by setting the " \
-                          "'enable_fabric_ansible' to True in the conf file"
-                raise cfgm_common.exceptions.HttpError(405, err_msg)
-
             request_params = get_request().json
             msg = "Abort Job Input %s " % json.dumps(request_params)
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
