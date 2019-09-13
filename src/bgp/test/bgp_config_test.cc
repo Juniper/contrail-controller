@@ -2905,7 +2905,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate9) {
 TEST_F(BgpConfigTest, InstanceCreateUpdate10) {
     static const int kInstanceCount = 32;
     RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
-    IServiceChainMgr *sc_mgr = server_.service_chain_mgr(Address::INET);
+    IServiceChainMgr *sc_mgr = server_.service_chain_mgr(SCAddress::INET);
 
     ostringstream oss1;
     oss1 << "<?xml version=\"1.0\" encoding\"utf-\"?>\n";

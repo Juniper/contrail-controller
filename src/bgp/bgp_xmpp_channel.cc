@@ -1276,6 +1276,22 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             flags = BgpPath::NoTunnelEncap;
         }
 
+        // Process router-mac as ext-community.
+        if (!nit->mac.empty()) {
+            MacAddress mac_addr =
+                        MacAddress::FromString(nit->mac, &error);
+            if (!mac_addr.IsZero()) {
+                if (error) {
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
+                        "Bad next-hop mac address " << nit->mac);
+                   return false;
+                }
+                RouterMac router_mac(mac_addr);
+                ext.communities.push_back(router_mac.GetExtCommunityValue());
+            }
+        }
+
         // Process tag list.
         uint16_t tag_index = 0;
         for (TagListType::const_iterator tit = nit->tag_list.begin();
@@ -1584,6 +1600,22 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             // by agent are invalid.
             if (!no_tunnel_encap && no_valid_tunnel_encap && !master) {
                 flags = BgpPath::NoTunnelEncap;
+            }
+
+            // Process router-mac as ext-community.
+            if (!nit->mac.empty()) {
+                MacAddress mac_addr =
+                        MacAddress::FromString(nit->mac, &error);
+                if (!mac_addr.IsZero()) {
+                    if (error) {
+                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                            BGP_LOG_FLAG_ALL,
+                            "Bad next-hop mac address " << nit->mac);
+                       return false;
+                    }
+                    RouterMac router_mac(mac_addr);
+                    ext.communities.push_back(router_mac.GetExtCommunityValue());
+                }
             }
 
             // Process tag list.
