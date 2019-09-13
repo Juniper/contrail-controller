@@ -287,12 +287,16 @@ static bool ParseServiceChain(const string &instance, const xml_node &node,
     if (add_change) {
         MapObjectSetProperty("routing-instance", instance,
             family == Address::INET ? "service-chain-information" :
-                                      "ipv6-service-chain-information",
+                          (family == Address::INET6 ?
+                                "ipv6-service-chain-information" :
+                                    "evpn-service-chain-information"),
             property.release(), requests);
     } else {
         MapObjectClearProperty("routing-instance", instance,
             family == Address::INET ? "service-chain-information" :
-                                      "ipv6-service-chain-information",
+                          (family == Address::INET6 ?
+                              "ipv6-service-chain-information" :
+                                    "evpn-service-chain-information"),
             requests);
     }
 
@@ -541,6 +545,9 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
                               requests);
         } else if (strcmp(node.name(), "ipv6-service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, Address::INET6,
+                              requests);
+        } else if (strcmp(node.name(), "evpn-service-chain-info") == 0) {
+            ParseServiceChain(instance, node, add_change, Address::EVPN,
                               requests);
         } else if (strcmp(node.name(), "route-aggregate") == 0) {
             ParseInstanceRouteAggregate(instance, node, add_change, requests);

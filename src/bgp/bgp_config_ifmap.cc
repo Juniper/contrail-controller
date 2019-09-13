@@ -1005,7 +1005,7 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             inet_chain.service_chain_address,
             inet_chain.service_instance,
             inet_chain.source_routing_instance,
-            inet_chain.service_chain_id
+            inet_chain.service_chain_id,
         };
         list.push_back(item);
     }
@@ -1021,7 +1021,23 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             inet6_chain.service_chain_address,
             inet6_chain.service_instance,
             inet6_chain.source_routing_instance,
-            inet6_chain.service_chain_id
+            inet6_chain.service_chain_id,
+        };
+        list.push_back(item);
+    }
+
+    const autogen::ServiceChainInfo &evpn_chain =
+        config->evpn_service_chain_information();
+    if (config->IsPropertySet(
+        autogen::RoutingInstance::EVPN_SERVICE_CHAIN_INFORMATION)) {
+        ServiceChainConfig item = {
+            Address::EVPN,
+            evpn_chain.routing_instance,
+            evpn_chain.prefix,
+            evpn_chain.service_chain_address,
+            evpn_chain.service_instance,
+            evpn_chain.source_routing_instance,
+            evpn_chain.service_chain_id,
         };
         list.push_back(item);
     }
