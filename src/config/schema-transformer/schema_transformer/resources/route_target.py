@@ -14,6 +14,9 @@ class RouteTargetST(ResourceBaseST):
 
     @classmethod
     def reinit(cls):
+        asn = ResourceBaseST.get_obj_type_map().get(
+            'global_system_config').get_autonomous_system()
+
         for obj in cls.list_vnc_obj():
             try:
                 if (obj.get_routing_instance_back_refs() or
@@ -26,11 +29,18 @@ class RouteTargetST(ResourceBaseST):
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
         for ri, val in cls._object_db._rt_cf.get_range():
             rt = val['rtgt_num']
-            asn = ResourceBaseST.get_obj_type_map().get(
-                'global_system_config').get_autonomous_system()
             rt_key = "target:%s:%s" % (asn, rt)
             if rt_key not in cls:
                 cls._object_db.free_route_target(ri, asn)
+
+        # When upgrade happens from earlier releases to a release that
+        # supports 4 byte ASN, we need to take care of changing the
+        # zookeeper path for route-targets
+        # it will now be in /id/bgp/route-targets/type0
+
+        old_path = '%s%s' % (cls._object_db._zk_path_pfx,
+                             "/id/bgp/route-targets")
+        cls._object_db.populate_route_target_directory(old_path, asn)
 
         # This is to handle upgrade scenarios.
         # In case we upgrade to a release containing support to 4 Byte ASN
