@@ -91,8 +91,11 @@ struct QosConfigActionSpec {
 };
 
 struct ActionSpec {
-    /* For actions log and alert we don't have any specific field. Only ta_type
-     * of TrafficAction::LOG_ACTION and TrafficAction::ALERT_ACTION is enough
+    /* For actions log, alert and host_based_service we don't have any specific field.
+     * Only ta_type of
+     * TrafficAction::LOG_ACTION
+     * TrafficAction::ALERT_ACTION and
+     * TrafficAction::HBF_ACTION is enough
      */
     TrafficAction::Action simple_action;
     TrafficAction::TrafficActionType ta_type;

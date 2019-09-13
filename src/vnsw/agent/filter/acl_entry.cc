@@ -178,6 +178,9 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
                     qos_config_table()->FindByName((*it).qos_config_action.name());
                 act->set_qos_config_ref(qos_config);
                 actions_.push_back(act);
+            } else if ((*it).ta_type == TrafficAction::HBS_ACTION) {
+                HbsAction *act = new HbsAction();
+                actions_.push_back(act);
             } else {
                 ACL_TRACE(Err, "Not supported action " + integerToString((*it).ta_type));
             }

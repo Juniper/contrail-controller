@@ -71,6 +71,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     sub_type_(entry->sub_type_),
     vmi_device_type_(entry->vmi_device_type_),
     vmi_type_(entry->vmi_type_),
+    hbs_intf_type_(entry->hbs_intf_type_),
     type_(entry->type_),
     rx_vlan_id_(entry->rx_vlan_id_),
     tx_vlan_id_(entry->tx_vlan_id_),
@@ -124,6 +125,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     sub_type_(InetInterface::VHOST),
     vmi_device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
+    hbs_intf_type_(VmInterface::HBS_INTF_INVALID),
     type_(intf->type()),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
@@ -170,6 +172,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
             encap_type_ = xconnect->encap_type();
             no_arp_ = xconnect->no_arp();
         }
+        hbs_intf_type_ = vmitf->hbs_intf_type();
     } else if (type_ == Interface::INET) {
         const InetInterface *inet_intf =
         static_cast<const InetInterface *>(intf);
@@ -254,6 +257,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (vmi_type_ != vm_port->vmi_type()) {
             vmi_type_ = vm_port->vmi_type();
+            ret = true;
+        }
+
+        if (hbs_intf_type_ != vm_port->hbs_intf_type()) {
+            hbs_intf_type_ = vm_port->hbs_intf_type();
             ret = true;
         }
 
@@ -693,6 +701,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (vmi_type_ == VmInterface::GATEWAY) {
             flags |= VIF_FLAG_NO_ARP_PROXY;
+        }
+        if (hbs_intf_type_ != VmInterface::HBS_INTF_INVALID) {
+            flags |= (hbs_intf_type_ == VmInterface::HBS_INTF_RIGHT)?
+                VIF_FLAG_HBS_RIGHT:VIF_FLAG_HBS_LEFT;
         }
         if (flood_unknown_unicast_) {
             flags |= VIF_FLAG_UNKNOWN_UC_FLOOD;
