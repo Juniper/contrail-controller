@@ -1144,13 +1144,27 @@ class FilterModule(object):
         return lr_list
     # end _get_logical_router_refs
 
-    def _get_virtual_port_group_refs(self, fabric_obj):
-        # Get virtual port groups used by fabric
+    def _get_virtual_port_group_refs(self, vnc_api, fabric_obj, device_uuids,
+                                     is_device_del):
         vpg_list = set()
         vpg_refs = fabric_obj.get_virtual_port_groups() or []
         for vpg_ref in vpg_refs:
             vpg_fq_name = vpg_ref.get('to')
-            vpg_list.add(vpg_fq_name[1] + ':' + vpg_fq_name[2])
+            if is_device_del:
+                # If device deletion, only check for VPGs on these devices
+                vpg_uuid = vpg_ref.get('uuid')
+                vpg_obj = vnc_api.virtual_port_group_read(id=vpg_uuid)
+                pi_refs = vpg_obj.get_physical_interface_refs() or []
+                for pi_ref in pi_refs:
+                    pi_uuid = pi_ref.get('uuid')
+                    pi_obj = vnc_api.physical_interface_read(id=pi_uuid)
+                    device_uuid = pi_obj.parent_uuid
+                    if device_uuid in device_uuids:
+                        vpg_list.add(vpg_fq_name[1] + ':' + vpg_fq_name[2])
+                        break
+            else:
+                # Fabric deletion, so check all VPGs
+                vpg_list.add(vpg_fq_name[1] + ':' + vpg_fq_name[2])
         return vpg_list
     # end _get_virtual_port_group_refs
 
@@ -1220,24 +1234,22 @@ class FilterModule(object):
         return vmi_list
     # end _get_vmi_refs
 
-    def _validate_fabric_deletion(self, vnc_api, fabric_obj):
+    def _check_object_references(self, vnc_api, fabric_obj, device_uuids,
+                                 is_device_delete):
         """Validate fabric deletion.
 
         :param vnc_api: <vnc_api.VncApi>
         :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :param device_uuids: list of device IDs
         :return:
         """
-        if not fabric_obj:
-            return
-
         _task_log('Validating no Virtual Networks, Logical Routers, '
                   'Virtual Port Groups, or PNF Services '
-                  'created on the fabric')
+                  'referenced')
         vn_list = set()
         lr_list = set()
         device_names = set()
-        device_refs = fabric_obj.get_physical_router_back_refs() or []
-        device_uuids = [ref['uuid'] for ref in device_refs]
+
         devices = vnc_bulk_get(
             vnc_api, 'physical_routers', obj_uuids=device_uuids,
             fields=['logical_router_back_refs', 'virtual_network_refs']
@@ -1254,7 +1266,9 @@ class FilterModule(object):
             lr_list |= self._get_logical_router_refs(device)
 
         # Check for virtual port groups in this fabric
-        vpg_list = self._get_virtual_port_group_refs(fabric_obj)
+        vpg_list = self._get_virtual_port_group_refs(vnc_api, fabric_obj,
+                                                     device_uuids,
+                                                     is_device_delete)
 
         # Check for PNF services
         svc_list = self._get_pnf_service_refs(vnc_api, device_names)
@@ -1283,17 +1297,33 @@ class FilterModule(object):
 
         # If no references found, just return
         if err_msg == "":
-            _task_done('OK to delete fabric')
+            _task_done('OK to delete')
             return
 
-        _task_done('Failed to delete fabric {}. Please delete the following'
-                   ' overlay objects: {}'.format(fabric_obj.name, err_msg))
+        _task_done('Failed to delete. Please delete the following'
+                   ' overlay objects: {}'.format(err_msg))
 
         raise ValueError(
-            'Failed to delete fabric {} due to references from '
-            'the following overlay objects: {}'.format(fabric_obj.name,
-                                                       err_msg)
+            'Failed to delete due to references from '
+            'the following overlay objects: {}'.format(err_msg)
         )
+    # end _gather_object_references
+
+    def _validate_fabric_deletion(self, vnc_api, fabric_obj):
+        """Validate fabric deletion.
+
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+        if not fabric_obj:
+            return
+
+        device_refs = fabric_obj.get_physical_router_back_refs() or []
+        device_uuids = [ref['uuid'] for ref in device_refs]
+
+        self._check_object_references(vnc_api, fabric_obj, device_uuids, False)
+
     # end _validate_fabric_deletion
 
     def _delete_fabric(self, vnc_api, fabric_obj):
@@ -1592,9 +1622,13 @@ class FilterModule(object):
     def _validate_fabric_device_deletion(self, vnc_api, fabric_info):
         devices_to_delete = [[GSC, name]
                              for name in fabric_info.get('devices')]
+
+        fabric_fq_name = fabric_info.get('fabric_fq_name')
+        fabric_obj = self._read_fabric_obj(vnc_api, fabric_fq_name)
+
         try:
             self._validate_fabric_rr_role_assigned(
-                vnc_api, fabric_info.get('fabric_fq_name'),
+                vnc_api, fabric_fq_name,
                 devices_to_delete, True
             )
         except ValueError as ex:
@@ -1603,7 +1637,16 @@ class FilterModule(object):
                 '"Route-Reflector" role before deleting other devices with '
                 'routing-bridging role assigned.' % str(ex)
             )
-    # end _validate_fabric_deletion
+
+        device_uuids = []
+
+        for dev_fqname in devices_to_delete:
+            device_uuid = vnc_api.fq_name_to_id('physical_router', dev_fqname)
+            device_uuids.append(device_uuid)
+
+        self._check_object_references(vnc_api, fabric_obj, device_uuids, True)
+
+    # end _validate_fabric_device_deletion
 
     # ***************** assign_roles filter ***********************************
     def assign_roles(self, job_ctx):
