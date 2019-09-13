@@ -83,6 +83,8 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
         1 /* Address::INET */, BgpServer *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
         2 /* Address::INET6 */, BgpServer *);
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
+        6 /* Address::EVPN */, BgpServer *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IStaticRouteMgr,
         1 /* Address::INET */, RoutingInstance *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IStaticRouteMgr,

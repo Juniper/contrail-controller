@@ -20,6 +20,7 @@
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
+#include "bgp/evpn/evpn_route.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 
 class BgpRoute;
@@ -50,6 +51,10 @@ class ServiceChainInet : public ServiceChainBase<
 
 class ServiceChainInet6 : public ServiceChainBase<
     Inet6Route, Inet6VpnRoute, Inet6Prefix, Ip6Address> {
+};
+
+class ServiceChainEvpn : public ServiceChainBase<
+    EvpnRoute, InetVpnRoute, EvpnPrefix, IpAddress> {
 };
 
 typedef ConditionMatchPtr ServiceChainPtr;
@@ -134,7 +139,7 @@ public:
 
     ServiceChain(ServiceChainMgrT *manager, ServiceChainGroup *group,
         RoutingInstance *src, RoutingInstance *dest, RoutingInstance *connected,
-        const std::vector<std::string> &subnets, AddressT addr);
+        const std::vector<std::string> &subnets, AddressT addr, bool head);
     Address::Family GetFamily() const { return manager_->GetFamily(); }
 
     // Delete is triggered from configuration, not via LifetimeManager.
@@ -154,10 +159,16 @@ public:
     RoutingInstance *connected_routing_instance() const { return connected_; }
     RoutingInstance *dest_routing_instance() const { return dest_; }
     const AddressT &service_chain_addr() const { return service_chain_addr_; }
-
     void UpdateServiceChainRoute(PrefixT prefix, const RouteT *orig_route,
         const ConnectedPathIdList &old_path_ids, bool aggregate);
+    void UpdateServiceChainRouteInternal(const RouteT *orig_route,
+        const ConnectedPathIdList &old_path_ids, BgpRoute *sc_route,
+        DBTablePartition *partition, BgpTable *bgptable,
+        bool aggregate, bool is_vpn_route_inet6);
     void DeleteServiceChainRoute(PrefixT prefix, bool aggregate);
+    void DeleteServiceChainRouteInternal(BgpRoute *service_chain_route,
+                                         DBTablePartition *partition,
+                                         BgpTable *bgptable, bool aggregate);
 
     bool AddMoreSpecific(PrefixT aggregate, BgpRoute *more_specific);
     bool DeleteMoreSpecific(PrefixT aggregate, BgpRoute *more_specific);
@@ -206,6 +217,7 @@ public:
     }
 
     bool aggregate_enable() const { return aggregate_; }
+    bool is_sc_head() const { return sc_head_; }
     void set_aggregate_enable() { aggregate_ = true; }
     bool group_oper_state_up() const { return group_oper_state_up_; }
     void set_group_oper_state_up(bool up) { group_oper_state_up_ = up; }
@@ -225,6 +237,7 @@ private:
     bool connected_table_unregistered_;
     bool dest_table_unregistered_;
     bool aggregate_;  // Whether the host route needs to be aggregated
+    bool sc_head_; // Whether this SI is at the head of the chain
     LifetimeRef<ServiceChain> src_table_delete_ref_;
     LifetimeRef<ServiceChain> dest_table_delete_ref_;
     LifetimeRef<ServiceChain> connected_table_delete_ref_;
@@ -232,8 +245,8 @@ private:
     // Helper function to match
     bool IsMoreSpecific(BgpRoute *route, PrefixT *aggregate_match) const;
     bool IsAggregate(BgpRoute *route) const;
-    bool IsConnectedRoute(BgpRoute *route) const;
-
+    bool IsConnectedRoute(BgpRoute *route, bool is_dest_table=false) const;
+    bool IsEvpnType5Route(BgpRoute *route) const;
     DISALLOW_COPY_AND_ASSIGN(ServiceChain);
 };
 
@@ -327,7 +340,8 @@ public:
     void Enqueue(ServiceChainRequestT *req);
     virtual bool FillServiceChainInfo(RoutingInstance *rtinstance,
                                       ShowServicechainInfo *info) const;
-
+    virtual BgpConditionListener *GetListener(AddressT addr,
+                                              bool is_conn_table);
 private:
     template <typename U> friend class ServiceChainIntegrationTest;
     template <typename U> friend class ServiceChainTest;
@@ -436,5 +450,6 @@ private:
 
 typedef ServiceChainMgr<ServiceChainInet> ServiceChainMgrInet;
 typedef ServiceChainMgr<ServiceChainInet6> ServiceChainMgrInet6;
+typedef ServiceChainMgr<ServiceChainEvpn> ServiceChainMgrEvpn;
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
