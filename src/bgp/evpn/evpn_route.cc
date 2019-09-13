@@ -657,6 +657,22 @@ int EvpnPrefix::CompareTo(const EvpnPrefix &rhs) const {
     return 0;
 }
 
+// Check whether 'this' is more specific than rhs.
+bool EvpnPrefix::IsMoreSpecific(const EvpnPrefix &rhs) const {
+    switch (type_) {
+    case IpPrefixRoute:
+        if (family_ == Address::INET) {
+            return inet_prefix().IsMoreSpecific(rhs.inet_prefix());
+        } else {
+            return inet6_prefix().IsMoreSpecific(rhs.inet6_prefix());
+        }
+        break;
+    default:
+        break;
+    }
+    return false;
+}
+
 bool EvpnPrefix::GetSourceFromString(EvpnPrefix *prefix, const string &str,
         size_t pos1, size_t *pos2, boost::system::error_code *errorp) {
     *pos2 = str.find('-', pos1 + 1);
