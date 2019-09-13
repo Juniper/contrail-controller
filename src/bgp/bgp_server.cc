@@ -426,7 +426,9 @@ bool BgpServer::IsReadyForDeletion() {
 
     // Check if the Service Chain Manager Work Queues are empty.
     if (!inet_service_chain_mgr_->IsQueueEmpty() ||
-        !inet6_service_chain_mgr_->IsQueueEmpty()) {
+        !inet6_service_chain_mgr_->IsQueueEmpty() ||
+        !evpn_service_chain_mgr_->IsQueueEmpty() ||
+        !evpn6_service_chain_mgr_->IsQueueEmpty()) {
         return false;
     }
 
@@ -488,15 +490,21 @@ BgpServer::BgpServer(EventManager *evm)
       membership_mgr_(BgpObjectFactory::Create<BgpMembershipManager>(this)),
       inet_condition_listener_(new BgpConditionListener(this)),
       inet6_condition_listener_(new BgpConditionListener(this)),
+      evpn_condition_listener_(new BgpConditionListener(this)),
+      evpn6_condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),
       ermvpn_replicator_(new RoutePathReplicator(this, Address::ERMVPN)),
       mvpn_replicator_(new RoutePathReplicator(this, Address::MVPN)),
       evpn_replicator_(new RoutePathReplicator(this, Address::EVPN)),
       inet6vpn_replicator_(new RoutePathReplicator(this, Address::INET6VPN)),
       inet_service_chain_mgr_(
-          BgpObjectFactory::Create<IServiceChainMgr, Address::INET>(this)),
+          BgpObjectFactory::Create<IServiceChainMgr, SCAddress::INET>(this)),
       inet6_service_chain_mgr_(
-          BgpObjectFactory::Create<IServiceChainMgr, Address::INET6>(this)),
+          BgpObjectFactory::Create<IServiceChainMgr, SCAddress::INET6>(this)),
+      evpn_service_chain_mgr_(
+          BgpObjectFactory::Create<IServiceChainMgr, SCAddress::EVPN>(this)),
+      evpn6_service_chain_mgr_(
+          BgpObjectFactory::Create<IServiceChainMgr, SCAddress::EVPN6>(this)),
       global_config_(new BgpGlobalSystemConfig()),
       global_qos_(new BgpGlobalQosConfig()),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
@@ -730,14 +738,22 @@ uint32_t BgpServer::num_service_chains() const {
     return inet_service_chain_mgr_->PendingQueueSize() +
         inet_service_chain_mgr_->ResolvedQueueSize() +
         inet6_service_chain_mgr_->PendingQueueSize() +
-        inet6_service_chain_mgr_->ResolvedQueueSize();
+        inet6_service_chain_mgr_->ResolvedQueueSize() +
+        evpn_service_chain_mgr_->PendingQueueSize() +
+        evpn_service_chain_mgr_->ResolvedQueueSize() +
+        evpn6_service_chain_mgr_->PendingQueueSize() +
+        evpn6_service_chain_mgr_->ResolvedQueueSize();
 }
 
 uint32_t BgpServer::num_down_service_chains() const {
     return inet_service_chain_mgr_->PendingQueueSize() +
         inet_service_chain_mgr_->GetDownServiceChainCount() +
         inet6_service_chain_mgr_->PendingQueueSize() +
-        inet6_service_chain_mgr_->GetDownServiceChainCount();
+        inet6_service_chain_mgr_->GetDownServiceChainCount() +
+        evpn_service_chain_mgr_->PendingQueueSize() +
+        evpn_service_chain_mgr_->GetDownServiceChainCount() +
+        evpn6_service_chain_mgr_->PendingQueueSize() +
+        evpn6_service_chain_mgr_->GetDownServiceChainCount();
 }
 
 uint32_t BgpServer::num_static_routes() const {
