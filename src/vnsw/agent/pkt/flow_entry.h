@@ -541,7 +541,14 @@ class FlowEntry {
         BgpRouterService          = 1 << 12,
         AliasIpFlow               = 1 << 13,
         FabricControlFlow         = 1 << 14,
-        FabricFlow                = 1 << 15
+        FabricFlow                = 1 << 15,
+        HbfFlow                   = 1 << 16
+    };
+
+    enum HbsInterface {
+        HBS_INTERFACE_INVALID  = 0,
+        HBS_INTERFACE_LEFT     = 1,
+        HBS_INTERFACE_RIGHT    = 2
     };
 
     FlowEntry(FlowTable *flow_table);
@@ -675,6 +682,7 @@ class FlowEntry {
     bool DoPolicy();
     void MakeShortFlow(FlowShortReason reason);
     void SetMirrorVrfFromAction();
+    void SetHbsInfofromAction();
     void SetVrfAssignEntry();
     void ComputeReflexiveAction();
     uint32_t MatchAcl(const PacketHeader &hdr,
@@ -752,6 +760,8 @@ class FlowEntry {
     }
     void IncrementTransactionId() { transaction_id_++;}
     uint32_t GetTransactionId() {return transaction_id_;}
+    void SetHbsInterface (HbsInterface intf) { hbs_intf_ = intf; }
+    HbsInterface GetHbsInterface() { return hbs_intf_; }
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -788,6 +798,7 @@ private:
     void UpdateReflexiveAction(SessionPolicy *sp, SessionPolicy *rsp);
     const std::string BuildRemotePrefix(const FlowRouteRefMap &rt_list,
                                         uint32_t vr, const IpAddress &ip) const;
+
     FlowKey key_;
     FlowTable *flow_table_;
     FlowData data_;
@@ -867,6 +878,7 @@ private:
     };
     // Not modifying on Reset and Copy to retain the history
     FlowEntryEventHistory e_history_;
+    HbsInterface          hbs_intf_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
