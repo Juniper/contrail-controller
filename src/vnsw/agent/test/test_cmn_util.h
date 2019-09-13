@@ -214,7 +214,9 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
                  const char *proto, uint16_t sport_start, uint16_t sport_end,
                  uint16_t dport_start, uint16_t dport_end,
                  const char *action, const std::string &vrf_assign,
-                 const std::string &mirror_ip);
+                 const std::string &mirror_ip,
+                 const std::string &qos_action,
+                 const std::string &hbs_action);
 
 void DeleteRoute(const char *vrf, const char *ip, uint8_t plen,
                  const Peer *peer = NULL);
@@ -354,6 +356,8 @@ void AddPort(const char *name, int id, const char *attr = NULL);
 void AddSriovPort(const char *name, int id);
 void AddPortByStatus(const char *name, int id, bool admin_status);
 void DelPort(const char *name);
+void HbsAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
+            const char *action, const char *hbs_action); 
 void AddAcl(const char *name, int id);
 void DelAcl(const char *name);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,

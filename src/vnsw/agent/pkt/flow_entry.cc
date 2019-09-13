@@ -470,6 +470,7 @@ void FlowEntry::Reset() {
     reverse_flow_entry_ = NULL;
     deleted_ = false;
     flags_ = 0;
+    hbs_intf_ = FlowEntry::HBS_INTERFACE_INVALID;
     short_flow_reason_ = SHORT_UNKNOWN;
     peer_vrouter_ = "";
     tunnel_type_ = TunnelType::INVALID;
@@ -530,6 +531,7 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     }
     data_ = rhs->data_;
     flags_ = rhs->flags_;
+    hbs_intf_ = rhs->hbs_intf_;
     short_flow_reason_ = rhs->short_flow_reason_;
     nw_ace_uuid_ = rhs->nw_ace_uuid_;
     peer_vrouter_ = rhs->peer_vrouter_;
@@ -1994,6 +1996,48 @@ void FlowEntry::UpdateL2RouteInfo() {
 /////////////////////////////////////////////////////////////////////////////
 // Flow policy processing routines
 /////////////////////////////////////////////////////////////////////////////
+
+// Set HBS information
+// |-------------------------------------------------------------------------|
+// |    Source     |    Destination: VMI                | Destination: Fabric|
+// |--------------------------------------------------------------------------
+// |     VMI       | L (src vif index < dst vif index)  |         L          |
+// |               | else R                             |                    |
+// |--------------------------------------------------------------------------
+// |     Fabric    |                R                   |         -          |
+// |-------------------------------------------------------------------------|
+//
+void FlowEntry::SetHbsInfofromAction() {
+    const Interface *src_intf =
+        dynamic_cast<const Interface *>(intf_entry());
+    FlowEntry *rev_flow = reverse_flow_entry();
+    const Interface *dst_intf =
+        dynamic_cast<const Interface *>(rev_flow->intf_entry());
+
+    if (!(data_.match_p.policy_action & (1 << TrafficAction::HBS)) ||
+        src_intf == NULL || dst_intf == NULL ) {
+        reset_flags(HbfFlow);
+        SetHbsInterface(HBS_INTERFACE_INVALID);
+        return;
+    }
+
+    //Enable HBF flow flag
+    set_flags(HbfFlow);
+
+    //Set the left/right hbs interface for flow
+    if (is_flags_set(LocalFlow)) {
+        // VM <--> VM on same compute
+        (src_intf->id() < dst_intf->id()) ?
+            SetHbsInterface(HBS_INTERFACE_LEFT):
+            SetHbsInterface(HBS_INTERFACE_RIGHT);
+    } else {
+        // VM <--> VM on different compute
+        (is_flags_set(IngressDir)) ?
+            SetHbsInterface(HBS_INTERFACE_LEFT):
+            SetHbsInterface(HBS_INTERFACE_RIGHT);
+    }
+}
+
 void FlowEntry::SetVrfAssignEntry() {
     if (!(data_.match_p.vrf_assign_acl_action &
          (1 << TrafficAction::VRF_TRANSLATE))) {
@@ -2451,6 +2495,8 @@ done:
     SetMirrorVrfFromAction();
     //Set VRF assign action
     SetVrfAssignEntry();
+    //Set HBS information
+    SetHbsInfofromAction();
     // Summarize the actions based on lookups above
     ActionRecompute();
     return true;
@@ -2592,6 +2638,12 @@ bool FlowEntry::ActionRecompute() {
             data_.match_p.out_policy_action & (1 << TrafficAction::MIRROR)) {
             action |= (1 << TrafficAction::MIRROR);
         }
+    }
+
+    action &= ~(1 << TrafficAction::HBS);
+    if (data_.match_p.policy_action & (1 << TrafficAction::HBS) ||
+        data_.match_p.out_policy_action & (1 << TrafficAction::HBS)) {
+        action |= (1 << TrafficAction::HBS);
     }
 
     if (SetQosConfigIndex()) {
@@ -2852,6 +2904,11 @@ void SetActionStr(const FlowAction &action_info,
                 vrf_action_str.action +=
                     action_info.vrf_translate_action_.vrf_name();
                 action_str_l.push_back(vrf_action_str);
+            }
+            if ((TrafficAction::Action)i == TrafficAction::HBS) {
+                ActionStr hbf_action_str;
+                hbf_action_str.action += "hbs";
+                action_str_l.push_back(hbf_action_str);
             }
         }
     }
