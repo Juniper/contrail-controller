@@ -1,6 +1,10 @@
 - name: Read swift conf info
   include_tasks: read_swift_conf_info.yml
 
+- name: Define filename
+  filename: "{{playbook_input.input.filename}}"
+  when: playbook_input.input.filename is defined
+
 - name: Clean up swift container before upload
   swift_container_cleanup:
     authtoken: "{{auth_token}}"
@@ -13,6 +17,7 @@
     temp_url_key_2: "{{temp_url_key_2}}"
     chosen_temp_url_key: "{{chosen_temp_url_key}}"
     container_name: "{{container_name}}"
+    filename: "{{filename}}"
   register: swift_results
 
 - name: Print the complete response.
@@ -34,4 +39,5 @@
 
 - set_fact:
     downloadurl: "{{swift_results.items}}"
+
 
