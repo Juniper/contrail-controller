@@ -6274,6 +6274,7 @@ class DBInterface(object):
         :returns: vnc_api.gen.resource_client.VirtualPortGroup
         """
 
+        sub_vmi_vlan_tags = []
         def _set_sub_ports(trunk, trunk_port, sub_port_dict):
 
             sp_id = sub_port_dict['port_id']
@@ -6289,7 +6290,22 @@ class DBInterface(object):
                                                trunk_id=id,
                                                port_id=sp_id)
 
+            if ('segmentation_type' in sub_port_dict and
+                sub_port_dict['segmentation_type'] != 'vlan'):
+                msg = "Segmentation type %s is not supported" \
+                      %(sub_port_dict['segmentation_type'])
+                self._raise_contrail_exception('BadRequest',
+                    resource='trunk', msg=msg)
+
             if 'segmentation_id' in sub_port_dict:
+                if sub_port_dict['segmentation_id'] in sub_vmi_vlan_tags:
+                    self._raise_contrail_exception(
+                        'DuplicateSubPort',
+                        trunk_id=id,
+                        segmentation_id=sub_port_dict['segmentation_id'],
+                        segmentation_type='vlan')
+
+                sub_vmi_vlan_tags.append(sub_port_dict['segmentation_id'])
                 vmi_prop = VirtualMachineInterfacePropertiesType(
                     sub_interface_vlan_tag=sub_port_dict['segmentation_id'])
                 sub_port.set_virtual_machine_interface_properties(vmi_prop)
@@ -6348,8 +6364,22 @@ class DBInterface(object):
                         port_id=trunk.virtual_port_group_trunk_port_id)
 
                 if port_operation == 'ADD_SUBPORTS':
+                    sub_vmi_refs = trunk.get_virtual_machine_interface_refs()
+                    sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
+                    if sub_vmi_uuids:
+                        sub_vmis = self._virtual_machine_interface_list(
+                            obj_uuids=sub_vmi_uuids,
+                            fields=['virtual_machine_interface_properties'])
+
+                        for vmi in sub_vmis:
+                            prop = vmi.get_virtual_machine_interface_properties()
+                            if prop:
+                                sub_vmi_vlan_tags.append(
+                                    prop.get_sub_interface_vlan_tag())
+
                     for sp in trunk_q['sub_ports']:
                         _set_sub_ports(trunk, trunk_port, sp)
+
                 elif port_operation == 'REMOVE_SUBPORTS':
                     for sp in trunk_q['sub_ports']:
                         try:
@@ -6384,6 +6414,7 @@ class DBInterface(object):
 
             trunk.del_virtual_machine_interface(trunk_port)
             self._vnc_lib.virtual_port_group_update(trunk)
+            self._vnc_lib.virtual_machine_interface_delete(id=trunk_port.uuid)
 
 	return trunk
 
@@ -6402,9 +6433,11 @@ class DBInterface(object):
                     continue
                 sub_port_obj = self._vnc_lib.virtual_machine_interface_read(id=sub_port['uuid'])
 
-                vm_prop = sub_port_obj.virtual_machine_interface_properties
-                vlan_tag = vm_prop.get_sub_interface_vlan_tag()
-                sub_ports.append({'port_id': sub_port['uuid'], 'segmentation_id' : vlan_tag, 'segmentation_type': 'vlan'})
+                vmi_prop = sub_port_obj.get_virtual_machine_interface_properties()
+                vlan_tag = vmi_prop.get_sub_interface_vlan_tag() if vmi_prop else None
+                sub_ports.append({'port_id': sub_port['uuid'],
+                                  'segmentation_id' : vlan_tag,
+                                  'segmentation_type': 'vlan'})
 
         trunk_q_dict = {
             'id': trunk_obj.uuid,
