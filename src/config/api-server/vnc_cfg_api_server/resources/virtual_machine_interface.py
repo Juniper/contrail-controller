@@ -893,8 +893,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         return
 
     @classmethod
-    def _check_enterprise_restrictions(cls, all_vpgs, vpg_uuid, vn_uuid,
-                                       vlan_id, is_untagged_vlan):
+    def _check_enterprise_restrictions(cls, vmi_id, all_vpgs, vpg_uuid,
+                                       vn_uuid, vlan_id, is_untagged_vlan):
 
         if vlan_id is None or vlan_id == 0:
             return True, ''
@@ -906,7 +906,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if not ok:
             return ok, result
 
-        ok, result = cls._check_vpg_restrictions(vpg_uuid,
+        ok, result = cls._check_vpg_restrictions(vmi_id,
+                                                 vpg_uuid,
                                                  vn_uuid,
                                                  vlan_id,
                                                  is_untagged_vlan)
@@ -916,7 +917,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         return True, ''
 
     @classmethod
-    def _check_vpg_restrictions(cls, vpg_uuid, vn_uuid,
+    def _check_vpg_restrictions(cls, vmi_id, vpg_uuid, vn_uuid,
                                 vlan_id, is_untagged_vlan):
         db_conn = cls.db_conn
         # Following checks are done below:
@@ -938,6 +939,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         all_vn_ids = [vn_uuid]
 
         for vmi in all_vmis:
+            if vmi_id == vmi['uuid']:
+                continue
             ok, read_result = cls.dbe_read(
                 db_conn,
                 'virtual_machine_interface',
@@ -957,8 +960,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 tor_vlan_ids.append(tor_port_vlan_id)
 
             all_vns = vmi_info.get('virtual_network_refs')
-            all_vn_ids.extend([ref['uuid'] for ref in all_vns
-                               if ref['uuid'] != vn_uuid])
+            all_vn_ids.extend([ref['uuid'] for ref in all_vns])
 
         if len(set(tor_vlan_ids)) > 1:
             msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
@@ -1069,7 +1071,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         return True, ''
 
     @classmethod
-    def _check_service_provider_restrictions(cls, vpg_uuid, vn_uuid,
+    def _check_service_provider_restrictions(cls, vmi_id, vpg_uuid, vn_uuid,
                                              vlan_id, is_untagged_vlan):
         if vlan_id is None or vlan_id == 0:
             return True, ''
@@ -1096,6 +1098,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         all_vns_in_vpg_dict[vn_uuid].append(vlan_id)
 
         for vmi in all_vmis:
+            if vmi_id == vmi['uuid']:
+                continue
             ok, read_result = cls.dbe_read(
                 db_conn,
                 'virtual_machine_interface',
@@ -1255,6 +1259,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             all_vpgs = fabric.get('virtual_port_groups') or []
             if fabric_enterprise_style:
                 ok, result = cls._check_enterprise_restrictions(
+                    vmi_id,
                     all_vpgs,
                     vpg_uuid,
                     vn_uuid,
@@ -1264,6 +1269,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     return ok, result
             else:
                 ok, result = cls._check_service_provider_restrictions(
+                    vmi_id,
                     vpg_uuid,
                     vn_uuid,
                     vlan_id,
