@@ -53,7 +53,10 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     BOOST_FOREACH(const ServiceChainConfig &sc_config,
         instance->service_chain_list()) {
         ShowBgpServiceChainConfig sbscc;
-        sbscc.set_family(Address::FamilyToString(sc_config.family));
+        SCAddress sc_addr;
+        Address::Family family =
+            sc_addr.SCFamilyToAddressFamily(sc_config.family);
+        sbscc.set_family(Address::FamilyToString(family));
         sbscc.set_routing_instance(sc_config.routing_instance);
         sbscc.set_service_instance(sc_config.service_instance);
         sbscc.set_chain_address(sc_config.service_chain_address);

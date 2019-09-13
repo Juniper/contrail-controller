@@ -14,6 +14,7 @@
 #include "base/util.h"
 #include "base/address.h"
 #include "bgp/bgp_common.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "io/tcp_session.h"
 #include "schema/vnc_cfg_types.h"
 
@@ -321,7 +322,7 @@ struct AggregateRouteConfig {
 };
 
 struct ServiceChainConfig {
-    Address::Family family;
+    SCAddress::Family family;
     std::string routing_instance;
     std::vector<std::string> prefix;
     std::string service_chain_address;
@@ -487,7 +488,7 @@ public:
     void swap_service_chain_list(ServiceChainList *list) {
         std::swap(service_chain_list_, *list);
     }
-    const ServiceChainConfig *service_chain_info(Address::Family family) const;
+    const ServiceChainConfig *service_chain_info(SCAddress::Family family) const;
 
     const RoutingPolicyConfigList &routing_policy_list() const {
         return routing_policies_;
