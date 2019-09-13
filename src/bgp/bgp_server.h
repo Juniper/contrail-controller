@@ -112,6 +112,8 @@ public:
             return inet_condition_listener_.get();
         if (family == Address::INET6)
             return inet6_condition_listener_.get();
+        if (family == Address::EVPN)
+            return evpn_condition_listener_.get();
         assert(false);
         return NULL;
     }
@@ -120,6 +122,8 @@ public:
             return inet_service_chain_mgr_.get();
         if (family == Address::INET6)
             return inet6_service_chain_mgr_.get();
+        if (family == Address::EVPN)
+            return evpn_service_chain_mgr_.get();
         assert(false);
         return NULL;
     }
@@ -364,6 +368,7 @@ private:
     boost::scoped_ptr<BgpMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> inet_condition_listener_;
     boost::scoped_ptr<BgpConditionListener> inet6_condition_listener_;
+    boost::scoped_ptr<BgpConditionListener> evpn_condition_listener_;
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> mvpn_replicator_;
@@ -371,6 +376,7 @@ private:
     boost::scoped_ptr<RoutePathReplicator> inet6vpn_replicator_;
     boost::scoped_ptr<IServiceChainMgr> inet_service_chain_mgr_;
     boost::scoped_ptr<IServiceChainMgr> inet6_service_chain_mgr_;
+    boost::scoped_ptr<IServiceChainMgr> evpn_service_chain_mgr_;
 
     // configuration
     boost::scoped_ptr<BgpGlobalSystemConfig> global_config_;
