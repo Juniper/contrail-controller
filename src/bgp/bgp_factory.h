@@ -11,6 +11,7 @@
 
 #include "base/factory.h"
 #include "base/address.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 
 class BgpConfigListener;
 class BgpConfigManager;
@@ -80,9 +81,13 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N0(BgpObjectFactory, BgpXmppMessageBuilder);
 
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
-        1 /* Address::INET */, BgpServer *);
+        1 /* SCAddress::INET */, BgpServer *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
-        2 /* Address::INET6 */, BgpServer *);
+        2 /* SCAddress::INET6 */, BgpServer *);
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
+        3 /* SCAddress::EVPN */, BgpServer *);
+    FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IServiceChainMgr,
+        4 /* SCAddress::EVPN6 */, BgpServer *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IStaticRouteMgr,
         1 /* Address::INET */, RoutingInstance *);
     FACTORY_PARAM_TYPE_N1(BgpObjectFactory, IStaticRouteMgr,
