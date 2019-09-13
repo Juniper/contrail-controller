@@ -2477,7 +2477,8 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
                  const char *proto, uint16_t sport_start, uint16_t sport_end,
                  uint16_t dport_start, uint16_t dport_end,
                  const char *action, const std::string &vrf_assign,
-                 const std::string &mirror_ip, const std::string &qos_action) {
+                 const std::string &mirror_ip, const std::string &qos_action,
+                 const char *hbs) {
     char buff[2048];
 
     std::ostringstream mirror;
@@ -2517,10 +2518,11 @@ void AddAceEntry(string *str, const char *src_vn, const char *dst_vn,
             "                        %s\n"
             "                        <assign-routing-instance>%s</assign-routing-instance>\n"
             "                        <qos-action>%s</qos-action>\n"
+            "                        <host-based-service>%s</host-based-service>\n"
             "                    </action-list>\n"
             "                </acl-rule>\n",
         proto, src_vn, sport_start, sport_end, dst_vn, dport_start, dport_end,
-        action, mirror.str().c_str(), vrf_assign.c_str(), qos_action.c_str());
+        action, mirror.str().c_str(), vrf_assign.c_str(), qos_action.c_str(), hbs);
     string s(buff);
     *str += s;
     return;
@@ -2530,13 +2532,14 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
                               const char *src_vn, const char *dest_vn,
                               const char *action, const std::string &vrf_assign,
                               const std::string &mirror_ip,
-                              const std::string &qos_action) {
+                              const std::string &qos_action,
+                              const char *hbs_action) {
     string str;
     StartAcl(&str, name, id);
     AddAceEntry(&str, src_vn, dest_vn, "any", 10, 20, 10, 20, action,
-                vrf_assign, mirror_ip, qos_action);
+                vrf_assign, mirror_ip, qos_action, hbs_action);
     AddAceEntry(&str, dest_vn, src_vn, "any", 10, 20, 10, 20, action,
-                vrf_assign, mirror_ip, qos_action);
+                vrf_assign, mirror_ip, qos_action, hbs_action);
     EndAcl(&str);
     return str;
 }
@@ -2552,7 +2555,14 @@ void DelAcl(const char *name) {
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
             const char *action) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-                                    src_vn, dest_vn, action, "", "", "");
+                                    src_vn, dest_vn, action, "", "", "", "false");
+    ApplyXmlString(s.c_str());
+}
+
+void HbsAcl(const char *name, int id, const char *src_vn, const char *dest_vn,
+               const char *action, const char *hbs_action) {
+    std::string s = AddAclXmlString("access-control-list", name, id,
+                                    src_vn, dest_vn, action, "", "", "", hbs_action);
     ApplyXmlString(s.c_str());
 }
 
@@ -2560,7 +2570,7 @@ void AddVrfAssignNetworkAcl(const char *name, int id, const char *src_vn,
                             const char *dest_vn, const char *action,
                             std::string vrf_name) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-                                    src_vn, dest_vn, action, vrf_name, "", "");
+                                    src_vn, dest_vn, action, vrf_name, "", "", "false");
     ApplyXmlString(s.c_str());
 }
 
@@ -2568,7 +2578,7 @@ void AddQosAcl(const char *name, int id, const char *src_vn,
                const char *dest_vn, const char *action,
                std::string qos_config) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-                                     src_vn, dest_vn, action, "", "", qos_config);
+                                     src_vn, dest_vn, action, "", "", qos_config, "false");
     ApplyXmlString(s.c_str());
 }
 
@@ -2576,7 +2586,7 @@ void AddMirrorAcl(const char *name, int id, const char *src_vn,
                   const char *dest_vn, const char *action,
                   std::string mirror_ip) {
     std::string s = AddAclXmlString("access-control-list", name, id,
-            src_vn, dest_vn, action, "", mirror_ip, "");
+            src_vn, dest_vn, action, "", mirror_ip, "", "false");
     ApplyXmlString(s.c_str());
 }
 
