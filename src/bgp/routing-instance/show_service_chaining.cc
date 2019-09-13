@@ -18,17 +18,19 @@ using contrail::regex_search;
 using std::string;
 using std::vector;
 
-static bool FillServiceChainInfo(Address::Family family,
+static bool FillServiceChainInfo(SCAddress::Family sc_family,
                                  const string &search_string,
                                  const regex &search_expr,
                                  ShowServicechainInfo &info,
                                  RoutingInstance *rtinstance) {
+    SCAddress sc_addr;
+    Address::Family family = sc_addr.SCFamilyToAddressFamily(sc_family);
     const BgpTable *table =
         static_cast<const BgpTable *>(rtinstance->GetTable(family));
     if (!table)
         return false;
     IServiceChainMgr *service_chain_mgr =
-        rtinstance->server()->service_chain_mgr(family);
+        rtinstance->server()->service_chain_mgr(sc_family);
     if (!service_chain_mgr)
         return false;
 
@@ -44,7 +46,8 @@ static bool FillServiceChainInfo(Address::Family family,
     if (!rt_config)
         return false;
 
-    const ServiceChainConfig *sc_config = rt_config->service_chain_info(family);
+    const ServiceChainConfig *sc_config =
+                       rt_config->service_chain_info(sc_family);
     if (!sc_config)
         return false;
 
@@ -81,14 +84,24 @@ bool BgpShowHandler<ShowServiceChainReq, ShowServiceChainReqIterate,
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         RoutingInstance *rinstance = it->second;
         ShowServicechainInfo inet_info;
-        if (FillServiceChainInfo(Address::INET, data->search_string,
+        if (FillServiceChainInfo(SCAddress::INET, data->search_string,
                                  search_expr, inet_info, rinstance)) {
             data->show_list.push_back(inet_info);
         }
         ShowServicechainInfo inet6_info;
-        if (FillServiceChainInfo(Address::INET6, data->search_string,
+        if (FillServiceChainInfo(SCAddress::INET6, data->search_string,
                                  search_expr, inet6_info, rinstance)) {
             data->show_list.push_back(inet6_info);
+        }
+        ShowServicechainInfo evpn_info;
+        if (FillServiceChainInfo(SCAddress::EVPN, data->search_string,
+                                 search_expr, evpn_info, rinstance)) {
+            data->show_list.push_back(evpn_info);
+        }
+        ShowServicechainInfo evpn6_info;
+        if (FillServiceChainInfo(SCAddress::EVPN6, data->search_string,
+                                 search_expr, evpn6_info, rinstance)) {
+            data->show_list.push_back(evpn6_info);
         }
 
         if (data->show_list.size() >= page_limit)
