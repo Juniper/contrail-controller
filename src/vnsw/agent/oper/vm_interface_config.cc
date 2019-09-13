@@ -1098,6 +1098,42 @@ static void BuildVn(VmInterfaceConfigData *data,
     }
 }
 
+static void FillHbsInfo(VmInterfaceConfigData *data,
+                         IFMapNode *vn_node) {
+    //Reset the hbs interface 
+    data->hbs_intf_type_ =  VmInterface::HBS_INTF_INVALID;
+
+    if (vn_node == NULL) {
+        return;
+    }
+
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(vn_node->table());
+    DBGraph *graph = table->GetGraph();
+
+    //Get the HBS information from project
+    for (DBGraphVertex::adjacency_iterator iter = vn_node->begin(graph);
+         iter != vn_node->end(graph); ++iter) {
+        if (iter->IsDeleted()) {
+            continue;
+        }
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        //Check if HBS service is enabled for this project
+        if (strcmp(adj_node->table()->Typename(),
+                   "host-based-service-virtual-network") == 0) {
+            autogen::HostBasedServiceVirtualNetwork *hbsvn =
+                static_cast<HostBasedServiceVirtualNetwork *>(adj_node->GetObject());
+            ServiceVirtualNetworkType type = hbsvn->data();
+            if (strcmp(type.virtual_network_type.c_str(),
+                       "right") == 0) {
+                data->hbs_intf_type_ = VmInterface::HBS_INTF_RIGHT;
+            } else if (strcmp(type.virtual_network_type.c_str(),
+                              "left") == 0) {
+                data->hbs_intf_type_ = VmInterface::HBS_INTF_LEFT;
+            }
+        }
+    }
+}
+
 static void BuildProject(VmInterfaceConfigData *data,
                          IFMapNode *node,
                          const boost::uuids::uuid &u,
@@ -1792,6 +1828,9 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
                                                    &phy_device);
         }
     }
+
+    //Fill HBS data
+    FillHbsInfo(data, vn_node);
 
     // Fill IGMP data
     ReadIgmpConfig(agent(), vn_node, cfg, data);

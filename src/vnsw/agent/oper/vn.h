@@ -130,6 +130,7 @@ struct VnData : public AgentOperDBData {
     bool flood_unknown_unicast_;
     Agent::ForwardingMode forwarding_mode_;
     boost::uuids::uuid qos_config_uuid_;
+    boost::uuids::uuid hos_config_uuid_;
     bool mirror_destination_;
     bool pbb_etree_enable_;
     bool pbb_evpn_enable_;
