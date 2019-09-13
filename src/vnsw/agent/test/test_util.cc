@@ -5442,7 +5442,8 @@ void AddFirewall(const std::string &name, uint32_t id,
         const std::vector<std::string> &match,
         TestTag *src, uint32_t src_count,
         TestTag *dst, uint32_t dst_count,
-        const std::string action, const std::string direction) {
+        const std::string action, const std::string direction,
+        const std::string hbs) {
 
     std::stringstream str;
 
@@ -5504,6 +5505,9 @@ void AddFirewall(const std::string &name, uint32_t id,
     str << "<simple-action>";
     str << action;
     str << "</simple-action>";
+    str << "<host-based-service>";
+    str << hbs;
+    str << "</host-based-service>";
     str << "</action-list>";
 
     AddNode("firewall-rule", name.c_str(),

@@ -21,6 +21,7 @@ pkt_flaky_test_suite = []
 
 test_port_allocator = AgentEnv.MakeTestCmd(env, 'test_port_allocator', pkt_test_suite)
 
+test_flow_hbs = AgentEnv.MakeTestCmd(env, 'test_flow_hbs', pkt_test_suite)
 test_flow_mgmt_route = AgentEnv.MakeTestCmd(env, 'test_flow_mgmt_route', pkt_test_suite)
 test_tsn_flow = AgentEnv.MakeTestCmd(env, 'test_tsn_flow', pkt_test_suite)
 test_flow_table = AgentEnv.MakeTestCmd(env, 'test_flow_table', pkt_test_suite)

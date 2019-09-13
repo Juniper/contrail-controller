@@ -107,6 +107,7 @@ private:
     InetInterface::SubType sub_type_;
     VmInterface::DeviceType vmi_device_type_;
     VmInterface::VmiType vmi_type_;
+    VmInterface::HbsIntfType hbs_intf_type_;
     Interface::Type type_;
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
