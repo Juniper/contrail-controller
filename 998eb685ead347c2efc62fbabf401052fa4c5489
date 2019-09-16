@@ -1,0 +1,67 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a0193645_8c4633ba",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6312,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-16T16:26:12Z",
+      "side": 1,
+      "message": "The \u0027_set_sub_ports\u0027 method is called in a loop, you should construct the VLAN IDs list outside the loop to prevent too much API calls",
+      "revId": "998eb685ead347c2efc62fbabf401052fa4c5489",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d9eaab63_43b44ba1",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6312,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-16T16:26:12Z",
+      "side": 1,
+      "message": "What about the user provide a different segmentation type?",
+      "range": {
+        "startLine": 6312,
+        "startChar": 47,
+        "endLine": 6312,
+        "endChar": 52
+      },
+      "revId": "998eb685ead347c2efc62fbabf401052fa4c5489",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d9a3c02b_aa3b7f8e",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 6431,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-16T16:26:12Z",
+      "side": 1,
+      "message": "vlan or vxlan as you set in line 6312?",
+      "range": {
+        "startLine": 6431,
+        "startChar": 56,
+        "endLine": 6431,
+        "endChar": 60
+      },
+      "revId": "998eb685ead347c2efc62fbabf401052fa4c5489",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
