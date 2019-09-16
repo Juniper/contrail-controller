@@ -152,13 +152,20 @@ class ExecutableManager(object):
                         self.job_execution_id,
                         "job_summary",
                         JobFileWrite.JOB_LOG,
-                        {"job_status": "INPROGRESS"})
+                        {"job_status": JobStatus.IN_PROGRESS.value})
                     msg = "Child process pid = " + str(exec_process.pid)
                     self._logger.info(msg)
                     (out, err) = exec_process.communicate(timeout=self.executable_timeout)
 
                     self._logger.notice(str(out))
                     self._logger.notice(str(err))
+                    timestamp = int(round(time.time() * 1000))
+                    self.job_log_utils.send_job_log(job_template.fq_name,
+                                                self.job_execution_id,
+                                                self.fabric_fq_name,
+                                                str(err),
+                                                JobStatus.IN_PROGRESS.value,
+                                                timestamp=timestamp)
                 except subprocess32.TimeoutExpired as timeout_exp:
                     if exec_process is not None:
                         os.kill(exec_process.pid, 9)
@@ -171,22 +178,32 @@ class ExecutableManager(object):
                 self._logger.info(exec_process.returncode)
                 self._logger.info("Executable Completed")
                 if exec_process.returncode != 0:
-                     self.job_file_write.write_to_file(
+                    job_status = JobStatus.FAILURE.value
+                    msg = MsgBundle.getMessage(MsgBundle.
+                                   EXECUTABLE_RETURN_WITH_ERROR,
+                                   exec_uri=exec_path)
+                    self._logger.error(msg)
+                else:
+                    job_status = JobStatus.SUCCESS.value
+                    msg = MsgBundle.getMessage(MsgBundle.JOB_EXECUTION_COMPLETE,
+                                           job_execution_id=self.job_execution_id,
+                                           job_template_name=\
+                                           job_template.fq_name[-1])
+
+                self.job_file_write.write_to_file(
                          self.job_execution_id,
                          "job_summary",
                          JobFileWrite.JOB_LOG,
-                         {"job_status": "FAILED"})
-                     msg = MsgBundle.getMessage(MsgBundle.
-                                   EXECUTABLE_RETURN_WITH_ERROR,
-                                   exec_uri=exec_path)
-                     self._logger.error(msg)
-                else:
-                    self.job_file_write.write_to_file(
-                        self.job_execution_id,
-                        "job_summary",
-                        JobFileWrite.JOB_LOG,
-                        {"job_status": "COMPLETED"})
+                         {"job_status": job_status})
 
+                self._logger.debug(msg)
+                timestamp = int(round(time.time() * 1000))
+                self.job_log_utils.send_job_log(job_template.fq_name,
+                                            self.job_execution_id,
+                                            self.fabric_fq_name,
+                                            msg,
+                                            job_status,
+                                            timestamp=timestamp)
 
         except JobException as exp:
             err_msg = "Job Exception recieved: %s " % repr(exp)
