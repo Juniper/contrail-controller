@@ -54,13 +54,13 @@ proto_dict = {
 }
 
 def get_bgp_rtgt_min_id(asn):
-    if asn > 0xFFFF:
+    if int(asn) > 0xFFFF:
         return _BGP_RTGT_MIN_ID_TYPE1_2
     else:
         return _BGP_RTGT_MIN_ID_TYPE0
 
 def get_bgp_rtgt_max_id(asn):
-    if asn > 0xFFFF:
+    if int(asn) > 0xFFFF:
         return _BGP_RTGT_MAX_ID_TYPE1_2
     else:
         return _BGP_RTGT_MAX_ID_TYPE0

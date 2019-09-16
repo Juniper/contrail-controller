@@ -206,7 +206,7 @@ class SchemaTransformerDB(VncObjectDBClient):
             return 0
 
     def get_zk_route_target_allocator(self, asn):
-        if (asn > 0xFFFF):
+        if int(asn) > 0xFFFF:
             return self._rt_allocator_4
         else:
             return self._rt_allocator
@@ -251,6 +251,8 @@ class SchemaTransformerDB(VncObjectDBClient):
 
     def delete_route_target_directory(self, path):
         for zk_node in self._zkclient.get_children(path):
+            if 'type0' in zk_node or 'type1_2' in zk_node:
+                continue
             # The return value of read_node will be an list
             # where 0th element is fq_name and 1st element is node stat for
             # the Zookeeper node
