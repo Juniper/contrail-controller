@@ -16,6 +16,24 @@
       "revId": "5ec9ed1bb4d7d103a549e2b8d4e4abdedceba4f1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb029ed5_016cc877",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cmd_show_chassis_info/tasks/juniper.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 447
+      },
+      "writtenOn": "2019-09-16T15:13:39Z",
+      "side": 1,
+      "message": "I agree that errors should be handled in operational_command.yml.",
+      "parentUuid": "2d5f57ab_494d2de5",
+      "revId": "5ec9ed1bb4d7d103a549e2b8d4e4abdedceba4f1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
