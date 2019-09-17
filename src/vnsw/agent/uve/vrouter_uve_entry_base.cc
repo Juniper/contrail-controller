@@ -359,11 +359,14 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
     }
     else if (intf->type() == Interface::PHYSICAL)
     {
-        const PhysicalInterface *phy_intf = static_cast<const PhysicalInterface *>(intf);
+        const PhysicalInterface *phy_intf = static_cast<const
+            PhysicalInterface *>(intf);
         if (phy_intf)
         {
-            PhysicalInterface::BondChildIntfMap bond_childIntf_map = phy_intf->getBondChildIntfMap();
-            map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = bond_childIntf_map.begin();
+            PhysicalInterface::BondChildIntfMap bond_childIntf_map =
+                phy_intf->getBondChildIntfMap();
+            PhysicalInterface::BondChildIntfMapIterator it =
+                bond_childIntf_map.begin();
             for(; it != bond_childIntf_map.end(); it++)
             {
                 PhysicalInterface::Bond_ChildIntf bond_intf;
@@ -485,8 +488,10 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
             }
             if (phy_if)
             {
-                PhysicalInterface::BondChildIntfMap bond_childIntf_map = phy_if->getBondChildIntfMap();
-                map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = bond_childIntf_map.begin();
+                PhysicalInterface::BondChildIntfMap bond_childIntf_map = 
+                    phy_if->getBondChildIntfMap();
+                PhysicalInterface::BondChildIntfMapIterator it =
+                    bond_childIntf_map.begin();
                 for(; it != bond_childIntf_map.end(); it++)
                 {
                     PhysicalInterface::Bond_ChildIntf bond_intf;

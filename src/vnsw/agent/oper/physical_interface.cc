@@ -56,33 +56,35 @@ DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
 bool PhysicalInterface::OnChange(const InterfaceTable *table,
                                  const PhysicalInterfaceData *data) {
     bool ret = false;
+    const PhysicalInterfaceOsOperStateData *osOperStateData =
+        dynamic_cast<const PhysicalInterfaceOsOperStateData *>(data);
 
-    // Handle VRF Change
-    VrfKey key(data->vrf_name_);
-    VrfEntry *new_vrf = static_cast<VrfEntry *>
-        (table->agent()->vrf_table()->FindActiveEntry(&key));
-    if (new_vrf != vrf_.get()) {
-        vrf_.reset(new_vrf);
-        ret = true;
+    if(osOperStateData) {
+        ret = osOperStateData->OnResync(this);
     }
+    else {
+        // Handle VRF Change
+        VrfKey key(data->vrf_name_);
+        VrfEntry *new_vrf = static_cast<VrfEntry *>
+            (table->agent()->vrf_table()->FindActiveEntry(&key));
+        if (new_vrf != vrf_.get()) {
+            vrf_.reset(new_vrf);
+            ret = true;
 
-    PhysicalDevice *dev =
-        table->agent()->physical_device_table()->Find(data->device_uuid_);
-    if (dev != physical_device_.get()) {
-        physical_device_.reset(dev);
-        ret = true;
-    }
-    if(data)
-    {
-        const PhysicalInterfaceOsOperStateData *osOperStateData = dynamic_cast<const PhysicalInterfaceOsOperStateData *>(data);
-        if(osOperStateData) {
-            ret = osOperStateData->OnResync(this);
+        }
+
+        PhysicalDevice *dev =
+            table->agent()->physical_device_table()->Find(data->device_uuid_);
+        if (dev != physical_device_.get()) {
+            physical_device_.reset(dev);
+            ret = true;
         }
     }
     return ret;
 }
 
-bool PhysicalInterfaceOsOperStateData::OnResync(PhysicalInterface *phy_intf) const
+bool
+PhysicalInterfaceOsOperStateData::OnResync(PhysicalInterface *phy_intf) const
 {
     bool ret = false;
     if(type_ == PhysicalInterfaceOsOperStateData::VR_FABRIC) {
@@ -96,7 +98,8 @@ bool PhysicalInterfaceOsOperStateData::OnResync(PhysicalInterface *phy_intf) con
         bondIntf.intf_name = intf_name;
         bondIntf.intf_drv_name = intf_drv_name;
         bondIntf.intf_status = oper_state_;
-        PhysicalInterface::BondChildIntfMap bond_childIntf_map = phy_intf->getBondChildIntfMap();
+        PhysicalInterface::BondChildIntfMap bond_childIntf_map =
+              phy_intf->getBondChildIntfMap();
         bond_childIntf_map[intf_name] = bondIntf;
         phy_intf->setBondChildIntfMap(bond_childIntf_map);
         ret = true;
@@ -371,9 +374,4 @@ void PhysicalInterface::Delete(InterfaceTable *table, const string &ifname) {
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Process(req);
-}
-
-bool PhysicalInterfaceData::OnResync(PhysicalInterface *phy_intf) const
-{
-    return true;
 }

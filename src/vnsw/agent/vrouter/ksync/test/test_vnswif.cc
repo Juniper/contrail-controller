@@ -508,14 +508,16 @@ TEST_F(TestVnswIf, FabricIpamLinkFlap) {
 TEST_F(TestVnswIf, InterfaceStatus) {
     InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
+    EXPECT_TRUE(
+            EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
 
     InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, 1);
     client->WaitForIdle();
 
     InterfaceEvent(true, "test_phy1 test_phy_drv1 0", 3, 1);
     client->WaitForIdle();
-    EXPECT_FALSE(EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
+    EXPECT_FALSE(EthInterfaceGet(
+                agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
 
     InterfaceEvent(false, "test_phy1 test_phy_drv1 0", 3, 1);
     client->WaitForIdle();
@@ -523,14 +525,16 @@ TEST_F(TestVnswIf, InterfaceStatus) {
     InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, 2);
     client->WaitForIdle();
 
-    EXPECT_TRUE(getIntfStatus(EthInterfaceGet(agent_->fabric_interface_name().c_str())));
+    EXPECT_TRUE(getIntfStatus(
+                EthInterfaceGet(agent_->fabric_interface_name().c_str())));
 
     InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, 2);
     client->WaitForIdle();
 
     InterfaceEvent(true, "test_phy1 test_phy_drv1 0", 3, 2);
     client->WaitForIdle();
-    EXPECT_FALSE(getIntfStatus(EthInterfaceGet(agent_->fabric_interface_name().c_str())));
+    EXPECT_FALSE(getIntfStatus(
+                EthInterfaceGet(agent_->fabric_interface_name().c_str())));
 
     InterfaceEvent(false, "test_phy1 test_phy_drv1 0", 3, 2);
     client->WaitForIdle();
