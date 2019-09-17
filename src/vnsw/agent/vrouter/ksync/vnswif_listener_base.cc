@@ -383,7 +383,8 @@ void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
         ResetSeen(event->interface_, false);
     } else {
         bool up = (event->flags_ & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING);
-        if(event->type_ == VnswInterfaceListenerBase::VR_FABRIC || event->type_ == VnswInterfaceListenerBase::VR_BOND_SLAVES)
+        if((event->type_ == VnswInterfaceListenerBase::VR_FABRIC) ||
+            (event->type_ == VnswInterfaceListenerBase::VR_BOND_SLAVES))
         {
             std::vector<std::string> interface_info;
             std::istringstream iss(event->interface_);
@@ -391,29 +392,37 @@ void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
                 interface_info.push_back(s);
             /* Vrouter is sending a netlink message. In that message
              * event_>interface_ will contain intf name, intf drv name, and
-             * intf_id. So breaking this message and store these values in a vector
-             * So in vector 1st value will be intf_name, 2nd is intf_drv_name
-             * and 3rd is intf_id. Total 3 parameters vrouter will send, it will
-             * come in event_>interface_.
+             * intf_id. So breaking this message and store these values in a
+             * vector. So in vector 1st value will be intf_name, 2nd is
+             * intf_drv_name and 3rd is intf_id. Total 3 parameters vrouter will
+             * send, it will come in event_>interface_.
              */
             InterfaceTable *table = agent_->interface_table();
             if(table)
             {
                 if(interface_info.size() == NL_MSG_PARAMS)
                 {
-                  /* come in event_>interface_. Used NL_MSG_PARAMS macro to determine
+                  /* Used NL_MSG_PARAMS macro to determine
                    * the no of parameters vrouter will send i.e 3
                    */
                     const char *x = interface_info[INDEX_INTERFACE_ID].c_str();
                     Interface *interface = table->FindInterface(atoi(x));
                     if(interface)
                     {
-                        PhysicalInterface *phy_intf = dynamic_cast<PhysicalInterface *>(interface);
+                        PhysicalInterface *phy_intf =
+                            dynamic_cast<PhysicalInterface *>(interface);
                         if(phy_intf)
                         {
                             DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-                            req.key.reset(new PhysicalInterfaceKey(agent_->fabric_interface_name()));
-                            req.data.reset(new PhysicalInterfaceOsOperStateData(event->type_, interface_info[INDEX_INTERFACE_NAME], interface_info[INDEX_INTERFACE_DRV_NAME], up));
+                            req.key.reset(new
+                                    PhysicalInterfaceKey(
+                                        agent_->fabric_interface_name()));
+                            req.data.reset(new
+                                    PhysicalInterfaceOsOperStateData(
+                                        event->type_,
+                                        interface_info[INDEX_INTERFACE_NAME],
+                                        interface_info[INDEX_INTERFACE_DRV_NAME],
+                                        up));
                             table->Enqueue(&req);
                         }
                     }

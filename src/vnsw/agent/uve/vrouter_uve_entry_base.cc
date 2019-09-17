@@ -485,8 +485,10 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
             }
             if (phy_if)
             {
-                PhysicalInterface::BondChildIntfMap bond_childIntf_map = phy_if->getBondChildIntfMap();
-                map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = bond_childIntf_map.begin();
+                PhysicalInterface::BondChildIntfMap bond_childIntf_map = 
+                    phy_if->getBondChildIntfMap();
+                map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it =
+                    bond_childIntf_map.begin();
                 for(; it != bond_childIntf_map.end(); it++)
                 {
                     PhysicalInterface::Bond_ChildIntf bond_intf;
