@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ed482dda_3a7d31e3",
+        "filename": "src/vnsw/agent/oper/physical_interface.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-17T18:18:57Z",
+      "side": 1,
+      "message": "physical_device can also be reset,\nprobably , you can check if it is PhysicalInterfaceOsOperStateData , dont update VRF and physical device.",
+      "range": {
+        "startLine": 64,
+        "startChar": 4,
+        "endLine": 64,
+        "endChar": 6
+      },
+      "revId": "73b8037b55b92ee1a274639a122d029e49ec1194",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
