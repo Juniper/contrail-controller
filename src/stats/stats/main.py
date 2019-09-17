@@ -34,7 +34,12 @@ def parse_config(args):
                    }
     log_level = log_lev_map[config.get("DEFAULT", "log_level")]
     stats_server = config.get("DEFAULT", "stats_server")
-    return {"log_file": log_file, "log_level": log_level, "stats_server": stats_server}
+    cache = config.get("DEFAULT", "cache")
+    return {"log_file": log_file,
+            "log_level": log_level,
+            "stats_server": stats_server,
+            "cache": cache
+            }
 
 
 def init_logger(log_level, log_file):
@@ -72,11 +77,14 @@ class Stats(object):
 class Scheduler(object):
     DEF_SEND_FREQ = None
 
-    def __init__(self, vnc_client):
+    def __init__(self, vnc_client, cache):
+        self.cache = cache
         self._vnc_client = vnc_client
         self._cached_data = self._get_cached_data()
-        self._send_freq = self._cached_data.get("send_freq", self._get_updated_send_freq())
-        self._sched_job_ts = self._cached_data.get("sched_job_ts", self._init_first_job())
+        self._send_freq = self._cached_data.get("send_freq",
+                                                self._get_updated_send_freq())
+        self._sched_job_ts = self._cached_data.get("sched_job_ts",
+                                                   self._init_first_job())
         self._save_cached_data()
 
     @property
@@ -100,9 +108,8 @@ class Scheduler(object):
         self._send_freq = updated_send_freq
         self._save_cached_data()
 
-    @staticmethod
-    def _get_cached_data():
-        return shelve.open("cache")
+    def _get_cached_data(self):
+        return shelve.open(self.cache)
 
     def _init_first_job(self):
         if (self.send_freq is not None):
@@ -112,7 +119,7 @@ class Scheduler(object):
         return sched_job_ts
 
     def _save_cached_data(self):
-        cached_data = shelve.open("cache", writeback=True)
+        cached_data = shelve.open(self.cache, writeback=True)
         cached_data["sched_job_ts"] = self.sched_job_ts
         cached_data["send_freq"] = self.send_freq
         cached_data.close()
@@ -139,7 +146,8 @@ class Scheduler(object):
         if (self.send_freq != newest_send_freq):
             self.send_freq = newest_send_freq
             self.sched_job_ts = self.send_freq
-        elif ((self.sched_job_ts is not None) and (datetime.now() > self.sched_job_ts)):
+        elif ((self.sched_job_ts is not None) and
+              (datetime.now() > self.sched_job_ts)):
             is_job = True
         return is_job
 
@@ -161,7 +169,8 @@ class Postman(object):
             201: {"success": True,
                   "message": ""},
             200: {"success": False,
-                  "message": "The server response code is 200. Successfull stats server response code is 201."},
+                  "message": "The server response code is 200. \
+                  Successfull stats server response code is 201."},
             404: {"success": False,
                   "message": "The server URI was not found."},
             400: {"success": False,
@@ -170,17 +179,27 @@ class Postman(object):
 
         stats = Stats(client=self._vnc_client)
         try:
-            resp_code = urlopen(url=Request(url=self._stats_server, data=json.dumps(stats.__dict__), headers={'Content-Type': 'application/json'})).code
-            def_err = {"success": False, "message": "Uknown error. HTTP code: %s." % resp_code}
+            resp_code = urlopen(
+                url=Request(
+                    url=self._stats_server,
+                    data=json.dumps(stats.__dict__),
+                    headers={'Content-Type': 'application/json'})).code
+            def_err = {"success": False,
+                       "message": "Uknown error. HTTP code: %s." % resp_code}
         except HTTPError as e:
             resp_code = e.code
-            def_err = {"success": False, "message": "Uknown error. HTTP error code: %s." % resp_code}
+            def_err = {
+                "success": False,
+                "message": "Uknown error. HTTP error code: %s." % resp_code}
         except URLError as e:
             resp_code = e.reason[1]
-            def_err = {"success": False, "message": "Uknown error. URLError: %s." % resp_code}
+            def_err = {"success": False,
+                       "message": "Uknown error. URLError: %s." % resp_code}
         except Exception as e:
             resp_code = "unknown"
-            def_err = {"success": False, "message": "Unknown error. Traceback: %s" % str(format_exc())}
+            def_err = {
+                "success": False,
+                "message": "Unknown error. Traceback: %s" % str(format_exc())}
         finally:
             self.logger.info(str(RESP.get(resp_code, def_err)))
             self.logger.debug("stats: %s" % (str(stats)))
@@ -188,17 +207,23 @@ class Postman(object):
 
 def main():
     config = parse_config(args=parse_args())
-    logger = init_logger(log_level=config["log_level"], log_file=config["log_file"])
+    logger = init_logger(log_level=config["log_level"],
+                         log_file=config["log_file"])
     vnc_client = VncApi(username=getenv("KEYSTONE_AUTH_ADMIN_USERNAME"),
                         password=getenv("KEYSTONE_AUTH_ADMIN_PASSWORD"),
                         tenant_name=getenv("KEYSTONE_AUTH_ADMIN_TENANT"))
-    scheduler = Scheduler(vnc_client=vnc_client)
-    postman = Postman(stats_server=config["stats_server"], vnc_client=vnc_client, logger=logger)
+    scheduler = Scheduler(vnc_client=vnc_client, cache=config["cache"])
+    postman = Postman(stats_server=config["stats_server"],
+                      vnc_client=vnc_client,
+                      logger=logger)
     while True:
         logger.info("TF usage report client started.")
         if scheduler.is_job():
             postman.send_stats()
             scheduler.job_is_done()
-        logger.info("Frequency of statistics sending is %s" % str(scheduler.send_freq))
-        logger.info("Statistics sending is scheduled at %s" % str(scheduler.sched_job_ts))
+        logger.info(
+            "Frequency of statistics sending is %s" % str(scheduler.send_freq))
+        logger.info(
+            "Statistics sending is scheduled at %s" % str(
+                scheduler.sched_job_ts))
         sleep(Postman.SLEEP_TIME)

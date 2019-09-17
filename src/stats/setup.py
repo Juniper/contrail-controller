@@ -24,7 +24,7 @@ setup(
     test_suite='stats.tests',
     entry_points={
       "console_scripts": [
-        "contrail-stats-client = contrail_stats_client.main:main"
+        "contrail-stats-client = stats.main:main"
         ]
     }
 )
