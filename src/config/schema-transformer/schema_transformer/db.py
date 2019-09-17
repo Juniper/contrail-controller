@@ -10,7 +10,6 @@ import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, VncError
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.zkclient import IndexAllocator
-from pycassa import NotFoundException
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
 
 
@@ -235,11 +234,8 @@ class SchemaTransformerDB(VncObjectDBClient):
     # end alloc_route_target
 
     def free_route_target(self, ri_fq_name, asn):
-        try:
-            rtgt = self.get_route_target(ri_fq_name)
-            self._rt_cf.remove(ri_fq_name)
-        except NotFoundException:
-            pass
+        rtgt = self.get_route_target(ri_fq_name)
+        self.delete(self._RT_CF, ri_fq_name)
 
         self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
         self.current_rt_allocator.delete(rtgt)
@@ -282,25 +278,16 @@ class SchemaTransformerDB(VncObjectDBClient):
         self._sc_ip_cf.insert(sc_name, ip_dict)
 
     def remove_service_chain_ip(self, sc_name):
-        try:
-            self._sc_ip_cf.remove(sc_name)
-        except NotFoundException:
-            pass
+        self.delete(self._SC_IP_CF, sc_name)
 
     def list_service_chain_uuid(self):
-        try:
-            return self._service_chain_uuid_cf.get_range()
-        except NotFoundException:
-            return []
+        return self.get_range(self._SERVICE_CHAIN_UUID_CF) or []
 
     def add_service_chain_uuid(self, name, value):
         self._service_chain_uuid_cf.insert(name, {'value': value})
 
     def remove_service_chain_uuid(self, name):
-        try:
-            self._service_chain_uuid_cf.remove(name)
-        except NotFoundException:
-            pass
+        self.delete(self._SERVICE_CHAIN_UUID_CF, name)
 
     def get_bgpaas_port(self, port):
         return self._bgpaas_allocator.read(port)
