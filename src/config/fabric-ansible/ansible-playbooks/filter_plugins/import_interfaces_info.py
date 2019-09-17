@@ -109,10 +109,11 @@ class FilterModule(object):
         device_import_resp = {}
 
         try:
+            vnc_lib = JobVncApi.vnc_init(job_ctx)
             _task_log("Creating interfaces")
             device_import_resp = \
                 self._create_interfaces(
-                    job_ctx,
+                    vnc_lib,
                     interfaces_payload,
                     prouter_name
                 )
@@ -122,6 +123,10 @@ class FilterModule(object):
                     device_import_resp.get('log_intf_failed_info'):
                 raise Exception(
                     "Create or Update physical or logical interfaces failed")
+
+            # compute the interfaces to be deleted from vnc db and delete
+            self._delete_interfaces_from_vnc(vnc_lib, prouter_name,
+                                             device_import_resp)
 
             return {
                 'status': 'success',
@@ -138,6 +143,57 @@ class FilterModule(object):
                 'device_import_resp': device_import_resp
             }
     # end import_interfaces_info
+
+    def _delete_interfaces_from_vnc(self, vnc_lib, prouter_name,
+                                    device_import_resp):
+        try:
+            phy_intf_names_payload = device_import_resp.get(
+                'phy_intfs_success_names'
+            )
+            log_intf_names_payload = device_import_resp.get(
+                'log_intfs_success_names'
+            )
+
+            phy_intf_names_payload = list(
+                set(phy_intf_names_payload)
+            )
+
+            log_intf_names_payload = list(
+                set(log_intf_names_payload)
+            )
+
+            exis_vnc_phy_intf_list = vnc_lib.physical_interfaces_list(
+                parent_fq_name=["default-global-system-config",
+                                prouter_name]).get('physical-interfaces', [])
+
+            exis_vnc_log_intf_list = []
+            for phy_intf in exis_vnc_phy_intf_list:
+                exis_vnc_log_intf_list.extend(
+                    vnc_lib.logical_interfaces_list(
+                        parent_fq_name=phy_intf.get('fq_name'))
+                    .get('logical-interfaces', [])
+                )
+
+            # compare existing with payload and remove any excess in existing
+
+            for exis_log_intf in exis_vnc_log_intf_list:
+                if exis_log_intf.get(
+                        'fq_name')[-1] not in log_intf_names_payload:
+                    vnc_lib.logical_interface_delete(
+                        id=str(exis_log_intf.get('uuid')))
+
+            for exis_phy_int in exis_vnc_phy_intf_list:
+                if exis_phy_int.get(
+                        'fq_name')[-1] not in phy_intf_names_payload:
+                    vnc_lib.physical_interface_delete(
+                        id=str(exis_phy_int.get('uuid'))
+                    )
+        except Exception as ex:
+            _task_error_log(str(ex))
+            _task_error_log(traceback.format_exc())
+
+
+    # end _delete_interfaces_from_vnc
 
     def get_create_interfaces_payload(self, device_name,
                                       physical_interfaces_list,
@@ -204,11 +260,10 @@ class FilterModule(object):
 
     # group vnc functions
     def _create_interfaces(self,
-                           job_ctx,
+                           vnc_lib,
                            interfaces_payload,
                            prouter_name):
 
-        vnc_lib = JobVncApi.vnc_init(job_ctx)
         physical_interfaces_list = interfaces_payload.get(
             'physical_interfaces_list')
         logical_interfaces_list = interfaces_payload.get(
