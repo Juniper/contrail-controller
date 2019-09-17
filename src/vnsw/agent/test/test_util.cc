@@ -1167,17 +1167,33 @@ PhysicalInterface *EthInterfaceGet(const char *name) {
     return intf;
 }
 
-bool getIntfStatus(PhysicalInterface *intf)
+bool getIntfStatus(PhysicalInterface *pintf, const string& intf_name)
 {
     bool ret = false;
-    PhysicalInterface::BondChildIntfMap bond_childIntf_map = intf->getBondChildIntfMap();
-    PhysicalInterface::BondChildIntfMapIterator it = bond_childIntf_map.begin();
-    for(; it != bond_childIntf_map.end(); it++)
+    PhysicalInterface::BondChildIntfMap bond_childIntf_map =
+        pintf->getBondChildIntfMap();
+    PhysicalInterface::BondChildIntfMapIterator it =
+        bond_childIntf_map.find(intf_name);
+    if(it != bond_childIntf_map.end())
     {
         ret = (it->second).intf_status;
     }
 
     return ret;
+}
+
+void
+delTestPhysicalIntfFromMap(PhysicalInterface *pintf, const string& intf_name)
+{
+    PhysicalInterface::BondChildIntfMap bond_childIntf_map =
+        pintf->getBondChildIntfMap();
+    PhysicalInterface::BondChildIntfMapIterator it =
+        bond_childIntf_map.find(intf_name);
+    if(it != bond_childIntf_map.end())
+    {
+        bond_childIntf_map.erase(intf_name);
+    }
+    pintf->setBondChildIntfMap(bond_childIntf_map);
 }
 
 VmInterface *VmInterfaceGet(int id) {
