@@ -135,11 +135,12 @@ class ActionUriDict(dict):
 
 
 class ApiServerSession(object):
-    def __init__(self, api_server_hosts, max_conns_per_pool,
-                 max_pools, logger=None):
+    def __init__(self, api_server_hosts, max_conns_per_pool, max_pools,
+                 timeout, logger=None):
         self.api_server_hosts = api_server_hosts
         self.max_conns_per_pool = max_conns_per_pool
         self.max_pools = max_pools
+        self.timeout = timeout
         self.logger = logger
         self.api_server_sessions = {}
         self.active_session = (None, None)
@@ -190,6 +191,7 @@ class ApiServerSession(object):
     def crud(self, method, url, *args, **kwargs):
         self.roundrobin()
         active_host, active_session = self.active_session
+        kwargs['timeout'] = self.timeout
         if active_host and active_session:
             if active_host not in url:
                 url = self.get_url(url, active_host)
@@ -291,6 +293,8 @@ class VncApi(object):
     # Number of pools and number of pool per conn to api-server
     _DEFAULT_MAX_POOLS = 100
     _DEFAULT_MAX_CONNS_PER_POOL = 100
+    # Default time in seconds used for connection request to VNC API
+    _DEFAULT_TIMEOUT = 5
 
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host=None, api_server_port=None,
@@ -477,6 +481,9 @@ class VncApi(object):
         self._max_conns_per_pool = int(_read_cfg(
             cfg_parser, 'global', 'MAX_CONNS_PER_POOL',
             self._DEFAULT_MAX_CONNS_PER_POOL))
+        self._timeout = int(_read_cfg(
+            cfg_parser, 'global', 'TIMEOUT',
+            self._DEFAULT_TIMEOUT))
 
         self.curl_logger = None
         if _read_cfg(cfg_parser, 'global', 'curl_log', False):
@@ -753,7 +760,7 @@ class VncApi(object):
     def _create_api_server_session(self):
         self._api_server_session = ApiServerSession(
                 self._web_hosts, self._max_conns_per_pool,
-                self._max_pools, self.curl_logger)
+                self._max_pools, self._timeout, self.curl_logger)
     # end _create_api_server_session
 
     def _discover(self):
