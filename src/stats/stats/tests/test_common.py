@@ -15,7 +15,7 @@ class UpdatedSendFreqTest(StatsClientTest):
     def setUp(self):
         super(UpdatedSendFreqTest, self).setUp()
         self.vnc_client.tags_list.return_value = {"tags": []}
-        self.scheduler = Scheduler(self.vnc_client)
+        self.scheduler = Scheduler(self.vnc_client, state="test")
 
     def test_get_updated_send_freq_monthly(self):
         self.vnc_client.tags_list.return_value = {"tags": [
