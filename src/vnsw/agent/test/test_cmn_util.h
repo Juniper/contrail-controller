@@ -182,7 +182,6 @@ std::string VmPortGetAnalyzerName(int id);
 Interface::MirrorDirection VmPortGetMirrorDirection(int id);
 bool VmPortInactive(PortInfo *input, int id);
 PhysicalInterface *EthInterfaceGet(const char *name);
-bool getIntfStatus(PhysicalInterface *intf);
 VmInterface *VmInterfaceGet(int id);
 bool VmPortPolicyEnable(int id);
 bool VmPortPolicyEnable(PortInfo *input, int id);
@@ -569,6 +568,9 @@ void AddAapWithDisablePolicy(std::string intf_name, int intf_id,
 void AddAapWithMacAndDisablePolicy(const std::string &intf_name, int intf_id,
                                    Ip4Address ip, const std::string &mac,
                                    bool disable_policy);
+bool getIntfStatus(PhysicalInterface *pintf, const string& intf_name);
+void delTestPhysicalIntfFromMap(PhysicalInterface *pintf,
+        const string& intf_name);
 
 class XmppChannelMock : public XmppChannel {
 public:

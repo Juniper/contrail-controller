@@ -6,7 +6,8 @@
 #include <cmn/agent_cmn.h>
 
 #include "test/test_cmn_util.h"
-
+#define VR_FABRIC 1
+#define VR_BOND_SLAVES 2
 void RouterIdDepInit(Agent *agent) {
 }
 
@@ -506,34 +507,68 @@ TEST_F(TestVnswIf, FabricIpamLinkFlap) {
 }
 
 TEST_F(TestVnswIf, InterfaceStatus) {
-    InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, 1);
+    InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, VR_FABRIC);
     client->WaitForIdle();
-    EXPECT_TRUE(EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
+    PhysicalInterface *pintf =
+        EthInterfaceGet(agent_->fabric_interface_name().c_str());
+    EXPECT_TRUE(pintf != NULL);
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
+    EXPECT_TRUE(pintf->get_os_params().os_oper_state_);
 
-    InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, 1);
+    InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, VR_FABRIC);
     client->WaitForIdle();
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
 
-    InterfaceEvent(true, "test_phy1 test_phy_drv1 0", 3, 1);
+    InterfaceEvent(true, "test_phy test_phy_drv 0", 3, VR_FABRIC);
     client->WaitForIdle();
-    EXPECT_FALSE(EthInterfaceGet(agent_->fabric_interface_name().c_str())->get_os_params().os_oper_state_);
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
+    EXPECT_FALSE(pintf->get_os_params().os_oper_state_);
 
-    InterfaceEvent(false, "test_phy1 test_phy_drv1 0", 3, 1);
+    InterfaceEvent(false, "test_phy test_phy_drv 0", 3, VR_FABRIC);
     client->WaitForIdle();
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
 
-    InterfaceEvent(true, "test_phy test_phy_drv 0", 4163, 2);
+    InterfaceEvent(true, "test_phy_slave test_phy_slave_drv 0", 4163,
+            VR_BOND_SLAVES);
     client->WaitForIdle();
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
 
-    EXPECT_TRUE(getIntfStatus(EthInterfaceGet(agent_->fabric_interface_name().c_str())));
+    EXPECT_TRUE(getIntfStatus(pintf, "test_phy_slave"));
 
-    InterfaceEvent(false, "test_phy test_phy_drv 0", 4163, 2);
+    InterfaceEvent(false, "test_phy_slave test_phy_slave_drv 0", 4163,
+            VR_BOND_SLAVES);
     client->WaitForIdle();
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
 
-    InterfaceEvent(true, "test_phy1 test_phy_drv1 0", 3, 2);
+    InterfaceEvent(true, "test_phy_slave test_phy_slave_drv 0", 3,
+            VR_BOND_SLAVES);
     client->WaitForIdle();
-    EXPECT_FALSE(getIntfStatus(EthInterfaceGet(agent_->fabric_interface_name().c_str())));
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
+    EXPECT_FALSE(getIntfStatus(pintf, "test_phy_slave"));
 
-    InterfaceEvent(false, "test_phy1 test_phy_drv1 0", 3, 2);
+    InterfaceEvent(false, "test_phy_slave test_phy_slave_drv 0", 3,
+            VR_BOND_SLAVES);
     client->WaitForIdle();
+    EXPECT_TRUE(pintf->vrf() != NULL);
+    EXPECT_TRUE(pintf->vrf()->GetName() ==
+            "default-domain:default-project:ip-fabric:__default__");
+
+    delTestPhysicalIntfFromMap(pintf, "test_phy");
+    delTestPhysicalIntfFromMap(pintf, "test_phy_slave");
 }
 
 class SetupTask : public Task {
