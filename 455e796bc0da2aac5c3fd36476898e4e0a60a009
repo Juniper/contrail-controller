@@ -16,6 +16,24 @@
       "revId": "455e796bc0da2aac5c3fd36476898e4e0a60a009",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "71b1998a_87643dfb",
+        "filename": "src/config/common/vnc_cassandra.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 247,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-09-17T15:06:03Z",
+      "side": 1,
+      "message": "Isnt this already taken care at line 278 - 307? Could you please reconfirm.",
+      "parentUuid": "34a9d349_3ae601f1",
+      "revId": "455e796bc0da2aac5c3fd36476898e4e0a60a009",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
