@@ -853,7 +853,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         {
             const PhysicalInterface *pintf =
                     static_cast<const PhysicalInterface *>(this);
-            map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = pintf->getBondChildIntfMap().begin();
+            map<const std::string, PhysicalInterface::Bond_ChildIntf>::const_iterator it = 
+                pintf->getBondChildIntfMap().begin();
             vector<BondInterface> bond_interface_list;
             for(; it != pintf->getBondChildIntfMap().end(); it++)
             {

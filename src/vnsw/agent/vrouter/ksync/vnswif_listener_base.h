@@ -56,7 +56,8 @@ public:
         }
 
         // Constructor for interface add/delete/change notification
-        Event(Type event, const std::string &interface, uint32_t flags, unsigned short int type) :
+        Event(Type event, const std::string &interface, uint32_t flags, 
+                unsigned short int type) :
             event_(event), interface_(interface), addr_(0), plen_(0),
             gw_(0), flags_(flags), protocol_(0), ipam_(false), type_(type) {
         }

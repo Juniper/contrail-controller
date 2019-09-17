@@ -34,7 +34,7 @@ public:
     };
 
     typedef std::map<const std::string, Bond_ChildIntf> BondChildIntfMap;
-    typedef std::map<const std::string, Bond_ChildIntf>::const_iterator BondChildIntfMapIterator;
+    typedef BondChildIntfMap::const_iterator BondChildIntfMapIterator;
 
 
     PhysicalInterface(const std::string &name,
@@ -99,11 +99,11 @@ private:
     SubType subtype_;
     EncapType encap_type_;
     bool no_arp_;
-    BondChildIntfMap bond_childIntf_map_;
     PhysicalDeviceRef physical_device_;
     std::string display_name_;
     Ip4Address ip_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
+    BondChildIntfMap bond_childIntf_map_;
 };
 
 struct PhysicalInterfaceData : public InterfaceData {
@@ -123,7 +123,6 @@ struct PhysicalInterfaceData : public InterfaceData {
     boost::uuids::uuid device_uuid_;
     std::string display_name_;
     Ip4Address ip_;
-    virtual bool OnResync(PhysicalInterface *phy_intf) const;
 };
 
 struct PhysicalInterfaceKey : public InterfaceKey {
@@ -142,10 +141,13 @@ struct PhysicalInterfaceOsOperStateData : public PhysicalInterfaceData {
        VR_BOND_SLAVES,
     };
 
-    PhysicalInterfaceOsOperStateData(unsigned short int type_, std::string intf_name, std::string intf_drv_name, bool status):
-            PhysicalInterfaceData(NULL, NULL, "", PhysicalInterface::INVALID, PhysicalInterface::ETHERNET,
-                        false, boost::uuids::nil_uuid(), "", Ip4Address(0), Interface::TRANSPORT_INVALID), type_(type_),
-                        intf_name(intf_name), intf_drv_name(intf_drv_name), oper_state_(status) { }
+    PhysicalInterfaceOsOperStateData(unsigned short int type_, 
+            std::string intf_name, std::string intf_drv_name, bool status):
+            PhysicalInterfaceData(NULL, NULL, "", PhysicalInterface::INVALID, 
+                    PhysicalInterface::ETHERNET, false, boost::uuids::nil_uuid(),
+                    "", Ip4Address(0), Interface::TRANSPORT_INVALID), 
+            type_(type_), intf_name(intf_name), intf_drv_name(intf_drv_name), 
+            oper_state_(status) { }
     virtual ~PhysicalInterfaceOsOperStateData() { }
     virtual bool OnResync(PhysicalInterface *phy_intf) const;
 

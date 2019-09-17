@@ -183,15 +183,20 @@ void KState::IfMsgHandler(vr_interface_req *r) {
         char *slave_intf_name = NULL;
         char *slave_intf_drv_name = NULL;
         if(!r->get_vifr_bond_slave_name().empty())
-            slave_intf_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_bond_slave_name())[0]));
+            slave_intf_name = 
+                (char *)(reinterpret_cast<const signed char*> (
+                            &(r->get_vifr_bond_slave_name())[0]));
 
         if (!r->get_vifr_bond_slave_drv_name().empty())
-            slave_intf_drv_name = (char *)(reinterpret_cast<const signed char*> (&(r->get_vifr_bond_slave_drv_name())[0]));
+            slave_intf_drv_name = 
+                (char *)(reinterpret_cast<const signed char*> (
+                            &(r->get_vifr_bond_slave_drv_name())[0]));
 
         for (int i = 0; i < r->get_vifr_num_bond_slave(); i++) {
             BondMemberIntfInfo entry;
 
-            entry.set_child_bond_interface_status(bond_link[(r->get_vifr_intf_status() >> (i + 1)) & 0x01]);
+            entry.set_child_bond_interface_status(
+                    bond_link[(r->get_vifr_intf_status() >> (i + 1)) & 0x01]);
             if(slave_intf_name)
             {
                 std::string str(slave_intf_name);
