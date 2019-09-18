@@ -492,7 +492,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         pi_name = "xe-0/0/2_0"
         pi_obj_3 = PhysicalInterface(pi_name, parent_obj=pr1)
-        pi_obj_3.set_physical_interface_type('lag')
+        pi_obj_3.set_physical_interface_type('access')
         self._vnc_lib.physical_interface_create(pi_obj_3)
 
         return pr1, [pi_obj_1, pi_obj_2, pi_obj_3], pr2, [pi_obj_4, pi_obj_5]

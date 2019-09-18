@@ -82,9 +82,6 @@ class TelemetryFeature(FeatureBase):
 
         if sflow_interface_type == "all":
             return True
-        elif sflow_interface_type == "access":
-            if interface_type not in ["service", "fabric"]:
-                return True
         elif sflow_interface_type == "custom":
             for custom_intf in enabled_custom_interface_list:
                 # Assumption: custom_intf['name'] will in fact be
