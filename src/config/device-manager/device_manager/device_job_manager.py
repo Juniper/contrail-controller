@@ -343,6 +343,7 @@ class DeviceJobManager(object):
                 else signal.SIGUSR1)
 
     def handle_abort_job_request(self, body, message):
+        message.ack()
         inp = body.get('input')
         job_execution_ids = inp.get('job_execution_ids')
         abort_mode = inp.get('abort_mode')
