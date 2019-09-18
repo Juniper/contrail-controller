@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e384a132_a3f9c169",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 491,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-09-18T01:24:52Z",
+      "side": 1,
+      "message": "Remove the trailing space",
+      "revId": "9140ce0ae9b3c90e58fd63719537bff48184bb12",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
