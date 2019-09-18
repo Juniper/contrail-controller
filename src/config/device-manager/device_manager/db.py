@@ -2765,7 +2765,7 @@ class TelemetryProfileDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.sflow_profile = None
-        self.physical_router = None
+        self.physical_routers = set()
         self.update(obj_dict)
     # end __init__
 
@@ -2774,13 +2774,13 @@ class TelemetryProfileDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.update_single_ref('physical_router', obj)
+        self.update_multiple_refs('physical_router', obj)
         self.update_single_ref('sflow_profile', obj)
     # end update
 
     def delete_obj(self):
         self.update_single_ref('sflow_profile', {})
-        self.update_single_ref('physical_router', {})
+        self.update_multiple_refs('physical_router', {})
     # end delete_obj
 # end class TelemetryProfileDM
 
@@ -2791,7 +2791,7 @@ class SflowProfileDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
-        self.telemetry_profile = None
+        self.telemetry_profiles = set()
         self.update(obj_dict)
     # end __init__
 
@@ -2801,11 +2801,11 @@ class SflowProfileDM(DBBaseDM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.sflow_params = obj.get('sflow_parameters')
-        self.update_single_ref('telemetry_profile', obj)
+        self.update_multiple_refs('telemetry_profile', obj)
     # end update
 
     def delete_obj(self):
-        self.update_single_ref('telemetry_profile', {})
+        self.update_multiple_refs('telemetry_profile', {})
     # end delete_obj
 # end class SflowProfileDM
 
