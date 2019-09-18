@@ -33,6 +33,24 @@
       "revId": "9140ce0ae9b3c90e58fd63719537bff48184bb12",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "151fd36c_c47d3953",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 491,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-09-18T16:52:57Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "e384a132_a3f9c169",
+      "revId": "9140ce0ae9b3c90e58fd63719537bff48184bb12",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
