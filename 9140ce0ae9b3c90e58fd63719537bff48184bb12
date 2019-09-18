@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "892ae3d9_b3a742c0",
+        "filename": "src/vnsw/agent/oper/physical_interface.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2019-09-18T10:52:37Z",
+      "side": 1,
+      "message": "Need a test case to be added to exercise the new code.",
+      "revId": "9140ce0ae9b3c90e58fd63719537bff48184bb12",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "e384a132_a3f9c169",
         "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
         "patchSetId": 3
