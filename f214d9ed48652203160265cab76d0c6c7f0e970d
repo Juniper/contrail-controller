@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "653951bb_67ea3a41",
+        "filename": "src/config/common/requirements.txt",
+        "patchSetId": 20
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-09-18T21:28:11Z",
+      "side": 1,
+      "message": "I believe this should already be handled since python-crypto is already in contrail.spec under package python-package, which includes cfgm_common. Please confirm.",
+      "parentUuid": "01cc62ab_4f91f37e",
+      "revId": "f214d9ed48652203160265cab76d0c6c7f0e970d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "1384d266_f83071e8",
         "filename": "src/config/common/test-requirements.txt",
         "patchSetId": 20
@@ -50,6 +68,24 @@
       "revId": "f214d9ed48652203160265cab76d0c6c7f0e970d",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "13fc748c_b146fd88",
+        "filename": "src/config/common/test-requirements.txt",
+        "patchSetId": 20
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-09-18T21:28:11Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1384d266_f83071e8",
+      "revId": "f214d9ed48652203160265cab76d0c6c7f0e970d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
