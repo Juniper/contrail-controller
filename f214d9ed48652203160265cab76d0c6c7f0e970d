@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "9a5408db_92b86357",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_crud_basic.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 773,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-18T19:38:46Z",
+      "side": 1,
+      "message": "Can you add a test to validate creation of PR with credential already encrypted with flag \u0027encryption_type\u0027 set to \u0027local\u0027 and verify API does not encrypted it again?",
+      "revId": "f214d9ed48652203160265cab76d0c6c7f0e970d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "01cc62ab_4f91f37e",
         "filename": "src/config/common/requirements.txt",
         "patchSetId": 20
