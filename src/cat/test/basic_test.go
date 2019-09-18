@@ -9,6 +9,8 @@ import (
     "cat/agent"
     "cat/config"
     "cat/controlnode"
+    "cat/crpd"
+    "cat/sut"
     log "github.com/sirupsen/logrus"
     "fmt"
     "testing"
@@ -21,26 +23,38 @@ func TestConnectivityWithConfiguration(t *testing.T) {
         desc string
         controlNodes int
         agents int
+        crpds int
     }{{
-            desc: "MultipleControlNodes",
-            controlNodes: 3,
+            desc: "SingleControlNodeMultipleCRPD",
+            controlNodes: 1,
             agents: 0,
+            crpds: 2,
+     },
+     {
+            desc: "MultipleControlNodes",
+             controlNodes: 3,
+             agents: 0,
+             crpds: 0,
      },{
              desc: "SingleControlNodeSingleAgent",
              controlNodes: 1,
              agents: 1,
+             crpds: 0,
      },{
              desc: "SingleControlNodeMultipleAgent",
              controlNodes: 1,
              agents: 3,
+             crpds: 0,
      },{
              desc: "MultipleControlNodeSingleAgent",
              controlNodes: 2,
              agents: 1,
+             crpds: 0,
      },{
             desc: "MultipleControlNodeMultipleAgent",
             controlNodes: 2,
             agents: 3,
+            crpds: 2,
     }}
 
     for _, tt := range tests {
@@ -51,13 +65,17 @@ func TestConnectivityWithConfiguration(t *testing.T) {
             }
             var control_nodes []*controlnode.ControlNode
             var agents []*agent.Agent
-            control_nodes, agents, err = setup(obj, tt.desc, tt.controlNodes, tt.agents)
+            var crpds []*crpd.CRPD
+            if (!crpd.CanUseCRPD()) {
+                tt.crpds = 0
+            }
+            control_nodes, agents, crpds, err = setup(obj, tt.desc, tt.controlNodes, tt.agents, tt.crpds)
             if err != nil {
-                t.Fatalf("Failed to create control-nodes and agents: %v", err)
+                t.Fatalf("Failed to create control-nodes, agents and/or crpds: %v", err)
             }
 
-            if err := verifyControlNodesAndAgents(control_nodes, agents); err != nil {
-                t.Fatalf("Failed to verify control-nodes and agents: %v", err)
+            if err := verifyControlNodesAndAgents(control_nodes, agents, crpds); err != nil {
+                t.Fatalf("Failed to verify control-nodes, agents and/or crpds: %v", err)
             }
 
             for i := range control_nodes {
@@ -65,8 +83,8 @@ func TestConnectivityWithConfiguration(t *testing.T) {
                     t.Fatalf("Failed to restart control-nodes: %v", err)
                 }
             }
-            if err := verifyControlNodesAndAgents(control_nodes, agents); err != nil {
-                t.Fatalf("Failed to verify control-nodes and agents after restart: %v", err)
+            if err := verifyControlNodesAndAgents(control_nodes, agents, crpds); err != nil {
+                t.Fatalf("Failed to verify control-nodes, agents and/or crpds after restart: %v", err)
             }
             if err := obj.Teardown(); err != nil {
                 t.Fatalf("CAT objects cleanup failed: %v", err)
@@ -75,48 +93,74 @@ func TestConnectivityWithConfiguration(t *testing.T) {
     }
 }
 
-func setup(cat *cat.CAT, desc string, nc, na int) ([]*controlnode.ControlNode, []*agent.Agent, error) {
-    log.Debugf("%s: Creating %d control-nodes and %d agents\n", desc, nc, na);
+func setup(cat *cat.CAT, desc string, nc, na, ncrpd int) ([]*controlnode.ControlNode, []*agent.Agent, []*crpd.CRPD, error) {
+    log.Debugf("%s: Creating %d control-nodes, %d agents and %d crpds\n", desc, nc, na, ncrpd)
     configMap := ConfigMapType{}
     control_nodes := []*controlnode.ControlNode{}
 
+    ip_octet := 127
+    if ncrpd > 0 {
+        ip_octet = 10
+    }
     for i := 0; i < nc; i++ {
-        cn, err := cat.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("127.0.0.%d", i+1), fmt.Sprintf("%s/db.json", cat.SUT.Manager.RootDir), 0)
+        cn, err := cat.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ip_octet, i+1), fmt.Sprintf("%s/db.json", cat.SUT.Manager.RootDir), 0)
         if err != nil {
-            return nil, nil, err
+            return nil, nil, nil, err
         }
         control_nodes = append(control_nodes, cn)
     }
-    generateConfiguration(cat, configMap, control_nodes)
+
+    crpds := []*crpd.CRPD{}
+    for i := 0; i < ncrpd; i++ {
+        cr, err := cat.AddCRPD(desc, fmt.Sprintf("crpd%d", i+1))
+        if err != nil {
+            return nil, nil, nil, err
+        }
+        crpds = append(crpds, cr)
+    }
+    generateConfiguration(cat, configMap, control_nodes, crpds)
 
     agents := []*agent.Agent{}
     for i := 0; i < na; i++ {
         ag, err := cat.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), control_nodes)
         if err != nil {
-            return nil, nil, err
+            return nil, nil, nil, err
         }
         agents = append(agents, ag)
     }
-    if err := verifyControlNodesAndAgents(control_nodes, agents); err != nil {
-        return nil, nil, err
+    if err := verifyControlNodesAndAgents(control_nodes, agents, crpds); err != nil {
+        return nil, nil, nil, err
     }
 
-    if err := verifyConfiguration(control_nodes); err != nil {
-        return nil, nil, err
+    if err := verifyConfiguration(control_nodes, crpds); err != nil {
+        return nil, nil, nil, err
     }
 
     if err := addVirtualPorts(agents, configMap); err != nil {
-        return nil, nil, err
+        return nil, nil, nil, err
     }
-    return control_nodes, agents, nil
+    return control_nodes, agents, crpds, nil
 }
 
-func verifyControlNodesAndAgents(control_nodes []*controlnode.ControlNode, agents[]*agent.Agent) error {
+func verifyControlNodesAndAgents(control_nodes []*controlnode.ControlNode, agents[]*agent.Agent, crpds []*crpd.CRPD) error {
     for i := range control_nodes {
         if err := control_nodes[i].CheckXMPPConnections(agents, 30, 1); err != nil {
             return fmt.Errorf("%s to agents xmpp connections are down: %v", control_nodes[i].Name, err)
         }
-        if err := control_nodes[i].CheckBGPConnections(control_nodes, 30, 5); err != nil {
+
+        cn_components := []*sut.Component{}
+        for i := 0; i < len(control_nodes); i++ {
+            cn_components = append(cn_components, &control_nodes[i].Component)
+        }
+        if err := control_nodes[i].CheckBGPConnections(cn_components, 30, 5); err != nil {
+            return fmt.Errorf("%s to control-nodes bgp connections are down: %v", control_nodes[i].Name, err)
+        }
+
+        cr_components := []*sut.Component{}
+        for i := 0; i < len(crpds); i++ {
+            cr_components = append(cr_components, &crpds[i].Component)
+        }
+        if err := control_nodes[i].CheckBGPConnections(cr_components, 30, 5); err != nil {
             return fmt.Errorf("%s to control-nodes bgp connections are down: %v", control_nodes[i].Name, err)
         }
     }
@@ -148,7 +192,7 @@ func createVirtualNetwork(fqNameTable *config.FQNameTableType, uuidTable *config
     return vn, ri, err
 }
 
-func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes []*controlnode.ControlNode) error {
+func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes []*controlnode.ControlNode, crpds []*crpd.CRPD) error {
     fqNameTable := config.FQNameTableType{}
     uuidTable := config.UUIDTableType{}
     config.NewGlobalSystemsConfig(&fqNameTable, &uuidTable, "64512")
@@ -205,15 +249,28 @@ func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes 
     }
 
     var bgp_routers []*config.BGPRouter
+    ip_octet := 127
+    if len(crpds) > 0 {
+        ip_octet = 10
+    }
     for i := range control_nodes {
         name := fmt.Sprintf("control-node%d", i+1)
-        address := fmt.Sprintf("127.0.0.%d", i+1)
-        bgp_router, err := config.NewBGPRouter(&fqNameTable, &uuidTable, name, address, control_nodes[i].Config.BGPPort)
+        address := fmt.Sprintf("%d.0.0.%d", ip_octet, i+1)
+        bgp_router, err := config.NewBGPRouter(&fqNameTable, &uuidTable, name, address, "control-node", control_nodes[i].Config.BGPPort)
         if err != nil {
             return err
         }
         configMap["bgp_router:" + name] = bgp_router.ContrailConfig
         bgp_routers = append(bgp_routers, bgp_router)
+    }
+
+    for i := range crpds {
+        crpd, err := config.NewBGPRouter(&fqNameTable, &uuidTable, crpds[i].Name, crpds[i].IPAddress, "router", 179)
+        if err != nil {
+            return err
+        }
+        configMap["bgp_router:" + crpds[i].Name] = crpd.ContrailConfig
+        bgp_routers = append(bgp_routers, crpd)
     }
 
     // Form full mesh ibgp peerings.
@@ -261,7 +318,7 @@ func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes 
     return config.GenerateDB(&fqNameTable, &uuidTable, fmt.Sprintf("%s/db.json", cat.SUT.Manager.RootDir))
 }
 
-func verifyConfiguration(control_nodes []*controlnode.ControlNode) error {
+func verifyConfiguration(control_nodes []*controlnode.ControlNode, crpds []*crpd.CRPD) error {
     for c := range control_nodes {
         if err := control_nodes[c].CheckConfiguration("domain", 1, 3, 3); err != nil {
             return fmt.Errorf("domain configuration check failed: %v", err)
@@ -299,8 +356,8 @@ func verifyConfiguration(control_nodes []*controlnode.ControlNode) error {
         if err := control_nodes[c].CheckConfiguration("virtual-router", 1, 3, 3); err != nil {
             return fmt.Errorf("virtual-router configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("bgp-router", len(control_nodes), 3, 3); err != nil {
-            return fmt.Errorf("virtual-router configuration check failed: %v", err)
+        if err := control_nodes[c].CheckConfiguration("bgp-router", len(control_nodes) + len(crpds), 3, 3); err != nil {
+            return fmt.Errorf("bgp-router configuration check failed: %v", err)
         }
     }
     return nil
