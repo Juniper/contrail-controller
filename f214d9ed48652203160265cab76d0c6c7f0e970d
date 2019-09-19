@@ -72,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "b7c949f8_2df5002c",
+        "filename": "src/config/common/requirements.txt",
+        "patchSetId": 20
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-09-19T06:19:20Z",
+      "side": 1,
+      "message": "really I don\u0027t remember. I just wanted to point attention to this.",
+      "parentUuid": "653951bb_67ea3a41",
+      "revId": "f214d9ed48652203160265cab76d0c6c7f0e970d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "1384d266_f83071e8",
         "filename": "src/config/common/test-requirements.txt",
         "patchSetId": 20
