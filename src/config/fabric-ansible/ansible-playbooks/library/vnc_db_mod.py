@@ -18,7 +18,11 @@ import vnc_api
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 sys.path.append('../fabric-ansible/ansible-playbooks/module_utils') # unit test
-from ansible.module_utils.fabric_utils import FabricAnsibleModule
+try:
+   from ansible.module_utils.fabric_utils import FabricAnsibleModule
+except:
+   sys.path.append('../fabric-ansible/ansible-playbooks/module_utils')
+   from fabric_utils import FabricAnsibleModule # noqa
 
 DOCUMENTATION = '''
 ---
