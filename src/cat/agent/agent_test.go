@@ -18,7 +18,8 @@ func TestAgent(t *testing.T) {
     }
 
     xmpp_ports := []int{1,2}
-    a, err := agent.New(c.SUT.Manager, "agent", "test", xmpp_ports); if err != nil {
+    ips := []string{"10.0.0.1", "10.0.0.2"}
+    a, err := agent.New(c.SUT.Manager, "agent", "test", ips, xmpp_ports); if err != nil {
         t.Errorf("Failed to create agent: %v", err)
     }
 

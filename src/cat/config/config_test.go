@@ -67,7 +67,7 @@ func TestConfig(t *testing.T) {
     for i := 0; i < 10; i++ {
         name := fmt.Sprintf("bgp-router%d", i)
         address := fmt.Sprintf("127.0.0.%d", i)
-        if _, err := config.NewBGPRouter(&fqNameTable, &uuidTable, name, address, 0); err != nil {
+        if _, err := config.NewBGPRouter(&fqNameTable, &uuidTable, name, address, "control-node", 0); err != nil {
             t.Errorf("Cannot create bgp-router %s: %v", name, err)
         }
     }

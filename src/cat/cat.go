@@ -16,6 +16,7 @@ import (
 
     "cat/agent"
     "cat/controlnode"
+    "cat/crpd"
     "cat/sut"
 )
 
@@ -25,10 +26,13 @@ type CAT struct {
 
     ControlNodes []*controlnode.ControlNode
     Agents       []*agent.Agent
+    CRPDs        []*crpd.CRPD
 }
 
 // Timestamp format for logfiles.
 const timestamp = "20060102_150405"
+
+const crpdImageGetCommand = "sshpass -p c0ntrail123 ssh 10.84.5.39 cat /cs-shared/crpd/crpd.tgz | docker load"
 
 // New creates an initialized CAT instance.
 func New() (*CAT, error) {
@@ -49,6 +53,17 @@ func New() (*CAT, error) {
         return nil, fmt.Errorf("failed to make report directory: %v", err)
     }
     c.setHostIP()
+
+    if crpd.CanUseRpd() {
+        cmd := exec.Command("/usr/bin/docker", "image", "inspect", "crpd")
+        if _, err := cmd.Output(); err != nil {
+            // Setup crpd docker image.
+            cmd := exec.Command("/bin/bash", "-c", crpdImageGetCommand)
+            if _, err := cmd.Output(); err != nil {
+                return nil, fmt.Errorf("Cannot load crpd docker image")
+            }
+        }
+    }
     log.Infof("Test data in %s", c.SUT.Manager.RootDir)
     return c, err
 }
@@ -56,12 +71,18 @@ func New() (*CAT, error) {
 // Teardown stops all components and closes down the CAT instance.
 func (c *CAT) Teardown() error {
     for _, cn := range c.ControlNodes {
-        err := cn.Teardown(); if err != nil {
+        if err := cn.Teardown(); err != nil {
             return err
         }
     }
     for _, a := range c.Agents {
-        err := a.Teardown(); if err != nil {
+        if err := a.Teardown(); err != nil {
+            return err
+        }
+    }
+
+    for _, cr := range c.CRPDs {
+        if err := cr.Teardown(); err != nil {
             return err
         }
     }
@@ -88,10 +109,12 @@ func (c *CAT) setHostIP() error {
 
 func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.ControlNode) (*agent.Agent, error) {
     var xmpp_ports []int
+    var ips []string
     for _, control_node := range control_nodes {
         xmpp_ports = append(xmpp_ports, control_node.Config.XMPPPort)
+        ips = append(ips, control_node.IPAddress)
     }
-    agent, err := agent.New(c.SUT.Manager, name, test, xmpp_ports)
+    agent, err := agent.New(c.SUT.Manager, name, test, ips, xmpp_ports)
     if err != nil {
         return nil, fmt.Errorf("failed create agent: %v", err)
     }
@@ -108,4 +131,13 @@ func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, http_port
     c.ControlNodes = append(c.ControlNodes, cn)
     log.Infof("Started %s at http://%s:%d\n", cn.Name, c.SUT.Manager.IP, cn.Config.HTTPPort)
     return cn, nil
+}
+
+func (c *CAT) AddCRPD(test, name string) (*crpd.CRPD, error) {
+    cr, err := crpd.New(c.SUT.Manager, name, test)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create crpd: %v", err)
+    }
+    c.CRPDs = append(c.CRPDs, cr)
+    return cr, nil
 }

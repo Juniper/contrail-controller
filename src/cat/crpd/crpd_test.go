@@ -1,0 +1,69 @@
+/*
+ * copyright (c) 2019 juniper networks, inc. all rights reserved.
+ */
+
+package crpd_test
+
+import (
+    "cat"
+    "cat/crpd"
+    "os/exec"
+    "strings"
+    "testing"
+    "time"
+)
+
+func TestCRPD(t *testing.T) {
+    if !crpd.CanUseRpd() {
+        return
+    }
+    c, err := cat.New(); if err != nil {
+        t.Errorf("Failed to create CAT object: %v", err)
+    }
+    cr, err := c.AddCRPD("test-crpd", "test-crpd1")
+    if err != nil {
+        t.Errorf("Failed to create crpd object: %v", err)
+    }
+    if !strings.HasPrefix(cr.Name, "test-crpd1-") {
+        t.Errorf("incorrect crpd name %s; want %s", cr.Name, "test-crpd1")
+    }
+
+    time.Sleep(10 * time.Second)
+
+    // Verify that crpd container started and obtained an IP address.
+    if cr.IPAddress == "" {
+        t.Errorf("Cannot find crpd %s's ip address", cr.Name)
+    }
+
+    // Verify that container gets correct configuration.
+    conf_bytes, err := exec.Command("sudo", "--non-interactive", "docker", "exec", "-i", cr.Name, "cli", "show", "configuration", "|", "display", "set").Output()
+    if err != nil {
+        t.Errorf("Cannot get crpd confiugration: %v", err)
+    }
+    expected_conf := `set version "20190913.184434_rbu-builder.r1055445 [rbu-builder]"
+set system root-authentication encrypted-password "$6$0uOJV$DeOUWubpQesgtIszCKmwGQwOFUS9YvcXuiFbzY52XLO.Gx4XJFWjJEp28vvtxqdYJyMaB3gkoVNsSUhpHvLxO/"
+set routing-options autonomous-system 64512
+set protocols bgp group test type internal
+set protocols bgp group test passive
+set protocols bgp group test family inet unicast
+set protocols bgp group test family inet-vpn unicast
+set protocols bgp group test family inet6 unicast
+set protocols bgp group test family inet6-vpn unicast
+set protocols bgp group test family evpn signaling
+set protocols bgp group test family route-target
+set protocols bgp group test peer-as 64512
+set protocols bgp group test allow 0.0.0.0/0
+`
+    retrieved_conf := string(conf_bytes)
+    if retrieved_conf != expected_conf {
+        t.Fatalf("Expected configuration not found %s; want %s", retrieved_conf, expected_conf)
+    }
+    if err := cr.Teardown(); err != nil {
+        t.Fatalf("crpd object cleanup failed: %v", err)
+    }
+
+    // Verify that docker process does not exist any more.
+    if _, err := exec.Command("sudo", "--non-interactive", "docker", "inspect", cr.Name).Output(); err != nil {
+        t.Fatalf("crpd docker cleanup failed: %v", err)
+    }
+}

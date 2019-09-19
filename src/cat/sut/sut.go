@@ -64,8 +64,8 @@ func (c *Component) Stop() error {
         return fmt.Errorf("Could not stop process %d", c.Cmd.Process.Pid)
     }
     file := fmt.Sprintf("%d.json", c.Cmd.Process.Pid)
-    _, err := os.Stat(file); if !os.IsNotExist(err) {
-        err := os.Remove(file); if err != nil {
+    if _, err := os.Stat(file); !os.IsNotExist(err) {
+        if err := os.Remove(file); err != nil {
             return err
         }
     }

@@ -37,7 +37,7 @@ func (b *BGPRouter) AddRef(uuidTable *UUIDTableType, obj *ContrailConfig) {
     b.UpdateDB(uuidTable)
 }
 
-func NewBGPRouter(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, name, address string, port int) (*BGPRouter, error) {
+func NewBGPRouter(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, name, address, router_type string, port int) (*BGPRouter, error) {
     co, err := createContrailConfig(fqNameTable, "bgp_router", name, "routing_instance",[]string{"default-domain", "default-project", "ip-fabric", "__default__", name})
     if err != nil {
         return nil, err
@@ -51,7 +51,7 @@ func NewBGPRouter(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, name, 
         Address: address,
         Port: port,
         LocalAutonomousSystem: 64512,
-        RouterType: "control-node",
+        RouterType: router_type,
         AddressFamilies: &types.AddressFamilies{
             Family: []string{"route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn",},
         },
