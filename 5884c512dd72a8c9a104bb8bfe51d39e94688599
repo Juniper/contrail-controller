@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dfc895cb_83595a50",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/library/vnc_db_mod.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-09-19T18:56:05Z",
+      "side": 1,
+      "message": "Remove these 2 lines of sys.path.append. They are no longer needed",
+      "revId": "5884c512dd72a8c9a104bb8bfe51d39e94688599",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
