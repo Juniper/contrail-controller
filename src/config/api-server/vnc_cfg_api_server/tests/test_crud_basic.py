@@ -707,6 +707,7 @@ class TestCrud(test_case.ApiServerTestCase):
         phy_rout_name_2 = self.id() + '-phy-router-2'
         phy_rout_name_3 = self.id() + '-phy-router-3'
         phy_rout_name_4 = self.id() + '-phy-router-4'
+        phy_rout_name_5 = self.id() + '-phy-router-5'
         user_cred_create = UserCredentials(username="test_user",
                                            password="test_pswd")
         user_cred_create_2 = UserCredentials(username="test_user_2",
@@ -717,6 +718,9 @@ class TestCrud(test_case.ApiServerTestCase):
         # Test the password that's more than 32 bytes
         user_cred_create_4 = UserCredentials(username="test_user_4",
             password="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        # Test the password that's already encrypted
+        user_cred_create_5 = UserCredentials(username="test_user_5",
+            password="waldIpPkKKud0y0Z6AN4Tg8x7q5JOktwkVCPPRuIC2w=")
 
         phy_rout = PhysicalRouter(phy_rout_name,
                            physical_router_user_credentials=user_cred_create)
@@ -738,11 +742,19 @@ class TestCrud(test_case.ApiServerTestCase):
         phy_rout_4.uuid = '123e4567-e89b-12d3-a456-426655440004'
         self._vnc_lib.physical_router_create(phy_rout_4)
 
+        phy_rout_5 = PhysicalRouter(phy_rout_name_5,
+                           physical_router_user_credentials=user_cred_create_5,
+                                    physical_router_encryption_type='local')
+        phy_rout_5.uuid = '123e4567-e89b-12d3-a456-426655440005'
+        self._vnc_lib.physical_router_create(phy_rout_5)
+
+        #import pdb; pdb.set_trace()
         obj_uuids = []
         obj_uuids.append(phy_rout.uuid)
         obj_uuids.append(phy_rout_2.uuid)
         obj_uuids.append(phy_rout_3.uuid)
         obj_uuids.append(phy_rout_4.uuid)
+        obj_uuids.append(phy_rout_5.uuid)
 
         phy_rtr_list = self._vnc_lib.physical_routers_list(obj_uuids=obj_uuids,
                                                            detail=True)
@@ -758,6 +770,9 @@ class TestCrud(test_case.ApiServerTestCase):
             if user_cred_read.username == 'test_user_4':
                 self.assertEqual(user_cred_read.password,
                     'd6jW0qMEBKSlUILBnetOdRIjTZGnK76OQ2R5jQgPxly0r+UNSfEqEh5DPqBL58td')
+            if user_cred_read.username == 'test_user_5':
+                self.assertEqual(user_cred_read.password,
+                    'waldIpPkKKud0y0Z6AN4Tg8x7q5JOktwkVCPPRuIC2w=')
        # end test_physical_router_credentials
 
 
