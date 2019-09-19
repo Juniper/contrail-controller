@@ -1,0 +1,157 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "56bfb987_94eebfd7",
+        "filename": "src/cat/agent/agent.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "what are ip\u0027s?\n\nif ips are bound with ports then why isn\u0027t this is a struct that ties them together",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "52751d99_8e28c0f3",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "at part of setup probably be good to validate docker is availbe on the machine to give the user a clear error if it isn\u0027t",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe22e3b3_a8d5a840",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "is router type actually any arbitrary string?",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d9a047f9_1dc54c73",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 175,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "else isn\u0027t needed\n\n if err \u003d c.CheckBGPConnection(components[i].Name); err !\u003d nil {\n   break\n }\n log.Infof(\"%s: BGP Peer %s session reached established state\", c.Name, components[i].Name)",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "55bca1d5_8585839f",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 176,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "omg no semi-colons",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "73f0661b_115261e3",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "why sleep?\nwhy not a positive check?",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cfd11843_da86552c",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "why not have this as part of New?",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "698392cb_5d283444",
+        "filename": "src/cat/crpd/crpd_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "this feels like flaky waiting to happen\n\nwhy not have some explicit loop check or anything that forces this to either assertTrue or fail hard?",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d00e2f9f_ac07ba16",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-19T19:00:58Z",
+      "side": 1,
+      "message": "_, err :\u003d os.Stat(file)\n    if err !\u003d nil {\n      if !os.IsNotExist(err) {\n         return err\n      }\n      return nil\n    }\n    if err :\u003d os.Remove(file); err !\u003d nil {\n      return err\n    }\n    return nil\n    }",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
