@@ -1168,6 +1168,26 @@ TEST_F(UveVrouterUveTest, FlowSetupRate) {
     vr->clear_count();
 }
 
+TEST_F(UveVrouterUveTest, VrLimits) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (agent_->uve()->vrouter_uve_entry());
+    // Send once
+    vr->SendVrouterMsg();
+
+    // Save it
+    VrouterObjectLimits prev_vr_limits = vr->prev_vrouter().get_vr_limits();
+
+    // change max labels
+    Agent::GetInstance()->set_vrouter_max_labels(100);
+
+    // Send again
+    vr->SendVrouterMsg();
+
+    // Ensure the value is updated in UVE entry
+    VrouterObjectLimits new_vr_limits = vr->prev_vrouter().get_vr_limits();
+    EXPECT_EQ(new_vr_limits.get_max_labels(), 100);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini",
