@@ -661,10 +661,16 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
                                         VROUTER_AGENT_ON_HOST));
         }
 
-        VrouterObjectLimits vr_limits = agent_->GetVrouterObjectLimits();
-        vrouter_agent.set_vr_limits(vr_limits);
         vrouter_agent.set_subcluster_name(agent_->subcluster_name());
         first = false;
+        changed = true;
+    }
+
+    VrouterObjectLimits vr_limits = agent_->GetVrouterObjectLimits();
+    VrouterObjectLimits prev_vr_limits = prev_vrouter_.get_vr_limits();
+    if (vr_limits != prev_vr_limits) {
+        vrouter_agent.set_vr_limits(vr_limits);
+        prev_vrouter_.set_vr_limits(vr_limits);
         changed = true;
     }
 
