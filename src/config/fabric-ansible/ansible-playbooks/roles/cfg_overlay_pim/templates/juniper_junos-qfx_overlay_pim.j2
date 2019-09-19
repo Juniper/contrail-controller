@@ -1,7 +1,7 @@
 {% for ri in device_abstract_config.get('routing_instances', []) %}
 {%     set ns = namespace(name='') %}
 {%     if ri.get('description', '') %}
-{%         set ns.name = ri.get('description') %}
+{%         set ns.name = ri.get('description')[:250] %}
 {%     else %}
 {%         set ns.name = ri.get('name') %}
 {%     endif %}
