@@ -106,7 +106,7 @@ const string &Agent::vhost_interface_name() const {
 };
 
 bool Agent::is_vhost_interface_up() const {
-    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()||
+    if (tor_agent_enabled() || test_mode())
         isMockMode()) {
         return true;
     }
@@ -1014,10 +1014,6 @@ bool Agent::vrouter_on_nic_mode() const {
 
 bool Agent::vrouter_on_host_dpdk() const {
     return params_->vrouter_on_host_dpdk();
-}
-
-bool Agent::vrouter_on_windows() const {
-    return params_->vrouter_on_windows();
 }
 
 bool Agent::vrouter_on_host() const {
