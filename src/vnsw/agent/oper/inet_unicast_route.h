@@ -100,10 +100,7 @@ public:
               if (key->addr().is_v4()) {
                   Ip4Address::bytes_type addr_bytes;
                   addr_bytes = key->addr().to_v4().to_bytes();
-                  // volatile prevents specific version of Microsoft C++
-                  // compiler (19.00.24210) from doing undesired optimization
-                  // in 'production' build under Windows.
-                  volatile char res = static_cast<char>(addr_bytes[i]);
+                  char res = static_cast<char>(addr_bytes[i]);
                   return res;
               } else {
                   Ip6Address::bytes_type addr_bytes;

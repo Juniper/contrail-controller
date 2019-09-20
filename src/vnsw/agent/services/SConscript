@@ -22,10 +22,7 @@ SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-if platform.system() == 'Windows':
-    platform_dependent = 'windows/default_dns_list_builder.cc'
-else:
-    platform_dependent = 'nix/default_dns_list_builder.cc'
+platform_dependent = 'nix/default_dns_list_builder.cc'
 
 libservices = env.Library('agent_services',
                      sandesh_objs +
