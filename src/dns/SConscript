@@ -35,51 +35,47 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'config_cl
                   'cpuinfo', 'nodeinfo',
                   'boost_regex', 'boost_program_options','crypto', 'ssl', 'bgp_schema'])
 
-if platform.system() == 'Windows':
-    env.Prepend(LIBS=['advapi32', 'gdi32', 'version'])
-else:
-    env.Append(LIBS=['boost_chrono'])
+env.Append(LIBS=['boost_chrono'])
 
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
 env.Append(LIBS=['sandesh', 'http', 'http_parser', 'boost_filesystem'])
 
-if platform.system() not in ['Windows', 'Darwin']:
+if platform.system() not in ['Darwin']:
     env.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp',
                     'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve'])
 env.Append(LIBPATH=libs)
 
-if platform.system() not in ['Windows', 'Darwin']:
+if platform.system() not in ['Darwin']:
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbase', '-lifmap_server', '-rdynamic',
                       '-lcpuinfo', '-lprocess_info', '-lnodeinfo',
                       '-Wl,--no-whole-archive'])
 
-if platform.system() != 'Windows':
-    contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
-    env.Alias('contrail-dns', contrail_dns)
-    env.Default(contrail_dns)
+contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
+env.Alias('contrail-dns', contrail_dns)
+env.Default(contrail_dns)
 
-    # Documentation
-    doc_files = []
-    doc_files += env['BASE_DOC_FILES']
-    doc_files += env['IO_DOC_FILES']
-    doc_files += env['DB_DOC_FILES']
-    doc_files += env['SANDESH_DOC_FILES']
-    doc_files += env['IFMAP_CLIENT_DOC_FILES']
-    doc_files += env['XMPP_DOC_FILES']
-    doc_files += env.SandeshGenDoc('uve/uve.sandesh')
-    doc_files += env.SandeshGenDoc('bind/bind.sandesh')
+# Documentation
+doc_files = []
+doc_files += env['BASE_DOC_FILES']
+doc_files += env['IO_DOC_FILES']
+doc_files += env['DB_DOC_FILES']
+doc_files += env['SANDESH_DOC_FILES']
+doc_files += env['IFMAP_CLIENT_DOC_FILES']
+doc_files += env['XMPP_DOC_FILES']
+doc_files += env.SandeshGenDoc('uve/uve.sandesh')
+doc_files += env.SandeshGenDoc('bind/bind.sandesh')
 
-    # Please update sandesh/common/vns.sandesh on process name change
-    env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_dns))
-    env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-dns.conf'))
-    env.Alias('install', env.Install(env['INSTALL_CONF'] +
-        '/dns', 'applynamedconfig.py'))
-    env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
-        '/contrail-dns/', doc_files))
+# Please update sandesh/common/vns.sandesh on process name change
+env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_dns))
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-dns.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] +
+    '/dns', 'applynamedconfig.py'))
+env.Alias('install', env.Install(env['INSTALL_MESSAGE_DOC'] +
+    '/contrail-dns/', doc_files))
 
 DnsEnv = env.Clone()
 DnsEnv.CppDisableExceptions()

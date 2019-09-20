@@ -9,10 +9,8 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 
-#ifndef _WIN32
 #include <boost/asio/netlink_protocol.hpp>
 #include <boost/asio/netlink_endpoint.hpp>
-#endif
 
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
@@ -536,11 +534,7 @@ public:
     static void Init(boost::asio::io_service &ios, int protocol, bool use_work_queue,
                      const std::string &cpu_pin_policy);
 private:
-#ifdef _WIN32
-    boost::asio::windows::stream_handle pipe_;
-#else
     boost::asio::netlink::raw::socket sock_;
-#endif
 };
 
 //udp socket class for interacting with user vrouter
@@ -593,12 +587,8 @@ public:
                      const std::string &cpu_pin_policy,
                      const std::string &sockpathvr="");
 private:
-#ifdef _WIN32
-    //TODO: Win support?
-#else
     boost::asio::local::stream_protocol::socket sock_;
     boost::asio::local::stream_protocol::endpoint server_ep_;
-#endif
     char *rx_buff_;
     char *rx_buff_q_;
     size_t remain_;

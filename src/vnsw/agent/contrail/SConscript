@@ -7,10 +7,9 @@ import platform
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-if platform.system() != 'Windows':
-    #Add -Wno-return-type to ignore errors from thrift generated code in
-    #InstanceService.h
-    env.Append(CCFLAGS = ['-Wno-return-type', '-fexceptions', '-Wno-unused-variable'])
+#Add -Wno-return-type to ignore errors from thrift generated code in
+#InstanceService.h
+env.Append(CCFLAGS = ['-Wno-return-type', '-fexceptions', '-Wno-unused-variable'])
 
 
 ##########################################################################
@@ -87,21 +86,17 @@ build_obj = [env.Object('buildinfo.cc')]
 # Add contrail-vrouter-agent specific libraries
 env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 
-if platform.system() != 'Windows':
-    # Whole-arhive flag causes the library to be included in the resulting output
-    # even though there may not be any calls requiring its presence. We need this
-    # for kstate library so that the HTML file for kstate  is listed in agent
-    # introspect page
-    env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate', '-ldiag',
+# Whole-arhive flag causes the library to be included in the resulting output
+# even though there may not be any calls requiring its presence. We need this
+# for kstate library so that the HTML file for kstate  is listed in agent
+# introspect page
+env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate', '-ldiag',
                              '-Wl,--no-whole-archive'])
 
 if platform.system() == 'FreeBSD':
     platform_dependent = 'freebsd/pkt0_interface.cc'
 elif platform.system() == 'Linux':
     platform_dependent = 'linux/pkt0_interface.cc'
-elif platform.system() == 'Windows':
-    env.Append(LIBS = ['version'])
-    platform_dependent = 'windows/pkt0_interface.cc'
 
 
 contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
@@ -114,36 +109,6 @@ contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
 
 env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
-
-if platform.system() == 'Windows':
-    agent_msi = env.WiX('contrail-vrouter-agent.msi', ['windows/msi/agent_msi.wxs'])
-
-    env.Append(WIXCANDLEFLAGS = ['-doptimization=' + env['OPT']])
-
-    if env['OPT'] == 'debug':
-        env.Append(WIXCANDLEFLAGS = [
-            '-dTbbDll=tbb_debug.dll',
-            '-dLog4CPlusDll=log4cplusD.dll',
-            '-dBoostDllSuffix=-vc140-mt-gd-1_62',
-        ])
-    elif env['OPT'] == 'production':
-        env.Append(WIXCANDLEFLAGS = [
-            '-dTbbDll=tbb.dll',
-            '-dLog4CPlusDll=log4cplus.dll',
-            '-dBoostDllSuffix=-vc140-mt-1_62',
-        ])
-
-    env.Append(WIXCANDLEFLAGS = ['-ext', 'WixUtilExtension.dll'])
-    env.Append(WIXLIGHTFLAGS = ['-ext', 'WixUtilExtension.dll'])
-    msi_requirements = [
-        contrail_vrouter_agent,
-        '#build/bin/ssleay32.dll',
-        '#build/bin/libeay32.dll'
-    ]
-    env.Depends(agent_msi, msi_requirements)
-
-    env.Alias('contrail-vrouter-agent.msi', agent_msi)
-    env.Default(agent_msi)
 
 utils_scripts = [
   'agent_dissector.lua',

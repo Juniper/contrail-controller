@@ -146,11 +146,6 @@ void KSync::NetlinkInit() {
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    if (agent_->vrouter_on_windows()) {
-        // Windows doesn't support event_fd mechanism, so use (slower) work_queue
-        // See comment in ksync_tx_queue for more info
-        use_work_queue = true;
-    }
     KSyncSockNetlink::Init(io, NETLINK_GENERIC, use_work_queue,
                            agent_->params()->ksync_thread_cpu_pin_policy());
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
@@ -251,7 +246,6 @@ void KSync::SetHugePages() {
     uint32_t filesize[kHugePages];
     uint32_t flags[kHugePages];
 
-#ifndef _WIN32
     uint16_t i, j;
     for (i = 0; i < kHugePages / 2; ++i) {
         filename[i] = agent_->params()->huge_page_file_1G(i);
@@ -285,7 +279,6 @@ void KSync::SetHugePages() {
             fail[i] = true;
         }
     }
-#endif
 
     encoder.set_vhp_op(sandesh_op::ADD);
 
@@ -479,7 +472,6 @@ void GenericNetlinkInit() {
     nl_free_client(cl);
 }
 
-#ifndef _WIN32
 KSyncTcp::KSyncTcp(Agent *agent): KSync(agent) {
 }
 
@@ -571,4 +563,3 @@ void KSyncUds::Init(bool create_vhost) {
     ksync_flow_memory_.get()->Init();
     ksync_bridge_memory_.get()->Init();
 }
-#endif
