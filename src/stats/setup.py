@@ -11,7 +11,7 @@ def requirements(filename):
 
 setup(
     name="contrail_stats_client",
-    version="0.1dev",
+    version="0.1dev0",
     description="contrail statistics package.",
     packages=find_packages(),
     zip_safe=False,
@@ -24,7 +24,7 @@ setup(
     test_suite='stats.tests',
     entry_points={
       "console_scripts": [
-        "contrail-stats-client = contrail_stats_client.main:main"
+        "contrail-stats-client = stats.main:main"
         ]
     }
 )
