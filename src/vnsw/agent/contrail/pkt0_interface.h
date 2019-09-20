@@ -41,11 +41,7 @@ protected:
     int tap_fd_;
     unsigned char mac_address_[ETHER_ADDR_LEN];
 
-#ifdef _WIN32
-    boost::asio::windows::stream_handle input_;
-#else
     boost::asio::posix::stream_descriptor input_;
-#endif
 
     uint8_t *read_buff_;
     PktHandler *pkt_handler_;
