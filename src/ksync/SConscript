@@ -10,8 +10,6 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = '#vrouter/include')
-if platform.system() == 'Windows':
-    env.Append(CPPPATH = '#vrouter/windows')
 env.Append(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Append(CPPPATH = env['TOP'] + '/vnsw/agent')
 env.Append(CPPPATH = env['TOP'] + '/sandesh')
