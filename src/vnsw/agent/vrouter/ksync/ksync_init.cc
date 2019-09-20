@@ -146,11 +146,6 @@ void KSync::NetlinkInit() {
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    if (agent_->vrouter_on_windows()) {
-        // Windows doesn't support event_fd mechanism, so use (slower) work_queue
-        // See comment in ksync_tx_queue for more info
-        use_work_queue = true;
-    }
     KSyncSockNetlink::Init(io, NETLINK_GENERIC, use_work_queue,
                            agent_->params()->ksync_thread_cpu_pin_policy());
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {

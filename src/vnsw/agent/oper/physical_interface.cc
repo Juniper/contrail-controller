@@ -150,8 +150,6 @@ void PhysicalInterface::PostAdd() {
         }
     }
 
-// Not yet supported on Windows
-#ifndef _WIN32
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
 
@@ -175,7 +173,6 @@ void PhysicalInterface::PostAdd() {
     }
 
     close(fd);
-#endif
 
 }
 
