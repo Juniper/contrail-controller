@@ -11,6 +11,8 @@ set groups {{cfg_group}} interfaces {{pi.name}} unit {{li.unit}} family {{li.get
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from protocol direct
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM from route-filter 0.0.0.0/0 prefix-length-range /32-/32
 set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM then accept 
+set groups {{cfg_group}} policy-options policy-statement from_aggregate term LOOPBACK-FOR-PIM then community set no-export
+set groups {{cfg_group}} policy-options community no-export members no-export
 set groups {{cfg_group}} policy-options policy-statement from_aggregate then reject
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim join-prune-timeout 420
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols pim rp local family inet address {{pim.rp.ip_address}}
