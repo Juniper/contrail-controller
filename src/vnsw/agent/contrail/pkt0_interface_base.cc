@@ -125,8 +125,6 @@ Pkt0RawInterface::Pkt0RawInterface(const std::string &name,
 Pkt0RawInterface::~Pkt0RawInterface() {
 }
 
-// Pkt0Socket is not supported on Windows
-#ifndef _WIN32
 
 Pkt0Socket::Pkt0Socket(const std::string &name,
     boost::asio::io_service *io):
@@ -273,4 +271,3 @@ void Pkt0Socket::WriteHandler(const boost::system::error_code &error,
     delete [] buff;
 }
 
-#endif // _WIN32

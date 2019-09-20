@@ -20,7 +20,6 @@ class xml_node;
 class IFMapAgentParser {
 public:
 
-    //cannot use DELETE as it conflicts with windows (redefinition)
     enum ConfigMsgType {
         UPDATE,
         DEL,
