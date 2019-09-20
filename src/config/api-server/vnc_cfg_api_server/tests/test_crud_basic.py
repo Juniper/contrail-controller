@@ -443,12 +443,13 @@ class TestCrud(test_case.ApiServerTestCase):
         phy_rout_name = self.id() + '-phy-router-1'
         user_cred_create = UserCredentials(username="test_user", password="test_pswd")
         phy_rout = PhysicalRouter(phy_rout_name, physical_router_user_credentials=user_cred_create)
+        phy_rout.uuid = '123e4567-e89b-12d3-a456-426655440000'
         self._vnc_lib.physical_router_create(phy_rout)
 
         phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_rout.uuid)
         user_cred_read = phy_rout_obj.get_physical_router_user_credentials()
         self.assertIsNotNone(user_cred_read.password)
-        self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
+        self.assertEqual(user_cred_read.password, 'ngVv1S3pB+rM2SWMnm6XpQ==')
        # end test_physical_router_credentials
 
     def test_physical_router_w_no_user_credentials(self):
@@ -719,18 +720,22 @@ class TestCrud(test_case.ApiServerTestCase):
 
         phy_rout = PhysicalRouter(phy_rout_name,
                            physical_router_user_credentials=user_cred_create)
+        phy_rout.uuid = '123e4567-e89b-12d3-a456-426655440001'
         self._vnc_lib.physical_router_create(phy_rout)
 
         phy_rout_2 = PhysicalRouter(phy_rout_name_2,
                            physical_router_user_credentials=user_cred_create_2)
+        phy_rout_2.uuid = '123e4567-e89b-12d3-a456-426655440002'
         self._vnc_lib.physical_router_create(phy_rout_2)
 
         phy_rout_3 = PhysicalRouter(phy_rout_name_3,
                            physical_router_user_credentials=user_cred_create_3)
+        phy_rout_3.uuid = '123e4567-e89b-12d3-a456-426655440003'
         self._vnc_lib.physical_router_create(phy_rout_3)
 
         phy_rout_4 = PhysicalRouter(phy_rout_name_4,
                            physical_router_user_credentials=user_cred_create_4)
+        phy_rout_4.uuid = '123e4567-e89b-12d3-a456-426655440004'
         self._vnc_lib.physical_router_create(phy_rout_4)
 
         obj_uuids = []
@@ -744,16 +749,17 @@ class TestCrud(test_case.ApiServerTestCase):
         for rtr in phy_rtr_list:
             user_cred_read = rtr.get_physical_router_user_credentials()
             if user_cred_read.username == 'test_user':
-                self.assertEqual(user_cred_read.password, 'LhipWpxez6Skw5kUIzyV0g==')
+                self.assertEqual(user_cred_read.password, 'TtF53zhTfh1DQ66R2h5+Fg==')
             if user_cred_read.username == 'test_user_2':
-                self.assertEqual(user_cred_read.password, 'QLAijg7KFHQo2mIedyPKiw==')
+                self.assertEqual(user_cred_read.password, '+sasYAEDEZd+Nn3X1ojFUw==')
             if user_cred_read.username == 'test_user_3':
                 self.assertEqual(user_cred_read.password,
-                    'hmRxjIpYG3nJzT1RifrRpr3Ip3J2/WAzHvCC4E5PCuY=')
+                    'waldIpPkKKud0y0Z6AN4Tg8x7q5JOktwkVCPPRuIC2w=')
             if user_cred_read.username == 'test_user_4':
                 self.assertEqual(user_cred_read.password,
-                    'J4DD30YPSd5dkh4ZAlO8PZi2Auc5NtncltwvxfCh4NbJlaUdc+yufddcFY5DI+d8')
+                    'd6jW0qMEBKSlUILBnetOdRIjTZGnK76OQ2R5jQgPxly0r+UNSfEqEh5DPqBL58td')
        # end test_physical_router_credentials
+
 
     def test_allowed_address_pair_prefix_len(self):
        ip_addresses = {'10.10.10.1': 23,

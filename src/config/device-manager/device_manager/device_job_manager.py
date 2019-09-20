@@ -716,8 +716,7 @@ class DeviceJobManager(object):
                     {"device_username": user_cred.get('username')})
                 decrypt_password = JobVncApi.decrypt_password(
                     encrypted_password=user_cred.get('password'),
-                    admin_password=request_params.get('vnc_api_init_params').
-                    get('admin_password'))
+                    pwd_key=device_id)
                 device_json.update({"device_password":
                                     decrypt_password})
             if device_family:

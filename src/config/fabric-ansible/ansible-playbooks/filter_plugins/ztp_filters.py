@@ -94,25 +94,10 @@ class FilterModule(object):
     @classmethod
     def get_ztp_tftp_config(cls, job_ctx, fabric_uuid):
         tftp_config = {}
-        try:
-            vncapi = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-                            auth_token=job_ctx.get('auth_token'))
-            fabric = vncapi.fabric_read(id=fabric_uuid)
-            fabric_dict = vncapi.obj_to_dict(fabric)
-            fabric_creds = fabric_dict.get('fabric_credentials')
-            if fabric_creds:
-                device_creds = fabric_creds.get('device_credential')
-                if device_creds:
-                    dev_cred = device_creds[0]
-                    password = JobVncApi.decrypt_password(
-                        encrypted_password=dev_cred['credential']['password'],
-                        admin_password=job_ctx.get(
-                            'vnc_api_init_params').get(
-                            'admin_password'))
-                    tftp_config['password'] = password
-        except Exception as ex:
-            logging.error(
-                "Error getting ZTP TFTP configuration: {}".format(ex))
+        device_creds = job_ctx['job_input'].get('device_auth')
+        if device_creds:
+            password = device_creds['root_password']
+            tftp_config['password'] = password
 
         return tftp_config
     # end get_ztp_tftp_config
