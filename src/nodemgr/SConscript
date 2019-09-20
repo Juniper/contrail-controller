@@ -106,9 +106,6 @@ common_sources = [
            'common/linux_sys_data.py',
            'common/process_stat.py',
            'common/utils.py',
-           'common/windows_process_manager.py',
-           'common/windows_process_mem_cpu.py',
-           'common/windows_sys_data.py',
           ]
 common_sources_rules = []
 for file in common_sources:

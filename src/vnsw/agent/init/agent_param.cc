@@ -694,8 +694,6 @@ void AgentParam::ParsePlatformArguments
                 physical_interface_mac_addr_ =
                 var_map["DEFAULT.physical_interface_mac"].as<string>();
             }
-        } else if (var_map["DEFAULT.platform"].as<string>() == "windows") {
-            platform_ = AgentParam::VROUTER_ON_WINDOWS;
         } else {
             platform_ = AgentParam::VROUTER_ON_HOST;
         }
@@ -1234,7 +1232,6 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname,
         return true;
     }
 
-#ifndef _WIN32
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
 
@@ -1266,7 +1263,6 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname,
         }
         fclose(f);
     }
-#endif
 
     return true;
 }
@@ -1587,9 +1583,8 @@ void AgentParam::PostValidateLogConfig() const {
         LOG(DEBUG, "Platform mode           : Vrouter on NIC");
     } else if (platform_ == VROUTER_ON_HOST_DPDK) {
         LOG(DEBUG, "Platform mode           : Vrouter on DPDK");
-    } else if (platform_ == VROUTER_ON_WINDOWS) {
-        LOG(DEBUG, "Platform mode           : Vrouter on Windows");
-    } else {
+    }
+    else {
         LOG(DEBUG, "Platform mode           : Vrouter on host linux kernel ");
     }
 }

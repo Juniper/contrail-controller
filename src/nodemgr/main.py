@@ -161,8 +161,6 @@ def main(args_str=' '.join(sys.argv[1:])):
         sys.exit(1)
 
     config_file_path = ""
-    if platform.system() == 'Windows':
-        config_file_path = os.environ['ProgramData'] + '/Contrail'
     config_file_path += node_properties[node_type]['config_file']
     if (os.path.exists(config_file_path) is False):
         sys.stderr.write("config file '" + config_file_path + "' is not present\n")
