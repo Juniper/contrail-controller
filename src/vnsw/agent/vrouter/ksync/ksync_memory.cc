@@ -41,9 +41,6 @@
 #include "ksync_flow_memory.h"
 #include "sandesh_ksync.h"
 #include "init/agent_param.h"
-#ifdef _WIN32
-#include <windows_shmem_ioctl.h>
-#endif
 
 using namespace boost::asio::ip;
 static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
