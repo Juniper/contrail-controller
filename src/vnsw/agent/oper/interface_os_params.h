@@ -11,7 +11,6 @@
 #include <net/mac_address.h>
 
 struct InterfaceOsParams {
-    // Used on Windows as operating system identifier's type
     typedef boost::uuids::uuid IfGuid;
 
     InterfaceOsParams() {}

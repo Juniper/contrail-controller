@@ -54,17 +54,12 @@ void ContrailAgentInit::FactoryInit() {
             (boost::forward_adapter<boost::factory<AgentUve *> >(boost::factory<AgentUve *>()));
     }
     if (agent_param()->vrouter_on_nic_mode() || agent_param()->vrouter_on_host_dpdk()) {
-#ifdef _WIN32
-        LOG(ERROR, "KSyncTcp is not supported on Windows");
-        assert(0);
-#else
 #ifdef AGENT_VROUTER_TCP
         AgentObjectFactory::Register<KSync>
             (boost::forward_adapter<boost::factory<KSyncTcp *> >(boost::factory<KSyncTcp *>()));
 #else
         AgentObjectFactory::Register<KSync>
             (boost::forward_adapter<boost::factory<KSyncUds *> >(boost::factory<KSyncUds *>()));
-#endif
 #endif
     } else {
         AgentObjectFactory::Register<KSync>
@@ -85,13 +80,8 @@ void ContrailAgentInit::CreateModules() {
     }
 
     if (agent_param()->vrouter_on_host_dpdk()) {
-#ifdef _WIN32
-        LOG(ERROR, "Pkt0Socket is not supported on Windows");
-        assert(0);
-#else
         pkt0_.reset(new Pkt0Socket("unix",
                     agent()->event_manager()->io_service()));
-#endif
     } else if (agent_param()->vrouter_on_nic_mode()) {
         pkt0_.reset(new Pkt0RawInterface("pkt0",
                     agent()->event_manager()->io_service()));

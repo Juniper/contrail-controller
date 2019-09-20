@@ -29,24 +29,20 @@ subdirs = [
 if platform.system() != 'Darwin':
     subdirs += ['ksync']
 
-if platform.system() != 'Windows':
-    subdirs += [
-        'config',
-        'container',
-        'control-node',
-        'utils',
-        'vcenter-import',
-    ]
+subdirs += [
+    'config',
+    'container',
+    'control-node',
+    'utils',
+    'vcenter-import',
+]
 
 include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#controller/lib']
 
 libpath = ['#/build/lib']
 
 libs = ['boost_system', 'boost_thread', 'log4cplus']
-if platform.system() == 'Windows':
-    libs.append('contrail-windows')
-else:
-    libs.append('pthread')
+libs.append('pthread')
 
 common = DefaultEnvironment().Clone()
 if common['OPT'] == 'production':
@@ -57,11 +53,10 @@ else:
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
 
-if platform.system() != 'Windows':
-    common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
+common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
 
-    if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
-                               shell=True).rstrip() == "4.8.5":
+if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
+                          shell=True).rstrip() == "4.8.5":
         common.Append(CCFLAGS = '-Wno-narrowing -Wno-conversion-null')
 
 if platform.system() == 'Linux':

@@ -41,11 +41,7 @@ protected:
     int tap_fd_;
     unsigned char mac_address_[ETHER_ADDR_LEN];
 
-#ifdef _WIN32
-    boost::asio::windows::stream_handle input_;
-#else
     boost::asio::posix::stream_descriptor input_;
-#endif
 
     uint8_t *read_buff_;
     PktHandler *pkt_handler_;
@@ -91,9 +87,7 @@ private:
     bool OnTimeout();
     bool connected_;
 
-#ifndef _WIN32
     boost::asio::local::datagram_protocol::socket socket_;
-#endif
 
     boost::scoped_ptr<Timer> timer_;
     uint8_t *read_buff_;

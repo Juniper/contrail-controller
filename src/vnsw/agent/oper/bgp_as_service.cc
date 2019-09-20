@@ -29,9 +29,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <fcntl.h>
-#ifdef _WIN32
-#include <posix_fcntl.h>
-#endif
 #include "oper/global_system_config.h"
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>

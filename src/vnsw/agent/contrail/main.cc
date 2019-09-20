@@ -95,8 +95,7 @@ int main(int argc, char *argv[]) {
 
     // Initialize the agent-init control class
     ContrailAgentInit init;
-    if (params.vrouter_on_windows() || params.cat_is_agent_mocked()) {
-        // On Windows vhost interface is created when Hyper-V switch is created
+    if (params.cat_is_agent_mocked()) {
         init.set_create_vhost(false);
     }
 
