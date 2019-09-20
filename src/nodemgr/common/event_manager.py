@@ -36,11 +36,7 @@ try:
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
     DockerProcessInfoManager = None
-if platform.system() == 'Windows':
-    from windows_sys_data import WindowsSysData
-    from windows_process_manager import WindowsProcessInfoManager
-else:
-    from linux_sys_data import LinuxSysData
+from linux_sys_data import LinuxSysData
 
 
 class EventManagerTypeInfo(object):
@@ -115,21 +111,17 @@ class EventManager(object):
         event_handlers['PROCESS_STATE'] = self._event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = self._event_process_communication
         event_handlers['PROCESS_LIST_UPDATE'] = self._update_current_processes
-        if platform.system() == 'Windows':
-            self.system_data = WindowsSysData()
-            self.process_info_manager = WindowsProcessInfoManager(event_handlers)
+        gevent.signal(signal.SIGHUP, self.nodemgr_sighup_handler)
+        self.system_data = LinuxSysData(self.msg_log, self.config.corefile_path)
+        if DockerProcessInfoManager and (utils.is_running_in_docker()
+                                         or utils.is_running_in_kubepod()):
+            self.process_info_manager = DockerProcessInfoManager(
+               type_info._module_type, unit_names, event_handlers,
+               update_process_list)
         else:
-            gevent.signal(signal.SIGHUP, self.nodemgr_sighup_handler)
-            self.system_data = LinuxSysData(self.msg_log, self.config.corefile_path)
-            if DockerProcessInfoManager and (utils.is_running_in_docker()
-                                             or utils.is_running_in_kubepod()):
-                self.process_info_manager = DockerProcessInfoManager(
-                    type_info._module_type, unit_names, event_handlers,
-                    update_process_list)
-            else:
-                self.msg_log('Node manager could not detect process manager',
-                            SandeshLevel.SYS_ERR)
-                exit(-1)
+            self.msg_log('Node manager could not detect process manager',
+                        SandeshLevel.SYS_ERR)
+            exit(-1)
 
         self.process_state_db = self._get_current_processes()
         for group in self.process_state_db:

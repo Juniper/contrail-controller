@@ -8,21 +8,6 @@
 #include "testing/gunit.h"
 #include "gtest/gtest.h"
 
-/*
- *  Patricia has its own tests in base module. However, under Windows,
- *  a specific bug/undefined behavior has been observed for specific
- *  version of Microsoft C++ compiler (19.00.24210) with optimizations
- *  enabled ('production' build) and for specific arguments of Patricia::Tree
- *  template (InetUnicastAgentRouteTable::InetRouteTree). This undesired
- *  behavior has been changed (and can no longer be observed in version
- *  19.00.24215.1).
- *
- *  This test, compiled with MS C++ 19.00.24210 (with optimizations enabled)
- *  or other compiler that behaves similarly and with
- *  InetUnicastAgentRouteTable implementation older than this test, is going
- *  to fail.
- */
-
 TEST(InetRouteTreeTest, Test1) {
     InetUnicastAgentRouteTable::InetRouteTree tree;
     boost::asio::ip::address address1 = IpAddress::from_string("10.0.0.11");

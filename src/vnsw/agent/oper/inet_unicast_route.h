@@ -100,10 +100,7 @@ public:
               if (key->addr().is_v4()) {
                   Ip4Address::bytes_type addr_bytes;
                   addr_bytes = key->addr().to_v4().to_bytes();
-                  // volatile prevents specific version of Microsoft C++
-                  // compiler (19.00.24210) from doing undesired optimization
-                  // in 'production' build under Windows.
-                  volatile char res = static_cast<char>(addr_bytes[i]);
+                  char res = static_cast<char>(addr_bytes[i]);
                   return res;
               } else {
                   Ip6Address::bytes_type addr_bytes;
@@ -320,12 +317,6 @@ public:
                                   uint32_t label,
                                   const VnListType &vn_list);
 
-    // The ipam_host_route parameter is a workaround for Windows APIPA zeroconf feature.
-    // When creating link local service, route created for the service has flood flag set by default.
-    // Windows OS thinks that link local IPs are always "on-link" so it sends ARP requests for the IPs.
-    // Because of flood flag, the ARP requests are flooded and no reply is sent to the Windows container.
-    // We need to set ipam_host_route to false for link local services, so ARP requests are not flooded, but
-    // proxied by agent.
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const InterfaceKey &interface,
                                   const IpAddress &addr, uint8_t plen,

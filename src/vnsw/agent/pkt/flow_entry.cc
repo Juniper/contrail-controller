@@ -190,11 +190,7 @@ void VmFlowRef::FreeFd() {
     FlowProto *proto = flow_->flow_table()->agent()->pkt()->get_flow_proto();
     proto->update_linklocal_flow_count(-1);
     flow_->flow_table()->DelLinkLocalFlowInfo(fd_);
-#ifdef _WIN32
-    closesocket(fd_);
-#else
     close(fd_);
-#endif
 
     fd_ = kInvalidFd;
     port_ = 0;

@@ -7,40 +7,25 @@ subdirs = [
     'http_parser',
     'pugixml',
     'rapidjson',
+    'bind',
+    'hiredis',
+    'rabbitmq-c',
+    'SimpleAmqpClient',
+    'openvswitch',
+    'ipfix',
+    'tbb',
 ]
 
-if platform.system() == 'Windows':
-    subdirs += [
-        'boost/windows',
-        'cmocka',
-        'curl',
-        'dirent',
-        'libxml2',
-        'log4cplus/windows',
-        'openssl',
-        'tbb/windows',
-    ]
-else:
-    subdirs += [
-        'bind',
-        'hiredis',
-        'rabbitmq-c',
-        'SimpleAmqpClient',
-        'openvswitch',
-        'ipfix',
-        'tbb',
-    ]
+etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL')
+if etcd_incl:
+   subdirs += ['grpc',]
 
-    etcd_incl = os.environ.get('CONTRAIL_ETCD_INCL')
-    if etcd_incl:
-        subdirs += ['grpc',]
-
-    (distname, version, _) = platform.dist()
-    if distname in ['centos', 'redhat'] and LooseVersion(version) >= LooseVersion('7.0'):
-        subdirs += [
-            'gperftools',
-            'log4cplus',
-        ]
+(distname, version, _) = platform.dist()
+if distname in ['centos', 'redhat'] and LooseVersion(version) >= LooseVersion('7.0'):
+   subdirs += [
+      'gperftools',
+      'log4cplus',
+   ]
 
 for dir in subdirs:
     SConscript(dirs = dir, variant_dir = '#/build/third_party/' + dir)
