@@ -106,7 +106,10 @@ class FabricManager(object):
                             instance_obj.set_role_config_config(
                                 json.dumps(def_config_json)
                             )
-                        self._vnc_api._object_update(object_type, instance_obj)
+                        if object_type != 'telemetry-profile' and \
+                                object_type != 'sflow-profile':
+                            self._vnc_api._object_update(object_type,
+                                                         instance_obj)
                     except NoIdError:
                         self._vnc_api._object_create(object_type, instance_obj)
 
