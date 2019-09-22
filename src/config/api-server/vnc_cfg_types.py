@@ -196,7 +196,14 @@ class Resource(ResourceDbMixin):
         try:
             cls.server.internal_request_create(cls.resource_type, obj_dict)
         except cfgm_common.exceptions.HttpError as e:
-            return False, (e.status_code, e.content)
+            if e.status_code != 409:
+                return False, (e.status_code, e.content)
+            else:
+                # Ignore the refsExistError.
+                cls.db_conn.config_log('Object '
+                                       '%s uuid %s already been created.' % (
+                                           ' '.join(fq_name), uuid),
+                                       level=SandeshLevel.SYS_DEBUG)
         try:
             uuid = cls.db_conn.fq_name_to_uuid(cls.object_type, fq_name)
         except cfgm_common.exceptions.NoIdError as e:
