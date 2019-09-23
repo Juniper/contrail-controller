@@ -1,3 +1,5 @@
+enable-tftp
+tftp-root=/etc/tftp
 dhcp-vendorclass=set:jn,Juniper
 {% if ztp_dhcp_config.ipam_subnets is defined %}
 {%   for subnet in ztp_dhcp_config.ipam_subnets %}
@@ -31,3 +33,5 @@ dhcp-option=tag:jn,encap:43,3,"tftp"
 dhcp-host={{ mac }},{{ ip }}
 {%   endfor %}
 {% endif %}
+dhcp-script=/etc/dnsmasq/dnsmasq_init_script.sh
+leasefile-ro
