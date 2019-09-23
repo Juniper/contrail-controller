@@ -22,6 +22,7 @@
 #include "oper/route_common.h"
 #include "oper/mirror_table.h"
 #include "oper/agent_route_walker.h"
+#include "oper/hbf.h"
 
 #include "vrouter/ksync/interface_ksync.h"
 #include "vrouter/ksync/nexthop_ksync.h"
@@ -31,6 +32,7 @@
 #include "vr_types.h"
 #include "vr_defs.h"
 #include "vr_nexthop.h"
+#include "vr_vrf_table.h"
 #if defined(__FreeBSD__)
 #include "vr_os.h"
 #endif
@@ -830,6 +832,126 @@ void RouteKSyncObject::EmptyTable() {
     }
 }
 
+VrfKSyncEntry::VrfKSyncEntry(VrfKSyncObject *obj, const VrfEntry *entry) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
+    vrf_id_(entry->vrf_id()), hbf_rintf_(entry->hbf_rintf()),
+    hbf_lintf_(entry->hbf_lintf()) {
+}
+
+VrfKSyncEntry::VrfKSyncEntry(VrfKSyncObject *obj,
+                             const VrfKSyncEntry *entry,
+                             uint32_t index) :
+    KSyncNetlinkDBEntry(index),
+    vrf_id_(entry->vrf_id()), hbf_rintf_(entry->hbf_rintf()),
+    hbf_lintf_(entry->hbf_lintf()) {
+        ksync_obj_ = static_cast<VrfKSyncObject*>(entry->GetObject());
+}
+
+VrfKSyncEntry::~VrfKSyncEntry() {
+}
+
+KSyncDBObject *VrfKSyncEntry::GetObject() const {
+        return ksync_obj_;
+}
+
+bool VrfKSyncEntry::IsLess(const KSyncEntry &rhs) const {
+    const VrfKSyncEntry &entry = static_cast<const VrfKSyncEntry &> (rhs);
+
+    if (vrf_id_ == entry.vrf_id()) {
+        if (hbf_rintf_ == entry.hbf_rintf()) {
+            return (hbf_lintf_ < entry.hbf_lintf());
+        } else {
+            return (hbf_rintf_ < entry.hbf_rintf());
+        }
+    } else {
+        return (vrf_id_ < entry.vrf_id());
+    }
+}
+
+std::string VrfKSyncEntry::ToString() const {
+    std::stringstream s;
+    s << "Vrf id: " << vrf_id() << " hbf lintf: " << hbf_lintf() <<
+        " hbf rintf: " << hbf_rintf();
+    return s.str();
+}
+
+bool VrfKSyncEntry::Sync(DBEntry* e) {
+    VrfEntry *vrf = static_cast<VrfEntry *>(e);
+
+    if ((vrf->hbf_rintf() != hbf_rintf_) ||
+        (vrf->hbf_lintf() != hbf_lintf_)) {
+        hbf_rintf_ = vrf->hbf_rintf();
+        hbf_lintf_ = vrf->hbf_lintf();
+        return true;
+    }
+
+    return false;
+}
+
+int VrfKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
+                            char *buf, int buf_len) {
+    vr_vrf_req encoder;
+    int encode_len;
+
+    encoder.set_h_op(op);
+    encoder.set_vrf_idx(vrf_id_);
+    encoder.set_vrf_hbfl_vif_idx(hbf_rintf_);
+    encoder.set_vrf_hbfr_vif_idx(hbf_lintf_);
+    encoder.set_vrf_flags(VRF_FLAG_HBF_L_VALID|VRF_FLAG_HBF_R_VALID);
+
+    std::stringstream ss;
+    ss << "Encoding VrfKSyncEntry, vrf_id_ " << vrf_id_ <<
+         " hbf_rintf_ " << hbf_rintf_ << " hbf_lintf_ " << hbf_lintf_;
+    HBFTRACE(Trace, ss.str());
+
+    int error = 0;
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    assert(error == 0);
+    assert(encode_len <= buf_len);
+    return encode_len;
+}
+
+void VrfKSyncEntry::FillObjectLog(sandesh_op::type type,
+                                    KSyncVrfInfo &info) const {
+    if (type == sandesh_op::ADD) {
+        info.set_operation("ADD/CHANGE");
+    } else {
+        info.set_operation("DELETE");
+    }
+
+    info.set_vrf_id(vrf_id_);
+    info.set_hbf_rintf(hbf_rintf_);
+    info.set_hbf_lintf(hbf_lintf_);
+}
+
+int VrfKSyncEntry::AddMsg(char *buf, int buf_len) {
+    KSyncVrfInfo info;
+    FillObjectLog(sandesh_op::ADD, info);
+    KSYNC_TRACE(Vrf, GetObject(), info);
+    return Encode(sandesh_op::ADD, 0, buf, buf_len);
+}
+
+int VrfKSyncEntry::ChangeMsg(char *buf, int buf_len){
+    KSyncVrfInfo info;
+    FillObjectLog(sandesh_op::ADD, info);
+    KSYNC_TRACE(Vrf, GetObject(), info);
+
+    return Encode(sandesh_op::ADD, 0, buf, buf_len);
+}
+
+int VrfKSyncEntry::DeleteMsg(char *buf, int buf_len) {
+    KSyncVrfInfo info;
+    FillObjectLog(sandesh_op::DEL, info);
+    FillObjectLog(sandesh_op::ADD, info);
+    KSYNC_TRACE(Vrf, GetObject(), info);
+
+    return Encode(sandesh_op::DEL, 0, buf, buf_len);
+}
+
+KSyncEntry *VrfKSyncEntry::UnresolvedReference() {
+    return NULL; // TODO: check this
+}
+
 VrfKSyncObject::VrfState::VrfState(Agent *agent) :
     DBState(), seen_(false),
     evpn_rt_table_listener_id_(DBTableBase::kInvalidId) {
@@ -837,6 +959,18 @@ VrfKSyncObject::VrfState::VrfState(Agent *agent) :
     agent->oper_db()->agent_route_walk_manager()->
         RegisterWalker(static_cast<AgentRouteWalker *>
                        (ksync_route_walker_.get()));
+}
+
+KSyncEntry *VrfKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
+    const VrfKSyncEntry *vrf = static_cast<const VrfKSyncEntry *>(entry);
+    VrfKSyncEntry *ksync = new VrfKSyncEntry(this, vrf, index);
+    return static_cast<KSyncEntry *>(ksync);
+}
+
+KSyncEntry *VrfKSyncObject::DBToKSyncEntry(const DBEntry* e) {
+    const VrfEntry *vrf = static_cast<const VrfEntry *>(e);
+    VrfKSyncEntry *key = new VrfKSyncEntry(this, vrf);
+    return static_cast<KSyncEntry *>(key);
 }
 
 void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -848,6 +982,14 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
             UnRegisterEvpnRouteTableListener(vrf, state);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
             (static_cast<KSyncRouteWalker *>(state->ksync_route_walker_.get()))->EnqueueDelete();
+
+            if (state->ksync_->IsDeleted() == false) {
+                if (state->ksync_->GetDBEntry() != NULL) {
+                    state->ksync_->SetDBEntry(NULL);
+                }
+                NotifyEvent(state->ksync_, KSyncEntry::DEL_REQ);
+            }
+
             delete state;
         }
         return;
@@ -856,7 +998,15 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     if (state == NULL) {
         state = new VrfState(ksync_->agent());
         state->seen_ = true;
+
+        // Create ksync entry for VRF
+        KSyncEntry *key;
+        key = DBToKSyncEntry(vrf);
+        state->ksync_ = static_cast<VrfKSyncEntry *>(CreateImpl(key));
+        delete key;
         vrf->SetState(partition->parent(), vrf_listener_id_, state);
+        state->ksync_->SetDBEntry(vrf);
+        NotifyEvent(state->ksync_, KSyncEntry::ADD_CHANGE_REQ);
 
         // Get Inet4 Route table and register with KSync
         AgentRouteTable *rt_table = static_cast<AgentRouteTable *>(vrf->
@@ -894,6 +1044,11 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         }
         (static_cast<KSyncRouteWalker *>(state->ksync_route_walker_.get()))->
             NotifyRoutes(vrf);
+    } else {
+        VrfKSyncEntry* ksync = state->ksync_;
+        if (ksync->Sync(vrf) || ksync->IsDeleted()) {
+            NotifyEvent(ksync, KSyncEntry::ADD_CHANGE_REQ);
+        }
     }
 }
 
@@ -928,7 +1083,9 @@ void VrfKSyncObject::UnRegisterEvpnRouteTableListener(const VrfEntry *vrf,
     state->evpn_rt_table_listener_id_ = DBTableBase::kInvalidId;
 }
 
-VrfKSyncObject::VrfKSyncObject(KSync *ksync) : ksync_(ksync) {
+VrfKSyncObject::VrfKSyncObject(KSync *ksync) :
+    KSyncDBObject("KSync Vrf"), ksync_(ksync), marked_delete_(false) {
+    vrf_table_ = ksync_->agent()->vrf_table();
 }
 
 VrfKSyncObject::~VrfKSyncObject() {
@@ -947,6 +1104,11 @@ void VrfKSyncObject::Shutdown() {
 void vr_route_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->RouteMsgHandler(this);
+}
+
+void vr_vrf_req::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->VrfMsgHandler(this);
 }
 
 /****************************************************************************

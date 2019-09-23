@@ -2519,6 +2519,16 @@ trace sandesh MplsTrace {
 }
 
 /**
+ * @description: Trace message for HBF
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh HBFTrace {
+    /** Message for HBF */
+    1: string message;
+}
+
+/**
  * @description: Trace meassage for agent route walk
  * @type: Trace
  * @severity: DEBUG

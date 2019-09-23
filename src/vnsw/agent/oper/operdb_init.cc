@@ -58,6 +58,7 @@
 #include <oper/security_logging_object.h>
 #include <oper/route_leak.h>
 #include <oper/crypt_tunnel.h>
+#include <oper/hbf.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -304,6 +305,8 @@ void OperDB::CreateDBTables(DB *db) {
     tsn_elector_ = std::auto_ptr<TsnElector>(new TsnElector(agent_));
     vxlan_routing_manager_= std::auto_ptr<VxlanRoutingManager>
         (new VxlanRoutingManager(agent_));
+    hbf_handler_= std::auto_ptr<HBFHandler>
+        (new HBFHandler(agent_));
 }
 
 void OperDB::Init() {
@@ -348,6 +351,7 @@ void OperDB::RegisterDBClients() {
     route_leak_manager_.reset(new RouteLeakManager(agent_));
     tsn_elector_.get()->Register();
     vxlan_routing_manager_.get()->Register();
+    hbf_handler_.get()->Register();
 }
 
 OperDB::OperDB(Agent *agent)
@@ -389,6 +393,7 @@ void OperDB::Shutdown() {
     route_walk_manager_->Shutdown();
     tsn_elector_->Shutdown();
     vxlan_routing_manager_->Shutdown();
+    hbf_handler_->Terminate();
 
     if (agent_sandesh_manager_.get()) {
         agent_sandesh_manager_->Shutdown();
@@ -427,6 +432,7 @@ void OperDB::Shutdown() {
     profile_.reset();
     route_leak_manager_.reset();
     vxlan_routing_manager_.reset();
+    hbf_handler_.reset();
 }
 
 void OperDB::DeleteRoutes() {
