@@ -891,6 +891,27 @@ TEST_F(PktParseTest, ECMP_Hash_1) {
     agent_->set_router_id(vhost_ip);
 }
 
+TEST_F(PktParseTest, InvalidICMPv6_Vxlan_IP) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    std::auto_ptr<PktGen> pkt(new PktGen());
+
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr:: TRAP_L3_PROTOCOLS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(4789, 4789, 0);
+    pkt->AddVxlanHdr(5);
+    pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x800);
+    pkt->AddIpHdr("10.10.10.10", "10.10.10.2", 58);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
