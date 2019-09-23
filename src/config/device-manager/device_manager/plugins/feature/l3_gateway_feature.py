@@ -26,9 +26,7 @@ class L3GatewayFeature(FeatureBase):
     # end __init__
 
     def _get_connected_vn_ids(self):
-        vns = self._get_connected_vns('l3')
-        vn_li_map = self._get_vn_li_map('l3')
-        return list(set(vns).union(set(vn_li_map.keys())))
+        return self._get_connected_vns('l3')
     # end _get_connected_vn_ids
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
@@ -68,8 +66,9 @@ class L3GatewayFeature(FeatureBase):
         use_gateway_ip = all(
             [c.additional_params.use_gateway_ip == 'True'
                 for c in self._configs])
-        irb_ip_map = self._physical_router.allocate_irb_ips_for(
-            vns, use_gateway_ip)
+        if vns:
+            irb_ip_map = self._physical_router.allocate_irb_ips_for(
+                vns, use_gateway_ip)
 
         for vn_uuid in vns:
             vn_obj = db.VirtualNetworkDM.get(vn_uuid)
