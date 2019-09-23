@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "475314d7_9eba91ae",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_resource_base.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 253,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-23T10:55:24Z",
+      "side": 1,
+      "message": "Not sure it is necessary to add log here or i you like to add one, please add more context to it to allow an operator/developer to understand it",
+      "revId": "1e9f0554f287380e864b905638c9056fd1d7bd47",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4cf20498_28d7537e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_project.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-23T10:55:24Z",
+      "side": 1,
+      "message": "Can you add test to generate the other concurrency creation error we identified? \n1/ if the fq name already lock but the UUID table not yet filled\n2/ fq name already lock and table not yet filled\nYou can also let the first UT we wrote which does not create an error but just a log error because issue happen only in the POST creation. I think that UT could check the error log is not there anymore.",
+      "revId": "1e9f0554f287380e864b905638c9056fd1d7bd47",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
