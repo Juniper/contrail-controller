@@ -152,13 +152,14 @@ class FilterModule(object):
         return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
                                     job_ctx, 'device_to_ztp', device_to_ztp,
                                     action='read')
-    # end read_dhcp_leases_using_info
+    # end read_only_dhcp_leases
 
     @classmethod
     def read_dhcp_leases(cls, ipam_subnets, file_name, fabric_name, job_ctx,
                          payload_key, payload_value, action='create'):
         vnc_api = VncApi(auth_type=VncApi._KEYSTONE_AUTHN_STRATEGY,
-                         auth_token=job_ctx.get('auth_token'))
+                         auth_token=job_ctx.get('auth_token'),
+                         timeout=600)
         headers = {
             'fabric_name': fabric_name,
             'file_name': file_name,
