@@ -25,6 +25,22 @@
         - device_to_ztp is not defined
         - only_restart is undefined or only_restart == False
 
+    - name: Remove dhcp config files from remote host
+      block:
+        - name: Publish delete dhcp config file message
+          set_fact:
+            publish_result: "{{ ztp_dhcp_config_file | delete_dhcp_file(fabric_name, job_ctx) }}"
+
+        - name: Restart dhcp server
+          set_fact:
+            publish_result: "{{ ztp_dhcp_config_file | restart_dhcp_server(fabric_name, job_ctx) }}"
+      rescue:
+        - set_fact:
+            dhcp_output: {
+              "status": "Failure",
+              "results": {"jl_message": "Failed to remove DHCP config file"},
+            }
+
     - name: Restart dhcp server
       set_fact:
         publish_result: "{{ ztp_dhcp_config_file | restart_dhcp_server(fabric_name, job_ctx) }}"

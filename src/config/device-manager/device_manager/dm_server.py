@@ -12,6 +12,7 @@ from attrdict import AttrDict
 from cfgm_common import vnc_cgitb
 from cfgm_common.kombu_amqp import KombuAmqpClient
 from cfgm_common.zkclient import ZookeeperClient
+from cfgm_common.vnc_object_db import VncObjectDBClient
 from device_job_manager import DeviceJobManager
 from device_ztp_manager import DeviceZtpManager
 from dm_amqp import DMAmqpHandle
@@ -57,6 +58,34 @@ def initialize_amqp_client(logger, args):
     return amqp_client
 # end initialize_amqp_client
 
+def initialize_db_connection(args, dm_logger):
+    credential = None
+    if args.cassandra_user and args.cassandra_password:
+        credential = {
+            'username': args.cassandra_user,
+            'password': args.cassandra_password
+        }
+
+    timeout = int(args.job_manager_db_conn_retry_timeout)
+    max_retries = int(args.job_manager_db_conn_max_retries)
+
+    retry_count = 1
+    while True:
+        try:
+            return VncObjectDBClient(
+                args.cassandra_server_list, args.cluster_id, None, None,
+                dm_logger.log, credential=credential,
+                ssl_enabled=args.cassandra_use_ssl,
+                ca_certs=args.cassandra_ca_certs)
+        except Exception as e:
+            if retry_count >= max_retries:
+                raise e
+            self._logger.warning("Error while initializing db connection, "
+                                 "retrying: %s" % str(e))
+            gevent.sleep(timeout)
+        finally:
+            retry_count = retry_count + 1
+# end initialize_db_connection
 
 def run_device_manager(dm_logger, args):
     global _amqp_client
@@ -125,10 +154,11 @@ def main(args_str=None):
     _amqp_client = initialize_amqp_client(dm_logger, args)
     _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
                                         args.zk_server_ip, args.host_ip)
+    _db_conn = initialize_db_connection(args, dm_logger)
 
     try:
         # Initialize the device job manager
-        DeviceJobManager(_amqp_client, _zookeeper_client, args,
+        DeviceJobManager(_amqp_client, _zookeeper_client, _db_conn, args,
                          dm_logger)
         # Allow kombu client to connect consumers
         gevent.sleep(0.5)
@@ -139,7 +169,7 @@ def main(args_str=None):
 
     try:
         # Initialize the device ztp manager
-        DeviceZtpManager(_amqp_client, args, dm_logger)
+        DeviceZtpManager(_amqp_client, _db_conn, args, dm_logger)
         # Allow kombu client to connect consumers
         gevent.sleep(0.5)
     except Exception as e:

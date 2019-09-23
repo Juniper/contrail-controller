@@ -345,6 +345,23 @@ class DeviceInfo(object):
             update):
         pr_uuid = None
         msg = None
+        dhcp_fq_name = None
+        try:
+            # delete the corresponding dhcp state PR object if it exists
+            dhcp_fq_name = ['default-global-system-config', oid_mapped.get(
+                'host')]
+            pr_obj = self.vncapi.physical_router_read(
+                fq_name=dhcp_fq_name,fields=['physical_router_managed_state'])
+
+            if pr_obj.get_physical_router_managed_state() == 'dhcp':
+                self.vncapi.physical_router_delete(fq_name=dhcp_fq_name)
+                self.logger.info(
+                    "Router {} in dhcp state deleted".format(dhcp_fq_name))
+        except NoIdError:
+            self.logger.info(
+                "Router {} in dhcp state doesn't exist".format(dhcp_fq_name))
+            pass
+
         try:
             os_version = oid_mapped.get('os-version', None)
             serial_num = oid_mapped.get('serial-number', None)

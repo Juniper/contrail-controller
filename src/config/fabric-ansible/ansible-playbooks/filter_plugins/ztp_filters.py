@@ -167,7 +167,7 @@ class FilterModule(object):
         return cls.read_dhcp_leases(ipam_subnets, file_name, fabric_name,
                                     job_ctx, 'device_to_ztp', device_to_ztp,
                                     action='read')
-    # end read_dhcp_leases_using_info
+    # end read_only_dhcp_leases
 
     @classmethod
     def read_dhcp_leases(cls, ipam_subnets, file_name, fabric_name, job_ctx,

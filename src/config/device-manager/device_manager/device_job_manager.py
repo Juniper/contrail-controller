@@ -15,7 +15,7 @@ from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
 from cfgm_common.uve.vnc_api.ttypes import FabricJobExecution, FabricJobUve, \
     PhysicalRouterJobExecution, PhysicalRouterJobUve
-from cfgm_common.vnc_object_db import VncObjectDBClient
+# from cfgm_common.vnc_object_db import VncObjectDBClient
 import gevent
 from job_manager.job_exception import JobException
 from job_manager.job_log_utils import JobLogUtils
@@ -37,11 +37,13 @@ class DeviceJobManager(object):
 
     _instance = None
 
-    def __init__(self, amqp_client, zookeeper_client, args, dm_logger):
+    def __init__(self, amqp_client, zookeeper_client, db_conn, args,
+                 dm_logger):
         """Initialize ZooKeeper, RabbitMQ, Sandesh, DB conn etc."""
         DeviceJobManager._instance = self
         self._amqp_client = amqp_client
         self._zookeeper_client = zookeeper_client
+        self._db_conn = db_conn
         self._args = args
         self._job_mgr_statistics = {
             'max_job_count': self._args.max_job_count,
@@ -70,7 +72,8 @@ class DeviceJobManager(object):
         self._logger = self._job_log_utils.config_logger
         self._sandesh = self._logger._sandesh
 
-        self._db_conn = self._initialize_db_connection(args, dm_logger)
+        # self._db_conn = self._initialize_db_connection(args, dm_logger)
+
 
         self._amqp_client.add_exchange(self.JOB_STATUS_EXCHANGE, type='direct')
         # add dummy consumer to initialize the exchange
@@ -110,34 +113,34 @@ class DeviceJobManager(object):
         cls._instance = None
     # end destroy_instance
 
-    def _initialize_db_connection(self, args, dm_logger):
-        credential = None
-        if args.cassandra_user and args.cassandra_password:
-            credential = {
-                'username': args.cassandra_user,
-                'password': args.cassandra_password
-            }
-
-        timeout = int(args.job_manager_db_conn_retry_timeout)
-        max_retries = int(args.job_manager_db_conn_max_retries)
-
-        retry_count = 1
-        while True:
-            try:
-                return VncObjectDBClient(
-                    args.cassandra_server_list, args.cluster_id, None, None,
-                    dm_logger.log, credential=credential,
-                    ssl_enabled=args.cassandra_use_ssl,
-                    ca_certs=args.cassandra_ca_certs)
-            except Exception as e:
-                if retry_count >= max_retries:
-                    raise e
-                self._logger.warning("Error while initializing db connection, "
-                                     "retrying: %s" % str(e))
-                gevent.sleep(timeout)
-            finally:
-                retry_count = retry_count + 1
-    # end _initialize_db_connection
+    # def _initialize_db_connection(self, args, dm_logger):
+    #     credential = None
+    #     if args.cassandra_user and args.cassandra_password:
+    #         credential = {
+    #             'username': args.cassandra_user,
+    #             'password': args.cassandra_password
+    #         }
+    #
+    #     timeout = int(args.job_manager_db_conn_retry_timeout)
+    #     max_retries = int(args.job_manager_db_conn_max_retries)
+    #
+    #     retry_count = 1
+    #     while True:
+    #         try:
+    #             return VncObjectDBClient(
+    #                 args.cassandra_server_list, args.cluster_id, None, None,
+    #                 dm_logger.log, credential=credential,
+    #                 ssl_enabled=args.cassandra_use_ssl,
+    #                 ca_certs=args.cassandra_ca_certs)
+    #         except Exception as e:
+    #             if retry_count >= max_retries:
+    #                 raise e
+    #             self._logger.warning("Error while initializing db connection, "
+    #                                  "retrying: %s" % str(e))
+    #             gevent.sleep(timeout)
+    #         finally:
+    #             retry_count = retry_count + 1
+    # # end _initialize_db_connection
 
     def db_read(self, obj_type, obj_id, obj_fields=None,
                 ret_readonly=False):

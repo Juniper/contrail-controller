@@ -11,6 +11,8 @@ import docker
 import gevent
 from netaddr import IPAddress, IPNetwork
 
+from cfgm_common.exceptions import NoIdError
+from vnc_api.vnc_api import VncApi
 
 class DeviceZtpManager(object):
 
@@ -23,12 +25,13 @@ class DeviceZtpManager(object):
 
     _instance = None
 
-    def __init__(self, amqp_client, args, logger):
+    def __init__(self, amqp_client, db_conn, args, logger):
         """Init routine for ZTP manager."""
         DeviceZtpManager._instance = self
         self._client = None
         self._active = False
         self._amqp_client = amqp_client
+        self._db_conn = db_conn
         self._dnsmasq_conf_dir = args.dnsmasq_conf_dir
         self._tftp_dir = args.tftp_dir
         self._dhcp_leases_file = args.dhcp_leases_file
@@ -37,6 +40,7 @@ class DeviceZtpManager(object):
         self._logger = logger
         self._lease_pattern = None
         self._initialized = False
+        self.api = VncApi()
         self._initialize()
     # end __init__
 
@@ -54,8 +58,7 @@ class DeviceZtpManager(object):
     # end destroy_instance
 
     def _initialize(self):
-        if not self._dnsmasq_conf_dir or not self._tftp_dir or\
-                not self._dhcp_leases_file:
+        if not self._dnsmasq_conf_dir or not self._tftp_dir:
             return
         self._initialized = True
         self._amqp_client.add_exchange(self.EXCHANGE)
@@ -72,6 +75,34 @@ class DeviceZtpManager(object):
                                        routing_key=self.TFTP_FILE_ROUTING_KEY,
                                        callback=self.handle_tftp_file_request)
     # end _initialize
+
+    def db_read(self, obj_type, obj_id, obj_fields=None,
+                ret_readonly=False):
+        # object_read(self, obj_type, obj_uuids, field_names=None,
+        #             ret_readonly=False):
+        try:
+            (ok, cassandra_result) = self._db_conn.object_read(
+                obj_type, [obj_id], obj_fields, ret_readonly=ret_readonly)
+        except NoIdError as e:
+            # if NoIdError is for obj itself (as opposed to say for parent
+            # or ref), let caller decide if this can be handled gracefully
+            # by re-raising
+            if e._unknown_id == obj_id:
+                raise
+
+            return (False, str(e))
+
+        return (ok, cassandra_result[0])
+    # end db_read
+
+    def db_read_list(self, obj_type, filters=None):
+        try:
+            (ok, cassandra_result) = self._db_conn.object_list(
+                obj_type, filters=filters)
+        except Exception as e:
+            return (False, str(e))
+        return (ok, cassandra_result)
+    # end db_read_list
 
     def set_active(self):
         if not self._initialized:
@@ -151,16 +182,43 @@ class DeviceZtpManager(object):
         while timeout > 0:
             timeout -= 1
             lease_table = {}
-            if os.path.isfile(self._dhcp_leases_file):
-                with open(self._dhcp_leases_file) as lfile:
-                    line = lfile.readline()
-                    while line:
-                        match = self._lease_pattern.match(line)
-                        mac = match.group(1)
-                        ip_addr = match.group(2)
-                        host_name = match.group(3)
-                        lease_table[mac] = (ip_addr, host_name)
-                        line = lfile.readline()
+            filters = {'physical_router_managed_state': "dhcp"}
+            # read the PRs that are in 'dhcp' state
+            # pr_uuids = self.db_read_list("physical-router", filters)
+            prs = self.api.physical_routers_list(filters=filters).get(
+                'physical-routers')
+            for pr in prs:
+                result = {}
+                # try:
+                dev_obj = self.api.physical_router_read(
+                    id=pr.get('uuid'),
+                    fields=['physical_router_management_mac',
+                            'physical_router_management_ip',
+                            'physical_router_hostname'])
+                #     (ok, result) = self.db_read(
+                #         "physical-router", pr_uuid,
+                #         ['physical_router_management_mac',
+                #          'physical_router_management_ip',
+                #          'physical_router_hostname'])
+                #     if not ok:
+                #         msg = "Error while reading the physical router " \
+                #               "with id %s : %s" % (pr_uuid, result)
+                #         self._logger.error(msg)
+                # except NoIdError as ex:
+                #     self._logger.error("Device not found %%s: %s" % (
+                #         pr_uuid, str(ex)))
+                # except Exception as e:
+                #     self._logger.error("Exception while reading device %s "
+                #                        "%s" % (pr_uuid, str(e)))
+
+                # mac = result.get('physical_router_management_mac')
+                # ip_addr = result.get('physical_router_management_ip')
+                # host_name = result.get('physical_router_hostname')
+                mac = dev_obj.get_physical_router_management_mac()
+                ip_addr = dev_obj.get_physical_router_management_ip()
+                host_name = dev_obj.get_physical_router_hostname()
+                lease_table[mac] = (ip_addr, host_name)
+
             for mac, (ip_addr, host_name) in lease_table.iteritems():
                 if self._within_dhcp_subnet(ip_addr, config) and \
                         self._within_ztp_devices(host_name, device_to_ztp):
