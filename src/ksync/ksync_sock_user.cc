@@ -1141,6 +1141,41 @@ void KSyncUserSockContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
     }
 }
 
+void KSyncUserSockVrfContext::Process() {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+
+    //delete from map if command is delete
+    if (req_->get_h_op() == sandesh_op::DEL) {
+        sock->vrf_map.erase(req_->get_vrf_idx());
+    } else if (req_->get_h_op() == sandesh_op::DUMP) {
+        VrfDumpHandler dump;
+        dump.SendDumpResponse(GetSeqNum(), req_);
+        return;
+    } else if (req_->get_h_op() == sandesh_op::GET) {
+        VrfDumpHandler dump;
+        dump.SendGetResponse(GetSeqNum(), req_->get_vrf_idx());
+        return;
+    } else {
+        //store in the map
+        vr_vrf_req vrf_info(*req_);
+        sock->vrf_map[req_->get_vrf_idx()] = vrf_info;
+    }
+    KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
+}
+void KSyncUserSockContext::VrfMsgHandler(vr_vrf_req *req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncUserSockVrfContext *ctx =
+        new KSyncUserSockVrfContext(GetSeqNum(), req);
+
+    if (sock->IsBlockMsgProcessing()) {
+        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
+        sock->ctx_queue_.push(ctx);
+    } else {
+        ctx->Process();
+        delete ctx;
+    }
+}
+
 void KSyncUserSockVrfStatsContext::Process() {
     if (req_->get_h_op() == sandesh_op::DUMP) {
         VrfStatsDumpHandler dump;
@@ -1454,6 +1489,52 @@ Sandesh* MplsDumpHandler::GetNext(Sandesh *input) {
     it = sock->mpls_map.upper_bound(r->get_mr_label());
 
     if (it != sock->mpls_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* VrfDumpHandler::Get(int idx) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf::const_iterator it;
+    static vr_vrf_req req;
+
+    it = sock->vrf_map.find(idx);
+    if (it != sock->vrf_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* VrfDumpHandler::GetFirst(Sandesh *from_req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf::const_iterator it;
+    static vr_vrf_req req;
+    vr_vrf_req *orig_req;
+    orig_req = static_cast<vr_vrf_req *>(from_req);
+    int idx;
+
+    idx = orig_req->get_vrf_marker();
+    it = sock->vrf_map.upper_bound(idx);
+
+    if (it != sock->vrf_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* VrfDumpHandler::GetNext(Sandesh *input) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf::const_iterator it;
+    static vr_vrf_req req, *r;
+
+    r = static_cast<vr_vrf_req *>(input);
+    it = sock->vrf_map.upper_bound(r->get_vrf_idx());
+
+    if (it != sock->vrf_map.end()) {
         req = it->second;
         return &req;
     }
