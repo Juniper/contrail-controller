@@ -7,6 +7,7 @@ package agent_test
 import (
     "cat"
     "cat/agent"
+    "cat/sut"
     "os"
     "syscall"
     "testing"
@@ -17,8 +18,17 @@ func TestAgent(t *testing.T) {
         t.Errorf("Failed to create CAT object: %v", err)
     }
 
-    xmpp_ports := []int{1,2}
-    a, err := agent.New(c.SUT.Manager, "agent", "test", xmpp_ports); if err != nil {
+    endpoints := []sut.Endpoint{
+        sut.Endpoint {
+            IP: "10.0.0.1",
+            Port: 1,
+        },
+        sut.Endpoint {
+            IP: "10.0.0.2",
+            Port: 2,
+        },
+    }
+    a, err := agent.New(c.SUT.Manager, "agent", "test", endpoints); if err != nil {
         t.Errorf("Failed to create agent: %v", err)
     }
 

@@ -15,6 +15,7 @@ import (
     "os/exec"
     "path/filepath"
     "strconv"
+    "strings"
     "time"
 )
 
@@ -29,13 +30,21 @@ const controlNodeBinary = "../../../../build/debug/bgp/test/bgp_ifmap_xmpp_integ
 const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/bulk_sync.json"
 
 func New(m sut.Manager, name, ip_address, conf_file, test string, http_port int) (*ControlNode, error) {
+    // Attach IP to loopback.
+    if !strings.HasPrefix(ip_address, "127.") {
+        cmd := exec.Command("sudo", "--non-interactive", "ip", "address", "add", ip_address + "/24", "dev", "lo")
+        if err := cmd.Start(); err != nil {
+            return nil, fmt.Errorf("Failed to add ip address %s on lo: %v", ip_address, err)
+        }
+    }
+
     c := &ControlNode{
         Component: sut.Component{
             Name:    name,
             IPAddress: ip_address,
             Manager: m,
-            LogDir: filepath.Join(m.RootDir,test,controlNodeName, name, "log"),
-            ConfDir: filepath.Join(m.RootDir,test,controlNodeName, name, "conf"),
+            LogDir: filepath.Join(m.RootDir, test, controlNodeName, name, "log"),
+            ConfDir: filepath.Join(m.RootDir, test, controlNodeName, name, "conf"),
             Config: sut.Config{
                 BGPPort: http_port,
                 HTTPPort: http_port,
@@ -98,6 +107,18 @@ func (c *ControlNode) Restart() error {
     return c.start()
 }
 
+func (c *ControlNode) Teardown() error {
+    // Detach IP from loopback.
+    if !strings.HasPrefix(c.IPAddress, "127.") {
+        cmd := exec.Command("sudo", "--non-interactive", "ip", "address", "delete", c.IPAddress + "/24", "dev", "lo")
+        if err := cmd.Start(); err != nil {
+            return fmt.Errorf("Failed to delete ip address %s from lo: %v", c.IPAddress, err)
+        }
+    }
+    c.Component.Teardown()
+    return nil
+}
+
 func (c *ControlNode) readPortNumbers() error {
     c.PortsFile = fmt.Sprintf("%s/%d.json", c.ConfDir, c.Cmd.Process.Pid)
     retry := 30
@@ -115,7 +136,7 @@ func (c *ControlNode) readPortNumbers() error {
 }
 
 func (c *ControlNode) CheckXMPPConnection(agent *agent.Agent) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://127.0.0.1:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.Config.HTTPPort,  agent.Component.Name)
+    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.IPAddress, c.Config.HTTPPort,  agent.Component.Name)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
     return err
 }
@@ -126,6 +147,8 @@ func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wai
         for i := 0; i < len(agents); i++ {
             if err = c.CheckXMPPConnection(agents[i]); err != nil {
                 break
+            } else {
+                log.Infof("%s: XMPP Peer %s session reached established state", c.Name, agents[i].Name)
             }
         }
         if err == nil {
@@ -136,20 +159,21 @@ func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wai
     return fmt.Errorf("CheckXMPPConnections failed")
 }
 
-func (c *ControlNode) CheckBGPConnection(control_node *ControlNode) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://127.0.0.1:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.Config.HTTPPort,  control_node.Component.Name)
+func (c *ControlNode) CheckBGPConnection(name string) error {
+    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.IPAddress, c.Config.HTTPPort, name)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
     return err
 }
 
-func (c *ControlNode) CheckBGPConnections(control_nodes []*ControlNode, retry int, wait time.Duration) error {
+func (c *ControlNode) CheckBGPConnections(components []*sut.Component, retry int, wait time.Duration) error {
     for r := 0; r < retry; r++ {
         var err error
-        for i := 0; i < len(control_nodes); i++ {
-            if c != control_nodes[i] {
-                if err = c.CheckBGPConnection(control_nodes[i]); err != nil {
+        for i := 0; i < len(components); i++ {
+            if &c.Component != components[i] {
+                if err = c.CheckBGPConnection(components[i].Name); err != nil {
                     break
                 }
+                log.Infof("%s: BGP Peer %s session reached established state", c.Name, components[i].Name)
             }
         }
         if err == nil {
@@ -162,7 +186,7 @@ func (c *ControlNode) CheckBGPConnections(control_nodes []*ControlNode, retry in
 
 // TODO: Parse xml to do specific checks in the data received from curl.
 func (c *ControlNode) checkConfiguration(tp string, count int) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://127.0.0.1:%d/Snh_IFMapNodeTableListShowReq? | xmllint format -  | grep -iw -A1 '>%s</table_name>' | grep -w '>'%d'</size>'", c.Config.HTTPPort, tp, count)
+    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_IFMapNodeTableListShowReq? | xmllint format -  | grep -iw -A1 '>%s</table_name>' | grep -w '>'%d'</size>'", c.IPAddress, c.Config.HTTPPort, tp, count)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
     return err
 }
