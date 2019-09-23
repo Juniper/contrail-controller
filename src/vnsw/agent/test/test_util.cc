@@ -228,6 +228,12 @@ static void BuildLinkToMetadata() {
                       "logical-router-interface");
     AddLinkToMetadata("logical-router", "virtual-network",
                       "logical-router-virtual-network");
+    AddLinkToMetadata("project", "host-based-service",
+                      "project-host-based-service");
+    AddLinkToMetadata("host-based-service-virtual-network", "virtual-network",
+                      "host-based-service-virtual-network-virtual-network");
+    AddLinkToMetadata("virtual-network", "virtual-network-interface",
+                      "virtual-network-virtual-network-interface");
 }
 
 const char *GetMetadata(const char *node1, const char *node2) {
