@@ -187,6 +187,8 @@ struct UveVMInterfaceAgent {
    49: optional byte vhostuser_mode;
    /** shows whether interface port mirror is enabled or not*/
    50: optional bool port_mirror_enabled;
+   /** HBF interface type*/
+   51: optional string hbf_intf_type;
 }
 
 /**

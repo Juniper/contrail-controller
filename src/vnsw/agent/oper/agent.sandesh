@@ -831,6 +831,9 @@ struct VrfSandeshData {
    15: bool layer2_control_word;
    /** Forwarding VRF */
    16: string forwarding_vrf;
+   /** HBF interfaces */
+   17: i32 hbf_rintf;
+   18: i32 hbf_lintf;
 }
 
 /**
@@ -2516,6 +2519,16 @@ trace sandesh MplsTrace {
     1: string message;
     /** Mpls label value */
     2: u32 label;
+}
+
+/**
+ * @description: Trace message for HBF
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh HBFTrace {
+    /** Message for HBF */
+    1: string message;
 }
 
 /**
