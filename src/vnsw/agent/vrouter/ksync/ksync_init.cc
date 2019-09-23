@@ -242,6 +242,11 @@ void KSync::InitVrouterOps(vrouter_ops *v) {
     v->set_vo_burst_interval(-1);
     v->set_vo_burst_step(-1);
     v->set_vo_memory_alloc_checks(-1);
+
+    VrLimitExceeded vr_limit_exceed_map;
+    vr_limit_exceed_map.insert(VrLimitData("vr_nexthops", "Normal"));
+    vr_limit_exceed_map.insert(VrLimitData("vr_mpls_labels", "Normal"));
+    agent()->set_vr_limits_exceeded_map(vr_limit_exceed_map);
 }
 
 void KSync::SetHugePages() {

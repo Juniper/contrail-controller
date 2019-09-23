@@ -1870,6 +1870,7 @@ public:
     void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
     NextHop *FindNextHop(size_t index);
     uint32_t ReserveIndex();
+    void VrNHLimitExceeded();
 
 private:
     NextHop *AllocWithKey(const DBRequestKey *k) const;
