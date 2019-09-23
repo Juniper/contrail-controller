@@ -11,6 +11,7 @@
 #include <oper/agent_types.h>
 #include <oper/oper_db.h>
 #include <oper/agent_route_walker.h>
+#include <oper/interface.h>
 
 class LifetimeActor;
 class LifetimeManager;
@@ -56,11 +57,14 @@ struct VrfData : public AgentOperDBData {
     VrfData(Agent *agent, IFMapNode *node, uint32_t flags,
             const boost::uuids::uuid &vn_uuid, uint32_t isid,
             const std::string bmac_vrf_name,
-            uint32_t mac_aging_time, bool learning_enabled) :
+            uint32_t mac_aging_time, bool learning_enabled,
+            uint32_t hbf_rintf = Interface::kInvalidIndex,
+            uint32_t hbf_lintf = Interface::kInvalidIndex) :
         AgentOperDBData(agent, node), flags_(flags), vn_uuid_(vn_uuid),
         isid_(isid), bmac_vrf_name_(bmac_vrf_name),
         mac_aging_time_(mac_aging_time), learning_enabled_(learning_enabled),
-        forwarding_vrf_name_("") {}
+        forwarding_vrf_name_(""), hbf_rintf_(hbf_rintf),
+        hbf_lintf_(hbf_lintf) {}
     virtual ~VrfData() {}
 
     uint32_t ConfigFlags() {
@@ -74,6 +78,8 @@ struct VrfData : public AgentOperDBData {
     uint32_t mac_aging_time_;
     bool learning_enabled_;
     std::string forwarding_vrf_name_;
+    uint32_t hbf_rintf_;
+    uint32_t hbf_lintf_;
 };
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentOperDBEntry {
@@ -131,6 +137,9 @@ public:
     bool layer2_control_word() const {
         return layer2_control_word_;
     }
+
+    const uint32_t hbf_rintf() const { return hbf_rintf_; }
+    const uint32_t hbf_lintf() const { return hbf_lintf_; }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
@@ -209,6 +218,8 @@ public:
     void set_rd(int rd) {rd_ = rd;}
     void set_routing_vrf(bool val) {routing_vrf_ = val;}
     bool routing_vrf() {return routing_vrf_;}
+    void set_hbf_rintf(uint32_t idx) {hbf_rintf_ = idx;}
+    void set_hbf_lintf(uint32_t idx) {hbf_lintf_ = idx;}
 
 private:
     friend class VrfTable;
@@ -241,6 +252,8 @@ private:
     VrfEntryRef forwarding_vrf_;
     int rd_;
     bool routing_vrf_;
+    uint32_t hbf_rintf_;
+    uint32_t hbf_lintf_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

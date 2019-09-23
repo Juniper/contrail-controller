@@ -67,7 +67,9 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         rt_table_delete_bmap_(0),
         route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
         layer2_control_word_(false),
-        rd_(0), routing_vrf_(false) {
+        rd_(0), routing_vrf_(false),
+        hbf_rintf_(Interface::kInvalidIndex),
+        hbf_lintf_(Interface::kInvalidIndex) {
         nh_.reset();
 }
 
@@ -591,6 +593,8 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     vrf->bmac_vrf_name_ = data->bmac_vrf_name_;
     vrf->learning_enabled_ = data->learning_enabled_;
     vrf->mac_aging_time_ = data->mac_aging_time_;
+    vrf->set_hbf_rintf(data->hbf_rintf_);
+    vrf->set_hbf_lintf(data->hbf_lintf_);
     if (vrf->vn_.get()) {
         vrf->layer2_control_word_ = vrf->vn_->layer2_control_word();
     }
@@ -674,6 +678,15 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 
     if (forwarding_vrf != vrf->forwarding_vrf_) {
         vrf->forwarding_vrf_ = forwarding_vrf;
+        ret = true;
+    }
+
+    if (vrf->hbf_rintf() != data->hbf_rintf_) {
+        vrf->set_hbf_rintf(data->hbf_rintf_);
+        ret = true;
+    }
+    if (vrf->hbf_lintf() != data->hbf_lintf_) {
+        vrf->set_hbf_lintf(data->hbf_lintf_);
         ret = true;
     }
 
@@ -950,6 +963,177 @@ bool VrfTable::CanNotify(IFMapNode *node) {
     return true;
 }
 
+static void FindHbfInterfacesFromHBS(Agent* agent, IFMapNode *node,
+                              uint32_t &hbf_rintf, uint32_t &hbf_lintf) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    std::stringstream ss;
+    ss << "HBS node = " << node->name();
+    LOG(ERROR, ss.str());
+
+    for (DBGraphVertex::edge_iterator iter = node->edge_list_begin(graph);
+         iter != node->edge_list_end(graph); ++iter) {
+        if (iter->IsDeleted()) {
+            LOG(ERROR, "Deleted, not visiting");
+            continue;
+        }
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.target());
+
+        std::stringstream ss;
+        ss << "adj node = " << adj_node->name() << " size " << adj_node->get_object_list_size()
+            << " ToString: " << adj_node->ToString() << " table typename " << adj_node->table()->Typename();
+        LOG(ERROR, ss.str());
+
+
+        if (!strcmp(adj_node->table()->Typename(),
+                    "host-based-service-virtual-network")) {
+            LOG(ERROR, "Found HBSVN, name = " << adj_node->name());
+
+            autogen::HostBasedServiceVirtualNetwork *hbsvn =
+                static_cast<HostBasedServiceVirtualNetwork *>
+                (adj_node->GetObject());
+            ServiceVirtualNetworkType type = hbsvn->data();
+            LOG(ERROR, "virtual_network_type = " << type.virtual_network_type);
+
+            for (DBGraphVertex::adjacency_iterator iter = adj_node->begin(graph);
+                 iter != node->end(graph); ++iter) {
+                 IFMapNode *hbsvn_adj_node =
+                         static_cast<IFMapNode *>(iter.operator->());
+                 if (!strcmp(hbsvn_adj_node->table()->Typename(),
+                             "virtual-network")) {
+                     LOG(ERROR, "HBSVN-->VN node " <<  hbsvn_adj_node->name());
+                     for (DBGraphVertex::adjacency_iterator iter =
+                                                   hbsvn_adj_node->begin(graph);
+                          iter != node->end(graph); ++iter) {
+                         if (iter->IsDeleted()) {
+                            LOG(ERROR, "Deleted, not visiting");
+                            continue;
+                         }
+                         IFMapNode *vmi_node =
+                             static_cast<IFMapNode *>(iter.operator->());
+                         LOG(ERROR, "Looking for VMI " << vmi_node->name());
+                         if (!strcmp(vmi_node->table()->Typename(),
+                                    "virtual-machine-interface")) {
+                             LOG(ERROR, "Found VMI " << vmi_node->name());
+                             VirtualMachineInterface *cfg =
+                                 static_cast <VirtualMachineInterface *>
+                                                      (vmi_node->GetObject());
+                             autogen::IdPermsType id_perms = cfg->id_perms();
+                             boost::uuids::uuid u;
+                             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+                             InterfaceConstRef intf = agent->interface_table()->FindVmi(u);
+                             if (!intf) {
+                                 continue;
+                             }
+                             if (!strcmp(type.virtual_network_type.c_str(),
+                                         "right")) {
+                                 hbf_rintf = intf->id();
+                             } else if (!strcmp(type.virtual_network_type.c_str(),
+                                                "left")) {
+                                 hbf_lintf = intf->id();
+                             }
+                         }
+                     }
+                }
+            }
+        }
+    }
+}
+
+static void FindHbfInterfacesFromProject(Agent* agent, IFMapNode *node,
+                              uint32_t &hbf_rintf, uint32_t &hbf_lintf) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    std::stringstream ss;
+    ss << "Project node = " << node->name();
+    LOG(ERROR, ss.str());
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        if (iter->IsDeleted()) {
+            LOG(ERROR, "Deleted, not visiting");
+            continue;
+        }
+        IFMapNode *adj_node =
+                         static_cast<IFMapNode *>(iter.operator->());
+        std::stringstream ss;
+        ss << "adj node = " << adj_node->name() << " size " << adj_node->get_object_list_size()
+            << " ToString: " << adj_node->ToString() << " table typename " << adj_node->table()->Typename();
+        LOG(ERROR, ss.str());
+
+
+        if (strcmp(adj_node->table()->Typename(), "host-based-service") == 0) {
+            LOG(ERROR, "Found its HBS");
+            FindHbfInterfacesFromHBS(agent, adj_node, hbf_rintf, hbf_lintf);
+            break;
+        }
+    }
+}
+
+static void FindHbfInterfacesFromVmi(Agent* agent, IFMapNode *node,
+                              uint32_t &hbf_rintf, uint32_t &hbf_lintf) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    std::stringstream ss;
+    ss << "vmi node = " << node->name();
+    LOG(ERROR, ss.str());
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        if (iter->IsDeleted()) {
+            LOG(ERROR, "Deleted, not visiting");
+            continue;
+        }
+        IFMapNode *adj_node =
+                         static_cast<IFMapNode *>(iter.operator->());
+        std::stringstream ss;
+        ss << "adj node = " << adj_node->name() << " size " << adj_node->get_object_list_size()
+            << " ToString: " << adj_node->ToString() << " table typename " << adj_node->table()->Typename();
+        LOG(ERROR, ss.str());
+
+
+        if (strcmp(adj_node->table()->Typename(), "project") == 0) {
+            LOG(ERROR, "Found its Project");
+            FindHbfInterfacesFromProject(agent, adj_node, hbf_rintf, hbf_lintf);
+            break;
+        }
+    }
+}
+
+static void FindHbfInterfaces(Agent *agent, IFMapNode *vn_node,
+                              uint32_t &hbf_rintf, uint32_t &hbf_lintf) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(vn_node->table());
+    DBGraph *graph = table->GetGraph();
+
+    std::stringstream ss;
+    ss << "vn node = " << vn_node->name();
+    LOG(ERROR, ss.str());
+
+    for (DBGraphVertex::adjacency_iterator iter = vn_node->begin(graph);
+         iter != vn_node->end(graph); ++iter) {
+        if (iter->IsDeleted()) {
+            LOG(ERROR, "Deleted, not visiting");
+            continue;
+        }
+        IFMapNode *adj_node =
+                         static_cast<IFMapNode *>(iter.operator->());
+        std::stringstream ss;
+        ss << "adj node = " << adj_node->name() << " size " << adj_node->get_object_list_size()
+            << " ToString: " << adj_node->ToString() << " table typename " << adj_node->table()->Typename();
+        LOG(ERROR, ss.str());
+
+
+        if (strcmp(adj_node->table()->Typename(), "virtual-machine-interface") == 0) {
+            LOG(ERROR, "Found a VMI");
+            FindHbfInterfacesFromVmi(agent, adj_node, hbf_rintf, hbf_lintf);
+            break;
+        }
+    }
+}
+
 static void BuildForwardingVrf(Agent *agent, IFMapNode *vn_node,
                                std::string &forwarding_vrf_name) {
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(vn_node->table());
@@ -981,6 +1165,8 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     DBGraph *graph = table->GetGraph();
     bool learning_enabled = false;
     std::string forwarding_vrf = "";
+    uint32_t hbf_rintf = Interface::kInvalidIndex;
+    uint32_t hbf_lintf = Interface::kInvalidIndex;
 
     uint32_t aging_timeout = 0;
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
@@ -1001,6 +1187,9 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
 
         BuildForwardingVrf(agent, adj_node, forwarding_vrf);
 
+        FindHbfInterfaces(agent, adj_node, hbf_rintf, hbf_lintf);
+        LOG(ERROR, "Found hbf intfs " << hbf_rintf << " " << hbf_lintf << "for " << node->name());
+
         if (!IsVRFServiceChainingInstance(adj_node->name(), node->name())) {
             autogen::IdPermsType id_perms = cfg->id_perms();
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
@@ -1012,7 +1201,8 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
 
     VrfData *vrf_data = new VrfData(agent, node, VrfData::ConfigVrf,
                                     vn_uuid, 0, "",
-                                    aging_timeout, learning_enabled);
+                                    aging_timeout, learning_enabled,
+                                    hbf_rintf, hbf_lintf);
     if (node->name() == agent->fabric_policy_vrf_name()) {
         vrf_data->forwarding_vrf_name_ = agent->fabric_vrf_name();
     } else {
@@ -1064,7 +1254,9 @@ bool VrfTable::ProcessConfig(IFMapNode *node, DBRequest &req,
         }
 
         VrfData *data = new VrfData(agent(), node, VrfData::ConfigVrf,
-                                    boost::uuids::nil_uuid(), 0, "", 0, false);
+                                    boost::uuids::nil_uuid(), 0, "", 0, false,
+                                    Interface::kInvalidIndex,
+                                    Interface::kInvalidIndex);
         if (node->name() == agent()->fabric_policy_vrf_name()) {
             data->forwarding_vrf_name_ = agent()->fabric_vrf_name();
         }

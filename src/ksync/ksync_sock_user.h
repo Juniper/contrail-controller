@@ -41,6 +41,7 @@ public:
     virtual int VrResponseMsgHandler(vr_response *req) {return 0;};
     virtual void FlowMsgHandler(vr_flow_req *req);
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req);
+    virtual void VrfMsgHandler(vr_vrf_req *req);
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);
@@ -125,7 +126,8 @@ public:
     vrouter_ops ksync_vrouter_ops;
     typedef std::map<int, vr_vxlan_req> ksync_map_vxlan;
     ksync_map_vxlan vxlan_map;
-
+    typedef std::map<int, vr_vrf_req> ksync_map_vrf;
+    ksync_map_vrf vrf_map;
     typedef std::queue<KSyncUserSockContext *> ksync_map_ctx_queue;
     ksync_map_ctx_queue ctx_queue_;
     tbb::mutex  ctx_queue_lock_;
@@ -163,6 +165,8 @@ public:
     static void RouteDelete(vr_route_req &req);
     static void VrfAssignAdd(vr_vrf_assign_req &req);
     static void VrfAssignDelete(vr_vrf_assign_req &req);
+    static void VrfAdd(vr_vrf_req &req);
+    static void VrfDelete(vr_vrf_req &req);
     static void VrfStatsAdd(int vrf_id);
     static void VrfStatsUpdate(int vrf_id, const vr_vrf_stats_req &req);
     static void VrfStatsDelete(int vrf_id);
@@ -199,6 +203,7 @@ public:
     friend class MockDumpHandlerBase;
     friend class RouteDumpHandler;
     friend class VrfAssignDumpHandler;
+    friend class VrfDumpHandler;
     void SetBlockMsgProcessing(bool enable);
     bool IsBlockMsgProcessing() {
         tbb::mutex::scoped_lock lock(ctx_queue_lock_);
@@ -306,6 +311,14 @@ public:
     virtual Sandesh* Get(int idx) {
         return NULL;
     }
+};
+
+class VrfDumpHandler : public MockDumpHandlerBase {
+public:
+    VrfDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *);
+    virtual Sandesh* GetNext(Sandesh *);
+    virtual Sandesh* Get(int idx);
 };
 
 class VrfStatsDumpHandler : public MockDumpHandlerBase {
@@ -491,6 +504,28 @@ public:
     virtual void Process();
 private:
     vr_vrf_assign_req *req_;
+};
+
+class KSyncUserSockVrfContext : public KSyncUserSockContext {
+public:
+    KSyncUserSockVrfContext(uint32_t seq_num, vr_vrf_req *req) :
+        KSyncUserSockContext(seq_num) {
+        if (req) {
+            req_ = new vr_vrf_req(*req);
+        } else {
+            req_ = NULL;
+        }
+    }
+    ~KSyncUserSockVrfContext() {
+        if (req_) {
+            delete req_;
+            req_ = NULL;
+        }
+    }
+
+    virtual void Process();
+private:
+    vr_vrf_req *req_;
 };
 
 class KSyncUserSockVrfStatsContext : public KSyncUserSockContext {

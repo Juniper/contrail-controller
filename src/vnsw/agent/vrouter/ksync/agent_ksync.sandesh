@@ -80,6 +80,25 @@ traceobject sandesh KSyncRoute {
 }
 
 /**
+ * Definition for ksync vrf entry
+ */
+struct KSyncVrfInfo {
+    1: u32    vrf_id;
+    2: string operation;
+    3: u32    hbf_rintf;
+    4: u32    hbf_lintf;
+}
+
+/**
+ * @description: Trace message for ksync vrf entry
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh KSyncVrf {
+    1: KSyncVrfInfo info;
+}
+
+/**
  * Definition for ksync mpls entry
  */
 struct KSyncMplsInfo {
