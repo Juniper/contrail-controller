@@ -211,6 +211,9 @@ void intrusive_ptr_add_ref(const MulticastPolicyEntry* p);
 
 typedef std::set<std::string> VnListType;
 
+typedef std::map<std::string, std::string> VrLimitExceeded;
+typedef std::pair<std::string, std::string> VrLimitData;
+
 class AgentDBTable;
 class InterfaceTable;
 class HealthCheckTable;
@@ -1326,6 +1329,31 @@ public:
     }
     bool get_inet_labeled_flag() {
         return inet_labeled_enabled_;}
+
+    VrLimitExceeded &get_vr_limits_exceeded_map() {
+        return vr_limits_exceeded_map_;
+    }
+
+    void set_vr_limits_exceeded_map(VrLimitExceeded &vr_limit_exceed_map) {
+        vr_limits_exceeded_map_ = vr_limit_exceed_map;
+    }
+
+    void set_vr_limit_high_watermark(float watermark) {
+        vr_limit_high_watermark_ = watermark;
+    }
+
+    float vr_limit_high_watermark() {
+        return vr_limit_high_watermark_;
+    }
+
+    void set_vr_limit_low_watermark(float watermark) {
+        vr_limit_low_watermark_ = watermark;
+    }
+
+    float vr_limit_low_watermark() {
+        return vr_limit_low_watermark_;
+    }
+
 private:
 
     uint32_t GenerateHash(std::vector<std::string> &);
@@ -1555,6 +1583,10 @@ private:
     bool global_slo_status_;
     // Constants
     boost::uuids::uuid fabric_vn_uuid_;
+    VrLimitExceeded vr_limits_exceeded_map_;
+    // Percentage of allowed nexthop and label, alarm is raised once exceeded
+    float vr_limit_high_watermark_;
+    float vr_limit_low_watermark_;
 public:
     static const std::string config_file_;
     static const std::string log_file_;

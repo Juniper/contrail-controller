@@ -99,6 +99,9 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.log_files_count(), kLogFilesCount);
     EXPECT_EQ(param.log_file_size(), kLogFileSize);
     EXPECT_STREQ(param.log_level().c_str(), "SYS_NOTICE");
+
+    // watermark parameter
+    EXPECT_EQ(param.vr_object_high_watermark(), 75.5);
 }
 
 TEST_F(AgentParamTest, Agent_Conf_file_2) {
@@ -144,6 +147,9 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.log_files_count(), 5);
     EXPECT_EQ(param.log_file_size(), 2048);
     EXPECT_STREQ(param.log_level().c_str(), "SYS_NOTICE");
+
+    // watermark parameter range check
+    EXPECT_EQ(param.vr_object_high_watermark(), 100);
 }
 
 TEST_F(AgentParamTest, Agent_Flows_Option_1) {
@@ -431,6 +437,8 @@ TEST_F(AgentParamTest, Default_Cmdline_arg2) {
     EXPECT_TRUE(param.use_syslog());
     EXPECT_TRUE(param.log_flow());
     EXPECT_TRUE(param.log_local());
+    // Default for high watermark is 80
+    EXPECT_EQ(param.vr_object_high_watermark(), 80);
 }
 
 /* Some command line args have default values. If user has explicitly passed

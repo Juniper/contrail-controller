@@ -309,6 +309,7 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
     nh->set_id(index_table_.Insert(nh));
     nh->Add(agent(), req);
     nh->SendObjectLog(this, AgentLogEvent::ADD);
+    VrNHLimitExceeded();
     return static_cast<DBEntry *>(nh);
 }
 
@@ -339,6 +340,7 @@ bool NextHopTable::Delete(DBEntry *entry, const DBRequest *req) {
     NextHop *nh = static_cast<NextHop *>(entry);
     nh->Delete(req);
     nh->SendObjectLog(this, AgentLogEvent::DEL);
+    VrNHLimitExceeded();
     return true;
 }
 
@@ -382,6 +384,28 @@ void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
     req.key = key;
     req.data.reset(NULL);
     Process(req);
+}
+
+void NextHopTable::VrNHLimitExceeded() {
+    VrLimitExceeded vr_limits = agent()->get_vr_limits_exceeded_map();
+    VrLimitExceeded::iterator vr_limit_itr = vr_limits.find("vr_nexthops");
+    if (index_table_.IndexInUse() >= agent()->vrouter_max_nexthops()) {
+        vr_limit_itr->second.assign(std::string("TableLimit"));
+        LOG(ERROR, "Vrouter Nexthop Table Limit Reached. Skip NH Add.");
+    } else if ( index_table_.IndexInUse() >= ((agent()->vr_limit_high_watermark() *
+        agent()->vrouter_max_nexthops())/100) ) {
+        vr_limit_itr->second.assign(std::string("Exceeded"));
+        LOG(ERROR, "Vrouter Nexthop Index Exceeded.");
+    } else if ( (index_table_.IndexInUse() >= ((agent()->vr_limit_high_watermark() *
+        agent()->vrouter_max_nexthops())/100) ) &&
+        (index_table_.IndexInUse() < ((agent()->vrouter_max_nexthops()*95)/100)) ) {
+        vr_limit_itr->second.assign(std::string("Exceeded"));
+        LOG(ERROR, "Vrouter Nexthop Index Exceeded.");
+    } else if (index_table_.IndexInUse() < ((agent()->vr_limit_low_watermark() *
+        agent()->vrouter_max_nexthops())/100) ) {
+        vr_limit_itr->second.assign(std::string("Normal"));
+    }
+    agent()->set_vr_limits_exceeded_map(vr_limits);
 }
 
 /////////////////////////////////////////////////////////////////////////////

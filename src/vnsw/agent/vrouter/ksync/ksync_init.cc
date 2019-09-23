@@ -242,6 +242,7 @@ void KSync::InitVrouterOps(vrouter_ops *v) {
     v->set_vo_burst_interval(-1);
     v->set_vo_burst_step(-1);
     v->set_vo_memory_alloc_checks(-1);
+
 }
 
 void KSync::SetHugePages() {
