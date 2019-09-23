@@ -69,6 +69,7 @@ public:
     virtual void FlowTableInfoHandler(vr_flow_table_data *r) { assert(0); }
     virtual void BridgeTableInfoHandler(vr_bridge_table_data *r) { assert(0);}
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req) = 0;
+    virtual void VrfMsgHandler(vr_vrf_req *req) = 0;
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req) = 0;
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req) = 0;
     virtual void VxLanMsgHandler(vr_vxlan_req *req) = 0;
@@ -286,6 +287,7 @@ public:
     void FlowMsgHandler(vr_flow_req *req);
     void FlowResponseHandler(vr_flow_response *req);
     void VrfAssignMsgHandler(vr_vrf_assign_req *req);
+    void VrfMsgHandler(vr_vrf_req *req);
     void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     void DropStatsMsgHandler(vr_drop_stats_req *req);
     void VxLanMsgHandler(vr_vxlan_req *req);

@@ -179,8 +179,44 @@ private:
     MacPreferenceMap mac_preference_map_;
 };
 
+class VrfKSyncObject;
+
+class VrfKSyncEntry : public KSyncNetlinkDBEntry {
+public:
+    VrfKSyncEntry(VrfKSyncObject* obj, const VrfKSyncEntry *entry,
+                    uint32_t index);
+    VrfKSyncEntry(VrfKSyncObject* obj, const VrfEntry *vrf);
+    virtual ~VrfKSyncEntry();
+
+    const uint32_t hbf_rintf() const { return hbf_rintf_; }
+    const uint32_t hbf_lintf() const { return hbf_lintf_; }
+    const uint32_t vrf_id() const { return vrf_id_; }
+    void set_hbf_rintf(uint32_t hbf_rintf) { hbf_rintf_ = hbf_rintf_; }
+    void set_hbf_lintf(uint32_t hbf_lintf) { hbf_lintf_ = hbf_lintf_; }
+    KSyncDBObject *GetObject() const;
+
+    void FillObjectLog(sandesh_op::type op, KSyncVrfInfo &info) const;
+    virtual bool IsLess(const KSyncEntry &rhs) const;
+    virtual std::string ToString() const;
+    virtual KSyncEntry *UnresolvedReference();
+    virtual bool Sync(DBEntry *e);
+    virtual int AddMsg(char *buf, int buf_len);
+    virtual int ChangeMsg(char *buf, int buf_len);
+    virtual int DeleteMsg(char *buf, int buf_len);
+private:
+    int Encode(sandesh_op::type op, uint8_t replace_plen,
+               char *buf, int buf_len);
+
+    VrfKSyncObject* ksync_obj_;
+    uint32_t vrf_id_;
+    uint32_t hbf_rintf_;
+    uint32_t hbf_lintf_;
+    DISALLOW_COPY_AND_ASSIGN(VrfKSyncEntry);
+};
+
+
 class KSyncRouteWalker;
-class VrfKSyncObject {
+class VrfKSyncObject  : public KSyncDBObject {
 public:
     // Table to maintain IP - MAC binding. Used to stitch MAC to inet routes
     typedef std::pair<IpAddress, uint32_t> IpToMacBindingKey;
@@ -196,6 +232,7 @@ public:
         IpToMacBinding  ip_mac_binding_;
         DBTableBase::ListenerId evpn_rt_table_listener_id_;
         AgentRouteWalkerPtr ksync_route_walker_;
+        VrfKSyncEntry* ksync_;
     };
 
     VrfKSyncObject(KSync *ksync);
@@ -224,10 +261,14 @@ public:
     void NotifyUcRoute(VrfEntry *vrf, VrfState *state, const IpAddress &ip);
     bool RouteNeedsMacBinding(const InetUnicastRouteEntry *rt);
     DBTableBase::ListenerId vrf_listener_id() const {return vrf_listener_id_;}
+    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
+    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry);
 
 private:
     KSync *ksync_;
     DBTableBase::ListenerId vrf_listener_id_;
+    bool marked_delete_;
+    VrfTable *vrf_table_;
     DISALLOW_COPY_AND_ASSIGN(VrfKSyncObject);
 };
 

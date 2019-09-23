@@ -18,6 +18,7 @@
 #include "kstate_io_context.h"
 #include "forwarding_class_kstate.h"
 #include "qos_config_kstate.h"
+#include "vrf_kstate.h"
 #include "vr_nexthop.h"
 #include "vr_message.h"
 #include <net/if.h>
@@ -422,6 +423,33 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
     }
     ctx->vif_index_ = r->get_var_vif_index();
     ctx->marker_ = r->get_var_vlan_id();
+    UpdateContext(ctx);
+}
+
+void KState::VrfMsgHandler(vr_vrf_req *r) {
+    KVrfInfo data;
+    VrfKState *state;
+
+    state = static_cast<VrfKState *>(this);
+    KVrfResp *resp =
+        static_cast<KVrfResp *>(state->response_object());
+
+    vector<KVrfInfo> &list =
+        const_cast<std::vector<KVrfInfo>&>(resp->get_vrf_list());
+    data.set_vrf_idx(r->get_vrf_idx());
+    data.set_hbf_rintf(r->get_vrf_hbfr_vif_idx());
+    data.set_hbf_lintf(r->get_vrf_hbfl_vif_idx());
+    list.push_back(data);
+
+    // Update the last interface and tag seen.
+    // Will be used to send next request to kernel
+    VrfContext *ctx = state->more_context().empty() ?
+        NULL : boost::any_cast<VrfContext *>(state->more_context());
+    if (!ctx) {
+        ctx = new VrfContext;
+    }
+    ctx->vrf_idx_ = r->get_vrf_idx();
+    ctx->marker_ = r->get_vrf_idx();
     UpdateContext(ctx);
 }
 

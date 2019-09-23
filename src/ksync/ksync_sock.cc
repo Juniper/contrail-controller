@@ -1073,6 +1073,11 @@ void KSyncBulkSandeshContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
     context->VrfAssignMsgHandler(req);
 }
 
+void KSyncBulkSandeshContext::VrfMsgHandler(vr_vrf_req *req) {
+    AgentSandeshContext *context = GetSandeshContext();
+    context->VrfMsgHandler(req);
+}
+
 void KSyncBulkSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
     AgentSandeshContext *context = GetSandeshContext();
     context->VrfStatsMsgHandler(req);
