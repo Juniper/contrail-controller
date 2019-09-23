@@ -790,6 +790,22 @@ int PktHandler::ParseUDPTunnels(PktInfo *pkt_info, uint8_t *pkt) {
     return len;
 }
 
+bool PktHandler::ValidateIpPacket(PktInfo *pkt_info) {
+    // For ICMP, IGMP, make sure IP is IPv4, else fail the parsing
+    // so that we don't go ahead and access the ip header later
+    if (((pkt_info->ip_proto == IPPROTO_ICMP) ||
+         (pkt_info->ip_proto == IPPROTO_IGMP)) && (!pkt_info->ip)) {
+        return false;
+    }
+    // If ip proto is ICMPv6, then make sure IP is IPv6, else fail
+    // the parsing so that we don't go ahead and access the ip6 header
+    // later
+    if ((pkt_info->ip_proto == IPPROTO_ICMPV6) && (!pkt_info->ip6)) {
+        return false;
+    }
+    return true;
+}
+
 int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                              PktType::Type &pkt_type, uint8_t *pkt) {
     int len = 0;
@@ -819,16 +835,7 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
 
-    // For ICMP, IGMP, make sure IP is IPv4, else fail the parsing
-    // so that we don't go ahead and access the ip header later
-    if (((pkt_info->ip_proto == IPPROTO_ICMP) ||
-         (pkt_info->ip_proto == IPPROTO_IGMP)) && (!pkt_info->ip)) {
-        return -1;
-    }
-    // If ip proto is ICMPv6, then make sure IP is IPv6, else fail
-    // the parsing so that we don't go ahead and access the ip6 header
-    // later
-    if ((pkt_info->ip_proto == IPPROTO_ICMPV6) && (!pkt_info->ip6)) {
+    if (!ValidateIpPacket(pkt_info)) {
         return -1;
     }
 
@@ -895,6 +902,12 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     }
 
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
+
+    // validate inner iphdr
+    if (!ValidateIpPacket(pkt_info)) {
+        return -1;
+    }
+
     return len;
 }
 
