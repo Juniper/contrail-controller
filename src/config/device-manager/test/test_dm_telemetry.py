@@ -327,9 +327,6 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         # Now check the changes in the device abstract config
         gevent.sleep(1)
-        self.check_dm_ansible_config_push()
-
-        gevent.sleep(1)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -428,6 +425,321 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         self.delete_objects()
 
+    def test_05_multiple_pr_same_telemetry(self):
+
+        # check if sample rt, polling interval and adaptive sample rate
+        # is set to their default values.
+        # create objects
+
+        sf_name = 'sflow_multiple_pr_one_tp'
+        agent_id = '10.0.0.1'
+        enbld_intf_type = 'fabric'
+
+        self.create_feature_objects_and_params()
+
+        sf_obj = self.create_sflow_profile(sf_name, agent_id=agent_id, enbld_intf_type=enbld_intf_type)
+        tm_obj = self.create_telemetry_profile('TP_multi_pr', sf_obj)
+        tm_obj_fqname = tm_obj.get_fq_name()
+        sf_obj_fqname = sf_obj.get_fq_name()
+
+        # intf_obj_list will be list of 3 types of interfaces
+        # in the order xe-0/0/0 - service
+        # xe-0/0/1 - fabric and xe-0/0/2:0 - access
+        pr1, intf_obj_list, pr2, intf_obj_list_2 = self.create_telemetry_dependencies(
+            phy_router_no=2
+        )
+
+        # Now link tm_obj to pr1 and pr2
+
+        # this should trigger reaction map so that PR
+        # config changes and device abstract config is generated.
+        # verify the generated device abstract config properties
+
+        pr1.set_telemetry_profile(tm_obj)
+        self._vnc_lib.physical_router_update(pr1)
+
+        gevent.sleep(1)
+        self.check_dm_ansible_config_push()
+
+        pr2.set_telemetry_profile(tm_obj)
+        self._vnc_lib.physical_router_update(pr2)
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+        device_abstract_config = abstract_config.get(
+            'device_abstract_config')
+
+        # Will be a list of one telemetry profile for a physical
+        # router
+        telemetry_profiles = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('telemetry', [])
+        telemetry_profile = telemetry_profiles[-1]
+        sflow_profile = telemetry_profile.get('sflow_profile')
+
+        self.assertIsNotNone(sflow_profile)
+        self.assertEqual(telemetry_profile.get('name'),
+                         tm_obj_fqname[-1] + "-" + tm_obj_fqname[-2])
+        self.assertEqual(sflow_profile.get('name'),
+                         sf_obj_fqname[-1] + "-" + sf_obj_fqname[-2])
+
+        self.assertEqual(sflow_profile.get('sample_rate'), 2000)
+        self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
+        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('agent_id'), agent_id)
+        self.assertEqual(sflow_profile.get('enabled_interface_type'),
+                         enbld_intf_type)
+        self.assertIsNone(sflow_profile.get('enabled_interface_params'))
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('physical_interfaces', [])
+
+        self.assertIsNotNone(phy_interfaces)
+        for phy_intf in phy_interfaces:
+            self.assertEqual(phy_intf.get('name'), intf_obj_list_2[1].name.replace('_', ':'))
+            self.assertEqual(phy_intf.get('telemetry_profile'),
+                             tm_obj_fqname[-1] + "-" + tm_obj_fqname[-2])
+
+        # Verify if telemetry profiles are still attached
+
+        pr1.set_physical_router_product_name('qfx5110-6s-4c')
+        self._vnc_lib.physical_router_update(pr1)
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+        device_abstract_config = abstract_config.get(
+            'device_abstract_config')
+
+        # Will be a list of one telemetry profile for a physical
+        # router
+        telemetry_profiles = device_abstract_config.get(
+            'features', {}).get('telemetry',{}).get('telemetry', [])
+        telemetry_profile = telemetry_profiles[-1]
+        sflow_profile = telemetry_profile.get('sflow_profile')
+
+        self.assertIsNotNone(sflow_profile)
+        self.assertEqual(telemetry_profile.get('name'),
+                         tm_obj_fqname[-1] + "-" + tm_obj_fqname[-2])
+        self.assertEqual(sflow_profile.get('name'),
+                         sf_obj_fqname[-1] + "-" + sf_obj_fqname[-2])
+
+        self.assertEqual(sflow_profile.get('sample_rate'), 2000)
+        self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
+        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('agent_id'), agent_id)
+        self.assertEqual(sflow_profile.get('enabled_interface_type'),
+                         enbld_intf_type)
+        self.assertIsNone(sflow_profile.get('enabled_interface_params'))
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('physical_interfaces', [])
+
+        self.assertIsNotNone(phy_interfaces)
+        for phy_intf in phy_interfaces:
+            self.assertEqual(phy_intf.get('name'), intf_obj_list[1].name.replace('_', ':'))
+            self.assertEqual(phy_intf.get('telemetry_profile'),
+                             tm_obj_fqname[-1] + "-" + tm_obj_fqname[-2])
+
+        # delete workflow
+
+        self.delete_objects()
+
+    def test_06_multiple_sflow_backrefs_same_telemetry(self):
+
+        # check if sample rt, polling interval and adaptive sample rate
+        # is set to their default values.
+        # create objects
+
+        sf_name = 'sflow_backrefs_tp'
+        agent_id = '10.0.0.1'
+        enbld_intf_type = 'service'
+
+        self.create_feature_objects_and_params()
+
+        sf_obj = self.create_sflow_profile(sf_name, agent_id=agent_id, enbld_intf_type=enbld_intf_type)
+        tm_obj_1 = self.create_telemetry_profile('TP_1', sf_obj)
+        tm_obj_2 = self.create_telemetry_profile('TP_2', sf_obj)
+
+        # intf_obj_list will be list of 3 types of interfaces
+        # in the order xe-0/0/0 - service
+        # xe-0/0/1 - fabric and xe-0/0/2:0 - access
+        pr1, intf_obj_list, pr2, intf_obj_list_2 = self.create_telemetry_dependencies(
+                phy_router_no=2
+            )
+
+        # Now link tm_obj_1 to pr1
+
+        pr1.set_telemetry_profile(tm_obj_1)
+        self._vnc_lib.physical_router_update(pr1)
+
+        gevent.sleep(1)
+        self.check_dm_ansible_config_push()
+
+        # Now link tm_obj_2 to pr2
+
+        pr2.set_telemetry_profile(tm_obj_2)
+        self._vnc_lib.physical_router_update(pr2)
+
+        # this should trigger reaction map so that PR
+        # config changes and device abstract config is generated.
+        # verify the generated device abstract config properties
+
+        tm_obj1_fqname = tm_obj_1.get_fq_name()
+        tm_obj2_fqname = tm_obj_2.get_fq_name()
+        sf_obj_fqname = sf_obj.get_fq_name()
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+        device_abstract_config = abstract_config.get(
+            'device_abstract_config')
+
+        # Will be a list of one telemetry profile for a physical
+        # router
+        telemetry_profiles = device_abstract_config.get(
+            'features', {}).get('telemetry',{}).get('telemetry', [])
+        telemetry_profile = telemetry_profiles[-1]
+        sflow_profile = telemetry_profile.get('sflow_profile')
+
+        self.assertIsNotNone(sflow_profile)
+        self.assertEqual(telemetry_profile.get('name'),
+                         tm_obj2_fqname[-1] + "-" + tm_obj2_fqname[-2])
+        self.assertEqual(sflow_profile.get('name'),
+                         sf_obj_fqname[-1] + "-" + sf_obj_fqname[-2])
+
+        self.assertEqual(sflow_profile.get('sample_rate'), 2000)
+        self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
+        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('agent_id'), agent_id)
+        self.assertEqual(sflow_profile.get('enabled_interface_type'),
+                         enbld_intf_type)
+        self.assertIsNone(sflow_profile.get('enabled_interface_params'))
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('physical_interfaces', [])
+
+        self.assertIsNotNone(phy_interfaces)
+        for phy_intf in phy_interfaces:
+            self.assertEqual(phy_intf.get('name'), intf_obj_list_2[0].name.replace('_', ':'))
+            self.assertEqual(phy_intf.get('telemetry_profile'),
+                             tm_obj2_fqname[-1] + "-" + tm_obj2_fqname[-2])
+
+        pr1.set_physical_router_product_name('qfx5110-6s-4c')
+        self._vnc_lib.physical_router_update(pr1)
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+        device_abstract_config = abstract_config.get(
+            'device_abstract_config')
+
+        # Will be a list of one telemetry profile for a physical
+        # router
+        telemetry_profiles = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('telemetry', [])
+        telemetry_profile = telemetry_profiles[-1]
+        sflow_profile = telemetry_profile.get('sflow_profile')
+
+        self.assertIsNotNone(sflow_profile)
+        self.assertEqual(telemetry_profile.get('name'),
+                         tm_obj1_fqname[-1] + "-" + tm_obj1_fqname[-2])
+        self.assertEqual(sflow_profile.get('name'),
+                         sf_obj_fqname[-1] + "-" + sf_obj_fqname[-2])
+
+        self.assertEqual(sflow_profile.get('sample_rate'), 2000)
+        self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
+        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('agent_id'), agent_id)
+        self.assertEqual(sflow_profile.get('enabled_interface_type'),
+                         enbld_intf_type)
+        self.assertIsNone(sflow_profile.get('enabled_interface_params'))
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('physical_interfaces', [])
+
+        self.assertIsNotNone(phy_interfaces)
+        for phy_intf in phy_interfaces:
+            self.assertEqual(phy_intf.get('name'), intf_obj_list[0].name.replace('_', ':'))
+            self.assertEqual(phy_intf.get('telemetry_profile'),
+                             tm_obj1_fqname[-1] + "-" + tm_obj1_fqname[-2])
+
+        # delete workflow
+
+        self.delete_objects()
+
+    def test_07_sflow_all_interfaces(self):
+
+        # check if sample rt, polling interval and adaptive sample rate
+        # is set to their default values.
+        # create objects
+
+        sf_name = 'sflow_upd_collector'
+        agent_id = '10.0.0.1'
+        enbld_intf_type = 'all'
+
+        self.create_feature_objects_and_params()
+
+        sf_obj = self.create_sflow_profile(sf_name, agent_id=agent_id, enbld_intf_type=enbld_intf_type)
+        tm_obj = self.create_telemetry_profile('TP_all', sf_obj)
+
+        # intf_obj_list will be list of 3 types of interfaces
+        # in the order xe-0/0/0 - service
+        # xe-0/0/1 - fabric and xe-0/0/2:0 - access
+        pr1, intf_obj_list, _, _ = self.create_telemetry_dependencies()
+
+        # Now link tm_obj to pr1
+
+        pr1.set_telemetry_profile(tm_obj)
+        self._vnc_lib.physical_router_update(pr1)
+
+        # this should trigger reaction map so that PR
+        # config changes and device abstract config is generated.
+        # verify the generated device abstract config properties
+
+        tm_obj_fqname = tm_obj.get_fq_name()
+        sf_obj_fqname = sf_obj.get_fq_name()
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+        device_abstract_config = abstract_config.get(
+            'device_abstract_config')
+
+        # Will be a list of one telemetry profile for a physical
+        # router
+        telemetry_profiles = device_abstract_config.get(
+            'features', {}).get('telemetry',{}).get('telemetry', [])
+        telemetry_profile = telemetry_profiles[-1]
+        sflow_profile = telemetry_profile.get('sflow_profile')
+
+        self.assertIsNotNone(sflow_profile)
+        self.assertEqual(telemetry_profile.get('name'),
+                         tm_obj_fqname[-1] + "-" + tm_obj_fqname[-2])
+        self.assertEqual(sflow_profile.get('name'),
+                         sf_obj_fqname[-1] + "-" + sf_obj_fqname[-2])
+
+        self.assertEqual(sflow_profile.get('sample_rate'), 2000)
+        self.assertEqual(sflow_profile.get('adaptive_sample_rate'), 300)
+        self.assertEqual(sflow_profile.get('polling_interval'), 20)
+        self.assertEqual(sflow_profile.get('agent_id'), agent_id)
+        self.assertEqual(sflow_profile.get('enabled_interface_type'),
+                         enbld_intf_type)
+        self.assertIsNone(sflow_profile.get('enabled_interface_params'))
+
+        phy_interfaces = device_abstract_config.get(
+            'features', {}).get('telemetry', {}).get('physical_interfaces', [])
+
+        self.assertEqual(len(phy_interfaces), 3)
+
+        # create a list of intf_obj_list_names
+        intf_obj_list_names = []
+        for intf_obj in intf_obj_list:
+            intf_obj_list_names.append(intf_obj.name.replace('_', ':'))
+
+        for phy_intf in phy_interfaces:
+            self.assertIn(phy_intf.get('name'), intf_obj_list_names)
+            self.assertEqual(phy_intf.get('telemetry_profile'),
+                             tm_obj_fqname[-1] + "-" + tm_obj_fqname[-2])
+
+        # delete workflow
+
+        self.delete_objects()
+
     def create_telemetry_dependencies(self, phy_router_no=1):
 
         pi_obj_4 = None
@@ -492,7 +804,7 @@ class TestAnsibleTelemetryDM(TestAnsibleCommonDM):
 
         pi_name = "xe-0/0/2_0"
         pi_obj_3 = PhysicalInterface(pi_name, parent_obj=pr1)
-        pi_obj_3.set_physical_interface_type('lag')
+        pi_obj_3.set_physical_interface_type('access')
         self._vnc_lib.physical_interface_create(pi_obj_3)
 
         return pr1, [pi_obj_1, pi_obj_2, pi_obj_3], pr2, [pi_obj_4, pi_obj_5]
