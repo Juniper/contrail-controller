@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "b3889bfc_5ae57404",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-23T18:42:13Z",
+      "side": 1,
+      "message": "Yes, CanUseCRPD shall do that.",
+      "parentUuid": "52751d99_8e28c0f3",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "fe22e3b3_a8d5a840",
         "filename": "src/cat/config/bgp_router.go",
         "patchSetId": 1
@@ -47,6 +65,24 @@
       "writtenOn": "2019-09-19T19:00:58Z",
       "side": 1,
       "message": "is router type actually any arbitrary string?",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f55baa6c_a04b03e5",
+        "filename": "src/cat/config/bgp_router.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-23T18:42:13Z",
+      "side": 1,
+      "message": "Not arbitrary.. defined in here https://github.com/Juniper/contrail-api-client/blob/master/schema/bgp_schema.xsd#L118\n\nBut it is not generated as a Go Struct today (yet)...",
+      "parentUuid": "fe22e3b3_a8d5a840",
       "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -104,6 +140,24 @@
     },
     {
       "key": {
+        "uuid": "4e71e567_b65e72d4",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-23T18:42:13Z",
+      "side": 1,
+      "message": "actually what I need is a retry for the next command which retrieves the IP address of the container",
+      "parentUuid": "73f0661b_115261e3",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "cfd11843_da86552c",
         "filename": "src/cat/crpd/crpd.go",
         "patchSetId": 1
@@ -138,6 +192,24 @@
     },
     {
       "key": {
+        "uuid": "541fb0e6_7cafd843",
+        "filename": "src/cat/crpd/crpd_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-23T18:42:13Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "698392cb_5d283444",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d00e2f9f_ac07ba16",
         "filename": "src/cat/sut/sut.go",
         "patchSetId": 1
@@ -149,6 +221,24 @@
       "writtenOn": "2019-09-19T19:00:58Z",
       "side": 1,
       "message": "_, err :\u003d os.Stat(file)\n    if err !\u003d nil {\n      if !os.IsNotExist(err) {\n         return err\n      }\n      return nil\n    }\n    if err :\u003d os.Remove(file); err !\u003d nil {\n      return err\n    }\n    return nil\n    }",
+      "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2f04377d_e84e7dce",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-23T18:42:13Z",
+      "side": 1,
+      "message": "I am not sure why this is needed. Let us talk about this.",
+      "parentUuid": "d00e2f9f_ac07ba16",
       "revId": "f61d2575c141aad99a72cdd9f027fe7adb929efb",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
