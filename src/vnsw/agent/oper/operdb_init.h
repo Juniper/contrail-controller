@@ -32,6 +32,7 @@ class RouteLeakManager;
 class TsnElector;
 class ProjectConfig;
 class VxlanRoutingManager;
+class HBFHandler;
 
 class OperDB {
 public:
@@ -97,6 +98,9 @@ public:
     VxlanRoutingManager *vxlan_routing_manager() const {
         return vxlan_routing_manager_.get();
     }
+    HBFHandler *hbf_handler() const {
+        return hbf_handler_.get();
+    }
 
 private:
     OperDB();
@@ -123,6 +127,7 @@ private:
     std::auto_ptr<RouteLeakManager> route_leak_manager_;
     std::auto_ptr<TsnElector> tsn_elector_;
     std::auto_ptr<VxlanRoutingManager> vxlan_routing_manager_;
+    std::auto_ptr<HBFHandler> hbf_handler_;
 
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
