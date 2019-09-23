@@ -8,7 +8,9 @@ import (
     "fmt"
     "os"
     "os/exec"
+    "strings"
     "syscall"
+    "time"
 )
 
 // Manager represents the top level object in CAT framework and holds data that is common tos several other components. Eventually these needs to be tunable from config or command line options.
@@ -33,10 +35,42 @@ type Component struct {
     Cmd      *exec.Cmd
 }
 
+type Endpoint struct {
+    IP string
+    Port int
+}
+
 type Config struct {
     BGPPort  int `json:BGPPort`
     XMPPPort int `json:XMPPPort`
     HTTPPort int `json:HTTPPort`
+}
+
+// Run a command in shell repeatedly until success and return the output.
+// Use retry < 1 to retry the command for ever..
+func ShellCommandWithRetry (retry, delay int, name string, args ...string) (string, error) {
+    var err error
+    var result_bytes []byte
+
+    for {
+        cmd := exec.Command(name, args...)
+        if result_bytes, err = cmd.Output(); err == nil {
+            return strings.TrimRight(string(result_bytes), "\n"), nil
+        }
+
+        if retry > 0 {
+            retry -= 1
+        } else {
+            time.Sleep(time.Duration(delay) * time.Second)
+            continue
+        }
+
+        if retry == 0 {
+            break
+        }
+        time.Sleep(time.Duration(delay) * time.Second)
+    }
+    return "", fmt.Errorf("Failed to execute command %s: %v", name, err)
 }
 
 func removeDir(dir string) error {
@@ -64,8 +98,9 @@ func (c *Component) Stop() error {
         return fmt.Errorf("Could not stop process %d", c.Cmd.Process.Pid)
     }
     file := fmt.Sprintf("%d.json", c.Cmd.Process.Pid)
-    _, err := os.Stat(file); if !os.IsNotExist(err) {
-        err := os.Remove(file); if err != nil {
+    _, err := os.Stat(file)
+    if !os.IsNotExist(err) {
+        if err := os.Remove(file); err != nil {
             return err
         }
     }

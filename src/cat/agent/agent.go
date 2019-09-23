@@ -25,10 +25,10 @@ const agentAddPortBinary = "../../../../controller/src/vnsw/agent/port_ipc/vrout
 // Agent is a SUT component for VRouter Agent.
 type Agent struct {
     sut.Component
-    XMPPPorts []int
+    Endpoints []sut.Endpoint
 }
 
-func New(m sut.Manager, name, test string, xmpp_ports []int) (*Agent, error) {
+func New(m sut.Manager, name, test string, endpoints []sut.Endpoint) (*Agent, error) {
     a := &Agent{
         Component: sut.Component{
             Name:    name,
@@ -42,7 +42,7 @@ func New(m sut.Manager, name, test string, xmpp_ports []int) (*Agent, error) {
             },
             ConfFile: "",
         },
-        XMPPPorts: xmpp_ports,
+        Endpoints: endpoints,
     }
     if err := os.MkdirAll(a.Component.ConfDir, 0755); err != nil {
         return nil, fmt.Errorf("failed to make conf directory: %v", err)
@@ -95,8 +95,8 @@ func (a *Agent) writeConfiguration() error {
         switch {
         case strings.Contains(line, "xmpp_port"):
             confLine = "servers="
-            for _, p := range a.XMPPPorts {
-                confLine = fmt.Sprintf("%s127.0.0.1:%d ", confLine, p)
+            for _, endpoint := range a.Endpoints {
+                confLine = fmt.Sprintf("%s%s:%d ", confLine, endpoint.IP, endpoint.Port)
             }
         case strings.Contains(line, "agent_name"):
             confLine = fmt.Sprintf("agent_name=%s", a.Name)
