@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dcb1e78a_a37e4ed0",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/import_lldp_info/tasks/juniper.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-09-23T22:15:33Z",
+      "side": 1,
+      "message": "lets use the do_until_loop.yml here rather than have localized retry code?",
+      "revId": "23d675c22c11987cc7b36b42b1ee309402ecaa2b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
