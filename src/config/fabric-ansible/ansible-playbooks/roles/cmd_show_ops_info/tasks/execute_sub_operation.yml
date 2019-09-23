@@ -1,0 +1,54 @@
+- block:
+    - set_fact:
+        operation_type: "{{ item.conditional.sub_operation }}"
+        operation_details: "{{ item.conditional.command_detail | default('') }}"
+
+    - set_fact:  operation_details="chassis alarms"
+      when: operation_type == "show chassis info" and ( operation_details == "" or operation_details is not defined )
+
+    - set_fact:  operation_details="route summary"
+      when: operation_type == "show route info" and ( operation_details == "" or operation_details is not defined )
+
+    - set_fact:  operation_details="bgp summary"
+      when: operation_type == "show bgp info" and ( operation_details == "" or operation_details is not defined )
+
+    - set_fact:  operation_details="evpn ip-prefix-database"
+      when: operation_type == "show evpn info" and ( operation_details == "" or operation_details is not defined )
+
+    - set_fact:  operation_details="lldp neighbors"
+      when: operation_type == "show lldp info" and ( operation_details == "" or operation_details is not defined )
+
+    - set_fact:  operation_details="lacp interfaces extensive"
+      when: operation_type == "show lacp info" and ( operation_details == "" or operation_details is not defined )
+
+    - set_fact:  operation_details="vlans"
+      when: operation_type == "show vlan info" and ( operation_details == "" or operation_details is not defined )
+
+
+    - name: Execute commands on a Juniper Device ...
+      juniper_junos_command:
+        commands:
+          - "show {{ operation_details }}"
+        display: text
+        provider:
+          host: "{{device_management_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: command_result
+
+    - name: "Print unmodified result"
+      debug:
+        var: command_result
+
+    - set_fact:
+        command_resp: "{{command_result.stdout}}"
+
+    - set_fact:
+        output_of_all_operations_as_string: |
+          {{ output_of_all_operations_as_string }}\n
+          ============================================================
+          Results of 'show {{ operation_details }}':
+          {{ command_resp }}
+
