@@ -564,6 +564,8 @@ public:
 
     std::string cat_ksocketdir() const { return cat_kSocketDir_; }
 
+    float vr_object_high_watermark() const { return vr_object_high_watermark_; }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -607,6 +609,7 @@ private:
     void UpdateBgpAsaServicePortRange();
     void UpdateBgpAsaServicePortRangeValue();
     void ComputeFlowLimits();
+    void ComputeVrWatermark();
     static std::map<string, std::map<string, string> > ParseDerivedStats(
         const std::vector<std::string> &dsvec);
     void ParseQueue();
@@ -833,6 +836,7 @@ private:
     bool AgentMock_;
     bool cat_MockDPDK_;
     std::string cat_kSocketDir_;
+    float vr_object_high_watermark_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

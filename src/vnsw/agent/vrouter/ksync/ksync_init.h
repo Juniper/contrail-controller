@@ -24,6 +24,8 @@ class KSyncFlowMemory;
 class FlowTableKSyncObject;
 class BridgeRouteAuditKSyncObject;
 
+typedef std::pair<std::string, std::string> VrLimitData;
+
 class KSync {
 public:
     KSync(Agent *agent);

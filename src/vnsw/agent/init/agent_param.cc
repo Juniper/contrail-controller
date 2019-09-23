@@ -554,6 +554,10 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.vmi_vm_vn_uve_interval");
     GetOptValue<bool>(var_map, mvpn_ipv4_enable_,
                           "DEFAULT.mvpn_ipv4_enable");
+    float high_watermark = 0;
+    if (GetOptValue<float>(var_map, high_watermark, "DEFAULT.vr_object_high_watermark")) {
+        vr_object_high_watermark_ = high_watermark;
+    }
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1151,6 +1155,17 @@ void AgentParam::UpdateBgpAsaServicePortRange() {
     }
 }
 
+void AgentParam::ComputeVrWatermark() {
+    if (vr_object_high_watermark_ > 100) {
+        cout << "Updating vrouter objects high watermark to : 100%\n";
+        vr_object_high_watermark_ = 100;
+    }
+    if (vr_object_high_watermark_ < 0) {
+        cout << "Updating vrouter objects high watermark to minimum : 0%\n";
+        vr_object_high_watermark_ = 0;
+    }
+}
+
 // Update max_vm_flows_ if it is greater than 100.
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
@@ -1336,6 +1351,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     InitVhostAndXenLLPrefix();
     UpdateBgpAsaServicePortRangeValue();
     ComputeFlowLimits();
+    ComputeVrWatermark();
     vgw_config_table_->InitFromConfig(tree_);
 }
 
@@ -1558,6 +1574,7 @@ void AgentParam::LogConfig() const {
     }
     LOG(DEBUG, "Nexthop server endpoint  : " << nexthop_server_endpoint_);
     LOG(DEBUG, "Agent base directory     : " << agent_base_dir_);
+    LOG(DEBUG, "Vrouter objects high watermark	: " << vr_object_high_watermark_);
 }
 
 void AgentParam::PostValidateLogConfig() const {
@@ -1690,7 +1707,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
         fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize),
         mvpn_ipv4_enable_(false),AgentMock_(false), cat_MockDPDK_(false),
-        cat_kSocketDir_("/tmp/") {
+        cat_kSocketDir_("/tmp/"), vr_object_high_watermark_(80) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -2020,6 +2037,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Enable Nh Sever Pid")
         ("DEFAULT.mvpn_ipv4_enable", opt::bool_switch(&mvpn_ipv4_enable_),
           "Enable MVPN IPv4 in Agent")
+        ("DEFAULT.vr_object_high_watermark", opt::value<float>()->default_value(80),
+         "Max allowed vr object usage till alarm is raised - given as % (in integer) of object limit in vrouter")
         ;
     options_.add(generic).add(config);
     config_file_options_.add(config);

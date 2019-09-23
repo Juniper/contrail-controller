@@ -636,6 +636,10 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         VrouterObjectLimits vr_limits = agent_->GetVrouterObjectLimits();
         vrouter_agent.set_vr_limits(vr_limits);
         vrouter_agent.set_subcluster_name(agent_->subcluster_name());
+        vrouter_agent.set_vr_high_watermark(boost::lexical_cast<std::string>
+                                           (agent_->vr_limit_high_watermark()));
+        vrouter_agent.set_vr_low_watermark(boost::lexical_cast<std::string>
+                                          (agent_->vr_limit_low_watermark()));
         first = false;
         changed = true;
     }
@@ -740,6 +744,36 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         prev_vrouter_.get_dns_servers() != dns_list) {
         vrouter_agent.set_dns_servers(dns_list);
         prev_vrouter_.set_dns_servers(dns_list);
+        changed = true;
+    }
+
+    std::vector<VrouterAgentResUsage> limit_exceeded_list;
+    VrouterAgentResUsage usage;
+    bool limit_exceeded = false;
+    bool table_limit = false;
+    VrLimitExceeded res_usage_map = agent_->get_vr_limits_exceeded_map();
+    for(VrLimitExceeded::iterator res_map_it = res_usage_map.begin();
+        res_map_it != res_usage_map.end(); ++res_map_it ) {
+        if (res_map_it->second != "Normal") {
+            usage.set_name(res_map_it->first);
+            usage.set_status(res_map_it->second);
+            limit_exceeded_list.push_back(usage);
+            if (res_map_it->second == "TableLimit" && !table_limit) {
+                table_limit = true;
+                limit_exceeded = true;
+            } else if (res_map_it->second == "Exceeded" && !limit_exceeded ) {
+                limit_exceeded = true;
+                table_limit = false;
+            }
+        }
+    }
+
+    if (!prev_vrouter_.__isset.vr_limit_exceeded_list ||
+        prev_vrouter_.get_vr_limit_exceeded_list() != limit_exceeded_list) {
+        vrouter_agent.set_vr_limit_exceeded_list(limit_exceeded_list);
+        prev_vrouter_.set_vr_limit_exceeded_list(limit_exceeded_list);
+        vrouter_agent.set_res_limit(limit_exceeded);
+        vrouter_agent.set_res_table_limit(table_limit);
         changed = true;
     }
 

@@ -86,6 +86,10 @@ public:
         return (bitmap_.count() == bitmap_.size());
     }
 
+    size_t Count() {
+        return bitmap_.count();
+    }
+
 private:
     typedef boost::dynamic_bitset<> Bitmap;
     Bitmap bitmap_;

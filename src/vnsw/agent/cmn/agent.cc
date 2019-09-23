@@ -545,6 +545,12 @@ void Agent::CopyConfig(AgentParam *params) {
     flow_update_tokens_ = params_->flow_update_tokens();
     tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
     task_monitor_timeout_msec_ = params_->task_monitor_timeout_msec();
+    vr_limit_high_watermark_ = params_->vr_object_high_watermark();
+    if (vr_limit_high_watermark_ >= 5) {
+        vr_limit_low_watermark_ = vr_limit_high_watermark_ - 5;
+    } else {
+        vr_limit_low_watermark_ = 0;
+    }
 }
 
 void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
@@ -777,7 +783,8 @@ Agent::Agent() :
     vrouter_max_oflow_bridge_entries_(0), vrouter_priority_tagging_(true),
     flow_stats_req_handler_(NULL),
     tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout),
-    task_monitor_timeout_msec_(kDefaultTaskMonitorTimeout) {
+    task_monitor_timeout_msec_(kDefaultTaskMonitorTimeout),
+    vr_limit_high_watermark_(80), vr_limit_low_watermark_(75) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
