@@ -13,6 +13,7 @@
 #include "kstate/route_kstate.h"
 #include "kstate/flow_kstate.h"
 #include "kstate/vxlan_kstate.h"
+#include "kstate/vrf_kstate.h"
 
 class TestKStateBase {
 public:
@@ -209,6 +210,106 @@ public:
     }
 private:
     static TestNHKState *singleton_;
+};
+
+class TestVrfKState: public VrfKState, public TestKStateBase {
+public:
+    TestVrfKState(bool verify, int vrf_count, KVrfResp *obj, std::string resp_ctx,
+                 vr_vrf_req &encoder, int id, int hbf_rintf, int hbf_lintf):
+                 VrfKState(obj, resp_ctx, encoder, id),
+                 TestKStateBase(verify, vrf_count, id) {
+        hbf_lintf_ = hbf_lintf;
+        hbf_rintf_ = hbf_rintf;
+    }
+    virtual void SendResponse() {
+        //Update the response_object_ with empty list
+        KVrfResp *resp = static_cast<KVrfResp *>(response_object_);
+        vector<KVrfInfo> list;
+        resp->set_vrf_list(list);
+    }
+
+    virtual void Handler() {
+        KVrfResp *resp = static_cast<KVrfResp *>(response_object_);
+        if (resp) {
+            UpdateFetchCount();
+            if (MoreData()) {
+                SendResponse();
+                SendNextRequest();
+            } else {
+                if (verify_) {
+                    EXPECT_EQ(expected_count_, fetched_count_);
+                }
+                handler_count_++;
+                more_context_ = boost::any();
+            }
+        }
+        if (verify_idx_ != -1) {
+            KVrfResp *resp = static_cast<KVrfResp *>(response_object_);
+            EXPECT_TRUE(resp != NULL);
+            if (resp) {
+                vector<KVrfInfo> &list =
+                    const_cast<std::vector<KVrfInfo>&>(resp->get_vrf_list());
+                bool found = false;
+                for (vector<KVrfInfo>::iterator it = list.begin();
+                     it != list.end();
+                     it++) {
+                    KVrfInfo vrf;
+                    vrf = *it;
+                    if (vrf.get_vrf_idx() == verify_idx_) {
+                        EXPECT_EQ(vrf.get_hbf_lintf(), hbf_lintf_);
+                        EXPECT_EQ(vrf.get_hbf_rintf(), hbf_rintf_);
+                        found = true;
+                    }
+                }
+                EXPECT_TRUE(found == true);
+            }
+        }
+    }
+
+    void PrintVrfResp(KVrfResp *r) {
+        vector<KVrfInfo> &list =
+                const_cast<std::vector<KVrfInfo>&>(r->get_vrf_list());
+        vector<KVrfInfo>::iterator it = list.begin();
+        KVrfInfo vrf;
+        while(it != list.end()) {
+            vrf = *it;
+            LOG(ERROR, "pranavad: vrfkinfo Vrf ID " << vrf.get_vrf_idx() <<
+                " hbfl " << vrf.get_hbf_lintf() << " hbfr " <<
+                vrf.get_hbf_rintf());
+            it++;
+        }
+    }
+    static void Init(int verify_idx = -1, bool verify = false,
+                     int vrf_count = 0, int hbf_rintf = -1,
+                     int hbf_lintf = -1) {
+        vr_vrf_req req;
+        KVrfResp *resp = new KVrfResp();
+
+        // The following object is deleted in KStateIoContext::Handler()
+        // after the Handler is invoked.
+        singleton_ = new TestVrfKState(verify, vrf_count, resp,
+                                       "dummy", req, verify_idx,
+                                       hbf_rintf, hbf_lintf);
+        singleton_->EncodeAndSend(req);
+    }
+    ~TestVrfKState() {
+        if (response_object_) {
+           response_object_->Release();
+        }
+    }
+    virtual void UpdateFetchCount() {
+        KVrfResp *resp = static_cast<KVrfResp *>(response_object_);
+        if (resp) {
+            vector<KVrfInfo> &list =
+                const_cast<std::vector<KVrfInfo>&>(resp->get_vrf_list());
+            fetched_count_ += list.size();
+            PrintVrfResp(resp);
+        }
+    }
+private:
+    static TestVrfKState *singleton_;
+    int hbf_rintf_;
+    int hbf_lintf_;
 };
 
 class TestMplsKState: public MplsKState, public TestKStateBase {
