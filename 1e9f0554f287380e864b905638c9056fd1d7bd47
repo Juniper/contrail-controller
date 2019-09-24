@@ -33,6 +33,24 @@
       "revId": "1e9f0554f287380e864b905638c9056fd1d7bd47",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4908c496_d6576e8d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_project.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-09-24T06:51:08Z",
+      "side": 1,
+      "message": "I am working on the test for the other concurrency error. I will commit them together in the master. But if that is not finished within 4.1 timeframe i will commit  the current fix\nto 4.1 as Nagendra suggested.",
+      "parentUuid": "4cf20498_28d7537e",
+      "revId": "1e9f0554f287380e864b905638c9056fd1d7bd47",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
