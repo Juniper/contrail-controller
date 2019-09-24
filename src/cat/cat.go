@@ -15,6 +15,7 @@ import (
     "time"
 
     "cat/agent"
+    "cat/config"
     "cat/controlnode"
     "cat/crpd"
     "cat/sut"
@@ -27,6 +28,9 @@ type CAT struct {
     ControlNodes []*controlnode.ControlNode
     Agents       []*agent.Agent
     CRPDs        []*crpd.CRPD
+    FqNameTable     config.FQNameTableType
+    UuidTable       config.UUIDTableType
+    ConfigMap       config.ConfigMap
 }
 
 // Timestamp format for logfiles.
@@ -36,7 +40,14 @@ const crpdImageGetCommand = "sshpass -p c0ntrail123 ssh 10.84.5.39 cat /cs-share
 
 // New creates an initialized CAT instance.
 func New() (*CAT, error) {
-    c := &CAT{}
+    c := &CAT{
+        ControlNodes: []*controlnode.ControlNode{},
+        Agents: []*agent.Agent{},
+        CRPDs: []*crpd.CRPD{},
+        FqNameTable: config.FQNameTableType{},
+        UuidTable: config.UUIDTableType{},
+        ConfigMap: config.ConfigMap{},
+    }
     now := time.Now()
 
     cwd, err := os.Getwd()

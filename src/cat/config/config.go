@@ -44,6 +44,8 @@ type ContrailConfig struct {
     DisplayName string `json:"prop:display_name"`
 }
 
+type ConfigMap map[string]*ContrailConfig
+
 func (c *ContrailConfig) Map (b []byte) (map[string]string, error) {
     v := map[string]interface{}{}
     json.Unmarshal(b, &v)
@@ -173,5 +175,11 @@ func (c *ContrailConfig) UpdateDB(uuidTable *UUIDTableType) error {
         return err
     }
     (*uuidTable)[c.UUID] = j
+    return nil
+}
+
+func (c *ContrailConfig) Delete(fqNameTable *FQNameTableType, uuidTable *UUIDTableType) error {
+    delete(*uuidTable, c.UUID)
+    delete((*fqNameTable)[c.Type], fmt.Sprintf("%s:%s", strings.Join(c.FqName, ":"), c.UUID))
     return nil
 }

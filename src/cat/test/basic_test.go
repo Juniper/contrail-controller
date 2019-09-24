@@ -6,17 +6,15 @@ package main
 
 import (
     "cat"
-    "cat/agent"
     "cat/config"
     "cat/controlnode"
     "cat/crpd"
     "cat/sut"
     log "github.com/sirupsen/logrus"
     "fmt"
+    "time"
     "testing"
 )
-
-type ConfigMapType map[string]*config.ContrailConfig
 
 func TestConnectivityWithConfiguration(t *testing.T) {
     tests := []struct{
@@ -35,7 +33,8 @@ func TestConnectivityWithConfiguration(t *testing.T) {
              controlNodes: 3,
              agents: 0,
              crpds: 0,
-     },{
+     },
+     {
              desc: "SingleControlNodeSingleAgent",
              controlNodes: 1,
              agents: 1,
@@ -59,217 +58,290 @@ func TestConnectivityWithConfiguration(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.desc, func(t *testing.T){
-            obj, err := cat.New()
+            log.Infof("Started test %s", tt.desc)
+            cobj, err := cat.New()
             if err != nil {
-                t.Fatalf("Failed to create CAT object: %v", err)
+                t.Fatalf("Failed to create CAT cobject: %v", err)
             }
-            var control_nodes []*controlnode.ControlNode
-            var agents []*agent.Agent
-            var crpds []*crpd.CRPD
             if (!crpd.CanUseCRPD()) {
                 tt.crpds = 0
             }
-            control_nodes, agents, crpds, err = setup(obj, tt.desc, tt.controlNodes, tt.agents, tt.crpds)
+
+            err = setup(cobj, tt.desc, tt.controlNodes, tt.agents, tt.crpds)
             if err != nil {
-                t.Fatalf("Failed to create control-nodes, agents and/or crpds: %v", err)
+                t.Fatalf("Failed to create control-nodes, agents and/or cobj.CRPDs: %v", err)
             }
 
-            if err := verifyControlNodesAndAgents(control_nodes, agents, crpds); err != nil {
-                t.Fatalf("Failed to verify control-nodes, agents and/or crpds: %v", err)
+            if err := verifyControlNodesAndAgents(cobj); err != nil {
+                t.Fatalf("Failed to verify control-nodes, agents and/or cobj.CRPDs: %v", err)
             }
 
-            for i := range control_nodes {
-                if err := control_nodes[i].Restart(); err != nil {
+            for _, cn := range cobj.ControlNodes {
+                if err := cn.Restart(); err != nil {
                     t.Fatalf("Failed to restart control-nodes: %v", err)
                 }
             }
-            if err := verifyControlNodesAndAgents(control_nodes, agents, crpds); err != nil {
-                t.Fatalf("Failed to verify control-nodes, agents and/or crpds after restart: %v", err)
+            if err := verifyControlNodesAndAgents(cobj); err != nil {
+                t.Fatalf("Failed to verify control-nodes, agents and/or cobj.CRPDs after restart: %v", err)
             }
-            if err := obj.Teardown(); err != nil {
-                t.Fatalf("CAT objects cleanup failed: %v", err)
+
+            // Disable bgp-router (admin: down) and ensure that session indeed
+            // goes down.
+            if err := setControlNodeBgpRoutersAdminDown(cobj, true); err != nil {
+                t.Fatalf("Failed to update bgp-routers admin_down to true: %v", err)
+            }
+
+            if err := verifyControlNodeBgpSessions(cobj, true); err != nil {
+                t.Fatalf("bgp routers remain up after admin down: %v", err)
+            }
+
+            // Re-enable bgp-router (admin: down) and ensure that session indeed
+            // comes back up.
+            if err := setControlNodeBgpRoutersAdminDown(cobj, false); err != nil {
+                t.Fatalf("Failed to update bgp-routers admin_down to false: %v", err)
+            }
+
+            if err := verifyControlNodeBgpSessions(cobj, false); err != nil {
+                t.Fatalf("bgp routers did not come back up after admin up: %v", err)
+            }
+
+            // Delete control-node bgp-routers and verify.
+            if err := deleteControlNodeBgpRouters(cobj); err != nil {
+                t.Fatalf("Cannot delete bgp routers from configuration")
+            }
+
+            if err := verifyControlNodeBgpRoutersConfiguration(cobj, len(cobj.CRPDs)); err != nil {
+                t.Fatalf("Cannot verifye bgp routers configuration")
+            }
+
+            if err := cobj.Teardown(); err != nil {
+                t.Fatalf("CAT cobjects cleanup failed: %v", err)
             }
         })
     }
 }
 
-func setup(cat *cat.CAT, desc string, nc, na, ncrpd int) ([]*controlnode.ControlNode, []*agent.Agent, []*crpd.CRPD, error) {
-    log.Debugf("%s: Creating %d control-nodes, %d agents and %d crpds\n", desc, nc, na, ncrpd)
-    configMap := ConfigMapType{}
-    control_nodes := []*controlnode.ControlNode{}
-
-    ip_octet := 127
-    if ncrpd > 0 {
-        ip_octet = 10
-    }
-    for i := 0; i < nc; i++ {
-        cn, err := cat.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ip_octet, i+1), fmt.Sprintf("%s/db.json", cat.SUT.Manager.RootDir), 0)
-        if err != nil {
-            return nil, nil, nil, err
+func deleteControlNodeBgpRouters(cobj *cat.CAT) error {
+    for _, cn := range cobj.ControlNodes {
+        if err := cn.ContrailConfig.Delete(&cobj.FqNameTable, &cobj.UuidTable); err != nil {
+            return fmt.Errorf("bgp-router configuration deletion failed: %v", err)
         }
-        control_nodes = append(control_nodes, cn)
     }
 
-    crpds := []*crpd.CRPD{}
-    for i := 0; i < ncrpd; i++ {
-        cr, err := cat.AddCRPD(desc, fmt.Sprintf("crpd%d", i+1))
-        if err != nil {
-            return nil, nil, nil, err
-        }
-        crpds = append(crpds, cr)
+    if err := controlnode.UpdateConfigDB(cobj.SUT.Manager.RootDir, cobj.ControlNodes, &cobj.FqNameTable, &cobj.UuidTable); err != nil {
+        return err
     }
-    generateConfiguration(cat, configMap, control_nodes, crpds)
-
-    agents := []*agent.Agent{}
-    for i := 0; i < na; i++ {
-        ag, err := cat.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), control_nodes)
-        if err != nil {
-            return nil, nil, nil, err
-        }
-        agents = append(agents, ag)
-    }
-    if err := verifyControlNodesAndAgents(control_nodes, agents, crpds); err != nil {
-        return nil, nil, nil, err
-    }
-
-    if err := verifyConfiguration(control_nodes, crpds); err != nil {
-        return nil, nil, nil, err
-    }
-
-    if err := addVirtualPorts(agents, configMap); err != nil {
-        return nil, nil, nil, err
-    }
-    return control_nodes, agents, crpds, nil
+    return nil
 }
 
-func verifyControlNodesAndAgents(control_nodes []*controlnode.ControlNode, agents[]*agent.Agent, crpds []*crpd.CRPD) error {
-    for i := range control_nodes {
-        if err := control_nodes[i].CheckXMPPConnections(agents, 30, 1); err != nil {
-            return fmt.Errorf("%s to agents xmpp connections are down: %v", control_nodes[i].Name, err)
-        }
-
-        cn_components := []*sut.Component{}
-        for i := 0; i < len(control_nodes); i++ {
-            cn_components = append(cn_components, &control_nodes[i].Component)
-        }
-        if err := control_nodes[i].CheckBGPConnections(cn_components, 30, 5); err != nil {
-            return fmt.Errorf("%s to control-nodes bgp connections are down: %v", control_nodes[i].Name, err)
-        }
-
-        cr_components := []*sut.Component{}
-        for i := 0; i < len(crpds); i++ {
-            cr_components = append(cr_components, &crpds[i].Component)
-        }
-        if err := control_nodes[i].CheckBGPConnections(cr_components, 30, 5); err != nil {
-            return fmt.Errorf("%s to control-nodes bgp connections are down: %v", control_nodes[i].Name, err)
+func verifyControlNodeBgpRoutersConfiguration(cobj *cat.CAT, count int) error {
+    for _, cn := range cobj.ControlNodes {
+        if err := cn.CheckConfiguration("bgp-router", count, 3, 3); err != nil {
+            return fmt.Errorf("bgp-router configuration check failed: %v", err)
         }
     }
     return nil
 }
 
-func createVirtualNetwork(fqNameTable *config.FQNameTableType, uuidTable *config.UUIDTableType, configMap ConfigMapType, name, target string, network_ipam *config.ContrailConfig) (*config.VirtualNetwork, *config.RoutingInstance, error) {
+func setControlNodeBgpRoutersAdminDown(cobj *cat.CAT, down bool) error {
+    for _, cn := range cobj.ControlNodes {
+        cn.ContrailConfig.BGPRouterParameters.AdminDown = down
+        cn.ContrailConfig.IdPerms.LastModified = time.Now().String()
+        cn.ContrailConfig.UpdateDB(&cobj.UuidTable)
+    }
+
+    if err := controlnode.UpdateConfigDB(cobj.SUT.Manager.RootDir, cobj.ControlNodes, &cobj.FqNameTable, &cobj.UuidTable); err != nil {
+        return err
+    }
+    return nil
+}
+
+func verifyControlNodeBgpSessions(cobj *cat.CAT, down bool) error {
+    cn_components := []*sut.Component{}
+
+    for _, cn := range cobj.ControlNodes {
+        cn_components = append(cn_components, &cn.Component)
+    }
+
+    for _, cn := range cobj.ControlNodes {
+        if err := cn.CheckBGPConnections(cn_components, down, 30, 5); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+func setup(cobj *cat.CAT, desc string, nc, na, ncrpd int) (error) {
+    log.Debugf("%s: Creating %d control-nodes, %d cobj.Agents and %d cobj.CRPDs\n", desc, nc, na, ncrpd)
+
+    ip_octet := 10
+    if ncrpd > 0 {
+        ip_octet = 10
+    }
+    for i := 0; i < nc; i++ {
+        _, err := cobj.AddControlNode(desc, fmt.Sprintf("control-node%d", i+1), fmt.Sprintf("%d.0.0.%d", ip_octet, i+1), fmt.Sprintf("%s/db.json", cobj.SUT.Manager.RootDir), 0)
+        if err != nil {
+            return err
+        }
+    }
+
+    for i := 0; i < ncrpd; i++ {
+        _, err := cobj.AddCRPD(desc, fmt.Sprintf("crpd%d", i+1))
+        if err != nil {
+            return err
+        }
+    }
+
+    generateConfiguration(cobj)
+
+    for i := 0; i < na; i++ {
+        _, err := cobj.AddAgent(desc, fmt.Sprintf("Agent%d", i+1), cobj.ControlNodes)
+        if err != nil {
+            return err
+        }
+    }
+    if err := verifyControlNodesAndAgents(cobj); err != nil {
+        return err
+    }
+
+    if err := verifyConfiguration(cobj); err != nil {
+        return err
+    }
+
+    if err := addVirtualPorts(cobj); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func verifyControlNodesAndAgents(cobj *cat.CAT) error {
+    for _, cn := range cobj.ControlNodes {
+        if err := cn.CheckXMPPConnections(cobj.Agents, 30, 1); err != nil {
+            return fmt.Errorf("%s to cobj.Agents xmpp connections are down: %v", cn.Name, err)
+        }
+
+        cn_components := []*sut.Component{}
+        for _, cn2 := range cobj.ControlNodes {
+            cn_components = append(cn_components, &cn2.Component)
+        }
+        if err := cn.CheckBGPConnections(cn_components, false, 30, 5); err != nil {
+            return fmt.Errorf("%s to control-nodes bgp connections are down: %v", cn.Name, err)
+        }
+
+        cr_components := []*sut.Component{}
+        for _, cr := range cobj.ControlNodes {
+            cr_components = append(cr_components, &cr.Component)
+        }
+        if err := cn.CheckBGPConnections(cr_components, false, 30, 5); err != nil {
+            return fmt.Errorf("%s to control-nodes bgp connections are down: %v", cn.Name, err)
+        }
+    }
+    return nil
+}
+
+func createVirtualNetwork(cobj *cat.CAT, name, target string, network_ipam *config.ContrailConfig) (*config.VirtualNetwork, *config.RoutingInstance, error) {
     t := fmt.Sprintf("target:%s", target)
-    rtarget, err := config.NewConfigObject(fqNameTable, uuidTable, "route_target", t, "", []string{t})
+    rtarget, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "route_target", t, "", []string{t})
     if err != nil {
         return nil, nil, err
     }
-    configMap["route_target:" + target] = rtarget
+    cobj.ConfigMap["route_target:" + target] = rtarget
 
-    ri, err := config.NewRoutingInstance(fqNameTable, uuidTable, name)
+    ri, err := config.NewRoutingInstance(&cobj.FqNameTable, &cobj.UuidTable, name)
     if err != nil {
         return nil, nil, err
     }
-    configMap["routing_instance:" + name] = ri.ContrailConfig
-    ri.AddRef(uuidTable, rtarget)
+    cobj.ConfigMap["routing_instance:" + name] = ri.ContrailConfig
+    ri.AddRef(&cobj.UuidTable, rtarget)
 
-    vn, err := config.NewVirtualNetwork(fqNameTable, uuidTable, name)
+    vn, err := config.NewVirtualNetwork(&cobj.FqNameTable, &cobj.UuidTable, name)
     if err != nil {
         return nil, nil, err
     }
-    configMap["virtual_network:" + name] = vn.ContrailConfig
-    vn.AddRef(uuidTable, network_ipam)
-    vn.AddChild(uuidTable, ri.ContrailConfig)
+    cobj.ConfigMap["virtual_network:" + name] = vn.ContrailConfig
+    vn.AddRef(&cobj.UuidTable, network_ipam)
+    vn.AddChild(&cobj.UuidTable, ri.ContrailConfig)
     return vn, ri, err
 }
 
-func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes []*controlnode.ControlNode, crpds []*crpd.CRPD) error {
-    fqNameTable := config.FQNameTableType{}
-    uuidTable := config.UUIDTableType{}
-    config.NewGlobalSystemsConfig(&fqNameTable, &uuidTable, "64512")
-    vm1, err := config.NewConfigObject(&fqNameTable, &uuidTable, "virtual_machine", "vm1", "", []string{"vm1"})
+func generateConfiguration(cobj *cat.CAT) error {
+    config.NewGlobalSystemsConfig(&cobj.FqNameTable, &cobj.UuidTable, "64512")
+    vm1, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "virtual_machine", "vm1", "", []string{"vm1"})
     if err != nil {
         return err
     }
-    configMap["virtual_machine:vm1"] = vm1
+    cobj.ConfigMap["virtual_machine:vm1"] = vm1
 
-    vm2, err := config.NewConfigObject(&fqNameTable, &uuidTable, "virtual_machine", "vm2", "", []string{"vm2"})
+    vm2, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "virtual_machine", "vm2", "", []string{"vm2"})
     if err != nil {
         return err
     }
-    configMap["virtual_machine:vm2"] = vm2
+    cobj.ConfigMap["virtual_machine:vm2"] = vm2
 
-    vm3, err := config.NewConfigObject(&fqNameTable, &uuidTable, "virtual_machine", "vm3", "", []string{"vm3"})
+    vm3, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "virtual_machine", "vm3", "", []string{"vm3"})
     if err != nil {
         return err
     }
-    configMap["virtual_machine:vm3"] = vm3
+    cobj.ConfigMap["virtual_machine:vm3"] = vm3
 
-    vm4, err := config.NewConfigObject(&fqNameTable, &uuidTable, "virtual_machine", "vm4", "", []string{"vm4"})
+    vm4, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "virtual_machine", "vm4", "", []string{"vm4"})
     if err != nil {
         return err
     }
-    configMap["virtual_machine:vm4"] = vm4
+    cobj.ConfigMap["virtual_machine:vm4"] = vm4
 
-    domain, err := config.NewConfigObject(&fqNameTable, &uuidTable, "domain", "default-domain", "", []string{"default-domain"})
+    domain, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "domain", "default-domain", "", []string{"default-domain"})
     if err != nil {
         return err
     }
-    configMap["domain:default-domain"] = domain
+    cobj.ConfigMap["domain:default-domain"] = domain
 
-    project, err := config.NewConfigObject(&fqNameTable, &uuidTable, "project", "default-project", "domain:" + domain.UUID, []string{"default-domain", "default-project"})
+    project, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "project", "default-project", "domain:" + domain.UUID, []string{"default-domain", "default-project"})
     if err != nil {
         return err
     }
-    configMap["project:default-project"] = project
+    cobj.ConfigMap["project:default-project"] = project
 
-    network_ipam, err := config.NewConfigObject(&fqNameTable, &uuidTable, "network_ipam", "default-network-ipam", "project:" + project.UUID, []string{"default-domain", "default-project", "default-network-ipam"})
+    network_ipam, err := config.NewConfigObject(&cobj.FqNameTable, &cobj.UuidTable, "network_ipam", "default-network-ipam", "project:" + project.UUID, []string{"default-domain", "default-project", "default-network-ipam"})
     if err != nil {
         return err
     }
-    configMap["network_ipam:default-network-ipam"] = network_ipam
+    cobj.ConfigMap["network_ipam:default-network-ipam"] = network_ipam
 
-    _, _, err = createVirtualNetwork(&fqNameTable, &uuidTable, configMap, "ip-fabric", "64512:80000000", network_ipam)
+    _, _, err = createVirtualNetwork(cobj, "ip-fabric", "64512:80000000", network_ipam)
     if err != nil {
         return err
     }
 
-    vn1, ri1, err := createVirtualNetwork(&fqNameTable, &uuidTable, configMap, "vn1", "64512:80000001", network_ipam)
+    vn1, ri1, err := createVirtualNetwork(cobj, "vn1", "64512:80000001", network_ipam)
     if err != nil {
         return err
     }
 
     var bgp_routers []*config.BGPRouter
-    ip_octet := 127
-    if len(crpds) > 0 {
+    ip_octet := 10
+    if len(cobj.CRPDs) > 0 {
         ip_octet = 10
     }
-    for i := range control_nodes {
+    for i := range cobj.ControlNodes {
         name := fmt.Sprintf("control-node%d", i+1)
         address := fmt.Sprintf("%d.0.0.%d", ip_octet, i+1)
-        bgp_router, err := config.NewBGPRouter(&fqNameTable, &uuidTable, name, address, "control-node", control_nodes[i].Config.BGPPort)
+        bgp_router, err := config.NewBGPRouter(&cobj.FqNameTable, &cobj.UuidTable, name, address, "control-node", cobj.ControlNodes[i].Config.BGPPort)
         if err != nil {
             return err
         }
-        configMap["bgp_router:" + name] = bgp_router.ContrailConfig
+        cobj.ConfigMap["bgp_router:" + name] = bgp_router.ContrailConfig
+        cobj.ControlNodes[i].ContrailConfig = bgp_router
         bgp_routers = append(bgp_routers, bgp_router)
     }
 
-    for i := range crpds {
-        crpd, err := config.NewBGPRouter(&fqNameTable, &uuidTable, crpds[i].Name, crpds[i].IPAddress, "router", 179)
+    for i := range cobj.CRPDs {
+        crpd, err := config.NewBGPRouter(&cobj.FqNameTable, &cobj.UuidTable, cobj.CRPDs[i].Name, cobj.CRPDs[i].IPAddress, "router", 179)
         if err != nil {
             return err
         }
-        configMap["bgp_router:" + crpds[i].Name] = crpd.ContrailConfig
+        cobj.ConfigMap["bgp_router:" + cobj.CRPDs[i].Name] = crpd.ContrailConfig
         bgp_routers = append(bgp_routers, crpd)
     }
 
@@ -277,95 +349,95 @@ func generateConfiguration(cat *cat.CAT, configMap ConfigMapType, control_nodes 
     for i := range bgp_routers {
         for j := range bgp_routers {
             if i != j {
-                bgp_routers[i].AddRef(&uuidTable, bgp_routers[j].ContrailConfig)
+                bgp_routers[i].AddRef(&cobj.UuidTable, bgp_routers[j].ContrailConfig)
             }
         }
     }
 
-    vr1, err := config.NewVirtualRouter(&fqNameTable, &uuidTable, "Agent1", "1.2.3.1")
+    vr1, err := config.NewVirtualRouter(&cobj.FqNameTable, &cobj.UuidTable, "Agent1", "1.2.3.1")
     if err != nil {
         return err
     }
-    configMap["virtual_router:Agent1"] = vr1.ContrailConfig
-    vr1.AddRef(&uuidTable, vm1)
-    vr1.AddRef(&uuidTable, vm2)
+    cobj.ConfigMap["virtual_router:Agent1"] = vr1.ContrailConfig
+    vr1.AddRef(&cobj.UuidTable, vm1)
+    vr1.AddRef(&cobj.UuidTable, vm2)
 
-    vr2, err := config.NewVirtualRouter(&fqNameTable, &uuidTable, "Agent2", "1.2.3.2")
+    vr2, err := config.NewVirtualRouter(&cobj.FqNameTable, &cobj.UuidTable, "Agent2", "1.2.3.2")
     if err != nil {
         return err
     }
-    configMap["virtual_router:Agent2"] = vr2.ContrailConfig
-    vr2.AddRef(&uuidTable, vm3)
-    vr2.AddRef(&uuidTable, vm4)
+    cobj.ConfigMap["virtual_router:Agent2"] = vr2.ContrailConfig
+    vr2.AddRef(&cobj.UuidTable, vm3)
+    vr2.AddRef(&cobj.UuidTable, vm4)
 
-    vmi1, err := config.NewVirtualMachineInterface(&fqNameTable, &uuidTable, "vmi1")
+    vmi1, err := config.NewVirtualMachineInterface(&cobj.FqNameTable, &cobj.UuidTable, "vmi1")
     if err != nil {
         return err
     }
-    configMap["virtual_machine_interface:vmi1"] = vmi1.ContrailConfig
-    vmi1.AddRef(&uuidTable, vm1)
-    vmi1.AddRef(&uuidTable, vn1.ContrailConfig)
-    vmi1.AddRef(&uuidTable, ri1.ContrailConfig)
+    cobj.ConfigMap["virtual_machine_interface:vmi1"] = vmi1.ContrailConfig
+    vmi1.AddRef(&cobj.UuidTable, vm1)
+    vmi1.AddRef(&cobj.UuidTable, vn1.ContrailConfig)
+    vmi1.AddRef(&cobj.UuidTable, ri1.ContrailConfig)
 
-    instance_ip1, err := config.NewInstanceIp(&fqNameTable, &uuidTable, "ip1", "2.2.2.10", "v4")
+    instance_ip1, err := config.NewInstanceIp(&cobj.FqNameTable, &cobj.UuidTable, "ip1", "2.2.2.10", "v4")
     if err != nil {
         return err
     }
-    configMap["instance_ip:ip1"] = instance_ip1.ContrailConfig
-    instance_ip1.AddRef(&uuidTable, vn1.ContrailConfig)
-    instance_ip1.AddRef(&uuidTable, vmi1.ContrailConfig)
+    cobj.ConfigMap["instance_ip:ip1"] = instance_ip1.ContrailConfig
+    instance_ip1.AddRef(&cobj.UuidTable, vn1.ContrailConfig)
+    instance_ip1.AddRef(&cobj.UuidTable, vmi1.ContrailConfig)
 
-    return config.GenerateDB(&fqNameTable, &uuidTable, fmt.Sprintf("%s/db.json", cat.SUT.Manager.RootDir))
+    return config.GenerateDB(&cobj.FqNameTable, &cobj.UuidTable, fmt.Sprintf("%s/db.json", cobj.SUT.Manager.RootDir))
 }
 
-func verifyConfiguration(control_nodes []*controlnode.ControlNode, crpds []*crpd.CRPD) error {
-    for c := range control_nodes {
-        if err := control_nodes[c].CheckConfiguration("domain", 1, 3, 3); err != nil {
+func verifyConfiguration(cobj *cat.CAT) error {
+    for c := range cobj.ControlNodes {
+        if err := cobj.ControlNodes[c].CheckConfiguration("domain", 1, 3, 3); err != nil {
             return fmt.Errorf("domain configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("global-system-config", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("global-system-config", 1, 3, 3); err != nil {
             return fmt.Errorf("global-system-config configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("instance-ip", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("instance-ip", 1, 3, 3); err != nil {
             return fmt.Errorf("instance-ip configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("network-ipam", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("network-ipam", 1, 3, 3); err != nil {
             return fmt.Errorf("network-ipam configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("project", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("project", 1, 3, 3); err != nil {
             return fmt.Errorf("project configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("route-target", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("route-target", 1, 3, 3); err != nil {
             return fmt.Errorf("route-target configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("routing-instance", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("routing-instance", 1, 3, 3); err != nil {
             return fmt.Errorf("routing-instance configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("virtual-machine", 4, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("virtual-machine", 4, 3, 3); err != nil {
             return fmt.Errorf("virtual-machine configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("virtual-machine-interface", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("virtual-machine-interface", 1, 3, 3); err != nil {
             return fmt.Errorf("virtual-machine-interface configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("virtual-network", 2, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("virtual-network", 2, 3, 3); err != nil {
             return fmt.Errorf("virtual-network configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("virtual-network-network-ipam", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("virtual-network-network-ipam", 1, 3, 3); err != nil {
             return fmt.Errorf("virtual-network-network-ipam configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("virtual-router", 1, 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("virtual-router", 1, 3, 3); err != nil {
             return fmt.Errorf("virtual-router configuration check failed: %v", err)
         }
-        if err := control_nodes[c].CheckConfiguration("bgp-router", len(control_nodes) + len(crpds), 3, 3); err != nil {
+        if err := cobj.ControlNodes[c].CheckConfiguration("bgp-router", len(cobj.ControlNodes) + len(cobj.CRPDs), 3, 3); err != nil {
             return fmt.Errorf("bgp-router configuration check failed: %v", err)
         }
     }
     return nil
 }
 
-func addVirtualPorts (agents[]*agent.Agent, configMap ConfigMapType) error {
-    for i := range agents {
-        if err := agents[i].AddVirtualPort(configMap["virtual_machine_interface:vmi1"], configMap["virtual_machine:vm1"], configMap["virtual_network:vn1"], configMap["project:default-project"], "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1"); err != nil {
+func addVirtualPorts (cobj *cat.CAT) error {
+    for i := range cobj.Agents {
+        if err := cobj.Agents[i].AddVirtualPort(cobj.ConfigMap["virtual_machine_interface:vmi1"], cobj.ConfigMap["virtual_machine:vm1"], cobj.ConfigMap["virtual_network:vn1"], cobj.ConfigMap["project:default-project"], "1.1.1.10", "90:e2:ff:ff:94:9d", "tap1"); err != nil {
             return err
         }
         // TODO: Add a virtual port to one agent for now.
