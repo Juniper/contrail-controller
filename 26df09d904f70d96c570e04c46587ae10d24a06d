@@ -1,0 +1,211 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a030eb27_d63408dc",
+        "filename": "src/vnsw/agent/cmn/agent.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 789,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "define macros for default percentages",
+      "range": {
+        "startLine": 789,
+        "startChar": 31,
+        "endLine": 789,
+        "endChar": 32
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d52144d7_5ed7f653",
+        "filename": "src/vnsw/agent/cmn/index_vector.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "rename inUseIndexCount?",
+      "range": {
+        "startLine": 89,
+        "startChar": 23,
+        "endLine": 89,
+        "endChar": 24
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "44ab44aa_aad30b1c",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 1161,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "if it is greater than 100, what about setting to default, discard any invalid input and set it to default?",
+      "range": {
+        "startLine": 1161,
+        "startChar": 39,
+        "endLine": 1161,
+        "endChar": 40
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0e236b3e_2b2faa65",
+        "filename": "src/vnsw/agent/oper/mpls.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "this should be called before adding label. otherwise we allocate one label even after exceeding the limit.",
+      "range": {
+        "startLine": 276,
+        "startChar": 0,
+        "endLine": 276,
+        "endChar": 26
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c61a4032_79124bf5",
+        "filename": "src/vnsw/agent/oper/mpls.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 419,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "function name is misleading , rename it",
+      "range": {
+        "startLine": 419,
+        "startChar": 37,
+        "endLine": 419,
+        "endChar": 38
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c4688ded_9a485efb",
+        "filename": "src/vnsw/agent/oper/mpls.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 429,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "why is this ?",
+      "range": {
+        "startLine": 429,
+        "startChar": 4,
+        "endLine": 429,
+        "endChar": 5
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fc093b33_5ff22a60",
+        "filename": "src/vnsw/agent/oper/nexthop.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 312,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "same here, call before adding nexthop",
+      "range": {
+        "startLine": 312,
+        "startChar": 0,
+        "endLine": 312,
+        "endChar": 24
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3ea3a92d_1e5f2a02",
+        "filename": "src/vnsw/agent/oper/nexthop.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 399,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "why is this check?",
+      "range": {
+        "startLine": 399,
+        "startChar": 4,
+        "endLine": 399,
+        "endChar": 5
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "83afbf45_ace3164f",
+        "filename": "src/vnsw/agent/oper/nexthop.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 1873,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:24:21Z",
+      "side": 1,
+      "message": "function name is misleading, rename it",
+      "range": {
+        "startLine": 1873,
+        "startChar": 0,
+        "endLine": 1873,
+        "endChar": 29
+      },
+      "revId": "26df09d904f70d96c570e04c46587ae10d24a06d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
