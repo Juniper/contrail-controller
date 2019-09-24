@@ -1,7 +1,7 @@
-/*
- * Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
- */
-
+// Package cat provides integration testing framework for control-nodes, agents
+// and CRPDs. Each control-node and agent runs as a separate unix process.
+// Each CRPD runs inside a docker container. Framework hangles the confguration
+// and life cycle management of all these objects.
 package cat
 
 import (
@@ -15,28 +15,40 @@ import (
     "time"
 
     "cat/agent"
+    "cat/config"
     "cat/controlnode"
     "cat/crpd"
     "cat/sut"
 )
 
-// CAT is a contrail automated test.
+// CAT is the main place-holder object of all other objects managed.
 type CAT struct {
-    SUT           sut.Component
-
+    SUT             sut.Component
     ControlNodes []*controlnode.ControlNode
     Agents       []*agent.Agent
     CRPDs        []*crpd.CRPD
+    FqNameTable     config.FQNameTableType
+    UuidTable       config.UUIDTableType
+    ConfigMap       config.ConfigMap
 }
 
 // Timestamp format for logfiles.
 const timestamp = "20060102_150405"
 
+// Utiulity command to load CRPD docker image dynamically.
 const crpdImageGetCommand = "sshpass -p c0ntrail123 ssh 10.84.5.39 cat /cs-shared/crpd/crpd.tgz | sudo --non-interactive docker load"
 
-// New creates an initialized CAT instance.
+// New creates and initializes a CAT instance.
 func New() (*CAT, error) {
-    c := &CAT{}
+    // log.SetLevel(log.DebugLevel)
+    c := &CAT{
+        ControlNodes: []*controlnode.ControlNode{},
+        Agents: []*agent.Agent{},
+        CRPDs: []*crpd.CRPD{},
+        FqNameTable: config.FQNameTableType{},
+        UuidTable: config.UUIDTableType{},
+        ConfigMap: config.ConfigMap{},
+    }
     now := time.Now()
 
     cwd, err := os.Getwd()
@@ -54,6 +66,7 @@ func New() (*CAT, error) {
     }
     c.setHostIP()
 
+    // Check whether CRPD can be used in this test environment.
     if crpd.CanUseCRPD() {
         cmd := exec.Command("sudo", "--non-interactive", "/usr/bin/docker", "image", "inspect", "crpd")
         if _, err := cmd.Output(); err != nil {
@@ -89,6 +102,7 @@ func (c *CAT) Teardown() error {
     return nil
 }
 
+// setHostIP finds self host ip address.
 func (c *CAT) setHostIP() error {
     cmd := exec.Command("hostname", "-i")
     out, err := cmd.CombinedOutput()
@@ -107,6 +121,8 @@ func (c *CAT) setHostIP() error {
     return errors.New("Cannot retrieve host ip address")
 }
 
+// AddAgent creates a contrail-vrouter-agent object and starts the mock agent
+// process in background.
 func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.ControlNode) (*agent.Agent, error) {
     endpoints := []sut.Endpoint{}
     for _, control_node := range control_nodes {
@@ -123,6 +139,8 @@ func (c *CAT) AddAgent(test string, name string, control_nodes []*controlnode.Co
     return agent, nil
 }
 
+// AddControlNode creates a contrail-control object and starts the mock
+// control-node process in the background.
 func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, http_port int) (*controlnode.ControlNode, error) {
     cn, err := controlnode.New(c.SUT.Manager, name, ip_address, conf_file, test, http_port)
     if err != nil {
@@ -134,6 +152,8 @@ func (c *CAT) AddControlNode(test, name, ip_address, conf_file string, http_port
     return cn, nil
 }
 
+// AddCRPD creates a CRPD object and starts the CRPD docker container process
+// in the background.
 func (c *CAT) AddCRPD(test, name string) (*crpd.CRPD, error) {
     cr, err := crpd.New(c.SUT.Manager, name, test)
     if err != nil {

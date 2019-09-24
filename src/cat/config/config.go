@@ -1,7 +1,5 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// Package config provides primitives to manage basic contrail configuration
+// objects.
 package config
 
 import (
@@ -16,7 +14,10 @@ import (
     "time"
 )
 
+// FQNameTableType defines the map of type to uuid for contrail configuration.
 type FQNameTableType map[string]map[string]string
+
+// UUIDTableType defines the map of uuid to contents for contrail configuration.
 type UUIDTableType map[string]map[string]string
 
 // Ref represents a reference from one object to another.
@@ -32,7 +33,8 @@ type Child struct {
     Type string `json:"type"`
 }
 
-// ContrailConfig represents a basic contrail configuration construct. Many configuration objects can be managed by just using this base construct.
+// ContrailConfig represents a basic contrail configuration construct. Many
+// configuration objects can be managed by just using this base construct.
 type ContrailConfig struct {
     UUID string
     Type string `json:"type"`
@@ -44,6 +46,9 @@ type ContrailConfig struct {
     DisplayName string `json:"prop:display_name"`
 }
 
+type ConfigMap map[string]*ContrailConfig
+
+// Map creates a contrail configuration map.
 func (c *ContrailConfig) Map (b []byte) (map[string]string, error) {
     v := map[string]interface{}{}
     json.Unmarshal(b, &v)
@@ -99,6 +104,8 @@ func (c *ContrailConfig) Map (b []byte) (map[string]string, error) {
     return conf, nil
 }
 
+// createContrailConfig creates a config object with type, fqname, timnestamp,
+// owner information, etc.
 func createContrailConfig (fqNameTable *FQNameTableType, tp, name, parent_type string, fq_name []string) (*ContrailConfig, error) {
     u, err := uuid.NewUUID()
     if err != nil {
@@ -134,6 +141,7 @@ func createContrailConfig (fqNameTable *FQNameTableType, tp, name, parent_type s
     return &c, nil
 }
 
+// GenerateDB dumps in memory configuration into file in json format.
 func GenerateDB(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, confFile string) error {
     file, err := os.Create(confFile)
     if err != nil {
@@ -153,6 +161,7 @@ func GenerateDB(fqNameTable *FQNameTableType, uuidTable *UUIDTableType, confFile
     return file.Sync()
 }
 
+// NewConfigObject creates a new configuration object and updates the map.
 func NewConfigObject (fqNameTable *FQNameTableType, uuidTable *UUIDTableType, tp, name, parent string, fqname []string) (*ContrailConfig, error) {
     obj, err := createContrailConfig(fqNameTable, tp, name, parent, fqname)
     if err != nil {
@@ -162,6 +171,7 @@ func NewConfigObject (fqNameTable *FQNameTableType, uuidTable *UUIDTableType, tp
     return obj, nil
 }
 
+// UpdateDB updates uuid map with the contents as a json string.
 func (c *ContrailConfig) UpdateDB(uuidTable *UUIDTableType) error {
     b, err := json.Marshal(c)
     if err != nil {
@@ -173,5 +183,13 @@ func (c *ContrailConfig) UpdateDB(uuidTable *UUIDTableType) error {
         return err
     }
     (*uuidTable)[c.UUID] = j
+    return nil
+}
+
+// Delete deletes a uuid key (row) from the uuid based config map. fqname table
+// is also updated.
+func (c *ContrailConfig) Delete(fqNameTable *FQNameTableType, uuidTable *UUIDTableType) error {
+    delete(*uuidTable, c.UUID)
+    delete((*fqNameTable)[c.Type], fmt.Sprintf("%s:%s", strings.Join(c.FqName, ":"), c.UUID))
     return nil
 }

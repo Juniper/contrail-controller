@@ -1,11 +1,10 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// Package controlnode provides methods to instantiate and manage control-node
+// (aka contrail-control) objects and processes.
 package controlnode
 
 import (
     "cat/agent"
+    "cat/config"
     "cat/sut"
     "encoding/json"
     "fmt"
@@ -16,19 +15,25 @@ import (
     "path/filepath"
     "strconv"
     "strings"
+    "syscall"
     "time"
 )
 
-// ControlNode represents a contrail-control (control-node) process under CAT framework.
+// ControlNode represents a contrail-control (control-node) process under CAT
+// framework.
 type ControlNode struct {
     sut.Component
     confFile string
+    ContrailConfig *config.BGPRouter
 }
 
 const controlNodeName = "control-node"
 const controlNodeBinary = "../../../../build/debug/bgp/test/bgp_ifmap_xmpp_integration_test"
 const controlNodeConfFile = "../../../../controller/src/ifmap/client/testdata/bulk_sync.json"
 
+// New creates a ControlNode object and starts the process to run in background.
+// This routine shall not return until the launched control-node's server ports
+// are retrieved (BGP, XMPP and HTTP/Introspect)
 func New(m sut.Manager, name, ip_address, conf_file, test string, http_port int) (*ControlNode, error) {
     // Attach IP to loopback.
     if !strings.HasPrefix(ip_address, "127.") {
@@ -68,6 +73,7 @@ func New(m sut.Manager, name, ip_address, conf_file, test string, http_port int)
     return c, nil
 }
 
+// start starts the control-node process in the OS.
 func (c *ControlNode) start() error {
     if _, err := os.Stat(controlNodeBinary); err != nil {
         log.Fatal(err)
@@ -99,14 +105,17 @@ func (c *ControlNode) start() error {
     return nil
 }
 
+// Restart restarts the control-node process already running before.
 func (c *ControlNode) Restart() error {
-    log.Infof("Restarted %s\n", c.Name)
+    log.Debugf("Restart %s\n", c.Name)
     if err := c.Stop(); err != nil {
         return err
     }
     return c.start()
 }
 
+// Teardown cleanup ControlNode object by terminating associated control-node
+// process.
 func (c *ControlNode) Teardown() error {
     // Detach IP from loopback.
     if !strings.HasPrefix(c.IPAddress, "127.") {
@@ -119,6 +128,8 @@ func (c *ControlNode) Teardown() error {
     return nil
 }
 
+// readPortNumbers reads BGP, XMPP and HTTP listening port numbers from mock
+// control-node.
 func (c *ControlNode) readPortNumbers() error {
     c.PortsFile = fmt.Sprintf("%s/%d.json", c.ConfDir, c.Cmd.Process.Pid)
     retry := 30
@@ -135,21 +146,24 @@ func (c *ControlNode) readPortNumbers() error {
     return err
 }
 
+// CheckXMPPConnection checks whether XMPP connection to an agent has reached
+// ESTABLISHED sate (up).
 func (c *ControlNode) CheckXMPPConnection(agent *agent.Agent) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.IPAddress, c.Config.HTTPPort,  agent.Component.Name)
+    url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -iw state | grep -i Established", c.IPAddress, c.Config.HTTPPort,  agent.Component.Name)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
     return err
 }
 
+// CheckXMPPConnections checks whether XMPP connections to all agents provided
+// has reached ESTABLISHED state. Retry and wait time can be used as applicable.
 func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wait time.Duration) error {
     for r := 0; r < retry; r++ {
         var err error
         for i := 0; i < len(agents); i++ {
             if err = c.CheckXMPPConnection(agents[i]); err != nil {
                 break
-            } else {
-                log.Infof("%s: XMPP Peer %s session reached established state", c.Name, agents[i].Name)
             }
+            log.Infof("%s: XMPP Peer %s session reached established state", c.Name, agents[i].Name)
         }
         if err == nil {
             return nil
@@ -159,21 +173,38 @@ func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wai
     return fmt.Errorf("CheckXMPPConnections failed")
 }
 
-func (c *ControlNode) CheckBGPConnection(name string) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.IPAddress, c.Config.HTTPPort, name)
+// CheckBGPConnection checks whether BGP connection to an agent has reached
+// ESTABLISHED sate (up) (or DOWN) as requested in the down bool parameter.
+func (c *ControlNode) CheckBGPConnection(name string, down bool) error {
+    url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -wi state | grep -i Established", c.IPAddress, c.Config.HTTPPort, name)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
-    return err
+    log.Debugf("Command %s completed with status %v\n", url, err)
+    if !down {
+        return err
+    }
+
+    // session should be down, so expect an error here from the grep!
+    if err != nil {
+        return nil
+    }
+
+    return fmt.Errorf("BGP session is still established")
 }
 
-func (c *ControlNode) CheckBGPConnections(components []*sut.Component, retry int, wait time.Duration) error {
+// CheckBGPConnections checks whether BGP connections to all BGP routers
+// provided has reached ESTABLISHED state (or not). Retry and wait time can be
+// used as applicable.
+func (c *ControlNode) CheckBGPConnections(components []*sut.Component, down bool, retry int, wait time.Duration) error {
     for r := 0; r < retry; r++ {
         var err error
         for i := 0; i < len(components); i++ {
             if &c.Component != components[i] {
-                if err = c.CheckBGPConnection(components[i].Name); err != nil {
+                if err = c.CheckBGPConnection(components[i].Name, down); err != nil {
                     break
                 }
-                log.Infof("%s: BGP Peer %s session reached established state", c.Name, components[i].Name)
+                if !down {
+                    log.Infof("%s: BGP Peer %s session reached established state", c.Name, components[i].Name)
+                }
             }
         }
         if err == nil {
@@ -184,13 +215,25 @@ func (c *ControlNode) CheckBGPConnections(components []*sut.Component, retry int
     return fmt.Errorf("CheckBGPConnections failed")
 }
 
+// checkConfiguration checks whether a particular configuration object count
+// matches what is reflected in memory data base of control-node.
+//
 // TODO: Parse xml to do specific checks in the data received from curl.
 func (c *ControlNode) checkConfiguration(tp string, count int) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_IFMapNodeTableListShowReq? | xmllint format -  | grep -iw -A1 '>%s</table_name>' | grep -w '>'%d'</size>'", c.IPAddress, c.Config.HTTPPort, tp, count)
+    url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_IFMapNodeTableListShowReq? | xmllint format -  | grep -iw -A1 '>%s</table_name>' | grep -w '>'%d'</size>'", c.IPAddress, c.Config.HTTPPort, tp, count)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
+
+    if count == 0 {
+        if err == nil {
+            return fmt.Errorf("%s config is still present", tp,)
+        }
+        return nil
+    }
     return err
 }
 
+// CheckConfiguration calls checkConfiguration with retries and wait times as
+// requested.
 func (c *ControlNode) CheckConfiguration(tp string, count int, retry int, wait time.Duration) error {
     for r := 0; r < retry; r++ {
         if err := c.checkConfiguration(tp, count); err == nil {
@@ -199,4 +242,21 @@ func (c *ControlNode) CheckConfiguration(tp string, count int, retry int, wait t
         time.Sleep(wait * time.Second)
     }
     return fmt.Errorf("CheckConfiguration failed")
+}
+
+// UpdateConfigDB updates the configuration by regnerating all objects into
+// the db file and notifies all control-nodes by sending SIGHUP signal.
+func UpdateConfigDB (rootdir string, control_nodes []*ControlNode, fqNameTable *config.FQNameTableType, uuidTable *config.UUIDTableType) error {
+    if err := config.GenerateDB(fqNameTable, uuidTable, fmt.Sprintf("%s/db.json", rootdir));  err != nil {
+        return err
+    }
+
+    // Send signal to contrl-nodes to trigger configuration processing.
+    for i := range control_nodes {
+        log.Debugf("Sending SIGHUP to control-node %d", control_nodes[i].Cmd.Process.Pid)
+        if err := control_nodes[i].Cmd.Process.Signal(syscall.SIGHUP); err != nil {
+            return fmt.Errorf("Could not send SIGHUP to process %d: %v", control_nodes[i].Cmd.Process.Pid, err)
+        }
+    }
+    return nil
 }

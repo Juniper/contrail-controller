@@ -1,11 +1,10 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// Package sut (sytem under test) prodes basic utility methods to manage the
+// system under test.
 package sut
 
 import (
     "fmt"
+    log "github.com/sirupsen/logrus"
     "os"
     "os/exec"
     "strings"
@@ -35,44 +34,46 @@ type Component struct {
     Cmd      *exec.Cmd
 }
 
+// Endpoint denotes a tcp endpoint.
 type Endpoint struct {
     IP string
     Port int
 }
 
+// Config denotes server port numbers set of different services provided by
+// a component such as control-node.
 type Config struct {
     BGPPort  int `json:BGPPort`
     XMPPPort int `json:XMPPPort`
     HTTPPort int `json:HTTPPort`
 }
 
-// Run a command in shell repeatedly until success and return the output.
-// Use retry < 1 to retry the command for ever..
-func ShellCommandWithRetry (retry, delay int, name string, args ...string) (string, error) {
-    var err error
-    var result_bytes []byte
+// EnvMap is a map to denot set of environment variables and values.
+type EnvMap map[string]string
 
+// ShellCommandWithRetry runs a command in shell repeatedly as desired until
+// success and return the output. Use retry < 0 to retry the command for ever..
+func ShellCommandWithRetry (retry, delay int, name string, args ...string) (string, error) {
     for {
         cmd := exec.Command(name, args...)
-        if result_bytes, err = cmd.Output(); err == nil {
+        result_bytes, err := cmd.Output()
+        if err == nil {
             return strings.TrimRight(string(result_bytes), "\n"), nil
         }
-
         if retry > 0 {
-            retry -= 1
-        } else {
-            time.Sleep(time.Duration(delay) * time.Second)
-            continue
+            retry --
         }
 
         if retry == 0 {
-            break
+            return "", fmt.Errorf("Failed to execute command %s: %v", name, err)
         }
+        log.Debugf("Retry command %s after %d seconds", name, args, delay)
         time.Sleep(time.Duration(delay) * time.Second)
     }
-    return "", fmt.Errorf("Failed to execute command %s: %v", name, err)
+    return "", nil
 }
 
+// removeDir removes a directory recursively.
 func removeDir(dir string) error {
     _, err := os.Stat(dir); if !os.IsNotExist(err) {
         err := os.RemoveAll(dir); if err != nil {
@@ -82,6 +83,7 @@ func removeDir(dir string) error {
     return nil
 }
 
+// Teardown does the necessary cleanup by removing conf and log directories.
 func (c *Component) Teardown() error {
     c.Stop()
     if err := removeDir(c.ConfDir); err != nil {
@@ -93,6 +95,7 @@ func (c *Component) Teardown() error {
     return nil
 }
 
+// Stop stops a component by terminating associated process.
 func (c *Component) Stop() error {
     if err := c.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
         return fmt.Errorf("Could not stop process %d", c.Cmd.Process.Pid)
@@ -107,8 +110,7 @@ func (c *Component) Stop() error {
     return nil
 }
 
-type EnvMap map[string]string
-
+// Env updates environment variable map.
 func (a *Component) Env(e EnvMap) []string {
     var envs []string
     for k, v := range e {
