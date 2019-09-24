@@ -94,7 +94,7 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
 # This is added for support service, we need give the customer module for support service
 CONTRAIL_SUPPORT_SERVICES_NODETYPE = { 'redis-server' : ['webui', 'analytics'],
                                'rabbitmq-server' : ['config'],
-                               'zookeeper' : ['config']
+                               'zookeeper' : ['config', 'database']
                             }
 
 SHOW_IF_DISABLED = {
@@ -664,10 +664,7 @@ def check_status(svc_name, options):
 install_service = []
 def service_check_customer(svc):
     if svc in CONTRAIL_SUPPORT_SERVICES_NODETYPE.keys():
-        for customer in CONTRAIL_SUPPORT_SERVICES_NODETYPE[svc]:
-            if customer not in install_service:
-                return False
-    return True
+        return bool(set(install_service) & set(CONTRAIL_SUPPORT_SERVICES_NODETYPE[svc]))
 # end service_check_customer
 
 def contrail_service_status(nodetype, options):
@@ -847,7 +844,7 @@ def main():
     if kubemanager:
         contrail_service_status('kubemanager', options)
 
-    if capi:
+    if capi or database or analytics:
         if init in ['systemd']:
             contrail_service_status('support-service', options)
         else:
