@@ -1,7 +1,5 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// package controlnode_test provides unit tests to test controlnode package
+// methods.
 package controlnode_test
 
 import (
