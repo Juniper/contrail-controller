@@ -1,0 +1,119 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b16c61a9_49ea0dfd",
+        "filename": "src/vnsw/agent/kstate/vrf_kstate.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:08:17Z",
+      "side": 1,
+      "message": "add vrf kstate test cases",
+      "range": {
+        "startLine": 3,
+        "startChar": 2,
+        "endLine": 3,
+        "endChar": 3
+      },
+      "revId": "6de65e771ccdca40921d1504299134f80ef795d2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f2966a62_12c3377a",
+        "filename": "src/vnsw/agent/oper/agent.sandesh",
+        "patchSetId": 2
+      },
+      "lineNbr": 833,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:08:17Z",
+      "side": 1,
+      "message": "add new fields to VRF introspect",
+      "range": {
+        "startLine": 833,
+        "startChar": 0,
+        "endLine": 833,
+        "endChar": 29
+      },
+      "revId": "6de65e771ccdca40921d1504299134f80ef795d2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "475e57b7_66598852",
+        "filename": "src/vnsw/agent/oper/hbf.h",
+        "patchSetId": 2
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:08:17Z",
+      "side": 1,
+      "message": "this is not initialised in ctor, is this needed?",
+      "range": {
+        "startLine": 51,
+        "startChar": 11,
+        "endLine": 51,
+        "endChar": 17
+      },
+      "revId": "6de65e771ccdca40921d1504299134f80ef795d2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c82de03f_aee89c78",
+        "filename": "src/vnsw/agent/oper/test/test_hbf.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 1140,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:08:17Z",
+      "side": 1,
+      "message": "add test case for hbs interface delete and add events\nadd test case for multiple projects?",
+      "range": {
+        "startLine": 1140,
+        "startChar": 0,
+        "endLine": 1140,
+        "endChar": 1
+      },
+      "revId": "6de65e771ccdca40921d1504299134f80ef795d2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a8a89153_3acd5a39",
+        "filename": "src/vnsw/agent/vrouter/ksync/route_ksync.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-24T17:08:17Z",
+      "side": 1,
+      "message": "now that we are adding vrf ksync entries, consider adding new files for vrf_ksync",
+      "range": {
+        "startLine": 39,
+        "startChar": 0,
+        "endLine": 39,
+        "endChar": 0
+      },
+      "revId": "6de65e771ccdca40921d1504299134f80ef795d2",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
