@@ -1,7 +1,4 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// package crpd_test provides unit tests to test crpd package methods.
 package crpd_test
 
 import (

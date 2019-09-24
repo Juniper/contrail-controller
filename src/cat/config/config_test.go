@@ -1,8 +1,4 @@
-
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// package config_test provides unit tests to test config package methods.
 package config_test
 
 import (

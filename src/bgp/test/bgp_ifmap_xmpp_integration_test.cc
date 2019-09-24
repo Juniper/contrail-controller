@@ -15,6 +15,7 @@
 #include "base/address_util.h"
 #include "base/logging.h"
 #include "base/task_annotations.h"
+#include "base/task_trigger.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_ifmap_sandesh.h"
 #include "bgp/bgp_factory.h"
@@ -39,6 +40,7 @@
 #include "ifmap/ifmap_xmpp.h"
 #include "ifmap/test/config_cassandra_client_test.h"
 #include "ifmap/test/ifmap_test_util.h"
+#include "io/process_signal.h"
 #include "io/test/event_manager_test.h"
 
 #include "schema/bgp_schema_types.h"
@@ -53,14 +55,13 @@
 using namespace std;
 using namespace autogen;
 using boost::assign::list_of;
-
-void sighup_cb_handler(int signum);
+using process::Signal;
 
 #include "config-client-mgr/test/config_cassandra_client_partition_test.h"
 
-void sighup_cb_handler(int signum) {
-    cout << "In SIGHUP Handler function" << endl;
-}
+static EventManager evm_;
+static bool reconfig_;
+static boost::shared_ptr<TaskTrigger> reconfig_trigger_;
 
 class BgpIfmapXmppIntegrationTest : public ::testing::Test {
  public:
@@ -141,6 +142,17 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
             cout << resp->get_uuid_cache()[i].log() << endl;
         }
         validate_done_ = true;
+    }
+
+    bool ReconfigHandler() {
+        reconfig_ = false;
+        config_client_manager_->PostShutdown();
+        ParseEventsJson(config_file_);
+        FeedEventsJson();
+        config_client_manager_->EndOfConfig();
+        if (reconfig_)
+            return false;
+        return true;
     }
 
  protected:
@@ -267,6 +279,7 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
     }
 
     void TearDown() {
+        ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
         xmpp_server_test_->Shutdown();
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionCount());
@@ -415,7 +428,6 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
         config_cassandra_partition->SetRetryTimeInMSec(time);
     }
 
-    EventManager evm_;
     ServerThread thread_;
     DB *config_db_;
     DBGraph *config_graph_;
@@ -430,23 +442,24 @@ class BgpIfmapXmppIntegrationTest : public ::testing::Test {
     boost::scoped_ptr<BgpSandeshContext> bgp_sandesh_context_;
     boost::scoped_ptr<XmppSandeshContext> xmpp_sandesh_context_;
     bool validate_done_;
+    string config_file_;
 };
 
 TEST_F(BgpIfmapXmppIntegrationTest, BulkSync) {
     bool default_config_file = true;
-    string df = getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_DATA_FILE") ?: "";
+    config_file_ = getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_DATA_FILE") ?: "";
     if (getenv("CONTRAIL_CAT_FRAMEWORK")) {
-        while (access(df.c_str(), F_OK)) {
+        while (access(config_file_.c_str(), F_OK)) {
             sleep(3);
         }
     }
-    if (!df.empty() && !access(df.c_str(), F_OK)) {
+    if (!config_file_.empty() && !access(config_file_.c_str(), F_OK)) {
         ConfigCass2JsonAdapter::set_assert_on_parse_error(false);
-        ParseEventsJson(df.c_str());
         default_config_file = false;
     } else {
-        ParseEventsJson("controller/src/ifmap/client/testdata/bulk_sync.json");
+        config_file_ = "controller/src/ifmap/client/testdata/bulk_sync.json";
     }
+    ParseEventsJson(config_file_);
     FeedEventsJson();
     IFMapTable *table = IFMapTable::FindTable(config_db_, "virtual-network");
     if (default_config_file) {
@@ -456,9 +469,19 @@ TEST_F(BgpIfmapXmppIntegrationTest, BulkSync) {
     }
     task_util::WaitForIdle();
     config_client_manager_->EndOfConfig();
-    if (getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE"))
-        while(1) sleep(1000); //TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
-    ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
+    if (!getenv("BGP_IFMAP_XMPP_INTEGRATION_TEST_PAUSE"))
+        return;
+
+    reconfig_trigger_.reset(new TaskTrigger(
+        boost::bind(&BgpIfmapXmppIntegrationTest::ReconfigHandler, this),
+        TaskScheduler::GetInstance()->GetTaskId("config_client::Init"), 0));
+    while(true) sleep(1000);
+}
+
+void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
+    reconfig_ = true;
+    if (reconfig_trigger_ && !reconfig_trigger_->IsSet())
+        reconfig_trigger_->Set();
 }
 
 int main(int argc, char **argv) {
@@ -467,7 +490,14 @@ int main(int argc, char **argv) {
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
     BgpServerTest::GlobalSetUp();
-    signal(SIGHUP, sighup_cb_handler);
+
+    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGHUP, sighup_handlers)
+    ;
+    Signal signal(&evm_, smap);
+
     ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
     ConfigFactory::Register<ConfigCassandraPartition>(
