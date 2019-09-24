@@ -321,6 +321,8 @@ PeerManagerTest::PeerManagerTest(RoutingInstance *instance)
 BgpPeer *PeerManagerTest::PeerLocate(
     BgpServer *server, const BgpNeighborConfig *config) {
     BgpPeer *peer = PeerManager::PeerLocate(server, config);
+    if (!peer)
+        return NULL;
     boost::uuids::nil_generator nil;
     if (peer->peer_key().uuid != nil()) {
         PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer->peer_key().uuid);
