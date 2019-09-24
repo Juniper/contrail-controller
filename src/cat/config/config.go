@@ -175,3 +175,9 @@ func (c *ContrailConfig) UpdateDB(uuidTable *UUIDTableType) error {
     (*uuidTable)[c.UUID] = j
     return nil
 }
+
+func (c *ContrailConfig) Delete(fqNameTable *FQNameTableType, uuidTable *UUIDTableType) error {
+    delete(*uuidTable, c.UUID)
+    delete((*fqNameTable)[c.Type], fmt.Sprintf("%s:%s", strings.Join(c.FqName, ":"), c.UUID))
+    return nil
+}
