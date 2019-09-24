@@ -1,7 +1,5 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// package crpd provides methods to manage CRPD objects and associated docker
+// container processes.
 package crpd
 
 import (
@@ -14,6 +12,7 @@ import (
     "path/filepath"
 )
 
+// CRPD holds component information along with a unique UUID.
 type CRPD struct {
     sut.Component
     UUID string
@@ -22,6 +21,7 @@ type CRPD struct {
 const crpdName = "crpd"
 const dockerFile = "/.dockerenv"
 
+// New instantiates a new CRPD object and starts associated docker container.
 func New(m sut.Manager, name, test string) (*CRPD, error) {
     u, err := uuid.NewUUID()
     if err != nil {
@@ -81,6 +81,7 @@ commit
     return c, nil
 }
 
+// CanUseCRPD checks whether CRPD can be used in this environment.
 func CanUseCRPD() bool {
     // Can't run crpd container inside a container..
     if _, err := os.Stat(dockerFile); !os.IsNotExist(err) {
@@ -92,6 +93,7 @@ func CanUseCRPD() bool {
     return true
 }
 
+// Teardown terminates CRPD docker container and cleans up associated objects.
 func (c *CRPD) Teardown() error {
     if c.Name == "" {
         return fmt.Errorf("Cannot find crpd name")
@@ -103,6 +105,7 @@ func (c *CRPD) Teardown() error {
     return nil
 }
 
+// Stop stops a CRPD docker container process.
 func (c *CRPD) Stop() error {
     cmd := exec.Command("sudo", "--non-interactive", "docker", "stop", c.Name)
     if err := cmd.Start(); err != nil {
@@ -111,6 +114,7 @@ func (c *CRPD) Stop() error {
     return nil
 }
 
+// Restart restarts a CRPD docker container process.
 func (c *CRPD) Restart() error {
     cmd := exec.Command("sudo", "--non-interactive", "docker", "restart", c.Name)
     if err := cmd.Start(); err != nil {

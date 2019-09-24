@@ -1,7 +1,4 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
+// package agent_test provides unit tests to test agent package methods.
 package agent_test
 
 import (
