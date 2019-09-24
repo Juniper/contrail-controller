@@ -236,7 +236,6 @@ class SchemaTransformer(object):
         # Initialize amqp
         self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
                                       self._args, timer_obj=self.timer_obj)
-        self._vnc_amqp.establish()
         SchemaTransformer._schema_transformer = self
         try:
             # Initialize cassandra
@@ -244,6 +243,8 @@ class SchemaTransformer(object):
             ResourceBaseST.init(self, self.logger, self._object_db)
             ResourceBaseST._sandesh = self.logger._sandesh
             ResourceBaseST._vnc_lib = _vnc_lib
+            # connect rabbitmq after DB connection
+            self._vnc_amqp.establish()
             ServiceChain.init()
             self.reinit()
             self._vnc_amqp._db_resync_done.set()
