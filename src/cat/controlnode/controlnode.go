@@ -6,6 +6,7 @@ package controlnode
 
 import (
     "cat/agent"
+    "cat/config"
     "cat/sut"
     "encoding/json"
     "fmt"
@@ -16,6 +17,7 @@ import (
     "path/filepath"
     "strconv"
     "strings"
+    "syscall"
     "time"
 )
 
@@ -23,6 +25,7 @@ import (
 type ControlNode struct {
     sut.Component
     confFile string
+    ContrailConfig *config.BGPRouter
 }
 
 const controlNodeName = "control-node"
@@ -100,7 +103,7 @@ func (c *ControlNode) start() error {
 }
 
 func (c *ControlNode) Restart() error {
-    log.Infof("Restarted %s\n", c.Name)
+    log.Debugf("Restart %s\n", c.Name)
     if err := c.Stop(); err != nil {
         return err
     }
@@ -136,7 +139,7 @@ func (c *ControlNode) readPortNumbers() error {
 }
 
 func (c *ControlNode) CheckXMPPConnection(agent *agent.Agent) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.IPAddress, c.Config.HTTPPort,  agent.Component.Name)
+    url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -iw state | grep -i Established", c.IPAddress, c.Config.HTTPPort,  agent.Component.Name)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
     return err
 }
@@ -147,9 +150,8 @@ func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wai
         for i := 0; i < len(agents); i++ {
             if err = c.CheckXMPPConnection(agents[i]); err != nil {
                 break
-            } else {
-                log.Infof("%s: XMPP Peer %s session reached established state", c.Name, agents[i].Name)
             }
+            log.Infof("%s: XMPP Peer %s session reached established state", c.Name, agents[i].Name)
         }
         if err == nil {
             return nil
@@ -159,21 +161,33 @@ func (c *ControlNode) CheckXMPPConnections(agents []*agent.Agent, retry int, wai
     return fmt.Errorf("CheckXMPPConnections failed")
 }
 
-func (c *ControlNode) CheckBGPConnection(name string) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -i state | grep -i Established", c.IPAddress, c.Config.HTTPPort, name)
+func (c *ControlNode) CheckBGPConnection(name string, down bool) error {
+    url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_BgpNeighborReq?x=%s | xmllint --format  - | grep -wi state | grep -i Established", c.IPAddress, c.Config.HTTPPort, name)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
-    return err
+    log.Debugf("Command %s completed with status %v\n", url, err)
+    if !down {
+        return err
+    }
+
+    // session should be down, so expect an error here from the grep!
+    if err != nil {
+        return nil
+    }
+
+    return fmt.Errorf("BGP session is still established")
 }
 
-func (c *ControlNode) CheckBGPConnections(components []*sut.Component, retry int, wait time.Duration) error {
+func (c *ControlNode) CheckBGPConnections(components []*sut.Component, down bool, retry int, wait time.Duration) error {
     for r := 0; r < retry; r++ {
         var err error
         for i := 0; i < len(components); i++ {
             if &c.Component != components[i] {
-                if err = c.CheckBGPConnection(components[i].Name); err != nil {
+                if err = c.CheckBGPConnection(components[i].Name, down); err != nil {
                     break
                 }
-                log.Infof("%s: BGP Peer %s session reached established state", c.Name, components[i].Name)
+                if !down {
+                    log.Infof("%s: BGP Peer %s session reached established state", c.Name, components[i].Name)
+                }
             }
         }
         if err == nil {
@@ -186,8 +200,15 @@ func (c *ControlNode) CheckBGPConnections(components []*sut.Component, retry int
 
 // TODO: Parse xml to do specific checks in the data received from curl.
 func (c *ControlNode) checkConfiguration(tp string, count int) error {
-    url := fmt.Sprintf("/usr/bin/curl -s http://%s:%d/Snh_IFMapNodeTableListShowReq? | xmllint format -  | grep -iw -A1 '>%s</table_name>' | grep -w '>'%d'</size>'", c.IPAddress, c.Config.HTTPPort, tp, count)
+    url := fmt.Sprintf("/usr/bin/curl --connect-timeout 5 -s http://%s:%d/Snh_IFMapNodeTableListShowReq? | xmllint format -  | grep -iw -A1 '>%s</table_name>' | grep -w '>'%d'</size>'", c.IPAddress, c.Config.HTTPPort, tp, count)
     _, err := exec.Command("/bin/bash", "-c", url).Output()
+
+    if count == 0 {
+        if err == nil {
+            return fmt.Errorf("%s config is still present", tp,)
+        }
+        return nil
+    }
     return err
 }
 
@@ -199,4 +220,19 @@ func (c *ControlNode) CheckConfiguration(tp string, count int, retry int, wait t
         time.Sleep(wait * time.Second)
     }
     return fmt.Errorf("CheckConfiguration failed")
+}
+
+func UpdateConfigDB (rootdir string, control_nodes []*ControlNode, fqNameTable *config.FQNameTableType, uuidTable *config.UUIDTableType) error {
+    if err := config.GenerateDB(fqNameTable, uuidTable, fmt.Sprintf("%s/db.json", rootdir));  err != nil {
+        return err
+    }
+
+    // Send signal to contrl-nodes to trigger configuration processing.
+    for i := range control_nodes {
+        log.Debugf("Sending SIGHUP to control-node %d", control_nodes[i].Cmd.Process.Pid)
+        if err := control_nodes[i].Cmd.Process.Signal(syscall.SIGHUP); err != nil {
+            return fmt.Errorf("Could not send SIGHUP to process %d: %v", control_nodes[i].Cmd.Process.Pid, err)
+        }
+    }
+    return nil
 }
