@@ -2543,6 +2543,7 @@ class FabricDM(DBBaseDM):
         self.fabric_namespaces = set()
         self.lo0_ipam_subnet = None
         self.ip_fabric_ipam_subnet = None
+        self.vns = set()
         self.update(obj_dict)
     # end __init__
 
@@ -2583,6 +2584,7 @@ class FabricDM(DBBaseDM):
 
         # Get the enterprise-style flag
         self.enterprise_style = obj.get('fabric_enterprise_style', True)
+
     # end update
 # end class FabricDM
 
@@ -2901,6 +2903,7 @@ class VirtualPortGroupDM(DBBaseDM):
         self.virtual_machine_interfaces = set()
         self.esi = None
         self.pi_ae_map = {}
+        self.fabric = None
         self.update(obj_dict)
         self.get_esi()
     # end __init__
@@ -2909,11 +2912,13 @@ class VirtualPortGroupDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fabric = self.get_parent_uuid(obj)
         self.add_to_parent(obj)
         self.update_multiple_refs('physical_interface', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.get_ae_for_pi(obj.get('physical_interface_refs'))
         self.build_lag_pr_map()
+        self.build_fabric_vn_map()
 
     # end update
 
@@ -2937,6 +2942,14 @@ class VirtualPortGroupDM(DBBaseDM):
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
             if self.uuid not in pr_obj.virtual_port_groups:
                 pr_obj.set_associated_lags(self.uuid)
+
+    def build_fabric_vn_map(self):
+        fab_obj = FabricDM.get(self.fabric)
+        for vmi_uuid in self.virtual_machine_interfaces:
+            vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if not vmi_obj or not vmi_obj.virtual_network:
+                continue
+            fab_obj.vns.add(vmi_obj.virtual_network)
 
     def get_attached_sgs(self, vlan_tag, interface):
         sg_list = []
