@@ -2111,6 +2111,12 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
       "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "overlay-bgp" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
+      "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "assisted-replicator" ]
     },
     {
@@ -2118,6 +2124,12 @@
       "from_fq_name": [ "default-global-system-config", "ar-replicator-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "ar-replicator-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "overlay-bgp" ]
     },
     {
       "from_type": "role-definition",
