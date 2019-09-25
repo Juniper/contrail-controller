@@ -263,7 +263,7 @@ class BgpRouterST(ResourceBaseST):
         return cluster_rr_supported, control_rr_supported
     # end _is_route_reflector_supported
 
-    def skip_fabric_bgp_router_peering_add(self, router):
+    def _check_peer_bgp_router_fabric(self, router):
 
         phy_rtr_name = self.physical_router
         phy_rtr_peer_name = router.physical_router
@@ -283,9 +283,9 @@ class BgpRouterST(ResourceBaseST):
                 return True
 
         return False
-    # end skip_fabric_bgp_router_peering_add
+    # end _check_peer_bgp_router_fabric(self, router)
 
-    def skip_bgp_router_peering_add(self, router, cluster_rr_supported,
+    def _skip_bgp_router_peering_add(self, router, cluster_rr_supported,
                                     control_rr_supported):
         # If there is no RR, always add peering in order to create full mesh.
         if not cluster_rr_supported and not control_rr_supported:
@@ -298,17 +298,14 @@ class BgpRouterST(ResourceBaseST):
                 router.router_type == 'control-node':
             return False
 
-        # Always create peeering between RRs in the same cluster for HA.
-        if self.cluster_id and router.cluster_id:
-            return self.cluster_id != router.cluster_id
-
-        # Always create peering from/to route-reflector (server).
+        # Always create peering from/to route-reflector (server) to
+        # bgp routers in the same fabric including HA RR.
         if self.cluster_id or router.cluster_id:
-            return self.skip_fabric_bgp_router_peering_add(router)
+            return self._check_peer_bgp_router_fabric(router)
 
         # Only in this case can we opt to skip adding bgp-peering.
         return True
-    # end skip_bgp_router_peering_add
+    # end _skip_bgp_router_peering_add
 
     def update_full_mesh_to_rr_peering(self):
         for router in BgpRouterST.values():
@@ -356,7 +353,7 @@ class BgpRouterST(ResourceBaseST):
             if router.router_type in ('bgpaas-server', 'bgpaas-client'):
                 continue
 
-            if self.skip_bgp_router_peering_add(router, cluster_rr_supported,
+            if self._skip_bgp_router_peering_add(router, cluster_rr_supported,
                                                 control_rr_supported):
                 continue
 
