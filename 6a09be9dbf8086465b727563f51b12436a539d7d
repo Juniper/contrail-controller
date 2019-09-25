@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5dc6df6d_379c6352",
+        "filename": "src/vnsw/agent/pkt/test/test_pkt_parse.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 906,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-25T06:22:04Z",
+      "side": 1,
+      "message": "please add macro for IP_PROTO_ICMP_v6\none more test case for IPv6 frame and IP_PROTO_ICMP?",
+      "range": {
+        "startLine": 906,
+        "startChar": 49,
+        "endLine": 906,
+        "endChar": 50
+      },
+      "revId": "6a09be9dbf8086465b727563f51b12436a539d7d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
