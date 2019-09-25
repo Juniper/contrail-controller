@@ -249,6 +249,21 @@ class FeatureBase(object):
             mode in vn.get_forwarding_mode()
     # end _is_valid_vn
 
+    def _get_all_vns_in_fabric(self, fabric_obj):
+        vns = []
+        for vpg_uuid in fabric_obj.virtual_port_groups:
+            vpg_obj = db.VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
+                continue
+            for vmi_uuid in vpg_obj.virtual_machine_interfaces:
+                vmi_obj = db.VirtualMachineInterfaceDM.get(vmi_uuid)
+                if not vmi_obj or not vmi_obj.virtual_network:
+                    continue
+                if not self._is_valid_vn(vmi_obj.virtual_network, 'l2_l3'):
+                    continue
+                vns.append(vmi_obj.virtual_network)
+        return vns
+
     def _get_connected_vns(self, mode):
         vns = set()
         for lr_uuid in self._physical_router.logical_routers or []:
