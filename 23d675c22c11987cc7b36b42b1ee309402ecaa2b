@@ -16,6 +16,24 @@
       "revId": "23d675c22c11987cc7b36b42b1ee309402ecaa2b",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "994f5c12_3e846b36",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/import_lldp_info/tasks/juniper.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2019-09-25T20:18:03Z",
+      "side": 1,
+      "message": "Yes. This involves \n1. Moving the do_until_loop.yml presently under wait_for_fpc_online role into a common location so as to be used by all roles that need a retry logic.\n2. Currently, the wait_for_fpc_online invokes this invariably, however it is better if we were to have it under vendor specific logic like juniper.yml\n3. Have the conditions for retry passed in as a parameter to the common do_until_loop.yml instead of hardcoding - Currently, I cant find a way of doing this but I can research.\n\nSo I am opening a tracking PR (https://contrail-jws.atlassian.net/browse/CEM-9271) to refactor this and test it all of this together for 1911. For 1910 can we have these changes as it would still unblock the user from the current bug.",
+      "parentUuid": "dcb1e78a_a37e4ed0",
+      "revId": "23d675c22c11987cc7b36b42b1ee309402ecaa2b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
