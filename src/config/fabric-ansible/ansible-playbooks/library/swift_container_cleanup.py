@@ -105,7 +105,7 @@ connection_lock = RLock()
 
 class FileSvcUtil(object):  # pragma: no cover
     def __init__(self, authtoken, authurl, user, key, tenant_name,
-                 auth_version, container_name, temp_url_key,
+                 auth_version, container_name, filename, temp_url_key,
                  temp_url_key2, connection_retry_count, chosen_temp_url_key):
         self.requests = requests
         self.authurl = authurl
@@ -114,6 +114,7 @@ class FileSvcUtil(object):  # pragma: no cover
         self.key = key
         self.auth_version = auth_version
         self.container_name = container_name
+        self.filename = filename
         self.temp_url_key = temp_url_key
         self.temp_url_key_2 = temp_url_key2
         self.connection_retry_count = connection_retry_count
@@ -147,7 +148,8 @@ class FileSvcUtil(object):  # pragma: no cover
                 err_msg = e.message
                 logging.error(err_msg)
                 if retry_count == self.connection_retry_count:
-                    raise Exception("Connection failed with swift file server: " + str(err_msg))
+                    raise Exception("Connection failed with swift file "
+                                    "server: " + str(err_msg))
                 logging.error("Connection failed with swift file server, retrying to connect")
                 incr_sleep *= 2
                 time.sleep(incr_sleep)
@@ -168,30 +170,40 @@ class FileSvcUtil(object):  # pragma: no cover
 
 
 # Pick out residual chunks without manifest file and delete them
-    def container_cleanup(self, container_name):
+    def container_cleanup(self, container_name, filename):
         list_item = self.swift_conn.get_container(container_name)
         manifest_list = []
         chunk_dict = {}
+        delete_list = []
         container_items = list_item[1]
         regex = re.compile(r'.*/[0-9]+')
         for item in container_items:
-            f = regex.match(item['name'])
-            if f is not None:
-                image_name = f.group().split("__")
-                if image_name[0] not in chunk_dict.keys():
-                    chunk_dict[image_name[0]] = [f.group()]
+            if filename == "":
+                f = regex.match(item['name'])
+                if f is not None:
+                    image_name = f.group().split("__")
+                    if image_name[0] not in chunk_dict.keys():
+                        chunk_dict[image_name[0]] = [f.group()]
+                    else:
+                        chunk_dict[image_name[0]].append(f.group())
                 else:
-                    chunk_dict[image_name[0]].append(f.group())
+                    manifest_list.append(item['name'])
             else:
-                manifest_list.append(item['name'])
+                if filename in item['name']:
+                    delete_list.append(item['name'])
 
-        for key in chunk_dict.keys():
-            if key in manifest_list:
-                pass
-            else:
-                delete_chunk_list = chunk_dict[key]
-                for delete_item in delete_chunk_list:
-                    self.swift_conn.delete_object(container_name,delete_item)
+        if filename == "":
+            for key in chunk_dict.keys():
+                if key in manifest_list:
+                    pass
+                else:
+                    delete_chunk_list = chunk_dict[key]
+                    for delete_item in delete_chunk_list:
+                        self.swift_conn.delete_object(container_name,
+                                                      delete_item)
+        else:
+            for item in delete_list:
+                self.swift_conn.delete_object(container_name, item)
 
     def close(self):
         if self.swift_conn:
@@ -210,6 +222,7 @@ def main():
             temp_url_key_2=dict(required=True),
             chosen_temp_url_key=dict(required=False, default="temp_url_key"),
             container_name=dict(required=True),
+            filename=dict(required=False, default=""),
             connection_retry_count=dict(required=False, default=5, type='int')),
         supports_check_mode=False)
     m_args = module.params
@@ -223,15 +236,16 @@ def main():
     temp_url_key_2 = m_args['temp_url_key_2']
     chosen_temp_url_key = m_args['chosen_temp_url_key']
     container_name = m_args['container_name']
+    filename = m_args['filename']
     connection_retry_count = m_args['connection_retry_count']
 
     error_msg = ''
     try:
         fileutil = FileSvcUtil(authtoken, authurl, user, key, tenant_name,
-                               auth_version, container_name, temp_url_key,
+                               auth_version, container_name, filename, temp_url_key,
                                temp_url_key_2, connection_retry_count, chosen_temp_url_key)
 
-        fileutil.container_cleanup(container_name)
+        fileutil.container_cleanup(container_name, filename)
 
         fileutil.close()
 
@@ -241,8 +255,10 @@ def main():
     results = {}
     results['error_msg'] = error_msg
 
+
     module.exit_json(**results)
 
 
 if __name__ == '__main__':
     main()
+
