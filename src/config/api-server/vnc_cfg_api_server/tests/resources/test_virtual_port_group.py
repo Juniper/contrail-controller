@@ -800,6 +800,13 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         vmi_obj.set_virtual_machine_interface_properties(
             VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=42))
         vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj)
+        # Read physical interface type, it should be set to access
+        pi_obj_1 = self._vnc_lib.physical_interface_read(id=pi_uuid_1)
+        pi_obj_2 = self._vnc_lib.physical_interface_read(id=pi_uuid_2)
+        intf_type_pi_1 = pi_obj_1.get_physical_interface_type()
+        self.assertEqual(intf_type_pi_1, 'access')
+        intf_type_pi_2 = pi_obj_2.get_physical_interface_type()
+        self.assertEqual(intf_type_pi_2, 'access')
         vpg_obj.add_virtual_machine_interface(vmi_obj)
         self.api.virtual_port_group_update(vpg_obj)
 
@@ -814,6 +821,13 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
 
         self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
         self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        # Read physical interface type again, it should be set to None
+        pi_obj_1 = self._vnc_lib.physical_interface_read(id=pi_uuid_1)
+        pi_obj_2 = self._vnc_lib.physical_interface_read(id=pi_uuid_2)
+        intf_type_pi_1 = pi_obj_1.get_physical_interface_type()
+        self.assertEqual(intf_type_pi_1, None)
+        intf_type_pi_2 = pi_obj_2.get_physical_interface_type()
+        self.assertEqual(intf_type_pi_2, None)
         self.api.physical_interface_delete(id=pi_uuid_1)
         self.api.physical_interface_delete(id=pi_uuid_2)
         self.api.physical_router_delete(id=pr_obj_1.uuid)
