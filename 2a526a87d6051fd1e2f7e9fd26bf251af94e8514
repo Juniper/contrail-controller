@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a04484de_5268c655",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/feature_base.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-25T22:20:35Z",
+      "side": 1,
+      "message": "FYI, this will have performance impact since if there were 1000 VPGs and each having 2 VMIs then for every config push we are making calls for 1000 VPGs, 2000 VMIs, 2000 VNs.\nBetter to cache the list of VNs in the fabric so we dont have to refetch them.",
+      "revId": "2a526a87d6051fd1e2f7e9fd26bf251af94e8514",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "60f00b91_2ede1c62",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/feature_base.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 260,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-25T22:20:35Z",
+      "side": 1,
+      "message": "Please make vns as set and check if the virtual_network is already in the set so we dont have to refetch them.",
+      "revId": "2a526a87d6051fd1e2f7e9fd26bf251af94e8514",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "800e22e6_eade699d",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/feature_base.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 262,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-25T22:20:35Z",
+      "side": 1,
+      "message": "Do we support L2 only or L3 only network in fabric?",
+      "revId": "2a526a87d6051fd1e2f7e9fd26bf251af94e8514",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0f4f7235_d86985ea",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/feature_base.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 264,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-25T22:20:35Z",
+      "side": 1,
+      "message": "FYI, this will have performance impact since if there were 1000 VPGs and each having 2 VMIs then for every config push we are making calls for 1000 VPGs, 2000 VMIs, 2000 VNs.\nBetter to cache the list of VNs in the fabric so we dont have to refetch them.",
+      "revId": "2a526a87d6051fd1e2f7e9fd26bf251af94e8514",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b822e00e_02d9612c",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_assisted_replicator/juniper_junos-qfx_overlay_assisted_replicator.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-09-25T22:20:35Z",
+      "side": 1,
+      "message": "Observed that we had a special handling for PNF-Servicechaining in Gateway Role. Do we need a similar check here?",
+      "revId": "2a526a87d6051fd1e2f7e9fd26bf251af94e8514",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
