@@ -2515,6 +2515,7 @@ class FabricDM(DBBaseDM):
         self.fabric_namespaces = set()
         self.lo0_ipam_subnet = None
         self.ip_fabric_ipam_subnet = None
+        self.virtual_port_groups = set()
         self.update(obj_dict)
     # end __init__
 
@@ -2555,6 +2556,10 @@ class FabricDM(DBBaseDM):
 
         # Get the enterprise-style flag
         self.enterprise_style = obj.get('fabric_enterprise_style', True)
+
+        # Get associated vpgs
+        self.virtual_port_groups = set([vpg['uuid'] for vpg in
+                                        obj.get('virtual_port_groups', [])])
     # end update
 # end class FabricDM
 
