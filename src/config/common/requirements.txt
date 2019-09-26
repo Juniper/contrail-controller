@@ -7,4 +7,3 @@ attrdict
 requests >= 2.20.0
 sandesh
 contrail-api-client
-pycrypto
