@@ -101,10 +101,14 @@ public:
         ConfigCassandraClientTest *config_cassandra_client =
             dynamic_cast<ConfigCassandraClientTest *>(
                     config_client_manager->config_db_client());
-        std::string json_message = FileRead(events_file);
-        assert(json_message.size() != 0);
         contrail_rapidjson::Document *doc = config_cassandra_client->events();
-        doc->Parse<0>(json_message.c_str());
+        for (int i = 0; i < 100; i++) {
+            doc->Parse<0>(FileRead(events_file).c_str());
+            if (!doc->HasParseError())
+                break;
+            usleep(100000);
+        }
+
         if (doc->HasParseError()) {
             size_t pos = doc->GetErrorOffset();
             // GetParseError returns const char *
