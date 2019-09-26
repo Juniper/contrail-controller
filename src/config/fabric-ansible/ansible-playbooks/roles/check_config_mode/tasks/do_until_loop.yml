@@ -1,0 +1,24 @@
+---
+- name: Wait for "{{ delay }}" seconds
+  wait_for:
+    timeout: "{{ delay }}"
+
+- name: Execute commands from template (recursive)
+  include_tasks: "{{task_file}}"
+
+- block:
+    - name: Timeout ("{{ delay * retries }}" seconds)
+      fail:
+        msg: "Timed out while waiting for config to be committed."
+      when:
+        - count | int >= retries | int
+
+    - name: Update count to ("{{ count | int + 1 }}")
+      set_fact:
+        try_count: "{{ count | int + 1 }}"
+
+    - name: Call itself recursively
+      include_tasks: "do_until_loop.yml"
+      vars:
+        count: "{{ try_count | int }}"
+  when: "'failed' in execute_command_resp and execute_command_resp.failed == true"

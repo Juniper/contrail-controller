@@ -32,6 +32,8 @@
 
   tasks:
     - import_role:
+        name: check_config_mode
+    - import_role:
         name: rma_validate
       when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
     - import_role:
@@ -57,6 +59,8 @@
         jl_message: "Assigned static ip to management interface {{interface_configuration.name}} info for {{prouter_vendor}} device, {{prouter_name}}"
     - import_role:
         name: wait_for_fpc_online
+    - import_role:
+        name: check_config_mode
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
