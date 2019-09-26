@@ -774,6 +774,69 @@ alarm_list = [
                 "vrouter"
             ]
         }
-    }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "VrouterAgent.res_limit",
+                            "operation": "==",
+                            "operand2": {
+                                "json_value": "true"
+                            },
+                            "variables": ["VrouterAgent.vr_limit_exceeded_list"]
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "system-defined-vrouter-limit-exceeded"
+        ],
+        "id_perms": {
+            "description": "Agent resource usage exceeded configured watermark for resource."
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "vrouter"
+            ]
+        }
+    },
+    {
+        "alarm_rules": {
+            "or_list": [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "VrouterAgent.res_table_limit",
+                            "operation": "==",
+                            "operand2": {
+                                "json_value": "true"
+                            },
+                            "variables": ["VrouterAgent.vr_limit_exceeded_list"]
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 0,
+        "fq_name": [
+            "default-global-system-config",
+            "system-defined-vrouter-table-limit-exceeded"
+        ],
+        "id_perms": {
+            "description": "Agent resource usage exceeded table size for resource in vrouter."
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "vrouter"
+            ]
+        }
+    },
 ]
-    

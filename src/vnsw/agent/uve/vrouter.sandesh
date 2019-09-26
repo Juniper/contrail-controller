@@ -94,6 +94,17 @@ struct VrouterAgentObjectCount {
 }
 
 /**
+ * Sandesh definition to account for resources like nexthop and mpls
+ * label in agent and their current state compared to configured limit
+ */
+struct VrouterAgentResUsage {
+    /** Name of resource */
+    1: string name;
+    /** Status of resource can be Normal, Exceeded or TableLimit */
+    2: string status;
+}
+
+/**
  * Structure definition for vrouter-agent information
  */
 struct VrouterAgent {
@@ -233,6 +244,16 @@ struct VrouterAgent {
    55: optional bool port_mirror_enabled;
    /** Sub cluster identifier for vrouter */
    56: optional string subcluster_name;
+   /** Percentage of resource after which alarm is set */
+   57: optional i32 vr_high_watermark;
+   /** Percentage of resource usage below which alarm is unset */
+   58: optional i32 vr_low_watermark;
+   /** List of objects for which usage in agent has exceeded configured limit */
+   59: optional list<VrouterAgentResUsage> vr_limit_exceeded_list;
+   /** Flag is set when resource usage exceeds vr_high_watermark */
+   60: optional bool res_limit;
+   /** Flag is set when resource usage reaches configured table limit for any resource */
+   61: optional bool res_table_limit;
 }
 
 /**
