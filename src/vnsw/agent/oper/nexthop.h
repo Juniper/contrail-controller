@@ -1870,7 +1870,8 @@ public:
     void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
     NextHop *FindNextHop(size_t index);
     uint32_t ReserveIndex();
-
+    void CheckVrNexthopLimit();
+    uint32_t NhIndexCount() { return index_table_.InUseIndexCount(); }
 private:
     NextHop *AllocWithKey(const DBRequestKey *k) const;
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;

@@ -1147,6 +1147,56 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
     client->WaitForIdle();
 }
 
+TEST_F(CfgTest, NhUsageLimit) {
+    VrLimitExceeded &vr_limits = agent_->get_vr_limits_exceeded_map();
+    VrLimitExceeded::iterator vr_limit_itr = vr_limits.find("vr_nexthops");
+
+    // Since 512k is default limit, so currently usage is normal
+    EXPECT_EQ(vr_limit_itr->second, "Normal");
+
+    uint32_t default_nh_count = agent_->vrouter_max_nexthops();
+    agent_->set_vrouter_max_nexthops(32);
+
+    uint32_t default_high_watermark = agent_->vr_limit_high_watermark();
+    agent_->set_vr_limit_high_watermark(65);
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+
+    // Wait for nh add, usage limit should be set to TableLimit
+    WAIT_FOR(100, 100, (agent_->nexthop_table()->NhIndexCount() >= 32));
+    EXPECT_EQ(vr_limit_itr->second, "TableLimit");
+
+    DeleteVmportEnv(input, 2, false);
+    client->WaitForIdle();
+
+    // Delete config, nh count decrease now set to Exceeded
+    WAIT_FOR(100, 100, (vr_limit_itr->second, "Exceeded"));
+    // Delete vn
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    // all config deleted expect usage to be normal
+    WAIT_FOR(100, 100, (vr_limit_itr->second, "Normal"));
+
+    // Restore defaults
+    agent_->set_vrouter_max_nexthops(default_nh_count);
+    agent_->set_vr_limit_high_watermark(default_high_watermark);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
