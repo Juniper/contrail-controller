@@ -340,12 +340,14 @@ int main(int argc, char *argv[]) {
     // 3. AMQP Server
     std::vector<ConnectionTypeName> expected_connections;
     expected_connections = boost::assign::list_of
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::COLLECTOR)->second, ""))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "Cassandra"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "RabbitMQ"));
+        (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                            ConnectionType::COLLECTOR)->second, ""))
+        (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                            ConnectionType::DATABASE)->second, "Cassandra"))
+        (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                            ConnectionType::DATABASE)->second, "RabbitMQ"))
+                                .convert_to_container<vector<\
+                                 ConnectionTypeName> >();
 
     ConnectionStateManager::GetInstance()->Init(
         *evm.io_service(), options.hostname(),

@@ -312,7 +312,8 @@ void ShowIFMapAgentReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_= list_of(s0)(s1)
+        .convert_to_container<vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
