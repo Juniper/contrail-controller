@@ -5,11 +5,13 @@
 Provides utility routines for modules in api-server
 """
 import argparse
+import base64
 from cfgm_common import jsonutils as json
 import ConfigParser
 import vnc_api.gen.resource_xsd
 import vnc_quota
 import cfgm_common
+from Crypto.Cipher import AES
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.utils import AAA_MODE_VALID_VALUES
@@ -380,3 +382,25 @@ def get_filters(data, skips=None):
         if values:
             res[key] = values
     return res
+
+
+def encrypt_password(pwd_key, dict_password):
+    # AES is a block cipher that only works with block of 16 chars.
+    # We need to pad both key and text so that their length is equal
+    # to next higher multiple of 16
+    # Used https://stackoverflow.com/a/33299416
+
+    pwd_key = pwd_key[-32:]
+    key_padding_len = (len(pwd_key) + 16 - 1) // 16
+    if key_padding_len == 0:
+        key_padding_len = 1
+    key = pwd_key.rjust(16 * key_padding_len)
+    cipher = AES.new(key, AES.MODE_ECB)
+
+    text_padding_len = (len(dict_password) + 16 - 1) // 16
+    if text_padding_len == 0:
+        text_padding_len = 1
+    padded_text = dict_password.rjust(16 * text_padding_len)
+    password = base64.b64encode(cipher.encrypt(padded_text))
+    return password
+# end encrypt_password
