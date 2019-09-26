@@ -2,9 +2,9 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
-from cfgm_common import utils
 from vnc_api.gen.resource_common import PhysicalRouter
 
+from vnc_cfg_api_server import utils
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
