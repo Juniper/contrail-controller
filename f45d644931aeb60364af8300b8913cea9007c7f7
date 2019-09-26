@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bd4c92ee_0a9f1559",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T22:42:58Z",
+      "side": 1,
+      "message": "there is no need to return here",
+      "revId": "f45d644931aeb60364af8300b8913cea9007c7f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
