@@ -1,9 +1,4 @@
-/*
- * copyright (c) 2019 juniper networks, inc. all rights reserved.
- */
-
 package config
-
 
 import (
     "encoding/json"
