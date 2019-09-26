@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "77694d3f_ba3d5fa4",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 150,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "acdbf8a5_040f1fa4",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "531603e6_6110be59",
         "filename": "src/cat/crpd/crpd.go",
         "patchSetId": 3
@@ -54,6 +72,24 @@
     },
     {
       "key": {
+        "uuid": "669c46ad_5ac9b160",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "531603e6_6110be59",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "06f31079_6f6dced0",
         "filename": "src/cat/crpd/crpd_test.go",
         "patchSetId": 3
@@ -65,6 +101,24 @@
       "writtenOn": "2019-09-26T17:10:14Z",
       "side": 1,
       "message": "this should be in package crpd",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b81a05fd_c956d483",
+        "filename": "src/cat/crpd/crpd_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "as said over chat, I am doing this to get around cycle issues of import among cat and the rest",
+      "parentUuid": "06f31079_6f6dced0",
       "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -106,6 +160,24 @@
     },
     {
       "key": {
+        "uuid": "d176ce59_81a480e2",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2f5371d1_0653e2ed",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f6feab85_4edcc601",
         "filename": "src/cat/sut/sut.go",
         "patchSetId": 3
@@ -120,6 +192,24 @@
       "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5f599f97_79769403",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f6feab85_4edcc601",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -158,6 +248,24 @@
     },
     {
       "key": {
+        "uuid": "1cd92448_a8ee502e",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "7ba1f01c_b960cfb2",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "771fd548_98647e38",
         "filename": "src/cat/sut/sut.go",
         "patchSetId": 3
@@ -169,6 +277,24 @@
       "writtenOn": "2019-09-26T17:10:14Z",
       "side": 1,
       "message": "for {\n  b, err :\u003d cmd.Output()\n  if err \u003d\u003d nil {\n    return strings.TrimRight(string(b), \"\\n\"), nil\n  }\n  if retry \u003e 0 {\n    retry--\n  }\n  if retry \u003d\u003d 0 {\n    return \"\", fmt.Errorf(\"Failed to execute command %s: %v\", name, err)\n  }\n  time.Sleep(time.Duration(delay) * time.Second)\n}\n\nhowever there are several better way to write this \nhttps://medium.com/@lestrrat/yak-shaving-with-backoff-libraries-in-go-80240f0aa30c",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e5b99739_0b396eac",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "Will switch over to this in next set of commits... There are 2/3 places that I need to change to cut over",
+      "parentUuid": "771fd548_98647e38",
       "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -210,6 +336,30 @@
       "side": 1,
       "message": "yes, but I am creating a directory with this name... to store logs, conf .etc.",
       "parentUuid": "80801740_d1586418",
+      "range": {
+        "startLine": 29,
+        "startChar": 0,
+        "endLine": 29,
+        "endChar": 12
+      },
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8fdb495b_0d08a36a",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-26T21:11:29Z",
+      "side": 1,
+      "message": "At the moment, I am creating a directory based on this description word... Hence avoiding spaces.",
+      "parentUuid": "1ca4a485_2bde17bd",
       "range": {
         "startLine": 29,
         "startChar": 0,
