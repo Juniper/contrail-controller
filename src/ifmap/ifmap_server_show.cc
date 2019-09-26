@@ -455,7 +455,7 @@ void IFMapTableShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -477,7 +477,7 @@ void IFMapTableShowReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -798,7 +798,7 @@ void IFMapLinkTableShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -820,7 +820,7 @@ void IFMapLinkTableShowReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -879,7 +879,7 @@ void IFMapNodeShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0);
+    ps.stages_ = list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1253,7 +1253,7 @@ void IFMapPerClientNodesShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1275,7 +1275,7 @@ void IFMapPerClientNodesShowReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1517,7 +1517,7 @@ void IFMapPerClientLinksShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0);
+    ps.stages_ = list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1530,7 +1530,7 @@ void IFMapPerClientLinksShowReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0);
+    ps.stages_ = list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1625,7 +1625,7 @@ void IFMapUuidToNodeMappingReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1639,7 +1639,7 @@ void IFMapUuidToNodeMappingReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1735,7 +1735,7 @@ void IFMapNodeToUuidMappingReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1749,7 +1749,7 @@ void IFMapNodeToUuidMappingReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1882,7 +1882,7 @@ void IFMapPendingVmRegReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1925,7 +1925,7 @@ void IFMapServerClientShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -1961,7 +1961,7 @@ void IFMapNodeTableListShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -2189,7 +2189,7 @@ void ConfigDBUUIDCacheReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -2213,7 +2213,7 @@ void ConfigDBUUIDCacheReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -2331,7 +2331,7 @@ void ConfigDBUUIDToFQNameReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
 
@@ -2345,6 +2345,6 @@ void ConfigDBUUIDToFQNameReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_ = boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0).convert_to_container<std::vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }
