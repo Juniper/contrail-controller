@@ -40,54 +40,79 @@ void BgpConfigListener::DependencyTrackerInit() {
       get_dependency_tracker()->policy_map();
 
     ReactionMap bgp_peering_react = map_list_of<string, PropagateList>
-        ("bgp-peering", list_of("self"));
+        ("bgp-peering", list_of("self").convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("bgp-peering", bgp_peering_react));
 
     ReactionMap bgp_router_react = map_list_of<string, PropagateList>
-        ("self", list_of("bgp-peering"))
-        ("bgp-router-sub-cluster", list_of("self"))
-        ("instance-bgp-router", list_of("bgp-peering"));
+        ("self", list_of("bgp-peering").convert_to_container<PropagateList>())
+        ("bgp-router-sub-cluster", list_of("self")
+        .convert_to_container<PropagateList>())
+        ("instance-bgp-router", list_of("bgp-peering")
+        .convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("bgp-router", bgp_router_react));
 
     ReactionMap connection_react = map_list_of<string, PropagateList>
-        ("self", list_of("connection"))
-        ("connection", list_of("connection"));
+        ("self", list_of("connection").convert_to_container<PropagateList>())
+        ("connection", list_of("connection")
+        .convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("connection", connection_react));
 
     ReactionMap rt_instance_react = map_list_of<string, PropagateList>
-        ("self", list_of("instance-bgp-router"))
-        ("instance-target", list_of("self")("connection"))
-        ("connection", list_of("self"))
-        ("virtual-network-routing-instance", list_of("self"))
-        ("routing-policy-routing-instance", list_of("self"))
-        ("route-aggregate-routing-instance", list_of("self"));
+        ("self", list_of("instance-bgp-router")
+        .convert_to_container<PropagateList>())
+        ("instance-target", list_of("self")("connection")
+        .convert_to_container<PropagateList>())
+        ("connection", list_of("self").convert_to_container<PropagateList>())
+        ("virtual-network-routing-instance",
+        list_of("self").convert_to_container<PropagateList>())
+        ("routing-policy-routing-instance", list_of("self")
+        .convert_to_container<PropagateList>())
+        ("route-aggregate-routing-instance",
+        list_of("self").convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("routing-instance", rt_instance_react));
 
     ReactionMap routing_policy_assoc_react = map_list_of<string, PropagateList>
-        ("self", list_of("routing-policy-routing-instance"))
+        ("self", list_of("routing-policy-routing-instance")
+        .convert_to_container<PropagateList>())
         ("routing-policy-routing-instance",
-         list_of("routing-policy-routing-instance"));
+        list_of("routing-policy-routing-instance")
+        .convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("routing-policy-routing-instance",
                              routing_policy_assoc_react));
 
     ReactionMap routing_policy_react = map_list_of<string, PropagateList>
-        ("self", list_of("routing-policy-routing-instance"))
-        ("routing-policy-routing-instance", list_of("self"));
+        ("self", list_of("routing-policy-routing-instance")
+        .convert_to_container<PropagateList>())
+        ("routing-policy-routing-instance",
+        list_of("self").convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("routing-policy", routing_policy_react));
 
     ReactionMap virtual_network_react = map_list_of<string, PropagateList>
-        ("self", list_of("virtual-network-routing-instance"));
+        ("self", list_of("virtual-network-routing-instance")
+        .convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("virtual-network", virtual_network_react));
 
     ReactionMap route_aggregate_react = map_list_of<string, PropagateList>
-        ("self", list_of("route-aggregate-routing-instance"));
+        ("self", list_of("route-aggregate-routing-instance")
+        .convert_to_container<PropagateList>())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("route-aggregate", route_aggregate_react));
 
     ReactionMap global_config_react = map_list_of<string, PropagateList>
-        ("self", PropagateList());
+        ("self", PropagateList())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
     policy->insert(make_pair("global-system-config", global_config_react));
 
     ReactionMap global_qos_react = map_list_of<string, PropagateList>
-        ("self", PropagateList());
+        ("self", PropagateList())
+        .convert_to_container<IFMapDependencyTracker::ReactionMap>();
+
     policy->insert(make_pair("global-qos-config", global_qos_react));
 }

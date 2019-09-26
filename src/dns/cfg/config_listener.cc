@@ -45,8 +45,9 @@ public:
     void Initialize() {
         ReactionMap ipam_react =
             map_list_of<string, PropagateList>
-                ("self", list_of("self"))
-                ("virtual-network-network-ipam", list_of("self"));
+                ("self", list_of("self").convert_to_container<PropagateList>())
+                ("virtual-network-network-ipam", list_of("self")
+                .convert_to_container<PropagateList>());
         policy_.insert(make_pair("network-ipam", ipam_react));
 #if 0
         ReactionMap vnni_react =
@@ -62,8 +63,9 @@ public:
         policy_.insert(make_pair("virtual-DNS", virt_dns_react));
         ReactionMap virt_dns_rec_react =
             map_list_of<string, PropagateList>
-                ("self", list_of("self"))
-                ("virtual-DNS-virtual-DNS-record", list_of("self"));
+                ("self", list_of("self").convert_to_container<PropagateList>())
+                ("virtual-DNS-virtual-DNS-record", list_of("self")
+                .convert_to_container<PropagateList>());
         policy_.insert(make_pair("virtual-DNS-record", virt_dns_rec_react));
     }
 
