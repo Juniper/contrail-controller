@@ -17,9 +17,11 @@ cd controller/src/cat/test
 
 1. Instantiate and terminate arbitrary number of mock control-nodes
 2. Instantiate and terminate arbitrary number of mock agents
-3. XMPP peering among control-nodes and agents
-4. BGP peering among control-nodes
-5. Ability to add a mock port/VMI to agent (partial)
+2. Instantiate and terminate arbitrary number of CRPDs
+4. XMPP peering among control-nodes and agents
+5. BGP peering among control-nodes
+6. BGP peering among control-nodes and CRPDs
+7. Ability to add a mock port/VMI to agent (partial)
 
 ## Configuration
 
@@ -48,11 +50,10 @@ launching control-nodes.
 
 11 instance-ip
 
-
 ## Future work to done
 
-1. Add configuration db updates and deletes APIs
-2. Add support for configuration updates by mocking rabbitmq messaging
+1. Add support for configuration updates by mocking rabbitmq messaging
+     At present, this can still be done by config reinit (SIGHUP) to control-nodes.
 3. Integration with dpdk
 4. Integration with a contrail-collector (Analytics) for flows and uves
 
