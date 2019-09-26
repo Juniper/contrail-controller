@@ -28,8 +28,13 @@ MplsLabel::MplsLabel(Agent *agent, uint32_t label) :
 }
 
 MplsLabel::~MplsLabel() {
-    if (free_label_)
+    if (free_label_) {
+        if (label_ != MplsTable::kInvalidLabel) {
+            MplsTable *table = static_cast<MplsTable *>(get_table());
+            table->FreeMplsLabelIndex(label_);
+        }
         agent_->resource_manager()->Release(Resource::MPLS_INDEX, label_);
+    }
 }
 
 bool MplsLabel::IsLess(const DBEntry &rhs) const {
@@ -268,10 +273,12 @@ std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
 }
 
 DBEntry *MplsTable::Add(const DBRequest *req) {
+    CheckVrLabelLimit();
     MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
     assert(key->label() != MplsTable::kInvalidLabel);
 
     MplsLabel *mpls = new MplsLabel(agent(), key->label());
+    label_table_.InsertAtIndex(mpls->label(), mpls);
     mpls->Add(req);
     return mpls;
 }
@@ -299,6 +306,7 @@ bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
         }
     }
     mpls->Delete(req);
+    CheckVrLabelLimit();
     return true;
 }
 
@@ -412,6 +420,28 @@ MplsLabel *MplsTable::AllocLabel(const NextHopKey *nh_key) {
     assert(mpls_label);
 
     return mpls_label;
+}
+
+void MplsTable::CheckVrLabelLimit() {
+    VrLimitExceeded &vr_limits = agent()->get_vr_limits_exceeded_map();
+    VrLimitExceeded::iterator vr_limit_itr = vr_limits.find("vr_mpls_labels");
+    if (label_table_.InUseIndexCount() >= agent()->vrouter_max_labels()) {
+        vr_limit_itr->second.assign(std::string("TableLimit"));
+        LOG(ERROR, "Vrouter Mpls Lablels Table Limit Reached. Skip Label Add.");
+    } else if ( label_table_.InUseIndexCount() >= ((agent()->vr_limit_high_watermark() *
+        agent()->vrouter_max_labels())/100) ) {
+        vr_limit_itr->second.assign(std::string("Exceeded"));
+        LOG(ERROR, "Vrouter Mpls Labels Exceeded.");
+    } else if ( (label_table_.InUseIndexCount() >= ((agent()->vr_limit_high_watermark() *
+        agent()->vrouter_max_labels())/100) ) &&
+        ( label_table_.InUseIndexCount() < ((agent()->vrouter_max_labels()*95)/100)) ) {
+        vr_limit_itr->second.assign(std::string("Exceeded"));
+        LOG(ERROR, "Vrouter Mpls Labels Exceeded.");
+    } else if ( label_table_.InUseIndexCount() < ((agent()->vr_limit_low_watermark() *
+        agent()->vrouter_max_labels())/100) ) {
+        vr_limit_itr->second.assign(std::string("Normal"));
+    }
+    agent()->set_vr_limits_exceeded_map(vr_limits);
 }
 
 AgentSandeshPtr MplsTable::GetAgentSandesh(const AgentSandeshArguments *args,
