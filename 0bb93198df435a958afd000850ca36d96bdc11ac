@@ -1,0 +1,146 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "17a2541b_76775ce0",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 150,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "unneed else",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "531603e6_6110be59",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "add docstring on what this is",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "06f31079_6f6dced0",
+        "filename": "src/cat/crpd/crpd_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "this should be in package crpd",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b940d7c0_50366665",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "retry \u003c 0 ?",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f6feab85_4edcc601",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "probably you want some form if logging or signal to know when things are retrying",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ecfcd5ca_41fcf7dd",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "no need to declare this",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "771fd548_98647e38",
+        "filename": "src/cat/sut/sut.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "for {\n  b, err :\u003d cmd.Output()\n  if err \u003d\u003d nil {\n    return strings.TrimRight(string(b), \"\\n\"), nil\n  }\n  if retry \u003e 0 {\n    retry--\n  }\n  if retry \u003d\u003d 0 {\n    return \"\", fmt.Errorf(\"Failed to execute command %s: %v\", name, err)\n  }\n  time.Sleep(time.Duration(delay) * time.Second)\n}\n\nhowever there are several better way to write this \nhttps://medium.com/@lestrrat/yak-shaving-with-backoff-libraries-in-go-80240f0aa30c",
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "80801740_d1586418",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 29,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-26T17:10:14Z",
+      "side": 1,
+      "message": "you don\u0027t have write the descriptions as single word it can be a sentence\n\nthe go runner will replace the \" \" with \"_\" in the report",
+      "range": {
+        "startLine": 29,
+        "startChar": 0,
+        "endLine": 29,
+        "endChar": 12
+      },
+      "revId": "0bb93198df435a958afd000850ca36d96bdc11ac",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
