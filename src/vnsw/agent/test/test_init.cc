@@ -113,6 +113,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
              agent->router_id(), 32, "", false, true);
     }
 
+    // Add default nexthop limit
+    agent->set_vrouter_max_nexthops(DEFAULT_MAX_NEXTHOP);
     return client;
 }
 
