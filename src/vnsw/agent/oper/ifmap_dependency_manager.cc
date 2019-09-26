@@ -164,9 +164,11 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     IFMapDependencyTracker::NodeEventPolicy *policy = tracker_->policy_map();
 
     ReactionMap react_si = map_list_of<string, PropagateList>
-            ("service-instance-service-template", list_of("self"))
-            ("virtual-machine-service-instance", list_of("self"))
-            ("self", list_of("self"));
+            ("service-instance-service-template", list_of("self")
+            .convert_to_container<PropagateList>())
+            ("virtual-machine-service-instance", list_of("self")
+            .convert_to_container<PropagateList>())
+            ("self", list_of("self").convert_to_container<PropagateList>());
     policy->insert(make_pair("service-instance", react_si));
 
     ReactionMap react_tmpl = map_list_of<string, PropagateList>
@@ -174,21 +176,27 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     policy->insert(make_pair("service-template", react_tmpl));
 
     ReactionMap react_vm = map_list_of<string, PropagateList>
-            ("self", list_of("virtual-machine-service-instance"))
+            ("self", list_of("virtual-machine-service-instance")
+            .convert_to_container<PropagateList>())
             ("virtual-machine-virtual-machine-interface",
-             list_of("virtual-machine-service-instance"))
+             list_of("virtual-machine-service-instance")
+             .convert_to_container<PropagateList>())
             ("virtual-machine-interface-virtual-machine",
-             list_of("virtual-machine-service-instance"));
+             list_of("virtual-machine-service-instance")
+             .convert_to_container<PropagateList>());
     policy->insert(make_pair("virtual-machine", react_vm));
 
     ReactionMap react_vmi = map_list_of<string, PropagateList>
             ("self", list_of("virtual-machine-interface-virtual-machine")
-                            ("logical-interface-virtual-machine-interface"))
+                            ("logical-interface-virtual-machine-interface")
+                            .convert_to_container<PropagateList>())
             ("instance-ip-virtual-machine-interface",
-             list_of("virtual-machine-interface-virtual-machine"))
+             list_of("virtual-machine-interface-virtual-machine")
+             .convert_to_container<PropagateList>())
             ("virtual-machine-interface-virtual-network",
              list_of("virtual-machine-interface-virtual-machine")
-                    ("logical-interface-virtual-machine-interface"));
+                    ("logical-interface-virtual-machine-interface")
+                    .convert_to_container<PropagateList>());
     policy->insert(make_pair("virtual-machine-interface", react_vmi));
 
     ReactionMap react_ip = map_list_of<string, PropagateList>
@@ -196,8 +204,10 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     policy->insert(make_pair("instance-ip", react_ip));
 
     ReactionMap react_subnet = map_list_of<string, PropagateList>
-            ("self", list_of("virtual-network-network-ipam"))
-            ("virtual-network-network-ipam", list_of("nil"));
+            ("self", list_of("virtual-network-network-ipam")
+            .convert_to_container<PropagateList>())
+            ("virtual-network-network-ipam", list_of("nil")
+            .convert_to_container<PropagateList>());
     policy->insert(make_pair("virtual-network-network-ipam", react_subnet));
 
     ReactionMap react_ipam = map_list_of<string, PropagateList>
