@@ -1,0 +1,17 @@
+---
+- name: Check to see if the config mode is accessible
+
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
+  roles:
+    - check_config_mode
+
+  tasks:
+    - set_fact:
+        output: "{{output}}"

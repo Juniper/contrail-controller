@@ -79,6 +79,20 @@
   debug: msg="{{ device_push_response }}" verbosity=1
   when: device_push_response is defined
 
+- name: Check to see if the vendor (or family) file for commit check exists
+  stat:
+    path: "../check_config_mode/tasks/{{task_file_path}}"
+  register: p
+
+- name: check to see if the previous commit is complete
+  include_tasks: "../check_config_mode/tasks/do_until_loop.yml"
+  vars:
+    count: 1
+    retries: 10
+    delay: 30
+    task_file: "../check_config_mode/tasks/{{task_file_path}}"
+  when: p.stat.exists == True
+
 - block:
     - name: Wait for management port to reinitialize
       wait_for:
