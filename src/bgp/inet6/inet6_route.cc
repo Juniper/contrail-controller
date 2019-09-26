@@ -80,8 +80,11 @@ bool Inet6Prefix::IsMoreSpecific(const Inet6Prefix &rhs) const {
 
 Inet6Prefix Inet6Prefix::operator&(const Inet6Prefix& right) const {
     Ip6Address::bytes_type addr_bytes;
+#if (__cplusplus >= 201103L)
+    addr_bytes.fill(0);
+#else
     addr_bytes.assign(0);
-
+#endif
     Ip6Address::bytes_type lhs = ToBytes();
     Ip6Address::bytes_type rhs = right.ToBytes();
     for (size_t i = 0; i < sizeof(Ip6Address::bytes_type); ++i) {
@@ -196,8 +199,11 @@ Inet6Prefix Inet6Masks::CalculateMaskFromPrefixlen(int prefixlen) {
     int num_bits = prefixlen % 8;
 
     Ip6Address::bytes_type addr_bytes;
+#if (__cplusplus >= 201103L)
+    addr_bytes.fill(0);
+#else
     addr_bytes.assign(0);
-
+#endif
     for (int i = 0; i < num_bytes; ++i) {
         addr_bytes[i] = 0xff;
     }
