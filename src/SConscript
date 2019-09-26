@@ -57,6 +57,10 @@ else:
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
 
+common.Append(CXXFLAGS = '-std=c++11')
+common.Append(CCFLAGS = '-Wno-deprecated-declarations')
+common.Append(CXXFLAGS = '-Wno-deprecated-declaration')
+
 if platform.system() != 'Windows':
     common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
 
