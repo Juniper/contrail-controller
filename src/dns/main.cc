@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "Cassandra"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "RabbitMQ"));
+                             ConnectionType::DATABASE)->second, "RabbitMQ")).convert_to_container<std::vector<ConnectionTypeName>  >();
 
     ConnectionStateManager::GetInstance()->Init(
         *(Dns::GetEventManager()->io_service()), options.hostname(),
