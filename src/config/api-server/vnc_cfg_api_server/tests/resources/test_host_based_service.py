@@ -62,26 +62,15 @@ class TestHostBasedService(test_case.ApiServerTestCase):
         self.api.host_based_service_create(hbs)
         vn1 = VirtualNetwork('vn1-%s' % self.id(), parent_obj=self.project)
         self.api.virtual_network_create(vn1)
-        vn2 = VirtualNetwork('vn2-%s' % self.id(), parent_obj=self.project)
-        self.api.virtual_network_create(vn2)
 
-        for vn_type in ['management', 'left', 'right', 'other']:
-            self.api.ref_update(
-                hbs.resource_type,
-                hbs.uuid,
-                vn1.resource_type,
-                vn1.uuid,
-                None,
-                'ADD',
-                ServiceVirtualNetworkType(vn_type),
-            )
+        for vn_type in ['management']:
             self.assertRaises(
                 BadRequest,
                 self.api.ref_update,
                 hbs.resource_type,
                 hbs.uuid,
                 vn1.resource_type,
-                vn2.uuid,
+                vn1.uuid,
                 None,
                 'ADD',
                 ServiceVirtualNetworkType(vn_type),
