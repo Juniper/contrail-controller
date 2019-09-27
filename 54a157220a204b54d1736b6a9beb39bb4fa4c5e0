@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "c3568563_7c98c40c",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0b2e3659_22bc7302",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a2d137a1_ac5bacf2",
         "filename": "src/cat/cat.go",
         "patchSetId": 6
@@ -33,6 +51,24 @@
       "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a358ca9a_0bb64599",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a2d137a1_ac5bacf2",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "96dc746f_39e5515b",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 80,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1fc4c0b8_0e230897",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "85731582_2bdf0da5",
         "filename": "src/cat/controlnode/controlnode.go",
         "patchSetId": 6
@@ -67,6 +121,24 @@
       "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "62ed574e_e564e899",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "85731582_2bdf0da5",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "3c2a9143_0fc29376",
+        "filename": "src/cat/controlnode/controlnode_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "c4d8b6ae_2b3934bd",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1ff92f91_9845ca2e",
         "filename": "src/cat/crpd/crpd.go",
         "patchSetId": 6
@@ -101,6 +191,24 @@
       "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "864390a3_f8437857",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1ff92f91_9845ca2e",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -121,6 +229,24 @@
     },
     {
       "key": {
+        "uuid": "fdeb2d06_d1ed1655",
+        "filename": "src/cat/crpd/crpd_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Because crpd show configuration succeeds (after a few retries) but does not necessarily return the full configuration...\nThis is an app level retry, where as ShellCommandRetry just repeats until \"show conf\" command returns exit code 0",
+      "parentUuid": "5857043a_13ed2ff3",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "2f95b0d0_ff92663e",
         "filename": "src/cat/test/basic_test.go",
         "patchSetId": 6
@@ -138,6 +264,24 @@
     },
     {
       "key": {
+        "uuid": "fd083c8d_cc0ff6dc",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2f95b0d0_ff92663e",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ccf5dc4c_fccb5e55",
         "filename": "src/cat/test/basic_test.go",
         "patchSetId": 6
@@ -152,6 +296,24 @@
       "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "19e78d69_6e2a349f",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-09-27T18:18:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ccf5dc4c_fccb5e55",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
