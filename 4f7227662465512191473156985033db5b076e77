@@ -16,6 +16,24 @@
       "revId": "4f7227662465512191473156985033db5b076e77",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c29b9bfc_f27244fc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/physical_router.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-09-27T23:24:06Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0caf3b45_9615e773",
+      "revId": "4f7227662465512191473156985033db5b076e77",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
