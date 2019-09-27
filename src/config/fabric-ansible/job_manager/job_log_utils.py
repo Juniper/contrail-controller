@@ -195,6 +195,7 @@ class JobLogUtils(object):
                 device_name=device_name, details=details_str)
             job_log = JobLog(log_entry=job_log_entry)
             job_log.send(sandesh=self.config_logger._sandesh)
+
             self.config_logger.debug("Created job log for job template: %s, "
                                      " execution id: %s,  fabric_fq_name: %s"
                                      "status: %s, completion_percent %s, "
