@@ -10,6 +10,7 @@ import json
 import socket
 import struct
 import sys
+import time
 import traceback
 import uuid
 
@@ -1770,6 +1771,7 @@ class FilterModule(object):
                     self._add_bgp_router(vnc_api, device_roles,
                                          fabric_cluster_id)
 
+
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
             # the devices
@@ -1779,6 +1781,10 @@ class FilterModule(object):
                     device_roles.get('device_obj'), vnc_api)
                 if device_roles.get('supported_roles'):
                     self._assign_device_roles(vnc_api, device_roles)
+
+            # Set the job transaction ID and description for role assignment
+                self._install_role_assignment_job_transaction(
+                    job_ctx, vnc_api, role_assignments)
         except Exception as ex:
             errmsg = str(ex)
             _task_error_log('%s\n%s' % (errmsg, traceback.format_exc()))
@@ -1791,6 +1797,19 @@ class FilterModule(object):
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
+
+    def _install_role_assignment_job_transaction(self, job_ctx, vnc_api,
+                                                 role_assignments):
+        job_trans_id = job_ctx.get('job_transaction_id')
+        job_trans_descr = job_ctx.get('job_transaction_descr')
+        job_transaction_info = \
+            self._get_job_transaction(job_trans_descr,
+                                      transaction_id=job_trans_id)
+
+        for device_roles in role_assignments:
+            self._set_job_transaction(
+                device_roles.get('device_obj'), vnc_api,
+                job_transaction_info)
 
     def _get_fabric_cluster_id(self, vnc_api, fabric_fq_name):
         fabric = vnc_api.fabric_read(fq_name=fabric_fq_name,
@@ -1865,6 +1884,23 @@ class FilterModule(object):
                 gsc_obj, dummy_ip = self._read_and_increment_dummy_ip(vnc_api)
                 self._update_device_dummy_ip(vnc_api, device_obj, dummy_ip)
     # end _assign_private_dummy_ip
+
+    def _get_job_transaction(self, transaction_descr, transaction_id=''):
+        if transaction_id == '':
+            transaction_id = str(int(round(time.time() * 1000))) + '_' + str(
+                uuid.uuid4())
+        return {'transaction_id': transaction_id,
+                'transaction_descr': transaction_descr}
+
+    def _set_job_transaction(self, device_obj, vnc_api, trans_info):
+        trans_val = json.dumps(trans_info)
+        annotations = device_obj.get_annotations()
+        if not annotations:
+            annotations = KeyValuePairs()
+        annotations.add_key_value_pair(
+            KeyValuePair(key='job_transaction', value=trans_val))
+        device_obj.set_annotations(annotations)
+        vnc_api.physical_router_update(device_obj)
 
     @staticmethod
     def _enable_ibgp_auto_mesh(vnc_api, enable):
