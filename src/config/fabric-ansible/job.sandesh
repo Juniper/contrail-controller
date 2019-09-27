@@ -87,6 +87,11 @@ objectlog sandesh JobLog {
     1: JobLogEntry               log_entry;
 }
 
+objectlog sandesh JobLogAux {
+    /** container for operation details */
+    1: JobLogEntry               log_entry (tags=".name,.execution_id,.timestamp,.message,.status,.result,.fabric_name,.percentage_completed,.device_name,.details");
+}
+
 uve sandesh UveJobExecution {
     1: JobExecution              data;
 }
