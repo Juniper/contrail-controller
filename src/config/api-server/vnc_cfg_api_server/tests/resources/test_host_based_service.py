@@ -3,6 +3,8 @@
 #
 import logging
 
+import json
+
 from vnc_api.exceptions import BadRequest
 from vnc_api.exceptions import OverQuota
 from vnc_api.gen.resource_client import HostBasedService
@@ -10,7 +12,8 @@ from vnc_api.gen.resource_client import Project
 from vnc_api.gen.resource_client import VirtualNetwork
 from vnc_api.gen.resource_xsd import QuotaType
 from vnc_api.gen.resource_xsd import ServiceVirtualNetworkType
-
+from vnc_api.gen.resource_xsd import KeyValuePair
+from vnc_api.gen.resource_xsd import KeyValuePairs
 from vnc_cfg_api_server.tests import test_case
 
 
@@ -65,23 +68,14 @@ class TestHostBasedService(test_case.ApiServerTestCase):
         vn2 = VirtualNetwork('vn2-%s' % self.id(), parent_obj=self.project)
         self.api.virtual_network_create(vn2)
 
-        for vn_type in ['management', 'left', 'right', 'other']:
-            self.api.ref_update(
-                hbs.resource_type,
-                hbs.uuid,
-                vn1.resource_type,
-                vn1.uuid,
-                None,
-                'ADD',
-                ServiceVirtualNetworkType(vn_type),
-            )
+        for vn_type in ['management']:
             self.assertRaises(
                 BadRequest,
                 self.api.ref_update,
                 hbs.resource_type,
                 hbs.uuid,
                 vn1.resource_type,
-                vn2.uuid,
+                vn1.uuid,
                 None,
                 'ADD',
                 ServiceVirtualNetworkType(vn_type),
@@ -115,3 +109,25 @@ class TestHostBasedService(test_case.ApiServerTestCase):
         project2.set_quota(QuotaType(host_based_service=None))
         self._vnc_lib.project_update(project2)
         self.assertRaises(OverQuota, self.api.host_based_service_create, hbs2)
+
+    def test_host_based_resource_http_post(self):
+        project2 = Project('project2-%s' % self.id())
+        project2.set_quota(QuotaType(host_based_service=1))
+
+        kvp_array = []
+        kvp = KeyValuePair("namespace", "k8test")
+        kvp_array.append(kvp)
+        kvp = KeyValuePair("cluster", "c1")
+        kvp_array.append(kvp)
+        kvps = KeyValuePairs()
+        kvps.set_key_value_pair(kvp_array)
+
+        project2.set_annotations(kvps)
+
+        self.api.project_create(project2)
+        hbs = HostBasedService('hbs-%s' % self.id(), parent_obj=project2)
+        self.api.host_based_service_create(hbs)
+
+        (code, msg) = self._http_post('/hbs-get',
+                                      json.dumps({'hbs_fq_name': hbs.fq_name}))
+        self.assertEquals(code, 200)
