@@ -29,6 +29,8 @@ class TestJobHandler(unittest.TestCase):
         self.job_template_name = ['test-job']
         self.job_input = {'key1': 'value1', 'key2': 'value2'}
         self.device_list = ['device1']
+        self.transaction_id = '1-2-3-4'
+        self.transaction_descr = 'test-transaction'
         self.api_server_config = {
             'ips': ["1.2.3.4"],
             'port': "8082",
@@ -49,7 +51,9 @@ class TestJobHandler(unittest.TestCase):
 
         self.job_handler = JobHandler(self.job_template_name, self.job_input,
                                       self.device_list, self.api_server_config,
-                                      self.logger, self.amqp_client, self.args)
+                                      self.logger, self.amqp_client,
+                                      self.transaction_id,
+                                      self.transaction_descr, self.args)
     # end setUp
 
     def tearDown(self):

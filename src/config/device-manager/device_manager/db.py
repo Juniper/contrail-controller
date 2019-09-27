@@ -394,6 +394,8 @@ class PhysicalRouterDM(DBBaseDM):
         self.telemetry_info = obj.get('telemetry_info')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
+        self.transaction_id, self.transaction_descr = \
+            self.get_transaction_info(obj)
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
         self.update_multiple_refs('logical_router', obj)
@@ -433,6 +435,19 @@ class PhysicalRouterDM(DBBaseDM):
             return kvp_dict.get('dummy_ip')
         return None
     # end get_dummy_ip
+
+    def get_transaction_info(self, obj):
+        annotations = obj.get('annotations')
+        if annotations:
+            kvps = annotations.get('key_value_pair') or []
+            kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
+            transaction = kvp_dict.get('job_transaction')
+            if transaction and isinstance(transaction, basestring):
+                trans_dict = json.loads(transaction)
+                return trans_dict.get('transaction_id'), \
+                    trans_dict.get('transaction_descr')
+        return None, None
+    # end get_transaction_info
 
     def get_features(self):
         features = {}
