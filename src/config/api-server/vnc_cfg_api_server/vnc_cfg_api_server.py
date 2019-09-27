@@ -174,6 +174,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'amqp_publish_http_post'},
     {'uri': '/amqp-request', 'link_name': 'amqp-request',
      'method': 'POST', 'method_name': 'amqp_request_http_post'},
+    {'uri': '/hbs-get', 'link_name': 'hbs-get',
+     'method': 'POST', 'method_name': 'hbs_get'},
 ]
 
 _MANDATORY_PROPS = [
@@ -3194,6 +3196,55 @@ class VncApiServer(object):
                                      include_shared, exclude_hrefs,
                                      pagination)
     # end list_bulk_collection_http_post
+
+
+    # Get hbs 
+    def hbs_get(self):
+        self._post_common(None, {})
+        # Get hbs fq_name from request
+        req_json = get_request().json
+        
+        # valid json data required
+        if not req_json:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'HBS fqname or uuid (hbs_fqname/hbs_uuid) required for hbs daemonset get')
+
+        hbs_fq_name = req_json.get('hbs_fq_name', '')
+        hbs_uuid = req_json.get('hbs_uuid', '')
+
+        # hbs fq_name or uuid required
+        if not hbs_fq_name and not hbs_uuid:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'HBS fqname or uuid (hbs_fqname/hbs_uuid) required for hbs daemonset get')
+
+        # get hbs uuid, if not given for rbac checks
+        if not hbs_uuid:
+            try:
+                hbs_uuid = self._db_conn.fq_name_to_uuid('host_based_service', hbs_fq_name)
+            except NoIdError:
+                raise cfgm_common.exceptions.HttpError(
+                    404, 'Name ' + pformat(hbs_fq_name) + ' not found')
+
+        # rbac check for hbs object operations
+        ok, result = self._permissions.check_perms_read(get_request(), hbs_uuid)
+        if not ok:
+            raise cfgm_common.exceptions.HttpError(result[0], result[1])
+
+        hbs_class = self.get_resource_class('host-based-service')
+        # get hbs info
+        hbs_info = hbs_class.get_hbs_info(hbs_fq_name, hbs_uuid)
+        namespace_template = hbs_class.get_hbs_namespace(hbs_info['namespace'])
+        ds_template = hbs_class.get_hbs_ds(hbs_info)
+        left_vn_template = hbs_class.get_hbs_network(hbs_info['vnleft']['uuid'],
+                                                 'left',
+                                                 hbs_info['namespace'])
+        right_vn_template = hbs_class.get_hbs_network(hbs_info['vnright']['uuid'],
+                                                  'right',
+                                                  hbs_info['namespace'])
+        hbs = {'hbs': [left_vn_template, right_vn_template, ds_template]}
+        return hbs
+
+    # end hbs_get
 
     # Private Methods
     def _parse_args(self, args_str):
