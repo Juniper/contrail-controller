@@ -212,6 +212,8 @@ class DeviceJobManager(object):
         job_execution_id = job_input_params.get('job_execution_id')
         job_template_fq_name = job_input_params.get('job_template_fq_name')
         job_template_id = job_input_params.get('job_template_id')
+        job_transaction_id = job_input_params.get('job_transaction_id')
+        job_transaction_descr = job_input_params.get('job_transaction_descr')
 
         fabric_fq_name = None
         fabric_job_uve_name = ''
