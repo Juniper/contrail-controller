@@ -1,0 +1,225 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0b2e3659_22bc7302",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "i think if you run gofmt on everything the formater clean up all these indents",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a2d137a1_ac5bacf2",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "remove commented code",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1fc4c0b8_0e230897",
+        "filename": "src/cat/cat.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 80,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "just fyi\nif you use %q the path would be in quotes",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "85731582_2bdf0da5",
+        "filename": "src/cat/controlnode/controlnode.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "fix imports\n\n    \"encoding/json\"\n    \"fmt\"\n    \"io/ioutil\"\n    \"os\"\n    \"os/exec\"\n    \"path/filepath\"\n    \"strconv\"\n    \"strings\"\n    \"syscall\"\n    \"time\"\n\n    \"cat/agent\"\n    \"cat/config\"\n    \"cat/sut\"\n\n    log \"github.com/sirupsen/logrus\"",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c4d8b6ae_2b3934bd",
+        "filename": "src/cat/controlnode/controlnode_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "import (\n   \"os\"\n   \"syscall\"\n   \"testing\"\n\n   \"cat\"\n   \"cat/controlnode\"\n)",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1ff92f91_9845ca2e",
+        "filename": "src/cat/crpd/crpd.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "here as well",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5857043a_13ed2ff3",
+        "filename": "src/cat/crpd/crpd_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "why looping with also a retry in the command?",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2f95b0d0_ff92663e",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "fix imports\n\nimport (\n    \"fmt\"\n    \"time\"\n    \"testing\"\n\n    \"cat\"\n    \"cat/config\"\n    \"cat/controlnode\"\n    \"cat/crpd\"\n    \"cat/sut\"\n\n    log \"github.com/sirupsen/logrus\"\n)",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ccf5dc4c_fccb5e55",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "fix parens\n},{\n and above",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4e54c9ba_f6a07c1c",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "c, err :\u003d cat.New()",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c30dae43_a0a07dff",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "nit \n\nif err :\u003d setup(cobj, tt.desc, tt.controlNodes, tt.agents, tt.crpds); err !\u003d nil {\n  t.Fatalf(\"Failed to create control-nodes, agents and/or cobj.CRPDs: %v\", err)\n}",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "94008e35_20050481",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 167,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "if _, err :\u003d cobj.AddCRPD(desc, fmt.Sprintf(\"crpd%d\", i+1)); err !\u003d nil {",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "211149df_bd6e88a9",
+        "filename": "src/cat/test/basic_test.go",
+        "patchSetId": 6
+      },
+      "lineNbr": 176,
+      "author": {
+        "id": 782
+      },
+      "writtenOn": "2019-09-27T15:47:21Z",
+      "side": 1,
+      "message": "same",
+      "revId": "54a157220a204b54d1736b6a9beb39bb4fa4c5e0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
