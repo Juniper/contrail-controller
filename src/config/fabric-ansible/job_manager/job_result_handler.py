@@ -14,7 +14,8 @@ from job_manager.job_utils import JobFileWrite, JobStatus
 class JobResultHandler(object):
 
     def __init__(self, job_template_id, execution_id, fabric_fq_name,
-                 logger, job_utils, job_log_utils):
+                 logger, job_utils, job_log_utils, device_name,
+                 job_description, transaction_id, transaction_descr):
         """Initializes JobResultHandler."""
         self._job_template_id = job_template_id
         self._execution_id = execution_id
@@ -22,6 +23,10 @@ class JobResultHandler(object):
         self._logger = logger
         self._job_utils = job_utils
         self.job_log_utils = job_log_utils
+        self._device_name = device_name
+        self._job_description = job_description
+        self._transaction_id = transaction_id
+        self._transaction_descr = transaction_descr
 
         # job result data
         self.job_result_status = None     # cummulative status
@@ -129,7 +134,11 @@ class JobResultHandler(object):
             self.job_summary_message,
             job_status, 100,
             result=result,
-            timestamp=timestamp)
+            timestamp=timestamp,
+            device_name=self._device_name,
+            description=self._job_description,
+            transaction_id=self._transaction_id,
+            transaction_descr=self._transaction_descr)
     # end create_job_summary_log
 
     def create_job_summary_message(self):

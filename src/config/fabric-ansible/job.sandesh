@@ -56,10 +56,15 @@ struct JobLogEntry {
     /* Percentage completion for this job execution */
     8: double                           percentage_completed;
     /* optional PRouter fq_name as string joined by ':', e.g. domain-1:project-1:mx240-1. */
-    9: optional string                  device_name (key="ObjectPRouter");
+    9: string                           device_name (key="ObjectPRouter");
     /* optional JSON text blob with detailed information related to the message */
     10: optional string                 details;
-    // Add additional items here as needed
+    /* job description */
+    11: string                          description;
+    /* transaction ID used to group multiple jobs to the same transaction */
+    12: string                          transaction_id;
+    /* transaction description */
+    13: string                          transaction_descr;
 }
 
 /**
@@ -84,10 +89,9 @@ objectlog sandesh PRouterOnboardingLog {
 
 objectlog sandesh JobLog {
     /** container for operation details */
-    1: JobLogEntry               log_entry;
+    1: JobLogEntry               log_entry (tags=".name,.execution_id,.status,.fabric_name,.device_name,.transaction_id");
 }
 
 uve sandesh UveJobExecution {
     1: JobExecution              data;
 }
-
