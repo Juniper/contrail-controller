@@ -18,7 +18,9 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.sandesh_base import SandeshConfig
 from sandesh.job.ttypes import JobLog
+from sandesh.job.ttypes import JobLogAux
 from sandesh.job.ttypes import JobLogEntry
+from sandesh.job.ttypes import JobLogEntryAux
 from sandesh.job.ttypes import PRouterOnboardingLog
 from sandesh.job.ttypes import PRouterOnboardingLogEntry
 
@@ -195,6 +197,13 @@ class JobLogUtils(object):
                 device_name=device_name, details=details_str)
             job_log = JobLog(log_entry=job_log_entry)
             job_log.send(sandesh=self.config_logger._sandesh)
+
+            job_log_entry_aux = JobLogEntryAux(
+                execution_id=job_execution_id,
+                message=message)
+            job_log_aux = JobLogAux(log_entry=job_log_entry_aux)
+            job_log_aux.send(sandesh=self.config_logger._sandesh)
+
             self.config_logger.debug("Created job log for job template: %s, "
                                      " execution id: %s,  fabric_fq_name: %s"
                                      "status: %s, completion_percent %s, "
