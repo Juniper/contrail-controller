@@ -1,7 +1,10 @@
-from functools import wraps
+import json
 import logging
-import os
 
+from vnc_api.gen.resource_xsd import (
+    KeyValuePair,
+    KeyValuePairs,
+)
 
 class FilterLog(object):
     """Pulbic class for filter logging."""
@@ -163,3 +166,20 @@ def vnc_bulk_get(vnc_api, obj_name, obj_uuids=None, parent_uuids=None,
         chunk_idx += chunk_size
     return obj_list
 # end vnc_bulk_get
+
+def get_job_transaction(job_ctx):
+    transaction_id = job_ctx.get('job_transaction_id')
+    transaction_descr = job_ctx.get('job_transaction_descr')
+    return {'transaction_id': transaction_id,
+            'transaction_descr': transaction_descr}
+
+def set_job_transaction(device_obj, vnc_api, trans_info):
+    trans_val = json.dumps(trans_info)
+    annotations = device_obj.get_annotations()
+    if not annotations:
+        annotations = KeyValuePairs()
+    annotations.add_key_value_pair(
+        KeyValuePair(key='job_transaction', value=trans_val))
+    device_obj.set_annotations(annotations)
+    if vnc_api:
+        vnc_api.physical_router_update(device_obj)

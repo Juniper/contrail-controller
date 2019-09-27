@@ -180,8 +180,9 @@ class JobLogUtils(object):
 
     def send_job_log(self, job_template_fqname, job_execution_id,
                      fabric_fq_name, message, status, completion_percent=None,
-                     result=None, timestamp=None, device_name=None,
-                     details=None):
+                     result=None, timestamp=None, device_name="",
+                     details=None, description="", transaction_id="",
+                     transaction_descr=""):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
@@ -192,19 +193,27 @@ class JobLogUtils(object):
                 fabric_name=fabric_fq_name, timestamp=timestamp,
                 message=message, status=status,
                 percentage_completed=completion_percent, result=result,
-                device_name=device_name, details=details_str)
+                device_name=device_name, details=details_str,
+                description=description,
+                transaction_id=transaction_id,
+                transaction_descr=transaction_descr)
             job_log = JobLog(log_entry=job_log_entry)
             job_log.send(sandesh=self.config_logger._sandesh)
             self.config_logger.debug("Created job log for job template: %s, "
                                      " execution id: %s,  fabric_fq_name: %s"
                                      "status: %s, completion_percent %s, "
                                      "result: "
-                                     "%s, message: %s" % (job_template_fqname,
-                                                          job_execution_id,
-                                                          fabric_fq_name,
-                                                          status,
-                                                          completion_percent,
-                                                          result, message))
+                                     "%s, message: %s"
+                                     "tid: %s (%s), "
+                                     "description: %s" % (job_template_fqname,
+                                                       job_execution_id,
+                                                       fabric_fq_name,
+                                                       status,
+                                                       completion_percent,
+                                                       result, message,
+                                                       transaction_id,
+                                                       transaction_descr,
+                                                       description))
         except Exception as e:
             msg = MsgBundle.getMessage(MsgBundle.SEND_JOB_LOG_ERROR,
                                        job_template_fqname=job_template_fqname,

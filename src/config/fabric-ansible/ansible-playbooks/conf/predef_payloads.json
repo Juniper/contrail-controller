@@ -9,6 +9,7 @@
             "image_upgrade_template"
           ],
           "name": "image_upgrade_template",
+          "display_name": "Image Upgrade",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "device",
           "job_template_type": "workflow",
@@ -31,6 +32,7 @@
             "container_cleanup_template"
           ],
           "name": "container_cleanup_template",
+          "display_name": "Container Cleanup",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
@@ -53,6 +55,7 @@
             "hitless_upgrade_strategy_template"
           ],
           "name": "hitless_upgrade_strategy_template",
+          "display_name": "Hitless Image Upgrade",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
@@ -86,6 +89,7 @@
             "maintenance_mode_activate_template"
           ],
           "name": "maintenance_mode_activate_template",
+          "display_name": "Maintenance Mode Activation",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "device",
           "job_template_type": "workflow",
@@ -108,6 +112,7 @@
             "maintenance_mode_deactivate_template"
           ],
           "name": "maintenance_mode_deactivate_template",
+          "display_name": "Maintenance Mode Deactivation",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "device",
           "job_template_type": "workflow",
@@ -130,6 +135,7 @@
             "discover_device_template"
           ],
           "name": "discover_device_template",
+          "display_name": "Discover Device",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
@@ -152,6 +158,7 @@
             "discover_role_template"
           ],
           "name": "discover_role_template",
+          "display_name": "Discover Role",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
@@ -174,6 +181,7 @@
             "device_import_template"
           ],
           "name": "device_import_template",
+          "display_name": "Device Import",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -196,6 +204,7 @@
             "fabric_config_template"
           ],
           "name": "fabric_config_template",
+          "display_name": "Device Config Push",
           "parent_type": "global-system-config",
           "job_template_type": "config",
           "job_template_concurrency_level": "device",
@@ -218,6 +227,7 @@
             "ztp_template"
           ],
           "name": "ztp_template",
+          "display_name": "ZTP",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -240,6 +250,7 @@
             "fabric_deletion_template"
           ],
           "name": "fabric_deletion_template",
+          "display_name": "Fabric Deletion",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -262,6 +273,7 @@
             "device_deletion_template"
           ],
           "name": "device_deletion_template",
+          "display_name": "Device Deletion",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -294,6 +306,7 @@
             "role_assignment_template"
           ],
           "name": "role_assignment_template",
+          "display_name": "Role Assignment",
           "parent_type": "global-system-config",
           "job_template_type": "config",
           "job_template_concurrency_level": "fabric",
@@ -316,6 +329,7 @@
             "topology_discovery_template"
           ],
           "name": "topology_discovery_template",
+          "display_name": "Topology Discovery",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -338,6 +352,7 @@
             "fabric_onboard_template"
           ],
           "name": "fabric_onboard_template",
+          "display_name": "Fabric Onboarding",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -546,6 +561,7 @@
             "existing_fabric_onboard_template"
           ],
           "name": "existing_fabric_onboard_template",
+          "display_name": "Existing Fabric Onboarding",
           "parent_type": "global-system-config",
           "job_template_type": "workflow",
           "job_template_concurrency_level": "fabric",
@@ -610,6 +626,7 @@
             "vcenter_import_template"
           ],
           "name": "vcenter_import_template",
+          "display_name": "VCenter Import",
           "parent_type": "global-system-config",
           "job_template_type": "executable",
           "job_template_concurrency_level": "fabric",
@@ -631,6 +648,7 @@
             "discover_server_template"
           ],
           "name": "discover_server_template",
+          "display_name": "Server Discovery",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
@@ -653,6 +671,7 @@
             "server_import_template"
           ],
           "name": "server_import_template",
+          "display_name": "Server Import",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
@@ -675,6 +694,7 @@
             "node_profile_template"
           ],
           "name": "node_profile_template",
+          "display_name": "Node Profile",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_playbooks": {
@@ -723,6 +743,7 @@
             "rma_activate_template"
           ],
           "name": "rma_activate_template",
+          "display_name": "RMA Activation",
           "parent_type": "global-system-config",
           "job_template_concurrency_level": "fabric",
           "job_template_type": "workflow",
