@@ -22,6 +22,30 @@
       "revId": "d571f40f22e3f56566fce30c8d0832ae6a690b9f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f7a58b8_de413990",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/physical_router.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-09-27T14:13:43Z",
+      "side": 1,
+      "message": "and that create a pep8 error:\n\n 2019-09-26 10:57:25.098642 | builder | ./vnc_cfg_api_server/resources/physical_router.py:6:1: I100 Import statements are in the wrong order. \u0027from vnc_api.gen.resource_common import PhysicalRouter\u0027 should be before \u0027from .. import utils\u0027 and in a different group.\n2019-09-26 10:57:25.098770 | builder | from vnc_api.gen.resource_common import PhysicalRouter\n2019-09-26 10:57:25.098783 | builder | ^\n2019-09-26 10:57:25.098927 | builder | ./vnc_cfg_api_server/resources/physical_router.py:6:1: I201 Missing newline between import groups. \u0027from vnc_api.gen.resource_common import PhysicalRouter\u0027 is identified as Third Party and \u0027from .. import utils\u0027 is identified as Application Relative.\n2019-09-26 10:57:25.098980 | builder | from vnc_api.gen.resource_common import PhysicalRouter\n2019-09-26 10:57:25.098990 | builder | ^\n2019-09-26 10:57:25.144368 | builder | ERROR: InvocationError for command \u0027/home/zuul/contrail-5.2.0/build/debug/config/api-server/.tox/pep8/bin/flake8\u0027 (exited with code 1)",
+      "parentUuid": "75bbdba3_ff9d74a9",
+      "range": {
+        "startLine": 5,
+        "startChar": 5,
+        "endLine": 5,
+        "endChar": 7
+      },
+      "revId": "d571f40f22e3f56566fce30c8d0832ae6a690b9f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
