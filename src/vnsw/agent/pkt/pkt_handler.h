@@ -337,6 +337,7 @@ private:
                             PktType::Type &pkt_type, uint8_t *pkt);
     bool IsFlowPacket(const AgentHdr &agent_hdr);
     bool IsDiagPacket(PktInfo *pkt_info);
+    bool ValidateIpPacket(PktInfo *pkt_info);
 
     boost::array<Proto *, MAX_MODULES> proto_list_;
 
