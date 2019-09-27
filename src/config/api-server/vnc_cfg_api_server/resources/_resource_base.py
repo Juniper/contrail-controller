@@ -3,6 +3,8 @@
 #
 
 import copy
+import time
+import uuid
 
 from cfgm_common import _obj_serializer_all
 from cfgm_common import jsonutils as json
@@ -258,3 +260,59 @@ class ResourceMixin(object):
         except NoIdError as e:
             return False, (404, str(e))
         return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
+
+    @classmethod
+    def create_job_transaction(cls, transaction_descr, transaction_id=''):
+        if not transaction_id:
+            transaction_id = str(int(round(time.time() * 1000))) + '_' + str(
+                uuid.uuid4())
+        return {'transaction_id': transaction_id,
+                'transaction_descr': transaction_descr}
+
+    @classmethod
+    def update_job_transaction(cls, api_server, db_conn, trans_info,
+                               pr_name=None, pr_id=None):
+        if not pr_name and not pr_id:
+            msg = 'Prouter name and ID missing'
+            return (False, (404, msg))
+
+        if pr_name and not pr_id:
+            pr_fq_name = ['default-global-system-config', pr_name]
+
+            try:
+                pr_uuid = db_conn.fq_name_to_uuid('physical_router',
+                                                  pr_fq_name)
+            except NoIdError:
+                msg = 'Prouter object %s is not found' % pr_name
+                return (False, (404, msg))
+        else:
+            pr_uuid = pr_id
+
+        ok, pr_dict = db_conn.dbe_read(
+            obj_type='physical-router', obj_id=pr_uuid)
+
+        if not ok:
+            return (ok, 400, pr_dict)
+
+        updated = False
+        kvps = None
+        annotations = pr_dict.get('annotations')
+
+        if annotations:
+            kvps = annotations.get('key_value_pair', [])
+            for kvp in kvps:
+                if kvp['key'] == 'job_transaction':
+                    kvp['value'] = json.dumps(trans_info)
+                    updated = True
+
+        if not annotations or not kvps:
+            annotations = {'key_value_pair': []}
+            kvps = annotations['key_value_pair']
+
+        if not updated:
+            kvps.append({'key': 'job_transaction',
+                         'value': json.dumps(trans_info)})
+
+        api_server.internal_request_update('physical_router', pr_uuid,
+                                           {'annotations': annotations})
+        return True, ""

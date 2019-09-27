@@ -1288,6 +1288,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         ret_dict['deallocated_ae_id'] = []
         ret_dict['allocated_ae_id'] = []
 
+        jt = cls.create_job_transaction(
+            "Virtual Port Group '{}' Update".format(vpg_name))
+
         # delete old physical interfaces to the vpg
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
             prouter_dict = old_pi_to_pr_dict.get(uuid)
@@ -1302,6 +1305,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'DELETE',
                 'physical-interface',
                 uuid)
+
+            # Add job transaction
+            cls.update_job_transaction(api_server, db_conn, jt,
+                                       pr_name=prouter_dict['prouter_name'])
 
         # add new physical interfaces to the vpg
         pr_to_ae_id = {}
@@ -1332,6 +1339,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 attr=attr_obj.__dict__ if attr_obj else None,
                 relax_ref_for_delete=True)
 
+            # Add job transaction
+            cls.update_job_transaction(api_server, db_conn, jt,
+                                       pr_name=prouter_name)
         return vpg_uuid, ret_dict
 
     @classmethod

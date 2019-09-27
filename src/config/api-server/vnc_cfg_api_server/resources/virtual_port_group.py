@@ -9,7 +9,6 @@ from vnc_api.gen.resource_common import VirtualPortGroup
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
-
 class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
     @classmethod
@@ -25,6 +24,8 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
         new_uuid_list = []
         old_uuid_list = []
+        new_pr_list = []
+        old_pr_list = []
 
         for phys_intf_ref in obj_dict.get('physical_interface_refs') or []:
             if phys_intf_ref.get('uuid') is None:
@@ -37,6 +38,7 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 pi_uuid = phys_intf_ref['uuid']
 
             new_uuid_list.append(pi_uuid)
+            new_pr_list.append(phys_intf_ref.get('to')[1])
 
         for phys_intf_ref in old_obj_dict.get(
                 'physical_interface_refs') or []:
@@ -50,6 +52,16 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                 pi_uuid = phys_intf_ref['uuid']
 
             old_uuid_list.append(pi_uuid)
+            old_pr_list.append(phys_intf_ref.get('to')[1])
+
+        to_be_deleted_pr_names = list(set(old_pr_list) - set(new_pr_list))
+        if len(to_be_deleted_pr_names):
+            jt = cls.create_job_transaction(
+                "Virtual Port Group '{}' Delete".format(
+                    old_obj_dict.get('fq_name')[-1]))
+        for pr_name in to_be_deleted_pr_names:
+            cls.update_job_transaction(api_server, db_conn, jt,
+                                       pr_name=pr_name)
 
         to_be_added_pi_uuids = list(set(new_uuid_list) - set(old_uuid_list))
         to_be_deleted_pi_uuids = list(set(old_uuid_list) - set(new_uuid_list))
