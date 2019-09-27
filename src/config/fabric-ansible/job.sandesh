@@ -84,10 +84,9 @@ objectlog sandesh PRouterOnboardingLog {
 
 objectlog sandesh JobLog {
     /** container for operation details */
-    1: JobLogEntry               log_entry;
+    1: JobLogEntry               log_entry (tags=".name,.execution_id,.status,.fabric_name,.device_name");
 }
 
 uve sandesh UveJobExecution {
     1: JobExecution              data;
 }
-

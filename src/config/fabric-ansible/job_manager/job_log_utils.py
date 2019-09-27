@@ -180,7 +180,7 @@ class JobLogUtils(object):
 
     def send_job_log(self, job_template_fqname, job_execution_id,
                      fabric_fq_name, message, status, completion_percent=None,
-                     result=None, timestamp=None, device_name=None,
+                     result=None, timestamp=None, device_name="",
                      details=None):
         try:
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
