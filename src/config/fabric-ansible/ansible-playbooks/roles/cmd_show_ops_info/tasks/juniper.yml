@@ -1,0 +1,26 @@
+---
+- import_role:
+    name: Juniper.junos
+
+- name: "Read command type by get"
+  set_fact:
+    operations: "{{input_params.get('ops_type')}}"
+
+- name: "Print commands"
+  debug:
+    var: operations
+
+- name: "Initialize output string"
+  set_fact:
+    output_of_all_operations_as_string: ""
+
+- name: Execute command
+  include_tasks: execute_sub_operation.yml
+  with_items: "{{ operations }}"
+
+- set_fact:
+    command_resp: "{{ output_of_all_operations_as_string | replace('\n', '\\r\\n') }}"
+
+- name: "Print modified result"
+  debug:
+    var: command_resp

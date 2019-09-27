@@ -1,0 +1,238 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "ops_type": {
+        "src": "https://spacetelescope.github.io/understanding-json-schema/reference/object.html#dependencies",
+        "title": "Operations commands",
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$id": "/properties/interface_filters/items",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "conditional": {
+              "title": "Operation Command Type",
+              "$ref": "#/definitions/sub_command"
+            }
+          }
+        }
+      }
+    },
+    "definitions": {
+      "sub_command": {
+        "type": "object",
+        "properties": {
+          "sub_operation": {
+            "title": "Choose a sub-operation",
+            "type": "string",
+            "enum": [
+              "show chassis info",
+              "show route info",
+              "show bgp info",
+              "show evpn info",
+              "show lldp info",
+              "show lacp info",
+              "show vlan info"
+            ],
+            "default": "show route info"
+          }
+        },
+        "required": [
+          "sub_operation"
+        ],
+         "dependencies": {
+          "sub_operation": {
+            "oneOf": [
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show chassis info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/chassis_detail",
+                     "title": "Chassis detail",
+                     "type": "string",
+                     "enum": [
+                       "chassis alarms",
+                       "chassis environment",
+                       "chassis environment cb",
+                       "chassis environment fpc",
+                       "chassis environment pem",
+                       "chassis environment routing-engine",
+                       "chassis fpc detail",
+                       "chassis fan",
+                       "chassis firmware",
+                       "chassis mac-addresses",
+                       "chassis routing-engine",
+                       "chassis power",
+                       "chassis hardware",
+                       "chassis hardware detail",
+                       "chassis hardware clei-models",
+                       "chassis temperature-thresholds"
+                     ],
+                     "default": "chassis alarms"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show route info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/route_detail",
+                     "title": "Route detail",
+                     "type": "string",
+                     "enum": [
+                       "route summary"
+                     ],
+                     "default": "route summary"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show bgp info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/bgp_detail",
+                     "title": "BGP detail",
+                     "type": "string",
+                     "enum": [
+                       "bgp summary",
+                       "bgp neighbor",
+                       "bgp group"
+                     ],
+                     "default": "bgp summary"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show evpn info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/evpn_detail",
+                     "title": "EVPN detail",
+                     "type": "string",
+                     "enum": [
+                       "evpn ip-prefix-database",
+                       "evpn instance extensive",
+                       "evpn instance designated-forwarder",
+                       "evpn instance backup-forwarder",
+                       "evpn database state default-gateway"
+                     ],
+                     "default": "evpn ip-prefix-database"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show lldp info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/lldp_detail",
+                     "title": "LLDP detail",
+                     "type": "string",
+                     "enum": [
+                       "lldp neighbors"
+                     ],
+                     "default": "lldp neighbors"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show lacp info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/lacp_detail",
+                     "title": "LACP detail",
+                     "type": "string",
+                     "enum": [
+                       "lacp interfaces extensive",
+                       "lacp statistics interfaces"
+                     ],
+                     "default": "lacp interfaces extensive"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "sub_operation": {
+                    "enum": [
+                      "show vlan info"
+                    ]
+                  },
+                  "command_detail": {
+                     "$id": "/properties/vlan_detail",
+                     "title": "VLAN detail",
+                     "type": "string",
+                     "enum": [
+                       "vlans"
+                     ],
+                     "default": "vlans"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Show chassis Output",
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Array holding the specific output details in case of success. Each object of the array would be command_output and device name pair.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "device_name": {
+              "type": "string",
+              "title": "Device Name",
+              "description": "name of the device for which results are displayed"
+            },
+            "command_output": {
+              "type": "object",
+              "title": "Each playbook's command_output for this specific command.",
+              "description": "Results of the show interfaces command executed on the device. The jinja template matching this command, vendor and family would give output of the below format. This command_output translates to device_op_results in the PR uve",
+              "properties": {
+                "config_output": {
+                  "type": "string",
+                  "title": "Chassis info",
+                  "description": "Display Device Configuration output"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
