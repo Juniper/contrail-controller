@@ -78,6 +78,33 @@ struct JobExecution {
     // Add additional items here as needed
 }
 
+struct JobLogEntryAux {
+    /* job template fq_name as string joined by ':', e.g. domain-1:project-1:job-template-1. */
+    1: string name
+    /* Unique id that identifies a job execution */
+    2: string execution_id
+    /* Job log timestamp */
+    3: i64 timestamp
+    /* job message which should be meaningful to the end user */
+    4: string message
+    /* valid job status states are: STARTING, IN_PROGRESS, SUCCESS, FAILURE */
+    5: string status
+    /* job result that captures the output from the job execution. This is an optional field only in the last job log if
+       job is completed with success.
+       Key: job task name which could be the device id if this is multi-device job
+       Value: JSON text blob that conforms to the output schema defined in the job template. */
+    6: optional map<string, string>     result;
+    /* fq_name string of the fabric for which the job is executed, e.g. default-global-system-config:fabric-1 */
+    7: string fabric_name
+    /* Percentage completion for this job execution */
+    8: double percentage_completed
+    /* optional PRouter fq_name as string joined by ':', e.g. domain-1:project-1:mx240-1. */
+    9: string device_name
+    /* optional JSON text blob with detailed information related to the message */
+    10: optional string details
+    // Add additional items here as needed
+}
+
 objectlog sandesh PRouterOnboardingLog {
     1: PRouterOnboardingLogEntry log_entry;
 }
@@ -85,6 +112,16 @@ objectlog sandesh PRouterOnboardingLog {
 objectlog sandesh JobLog {
     /** container for operation details */
     1: JobLogEntry               log_entry;
+}
+
+/**
+ * @description: Object log for Jobs
+ * @severity: INFO
+ * @action: No action needed
+ */
+objectlog sandesh JobLogAux {
+/** @display_name:Job Status*/
+    1: JobLogEntryAux log_entry (tags=".name,.execution_id,.status,.fabric_name,.device_name")
 }
 
 uve sandesh UveJobExecution {
