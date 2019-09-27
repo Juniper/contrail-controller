@@ -1180,14 +1180,14 @@ class TestFirewall(TestFirewallBase):
         project = Project('project-%s' % self.id())
         project.set_quota(QuotaType(host_based_service=1))
         self.api.project_create(project)
-        vn_left = VirtualNetwork('left-vn-%s' % self.id(), parent_obj=project)
-        self.api.virtual_network_create(vn_left)
-        vn_right = VirtualNetwork('right-vn-%s' % self.id(),
-                                  parent_obj=project)
-        self.api.virtual_network_create(vn_right)
-        vn_other = VirtualNetwork('other-vn-%s' % self.id(),
-                                  parent_obj=project)
-        self.api.virtual_network_create(vn_other)
+        #vn_left = VirtualNetwork('left-vn-%s' % self.id(), parent_obj=project)
+        #self.api.virtual_network_create(vn_left)
+        #vn_right = VirtualNetwork('right-vn-%s' % self.id(),
+        #                          parent_obj=project)
+        #self.api.virtual_network_create(vn_right)
+        #vn_other = VirtualNetwork('other-vn-%s' % self.id(),
+        #                          parent_obj=project)
+        #self.api.virtual_network_create(vn_other)
 
         fr = FirewallRule(name='fr-%s' % self.id(), parent_obj=project)
         fr.set_service(FirewallServiceType())
@@ -1196,20 +1196,11 @@ class TestFirewall(TestFirewallBase):
 
         hbs = HostBasedService('hbs-%s' % self.id(), parent_obj=project)
         self.api.host_based_service_create(hbs)
-        hbs = self.api.host_based_service_read(id=hbs.uuid)
-        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
-
-        hbs.add_virtual_network(vn_left, ServiceVirtualNetworkType('left'))
-        self.api.host_based_service_update(hbs)
-        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
-
-        hbs.add_virtual_network(vn_other, ServiceVirtualNetworkType('other1'))
-        self.api.host_based_service_update(hbs)
-        self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
-
-        hbs.add_virtual_network(vn_right, ServiceVirtualNetworkType('right'))
-        self.api.host_based_service_update(hbs)
         self.api.firewall_rule_create(fr)
+        hbs = self.api.host_based_service_read(id=hbs.uuid)
+        #self.assertRaises(BadRequest, self.api.firewall_rule_create, fr)
+
+
 
     def test_cannot_set_host_based_service_action_on_global_fr(self):
         pm = PolicyManagement('pm-%s' % self.id())
