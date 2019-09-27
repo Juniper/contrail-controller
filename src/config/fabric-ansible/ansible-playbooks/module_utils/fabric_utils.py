@@ -148,7 +148,11 @@ class FabricAnsibleModule(AnsibleModule):
             'completion_percent': job_percentage,
             'result': job_result,
             'device_name': device_name,
-            'details': details
+            'details': details,
+            'description': self.job_ctx.get('job_description', ''),
+            'transaction_id': self.job_ctx.get('job_transaction_id', ''),
+            'transaction_descr':
+                self.job_ctx.get('job_transaction_descr', ''),
         }
         self._job_file_write.write_to_file(
             exec_id, pb_id, JobFileWrite.JOB_LOG, json.dumps(job_log)

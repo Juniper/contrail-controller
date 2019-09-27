@@ -29,13 +29,17 @@ class JobHandler(object):
                  job_utils, device_json, auth_token, contrail_cluster_id,
                  api_server_host, job_log_utils, sandesh_args, fabric_fq_name,
                  playbook_timeout, playbook_seq, vnc_api_init_params,
-                 zk_client):
+                 zk_client, job_description,
+                 transaction_id, transaction_descr):
         """Initializes JobHandler and saves all required information."""
         self.is_multi_device_playbook = False
         self._logger = logger
         self._vnc_api = vnc_api
         self._job_template = job_template
         self._execution_id = execution_id
+        self._job_description = job_description
+        self._transaction_id = transaction_id
+        self._transaction_descr = transaction_descr
         self._job_input = input
         self._job_utils = job_utils
         self._device_json = device_json
@@ -217,7 +221,10 @@ class JobHandler(object):
                 'args': self._sandesh_args,
                 'vnc_api_init_params': self._vnc_api_init_params,
                 'playbook_job_percentage': job_percent_per_task,
-                'job_device_json': self._device_json
+                'job_device_json': self._device_json,
+                'job_description': self._job_description,
+                'job_transaction_id': self._transaction_id,
+                'job_transaction_descr': self._transaction_descr
             }
             playbooks = self._job_template.get_job_template_playbooks()
 

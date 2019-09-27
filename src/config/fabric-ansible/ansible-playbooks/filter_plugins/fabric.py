@@ -57,7 +57,9 @@ from filter_utils import (  # noqa
     _task_log,
     _task_warn_log,
     FilterLog,
-    vnc_bulk_get
+    vnc_bulk_get,
+    get_job_transaction,
+    set_job_transaction
 )
 
 
@@ -1755,6 +1757,10 @@ class FilterModule(object):
                 vnc_api, fabric_fq_name, role_assignments
             )
 
+            # Set the job transaction ID and description for role assignment
+            self._install_role_assignment_job_transaction(
+                job_ctx, vnc_api, role_assignments)
+
             fabric_cluster_id = self._get_fabric_cluster_id(vnc_api,
                                                             fabric_fq_name)
             # before assigning roles, let's assign IPs to the loopback and
@@ -2019,6 +2025,14 @@ class FilterModule(object):
                             )
                     )
     # end _check_rb_role_compatibility
+
+    def _install_role_assignment_job_transaction(self, job_ctx, vnc_api,
+                                                 role_assignments):
+        job_transaction_info = get_job_transaction(job_ctx)
+
+        for device_roles in role_assignments:
+            set_job_transaction(device_roles.get('device_obj'), vnc_api,
+                                job_transaction_info)
 
     def _get_fabric_cluster_id(self, vnc_api, fabric_fq_name):
         fabric = vnc_api.fabric_read(fq_name=fabric_fq_name,
