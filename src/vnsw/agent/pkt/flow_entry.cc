@@ -845,6 +845,11 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
 // - Contrail-Status UVE
 // TODO : Review this
 bool FlowEntry::IsFabricControlFlow() const {
+    Agent *agent = flow_table()->agent();
+    if (agent->get_vhost_disable_policy()) {
+        return false;
+    }
+
     if (key_.dst_addr.is_v4() == false) {
         return false;
     }
@@ -853,7 +858,6 @@ bool FlowEntry::IsFabricControlFlow() const {
         return false;
     }
 
-    Agent *agent = flow_table()->agent();
     if (key_.protocol == IPPROTO_TCP) {
         if (key_.src_addr == agent->router_id()) {
             for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
@@ -908,13 +912,11 @@ bool FlowEntry::IsFabricControlFlow() const {
 
 
         if (key_.dst_addr == agent->router_id()) {
-            return (key_.dst_port == 22 || key_.dst_port == 8085 ||
-                    key_.dst_port == 9091 || key_.dst_port == 8097);
+            return (key_.dst_port == 22);
         }
 
         if (key_.src_addr == agent->router_id()) {
-            return (key_.src_port == 22 || key_.src_port == 8085 ||
-                    key_.src_port == 9091 || key_.src_port == 8097);
+            return (key_.src_port == 22);
         }
         return false;
     }

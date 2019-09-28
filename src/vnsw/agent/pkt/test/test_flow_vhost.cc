@@ -38,26 +38,42 @@ IpamInfo ipam_info_fabric[] = {
 #define DEFAULT_POLICY_VRF "default-domain:default-project:ip-fabric:ip-fabric"
 class VhostVmi : public ::testing::Test {
 public:
-    virtual void SetUp() {
+    void AddVhostVmi(bool disable_policy=false) {
+        DelNode("virtual-machine-interface", "vhost0");
+        DelLink("virtual-machine-interface", "vhost0",
+                "virtual-network", DEFAULT_VN);
+        client->WaitForIdle();
         agent_ = Agent::GetInstance();
         vhost = static_cast<const VmInterface *>(agent_->vhost_interface());
-        flow_proto_ = agent_->pkt()->get_flow_proto();
-        CreateVmportEnv(input, 1);
-        AddIPAM("vn1", &ipam_info[0], 1);
-        peer = CreateBgpPeer("127.0.0.1", "remote");
-        client->WaitForIdle();
-        vnet0_ = EthInterfaceGet("vnet0");
-
-        AddVn(DEFAULT_VN, 2);
-        AddIPAM(DEFAULT_VN, &ipam_info_fabric[0], 1);
-        client->WaitForIdle();
 
         std::stringstream str;
         str << "<display-name>" << "vhost0" << "</display-name>";
+        str << "<virtual-machine-interface-disable-policy>";
+        if (disable_policy) {
+            str << "true";
+        } else {
+            str << "false";
+        }
+        str << "</virtual-machine-interface-disable-policy>";
 
         AddNode("virtual-machine-interface", "vhost0", 10, str.str().c_str());
         AddLink("virtual-machine-interface", "vhost0",
                 "virtual-network", DEFAULT_VN);
+    }
+
+    virtual void SetUp() {
+        CreateVmportEnv(input, 1);
+        AddIPAM("vn1", &ipam_info[0], 1);
+        AddVn(DEFAULT_VN, 2);
+        AddIPAM(DEFAULT_VN, &ipam_info_fabric[0], 1);
+        vnet0_ = EthInterfaceGet("vnet0");
+        AddVhostVmi();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
+        client->WaitForIdle();
+
+        peer = CreateBgpPeer("127.0.0.1", "remote");
+        client->WaitForIdle();
+
         AddAcl("Acl", 1, DEFAULT_VN, "vn1", "pass");
         AddLink("virtual-network", DEFAULT_VN, "access-control-list", "Acl");
         client->WaitForIdle();
@@ -223,6 +239,7 @@ TEST_F(VhostVmi, OverlayToVhost) {
     DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
     client->WaitForIdle();
 }
+
 #if 0
 TEST_F(VhostVmi, VmiToLocalVhost) {
     AddLink("virtual-network", "vn1", "virtual-network", DEFAULT_VN);
@@ -261,16 +278,7 @@ TEST_F(VhostVmi, VmiToLocalVhost) {
 }
 #endif
 
-TEST_F(VhostVmi, FabricFlow) {
-    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10",
-                22, 8085, false, 1, 0);
-    client->WaitForIdle();
-
-    FlowEntry *fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
-                            "10.1.1.1", "10.1.1.10", 6, 22, 8085);
-    EXPECT_TRUE(fe->IsShortFlow() == false);
-    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
-
+TEST_F(VhostVmi, FabricFlow_DisablePolicy_False) {
     agent_->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
     agent_->set_controller_ifmap_xmpp_port(5269, 0);
 
@@ -278,14 +286,10 @@ TEST_F(VhostVmi, FabricFlow) {
                1000, 5269, false, 1, 0);
     client->WaitForIdle();
 
-    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+    FlowEntry *fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
                             "10.1.1.1", "127.0.0.1", 6, 1000, 5269);
     EXPECT_TRUE(fe->IsShortFlow() == false);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
-
-    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10",
-                22, 8085, false, 1, 0);
-    client->WaitForIdle();
 
     agent_->set_dns_server("127.0.0.1", 0);
     agent_->set_dns_server_port(53, 0);
@@ -321,13 +325,88 @@ TEST_F(VhostVmi, FabricFlow) {
                 1000, 8775, false, 1, 0);
     client->WaitForIdle();
 
+    DelLinkLocalConfig();
+    client->WaitForIdle();
+
     fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
                  "10.1.1.1", "128.0.0.1", 6, 1000, 8775);
     EXPECT_TRUE(fe->IsShortFlow() == false);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
 
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10",
+                22, 10000, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "10.1.1.10", 6, 22, 10000);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+}
+
+TEST_F(VhostVmi, FabricFlow_DisablePolicy_True) {
+    AddVhostVmi(true);
+    agent_->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+    agent_->set_controller_ifmap_xmpp_port(5269, 0);
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "127.0.0.1",
+               1000, 5269, false, 1, 0);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "127.0.0.1", 6, 1000, 5269);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    agent_->set_dns_server("127.0.0.1", 0);
+    agent_->set_dns_server_port(53, 0);
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "127.0.0.1",
+               1000, 53, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "127.0.0.1", 6, 1000, 53);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "127.0.0.1",
+               1000, 8086, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "127.0.0.1", 6, 1000, 8086);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    std::string nova_api("128.0.0.1");
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back(nova_api);
+    TestLinkLocalService service = {
+        "metadata", "169.254.169.254", 80, "", fabric_ip_list, 8775
+    };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "128.0.0.1",
+                1000, 8775, false, 1, 0);
+    client->WaitForIdle();
+
     DelLinkLocalConfig();
     client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                 "10.1.1.1", "128.0.0.1", 6, 1000, 8775);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10",
+                22, 10000, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "10.1.1.10", 6, 22, 10000);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricControlFlow));
 }
 
 int main(int argc, char *argv[]) {
