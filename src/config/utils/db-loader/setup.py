@@ -9,6 +9,8 @@ install_requires = [
     'pyyaml',
     'python-keystoneclient',
     'kazoo',
+    'future',
+    'configparser',
 ]
 
 setup(
