@@ -15,6 +15,7 @@ set groups {{cfg_group}} routing-instances {{ri.name}} routing-options autonomou
 {%             for peer in bgp.get('peers',[]) %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} peer-as {{peer.autonomous_system}}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}}
+set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} as-override
 {%                 if peer.get('comment','') %}
 set groups {{cfg_group}} routing-instances {{ri.name}} protocols bgp group {{bgp.name}} neighbor {{peer.ip_address}} description "{{peer.comment}}"
 {%                 endif %}
