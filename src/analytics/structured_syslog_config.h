@@ -36,6 +36,13 @@ struct IPNetwork
     return address_begin < other.address_begin;
   }
 
+  IPNetwork& operator = (const IPNetwork& other) {
+    this->address_begin = other.address_begin;
+    this->address_end = other.address_end;
+    this->id = other.id;
+    return *this;
+  }
+
   uint32_t address_begin;
   uint32_t address_end;
   std::string id;
