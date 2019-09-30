@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4a0f5e7a_601c3733",
+        "filename": "src/vnsw/agent/init/agent_param.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 1710,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-30T16:04:59Z",
+      "side": 1,
+      "message": "define macros for high water mark and difference between water marks",
+      "range": {
+        "startLine": 1710,
+        "startChar": 0,
+        "endLine": 1710,
+        "endChar": 65
+      },
+      "revId": "99deeb2d6a6cb95015308d88ac65be9805e7b13c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "19410b7b_53df0b0e",
+        "filename": "src/vnsw/agent/oper/mpls.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-30T16:04:59Z",
+      "side": 1,
+      "message": "same here, prevent allocating id \u003e max limit.",
+      "range": {
+        "startLine": 276,
+        "startChar": 0,
+        "endLine": 276,
+        "endChar": 24
+      },
+      "revId": "99deeb2d6a6cb95015308d88ac65be9805e7b13c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "79f86b9b_16211ff0",
+        "filename": "src/vnsw/agent/oper/nexthop.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 309,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-09-30T16:04:59Z",
+      "side": 1,
+      "message": "you are not preventing allocating id greater than max value, please address it",
+      "range": {
+        "startLine": 309,
+        "startChar": 0,
+        "endLine": 309,
+        "endChar": 26
+      },
+      "revId": "99deeb2d6a6cb95015308d88ac65be9805e7b13c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
