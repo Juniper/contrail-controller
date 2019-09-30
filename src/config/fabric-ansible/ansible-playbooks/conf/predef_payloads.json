@@ -375,6 +375,13 @@
                 "job_completion_weightage": 15
               },
               {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/role_assignment_dfg.yml",
+                "multi_device_playbook": true,
+                "vendor": "Juniper",
+                "device_family": "",
+                "job_completion_weightage": 5
+              },
+              {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/discover_role.yml",
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
@@ -393,7 +400,7 @@
                 "multi_device_playbook": true,
                 "vendor": "Juniper",
                 "device_family": "",
-                "job_completion_weightage": 15
+                "job_completion_weightage": 10
               },
               {
                 "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/topology_discovery.yml",
@@ -1697,6 +1704,89 @@
       ]
     },
     {
+      "object_type": "device-functional-group",
+      "objects": [
+        {
+          "fq_name": [
+            "default-domain","default-project", "L2-Server-Leaf"
+          ],
+          "name": "L2-Server-Leaf",
+          "device_functional_group_description": "Provides L2 servers connectivity with ingress replication for multicast in the spine",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles": ["CRB-ACCESS"]}
+        },
+        {
+          "fq_name": [
+            "default-domain", "default-project", "L3-Server-Leaf"
+          ],
+          "name": "L3-Server-Leaf",
+          "device_functional_group_description": "Provides L3 servers connectivity",
+          "device_functional_group_os_version": "19.1R3",
+          "device_functional_group_routing_bridging_roles": {"rb_roles": ["ERB-UCAST-Gateway"]}
+        },
+        {
+          "fq_name": [
+            "default-domain","default-project", "L3-Storage-Leaf"
+          ],
+          "name": "L2-Storage-Leaf",
+          "device_functional_group_description": "Provides L3 servers to storage arrays",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["ERB-UCAST-Gateway"]}
+
+        },
+         {
+          "fq_name": [
+            "default-domain","default-project", "L3 Server Leaf with Optimized Multicast"
+          ],
+          "name": "L3 Server Leaf with Optimized Multicast",
+          "device_functional_group_description": "Provides L3 servers connectivity with Optimized multicast traffic",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["ERB-UCAST-Gateway","AR-Client"]}
+
+        },
+        {
+          "fq_name": [
+            "default-domain","default-project", "Centrally Routed Border Spine"
+          ],
+          "name": "Centrally Routed Border Spine",
+          "device_functional_group_description": "Provides  L3 routing  for L2 server leafs and route reflector and ingress replication, as well DCGW and DCI GW and connectivity to firewalls",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","CRB-Gateway","DC-Gateway", "DCI-Gateway","PNF-Servicechain"]}
+
+        },
+        {
+          "fq_name": [
+            "default-domain","default-project", "Centrally Routed Border Spine With Optimized Multicast"
+          ],
+          "name": "Centrally Routed Border Spine With Optimized Multicast",
+          "device_functional_group_description": "Provides L3 servers to storage arrays",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","AR-Replicator", "CRB-Gateway","DC-Gateway","DCI-Gateway","PNF-Servicechain"]}
+
+        },
+        {
+          "fq_name": [
+            "default-domain","default-project", "Border Spine in Edge Routed"
+          ],
+          "name": "Border Spine in Edge Routed",
+          "device_functional_group_description": "Provides L3 gateway services, route reflector",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","ERB-UCAST-Gateway"]}
+
+        },
+        {
+          "fq_name": [
+            "default-domain","default-project", "Border Leaf in Edge Routed"
+          ],
+          "name": "Border Leaf in Edge Routed",
+          "device_functional_group_description": "Provides L3 servers to storage arrays",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","ERB-UCAST-Gateway"]}
+
+        }
+      ]
+    },
+    {
       "object_type": "role-config",
       "objects": [
         {
@@ -2568,6 +2658,55 @@
       "from_fq_name": [ "default-domain", "default-project", "default-telemetry-profile-3" ],
       "to_type": "sflow-profile",
       "to_fq_name": [ "default-domain", "default-project", "sflow-access-interfaces" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","L2-Server-Leaf" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","L3-Storage-Leaf" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","L3 Server Leaf with Optimized Multicast" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","Centrally Routed Border Spine" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","Centrally Routed Border Spine With Optimized Multicast" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","Border Spine in Edge Routed" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","Border Leaf in Edge Routed" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","L3-Server-Leaf" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "leaf" ]
     }
+    
   ]
 }
