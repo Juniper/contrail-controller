@@ -1253,11 +1253,11 @@ class VncApiServer(object):
                              resource_type, ref_uuids,fields)}
 
         for link_field in obj_links:
-            links = obj_dict[link_field]
+            links = obj_dict[link_field][:]
 
             # build new links in returned dict based on permissions on linked
             # object
-            for link in obj_dict[link_field]:
+            for link in links:
                 if (link['uuid'] not in ref_perms or
                         not self._permissions.check_perms_read(
                             get_request(),
