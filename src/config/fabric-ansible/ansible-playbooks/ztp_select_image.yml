@@ -10,6 +10,7 @@
     pr_fq_name: "{{playbook_input.device_fqname[-1]}}"
     pr_vendor_name: "{{playbook_input.vendor | lower}}"
     prouter_uuid: "{{playbook_input.device_id}}"
+    dfg_os_verson: ""
     current_index: 0
     pr_product_name: "{{playbook_input.product_name}}"
     final_task_dict:
@@ -20,6 +21,25 @@
     - name: Include global variables
       include_vars: group_vars/all.yml
 
+    - set_fact:
+        device_to_ztp: "{{ playbook_input.input.device_to_ztp }}"
+      when: playbook_input.input.device_to_ztp is defined
+
+    - name: Lookup device functional group if defined
+      set_fact:
+        dfg_dict : "{{job_ctx | validate_device_functional_group(pr_fq_name, prouter_uuid, device_to_ztp)}}"
+      when: device_to_ztp is defined
+
+    - name: Set fields
+      set_fact:
+        dfg_os_version: "{{dfg_dict.os_version}}"
+      when: dfg_dict != None and dfg_dict.os_version is defined
+
+    - name: Set os version
+      set_fact:
+        ztp_os_version: "{{dfg_os_version}}"
+      when: dfg_os_version!= ""
+
     - name: Set os version only if defined
       set_fact:
         os_defined: true
@@ -28,7 +48,7 @@
     - name: Set version
       set_fact:
         ztp_os_version: "{{playbook_input.input.os_version}}"
-      when: os_defined is defined and os_defined
+      when: os_defined is defined and os_defined and not dfg_os_version
 
     - block:
         - name: Set variable to continue workflow
@@ -163,5 +183,3 @@
             "physical_router_managed_state": "active"
           }
       when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
-
-
