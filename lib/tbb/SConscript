@@ -32,13 +32,13 @@ proc = subprocess.Popen([make, '-f', Dir(vpath).abspath + '/Makefile', 'info'],
                         env = BUILD_ENV)
 (output, _) = proc.communicate()
 
-for line in output.split('\n'):
+for line in output.decode('utf8').split('\n'):
     m = re.match('tbb_build_prefix=(.*)$', line)
     if m:
         tbb_build_prefix = m.group(1)
 
 def MapPrefix(prefix, list):
-    return map(lambda x: prefix + x, list)
+    return [prefix + x for x in list]
 
 targets = MapPrefix('#/' + Dir('.').path + '/' + tbb_build_prefix,
                     ['_debug/libtbb_debug' + env['SHLIBSUFFIX'],
@@ -76,7 +76,7 @@ def Symlink(target, source):
 
 libpath = Dir(vpath).abspath
 if not os.path.exists(libpath):
-    print('%s not present' % libpath)
+    print(('%s not present' % libpath))
     sys.exit(1)
 
 Symlink([Dir('#/build/include/tbb')], [Dir(vpath + '/include/tbb')])
