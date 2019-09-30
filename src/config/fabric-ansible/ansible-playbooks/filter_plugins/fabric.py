@@ -316,7 +316,9 @@ class FilterModule(object):
             'onboard_existing_fabric': self.onboard_brownfield_fabric,
             'delete_fabric': self.delete_fabric,
             'delete_devices': self.delete_fabric_devices,
-            'assign_roles': self.assign_roles
+            'assign_roles': self.assign_roles,
+            'update_annotations': self.update_annotations,
+            'validate_device_functional_groups': self.validate_device_functional_groups
         }
     # end filters
 
@@ -1791,6 +1793,103 @@ class FilterModule(object):
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
+
+# ***************** validate dfg filter ***********************************
+    def validate_device_functional_group(cls, job_ctx, device_name,
+                                         prouter_uuid,
+                                         device_to_ztp):
+        vnc_api = JobVncApi.vnc_init(job_ctx)
+        final_dict = dict()
+        if device_name and device_to_ztp:
+            device_map = dict((d.get('hostname', d.get('serial_number')), d)
+                              for d in device_to_ztp)
+            existing_device_functional_group = \
+                vnc_api.device_functional_groups_list()
+            existing_device_functional_list = \
+                existing_device_functional_group['device-functional-groups']
+            if device_name in device_map:
+                if device_map[device_name].get('device_functional_group') != None:
+                    given_dfg = device_map[device_name].get(
+                        'device_functional_group')
+                    for item in existing_device_functional_list:
+                        if item['fq_name'][2] == given_dfg:
+                            dfg_uuid = item['uuid']
+                            vnc_api.ref_update("physical_router",
+                                               prouter_uuid,
+                                               "device_functional_group",
+                                               dfg_uuid, None,'ADD')
+                            dfg_item = vnc_api.device_functional_group_read(
+                                id=dfg_uuid)
+                            dfg_item_dict = vnc_api.obj_to_dict(dfg_item)
+                            final_dict['os_version'] = dfg_item_dict.get(
+                                'device_functional_group_os_version')
+                            physical_role_refs = dfg_item_dict.get(
+                                'physical_role_refs')
+                            if physical_role_refs!=None:
+                                final_dict['physical_role'] = physical_role_refs[0]['to'][-1]
+                            else:
+                                final_dict['physical_role'] = physical_role_refs
+                            rb_roles_dict = dfg_item_dict.get('device_functional_group_routing_bridging_roles')
+                            if rb_roles_dict!= None:
+                                final_dict['rb_roles'] = rb_roles_dict.get('rb_roles')
+                            else:
+                                final_dict['rb_roles'] = rb_roles_dict
+                            rr_flag = device_map[device_name].get('route_reflector')
+                            if rr_flag != None:
+                                if not final_dict['rb_roles']:
+                                    final_dict['rb_roles'] = []
+                                    final_dict['rb_roles'].append('Route-Reflector')
+                                elif 'Route-Reflector' not in final_dict['rb_roles']:
+                                    final_dict['rb_roles'].append('Route-Reflector')
+                            return final_dict
+                    if len(final_dict) == 0:
+                        raise NoIdError("The given DFG for device %s is not "
+                                        "defined" % str(device_name))
+                else:
+                    return None
+        else:
+            return None
+
+    # end validate_device_functional_group
+    # ***************** update annotations filter # ****************************
+    def update_annotations(self, job_ctx, role_assgn_dict):
+        fabric_info = job_ctx.get('job_input')
+        fabric_fq_name = fabric_info.get('fabric_fq_name')
+        vnc_api = JobVncApi.vnc_init(job_ctx)
+        fabric = vnc_api.fabric_read(fq_name=fabric_fq_name)
+        annotations = fabric.get_annotations()
+        kv_pair = annotations.get_key_value_pair()
+        acquired = False
+        if annotations and kv_pair:
+            try:
+                acquired = update_lock.acquire()
+                for kv in kv_pair:
+                    if kv.get_key() == 'role_assignment_template':
+                        if kv.get_value() == "{}":
+                            result_dict = {"fabric_fq_name": fabric_fq_name,
+                                           "role_assignments":[role_assgn_dict]}
+                            str_json = json.dumps(result_dict)
+                            kv.set_value(str_json)
+                            break
+                        else:
+                            dict_value = kv.get_value()
+                            load_dict = json.loads(dict_value)
+                            load_dict["role_assignments"].append(role_assgn_dict)
+                            str_json = json.dumps(load_dict)
+                            kv.set_value(str_json)
+                            break
+                annotations.set_key_value_pair(kv_pair)
+                fabric.set_annotations(annotations)
+                vnc_api.fabric_update(fabric)
+            except Exception as ex:
+                errmsg = str(ex)
+                _task_error_log('%s' %(errmsg))
+
+            finally:
+                if acquired:
+                    update_lock.release()
+
+    # end update_annotations
 
     def _get_fabric_cluster_id(self, vnc_api, fabric_fq_name):
         fabric = vnc_api.fabric_read(fq_name=fabric_fq_name,

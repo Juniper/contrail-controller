@@ -63,4 +63,4 @@
         current_index: 4
         jl_message: "Fpc online for {{prouter_vendor}} device, {{prouter_name}}"
     - set_fact:
-        output: {'status':'Success', 'message':'Assigned static mgmt ip for device: {{prouter_name}}'}
+	output: {'status':'Success', 'message':'Assigned static mgmt ip for device: {{prouter_name}}'}
