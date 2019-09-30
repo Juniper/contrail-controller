@@ -39,6 +39,19 @@
     - device_to_ztp is defined
     - supplemental_day_0_cfg is defined
 
+- name: Lookup device functional group if defined
+  set_fact:
+    dfg_dict : "{{job_ctx | device_functional_group(prouter_name, device_to_ztp)}}"
+  when:
+    - device_to_ztp is defined
+
+- name: Set fields
+  set_fact:
+    dfg_os_version: "{{dfg_dict.os_version}}"
+    dfg_physical_role: "{{dfg_dict.physical_role}}"
+    dfg_rb_roles: "{{dfg_dict.rb_roles}}"
+  when: dfg_dict != None
+
 - name: Generate vendor specific config
   set_fact:
     vendor_config: "{{lookup('template', jinja_file_path)}}"

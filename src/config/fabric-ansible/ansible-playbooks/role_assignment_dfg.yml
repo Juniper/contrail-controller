@@ -1,0 +1,37 @@
+---
+- name: Assign physical or overlay roles to the devices in the fabric
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    dfg_physical_role: "{{playbook_input.input.dfg_physical_role}}"
+    dfg_rb_roles: "{{playbook_input.input.dfg_rb_roles}}"
+    prouter_fq_name: "{{playbook_input.device_fqname[-1]}}"
+
+  tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
+    - block:
+        - name: Construct input for annotations
+          set_fact:
+            role_assignments_dict: {device_fq_name: "{{prouter_fq_name}}", physical_role: "{{dfg_physical_role}}", routing_bridging_roles: "{{dfg_rb_roles}}" }
+
+        - name: Append to role assignment annotations
+          set_fact:
+             output: "{{job_ctx| update_annotations(role_assignments_dict)}}"
+
+        - name: Set output
+          set_fact:
+            output: {
+                      "status": "Success",
+                      "message": "Job annotations have been updated"
+                    }
+      when: dfg_physical_role is defined and dfg_physical_role!= "" and dfg_rb_roles is defined and dfg_rb_roles!= ""
+
+    - name: Set output if dfg is not defined
+      set_fact:
+        output: {
+                  "status": "Success"
+                }
+

@@ -316,7 +316,8 @@ class FilterModule(object):
             'onboard_existing_fabric': self.onboard_brownfield_fabric,
             'delete_fabric': self.delete_fabric,
             'delete_devices': self.delete_fabric_devices,
-            'assign_roles': self.assign_roles
+            'assign_roles': self.assign_roles,
+            'update_annotations': self.update_annotations
         }
     # end filters
 
@@ -1791,6 +1792,33 @@ class FilterModule(object):
                 'assignment_log': FilterLog.instance().dump()
             }
     # end assign_roles
+
+    def update_annotations(self, job_ctx, role_assgn_dict):
+        fabric_info = job_ctx.get('job_input')
+        fabric_fq_name = fabric_info.get('fabric_fq_name')
+        vnc_api = JobVncApi.vnc_init(job_ctx)
+        fabric = vnc_api.fabric_read(fq_name=fabric_fq_name)
+        annotations = fabric.get_annotations()
+        kv_pair = annotations.get_key_value_pair()
+        if annotations and kv_pair:
+            for kv in kv_pair:
+                if kv.get_key() == 'role_assignment_template':
+                    if kv.get_value() == "{}":
+                        result_dict = {"fabric_fq_name": fabric_fq_name,
+                                       "role_assignments":[role_assgn_dict]}
+                        str_json = json.dumps(result_dict)
+                        kv.set_value(str_json)
+                        break
+                    else:
+                        dict_value = kv.get_value()
+                        load_dict = json.loads(dict_value)
+                        load_dict["role_assignments"].append(role_assgn_dict)
+                        str_json = json.dumps(load_dict)
+                        kv.set_value(str_json)
+                        break
+        annotations.set_key_value_pair(kv_pair)
+        fabric.set_annotations(annotations)
+        vnc_api.fabric_update(fabric)
 
     def _get_fabric_cluster_id(self, vnc_api, fabric_fq_name):
         fabric = vnc_api.fabric_read(fq_name=fabric_fq_name,
