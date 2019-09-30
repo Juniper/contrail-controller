@@ -20,6 +20,11 @@
     - name: Include global variables
       include_vars: group_vars/all.yml
 
+    - name: Set os version
+      set_fact:
+        ztp_os_version: "{{playbook_input.input.dfg_os_version}}"
+      when: playbook_input.input.dfg_os_version!= ""
+
     - name: Set os version only if defined
       set_fact:
         os_defined: true
@@ -28,7 +33,7 @@
     - name: Set version
       set_fact:
         ztp_os_version: "{{playbook_input.input.os_version}}"
-      when: os_defined is defined and os_defined
+      when: os_defined is defined and os_defined and not playbook_input.input.dfg_os_version
 
     - block:
         - name: Set variable to continue workflow
