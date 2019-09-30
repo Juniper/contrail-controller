@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1961d09e_464840d9",
+        "filename": "lib/tbb/SConscript",
+        "patchSetId": 1
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-30T10:23:11Z",
+      "side": 1,
+      "message": "Nit: double braces are not required",
+      "range": {
+        "startLine": 79,
+        "startChar": 10,
+        "endLine": 79,
+        "endChar": 12
+      },
+      "revId": "5fa74f1f54c0771493f8b5ab8da418b0ad796c31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0fbc055e_c354e08b",
+        "filename": "src/vnsw/agent/SConscript",
+        "patchSetId": 1
+      },
+      "lineNbr": 455,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-09-30T10:23:11Z",
+      "side": 1,
+      "message": "is it really required?",
+      "range": {
+        "startLine": 455,
+        "startChar": 18,
+        "endLine": 455,
+        "endChar": 19
+      },
+      "revId": "5fa74f1f54c0771493f8b5ab8da418b0ad796c31",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
