@@ -48,6 +48,30 @@
     },
     {
       "key": {
+        "uuid": "bef04bda_445ae02c",
+        "filename": "src/vnsw/agent/oper/mpls.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2019-10-01T05:48:22Z",
+      "side": 1,
+      "message": "will fix here\nhttps://contrail-jws.atlassian.net/browse/CEM-9390",
+      "parentUuid": "19410b7b_53df0b0e",
+      "range": {
+        "startLine": 276,
+        "startChar": 0,
+        "endLine": 276,
+        "endChar": 24
+      },
+      "revId": "99deeb2d6a6cb95015308d88ac65be9805e7b13c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "79f86b9b_16211ff0",
         "filename": "src/vnsw/agent/oper/nexthop.cc",
         "patchSetId": 8
@@ -59,6 +83,30 @@
       "writtenOn": "2019-09-30T16:04:59Z",
       "side": 1,
       "message": "you are not preventing allocating id greater than max value, please address it",
+      "range": {
+        "startLine": 309,
+        "startChar": 0,
+        "endLine": 309,
+        "endChar": 26
+      },
+      "revId": "99deeb2d6a6cb95015308d88ac65be9805e7b13c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "41c635c2_e9acfb69",
+        "filename": "src/vnsw/agent/oper/nexthop.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 309,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2019-10-01T05:48:22Z",
+      "side": 1,
+      "message": "will do these changes as part of https://contrail-jws.atlassian.net/browse/CEM-9390",
+      "parentUuid": "79f86b9b_16211ff0",
       "range": {
         "startLine": 309,
         "startChar": 0,
