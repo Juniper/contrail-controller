@@ -1850,6 +1850,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     if (cfg->display_name() == agent_->vhost_interface_name()) {
         data->CopyVhostData(agent());
+        agent_->set_vhost_disable_policy(cfg->disable_policy());
         vmi_uuid = nil_uuid();
     }
 

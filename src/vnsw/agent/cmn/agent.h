@@ -891,6 +891,21 @@ public:
     void set_vhost_interface_name(const std::string &name) {
         vhost_interface_name_ = name;
     }
+
+    bool get_vhost_disable_policy() {
+        return vhost_disable_policy_;
+    }
+    void set_vhost_disable_policy(bool disable_policy) {
+        vhost_disable_policy_ = disable_policy;
+    }
+
+    const Interface *vhost_interface() const {
+        return vhost_interface_;
+    }
+    void set_vhost_interface(const Interface *intrface) {
+        vhost_interface_ = intrface;
+    }
+
     bool is_vhost_interface_up() const;
 
     const std::string &pkt_interface_name() const {
@@ -902,12 +917,6 @@ public:
 
     const std::string &GetHostInterfaceName() const;
 
-    const Interface *vhost_interface() const {
-        return vhost_interface_;
-    }
-    void set_vhost_interface(const Interface *intrface) {
-        vhost_interface_ = intrface;
-    }
     process::ConnectionState* connection_state() const {
         return connection_state_;
     }
@@ -1493,6 +1502,7 @@ private:
     const Interface *vhost_interface_;
     const Interface *crypt_interface_;
     process::ConnectionState* connection_state_;
+    bool vhost_disable_policy_;
     bool test_mode_;
     bool xmpp_dns_test_mode_;
     bool init_done_;
