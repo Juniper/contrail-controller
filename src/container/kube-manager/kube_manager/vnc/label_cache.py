@@ -2,8 +2,10 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+
 from enum import Enum
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class LabelCache(object):
 

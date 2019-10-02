@@ -8,10 +8,11 @@
 """
 Contrail CNI plugin
 """
+from __future__ import absolute_import
 import ConfigParser
 
-from mesos_cni import contrail_mesos_cni
-from kube_cni import contrail_kube_cni
+from .mesos_cni import contrail_mesos_cni
+from .kube_cni import contrail_kube_cni
 
 ORCHES_FILE = '/etc/contrail/orchestrator.ini'
 

@@ -5,17 +5,19 @@
 """
 VNC service management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 from cStringIO import StringIO
 from vnc_api.vnc_api import *
-from config_db import *
-from loadbalancer import *
+from .config_db import *
+from .loadbalancer import *
 from kube_manager.common.kube_config_db import NamespaceKM, ServiceKM
 from cfgm_common import importutils
 from cfgm_common.utils import cgitb_hook
-import link_local_manager as ll_mgr
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_common import VncCommon
+from . import link_local_manager as ll_mgr
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 from kube_manager.vnc.label_cache import XLabelCache
 from netaddr import IPNetwork, IPAddress

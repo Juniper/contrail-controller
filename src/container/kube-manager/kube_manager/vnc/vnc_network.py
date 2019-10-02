@@ -5,6 +5,7 @@
 """
 VNC network management for kubernetes
 """
+from __future__ import print_function
 
 import uuid
 

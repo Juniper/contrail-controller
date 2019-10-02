@@ -5,10 +5,12 @@
 """
 VNC Ingress management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import uuid
 
-from config_db import *
+from .config_db import *
 from vnc_api.vnc_api import *
 
 from kube_manager.common.kube_config_db import IngressKM
@@ -17,9 +19,9 @@ from kube_manager.vnc.loadbalancer import ServiceLbManager
 from kube_manager.vnc.loadbalancer import ServiceLbListenerManager
 from kube_manager.vnc.loadbalancer import ServiceLbPoolManager
 from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_security_policy import VncSecurityPolicy
-from vnc_common import VncCommon
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_security_policy import VncSecurityPolicy
+from .vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 from kube_manager.vnc.label_cache import XLabelCache
 from cStringIO import StringIO
