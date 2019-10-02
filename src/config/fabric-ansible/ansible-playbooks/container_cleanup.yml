@@ -3,6 +3,9 @@
   gather_facts: no
   connection: local
 
+  vars:
+    filename: ""
+
   roles:
     - Juniper.junos
     - container_cleanup_role
@@ -22,4 +25,3 @@
       debug:
         var: output
         verbosity: 1
-
