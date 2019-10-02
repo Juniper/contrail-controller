@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_api.vnc_api import (KeyValuePair,KeyValuePairs)
-from config_db import DBBaseKM
+from .config_db import DBBaseKM
 
 class VncCommon(object):
     """VNC kubernetes common functionality.

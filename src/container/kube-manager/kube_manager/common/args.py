@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
