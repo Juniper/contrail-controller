@@ -9,15 +9,16 @@
 Contrail CNI plugin
 Support Kubernetes for now
 """
+from __future__ import absolute_import
 
 import argparse
 import json
 import os
 import sys
-from cni import cni as Cni
-from common import logger as Logger
-from params import params as Params
-from vrouter import vrouter as VRouter
+from .cni import cni as Cni
+from .common import logger as Logger
+from .params import params as Params
+from .vrouter import vrouter as VRouter
 
 
 # logger for the file
