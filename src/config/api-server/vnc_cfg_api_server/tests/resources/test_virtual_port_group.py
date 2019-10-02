@@ -816,8 +816,24 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
              'switch_id': pi_fq_name_1[2],
              'fabric': fabric_name[-1],
              'switch_info': pi_fq_name_1[1]}]}
+
+        kv_pairs = KeyValuePairs(
+            [KeyValuePair(key='vpg', value=vpg_name[-1]),
+             KeyValuePair(key='vif_type', value='vrouter'),
+             KeyValuePair(key='vnic_type', value='baremetal'),
+             KeyValuePair(key='profile',
+                          value=json.dumps(binding_profile))])
+
         vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
         self.api.virtual_machine_interface_update(vmi_obj)
+
+        # Read physical interface type again, pi_2's should be set to None
+        pi_obj_1 = self._vnc_lib.physical_interface_read(id=pi_uuid_1)
+        pi_obj_2 = self._vnc_lib.physical_interface_read(id=pi_uuid_2)
+        intf_type_pi_1 = pi_obj_1.get_physical_interface_type()
+        self.assertEqual(intf_type_pi_1, 'access')
+        intf_type_pi_2 = pi_obj_2.get_physical_interface_type()
+        self.assertEqual(intf_type_pi_2, None)
 
         self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
         self.api.virtual_port_group_delete(id=vpg_obj.uuid)
