@@ -13,9 +13,19 @@ from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
     @classmethod
-    def update_physical_intf_type(cls, obj_dict, op):
+    def update_physical_intf_type(cls, obj_dict=None,
+                                  old_obj_dict=None):
         api_server = cls.server
         db_conn = cls.db_conn
+
+        if not obj_dict:
+            obj_dict = {}
+        if not old_obj_dict:
+            old_obj_dict = {}
+
+        new_uuid_list = []
+        old_uuid_list = []
+
         for phys_intf_ref in obj_dict.get('physical_interface_refs') or []:
             if phys_intf_ref.get('uuid') is None:
                 try:
@@ -26,28 +36,47 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
             else:
                 pi_uuid = phys_intf_ref['uuid']
 
-            if op == 'ADD':
+            new_uuid_list.append(pi_uuid)
+
+        for phys_intf_ref in old_obj_dict.get(
+                'physical_interface_refs') or []:
+            if phys_intf_ref.get('uuid') is None:
                 try:
-                    api_server.internal_request_update(
-                        'physical_interface',
-                        pi_uuid,
-                        {'physical_interface_type': 'access'},
-                    )
-                except HttpError as e:
-                    db_conn.config_log("PI (%s) add update failed (%s)" %
-                                       (pi_uuid, str(e)),
-                                       level=SandeshLevel.SYS_WARN)
-            elif op == 'DELETE':
-                try:
-                    api_server.internal_request_update(
-                        'physical_interface',
-                        pi_uuid,
-                        {'physical_interface_type': None},
-                    )
-                except HttpError as e:
-                    db_conn.config_log("PI (%s) delete update failed (%s)" %
-                                       (pi_uuid, str(e)),
-                                       level=SandeshLevel.SYS_WARN)
+                    pi_uuid = db_conn.fq_name_to_uuid(
+                        'physical_interface', phys_intf_ref.get('to'))
+                except NoIdError as e:
+                    return False, (400, str(e))
+            else:
+                pi_uuid = phys_intf_ref['uuid']
+
+            old_uuid_list.append(pi_uuid)
+
+        to_be_added_pi_uuids = list(set(new_uuid_list) - set(old_uuid_list))
+        to_be_deleted_pi_uuids = list(set(old_uuid_list) - set(new_uuid_list))
+
+        for pi_uuid in to_be_added_pi_uuids or []:
+            try:
+                api_server.internal_request_update(
+                    'physical_interface',
+                    pi_uuid,
+                    {'physical_interface_type': 'access'},
+                )
+            except HttpError as e:
+                db_conn.config_log("PI (%s) add update failed (%s)" %
+                                   (pi_uuid, str(e)),
+                                   level=SandeshLevel.SYS_WARN)
+
+        for pi_uuid in to_be_deleted_pi_uuids or []:
+            try:
+                api_server.internal_request_update(
+                    'physical_interface',
+                    pi_uuid,
+                    {'physical_interface_type': None},
+                )
+            except HttpError as e:
+                db_conn.config_log("PI (%s) delete update failed (%s)" %
+                                   (pi_uuid, str(e)),
+                                   level=SandeshLevel.SYS_WARN)
 
         return True, ''
     # end update_physical_intf_type
@@ -79,7 +108,7 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                             (back_ref['uuid'], ':'.join(back_ref['to'])))
                 return (False, (409, msg))
 
-        ok, result = cls.update_physical_intf_type(obj_dict, 'ADD')
+        ok, result = cls.update_physical_intf_type(obj_dict)
         if not ok:
             return ok, result
 
@@ -87,7 +116,25 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls.update_physical_intf_type(obj_dict, 'ADD')
+        # Handling both deletion and addition of interfaces here
+
+        # compute the already existing physical interface refs for the
+        # vpg object
+
+        ok, result = db_conn.dbe_read(
+            obj_type='virtual_port_group',
+            obj_id=obj_dict['uuid'],
+            obj_fields=['physical_interface_refs'])
+
+        if not ok:
+            return ok, (400, result)
+
+        if obj_dict.get('physical_interface_refs'):
+            ok, res = cls.update_physical_intf_type(obj_dict, result)
+            if not ok:
+                return ok, res
+
+        return True, ''
     # end pre_dbe_update
 
     @classmethod
@@ -100,7 +147,7 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                   % (obj_dict['uuid'])
             return (False, (400, msg), None)
 
-        ok, result = cls.update_physical_intf_type(obj_dict, 'DELETE')
+        ok, result = cls.update_physical_intf_type(old_obj_dict=obj_dict)
         if not ok:
             return (False, result, None)
 
