@@ -6,6 +6,7 @@
 """
 CNI implementation for veth-pair interfaces
 """
+from __future__ import absolute_import
 import ctypes
 import errno
 import inspect
@@ -17,9 +18,9 @@ import sys
 
 from pyroute2 import NetlinkError, IPRoute
 
-from interface import Interface as CniInterface
-from interface import CniNamespace as CniNamespace
-from cni import Error as Error
+from .interface import Interface as CniInterface
+from .interface import CniNamespace as CniNamespace
+from .cni import Error as Error
 
 # Error codes
 CNI_ERROR_VETH_ADD = 301
