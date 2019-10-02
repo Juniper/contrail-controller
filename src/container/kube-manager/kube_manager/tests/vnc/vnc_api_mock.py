@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 import copy
 import functools
 import json
 
 from vnc_api.vnc_api import all_resource_type_tuples, get_object_class, NoIdError, RefsExistError
-from db_mock import DBMock
+from .db_mock import DBMock
 
 
 class VncApiMock(object):
