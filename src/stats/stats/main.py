@@ -223,7 +223,7 @@ def main():
     config = parse_config(args=parse_args())
     logger = init_logger(log_level=config["log_level"],
                          log_file=config["log_file"])
-    vnc_client = VncApi(username=getenv("KEYSTONE_AUTH_ADMIN_USERNAME"),
+    vnc_client = VncApi(username=getenv("KEYSTONE_AUTH_ADMIN_USER"),
                         password=getenv("KEYSTONE_AUTH_ADMIN_PASSWORD"),
                         tenant_name=getenv("KEYSTONE_AUTH_ADMIN_TENANT"))
     scheduler = Scheduler(vnc_client=vnc_client, state=config["state"])
