@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1a7ee5b2_ef16ec02",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/assign_static_device_ip.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-03T22:57:47Z",
+      "side": 1,
+      "message": "What\u0027s this? Looks like no change. Added a tab?",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8c7002d3_40661a69",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 3
+      },
+      "lineNbr": 1715,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-03T22:57:47Z",
+      "side": 1,
+      "message": "Do we even want to populate the os_version at all?",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cab32ec3_2b31c603",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 3
+      },
+      "lineNbr": 1739,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-03T22:57:47Z",
+      "side": 1,
+      "message": "Some names have dashes and others don\u0027t. Should make it consistent",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fbef0b6c_c76a8bf5",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/role_assignment_dfg.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-03T22:57:47Z",
+      "side": 1,
+      "message": "What happens if rb_roles are not set? I think the UI allows this today",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "696f41da_c3c079f3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-03T22:57:47Z",
+      "side": 1,
+      "message": "What if dfg_os_version is not defined?",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
