@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+
 import argparse
 import ConfigParser
 import sys
