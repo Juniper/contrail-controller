@@ -68,6 +68,25 @@ class FabricManager(object):
 
         }
         """
+
+        # delete existing node-profiles in the system
+        np_list = self._vnc_api._objects_list('node-profile')
+        nps = np_list.get('node-profiles')
+        for np in nps or []:
+            try:
+                np_obj = self._vnc_api.\
+                    node_profile_read(id=np.get('uuid'))
+                # delete all hardware refs
+                hw_refs = np_obj.get_hardware_refs()
+                for hw in hw_refs or []:
+                    self._vnc_api.ref_update('node-profile',
+                                             np.get('uuid'),
+                                             'hardware',
+                                             hw.get('uuid'),
+                                             None, 'DELETE')
+            except NoIdError:
+                pass
+
         try:
             json_data = self._load_json_data()
             if json_data is None:
