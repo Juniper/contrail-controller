@@ -133,6 +133,9 @@ public:
     MplsLabel *FindMplsLabel(uint32_t label);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    void CheckVrLabelLimit();
+    uint32_t LabelIndexCount() { return label_table_.InUseIndexCount(); }
+    void FreeMplsLabelIndex(size_t label) { label_table_.Remove(label); }
 private:
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);
     IndexVector<MplsLabel *> label_table_;

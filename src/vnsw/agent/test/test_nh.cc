@@ -1147,6 +1147,89 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
     client->WaitForIdle();
 }
 
+TEST_F(CfgTest, NhUsageLimit) {
+    VrLimitExceeded &vr_limits = agent_->get_vr_limits_exceeded_map();
+    VrLimitExceeded::iterator vr_limit_itr = vr_limits.find("vr_nexthops");
+
+    // Since 512k is default limit, so currently usage is normal
+    EXPECT_EQ(vr_limit_itr->second, "Normal");
+
+    uint32_t default_nh_count = agent_->vrouter_max_nexthops();
+    agent_->set_vrouter_max_nexthops(46);
+
+    uint32_t default_high_watermark = agent_->vr_limit_high_watermark();
+    agent_->set_vr_limit_high_watermark(65);
+
+    uint32_t default_low_watermark = agent_->vr_limit_low_watermark();
+    agent_->set_vr_limit_low_watermark(50);
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    struct PortInfo input1[] = {
+        {"vnet21", 11, "2.2.2.1", "00:00:00:01:02:01", 2, 11},
+        {"vnet22", 12, "2.2.2.2", "00:00:00:01:02:02", 2, 12},
+    };
+    IpamInfo ipam_info1[] = {
+        {"2.2.2.0", 24, "2.2.2.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    AddIPAM("vn2", ipam_info1, 1);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 2);
+    CreateVmportEnv(input1, 2);
+    client->WaitForIdle();
+
+    // usage is 48 usage should be set to TableLimit
+    WAIT_FOR(100, 100, (agent_->nexthop_table()->NhIndexCount() >= 48));
+    EXPECT_EQ(vr_limit_itr->second, "TableLimit");
+
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+
+    // TableLimit is not reset unless, count goes below 43 (95% of table size)
+    WAIT_FOR(100, 100, (agent_->nexthop_table()->NhIndexCount() >= 43));
+    EXPECT_EQ(vr_limit_itr->second, "TableLimit");
+
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+
+    // high watermark is 29 entires, Exceeded is set
+    WAIT_FOR(100, 100, (agent_->nexthop_table()->NhIndexCount() >= 34));
+    EXPECT_EQ(vr_limit_itr->second, "Exceeded");
+
+    DeleteVmportEnv(input1, 1, false);
+    client->WaitForIdle();
+
+    // usage not below low watermark (23), Exceeded is set
+    WAIT_FOR(100, 100, (agent_->nexthop_table()->NhIndexCount() >= 24));
+    EXPECT_EQ(vr_limit_itr->second, "Exceeded");
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    DelIPAM("vn2");
+    client->WaitForIdle();
+
+    // below low watermark , nh usage is Normal
+    WAIT_FOR(100, 100, (agent_->nexthop_table()->NhIndexCount() < 23));
+    EXPECT_EQ(vr_limit_itr->second, "Normal");
+
+    // Restore defaults
+    agent_->set_vrouter_max_nexthops(default_nh_count);
+    agent_->set_vr_limit_high_watermark(default_high_watermark);
+    agent_->set_vr_limit_low_watermark(default_low_watermark);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

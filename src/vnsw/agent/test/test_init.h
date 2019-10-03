@@ -85,6 +85,7 @@ using namespace std;
            "controller/src/vnsw/agent/test/vnswa_dpdk_cfg.ini"
 #define DEFAULT_VNSW_TSN_NO_FORWARDING_CONFIG_FILE \
     "controller/src/vnsw/agent/test/vnswa_tsn_no_forwarding_cfg.ini"
+#define DEFAULT_MAX_NEXTHOP 521000
 #define GETUSERARGS()                           \
     bool ksync_init = false;                    \
     char init_file[1024];                       \
