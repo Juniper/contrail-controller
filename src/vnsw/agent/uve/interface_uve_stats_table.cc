@@ -143,7 +143,10 @@ void InterfaceUveStatsTable::SendInterfaceStats(void) {
     InterfaceMap::iterator it = interface_tree_.begin();
     while (it != interface_tree_.end()) {
         UveInterfaceEntry* entry = it->second.get();
-        SendInterfaceStatsMsg(entry);
+        {
+            tbb::mutex::scoped_lock lock(entry->mutex_);
+            SendInterfaceStatsMsg(entry);
+        }
         it++;
     }
 }
