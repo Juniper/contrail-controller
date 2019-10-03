@@ -16,6 +16,24 @@
       "revId": "f4458470637058b62b8c03d2378c46f6295e1658",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "893ac2ba_a7fb6b13",
+        "filename": "src/vnsw/agent/uve/interface_uve_stats_table.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 144,
+      "author": {
+        "id": 694
+      },
+      "writtenOn": "2019-10-03T16:01:28Z",
+      "side": 1,
+      "message": "Ack. will take up separately.",
+      "parentUuid": "b37b2a36_8c4f0150",
+      "revId": "f4458470637058b62b8c03d2378c46f6295e1658",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
