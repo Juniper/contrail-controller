@@ -1519,11 +1519,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["Route-Reflector", "AR-Client"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "Route-Reflector", "AR-Client", "AR-Replicator"]
+                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "DCI-Gateway"]
               }
             ]
           }
@@ -1541,6 +1541,10 @@
               {
                 "physical_role": "leaf",
                 "rb_roles": ["CRB-Access","Route-Reflector","AR-Client","ERB-UCAST-Gateway"]
+              },
+              {
+                "physical_role": "spine",
+                "rb_roles": ["null", "CRB-Access", "ERB-UCAST-Gateway", "Route-Reflector", "AR-Client"]
               }
             ]
           }
@@ -2317,7 +2321,7 @@
     },
     {
       "from_type": "node-profile",
-      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k" ],
+      "from_fq_name": [ "default-global-system-config", "juniper-qfx10k-lean" ],
       "to_type": "hardware",
       "to_fq_name": [ "juniper-qfx10002-60c" ]
     },
