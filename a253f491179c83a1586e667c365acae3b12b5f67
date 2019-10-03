@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "eeb6a8ab_a89c8009",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-03T16:40:53Z",
+      "side": 1,
+      "message": "please do not insert import before copyright!!!",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a06f074a_cbc44407",
+        "filename": "src/nodemgr/common/common_process_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-03T16:40:53Z",
+      "side": 1,
+      "message": "two empty lines must be between import and code!!!",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "74f1eeb4_2da2440b",
+        "filename": "src/nodemgr/common/common_sys_cpu.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-03T16:40:53Z",
+      "side": 1,
+      "message": "imports must be after copyright!!!",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ea8e03f6_f029ba9d",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-03T16:40:53Z",
+      "side": 1,
+      "message": "please use six always for configparser!!! please don\u0027t use try/except block for this!",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2241c85d_35c9dba1",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-03T16:40:53Z",
+      "side": 1,
+      "message": "please don\u0027t leave commented imports!",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8df3fdf8_34ff1fc7",
+        "filename": "src/nodemgr/setup.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-03T16:40:53Z",
+      "side": 1,
+      "message": "did you try to install configparser for python3???",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
