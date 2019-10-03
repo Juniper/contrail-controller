@@ -5,19 +5,21 @@
 """
 VNC management for Mesos
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import gevent
 from gevent.queue import Empty
 import requests
-from vnc_mesos_config import VncMesosConfig as vnc_mesos_config
+from .vnc_mesos_config import VncMesosConfig as vnc_mesos_config
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
-from config_db import *
-import db
+from .config_db import *
+from . import db
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
