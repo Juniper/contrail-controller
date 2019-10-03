@@ -6409,12 +6409,11 @@ class DBInterface(object):
                     'PortNotFound',
                     port_id=trunk.virtual_port_group_trunk_port_id)
 
-            if trunk_port.get_virtual_machine_refs():
+            if trunk_port.get_virtual_machine_interface_refs():
                 self._raise_contrail_exception('TrunkInUse', trunk_id=id)
 
             trunk.del_virtual_machine_interface(trunk_port)
             self._vnc_lib.virtual_port_group_update(trunk)
-            self._vnc_lib.virtual_machine_interface_delete(id=trunk_port.uuid)
 
 	return trunk
 
