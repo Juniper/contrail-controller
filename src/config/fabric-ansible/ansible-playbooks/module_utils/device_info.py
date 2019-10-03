@@ -27,6 +27,7 @@ JOB_IN_PROGRESS = "JOB_IN_PROGRESS"
 
 class DeviceInfo(object):
     output = {}
+    dynamic_mgmt_ip_tbl = {}
 
     def __init__(self, module):
         """Discover device utility initialization."""
@@ -485,15 +486,9 @@ class DeviceInfo(object):
                     return_code, pr_uuid = self._pr_object_create_update(
                         oid_mapped, fq_name, True)
                 else:
-                    fq_name = [
-                        'default-global-system-config',
-                        oid_mapped.get('hostname') +
-                        '_' +
-                        oid_mapped.get('host')]
-                    return_code, pr_uuid = self._pr_object_create_update(
-                        oid_mapped, fq_name, False)
-                    if return_code == REF_EXISTS_ERROR:
-                        self.logger.debug("Object already exists")
+                    temp = {}
+                    temp['dynamic_mgmt_ip'] = oid_mapped.get('host')
+                    DeviceInfo.dynamic_mgmt_ip_tbl.update({pr_uuid: temp})
             if return_code is True:
                 self.vncapi.ref_update(
                     "physical_router", pr_uuid, "fabric", self.fabric_uuid,

@@ -29,7 +29,8 @@ class FilterModule(object):
     def filters(self):
         return {
             'rma_activate_devices': self.rma_activate_devices,
-            'rma_devices_to_ztp': self.rma_devices_to_ztp
+            'rma_devices_to_ztp': self.rma_devices_to_ztp,
+            'get_prouter_dynamic_ip': self.get_prouter_dynamic_ip
         }
     # end filters
 
@@ -37,9 +38,6 @@ class FilterModule(object):
     def rma_devices_to_ztp(self, job_ctx, rma_devices_list):
         try:
             FilterLog.instance("RmaDevicesFilter")
-            self.job_input = FilterModule._validate_job_ctx(job_ctx)
-            self.vncapi = JobVncApi.vnc_init(job_ctx)
-            self.job_ctx = job_ctx
             return self._rma_devices_to_ztp(rma_devices_list)
         except Exception as ex:
             errmsg = "Unexpected error: %s\n%s" % (
@@ -160,3 +158,31 @@ class FilterModule(object):
             encrypted_password=device_obj.physical_router_user_credentials.
             get_password(),
             pwd_key=device_obj.uuid)
+
+    # Wrapper to call main routine
+    def get_prouter_dynamic_ip(self, job_ctx, prouter_mgmt_ip, prouter_uuid):
+        try:
+            FilterLog.instance("RmaDevicesFilter")
+            self.job_input = FilterModule._validate_job_ctx(job_ctx)
+            return self._get_prouter_dynamic_ip(prouter_mgmt_ip, prouter_uuid)
+        except Exception as ex:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end rma_devices_to_ztp
+
+    # Get the physical router dynamic IP address
+    def _get_prouter_dynamic_ip(self, prouter_mgmt_ip, prouter_uuid):
+        # If dynamic_mgmt_ip_tbl present, check whether this device has entry
+        dynamic_mgmt_ip_tbl = self.job_input.get('dynamic_mgmt_ip_tbl')
+        if dynamic_mgmt_ip_tbl:
+            entry = dynamic_mgmt_ip_tbl.get(prouter_uuid)
+            if entry:
+                return entry['dynamic_mgmt_ip']
+        # No entry in table, so use the static value
+        return prouter_mgmt_ip

@@ -150,7 +150,7 @@
             "uuid": "{{ prouter_uuid }}",
             "physical_router_managed_state": "activating"
           }
-      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
+      when: playbook_input.input.is_rma is defined
 
     - name: Change managed state to active if required during RMA
       vnc_db_mod:
@@ -162,6 +162,6 @@
             "uuid": "{{ prouter_uuid }}",
             "physical_router_managed_state": "active"
           }
-      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
+      when: playbook_input.input.is_rma is defined
 
 

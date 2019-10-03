@@ -302,6 +302,8 @@ def module_process(module):
     else:
         module.results['msg'] = "Discovered " + str(len(module.results.get(
             'device_info'))) + " device(s)"
+    if DeviceInfo.dynamic_mgmt_ip_tbl:
+        module.results['dynamic_mgmt_ip_tbl'] = DeviceInfo.dynamic_mgmt_ip_tbl
     module.job_ctx['current_task_index'] = 3
     module.send_job_object_log(
         module.results.get('msg'),

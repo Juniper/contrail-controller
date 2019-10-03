@@ -38,5 +38,10 @@
       set_fact:
          output: "{{ output|combine({'status':'SUCCESS', 'message':'Completed device discovery', 'device_json': discovery_results.device_info})}}"
 
+    - name: Return dynamic DHCP mgmt_ip in output for use in next playbook if applicable
+      set_fact:
+        output: "{{ output|combine({'dynamic_mgmt_ip_tbl': discovery_results.dynamic_mgmt_ip_tbl})}}"
+      when: discovery_results.dynamic_mgmt_ip_tbl is defined
+
     - name: print output
       debug: var=output verbosity=1
