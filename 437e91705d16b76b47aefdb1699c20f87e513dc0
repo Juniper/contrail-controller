@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "014a9141_3490fb2c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_port_group.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 270
+      },
+      "writtenOn": "2019-10-03T22:34:03Z",
+      "side": 1,
+      "message": "you can make obj_dict and old_obj_dict default as {}",
+      "revId": "437e91705d16b76b47aefdb1699c20f87e513dc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
