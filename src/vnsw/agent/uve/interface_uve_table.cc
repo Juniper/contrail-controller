@@ -457,6 +457,7 @@ void InterfaceUveTable::InterfaceDeleteHandler(const string &name) {
         return;
     }
     UveInterfaceEntry* entry = it->second.get();
+    tbb::mutex::scoped_lock lock(entry->mutex_);
     /* We need to reset all non-key fields to ensure that they have right
      * values since the entry is getting re-used. Also update the 'deleted_'
      * and 'renewed_' flags */
@@ -638,7 +639,6 @@ bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
      vector<VmFloatingIPStats> &diff_list,
      bool &diff_list_send) {
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf_);
-    tbb::mutex::scoped_lock lock(mutex_);
     if (vm_intf->HasFloatingIp()) {
         const VmInterface::FloatingIpList fip_list =
             vm_intf->floating_ip_list();
@@ -899,7 +899,6 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStatsInternal
 
 void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
     (Agent *agent, EndpointSecurityStats *obj) {
-    tbb::mutex::scoped_lock lock(mutex_);
     std::map<std::string, EndpointStats> eps;
 
     obj->set_name(intf_->cfg_name());
@@ -969,7 +968,6 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
 void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
     (VMIStats *obj) {
 
-    tbb::mutex::scoped_lock lock(mutex_);
 
     vector<string> rule_list;
     SecurityPolicyStatsMap::const_iterator it =

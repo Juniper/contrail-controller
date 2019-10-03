@@ -18,7 +18,7 @@ bool InterfaceUveStatsTable::FrameInterfaceObjectLog(UveInterfaceEntry* entry,
                                             EndpointSecurityStats *obj) const {
     assert(!entry->deleted_);
     const VmInterface *vm_intf = entry->intf_;
-    if (vm_intf->cfg_name().empty()) {
+    if (!vm_intf || vm_intf->cfg_name().empty()) {
         return false;
     }
     entry->FillEndpointStats(agent_, obj);
@@ -35,7 +35,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
 
     const VmInterface *vm_intf = entry->intf_;
     assert(!entry->deleted_);
-    if (vm_intf->cfg_name().empty()) {
+    if (!vm_intf || vm_intf->cfg_name().empty()) {
         return false;
     }
     uve->set_name(vm_intf->cfg_name());
@@ -143,7 +143,10 @@ void InterfaceUveStatsTable::SendInterfaceStats(void) {
     InterfaceMap::iterator it = interface_tree_.begin();
     while (it != interface_tree_.end()) {
         UveInterfaceEntry* entry = it->second.get();
-        SendInterfaceStatsMsg(entry);
+        {
+            tbb::mutex::scoped_lock lock(entry->mutex_);
+            SendInterfaceStatsMsg(entry);
+        }
         it++;
     }
 }
