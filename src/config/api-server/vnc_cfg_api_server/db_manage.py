@@ -51,12 +51,15 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.22"
+__version__ = "1.23"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.23:
+  - For CEM-9462, When a column in obj_uuid_table do not have type field,
+    add it to MandatoryFieldsMissingError and dont add it to uuid_table_all.
 * 1.22:
   - Typo fix for stale RT backrefs to RI
 * 1.21:
@@ -1552,6 +1555,12 @@ class DatabaseChecker(DatabaseManager):
             try:
                 cols = obj_uuid_table.get(
                     obj_uuid, columns=['type', 'fq_name'])
+                # for CEM-9462
+                if 'type' not in cols:
+                    msg = ("'type' property of '%s' missing" %
+                       obj_uuid)
+                    ret_errors.append(MandatoryFieldsMissingError(msg))
+                    continue
             except pycassa.NotFoundException:
                 msg = ("'type' and/or 'fq_name' properties of '%s' missing" %
                        obj_uuid)
