@@ -93,6 +93,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         self.delete_resource('trunk', self.project_id, trunk_dict['id'])
 
         # Clean the resources
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
 
     def test_trunk_create_with_same_vlan_tag_negative(self):
@@ -195,6 +196,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
         self.delete_resource('trunk', self.project_id, trunk_dict['id'])
         self._vnc_lib.virtual_machine_interface_delete(id=sub_port_id)
         self._vnc_lib.virtual_machine_interface_delete(id=sub_port_id_neg)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
 
     def test_list_trunks(self):
@@ -231,6 +233,7 @@ class TestTrunk(test_case.NeutronBackendTestCase):
             self.delete_resource('trunk',
                                  self.project_id,
                                  neutron_trunks[i]['id'])
+            self._vnc_lib.virtual_machine_interface_delete(id=vmi_ids[i])
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
 
     def test_add_parent_port_to_another_trunk_negative(self):
@@ -265,3 +268,6 @@ class TestTrunk(test_case.NeutronBackendTestCase):
                 ),
         except webtest.app.AppError as e:
             self.assertIsNot(re.search('TrunkPortInUse', str(e)), None)
+
+        self.delete_resource('trunk', self.project_id, trunk_dict['id'])
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
