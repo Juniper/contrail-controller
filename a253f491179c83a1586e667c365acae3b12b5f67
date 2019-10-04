@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "c78d6f97_e53e8328",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-04T08:52:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "eeb6a8ab_a89c8009",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a06f074a_cbc44407",
         "filename": "src/nodemgr/common/common_process_manager.py",
         "patchSetId": 6
@@ -33,6 +51,24 @@
       "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d81de6e5_8c2a83d3",
+        "filename": "src/nodemgr/common/common_process_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-04T08:52:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "a06f074a_cbc44407",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "990ce420_17d8d001",
+        "filename": "src/nodemgr/common/common_sys_cpu.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-04T08:52:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "74f1eeb4_2da2440b",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ea8e03f6_f029ba9d",
         "filename": "src/nodemgr/common/event_manager.py",
         "patchSetId": 6
@@ -67,6 +121,24 @@
       "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2d9c2c12_6d8b5ae2",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-04T08:52:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "ea8e03f6_f029ba9d",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "d09df09c_f1e97b98",
+        "filename": "src/nodemgr/common/event_manager.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-04T08:52:06Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "2241c85d_35c9dba1",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8df3fdf8_34ff1fc7",
         "filename": "src/nodemgr/setup.py",
         "patchSetId": 6
@@ -98,6 +188,24 @@
       "writtenOn": "2019-10-03T16:40:53Z",
       "side": 1,
       "message": "did you try to install configparser for python3???",
+      "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c5d48fc5_2694eaab",
+        "filename": "src/nodemgr/setup.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-04T08:52:06Z",
+      "side": 1,
+      "message": "Yes we have tried in local dev-env and it installed properly.\nBut it is not happening in CI and there is some problem with python-configparser spec file",
+      "parentUuid": "8df3fdf8_34ff1fc7",
       "revId": "a253f491179c83a1586e667c365acae3b12b5f67",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
