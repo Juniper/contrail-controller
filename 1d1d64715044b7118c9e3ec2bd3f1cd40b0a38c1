@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "81011723_bae08612",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/assign_static_device_ip.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-10-04T21:15:37Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1a7ee5b2_ef16ec02",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8c7002d3_40661a69",
         "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
         "patchSetId": 3
@@ -53,6 +71,24 @@
     },
     {
       "key": {
+        "uuid": "70c45946_1da77054",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 3
+      },
+      "lineNbr": 1739,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-10-04T21:15:37Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cab32ec3_2b31c603",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fbef0b6c_c76a8bf5",
         "filename": "src/config/fabric-ansible/ansible-playbooks/role_assignment_dfg.yml",
         "patchSetId": 3
@@ -70,6 +106,24 @@
     },
     {
       "key": {
+        "uuid": "1813269a_b0d935ea",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/role_assignment_dfg.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-10-04T21:15:37Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fbef0b6c_c76a8bf5",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "696f41da_c3c079f3",
         "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
         "patchSetId": 3
@@ -84,6 +138,24 @@
       "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0b036db5_616382c3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 40,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-10-04T21:15:37Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "696f41da_c3c079f3",
+      "revId": "1d1d64715044b7118c9e3ec2bd3f1cd40b0a38c1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
