@@ -1,0 +1,587 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "54a10073_f8f5fef2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "nit: can you use a more explicit variable name?",
+      "range": {
+        "startLine": 21,
+        "startChar": 4,
+        "endLine": 21,
+        "endChar": 7
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e7b80241_aae62a51",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 63,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "?",
+      "range": {
+        "startLine": 63,
+        "startChar": 8,
+        "endLine": 63,
+        "endChar": 38
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "51a87e95_0ed1f41c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "I prefer you use a black list of VN types to test, ie. [\u0027letft\u0027, \u0027right\u0027]",
+      "range": {
+        "startLine": 68,
+        "startChar": 62,
+        "endLine": 68,
+        "endChar": 70
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4a3b65d5_86bde7ab",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "can you provide FQ name and UUID of the resource in your error messages?\n\n fq:name:resource(U:U:I:D)",
+      "range": {
+        "startLine": 69,
+        "startChar": 43,
+        "endLine": 69,
+        "endChar": 47
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "af1945d3_aa728e48",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "why you use map here? vn_types list already contains strings",
+      "range": {
+        "startLine": 71,
+        "startChar": 51,
+        "endLine": 71,
+        "endChar": 70
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4eec0e93_d74b3d26",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 107,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "nit: should keep indent here",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ca99e279_766f5548",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "hbs_uuid",
+      "range": {
+        "startLine": 124,
+        "startChar": 46,
+        "endLine": 124,
+        "endChar": 57
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1414f2fd_a3a1b9c0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "useless, use directly class variable \u0027server\u0027",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6b66c7b7_e90c18ae",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 127,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "like here",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "978f5a0b_ff491e83",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 128,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "Provide the parent type here to ensure the VN is own by the project. I think with that code VN is owned by the default project, can you confirm?",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6a31bca4_56c8527f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 131,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "nit: this is a dict not an object",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "020ed7f5_ad7face7",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 140,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "you don\u0027t need both ref FQ name and UUID, one is enough.",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5fb5a30e_e9bf7df4",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 167,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "We should append the HBS UUID in the VN names. In the future we could have multiple HBS in a project or a user could create VN with that simple name. Perhaps we can also use the HBS name to directly understand for wich HBS the VN is used for, no?",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a726a7a6_23a2a8f6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 173,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "useless, you can acces DB client directly from class variable \u0027db_con\u0027, you can remove it from that method args",
+      "range": {
+        "startLine": 173,
+        "startChar": 52,
+        "endLine": 173,
+        "endChar": 59
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1458a95c_635bb1db",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 191,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "method requires the HBS FQ name not the project name.",
+      "range": {
+        "startLine": 191,
+        "startChar": 12,
+        "endLine": 191,
+        "endChar": 23
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e40bc02_a968bb56",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 209,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "That check does not prevent users to remove VN ref to left and/or right VN. You miss a UT for that.",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8385f83d_81555ac6",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 223,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "You don\u0027t need to read HBS, you have it in \u0027obj_dict\u0027",
+      "range": {
+        "startLine": 218,
+        "startChar": 8,
+        "endLine": 223,
+        "endChar": 28
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0e1528fe_baaf523d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 230,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "You must return the error if the VN locate method failes, not ignore it.",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5225552e_23624b5e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "FQ nmae and UUID, please",
+      "range": {
+        "startLine": 233,
+        "startChar": 49,
+        "endLine": 233,
+        "endChar": 77
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a5124538_dfc6c505",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 239,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "useless, use directly class variable \u0027server\u0027",
+      "range": {
+        "startLine": 239,
+        "startChar": 8,
+        "endLine": 239,
+        "endChar": 45
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5b29ee56_412b9859",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 244,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "You must catch any error in that internal call. I think you should just log and ignore it as we are in the POST deletion hook...",
+      "range": {
+        "startLine": 243,
+        "startChar": 16,
+        "endLine": 244,
+        "endChar": 63
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "07dd9b67_e46a8716",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_firewall.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1191,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "Why are reading the HBS here?",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb6baccb_d0fc15ec",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "I think that test was create a second VN but did not use it, you can remove it.",
+      "range": {
+        "startLine": 65,
+        "startChar": 8,
+        "endLine": 66,
+        "endChar": 44
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a2086b98_6ba57f05",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 3298,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "this is a dit not object",
+      "range": {
+        "startLine": 3298,
+        "startChar": 8,
+        "endLine": 3298,
+        "endChar": 15
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "979ae30c_d4d3e578",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 3304,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "you should limit the read to necessary fields",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "16b92cc0_2facf985",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 3307,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "dict not an object",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9e1b3362_d0e5c3e8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 3315,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "not pep8 compliant",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4e397633_72c70892",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 3365,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "Can we move all that code to the HBS resource class?",
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7f4da954_14266504",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 3394,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T08:44:50Z",
+      "side": 1,
+      "message": "this could be empty if user provide only the HBS UUID",
+      "range": {
+        "startLine": 3394,
+        "startChar": 38,
+        "endLine": 3394,
+        "endChar": 49
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
