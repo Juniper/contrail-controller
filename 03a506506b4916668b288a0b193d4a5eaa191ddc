@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "237edad4_d898e2a9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_project.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 42,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-04T07:41:55Z",
+      "side": 1,
+      "message": "nit: invoked",
+      "range": {
+        "startLine": 42,
+        "startChar": 8,
+        "endLine": 42,
+        "endChar": 14
+      },
+      "revId": "03a506506b4916668b288a0b193d4a5eaa191ddc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
