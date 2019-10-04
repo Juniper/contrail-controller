@@ -6540,6 +6540,8 @@ class DBInterface(object):
             if (shared and trunk.get_perms2().owner.replace('-', '') ==
                     context['tenant_id']):
                 continue
+            if trunk.parent_type != 'project':
+                continue
             results.append(self._trunk_vnc_to_neutron(trunk, fields))
 
         return results
