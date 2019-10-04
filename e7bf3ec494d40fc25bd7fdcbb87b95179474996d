@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "651428ba_cbedce59",
+        "filename": "src/nodemgr/common/docker_mem_cpu.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-04T16:47:31Z",
+      "side": 1,
+      "message": "!",
+      "revId": "e7bf3ec494d40fc25bd7fdcbb87b95179474996d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "42b24a9e_383c7432",
+        "filename": "src/nodemgr/common/windows_process_mem_cpu.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-04T16:47:31Z",
+      "side": 1,
+      "message": "please fix all such entries!",
+      "revId": "e7bf3ec494d40fc25bd7fdcbb87b95179474996d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c279705b_6edfd9f4",
+        "filename": "src/nodemgr/main.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-04T16:47:31Z",
+      "side": 1,
+      "message": "!!!",
+      "revId": "e7bf3ec494d40fc25bd7fdcbb87b95179474996d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b5ce6a26_d29172cd",
+        "filename": "src/nodemgr/main.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-04T16:47:31Z",
+      "side": 1,
+      "message": "please put all imports into one place!",
+      "revId": "e7bf3ec494d40fc25bd7fdcbb87b95179474996d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
