@@ -17,13 +17,8 @@ import base64
 import re
 import uuid
 
-try:
-    from keystoneclient.middleware import auth_token
-except ImportError:
-    try:
-        from keystonemiddleware import auth_token
-    except ImportError:
-        pass
+from keystonemiddleware import auth_token
+from keystoneauth1 import exceptions as k_exc
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
@@ -100,6 +95,7 @@ class AuthPreKeystone(object):
 
     @use_context
     def __call__(self, env, start_response):
+        get_context().set_proc_time('PRE_KEYSTONE_REQ')
         if self.server_mgr.path_in_white_list(env['PATH_INFO']):
             # permit access to white list without requiring a token
             env['HTTP_X_DOMAIN_ID'] =\
@@ -111,19 +107,23 @@ class AuthPreKeystone(object):
             env['HTTP_X_PROJECT_NAME'] =\
                 self.server_mgr.default_project['fq_name'][-1]
             env['HTTP_X_ROLE'] = ''
-            app = self.server_mgr.api_bottle
+            return self.server_mgr.api_bottle(env, start_response)
         elif self.server_mgr.is_auth_needed():
-            app = self.app
+            try:
+                return self.app(env, start_response)
+            except k_exc.EmptyCatalog as e:
+                # https://contrail-jws.atlassian.net/browse/CEM-7641
+                # If API server started after Keystone was started and before
+                # Keystone Endpoints were provisioned, the auth_token
+                # middleware needs to be reloaded.
+                msg = "Keystone auth_token middleware failed: %s" % str(e)
+                self.server_mgr.sigterm_handler(msg)
         else:
-            app = self.server_mgr.api_bottle
+            return self.server_mgr.api_bottle(env, start_response)
 
-        get_context().set_proc_time('PRE_KEYSTONE_REQ')
-        return app(env, start_response)
 
 # Post-auth filter. Normalize user/role supplied by quantum plugin for
 # consumption by Perms
-
-
 class AuthPostKeystone(object):
 
     def __init__(self, server_mgr, auth_svc):
