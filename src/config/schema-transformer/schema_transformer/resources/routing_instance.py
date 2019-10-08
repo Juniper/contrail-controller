@@ -375,7 +375,7 @@ class RoutingInstanceST(ResourceBaseST):
 
     def add_service_info(self, remote_vn, service_instance=None,
                          v4_address=None, v6_address=None, source_ri=None,
-                         service_chain_id=None):
+                         service_chain_id=None, head=False):
         v4_info = self.obj.get_service_chain_information()
         v4_info = self.fill_service_info(v4_info, 4, remote_vn,
                                          service_instance, v4_address,
@@ -388,6 +388,27 @@ class RoutingInstanceST(ResourceBaseST):
                                          source_ri, service_chain_id)
         self.v6_service_chain_info = v6_info
         self.obj.set_ipv6_service_chain_information(v6_info)
+
+        if source_ri is not None and '__contrail_lr_internal_vn_' in source_ri:
+            # Service chaining initiated for EVPN-VXLAN
+            evpn_v4_info = self.obj.get_evpn_service_chain_information()
+            evpn_v4_info = self.fill_service_info(evpn_v4_info, 4, remote_vn,
+                                                  service_instance, v4_address,
+                                                  source_ri, service_chain_id)
+            if head:
+                evpn_v4_info.sc_head = True
+            self.evpn_service_chain_info = evpn_v4_info
+            self.obj.set_evpn_service_chain_information(evpn_v4_info)
+
+            evpn_v6_info = self.obj.get_evpn_ipv6_service_chain_information()
+            evpn_v6_info = self.fill_service_info(evpn_v6_info, 6, remote_vn,
+                                                  service_instance, v6_address,
+                                                  source_ri, service_chain_id)
+            if head:
+                evpn_v6_info.sc_head = True
+            self.evpn_v6_service_chain_info = evpn_v6_info
+            self.obj.set_evpn_ipv6_service_chain_information(evpn_v6_info)
+
     # end add_service_info
 
     def update_route_target_list(self, rt_add=None, rt_add_import=None,

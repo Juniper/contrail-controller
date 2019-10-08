@@ -322,7 +322,21 @@ class ServiceChain(ResourceBaseST):
                 self.log_error("primary ri is None for " + self.left_vn)
                 return
         first_node = True
-        for service in self.service_list:
+
+        # first_service_instance variable is used to determine if the
+        # service info is for the first service instance in a chain
+        first_service_instance = True
+
+        # last_service_instance variable is used to determine if the
+        # service info is for the last service instance in a chain,
+        # this is useful for reverse direction traffic
+        last_service_instance = False
+        service_list_length = len(self.service_list)
+
+        for index, service in enumerate(self.service_list):
+            if index + 1 == service_list_length:
+                last_service_instance = True
+
             service_name1 = vn1_obj.get_service_name(self.name, service)
             service_name2 = vn2_obj.get_service_name(self.name, service)
             has_pnf = (si_info[service]['virtualization_type'] ==
@@ -376,11 +390,11 @@ class ServiceChain(ResourceBaseST):
                     return
                 service_ri1.add_service_info(
                     vn2_obj, service, v4_address, v6_address,
-                    service_chain_id=self.name)
+                    service_chain_id=self.name, head=first_service_instance)
                 if service_ri2 and self.direction == "<>":
                     service_ri2.add_service_info(
                         vn1_obj, service, v4_address, v6_address,
-                        service_chain_id=self.name)
+                        service_chain_id=self.name, head=last_service_instance)
 
             for vm_info in si_info[service]['vm_list']:
                 if transparent:
@@ -390,12 +404,15 @@ class ServiceChain(ResourceBaseST):
                 else:
                     result = self.process_in_network_service(
                         vm_info, service, vn1_obj, vn2_obj, service_ri1,
-                        service_ri2, nat_service)
+                        service_ri2, nat_service,
+                        first_service_instance,
+                        last_service_instance)
                 if not result:
                     return
             self._vnc_lib.routing_instance_update(service_ri1.obj)
             if service_ri2:
                 self._vnc_lib.routing_instance_update(service_ri2.obj)
+            first_service_instance = False
 
         if service_ri2:
             rt_list = set(vn2_obj.rt_list)
@@ -451,19 +468,21 @@ class ServiceChain(ResourceBaseST):
     # end process_transparent_service
 
     def process_in_network_service(self, vm_info, service, vn1_obj, vn2_obj,
-                                   service_ri1, service_ri2, nat_service):
+                                   service_ri1, service_ri2, nat_service,
+                                   first_service_instance=False,
+                                   last_service_instance=False):
         service_ri1.add_service_info(
             vn2_obj, service, vm_info['left'].get('v4-address'),
             vm_info['left'].get('v6-address'),
             vn1_obj.get_primary_routing_instance().get_fq_name_str(),
-            service_chain_id=self.name)
+            service_chain_id=self.name, head=first_service_instance)
 
         if self.direction == '<>' and not nat_service:
             service_ri2.add_service_info(
                 vn1_obj, service, vm_info['right'].get('v4-address'),
                 vm_info['right'].get('v6-address'),
                 vn2_obj.get_primary_routing_instance().get_fq_name_str(),
-                service_chain_id=self.name)
+                service_chain_id=self.name, head=last_service_instance)
         return True
     # end process_in_network_service
 
