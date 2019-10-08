@@ -2,9 +2,13 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import sys
 import argparse
-import ConfigParser
+import configparser
 
 
 from vnc_api.exceptions import NoIdError
@@ -43,12 +47,12 @@ class ControlProvisioner(BgpProvisioner):
             elif self._args.oper in ['add', 'del']:
                 return self.provision_control_bgp
             else:
-                print "Unknown operation %s. Only 'add' and 'del' supported" \
-                    % (self._args.oper)
+                print("Unknown operation %s. Only 'add' and 'del' supported" \
+                    % (self._args.oper))
         return self.noop
 
     def global_bgp_provisioning(self):
-        print "Perfroming provisioning of global BGP parameters"
+        print("Perfroming provisioning of global BGP parameters")
         gsc_obj = self._vnc_lib.global_system_config_read(
                 fq_name=['default-global-system-config'])
         # global asn might have been modified in clusters.
@@ -87,23 +91,23 @@ class ControlProvisioner(BgpProvisioner):
                     fq_name = self._get_rt_inst_obj().fq_name + [hostname],
                     fields=['global_system_config_back_refs'])
                 if not router_obj.get_global_system_config_back_refs():
-                    print "global-system-config-bgp-router link is not present"
+                    print("global-system-config-bgp-router link is not present")
                     return True
-                print "Skip provisioning, router already exists"
+                print("Skip provisioning, router already exists")
                 return False
             except NoIdError:
                 return True
             except Exception as e:
-                print "Problem with API query: %s" % str(e)
+                print("Problem with API query: %s" % str(e))
         elif self._args.oper == 'del':
-            print "Deleting controller"
+            print("Deleting controller")
             return True
         return True
 
     def provision_control_bgp(self):
         if self._args.oper == 'add':
             if self._args.sub_cluster_name:
-                print "Perfroming provisioning of controller specific BGP parameters"
+                print("Perfroming provisioning of controller specific BGP parameters")
                 self.add_bgp_router('external-control-node',
                                 self._args.host_name,
                                 self._args.host_ip, self._args.router_asn,
@@ -191,7 +195,7 @@ class ControlProvisioner(BgpProvisioner):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
 
