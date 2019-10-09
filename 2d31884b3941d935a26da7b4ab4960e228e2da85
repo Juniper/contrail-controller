@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "c647f5d5_8939df49",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-10-09T17:35:16Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "82e69e46_79920d4c",
+      "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5dcbae51_1fd37b57",
         "filename": "src/vnsw/agent/oper/vrf.cc",
         "patchSetId": 1
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "bf0bb9ed_01b8c167",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 413,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-10-09T17:35:16Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "5dcbae51_1fd37b57",
+      "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6daf4ad3_c845e572",
         "filename": "src/vnsw/agent/oper/vrf.cc",
         "patchSetId": 1
@@ -47,6 +83,24 @@
       "writtenOn": "2019-10-09T13:54:47Z",
       "side": 1,
       "message": "Does it not assume that all non-route references to VrfEntry are from Flows?",
+      "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c9f136f6_1dafac88",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 436,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-10-09T17:35:16Z",
+      "side": 1,
+      "message": "yes , it assumes all references from flows. but actually flows are holding indirect references to VRF through next hops. in this scenario, VRF ref count is 2 but next hops which are holding VRF has ref count in millions ( because flows held next hop refs). if there are no flows and next hops are holding references, we wait for more time to assert the process. This is less risk fix at this point of time.",
+      "parentUuid": "6daf4ad3_c845e572",
       "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
