@@ -16,6 +16,24 @@
       "revId": "833889d7fb811a3d436998b9794141d8e6e4c3d4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9b0bf6d1_cc25cd1e",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 370,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T08:27:54Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8a188be7_0a24a780",
+      "revId": "833889d7fb811a3d436998b9794141d8e6e4c3d4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
