@@ -6,6 +6,8 @@
 This file contains implementation of managing ironic notifications
 """
 
+from __future__ import absolute_import
+
 import gevent
 from gevent import monkey
 monkey.patch_all()
@@ -40,8 +42,8 @@ from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
-from sandesh.ironic_notification_manager.ttypes import *
-from ironic_kombu import IronicKombuClient
+from .sandesh.ironic_notification_manager.ttypes import *
+from .ironic_kombu import IronicKombuClient
 
 
 class IronicNotificationManager(object):

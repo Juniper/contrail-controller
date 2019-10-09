@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import print_function
 import re
 from distutils.util import strtobool
 import kombu
