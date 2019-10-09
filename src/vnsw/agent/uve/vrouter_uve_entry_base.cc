@@ -371,8 +371,23 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
             {
                 PhysicalInterface::Bond_ChildIntf bond_intf;
                 bond_intf = it->second;
-                if(!bond_intf.intf_status)
+                if(bond_intf.intf_status)
+                {
+                    if (std::find(err_if_list.get()->begin(),
+                                err_if_list.get()->end(), it->first)
+                             != err_if_list.get()->end())
+                    {
+                        std::vector<std::string>::iterator
+                            itr = std::find(err_if_list.get()->begin(),
+                                err_if_list.get()->end(), it->first);
+                        if (itr != err_if_list.get()->end())
+                            err_if_list.get()->erase(itr);
+                    }
+                }
+                else
+                {
                     err_if_list.get()->push_back(it->first);
+                }
             }
         }
     }
@@ -497,7 +512,20 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
                     PhysicalInterface::Bond_ChildIntf bond_intf;
                     bond_intf = it->second;
                     if(!bond_intf.intf_status)
+                    {
                         do_interface_walk_ = true;
+                    }
+                    else
+                    {
+                        std::vector<std::string> prev_err_if_list =
+                            prev_vrouter_.get_error_intf_list();
+                        if (std::find(prev_err_if_list.begin(),
+                                 prev_err_if_list.end(), it->first)
+                                 != prev_err_if_list.end())
+                         {
+                             do_interface_walk_ = true;
+                         }
+                    }
                 }
             }
         }
