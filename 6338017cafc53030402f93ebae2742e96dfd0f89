@@ -34,6 +34,24 @@
       "revId": "6338017cafc53030402f93ebae2742e96dfd0f89",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1b701404_363ff39c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3242,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-10-09T06:40:22Z",
+      "side": 1,
+      "message": "Yes you can and in that case the string is printed to the error console and the process exit with code 1 https://docs.python.org/2/library/sys.html#sys.exit",
+      "parentUuid": "f9ad535d_afc24828",
+      "revId": "6338017cafc53030402f93ebae2742e96dfd0f89",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
