@@ -93,6 +93,7 @@ public:
     static const uint32_t kTestInitCount = (5 * 1000);
     static const uint32_t kGrowSize = (1 * 1000);
     static const uint32_t kMinThreshold = (4 * 1000);
+    static const uint32_t kMaxThreshold = (100 * 1000);
 
     typedef boost::intrusive::member_hook<FlowEntry,
             boost::intrusive::list_member_hook<>,
@@ -117,7 +118,6 @@ private:
     uint64_t total_alloc_;
     uint64_t total_free_;
     FreeList free_list_;
-    uint64_t grow_count_;
     DISALLOW_COPY_AND_ASSIGN(FlowEntryFreeList);
 };
 

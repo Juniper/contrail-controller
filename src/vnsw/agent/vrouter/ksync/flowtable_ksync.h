@@ -170,6 +170,7 @@ public:
     static const uint32_t kTestInitCount = (5 * 1000);
     static const uint32_t kGrowSize = (1 * 1000);
     static const uint32_t kMinThreshold = (4 * 1000);
+    static const uint32_t kMaxThreshold = (100 * 1000);
 
     typedef boost::intrusive::member_hook<FlowTableKSyncEntry,
             boost::intrusive::list_member_hook<>,

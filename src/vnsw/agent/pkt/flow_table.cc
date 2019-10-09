@@ -47,6 +47,7 @@ const uint32_t FlowEntryFreeList::kInitCount;
 const uint32_t FlowEntryFreeList::kTestInitCount;
 const uint32_t FlowEntryFreeList::kGrowSize;
 const uint32_t FlowEntryFreeList::kMinThreshold;
+const uint32_t FlowEntryFreeList::kMaxThreshold;
 
 SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 
@@ -910,7 +911,7 @@ void FlowTable::GrowFreeList() {
 
 FlowEntryFreeList::FlowEntryFreeList(FlowTable *table) :
     table_(table), max_count_(0), grow_pending_(false), total_alloc_(0),
-    total_free_(0), free_list_(), grow_count_(0) {
+    total_free_(0), free_list_() {
     uint32_t count = kInitCount;
     if (table->agent()->test_mode()) {
         count = kTestInitCount;
@@ -938,7 +939,6 @@ void FlowEntryFreeList::Grow() {
     if (free_list_.size() >= kMinThreshold)
         return;
 
-    grow_count_++;
     for (uint32_t i = 0; i < kGrowSize; i++) {
         free_list_.push_back(*new FlowEntry(table_));
         max_count_++;
@@ -974,7 +974,11 @@ void FlowEntryFreeList::Free(FlowEntry *flow) {
             table_->flow_logging_task_id(), false) == true));
     total_free_++;
     flow->Reset();
-    free_list_.push_back(*flow);
-    assert(flow->flow_mgmt_info() == NULL);
-    // TODO : Free entry if beyound threshold
+    if (free_list_.size() < kMaxThreshold) {
+        free_list_.push_back(*flow);
+        assert(flow->flow_mgmt_info() == NULL);
+    } else {
+        delete flow;
+        --max_count_;
+    }
 }
