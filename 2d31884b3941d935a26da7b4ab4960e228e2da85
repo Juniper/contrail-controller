@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "82e69e46_79920d4c",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 411,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T13:54:47Z",
+      "side": 1,
+      "message": "please correct the typos in the commit message",
+      "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5dcbae51_1fd37b57",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 413,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T13:54:47Z",
+      "side": 1,
+      "message": "Maybe a loop for this?",
+      "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6daf4ad3_c845e572",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 436,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T13:54:47Z",
+      "side": 1,
+      "message": "Does it not assume that all non-route references to VrfEntry are from Flows?",
+      "revId": "2d31884b3941d935a26da7b4ab4960e228e2da85",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
