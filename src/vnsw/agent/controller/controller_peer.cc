@@ -367,7 +367,9 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
         }
 
         if (IsEcmp(item->entry.next_hops.next_hop)) {
-            AddEvpnEcmpRoute(vrf_name, mac, ip_addr, plen, item, VnListType());
+            VnListType vn_list;
+            vn_list.insert(item->entry.virtual_network);
+            AddEvpnEcmpRoute(vrf_name, mac, ip_addr, plen, item, vn_list);
         } else {
             AddEvpnRoute(vrf_name, item->entry.nlri.mac, ip_addr, plen, item);
         }
