@@ -72,7 +72,7 @@ class PartitionClient(object):
         self._sandesh_connection_info_update(status='INIT', message='')
 
         # connect to zookeeper
-        self._zk = KazooClient(zk_server)
+        self._zk = KazooClient(zk_server, timeout=60.0)
         while True:
             try:
                 self._zk.start()

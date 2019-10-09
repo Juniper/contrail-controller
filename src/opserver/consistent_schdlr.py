@@ -51,7 +51,7 @@ class ConsistentScheduler(object):
         else:
             self._zk_path = '/'.join(['/contrail_cs', self._service_name])
         self._zk = KazooClient(self._zookeeper_srvr,
-            handler=SequentialGeventHandler())
+            handler=SequentialGeventHandler(), timeout=60.0)
         self._zk.add_listener(self._zk_lstnr)
         self._conn_state = None
         while True:
