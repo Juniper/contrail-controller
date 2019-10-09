@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e0b7b6c_e9fc1f80",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/routing_instance.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 379,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2019-10-09T21:30:41Z",
+      "side": 1,
+      "message": "We don\u0027t need to create regular v4/v6 service chains for the LR case. Instead, only create evpn service chains. Would this not create all 4 for the LR case as well?",
+      "revId": "a6105f9f209375493e44cabd0b0fc5d7260373a6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "46a9f39f_b3906c88",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/routing_instance.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 392,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2019-10-09T21:30:41Z",
+      "side": 1,
+      "message": "Is there a case where this function is called without source_ri? Can that happen for the LR case?",
+      "revId": "a6105f9f209375493e44cabd0b0fc5d7260373a6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
