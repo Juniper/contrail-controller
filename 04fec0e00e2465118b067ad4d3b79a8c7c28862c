@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c291bf9a_05ee3ce7",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 375,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T14:20:13Z",
+      "side": 1,
+      "message": "Follow the standard coding convention  for braces",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "26416187_b14e6618",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 377,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T14:20:13Z",
+      "side": 1,
+      "message": "save the list in a local variable to make it more readable",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "218b479a_de414ee3",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 381,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T14:20:13Z",
+      "side": 1,
+      "message": "the second find looks redundant as we enter the block only if it is found.",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b7d7d2d2_7606c595",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 524,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-10-09T14:20:13Z",
+      "side": 1,
+      "message": "Should it not be remove from err_if_list when it comes up?",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
