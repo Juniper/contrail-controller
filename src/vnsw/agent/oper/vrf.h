@@ -241,6 +241,7 @@ private:
     VrfEntryRef forwarding_vrf_;
     int rd_;
     bool routing_vrf_;
+    uint32_t retries_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
