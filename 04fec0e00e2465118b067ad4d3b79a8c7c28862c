@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "81afd3fd_eb233f48",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 375,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-09T19:12:14Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "c291bf9a_05ee3ce7",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "26416187_b14e6618",
         "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
         "patchSetId": 1
@@ -33,6 +51,24 @@
       "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ab282f4f_764ec8ad",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 377,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-09T19:12:14Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "26416187_b14e6618",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "0b85f366_42e4b4b3",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 381,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-09T19:12:14Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "218b479a_de414ee3",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b7d7d2d2_7606c595",
         "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
         "patchSetId": 1
@@ -64,6 +118,24 @@
       "writtenOn": "2019-10-09T14:20:13Z",
       "side": 1,
       "message": "Should it not be remove from err_if_list when it comes up?",
+      "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "894119a2_bf394d86",
+        "filename": "src/vnsw/agent/uve/vrouter_uve_entry_base.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 524,
+      "author": {
+        "id": 750
+      },
+      "writtenOn": "2019-10-09T19:12:14Z",
+      "side": 1,
+      "message": "prev_vrouter pointer maintains the configuration that already executed. When interface comes up, current error_intf_list will be empty and the same will be updated on prev_vrouter when current configuration executes further.",
+      "parentUuid": "b7d7d2d2_7606c595",
       "revId": "04fec0e00e2465118b067ad4d3b79a8c7c28862c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
