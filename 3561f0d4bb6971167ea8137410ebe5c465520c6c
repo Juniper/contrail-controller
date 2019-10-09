@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2871ce34_dee57d4c",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 370,
+      "author": {
+        "id": 694
+      },
+      "writtenOn": "2019-10-09T08:19:14Z",
+      "side": 1,
+      "message": "As discussed, please create a Jira ticket to track UT with new infra (vrouter-agent \u0026 controller)",
+      "revId": "3561f0d4bb6971167ea8137410ebe5c465520c6c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
