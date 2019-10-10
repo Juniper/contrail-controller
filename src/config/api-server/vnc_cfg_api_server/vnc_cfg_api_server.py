@@ -3236,8 +3236,10 @@ class VncApiServer(object):
         self._db_init_entries()
     # end sigchld_handler
 
-    def sigterm_handler(self):
-        exit()
+    def sigterm_handler(self, exit_arg=None):
+        if exit_arg:
+            self.config_log(exit_arg, level=SandeshLevel.SYS_ERR)
+        exit(exit_arg)
 
     # sighup handler for applying new configs
     def sighup_handler(self):
