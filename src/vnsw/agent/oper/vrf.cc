@@ -30,6 +30,9 @@
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/mpls_index.h>
 #include <resource_manager/vrf_index.h>
+
+#define MAX_VRF_DELETE_TIMEOUT_RETRY_COUNT 10
+
 using namespace std;
 using namespace autogen;
 
@@ -67,7 +70,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         rt_table_delete_bmap_(0),
         route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
         layer2_control_word_(false),
-        rd_(0), routing_vrf_(false) {
+        rd_(0), routing_vrf_(false), retries_(0) {
         nh_.reset();
 }
 
@@ -406,18 +409,37 @@ void VrfEntry::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 bool VrfEntry::DeleteTimeout() {
-    std::ostringstream str;
-    str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
-    str << "Unicast MPLS routes: " << rt_table_db_[Agent::INET4_MPLS]->Size();
-    str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
-    str << " EVPN routes: " << rt_table_db_[Agent::EVPN]->Size();
-    str << " Bridge routes: " << rt_table_db_[Agent::BRIDGE]->Size();
-    str << "Unicast v6 routes: " << rt_table_db_[Agent::INET6_UNICAST]->Size();
-    str << " Reference: " << GetRefCount();
-    OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
-                     "VRF delete failed, " + str.str(), name_);
-    assert(0);
-    return false;
+    uint32_t num_routes = 0;
+    for (uint8_t type = (Agent::INVALID + 1);
+         type < Agent::ROUTE_TABLE_MAX;
+         type++) {
+        num_routes += rt_table_db_[type]->Size();
+    }
+    if (num_routes) {
+        std::ostringstream str;
+        str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
+        str << "Unicast MPLS routes: " << rt_table_db_[Agent::INET4_MPLS]->Size();
+        str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
+        str << " EVPN routes: " << rt_table_db_[Agent::EVPN]->Size();
+        str << " Bridge routes: " << rt_table_db_[Agent::BRIDGE]->Size();
+        str << "Unicast v6 routes: " << rt_table_db_[Agent::INET6_UNICAST]->Size();
+        str << " Reference: " << GetRefCount();
+        OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
+                        "VRF delete failed, " + str.str(), name_);
+        assert(0);
+        return false;
+    }
+
+    // if number of routes is 0, and VRF ref count is non zero
+    // then only reschedule delete timout
+    if (retries_ >= MAX_VRF_DELETE_TIMEOUT_RETRY_COUNT) {
+        OPER_TRACE_ENTRY(Vrf, static_cast<const AgentDBTable *>(get_table()),
+                "VRF delete failed with max retries", name_);
+        assert(0);
+        return false;
+    }
+    retries_ = retries_+1;
+    return true;
 }
 
 void VrfEntry::StartDeleteTimer() {
