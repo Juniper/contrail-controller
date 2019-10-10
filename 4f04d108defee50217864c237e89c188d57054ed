@@ -25,6 +25,54 @@
     },
     {
       "key": {
+        "uuid": "b163b906_66cd944f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-10-10T19:46:29Z",
+      "side": 1,
+      "message": "Can we keep it this way , as this is more readable ?",
+      "parentUuid": "54a10073_f8f5fef2",
+      "range": {
+        "startLine": 21,
+        "startChar": 4,
+        "endLine": 21,
+        "endChar": 7
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "14271993_949ff9bc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-10-10T19:46:29Z",
+      "side": 1,
+      "message": "Shall we keep the short name as it is more readable.",
+      "parentUuid": "54a10073_f8f5fef2",
+      "range": {
+        "startLine": 21,
+        "startChar": 4,
+        "endLine": 21,
+        "endChar": 7
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e7b80241_aae62a51",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
         "patchSetId": 8
@@ -92,6 +140,30 @@
       "revId": "4f04d108defee50217864c237e89c188d57054ed",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3190013c_028b18b1",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-10-10T19:46:29Z",
+      "side": 1,
+      "message": "Prasad feels white list will be appropriate here , white list is a subset of blacklist.",
+      "parentUuid": "51a87e95_0ed1f41c",
+      "range": {
+        "startLine": 68,
+        "startChar": 62,
+        "endLine": 68,
+        "endChar": 70
+      },
+      "revId": "4f04d108defee50217864c237e89c188d57054ed",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
