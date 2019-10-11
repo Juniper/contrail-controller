@@ -2,6 +2,8 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
+from builtins import object
 import datetime
 import errno
 import inspect
@@ -54,7 +56,7 @@ class VRouterError(RuntimeError):
         return
 
 
-class VRouter():
+class VRouter(object):
 
     def __init__(self, ip, port, timeout, retries, directory, log_file,
                  log_level):

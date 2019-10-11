@@ -1,3 +1,4 @@
+from builtins import str
 import gc
 import sys
 import time

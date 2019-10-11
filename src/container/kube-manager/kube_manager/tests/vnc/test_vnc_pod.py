@@ -2,6 +2,8 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import range
 import uuid
 from collections import namedtuple
 import ipaddress
@@ -191,9 +193,9 @@ class VncPodTest(KMTestCase):
                 pass
 
         self.assertIsNotNone(subnet)
-        iip_ip = ipaddress.ip_address(unicode(iip_obj.instance_ip_address))
+        iip_ip = ipaddress.ip_address(str(iip_obj.instance_ip_address))
         vn_network = ipaddress.ip_network(subnet.ip_prefix + u'/'
-                                          + unicode(subnet.ip_prefix_len))
+                                          + str(subnet.ip_prefix_len))
         self.assertTrue(iip_ip in vn_network)
 
     def _assert_virtual_machine(self, pod_uuid, cluster_project,
@@ -494,7 +496,7 @@ class VncPodTestScaling(VncPodTest):
         self._assert_virtual_network(vn_obj_uuid)
 
         pods = []
-        for i in xrange(scale):
+        for i in range(scale):
             testpod = self._create_update_pod(self.pod_name + str(i),
                                               self.ns_name,
                                               self.pod_status,
@@ -526,7 +528,7 @@ class VncPodLabelsTest(VncPodTest):
 
     def _validate_tags(self, labels, validate_delete=False, proj_obj=None):
 
-        for key, value in labels.iteritems():
+        for key, value in labels.items():
             tag_fq_name = self._construct_tag_fq_name(key, value)
             try:
                 tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
@@ -544,7 +546,7 @@ class VncPodLabelsTest(VncPodTest):
 
     def _validate_label_cache(self, uuid, labels):
             obj_labels = XLabelCache.get_labels(uuid)
-            for key, value in labels.iteritems():
+            for key, value in labels.items():
                 label_key = XLabelCache.get_key(key, value)
                 self.assertIn(label_key, obj_labels)
 

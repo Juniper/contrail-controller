@@ -8,6 +8,8 @@
 Kubernetes CNI plugin parameters processing module
 """
 
+from builtins import str
+from builtins import object
 import inspect
 import json
 import logging
@@ -45,7 +47,7 @@ class Error(RuntimeError):
         return
 
 
-class K8SParams():
+class K8SParams(object):
     '''
     Kubernetes specific parameters. Will contain parameters not generic to CNI
     pod_uuid - UUID for the POD. Got from "docker inspect" equivalent

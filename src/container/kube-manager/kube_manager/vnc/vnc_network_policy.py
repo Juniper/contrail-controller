@@ -5,16 +5,19 @@
 """
 VNC service management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
+from builtins import str
 import uuid
 
 from vnc_api.vnc_api import *
-from config_db import *
+from .config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
 from kube_manager.common.kube_config_db import NetworkPolicyKM
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_common import VncCommon
-from vnc_security_policy import VncSecurityPolicy
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_common import VncCommon
+from .vnc_security_policy import VncSecurityPolicy
 from kube_manager.vnc.label_cache import XLabelCache
 
 class VncNetworkPolicy(VncCommon):
@@ -75,7 +78,7 @@ class VncNetworkPolicy(VncCommon):
 
     def _find_namespaces(self, labels, ns_set=None):
         result = set()
-        for label in labels.items():
+        for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             ns_ids = self._label_cache.ns_label_cache.get(key, set())
             #no matching label
@@ -92,7 +95,7 @@ class VncNetworkPolicy(VncCommon):
 
     def _find_pods(self, labels, pod_set=None):
         result = set()
-        for label in labels.items():
+        for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             pod_ids = self._label_cache.pod_label_cache.get(key, set())
             #no matching label
@@ -109,7 +112,7 @@ class VncNetworkPolicy(VncCommon):
 
     def _find_sg(self, sg_cache, labels):
         result = set()
-        for label in labels.items():
+        for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             sg_ids = sg_cache.get(key, set())
             #no matching label
@@ -124,7 +127,7 @@ class VncNetworkPolicy(VncCommon):
     def _clear_sg_cache_uuid(self, sg_cache, sg_uuid):
         if not sg_uuid:
             return
-        key_list = [k for k,v in sg_cache.items() if sg_uuid in v]
+        key_list = [k for k,v in list(sg_cache.items()) if sg_uuid in v]
         for key in key_list or []:
             label = tuple(key.split(':'))
             self._label_cache._remove_label(key, sg_cache, label, sg_uuid)
@@ -132,14 +135,14 @@ class VncNetworkPolicy(VncCommon):
     def _clear_sg_cache(self, sg_cache, labels, sg_uuid):
         if not labels or not sg_uuid:
             return
-        for label in labels.items() or []:
+        for label in list(labels.items()) or []:
             key = self._label_cache._get_key(label)
             self._label_cache._remove_label(key, sg_cache, label, sg_uuid)
 
     def _update_sg_cache(self, sg_cache, labels, sg_uuid):
         if not labels or not sg_uuid:
             return
-        for label in labels.items() or []:
+        for label in list(labels.items()) or []:
             key = self._label_cache._get_key(label)
             self._label_cache._locate_label(key, sg_cache, label, sg_uuid)
 
@@ -207,7 +210,7 @@ class VncNetworkPolicy(VncCommon):
     def _get_ns_address_list(self, np_sg_uuid, labels=None):
         address_list = []
         if not labels:
-            ns_uuid_list = NamespaceKM.keys()
+            ns_uuid_list = list(NamespaceKM.keys())
             labels = self._get_ns_allow_all_label()
         else:
             ns_uuid_set = self._find_namespaces(labels)
@@ -226,7 +229,7 @@ class VncNetworkPolicy(VncCommon):
             if ns_sg in self._default_ns_sgs[ns.name]:
                 address['ns_sg_uuid'] = self._default_ns_sgs[ns.name][ns_sg]
                 address_list.append(address)
-        for label in labels.items():
+        for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             self._label_cache._locate_label(key,
                     self._ingress_ns_label_cache, label, np_sg_uuid)
@@ -457,7 +460,7 @@ class VncNetworkPolicy(VncCommon):
                 continue
             vmi_sg_uuid_set = vmi.security_groups
             default_ns_sgs = set()
-            for sg_name in self._default_ns_sgs[pod_namespace].keys() or []:
+            for sg_name in list(self._default_ns_sgs[pod_namespace].keys()) or []:
                 sg_uuid = self._default_ns_sgs[pod_namespace][sg_name]
                 default_ns_sgs.add(sg_uuid)
             vmi_sg_uuid_set = vmi_sg_uuid_set - default_ns_sgs
@@ -476,7 +479,7 @@ class VncNetworkPolicy(VncCommon):
         self._default_ns_sgs[ns_name] = sg_dict
         ns_sg_name = "-".join(
             [vnc_kube_config.cluster_name(), ns_name, 'sg'])
-        for sg_name in sg_dict.keys() or []:
+        for sg_name in list(sg_dict.keys()) or []:
             if sg_name == ns_sg_name:
                 break
         sg_uuid = sg_dict[sg_name]

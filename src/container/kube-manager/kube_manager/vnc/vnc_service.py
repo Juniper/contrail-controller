@@ -5,17 +5,22 @@
 """
 VNC service management for kubernetes
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
-from cStringIO import StringIO
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from io import StringIO
 from vnc_api.vnc_api import *
-from config_db import *
-from loadbalancer import *
+from .config_db import *
+from .loadbalancer import *
 from kube_manager.common.kube_config_db import NamespaceKM, ServiceKM
 from cfgm_common import importutils
 from cfgm_common.utils import cgitb_hook
-import link_local_manager as ll_mgr
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_common import VncCommon
+from . import link_local_manager as ll_mgr
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 from kube_manager.vnc.label_cache import XLabelCache
 from netaddr import IPNetwork, IPAddress
@@ -165,7 +170,7 @@ class VncService(VncCommon):
         return vm_obj
 
     def check_service_selectors_actions(self, selectors, service_id, ports):
-        for selector in selectors.items():
+        for selector in list(selectors.items()):
             key = self._label_cache._get_key(selector)
             self._label_cache._locate_label(key,
                 self._label_cache.service_selector_cache, selector, service_id)

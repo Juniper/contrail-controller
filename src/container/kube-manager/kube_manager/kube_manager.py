@@ -5,7 +5,9 @@
 """
 Kubernetes network manager
 """
+from __future__ import absolute_import
 
+from builtins import object
 import random
 import socket
 import os
@@ -18,22 +20,24 @@ import greenlet
 from gevent.queue import Queue
 import gevent
 
-from vnc.config_db import DBBaseKM
-from vnc.reaction_map import REACTION_MAP
+from .vnc.config_db import DBBaseKM
+from .vnc.reaction_map import REACTION_MAP
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.zkclient import ZookeeperClient
-import common.logger as common_logger
-import common.args as kube_args
-import vnc.vnc_kubernetes as vnc_kubernetes
-import kube.kube_monitor as kube_monitor
-import kube.namespace_monitor as namespace_monitor
-import kube.pod_monitor as pod_monitor
-import kube.service_monitor as service_monitor
-import kube.network_policy_monitor as network_policy_monitor
-import kube.endpoint_monitor as endpoint_monitor
-import kube.ingress_monitor as ingress_monitor
-import kube.network_monitor as network_monitor
-from sandesh.kube_introspect import ttypes as introspect
+from .common import logger as common_logger
+from .common import args as kube_args
+from .vnc import vnc_kubernetes
+from .kube import (
+    kube_monitor,
+    namespace_monitor,
+    pod_monitor,
+    service_monitor,
+    network_policy_monitor,
+    endpoint_monitor,
+    ingress_monitor,
+    network_monitor
+)
+from .sandesh.kube_introspect import ttypes as introspect
 
 
 class KubeNetworkManager(object):
@@ -87,7 +91,7 @@ class KubeNetworkManager(object):
                 time.sleep(30)
 
         # Register all the known monitors.
-        for monitor in self.monitors.values():
+        for monitor in list(self.monitors.values()):
             monitor.register_monitor()
 
         self.vnc = vnc_kubernetes.VncKubernetes(
@@ -115,7 +119,7 @@ class KubeNetworkManager(object):
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
         self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
-        for monitor in self.monitors.values():
+        for monitor in list(self.monitors.values()):
             self.greenlets.append(gevent.spawn(monitor.event_callback))
 
         if not self.args.kube_timer_interval.isdigit():
@@ -130,7 +134,7 @@ class KubeNetworkManager(object):
 
     @staticmethod
     def reset():
-        for cls in DBBaseKM.get_obj_type_map().values():
+        for cls in list(DBBaseKM.get_obj_type_map().values()):
             cls.reset()
 
     @classmethod
@@ -173,7 +177,7 @@ class KubeNetworkManager(object):
 
         kube_manager = cls.get_instance()
         if kube_manager is not None:
-            for key, value in kube_manager.monitors.items():
+            for key, value in list(kube_manager.monitors.items()):
                 statuses[key + '_monitor'] = value._is_kube_api_server_alive()
 
         response = introspect.KubeApiConnectionStatusResp(

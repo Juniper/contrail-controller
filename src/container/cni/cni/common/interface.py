@@ -8,6 +8,9 @@ Module to manage interface inside a container
 class Interface is base class. It is further derived to provide implementation
 for veth-pair and macvlan interfaces
 """
+from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import ctypes
 import errno
 import json
@@ -17,7 +20,7 @@ import logging
 
 
 from pyroute2 import NetlinkError, IPRoute
-from cni import Error as Error
+from .cni import Error as Error
 
 
 CNI_ERROR_NS_ENTER = 201
@@ -84,7 +87,7 @@ class CniNamespace(object):
         return
 
 
-class Interface():
+class Interface(object):
     '''
     Class for create/delete/configure of interface inside container
     Class is derived further to manage veth-pair and mac-vlan interfaces
