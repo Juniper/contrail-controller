@@ -8,6 +8,8 @@ VNC management for Mesos
 from __future__ import print_function
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import object
 import gevent
 from gevent.queue import Empty
 import requests
@@ -67,13 +69,13 @@ class VncMesos(object):
         VncMesos._vnc_mesos = self
 
     def _sync_mm(self):
-        for cls in DBBaseMM.get_obj_type_map().values():
+        for cls in list(DBBaseMM.get_obj_type_map().values()):
             for obj in cls.list_obj():
                 cls.locate(obj['uuid'], obj)
 
     @staticmethod
     def reset():
-        for cls in DBBaseMM.get_obj_type_map().values():
+        for cls in list(DBBaseMM.get_obj_type_map().values()):
             cls.reset()
 
     def connection_state_update(self, status, message=None):
