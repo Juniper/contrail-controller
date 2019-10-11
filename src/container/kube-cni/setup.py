@@ -46,6 +46,8 @@ setuptools.setup(
 
     test_suite='kube_cni.tests',
 
+    install_requires=['future'],
+
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [

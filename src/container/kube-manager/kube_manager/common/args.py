@@ -4,9 +4,12 @@
 
 from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
 import socket
 import sys
 
+from six.moves import configparser
 import argparse
 from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
@@ -154,7 +157,7 @@ def parse_args(args_str=None):
         'auth_tenant': 'admin',
     }
 
-    config = ConfigParser.SafeConfigParser()
+    config = configparser.ConfigParser()
     if args.config_file:
         config.read(args.config_file)
         if 'VNC' in config.sections():
