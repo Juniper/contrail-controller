@@ -5,6 +5,8 @@
 """
 This file contains implementation of data model for mesos manager
 """
+from builtins import str
+from builtins import range
 import json
 
 from cfgm_common.vnc_db import DBBase
@@ -83,7 +85,7 @@ class DBBaseMM(DBBase):
                 raise Exception(err_msg)
 
         # Annotate the object.
-        for ann_key, ann_value in annotations.iteritems():
+        for ann_key, ann_value in annotations.items():
             obj.add_annotations(KeyValuePair(key=ann_key, value=ann_value))
 
     @classmethod
@@ -124,7 +126,7 @@ class DBBaseMM(DBBase):
         fq_name = []
         fq_name_key = cls.ann_fq_name_infra_key + cls.ann_fq_name_key
         for elem in fq_name_key:
-            for key, value in kwargs.iteritems():
+            for key, value in kwargs.items():
                 if key != elem:
                     continue
                 fq_name.append(value)
@@ -192,7 +194,7 @@ class DBBaseMM(DBBase):
     @classmethod
     def objects(cls):
         # Get all vnc objects of this class.
-        return cls._dict.values()
+        return list(cls._dict.values())
 
     @staticmethod
     def _build_annotation_dict(annotation_dict):
@@ -206,14 +208,14 @@ class DBBaseMM(DBBase):
     def _build_string_dict(src_dict):
         dst_dict = {}
         if src_dict:
-            for key, value in src_dict.iteritems():
+            for key, value in src_dict.items():
                 dst_dict[str(key)] = str(value)
         return dst_dict
 
     @staticmethod
     def _build_cls_uuid_list(cls, collection):
         return [cls(str(list(collection)[i]))
-                   for i in xrange(len(collection))] \
+                   for i in range(len(collection))] \
             if collection else []
 
 class VirtualMachineMM(DBBaseMM):
@@ -542,7 +544,7 @@ class VirtualNetworkMM(DBBaseMM):
 
     # Given an ipam-fq-name, return its subnet uuid on this VN.
     def get_ipam_subnet_uuid(self, ipam_fq_name):
-        for subnet_uuid, fq_name in self.network_ipam_subnets.iteritems():
+        for subnet_uuid, fq_name in self.network_ipam_subnets.items():
             if fq_name == ipam_fq_name:
                 return subnet_uuid
         return None
@@ -564,7 +566,7 @@ class VirtualNetworkMM(DBBaseMM):
             ipam_subnets = [introspect.NetworkIpamSubnetInstance(
                 uuid=sub[0], fq_name=sub[1])
                             for sub
-                            in vn.network_ipam_subnets.iteritems()]
+                            in vn.network_ipam_subnets.items()]
 
             vmis = cls._build_cls_uuid_list(
                     introspect.VMIUuid, vn.virtual_machine_interfaces)
@@ -630,7 +632,7 @@ class InstanceIpMM(DBBaseMM):
 
     @classmethod
     def get_object(cls, ip, vn_fq_name):
-        items = cls._dict.items()
+        items = list(cls._dict.items())
         for uuid, iip_obj in items:
             if ip == iip_obj.address:
                 vn_uuid = VirtualNetworkMM.get_fq_name_to_uuid(vn_fq_name)
