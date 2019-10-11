@@ -1,0 +1,191 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0d9810de_dca82d95",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1802,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "You will want to wrap this in a try/except clause",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "35295d89_bdd643bd",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1863,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "You will want to wrap this in a try/except clause in case JobVncApi.vnc_init() fails",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f15e0153_71eadba0",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1868,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "Call jobVncApi.vnc_init once and pass vnc_api thru to other functions",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "da8ef2fa_82eb0caf",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1907,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "I would suggest writing a small wrapper routine for the case where this is called as a filter, and refactor the bulk of the routine to be called with this API:\n_update_physical_router_annotations(self, job_ctx, device_obj, vnc_api)\nThis way you don\u0027t have to read the prouter object again when this is called internally from assign_roles().\n\nAlso, you will want to wrap the filter call in a try/except clause",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8570f0d2_e108f6f9",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1944,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "Be careful when removing list items while iterating: https://stackoverflow.com/questions/1207406/how-to-remove-items-from-a-list-while-iterating\nI think if you break after the remove below, you should be ok",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5c89de25_caa82ca4",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1959,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "pass in vnc_api",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c0371526_c4bef162",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1975,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "Only read the fields you need",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4cf37ecd_2edfccae",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/role_assignment_dfg.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "What if dfg_dict is not defined?",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "61e78d8c_73233f1f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/role_assignment_dfg.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 33,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "What if dfg_dict is not defined?",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ceb0a38a_ce35b0c3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "What if dfg_dict is not defined?",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2e80c919_d774bc19",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T20:01:55Z",
+      "side": 1,
+      "message": "Is not dfg_os_version the same as dog_os_version !\u003d \"\" ?\n\nIf so, this check is good",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
