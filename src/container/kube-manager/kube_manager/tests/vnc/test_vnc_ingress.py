@@ -2,6 +2,9 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import range
+from past.builtins import basestring
 from gevent import monkey
 
 SERVICE_PORT = 80
@@ -740,7 +743,7 @@ class VncIngressTest(KMTestCase):
         return vrouter_obj
 
     def _try_read_loadbalancer(self, lb_id, retry_limit=10):
-        for _ in xrange(retry_limit):
+        for _ in range(retry_limit):
             try:
                 return self._vnc_lib.loadbalancer_read(id=lb_id)
             except NoIdError:
