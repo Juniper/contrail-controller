@@ -6,6 +6,7 @@
 Contrail Mesos Manager logger
 """
 
+from builtins import object
 import logging
 import socket
 
