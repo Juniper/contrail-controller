@@ -3,6 +3,8 @@
 #
 
 """
+to_bpg.py description.
+
 This file contains implementation of transforming user-exposed VNC
 configuration model/schema to a representation needed by VNC Control Plane
 (BGP-based)
@@ -11,32 +13,28 @@ configuration model/schema to a representation needed by VNC Control Plane
 import argparse
 import ConfigParser
 import hashlib
-import gevent
 import os
 import random
-import requests
 import signal
 import socket
 import sys
 import time
 
-# Import kazoo.client before monkey patching
-from cfgm_common.zkclient import ZookeeperClient
 from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import NoIdError, ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
+# Import kazoo.client before monkey patching
+from cfgm_common.zkclient import ZookeeperClient
+from db import SchemaTransformerDB
+import gevent
 from gevent import monkey
-
+from logger import SchemaTransformerLogger
 from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
-from vnc_api.vnc_api import VncApi
-
-from db import SchemaTransformerDB
-from logger import SchemaTransformerLogger
-from st_amqp import STAmqpHandle
+import requests
 from resources._resource_base import ResourceBaseST
 from resources.alias_ip import AliasIpST
 from resources.bgp_as_a_service import BgpAsAServiceST
@@ -55,13 +53,13 @@ from resources.route_target import RouteTargetST
 from resources.routing_instance import RoutingInstanceST
 from resources.routing_policy import RoutingPolicyST
 from resources.security_group import SecurityGroupST
-from resources.security_logging_object import SecurityLoggingObjectST
 from resources.service_chain import ServiceChain
 from resources.service_instance import ServiceInstanceST
 from resources.virtual_machine import VirtualMachineST
 from resources.virtual_machine_interface import VirtualMachineInterfaceST
 from resources.virtual_network import VirtualNetworkST
-
+from st_amqp import STAmqpHandle
+from vnc_api.vnc_api import VncApi
 
 monkey.patch_all()
 reload(sys)
@@ -188,6 +186,8 @@ class SchemaTransformer(object):
     _schema_transformer = None
 
     class STtimer:
+        """No description."""
+
         def __init__(self,
                      zk_timeout,
                      yield_in_evaluate=False,
@@ -211,12 +211,12 @@ class SchemaTransformer(object):
                 self.timeout = time.time() + self.max_time
                 if self.print_stats:
                     self.total_yield_stats += 1
-                    print "Yielded at: %s, Total yields: %s" % \
-                          (now, self.total_yield_stats)
+                    print("Yielded at: %s, Total yields: %s" %
+                          (now, self.total_yield_stats))
                     if is_evaluate_yield:
                         self.total_yield_in_evaluate_stats += 1
-                        print "Yielded at: %s, Total yields in evaluate: %s" %\
-                              (now, self.total_yield_in_evaluate_stats)
+                        print("Yielded at: %s, Total yields in evaluate: %s" %
+                              (now, self.total_yield_in_evaluate_stats))
         # end timed_yield
 
     def __init__(self, st_logger=None, args=None):
@@ -248,7 +248,7 @@ class SchemaTransformer(object):
             ServiceChain.init()
             self.reinit()
             self._vnc_amqp._db_resync_done.set()
-        except Exception as e:
+        except Exception:
             self._vnc_amqp._db_resync_done.set()
             # If any of the above tasks like CassandraDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
@@ -272,14 +272,14 @@ class SchemaTransformer(object):
                     continue
                 for ref in si.get_virtual_machine_back_refs() or []:
                     vm_name = ':'.join(ref['to'])
-                    vm = VirtualMachineST.locate(vm_name)
+                    VirtualMachineST.locate(vm_name)
                     si_st.virtual_machines.add(vm_name)
                     self.timer_obj.timed_yield()
                 props = si.get_service_instance_properties()
                 if not props.auto_policy:
                     continue
                 si_st.add_properties(props)
-            except Exception as e:
+            except Exception:
                 self.logger.error("Error in reinit service instance %s: %s" % (
                     si.get_fq_name_str(), str(e)))
 
@@ -498,7 +498,7 @@ class SchemaTransformer(object):
                         # Reconnect to achieve load-balance
                         # irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
-                except ConfigParser.NoOptionError as e:
+                except ConfigParser.NoOptionError:
                     pass
     # end sighup_handler
 
