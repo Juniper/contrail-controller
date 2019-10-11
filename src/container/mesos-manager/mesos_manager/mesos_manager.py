@@ -6,6 +6,7 @@
 Mesos network manager
 """
 from __future__ import absolute_import
+from builtins import object
 import gevent
 import sys
 import greenlet

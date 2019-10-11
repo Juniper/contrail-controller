@@ -6,6 +6,7 @@
 Mesos Manager Utility methods and datastructures.
 """
 
+from builtins import object
 from ast import literal_eval
 
 def get_dict_from_dict_string(dict_string, dict_string_kind):
