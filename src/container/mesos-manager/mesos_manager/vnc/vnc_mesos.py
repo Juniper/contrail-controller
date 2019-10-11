@@ -5,19 +5,23 @@
 """
 VNC management for Mesos
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
+from builtins import str
+from builtins import object
 import gevent
 from gevent.queue import Empty
 import requests
-from vnc_mesos_config import VncMesosConfig as vnc_mesos_config
+from .vnc_mesos_config import VncMesosConfig as vnc_mesos_config
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
-from config_db import *
-import db
+from .config_db import *
+from . import db
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -65,13 +69,13 @@ class VncMesos(object):
         VncMesos._vnc_mesos = self
 
     def _sync_mm(self):
-        for cls in DBBaseMM.get_obj_type_map().values():
+        for cls in list(DBBaseMM.get_obj_type_map().values()):
             for obj in cls.list_obj():
                 cls.locate(obj['uuid'], obj)
 
     @staticmethod
     def reset():
-        for cls in DBBaseMM.get_obj_type_map().values():
+        for cls in list(DBBaseMM.get_obj_type_map().values()):
             cls.reset()
 
     def connection_state_update(self, status, message=None):
