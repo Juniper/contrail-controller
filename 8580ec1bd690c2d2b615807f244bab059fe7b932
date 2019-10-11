@@ -70,6 +70,24 @@
     },
     {
       "key": {
+        "uuid": "2d04dcd2_4cf461d4",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 1907,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T22:11:08Z",
+      "side": 1,
+      "message": "It would look something like this, leaving the current filter API the same:\n\ndef update_physical_router_annotations(self, job_ctx, pr_uuid):\n    vnc_api \u003d JobVncApi.vnc_init(job_ctx)\n    pr_obj \u003d vnc_api.physical_router_read(id\u003dpr_uuid)\n    self._update_physical_router_annotations(job_ctx, pr_obj, vnc_api)\n\n...and call self._update_physical_router_annotations() from assign_roles as well",
+      "parentUuid": "da8ef2fa_82eb0caf",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "8570f0d2_e108f6f9",
         "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
         "patchSetId": 8
