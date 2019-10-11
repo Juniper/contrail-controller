@@ -8,10 +8,20 @@ VNC Ingress management for kubernetes
 from __future__ import print_function
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+import six
 import uuid
 
 from .config_db import *
 from vnc_api.vnc_api import *
+
+if six.PY2:
+    from io import BytesIO as vnc_cgitbIO
+else:
+    from io import StringIO as vnc_cgitbIO
 
 from kube_manager.common.kube_config_db import IngressKM
 from kube_manager.common.kube_config_db import NamespaceKM
@@ -24,7 +34,6 @@ from .vnc_security_policy import VncSecurityPolicy
 from .vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 from kube_manager.vnc.label_cache import XLabelCache
-from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
 
 class VncIngress(VncCommon):
@@ -154,7 +163,7 @@ class VncIngress(VncCommon):
                 fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
                     self._args.public_fip_pool)
             except Exception as e:
-                string_buf = StringIO()
+                string_buf = vnc_cgitbIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self._logger.error("%s - %s" %(self._name, err_msg))
@@ -184,7 +193,7 @@ class VncIngress(VncCommon):
             self._vnc_lib.floating_ip_create(fip_obj)
             fip = FloatingIpKM.locate(fip_obj.uuid)
         except Exception as e:
-            string_buf = StringIO()
+            string_buf = vnc_cgitbIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
             self._logger.error("%s - %s" %(self._name, err_msg))
@@ -246,7 +255,7 @@ class VncIngress(VncCommon):
         value = '-'.join([ns_name, service_name])
         labels = {key:value}
         result = set()
-        for label in labels.items():
+        for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             ingress_ids = ingress_cache.get(key, set())
             #no matching label
@@ -261,7 +270,7 @@ class VncIngress(VncCommon):
     def _clear_ingress_cache_uuid(self, ingress_cache, ingress_uuid):
         if not ingress_uuid:
             return
-        key_list = [k for k,v in ingress_cache.items() if ingress_uuid in v]
+        key_list = [k for k,v in list(ingress_cache.items()) if ingress_uuid in v]
         for key in key_list or []:
             label = tuple(key.split(':'))
             self._label_cache._remove_label(key, ingress_cache, label, ingress_uuid)
@@ -273,7 +282,7 @@ class VncIngress(VncCommon):
         key = 'service'
         value = '-'.join([ns_name, service_name])
         labels = {key:value}
-        for label in labels.items() or []:
+        for label in list(labels.items()) or []:
             key = self._label_cache._get_key(label)
             self._label_cache._remove_label(key,
                 ingress_cache, label, ingress_uuid)
@@ -285,7 +294,7 @@ class VncIngress(VncCommon):
         key = 'service'
         value = '-'.join([ns_name, service_name])
         labels = {key:value}
-        for label in labels.items() or []:
+        for label in list(labels.items()) or []:
             key = self._label_cache._get_key(label)
             self._label_cache._locate_label(key,
                 ingress_cache, label, ingress_uuid)
@@ -462,12 +471,12 @@ class VncIngress(VncCommon):
                     if 'host' in rule:
                         host = rule['host']
                         backend['annotations']['host'] = host
-                        if host in tls_dict.keys():
+                        if host in list(tls_dict.keys()):
                             secretname = tls_dict[host]
                             virtual_host = True
                     if 'path' in path:
                         backend['annotations']['path'] = path['path']
-                        if virtual_host == False and 'ALL' in tls_dict.keys():
+                        if virtual_host == False and 'ALL' in list(tls_dict.keys()):
                             secretname = 'ALL'
                     service = path['backend']
                     backend['annotations']['type'] = 'acl'
@@ -495,7 +504,7 @@ class VncIngress(VncCommon):
             backend['member']['serviceName'] = service['serviceName']
             backend['member']['servicePort'] = service['servicePort']
             backend_list.append(backend)
-            if 'ALL' in tls_dict.keys():
+            if 'ALL' in list(tls_dict.keys()):
                 backend_https = copy.deepcopy(backend)
                 backend_https['listener']['protocol'] = 'TERMINATED_HTTPS'
                 backend_https['listener']['default_tls_container'] = tls_dict['ALL']
@@ -939,7 +948,7 @@ class VncIngress(VncCommon):
         # Get labels for this ingress service.
         labels = self._labels.get_ingress_label(
                      self.get_ingress_label_name(ns_name, name))
-        for type, value in labels.iteritems():
+        for type, value in labels.items():
             tag_obj = self.tag_mgr.read(type, value)
             if tag_obj:
                 vmi_refs = tag_obj.get_virtual_machine_interface_back_refs()

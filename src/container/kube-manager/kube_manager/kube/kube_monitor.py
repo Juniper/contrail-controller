@@ -1,12 +1,20 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-from cStringIO import StringIO
+from future import standard_library
+standard_library.install_aliases()
+from builtins import next
+from builtins import object
 import json
+import six
 import socket
 import time
-
 import requests
+
+if six.PY2:
+    from io import BytesIO as vnc_cgitbIO
+else:
+    from io import StringIO as vnc_cgitbIO
 
 from cfgm_common.utils import cgitb_hook
 
@@ -165,7 +173,7 @@ class KubeMonitor(object):
                     self.logger.error("Invalid data read from kube api server:"
                                       " %s" % (entry))
                 except Exception as e:
-                    string_buf = StringIO()
+                    string_buf = vnc_cgitbIO()
                     cgitb_hook(file=string_buf, format="text")
                     err_msg = string_buf.getvalue()
                     self.logger.error("%s - %s" %(self.name, err_msg))
@@ -314,7 +322,7 @@ class KubeMonitor(object):
             self.logger.error(
                 "Invalid JSON data from response stream:%s" % line)
         except Exception as e:
-            string_buf = StringIO()
+            string_buf = vnc_cgitbIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
             self.logger.error("%s - %s" % (self.name, err_msg))

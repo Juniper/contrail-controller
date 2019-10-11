@@ -7,12 +7,19 @@ VNC pod management for kubernetes
 """
 from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import json
+import six
 import uuid
 
-from cStringIO import StringIO
+if six.PY2:
+    from io import BytesIO as vnc_cgitbIO
+else:
+    from io import StringIO as vnc_cgitbIO
+
 from cfgm_common.exceptions import RefsExistError, NoIdError
-from cfgm_common.utils import cgitb_hook
 from vnc_api.vnc_api import (
     InstanceIp, FloatingIp, FloatingIpPool, VirtualMachine,
     VirtualMachineInterface, VirtualMachineInterfacePropertiesType,
@@ -27,8 +34,8 @@ from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
 from kube_manager.vnc.label_cache import XLabelCache
 
-from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
+
 
 class VncPod(VncCommon):
     vnc_pod_instance = None
@@ -52,7 +59,7 @@ class VncPod(VncCommon):
         namespace_label = self._label_cache. \
             _get_namespace_label(vm.pod_namespace)
         new_labels.update(namespace_label)
-        for label in new_labels.items():
+        for label in list(new_labels.items()):
             key = self._label_cache._get_key(label)
             pod_label_cache = self._label_cache.pod_label_cache
             self._label_cache._locate_label(key, pod_label_cache, label,
@@ -62,7 +69,7 @@ class VncPod(VncCommon):
     def _clear_label_to_pod_cache(self, vm):
         if not vm.pod_labels:
             return
-        for label in vm.pod_labels.items() or []:
+        for label in list(vm.pod_labels.items()) or []:
             key = self._label_cache._get_key(label)
             pod_label_cache = self._label_cache.pod_label_cache
             self._label_cache._remove_label(key, pod_label_cache, label,
@@ -313,7 +320,7 @@ class VncPod(VncCommon):
 
         vr_uuid = VirtualRouterKM.get_ip_addr_to_uuid(node_ip)
         if vr_uuid is None:
-            for vr in VirtualRouterKM.values():
+            for vr in list(VirtualRouterKM.values()):
                 if vr.name.lower() == pod_node:
                     vr_uuid = vr.uuid
         if vr_uuid is None:
@@ -326,7 +333,7 @@ class VncPod(VncCommon):
         except Exception as e:
             self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
                 %(self._name, node_ip, vm_obj.uuid))
-            string_buf = StringIO()
+            string_buf = vnc_cgitbIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
             self._logger.error("_link_vm_to_node: %s - %s" %(self._name, err_msg))
@@ -370,15 +377,15 @@ class VncPod(VncCommon):
 
         for vmi_obj in vmi_obj_list:
             if not labels:
-                for k,v in self._labels.get_labels_dict(pod_id).iteritems():
+                for k,v in self._labels.get_labels_dict(pod_id).items():
                     self._vnc_lib.unset_tag(vmi_obj, k)
             else:
-                for k,v in labels.iteritems():
+                for k,v in labels.items():
                     self._vnc_lib.unset_tag(vmi_obj, k)
 
     def _update_network_status(self, pod_name, pod_namespace, network_status):
         net_status_dict_list = []
-        for nw_name,vmi_uuid in network_status.items():
+        for nw_name,vmi_uuid in list(network_status.items()):
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
             vmi = VirtualMachineInterfaceKM.locate(vmi_uuid)
             pod_iips = []
@@ -422,7 +429,7 @@ class VncPod(VncCommon):
 
             # get host id for vm vmi
             vr_uuid = None
-            for vr in VirtualRouterKM.values():
+            for vr in list(VirtualRouterKM.values()):
                 if vr.name == vm_vmi.host_id:
                     vr_uuid = vr.uuid
                     break
@@ -443,7 +450,7 @@ class VncPod(VncCommon):
                 if '.' in vm_vmi.host_id:
                     # Host name on VM is a FQNAME. Ignore domain name.
                     host_id_prefix = vm_vmi.host_id.split('.')[0]
-                    for vr in VirtualRouterKM.values():
+                    for vr in list(VirtualRouterKM.values()):
                         if vr.name == host_id_prefix:
                             vr_uuid = vr.uuid
                             break
@@ -452,7 +459,7 @@ class VncPod(VncCommon):
                     # Host name on vrouter is a FQNAME. Ignore domain name.
                     # This can happen, as post R5.1, vrouter is using FQNAME and
                     # VM object created by Openstack could contain non-FQ name.
-                    for vr in VirtualRouterKM.values():
+                    for vr in list(VirtualRouterKM.values()):
                         if '.' in  vr.name:
                             host_id_prefix = vr.name.split('.')[0]
                             if vm_vmi.host_id == host_id_prefix:

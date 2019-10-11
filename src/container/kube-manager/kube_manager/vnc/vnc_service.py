@@ -8,7 +8,17 @@ VNC service management for kubernetes
 from __future__ import print_function
 from __future__ import absolute_import
 
-from cStringIO import StringIO
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+
+import six
+
+if six.PY2:
+    from io import BytesIO as vnc_cgitbIO
+else:
+    from io import StringIO as vnc_cgitbIO
+
 from vnc_api.vnc_api import *
 from .config_db import *
 from .loadbalancer import *
@@ -167,7 +177,7 @@ class VncService(VncCommon):
         return vm_obj
 
     def check_service_selectors_actions(self, selectors, service_id, ports):
-        for selector in selectors.items():
+        for selector in list(selectors.items()):
             key = self._label_cache._get_key(selector)
             self._label_cache._locate_label(key,
                 self._label_cache.service_selector_cache, selector, service_id)
@@ -359,12 +369,12 @@ class VncService(VncCommon):
             try:
                 self._vnc_lib.floating_ip_create(fip_obj)
             except RefsExistError as e:
-                string_buf = StringIO()
+                string_buf = vnc_cgitbIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self.logger.error("%s" %(err_msg))
             except:
-                string_buf = StringIO()
+                string_buf = vnc_cgitbIO()
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self.logger.error("%s" %(err_msg))

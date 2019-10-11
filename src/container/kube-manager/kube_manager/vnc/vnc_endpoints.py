@@ -207,7 +207,7 @@ class VncEndpoints(VncCommon):
                         # Remove service member label from vmi.
                         svc_member_label = self._labels.get_service_label(
                             lb.service_name)
-                        for k,v in svc_member_label.iteritems():
+                        for k,v in svc_member_label.items():
                             self._vnc_lib.unset_tag(vmi_obj, k)
 
                     except NoIdError:
