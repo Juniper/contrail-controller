@@ -7,6 +7,7 @@
 CNI implementation for veth-pair interfaces
 """
 from __future__ import absolute_import
+from builtins import str
 import ctypes
 import errno
 import inspect

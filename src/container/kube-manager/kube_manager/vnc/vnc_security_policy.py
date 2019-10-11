@@ -6,6 +6,8 @@
 VNC Security Policy management for kubernetes
 """
 
+from builtins import str
+from builtins import object
 from vnc_api.vnc_api import *
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
