@@ -14,8 +14,11 @@ The module defines parameters complying to CNI specs. Further CNI processing
 like creating interface and configuring interface will be using these
 parameters
 """
+from __future__ import print_function
 
 
+from builtins import str
+from builtins import object
 import json
 import logging
 import os
@@ -45,7 +48,7 @@ class Error(RuntimeError):
         return
 
 
-class Cni():
+class Cni(object):
     '''
     CNI implementation class. Contains following information,
     - command          : CNI command for the operation
@@ -144,7 +147,7 @@ class Cni():
     # Log class parameters
     def log(self):
         # Log environment variables
-        for env in os.environ.keys():
+        for env in list(os.environ.keys()):
             logger.debug(env + '=' + os.environ[env])
 
         data = json.dumps(self.stdin_json, indent=4)
@@ -170,7 +173,7 @@ class Cni():
         resp['msg'] = msg
         json_data = json.dumps(resp, indent=4)
         logger.error('CNI Error : ' + json_data)
-        print json_data
+        print(json_data)
         sys.exit(code)
         return
 
@@ -181,7 +184,7 @@ class Cni():
         '''
         json_data = json.dumps(resp, indent=4)
         logger.debug('CNI output : ' + json_data)
-        print json_data
+        print(json_data)
         return
 
     @staticmethod
