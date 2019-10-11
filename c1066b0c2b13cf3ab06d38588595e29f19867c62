@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "bff3bdb7_4fb4a309",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T04:56:27Z",
+      "side": 1,
+      "message": "remove instead of comment",
+      "revId": "c1066b0c2b13cf3ab06d38588595e29f19867c62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3b1612ac_636278cc",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T04:56:27Z",
+      "side": 1,
+      "message": "remove instead of comment",
+      "revId": "c1066b0c2b13cf3ab06d38588595e29f19867c62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9f74ec86_2f48fd38",
+        "filename": "src/config/device-manager/device_manager/device_job_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 116,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T04:56:27Z",
+      "side": 1,
+      "message": "remove instead of comment",
+      "revId": "c1066b0c2b13cf3ab06d38588595e29f19867c62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e8badfbf_8e233535",
+        "filename": "src/config/device-manager/device_manager/device_ztp_manager.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-11T04:56:27Z",
+      "side": 1,
+      "message": "remove instead of comment",
+      "revId": "c1066b0c2b13cf3ab06d38588595e29f19867c62",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
