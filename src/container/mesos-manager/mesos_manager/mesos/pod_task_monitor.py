@@ -1,13 +1,16 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import requests
 import json
 import gevent
 import time
 from gevent.queue import Empty
 
-from cStringIO import StringIO
+from io import StringIO
 from cfgm_common.exceptions import RefsExistError, NoIdError
 from cfgm_common.utils import cgitb_hook
 #Fix me: remove non dependent import
@@ -22,7 +25,7 @@ from mesos_manager.vnc.vnc_common import VncCommon
 from mesos_manager.vnc.vnc_mesos_config import (
     VncMesosConfig as vnc_mesos_config)
 
-from cStringIO import StringIO
+from io import StringIO
 from cfgm_common.utils import cgitb_hook
 
 class PodTaskMonitor(object):
@@ -35,7 +38,7 @@ class PodTaskMonitor(object):
     @staticmethod
     def cleanup_json(data):
         if isinstance(data, dict):
-            return {k: PodTaskMonitor.cleanup_json(v) for k, v in data.items() if v is not None}
+            return {k: PodTaskMonitor.cleanup_json(v) for k, v in list(data.items()) if v is not None}
         if isinstance(data, list):
             return [PodTaskMonitor.cleanup_json(e) for e in data]
         return data
