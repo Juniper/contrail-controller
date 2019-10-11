@@ -17,6 +17,8 @@ parameters
 from __future__ import print_function
 
 
+from builtins import str
+from builtins import object
 import json
 import logging
 import os
@@ -46,7 +48,7 @@ class Error(RuntimeError):
         return
 
 
-class Cni():
+class Cni(object):
     '''
     CNI implementation class. Contains following information,
     - command          : CNI command for the operation
@@ -145,7 +147,7 @@ class Cni():
     # Log class parameters
     def log(self):
         # Log environment variables
-        for env in os.environ.keys():
+        for env in list(os.environ.keys()):
             logger.debug(env + '=' + os.environ[env])
 
         data = json.dumps(self.stdin_json, indent=4)

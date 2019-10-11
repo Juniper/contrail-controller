@@ -2,6 +2,8 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import range
 import unittest
 import uuid
 
@@ -565,7 +567,7 @@ class VncNetworkPolicyTest(KMTestCase):
 
     def test_add_network_policy_scaling(self):
         np_uuid_dict={}
-        test_range = range(1, 10)
+        test_range = list(range(1, 10))
         for i in test_range:
             np_spec = {
                       'podSelector': {},
@@ -775,7 +777,7 @@ class VncNetworkPolicyTest(KMTestCase):
         """
 
         np_uuid_dict={}
-        test_range = range(1, 10)
+        test_range = list(range(1, 10))
         for i in test_range:
             np_spec = {
                       'podSelector': {},

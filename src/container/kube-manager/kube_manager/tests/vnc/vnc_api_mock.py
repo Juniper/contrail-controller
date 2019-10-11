@@ -1,4 +1,6 @@
 from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import copy
 import functools
 import json
@@ -92,7 +94,7 @@ class VncApiMock(object):
              obj_uuids=None, back_ref_id=None, fields=None,
              detail=False, count=False, filters=None, shared=False):
         ret = []
-        for obj_dict in DBMock.get_dict(res_type.replace('-', '_')).values():
+        for obj_dict in list(DBMock.get_dict(res_type.replace('-', '_')).values()):
             obj = VncApiMock.object_from_dict(res_type, obj_dict)
             if parent_id is not None and parent_id != VncApiMock.name_to_uuid(obj.parent_name()):
                 continue
@@ -161,7 +163,7 @@ class VncApiMock(object):
         if hasattr(obj, 'serialize_to_json'):
             return obj.serialize_to_json()
         else:
-            return dict((k, v) for k, v in obj.__dict__.iteritems())
+            return dict((k, v) for k, v in obj.__dict__.items())
 
     @staticmethod
     def is_jsonable(x):

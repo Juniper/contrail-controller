@@ -9,6 +9,7 @@
 Contrail CNI plugin for MESOS
 """
 
+from builtins import str
 import inspect
 import logging
 import os

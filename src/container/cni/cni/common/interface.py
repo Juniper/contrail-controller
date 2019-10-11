@@ -9,6 +9,8 @@ class Interface is base class. It is further derived to provide implementation
 for veth-pair and macvlan interfaces
 """
 from __future__ import absolute_import
+from builtins import str
+from builtins import object
 import ctypes
 import errno
 import json
@@ -85,7 +87,7 @@ class CniNamespace(object):
         return
 
 
-class Interface():
+class Interface(object):
     '''
     Class for create/delete/configure of interface inside container
     Class is derived further to manage veth-pair and mac-vlan interfaces
