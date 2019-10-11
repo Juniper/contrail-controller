@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 
+from builtins import object
 from enum import Enum
 from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
@@ -128,7 +129,7 @@ class XLabelCache(object):
 
         # Update label to k8s guid cache.
         if curr_labels:
-            for key, value in curr_labels.iteritems():
+            for key, value in curr_labels.items():
 
                 # Construct the label key.
                 label_key = self._update_label_to_guid_cache(key, value, obj_uuid)
@@ -138,7 +139,7 @@ class XLabelCache(object):
 
         if list_curr_labels_dict:
             for labels_dict in list_curr_labels_dict:
-                for key, value in labels_dict.iteritems():
+                for key, value in labels_dict.items():
                     # Construct the label key.
                     label_key = self._update_label_to_guid_cache(key, value, obj_uuid)
                     # Construct a set of all input label keys.
@@ -252,7 +253,7 @@ class XLabelCache(object):
         """ Construct a service memner label. """
         svc_label = self.get_service_label(service_name)
         svc_member_label_dict = {}
-        for k,v in svc_label.iteritems():
+        for k,v in svc_label.items():
             member_key = "-".join([k, "member"])
             svc_member_label_dict[member_key] = v
         return svc_member_label_dict
@@ -291,7 +292,7 @@ class XLabelCache(object):
     def get_delete_labels_dict(self, labels):
         """ Construct labels for delete in Contrail format. """
         labels_dict = {}
-        for k in labels.iterkeys():
+        for k in labels.keys():
             labels_dict[k] = None
         return labels_dict
 

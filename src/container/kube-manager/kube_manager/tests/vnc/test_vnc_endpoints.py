@@ -1,3 +1,6 @@
+from builtins import str
+from builtins import range
+from past.builtins import basestring
 import uuid
 
 from gevent import monkey
@@ -685,7 +688,7 @@ class VncEndpointsTestScaling(VncEndpointsTestBase):
         scale = 50
         endpoint_list = []
 
-        for i in xrange(scale):
+        for i in range(scale):
             pod_uid = self._add_pod(
                 pod_name='test-pod' + str(i),
                 pod_namespace=TEST_NAMESPACE,
@@ -709,7 +712,7 @@ class VncEndpointsTestScaling(VncEndpointsTestBase):
             self._check_lb_members((pod_uid, vmi_uid))
             endpoint_list.append(endpoints)
 
-        for i in xrange(scale):
+        for i in range(scale):
             self._delete_endpoints(endpoint_list[i])
             self.wait_for_all_tasks_done()
 

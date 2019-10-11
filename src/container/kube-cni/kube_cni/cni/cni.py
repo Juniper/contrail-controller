@@ -8,6 +8,8 @@ CNI implementation
 Demultiplexes on the CNI_COMMAND and runs the necessary operation
 """
 from __future__ import print_function
+from builtins import str
+from builtins import object
 import ctypes
 import errno
 import inspect
@@ -143,7 +145,7 @@ class CniNamespace(object):
         return
 
 
-class CniNsInterface():
+class CniNsInterface(object):
     '''
     Class to manage interface inside the container
     '''
@@ -455,7 +457,7 @@ class CniMacVlan(CniNsInterface):
         return
 
 
-class Cni():
+class Cni(object):
     def __init__(self, vrouter, params):
         self.vrouter = vrouter
         self.params = params
