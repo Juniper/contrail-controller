@@ -2,6 +2,8 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
+from builtins import object
 import datetime
 import errno
 import inspect
@@ -50,7 +52,7 @@ class Error(RuntimeError):
         return
 
 
-class VRouter():
+class VRouter(object):
     # Default VRouter related values
     VROUTER_AGENT_IP = '127.0.0.1'
     VROUTER_AGENT_PORT = 9091

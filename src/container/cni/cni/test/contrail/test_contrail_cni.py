@@ -1,3 +1,5 @@
+from future import standard_library
+standard_library.install_aliases()
 import errno
 import argparse
 import json
@@ -9,7 +11,7 @@ import unittest
 from pyroute2 import iproute
 from mock import patch
 from mock import Mock
-from StringIO import StringIO
+from io import StringIO
 
 from cni.contrail import vrouter
 from cni.contrail.contrail_cni import ContrailCni, VRouter, CniVEthPair, CniMacVlan, Cni, Error
