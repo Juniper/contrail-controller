@@ -9,7 +9,9 @@
 Contrail CNI plugin
 """
 from __future__ import absolute_import
-import ConfigParser
+from future import standard_library
+standard_library.install_aliases()
+import configparser
 
 from .mesos_cni import contrail_mesos_cni
 from .kube_cni import contrail_kube_cni
@@ -22,10 +24,10 @@ ORCHES_K8S   = 'kubernetes'
 
 def main():
     try:
-        config = ConfigParser.RawConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         config.read(ORCHES_FILE)
         orches = config.get('DEFAULT', 'orchestrator')
-    except ConfigParser.Error:
+    except configparser.Error:
         orches = ORCHES_MESOS
 
     if orches == ORCHES_K8S:

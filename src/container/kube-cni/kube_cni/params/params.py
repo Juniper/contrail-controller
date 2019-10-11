@@ -12,6 +12,8 @@ Parameters are defined in 3 different classes
               Also holds ContrailParams + K8SParams
 """
 
+from builtins import str
+from builtins import object
 import inspect
 import os
 import sys
@@ -78,7 +80,7 @@ class ParamsError(RuntimeError):
         return
 
 
-class ContrailParams():
+class ContrailParams(object):
     '''
     Contrail specific parameters
     - mode      : CNI mode. Can take following values,
@@ -156,7 +158,7 @@ class ContrailParams():
         return
 
 
-class K8SParams():
+class K8SParams(object):
     '''
     Kubernetes specific parameters. Will contain parameters not generic to CNI
     pod_uuid - UUID for the POD. Got from "docker inspect" equivalent
@@ -248,7 +250,7 @@ class K8SParams():
         return
 
 
-class Params():
+class Params(object):
     '''
     Top level class holding all arguments relavent to CNI
     - command          : CNI command for the operation
