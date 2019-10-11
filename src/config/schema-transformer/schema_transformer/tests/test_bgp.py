@@ -2,13 +2,14 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import gevent
+from unittest import skip
 
 from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
 from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.tests import test_common
+import gevent
 from testtools.matchers import Contains, Not
 from vnc_api.gen.resource_client import Fabric
 from vnc_api.vnc_api import AddressFamilies
@@ -18,16 +19,15 @@ from vnc_api.vnc_api import NoIdError, RouteTargetList
 from vnc_api.vnc_api import PhysicalRouter
 from vnc_api.vnc_api import SubCluster, UserCredentials
 from vnc_api.vnc_api import VirtualMachineInterface
-from unittest import skip
 
-from schema_transformer.resources.bgp_router import BgpRouterST
-from schema_transformer.resources.bgp_as_a_service import BgpAsAServiceST
-from schema_transformer.resources.virtual_machine import VirtualMachineST
-from schema_transformer.resources.global_system_config import \
-    GlobalSystemConfigST
 from schema_transformer import to_bgp
-from test_case import STTestCase, retries
-from test_route_target import VerifyRouteTarget
+from schema_transformer.resources.bgp_as_a_service import BgpAsAServiceST
+from schema_transformer.resources.bgp_router import BgpRouterST
+from schema_transformer.resources.global_system_config \
+    import GlobalSystemConfigST
+from schema_transformer.resources.virtual_machine import VirtualMachineST
+from .test_case import retries, STTestCase
+from .test_route_target import VerifyRouteTarget
 
 
 class VerifyBgp(VerifyRouteTarget):
@@ -192,7 +192,7 @@ class TestVxLan(STTestCase, VerifyBgp):
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_create(lr)
         lr_read = self._vnc_lib.logical_router_read(fq_name=lr.get_fq_name())
-        lr_target = self.check_lr_target(lr_read.get_fq_name())
+        _ = self.check_lr_target(lr_read.get_fq_name())
         ivn_name = get_lr_internal_vn_name(lr_read.uuid)
         lr_ivn_read = self._vnc_lib.virtual_network_read(
             fq_name=proj_obj.get_fq_name() + [ivn_name])
@@ -247,7 +247,7 @@ class TestBgp(STTestCase, VerifyBgp):
         lr.add_virtual_machine_interface(vmi)
         self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(fq_name=lr.get_fq_name())
-        lr_target = self.check_lr_target(lr.get_fq_name())
+        _ = self.check_lr_target(lr.get_fq_name())
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         vn_rt_refs_with_lr = set([ref['to'][0]
                                  for ref in ri_obj.get_route_target_refs() or
@@ -262,7 +262,7 @@ class TestBgp(STTestCase, VerifyBgp):
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_update(lr)
         lr = self._vnc_lib.logical_router_read(fq_name=lr.get_fq_name())
-        lr_target = self.check_lr_target(lr.get_fq_name())
+        _ = self.check_lr_target(lr.get_fq_name())
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         vn_rt_refs_with_lr = set([ref['to'][0]
                                  for ref in ri_obj.get_route_target_refs() or
@@ -386,7 +386,7 @@ class TestBgp(STTestCase, VerifyBgp):
 
             try:
                 self._vnc_lib.logical_router_delete(id=lr.uuid)
-            except BadRequest as err:
+            except BadRequest:
                 lr = self._vnc_lib.logical_router_read(id=lr.uuid)
                 self.get_lr_internal_vn(lr.get_fq_name())
             else:

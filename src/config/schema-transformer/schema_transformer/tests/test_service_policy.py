@@ -2,17 +2,18 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import copy
-import gevent
 from unittest import skip
 
 from cfgm_common.exceptions import RefsExistError
 from cfgm_common.tests import test_common
+import gevent
 from netaddr import IPAddress, IPNetwork
-
+from test_case import retries, STTestCase
+from test_policy import VerifyPolicy
 from vnc_api.vnc_api import FloatingIp, FloatingIpPool, InterfaceMirrorType
 from vnc_api.vnc_api import IpamSubnetType, MirrorActionType, NetworkIpam
 from vnc_api.vnc_api import NoIdError, PolicyBasedForwardingRuleType, PortType
-from vnc_api.vnc_api import RouteAggregate, RouteTargetList, RouteListType
+from vnc_api.vnc_api import RouteAggregate, RouteListType, RouteTargetList
 from vnc_api.vnc_api import RoutingPolicy, RoutingPolicyServiceInstanceType
 from vnc_api.vnc_api import RoutingPolicyType, SequenceType
 from vnc_api.vnc_api import ServiceChainInfo, ServiceInterfaceTag
@@ -27,8 +28,6 @@ from schema_transformer.resources.routing_policy import RoutingPolicyST
 from schema_transformer.resources.service_chain import ServiceChain
 from schema_transformer.resources.virtual_machine import VirtualMachineST
 from schema_transformer.resources.virtual_network import VirtualNetworkST
-from test_case import retries, STTestCase
-from test_policy import VerifyPolicy
 
 
 class VerifyServicePolicy(VerifyPolicy):
@@ -115,7 +114,7 @@ class VerifyServicePolicy(VerifyPolicy):
         try:
             ip = vmi_props.get_interface_mirror().\
                 get_mirror_to().get_analyzer_ip_address()
-        except AttributeError as e:
+        except AttributeError:
             pass
         self.assertTrue(ip is None)
 
@@ -160,7 +159,7 @@ class VerifyServicePolicy(VerifyPolicy):
     def check_service_chain_ip(self, sc_name):
         _SC_IP_CF = 'service_chain_ip_address_table'
         cf = self.get_cf('to_bgp_keyspace', _SC_IP_CF)
-        ip = cf.get(sc_name)['ip_address']
+        _ = cf.get(sc_name)['ip_address']
 
     @retries(5)
     def check_acl_match_nets(self, fq_name, vn1_fq_name, vn2_fq_name):
@@ -759,8 +758,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vnp = VirtualNetworkPolicyType(seq)
         vn1_obj.set_network_policy(np, vnp)
         vn2_obj.set_network_policy(np, vnp)
-        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
-        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+        _ = self._vnc_lib.virtual_network_update(vn1_obj)
+        _ = self._vnc_lib.virtual_network_update(vn2_obj)
 
         for obj in [vn1_obj, vn2_obj]:
             self.assertTill(self.vnc_db_has_ident, obj=obj)
@@ -849,12 +848,6 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_service_chain_ip(sc_ri_names[0])
         self.check_service_chain_ip(sc_ri_names[1])
         self.check_service_chain_ip(sc_ri_names[2])
-
-        vmi_fq_names = [['default-domain', 'default-project',
-                         'default-domain__default-project__%s__1__%s' %
-                         (service_name, if_type)]
-                        for service_name in service_names for if_type in
-                        ('left__1', 'right__2')]
 
         self.check_service_chain_pbf_rules(
             vn1_obj, vn2_obj, sc_ri_names[0],
@@ -1383,8 +1376,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vnp = VirtualNetworkPolicyType(seq)
         vn1_obj.set_network_policy(np, vnp)
         vn2_obj.set_network_policy(np, vnp)
-        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
-        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+        _ = self._vnc_lib.virtual_network_update(vn1_obj)
+        _ = self._vnc_lib.virtual_network_update(vn2_obj)
 
         for obj in [vn1_obj, vn2_obj]:
             self.assertTill(self.vnc_db_has_ident, obj=obj)
@@ -1517,7 +1510,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.network_ipam_create(ipam3_obj)
         vn3_obj.add_network_ipam(ipam3_obj, VnSubnetsType(
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
-        vn3_uuid = self._vnc_lib.virtual_network_create(vn3_obj)
+        _ = self._vnc_lib.virtual_network_create(vn3_obj)
         fip_pool_name = 'vn_public_fip_pool'
         fip_pool = FloatingIpPool(fip_pool_name, vn3_obj)
         self._vnc_lib.floating_ip_pool_create(fip_pool)
@@ -1525,7 +1518,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         default_project = self._vnc_lib.project_read(
             fq_name=[u'default-domain', u'default-project'])
         fip_obj.set_project(default_project)
-        fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        _ = self._vnc_lib.floating_ip_create(fip_obj)
         fip_obj.set_virtual_machine_interface(vmi)
         self._vnc_lib.floating_ip_update(fip_obj)
 
@@ -1850,10 +1843,10 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                     PortType(start_port=500, end_port=800)]
         service_names1 = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
 
-        sp_list2 = [PortType(start_port=5000, end_port=8000),
-                    PortType(start_port=2000, end_port=3000)]
-        dp_list2 = [PortType(start_port=1000, end_port=1500),
-                    PortType(start_port=500, end_port=800)]
+        _ = [PortType(start_port=5000, end_port=8000),
+             PortType(start_port=2000, end_port=3000)]
+        _ = [PortType(start_port=1000, end_port=1500),
+             PortType(start_port=500, end_port=800)]
         service_names2 = [self.id() + 's1', self.id() + 's2', self.id() + 's3']
 
         sc11 = ServiceChain.find_or_create(

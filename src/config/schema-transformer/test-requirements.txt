@@ -1,8 +1,8 @@
 flexmock
 mock
 webtest
-contrail-api-server
-svc-monitor
+#contrail-api-server
+#svc-monitor
 junitxml
 python-novaclient
 kombu==4.0.2

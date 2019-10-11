@@ -2,14 +2,12 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import gevent
-import gevent.monkey
 import uuid
 
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.tests import test_common
-from test_case import STTestCase, retries, VerifyCommon
-from vnc_api.vnc_api import AddressType, ActionListType
+import gevent
+from vnc_api.vnc_api import ActionListType, AddressType
 from vnc_api.vnc_api import NoIdError, PolicyEntriesType
 from vnc_api.vnc_api import PolicyRuleType, PortType
 from vnc_api.vnc_api import SecurityGroup, SecurityLoggingObject
@@ -20,9 +18,10 @@ from vnc_api.vnc_api import VirtualNetwork, VirtualNetworkPolicyType
 
 from schema_transformer import to_bgp
 from schema_transformer.resources._resource_base import ResourceBaseST
-from schema_transformer.resources.security_logging_object import\
-    SecurityLoggingObjectST
+from schema_transformer.resources.security_logging_object \
+    import SecurityLoggingObjectST
 from schema_transformer.resources.virtual_network import VirtualNetworkST
+from .test_case import retries, STTestCase, VerifyCommon
 
 gevent.monkey.patch_all()
 
@@ -786,6 +785,8 @@ class TestPolicy(STTestCase, VerifyPolicy):
 
     def test_provider_network(self):
         """
+        Test description.
+
         Verify:
             1. Check creating a non-provider VNs with
                non-provider VNs connected to it is not allowed
@@ -806,16 +807,17 @@ class TestPolicy(STTestCase, VerifyPolicy):
             9. Check db_resync sets is_provider_network property
                of provider-VN as True (simulating upgrade case)
             10. Check non provider VNs can be added to
-               provider VN
+                provider VN
             11. Check the provider-VN can be added to a VN
             12. Check non provider-VN can not be added to a VN
             13. Check many VNs can be linked to the provider-VN
             14. Check (provider-vn -> any-VN),DENY acl rule is added to
-               the provider-VN
+                the provider-VN
             15. Check (VN -> provider-VN),DENY acl rule is added to
-               the VN
+                the VN
             16. Adding a (VN -> provider-VN),PASS acl rule at VN removes
-               (VN -> provider-VN),DENY acl rule
+                (VN -> provider-VN),DENY acl rule
+
         Assumption: ip-fabric VN is the provider-VN
         """
         # create two VNs - vn1, vn2
