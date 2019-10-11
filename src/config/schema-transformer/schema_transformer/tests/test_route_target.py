@@ -2,16 +2,14 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-import gevent
-
 from cfgm_common.tests import test_common
-
-from vnc_api.vnc_api import RouteTargetList, NoIdError
+import gevent
+from vnc_api.vnc_api import NoIdError, RouteTargetList
 from vnc_cfg_api_server import db_manage
 
 from schema_transformer.resources.routing_instance import RoutingInstanceST
-from test_case import retries, STTestCase
-from test_policy import VerifyPolicy
+from .test_case import retries, STTestCase
+from .test_policy import VerifyPolicy
 
 
 class VerifyRouteTarget(VerifyPolicy):
