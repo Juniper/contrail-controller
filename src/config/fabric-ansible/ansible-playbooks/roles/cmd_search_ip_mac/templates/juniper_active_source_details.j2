@@ -7,7 +7,6 @@
 {%-     set active_source = mac_entry.get('active-source')                    %}
 {%-     for item in interface_names                                           %}
 {%-         if item in active_source                                          %}
-{{item}}
 {%-              set active_source_details = active_source                    %}
 {%-              set x = interface_details.append(
                              {
