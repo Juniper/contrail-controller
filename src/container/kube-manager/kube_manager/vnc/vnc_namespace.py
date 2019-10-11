@@ -8,6 +8,7 @@ VNC service management for kubernetes
 from __future__ import print_function
 from __future__ import absolute_import
 
+from builtins import str
 import uuid
 
 from vnc_api.vnc_api import (
@@ -152,7 +153,7 @@ class VncNamespace(VncCommon):
            ns_uuid not in project.ns_labels:
             return
         ns_labels = project.ns_labels[ns_uuid]
-        for label in ns_labels.items() or []:
+        for label in list(ns_labels.items()) or []:
             key = self._label_cache._get_key(label)
             self._label_cache._remove_label(
                 key, self._label_cache.ns_label_cache, label, ns_uuid)
@@ -160,7 +161,7 @@ class VncNamespace(VncCommon):
 
     def _update_namespace_label_cache(self, labels, ns_uuid, project):
         self._clear_namespace_label_cache(ns_uuid, project)
-        for label in labels.items():
+        for label in list(labels.items()):
             key = self._label_cache._get_key(label)
             self._label_cache._locate_label(
                 key, self._label_cache.ns_label_cache, label, ns_uuid)

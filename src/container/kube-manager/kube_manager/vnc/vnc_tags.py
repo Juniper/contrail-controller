@@ -6,6 +6,8 @@
 VNC Tags management for kubernetes
 """
 
+from builtins import str
+from builtins import object
 from vnc_api.vnc_api import *
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
@@ -101,7 +103,7 @@ class VncTags(object):
 
     def get_tags_fq_name(self, kv_dict, create=False):
         tags = []
-        for k,v in kv_dict.iteritems():
+        for k,v in kv_dict.items():
             if create:
                 self.create(k, v)
             tags.append(self._construct_tag_name(k, v))

@@ -8,6 +8,10 @@ VNC management for kubernetes
 from __future__ import print_function
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import gevent
 from gevent.queue import Empty
 
@@ -16,7 +20,7 @@ import socket
 import argparse
 import uuid
 
-from cStringIO import StringIO
+from io import StringIO
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import *
@@ -196,13 +200,13 @@ class VncKubernetes(VncCommon):
         return vnc_lib
 
     def _sync_km(self):
-        for cls in DBBaseKM.get_obj_type_map().values():
+        for cls in list(DBBaseKM.get_obj_type_map().values()):
             for obj in cls.list_obj():
                 cls.locate(obj['uuid'], obj)
 
     @staticmethod
     def reset():
-        for cls in DBBaseKM.get_obj_type_map().values():
+        for cls in list(DBBaseKM.get_obj_type_map().values()):
             cls.reset()
 
     def _attach_policy(self, vn_obj, *policies):
@@ -586,7 +590,7 @@ class VncKubernetes(VncCommon):
         if inst is None:
             return
         inst.rabbit.close()
-        for obj_cls in DBBaseKM.get_obj_type_map().values():
+        for obj_cls in list(DBBaseKM.get_obj_type_map().values()):
             obj_cls.reset()
         DBBase.clear()
         inst._db = None

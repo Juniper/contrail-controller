@@ -7,6 +7,7 @@ Kubernetes network manager
 """
 from __future__ import absolute_import
 
+from builtins import object
 import random
 import socket
 import os
@@ -90,7 +91,7 @@ class KubeNetworkManager(object):
                 time.sleep(30)
 
         # Register all the known monitors.
-        for monitor in self.monitors.values():
+        for monitor in list(self.monitors.values()):
             monitor.register_monitor()
 
         self.vnc = vnc_kubernetes.VncKubernetes(
@@ -118,7 +119,7 @@ class KubeNetworkManager(object):
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
         self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
-        for monitor in self.monitors.values():
+        for monitor in list(self.monitors.values()):
             self.greenlets.append(gevent.spawn(monitor.event_callback))
 
         if not self.args.kube_timer_interval.isdigit():
@@ -133,7 +134,7 @@ class KubeNetworkManager(object):
 
     @staticmethod
     def reset():
-        for cls in DBBaseKM.get_obj_type_map().values():
+        for cls in list(DBBaseKM.get_obj_type_map().values()):
             cls.reset()
 
     @classmethod
@@ -176,7 +177,7 @@ class KubeNetworkManager(object):
 
         kube_manager = cls.get_instance()
         if kube_manager is not None:
-            for key, value in kube_manager.monitors.items():
+            for key, value in list(kube_manager.monitors.items()):
                 statuses[key + '_monitor'] = value._is_kube_api_server_alive()
 
         response = introspect.KubeApiConnectionStatusResp(

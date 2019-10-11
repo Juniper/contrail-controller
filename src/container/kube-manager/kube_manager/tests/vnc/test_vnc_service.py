@@ -2,6 +2,9 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import range
+from past.builtins import basestring
 from gevent import monkey
 
 monkey.patch_all()
@@ -321,7 +324,7 @@ class VncServiceTest(KMTestCase):
 
         srvs_data = []
         first_ip = self.external_ip
-        for i in xrange(scale):
+        for i in range(scale):
             srv_name = namespace_name + str(i)
             self.external_ip = (IPAddress(first_ip) + i).format()
             ports, srv_meta, srv_uuid = \
@@ -423,7 +426,7 @@ class VncServiceTest(KMTestCase):
         else:
             pub_fip_objs = \
                 [self._vnc_lib.floating_ip_read(id=pub_fips[i]['uuid'])
-                 for i in xrange(len(pub_fips))]
+                 for i in range(len(pub_fips))]
             pub_fip_ips = [ ip.floating_ip_address for ip in pub_fip_objs ]
             idx = pub_fip_ips.index(self.external_ip)
             self.pub_fip_obj_uuid = pub_fip_objs[idx].uuid
@@ -489,8 +492,8 @@ class VncServiceTest(KMTestCase):
         expected_port = ports[0]['port']
         ll_entries = proj_obj.linklocal_services.linklocal_service_entry
         ll_port_numbers = { ll_entries[i].linklocal_service_port
-                            for i in xrange(len(ll_entries))}
-        port_numbers = { ports[i]['port'] for i in xrange(len(ports)) }
+                            for i in range(len(ll_entries))}
+        port_numbers = { ports[i]['port'] for i in range(len(ports)) }
         self.assertTrue(ll_port_numbers == port_numbers)
 
     def _assert_loadbalancer_pool(self, lb_pool, ports):
@@ -500,7 +503,7 @@ class VncServiceTest(KMTestCase):
 
     def _assert_loadbalancer_listener(self, lb_listener, ports):
         matching_ports = [
-            ports[i] for i in xrange(len(ports))
+            ports[i] for i in range(len(ports))
             if ports[i]['port'] ==
                lb_listener.loadbalancer_listener_properties.protocol_port and
                ports[i]['protocol'] ==

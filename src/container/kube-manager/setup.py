@@ -21,6 +21,8 @@ setuptools.setup(
 
     test_suite='kube_manager.tests',
 
+    install_requires=['configparser==3.5.3', 'future==0.16.0'],
+
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
