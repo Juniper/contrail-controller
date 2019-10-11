@@ -7,6 +7,7 @@
 Logger for Opencontrail CNI
 """
 
+from builtins import object
 import logging
 
 

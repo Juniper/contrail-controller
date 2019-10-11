@@ -8,6 +8,7 @@ CNI implementation
 Demultiplexes on the CNI_COMMAND and runs the necessary operation
 """
 from __future__ import absolute_import
+from builtins import str
 import ctypes
 import errno
 import inspect

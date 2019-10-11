@@ -4,6 +4,8 @@
 
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import object
 from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_api.vnc_api import (KeyValuePair,KeyValuePairs)
 from .config_db import DBBaseKM

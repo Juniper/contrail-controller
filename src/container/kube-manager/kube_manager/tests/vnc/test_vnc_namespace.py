@@ -2,6 +2,8 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import range
 import uuid
 
 from kube_manager.tests.vnc.test_case import KMTestCase
@@ -217,7 +219,7 @@ class VncNamespaceTestScaling(VncNamespaceTest):
         ns_uuids = []
         proj_name = kube_config.VncKubernetesConfig.cluster_project_name(
                                                     self.cluster_project)
-        for i in xrange(scale):
+        for i in range(scale):
             ns_uuid = self._create_and_add_namespace(self.ns_name + str(i), {},
                                                      None, locate=True)
             proj = self._vnc_lib.project_read(fq_name=["default-domain",
@@ -268,7 +270,7 @@ class VncNamespaceLabelsTest(VncNamespaceTestClusterProjectDefined):
 
     def _validate_tags(self, labels, validate_delete=False, proj_obj=None):
 
-        for key, value in labels.iteritems():
+        for key, value in labels.items():
             tag_fq_name = self._construct_tag_fq_name(key, value)
             try:
                 tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
