@@ -93,7 +93,7 @@ class FilterModule(object):
         self.device_phy_role = device_info['physical_role']
         self.device_rb_roles = device_info.get('routing_bridging_roles', [])
         if not self.device_rb_roles:
-            self.device_rb_roles = ['null']
+            self.device_rb_roles = ['lean']
 
         self._prepare_render_env()
         self._load_role_to_feature_mapping()
