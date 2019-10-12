@@ -190,6 +190,24 @@
     },
     {
       "key": {
+        "uuid": "15326dab_5fad986f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-10-12T02:35:53Z",
+      "side": 1,
+      "message": "The validate_device_functional_group filter will always return None if dfg is not defined. That\u0027s why I check for it not being None.",
+      "parentUuid": "ceb0a38a_ce35b0c3",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "2e80c919_d774bc19",
         "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
         "patchSetId": 8
@@ -201,6 +219,24 @@
       "writtenOn": "2019-10-11T20:01:55Z",
       "side": 1,
       "message": "Is not dfg_os_version the same as dog_os_version !\u003d \"\" ?\n\nIf so, this check is good",
+      "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2c21fc91_5aad2293",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/ztp_select_image.yml",
+        "patchSetId": 8
+      },
+      "lineNbr": 51,
+      "author": {
+        "id": 509
+      },
+      "writtenOn": "2019-10-12T02:35:53Z",
+      "side": 1,
+      "message": "Yes. Ansible recommended using not instead of equating it to \"\".",
+      "parentUuid": "2e80c919_d774bc19",
       "revId": "8580ec1bd690c2d2b615807f244bab059fe7b932",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
