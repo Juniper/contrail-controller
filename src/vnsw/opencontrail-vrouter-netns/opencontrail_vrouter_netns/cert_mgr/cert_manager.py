@@ -1,17 +1,19 @@
+from __future__ import absolute_import
+from builtins import object
 import logging
 import exceptions
 
 try:
-    from barbican_cert_manager import BarbicanCertManager
+    from .barbican_cert_manager import BarbicanCertManager
 except ImportError:
     pass
 
 try:
-    from kubernetes_cert import KubernetesCert
+    from .kubernetes_cert import KubernetesCert
 except ImportError:
     pass
 
-class CertManager:
+class CertManager(object):
 
     def __init__(self):
         pass

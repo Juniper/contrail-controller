@@ -1,5 +1,7 @@
 #!/bin/env python
 
+from __future__ import print_function
+from builtins import object
 import argparse
 from vnc_api.vnc_api import *
 
@@ -34,7 +36,7 @@ class NetworkManager(object):
         fq_name = netname.split(':')
         try:
             vnet = self._client.virtual_network_read(fq_name=fq_name)
-            print 'Network %s already exists' % netname
+            print('Network %s already exists' % netname)
             sys.exit(1)
         except NoIdError:
             pass
@@ -53,7 +55,7 @@ class NetworkManager(object):
         try:
             vnet = self._client.virtual_network_read(fq_name=fq_name)
         except NoIdError:
-            print 'Network %s does not exist' % netname
+            print('Network %s does not exist' % netname)
             sys.exit(1)
 
         self._client.virtual_network_delete(id=vnet.uuid)
@@ -65,11 +67,11 @@ class NetworkManager(object):
         try:
             vnet = self._client.virtual_network_read(fq_name=fq_name)
         except NoIdError:
-            print 'Network %s does not exist' % netname
+            print('Network %s does not exist' % netname)
             sys.exit(1)
 
-        print 'name: %s' % ':'.join(vnet.fq_name)
-        print 'uuid: %s' % vnet.uuid
+        print('name: %s' % ':'.join(vnet.fq_name))
+        print('uuid: %s' % vnet.uuid)
 
         ipam_refs = vnet.get_network_ipam_refs()
         if ipam_refs is None:
@@ -77,7 +79,7 @@ class NetworkManager(object):
         for iref in ipam_refs:
             subnets = iref['attr'].ipam_subnets
             for snet in subnets:
-                print '    ',
+                print('    ', end=' ')
                 print(snet.subnet.__dict__)
 
         instance_list = vnet.get_routing_instances()
@@ -85,14 +87,14 @@ class NetworkManager(object):
             rt_instance = self._client.routing_instance_read(
                 id=instance_list[0]['uuid'])
             for rt in rt_instance.route_target_refs:
-                print '    ',
-                print(rt['to'][0], rt['attr'].__dict__)
+                print('    ', end=' ')
+                print((rt['to'][0], rt['attr'].__dict__))
     # end show
 
     def _rti_rtarget_add(self, vnet, rtarget_str, direction):
         instance_list = vnet.get_routing_instances()
         if len(instance_list) == 0:
-            print 'Routing instance not found'
+            print('Routing instance not found')
             sys.exit(1)
 
         rt_instance = self._client.routing_instance_read(
@@ -115,7 +117,7 @@ class NetworkManager(object):
     def _rti_rtarget_del(self, vnet, rtarget_str, direction):
         instance_list = vnet.get_routing_instances()
         if len(instance_list) == 0:
-            print 'Routing instance not found'
+            print('Routing instance not found')
             sys.exit(1)
 
         rt_instance = self._client.routing_instance_read(
@@ -134,7 +136,7 @@ class NetworkManager(object):
         try:
             vnet = self._client.virtual_network_read(fq_name=fq_name)
         except NoIdError:
-            print 'Network %s does not exist' % netname
+            print('Network %s does not exist' % netname)
             sys.exit(1)
 
         rtarget_str = 'target:%s' % rtarget
@@ -163,7 +165,7 @@ class NetworkManager(object):
         try:
             vnet = self._client.virtual_network_read(fq_name=fq_name)
         except NoIdError:
-            print 'Network %s does not exist' % netname
+            print('Network %s does not exist' % netname)
             sys.exit(1)
 
         rtarget_str = 'target:%s' % rtarget
