@@ -10,7 +10,10 @@ associated to that network IPAM.
 Eg. python set_dns_nameserver.py --domain-name default-domain:default-project:default-network-ipam
                                  --name-server-ips []
 """
+from __future__ import print_function
 
+from builtins import str
+from builtins import object
 import argparse
 import netaddr
 import sys

@@ -3,9 +3,13 @@
 #Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import argparse
-import ConfigParser
+import configparser
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
@@ -21,21 +25,21 @@ class AssociateVirtualDns(object):
 
         if self._args.ipam_dns_method == "none" or self._args.ipam_dns_method == "default-dns-server":
             if self._args.vdns_fqname:
-                print 'vdns_fqname should not be configured when ipam_dns_method is none/default-dns-server'
+                print('vdns_fqname should not be configured when ipam_dns_method is none/default-dns-server')
                 return
             if self._args.tenant_dns_servers:
-                print 'tenant_dns_servers should not be configured when ipam_dns_method is none/default-dns-server'
+                print('tenant_dns_servers should not be configured when ipam_dns_method is none/default-dns-server')
                 return
         
         ipam_dns_srv_obj = None
         if self._args.ipam_dns_method == "virtual-dns-server":
             if not self._args.vdns_fqname:
-                print 'vdns_fqname is mandatory for ipam method of virtual-dns-server'
+                print('vdns_fqname is mandatory for ipam method of virtual-dns-server')
                 return
             ipam_dns_srv_obj = IpamDnsAddressType(virtual_dns_server_name=self._args.vdns_fqname)
         elif self._args.ipam_dns_method == "tenant-dns-server":
             if not self._args.tenant_dns_servers:
-                print 'tenant-dns-servers is mandatory for ipam method of tenant-dns-server'
+                print('tenant-dns-servers is mandatory for ipam method of tenant-dns-server')
                 return
             dict_servers = {}
             dict_servers['ip_address']=self._args.tenant_dns_servers
@@ -46,7 +50,7 @@ class AssociateVirtualDns(object):
                                     self._args.admin_tenant_name, 
                                     self._args.api_server_ip, self._args.api_server_port)
         except ConnectionError:
-             print 'Connection to API server failed '
+             print('Connection to API server failed ')
              return
 
         dp_obj.associate_vdns_with_ipam(self._args.ipam_fqname, self._args.ipam_dns_method, ipam_dns_srv_obj)

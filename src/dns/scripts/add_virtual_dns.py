@@ -3,9 +3,13 @@
 #Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import argparse
-import ConfigParser
+import configparser
 
 from provision_dns import DnsProvisioner
 from requests.exceptions import ConnectionError
@@ -21,15 +25,15 @@ class AddVirtualDns(object):
             self._args.ttl = 86400
 
         if self._args.ttl < 0 or self._args.ttl > 2147483647:
-            print 'Invalid ttl value ' , self._args.ttl 
+            print('Invalid ttl value ' , self._args.ttl) 
             return
 
         if not DnsProvisioner.is_valid_ipv4_address(self._args.api_server_ip):
-            print 'Invalid IPv4 address ', self._args.api_server_ip
+            print('Invalid IPv4 address ', self._args.api_server_ip)
             return
 
         if not DnsProvisioner.is_valid_dns_name(self._args.dns_domain):
-            print 'Domain name does not satisfy DNS name requirements: ', self._args.dns_domain
+            print('Domain name does not satisfy DNS name requirements: ', self._args.dns_domain)
             return
 
         try:
@@ -37,7 +41,7 @@ class AddVirtualDns(object):
                                     self._args.admin_tenant_name, 
                                     self._args.api_server_ip, self._args.api_server_port)
         except ConnectionError:
-             print 'Connection to API server failed '
+             print('Connection to API server failed ')
              return
   
         if self._args.dyn_updates:
