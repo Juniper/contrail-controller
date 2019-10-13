@@ -14,10 +14,13 @@ o contrail-named-base.conf will be merged with contrail-named.conf
    by the script and config applied to named
 """
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import sys
 import os
 import subprocess
-import ConfigParser
+import configparser
 import logging
 
 def setup_logger():
@@ -54,7 +57,7 @@ def parse_contrail_dns_conf():
     subprocess.call(["sed -i 's/[;#].*$//g' /etc/contrail/dns/contrail-dns-temp.conf"], shell=True)
 
     # parse contrail-dns.conf
-    dns_config = ConfigParser.SafeConfigParser()
+    dns_config = configparser.SafeConfigParser()
     dns_config.read('/etc/contrail/dns/contrail-dns-temp.conf')
 
     # remove the temp file

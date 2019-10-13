@@ -3,6 +3,8 @@
 #Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from builtins import object
 import json
 import copy
 import re
@@ -70,14 +72,14 @@ class DnsProvisioner(object):
         try:
             domain_obj = vnc_lib.domain_read(fq_name=domain_name_list_list)
         except NoIdError:
-            print 'Domain ' + domain_name + ' not found!'
+            print('Domain ' + domain_name + ' not found!')
             return
        
         if next_vdns and len(next_vdns):
             try:
                 next_vdns_obj = vnc_lib.virtual_DNS_read(fq_name_str = next_vdns)
             except NoIdError:
-                print 'Virtual DNS ' + next_vdns + ' not found!'
+                print('Virtual DNS ' + next_vdns + ' not found!')
                 return
 
         vdns_str = ':'.join([domain_name, name])
@@ -95,7 +97,7 @@ class DnsProvisioner(object):
         #Verify this VDNS is not being referred by any other VDNSs as next-DNS
         vdns_list = vnc_lib.virtual_DNSs_list() 
         vdns_list = json.loads(vdns_list)
-        for k, v in vdns_list.iteritems():
+        for k, v in vdns_list.items():
             for elem in v:
                 fqname = elem["fq_name"][0] + ':' + elem["fq_name"][1]
                 if fqname == vdns_fqname_str:
@@ -103,13 +105,13 @@ class DnsProvisioner(object):
                 vdns_obj = vnc_lib.virtual_DNS_read(elem["fq_name"])
                 vdns_data = vdns_obj.get_virtual_DNS_data()
                 if vdns_data.get_next_virtual_DNS() == vdns_fqname_str:
-                    print 'Virtual DNS ' + vdns_fqname_str + ' is being referred by ' + vdns_obj.get_fq_name_str()
+                    print('Virtual DNS ' + vdns_fqname_str + ' is being referred by ' + vdns_obj.get_fq_name_str())
                     return
         #end vdns_list for
         try:
             vnc_lib.virtual_DNS_delete(vdns_fqname)
         except NoIdError:
-            print 'Virtual DNS ' + vdns_fqname_str + ' not found!'
+            print('Virtual DNS ' + vdns_fqname_str + ' not found!')
     #end del_virtual_dns
 
     def add_virtual_dns_record(self, name, vdns_fqname_str, rec_name, rec_type, rec_class, rec_data, rec_ttl):
@@ -117,7 +119,7 @@ class DnsProvisioner(object):
         try:
             vdns_obj = vnc_lib.virtual_DNS_read(fq_name_str = vdns_fqname_str)
         except NoIdError:
-            print 'Virtual DNS ' + vdns_fqname_str + ' not found!'
+            print('Virtual DNS ' + vdns_fqname_str + ' not found!')
             return
         vdns_rec_data = VirtualDnsRecordType(rec_name, rec_type, rec_class, rec_data, int(rec_ttl))
         vdns_rec_obj = VirtualDnsRecord(name, vdns_obj, vdns_rec_data)
@@ -130,7 +132,7 @@ class DnsProvisioner(object):
         try:
             vnc_lib.virtual_DNS_record_delete(fq_name = rec_fqname)
         except NoIdError:
-            print 'Virtual DNS Record ' + vdns_rec_fqname + ' not found!'
+            print('Virtual DNS Record ' + vdns_rec_fqname + ' not found!')
     #end del_virtual_dns_record
 
     def associate_vdns_with_ipam(self, ipam_fqname_str, ipam_dns_method, dns_srv_obj):
@@ -139,7 +141,7 @@ class DnsProvisioner(object):
         try:
             ipam_obj = vnc_lib.network_ipam_read(ipam_fqname)
         except NoIdError:
-            print 'Network Ipam ' + ipam_fqname_str + ' not found!'
+            print('Network Ipam ' + ipam_fqname_str + ' not found!')
             return
 
         if ipam_dns_method == "virtual-dns-server":
@@ -152,7 +154,7 @@ class DnsProvisioner(object):
             try:
                 vdns_obj = vnc_lib.virtual_DNS_read(vdns_fqname)
             except NoIdError:
-                print 'Virtual DNS ' + vdns_fqname_str + ' not found!'
+                print('Virtual DNS ' + vdns_fqname_str + ' not found!')
                 return
             ipam_obj.add_virtual_DNS(vdns_obj)
         
@@ -172,14 +174,14 @@ class DnsProvisioner(object):
         try:
             ipam_obj = vnc_lib.network_ipam_read(ipam_fqname)
         except NoIdError:
-            print 'Network Ipam ' + ipam_fqname_str + ' not found!'
+            print('Network Ipam ' + ipam_fqname_str + ' not found!')
             return
         if vdns_fqname_str:
             vdns_fqname = vdns_fqname_str.split(':')
             try:
                 vdns_obj = vnc_lib.virtual_DNS_read(vdns_fqname)
             except NoIdError:
-                print 'Virtual DNS ' + vdns_fqname_str + ' not found!'
+                print('Virtual DNS ' + vdns_fqname_str + ' not found!')
                 return
             found = False
             vdns_list = ipam_obj.get_virtual_DNS_refs()
@@ -190,7 +192,7 @@ class DnsProvisioner(object):
                     found = True
                     break
             if not found:
-                print 'The specified VDNS is not associated to specified Ipam'
+                print('The specified VDNS is not associated to specified Ipam')
                 return
             ipam_obj.del_virtual_DNS(vdns_obj)
         ipam_mgmt_obj = ipam_obj.get_network_ipam_mgmt()
