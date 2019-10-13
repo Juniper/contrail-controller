@@ -3,9 +3,13 @@
 #Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import argparse
-import ConfigParser
+import configparser
 
 from provision_dns import DnsProvisioner
 from requests.exceptions import ConnectionError
@@ -22,7 +26,7 @@ class DisassociateVirtualDns(object):
                                     self._args.admin_tenant_name, 
                                     self._args.api_server_ip, self._args.api_server_port)
         except ConnectionError:
-             print 'Connection to API server failed '
+             print('Connection to API server failed ')
              return
     
         dp_obj.disassociate_vdns_from_ipam(self._args.ipam_fqname, self._args.vdns_fqname)
