@@ -87,6 +87,51 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         return self._vnc_lib.route_target_read(
             ri_obj.get_route_target_refs()[0]['to'])
 
+    def test_asn_change_when_zk_rt_missing(self):
+        vn_obj = self.create_virtual_network('vn_for_asn' + self.id(), '10.0.0.0/24')
+        ri_fq_name = vn_obj.fq_name + [vn_obj.fq_name[-1]]
+        rt_obj = self.wait_for_route_target(vn_obj)
+        rt_id_str = "%(#)010d" % {
+            '#': int(rt_obj.get_fq_name_str().split(':')[-1])}
+        db_checker = db_manage.DatabaseChecker(
+            *db_manage._parse_args('check --cluster_id %s' % self._cluster_id))
+        path = '%s%s%s' % (
+            self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_id_str)
+        self.assertEqual(db_checker._zk_client.get(path)[0],
+                         ':'.join(ri_fq_name))
+        with db_checker._zk_client.patch_path(path):
+            errors = db_checker.check_route_targets_id()
+            error_types = [type(x) for x in errors]
+            self.assertIn(db_manage.SchemaRTgtIdExtraError, error_types)
+            self.assertIn(db_manage.ConfigRTgtIdExtraError, error_types)
+
+            free_rt_orig = SchemaTransformerDB.free_route_target
+
+            # Flag to be used to check free_route_target function failure
+            has_test_failed = [False]
+            def mock_free_rt(*args, **kwargs):
+                try:
+                    return free_rt_orig(*args, **kwargs)
+                except Exception:
+                    has_test_failed[0] = True
+
+
+            SchemaTransformerDB.free_route_target = mock_free_rt
+            gsc = self._vnc_lib.global_system_config_read(GlobalSystemConfig().fq_name)
+
+
+            gsc.enable_4byte_as = True
+            gsc.autonomous_system = 81000
+            self._vnc_lib.global_system_config_update(gsc)
+
+            # Wait for Schema_tranformer to process ASN change
+            gevent.sleep(10)
+            SchemaTransformerDB.free_route_target = free_rt_orig
+            if has_test_failed[0]:
+                self.fail("free_route_target failed in schema transformer")
+
+    # test_db_manage_zk_route_target_missing
+
     def test_db_manage_zk_route_target_missing(self):
         vn_obj = self.create_virtual_network('vn_' + self.id(), '10.0.0.0/24')
         ri_fq_name = vn_obj.fq_name + [vn_obj.fq_name[-1]]
