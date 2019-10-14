@@ -6,10 +6,10 @@ import os
 import subprocess
 import psutil
 
-from common_sys_cpu import SysCpuShare
+from nodemgr.common.common_sys_cpu import SysCpuShare
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo, CpuLoadAvg
-from sandesh.nodeinfo.process_info.ttypes import DiskPartitionUsageStats
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo, CpuLoadAvg
+from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import DiskPartitionUsageStats
 
 
 class LinuxSysData(object):
@@ -90,12 +90,13 @@ class LinuxSysData(object):
         (core_pattern, _) = subprocess.Popen(
                 cat_command.split(),
                 stdout=subprocess.PIPE, close_fds=True).communicate()
+        core_pattern = core_pattern.decode()
         if core_pattern is not None and not core_pattern.startswith('|'):
             dirname_cmd = "dirname " + core_pattern
             (self.core_file_path, _) = subprocess.Popen(
                 dirname_cmd.split(),
                 stdout=subprocess.PIPE, close_fds=True).communicate()
-        return self.core_file_path.rstrip()
+        return self.core_file_path.decode().rstrip()
 
     def find_corefile(self, name_pattern):
         find_command_option = (
@@ -104,7 +105,7 @@ class LinuxSysData(object):
         (corename, _) = subprocess.Popen(
             find_command_option.split(),
             stdout=subprocess.PIPE, close_fds=True).communicate()
-        return corename
+        return corename.decode()
 
     def get_corefiles(self):
         try:
@@ -119,7 +120,8 @@ class LinuxSysData(object):
         else:
             exception_set = {"lost+found"}
             return [self._get_corefile_path() + '/' + core
-                    for core in corenames.split() if core not in exception_set]
+                    for core in corenames.decode().split()
+                    if core not in exception_set]
 
     def remove_corefiles(self, core_files):
         for core_file in core_files:
@@ -150,6 +152,7 @@ class LinuxSysData(object):
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             close_fds=True)
         for line in partition.stdout:
+            line = line.decode()
             if 'Filesystem' in line:
                 continue
             partition_name = line.rsplit()[0]

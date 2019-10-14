@@ -1,7 +1,7 @@
 import os
 import sys
 
-from haproxy_stats import HaproxyStats
+from nodemgr.vrouter_nodemgr.haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
     LoadbalancerStats, UveLoadbalancerStats, UveLoadbalancerTrace
 from pysandesh.sandesh_logger import SandeshLogger

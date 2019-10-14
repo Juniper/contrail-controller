@@ -5,7 +5,7 @@
 import psutil
 import time
 
-from sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
 class WindowsProcessMemCpuUsageData(object):
     def __init__(self, pid, last_cpu, last_time):
