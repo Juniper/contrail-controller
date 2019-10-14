@@ -439,12 +439,13 @@ class AnsibleRoleCommon(AnsibleConf):
                 if sg not in sg_list:
                     sg_list.append(sg)
 
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
+#        for sg in sg_list or []:
+#            acls = sg.access_control_lists
+#            for acl in acls or []:
+#                acl = AccessControlListDM.get(acl)
+#                if acl and not acl.is_ingress:
+#	            print "XXXXXX attach-acl firewall-filters monotlithic-config XXXXXX "
+#                    self.build_firewall_filters(sg, acl)
 
         if interface.li_uuid:
             interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
@@ -750,6 +751,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_ether_type_term
 
     def build_firewall_filters(self, sg, acl, is_egress=False):
+	print "XXXXXX firewall-filters monotlithic-config XXXXXX "
         acl_rule_present = False
         if not sg or not acl or not acl.vnc_obj:
             return
@@ -808,6 +810,7 @@ class AnsibleRoleCommon(AnsibleConf):
             return
         sg_list = []
 
+	print "XXXXXX firewall_config monotlithic-config XXXXXX "
         if LogicalInterfaceDM.get_sg_list():
             sg_list += LogicalInterfaceDM.get_sg_list()
 
@@ -1475,7 +1478,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_internal_vn_irb_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
-        self.build_firewall_config()
+#        self.build_firewall_config()
         self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
