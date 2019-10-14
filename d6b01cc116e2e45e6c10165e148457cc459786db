@@ -16,6 +16,24 @@
       "revId": "d6b01cc116e2e45e6c10165e148457cc459786db",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "94a3a3ac_b41732ca",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/global_system_config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 86,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-10-14T21:10:34Z",
+      "side": 1,
+      "message": "Nagendra, to handle empty strings, I have added additional check in the patch.",
+      "parentUuid": "66349557_1698c571",
+      "revId": "d6b01cc116e2e45e6c10165e148457cc459786db",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
