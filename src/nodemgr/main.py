@@ -2,7 +2,7 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-#!/usr/bin/python
+#!/usr/bin/python3
 
 
 doc = """\
@@ -36,7 +36,7 @@ from gevent import monkey
 monkey.patch_all()
 
 import argparse
-import ConfigParser
+from six.moves.configparser import ConfigParser,SafeConfigParser,NoOptionError
 import gevent
 import os
 import platform
@@ -46,14 +46,14 @@ import sys
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
-from analytics_nodemgr.event_manager import AnalyticsEventManager
-from analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
-from analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
-from config_nodemgr.event_manager import ConfigEventManager
-from control_nodemgr.event_manager import ControlEventManager
-from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
-from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
-from vrouter_nodemgr.event_manager import VrouterEventManager
+from nodemgr.analytics_nodemgr.event_manager import AnalyticsEventManager
+from nodemgr.analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
+from nodemgr.analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
+from nodemgr.config_nodemgr.event_manager import ConfigEventManager
+from nodemgr.control_nodemgr.event_manager import ControlEventManager
+from nodemgr.analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
+from nodemgr.config_database_nodemgr.event_manager import ConfigDatabaseEventManager
+from nodemgr.vrouter_nodemgr.event_manager import VrouterEventManager
 
 
 node_properties = {
@@ -135,7 +135,7 @@ node_properties = {
 
 
 def print_usage_and_exit():
-    print doc
+    print(doc)
     sys.exit(255)
 
 
@@ -187,7 +187,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     if (os.path.exists(config_file_path) == False):
         sys.stderr.write("config file '" + config_file_path + "' is not present\n")
         sys.exit(1)
-    config = ConfigParser.SafeConfigParser()
+    config = SafeConfigParser()
     config.read([config_file_path])
     if 'DEFAULTS' in config.sections():
         default.update(dict(config.items('DEFAULTS')))
@@ -195,7 +195,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         try:
             collector = config.get('COLLECTOR', 'server_list')
             default['collectors'] = collector.split()
-        except ConfigParser.NoOptionError:
+        except NoOptionError:
             pass
     SandeshConfig.update_options(sandesh_opts, config)
     parser = argparse.ArgumentParser(parents=[node_parser],

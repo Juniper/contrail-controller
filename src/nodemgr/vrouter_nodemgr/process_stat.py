@@ -3,8 +3,8 @@
 #
 
 import os
-from StringIO import StringIO
-import ConfigParser
+from io import StringIO
+from six.moves.configparser import ConfigParser,SafeConfigParser
 import sys
 import socket
 
@@ -38,7 +38,7 @@ class VrouterProcessStat(ProcessStat):
                         msg = "This file does not exist anymore so continuing:  "
                         self.msg_log(msg + filename, SandeshLevel.SYS_ERR)
                         continue
-                    Config = ConfigParser.SafeConfigParser()
+                    Config = SafeConfigParser()
                     Config.readfp(data)
                     sections = Config.sections()
                     if not sections[0]:
@@ -64,7 +64,7 @@ class VrouterProcessStat(ProcessStat):
                                 agent_name = \
                                     self.get_vrouter_tor_agent_name(args_val)
                                 return (proc_name, agent_name)
-                            except Exception, err:
+                            except Exception as err:
                                 msg = "Tor Agent command does " + \
                                       "not have config file : "
                                 self.msg_log(msg + command, SandeshLevel.SYS_ERR)
@@ -79,9 +79,9 @@ class VrouterProcessStat(ProcessStat):
             try:
                 data = StringIO('\n'.join(line.strip()
                                 for line in open(conf_file)))
-                Config = ConfigParser.SafeConfigParser()
+                Config = SafeConfigParser()
                 Config.readfp(data)
-            except Exception, err:
+            except Exception as err:
                 self.msg_log("Error reading file : " + conf_file + " Error : " + str(err),
                                 SandeshLevel.SYS_ERR)
                 return tor_agent_name

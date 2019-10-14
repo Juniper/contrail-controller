@@ -2,7 +2,7 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import ConfigParser
+from six.moves.configparser import ConfigParser, NoOptionError, SafeConfigParser
 import copy
 import gevent
 import hashlib
@@ -11,36 +11,35 @@ import random
 import signal
 import socket
 import time
-from ConfigParser import NoOptionError
 
-from buildinfo import build_info
+from .buildinfo import build_info
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig, sandesh_global
 from pysandesh.sandesh_logger import SandeshLogger
-from sandesh.nodeinfo.cpuinfo.ttypes import *
-from sandesh.nodeinfo.process_info.constants import ProcessStateNames
-from sandesh.nodeinfo.process_info.ttypes import (ProcessInfo, ProcessState,
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.constants import ProcessStateNames
+from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import (ProcessInfo, ProcessState,
                                                   ProcessStatus)
-from sandesh.nodeinfo.ttypes import *
-from sandesh.supervisor_events.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
+from nodemgr.common.sandesh.supervisor_events.ttypes import *
 from sandesh_common.vns.constants import (INSTANCE_ID_DEFAULT, Module2NodeType,
                                           ModuleNames, NodeTypeNames,
                                           ServiceHttpPortMap, UVENodeTypeNames)
 
-from process_stat import ProcessStat
-import utils
+from nodemgr.common.process_stat import ProcessStat
+from nodemgr.common import utils
 import os
 try:
-    from docker_process_manager import DockerProcessInfoManager
+    from nodemgr.common.docker_process_manager import DockerProcessInfoManager
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
     DockerProcessInfoManager = None
 if platform.system() == 'Windows':
-    from windows_sys_data import WindowsSysData
-    from windows_process_manager import WindowsProcessInfoManager
+    from nodemgr.common.windows_sys_data import WindowsSysData
+    from nodemgr.common.windows_process_manager import WindowsProcessInfoManager
 else:
-    from linux_sys_data import LinuxSysData
+    from nodemgr.common.linux_sys_data import LinuxSysData
 
 
 class EventManagerTypeInfo(object):
@@ -87,7 +86,7 @@ class EventManager(object):
         self.random_collectors = list()
         if config.collectors:
             config.collectors.sort()
-            self.collector_chksum = hashlib.md5("".join(config.collectors)).hexdigest()
+            self.collector_chksum = hashlib.md5(("".join(config.collectors)).encode()).hexdigest()
             self.random_collectors = random.sample(config.collectors, len(config.collectors))
 
         ConnectionState.init(self.sandesh_instance, self.hostname,
@@ -536,16 +535,16 @@ class EventManager(object):
 
     def nodemgr_sighup_handler(self):
         collector_list = list()
-        config = ConfigParser.SafeConfigParser()
+        config = SafeConfigParser()
         config.read([self.config.config_file_path])
         if 'COLLECTOR' in config.sections():
             try:
                 collector = config.get('COLLECTOR', 'server_list')
                 collector_list = collector.split()
-            except ConfigParser.NoOptionError:
+            except NoOptionError:
                 pass
         collector_list.sort()
-        new_chksum = hashlib.md5("".join(collector_list)).hexdigest()
+        new_chksum = hashlib.md5(("".join(collector_list)).encode()).hexdigest()
         if new_chksum != self.collector_chksum:
             self.collector_chksum = new_chksum
             self.random_collectors = random.sample(collector_list, len(collector_list))

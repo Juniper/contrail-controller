@@ -5,7 +5,7 @@
 import os
 import docker
 
-from sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
 
 
 class DockerMemCpuUsageData(object):

@@ -4,8 +4,8 @@
 
 import psutil
 
-from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
-from common_sys_cpu import SysCpuShare
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
+from nodemgr.common.common_sys_cpu import SysCpuShare
 
 
 class WindowsSysData(object):

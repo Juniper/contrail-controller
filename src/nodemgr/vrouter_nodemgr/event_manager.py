@@ -7,7 +7,7 @@ from gevent import monkey
 monkey.patch_all()
 
 from sandesh_common.vns.ttypes import Module
-from loadbalancer_stats import LoadbalancerStatsUVE
+from nodemgr.vrouter_nodemgr.loadbalancer_stats import LoadbalancerStatsUVE
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.vrouter_nodemgr.process_stat import VrouterProcessStat

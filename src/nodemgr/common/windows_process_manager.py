@@ -5,8 +5,8 @@
 import psutil
 import time
 
-import common_process_manager as cpm
-from windows_process_mem_cpu import WindowsProcessMemCpuUsageData
+import nodemgr.common.common_process_manager as cpm
+from nodemgr.common.windows_process_mem_cpu import WindowsProcessMemCpuUsageData
 
 
 def _get_process_by_name(name):
