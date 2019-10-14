@@ -3,8 +3,8 @@
 #
 
 import os
-from StringIO import StringIO
-import ConfigParser
+from io import StringIO
+from six.moves.configparser import ConfigParser, SafeConfigParser
 import sys
 import socket
 
@@ -12,6 +12,7 @@ from nodemgr.common.process_stat import ProcessStat
 
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
 
 class VrouterProcessStat(ProcessStat):
     def __init__(self, pname, host_ip, sandesh_logger, hostname=None):
@@ -33,12 +34,12 @@ class VrouterProcessStat(ProcessStat):
                         '/etc/contrail/supervisord_vrouter_files/' + file
                     try:
                         data = StringIO('\n'.join(line.strip()
-                                    for line in open(filename)))
+                                        for line in open(filename)))
                     except IOError:
                         msg = "This file does not exist anymore so continuing:  "
                         self.msg_log(msg + filename, SandeshLevel.SYS_ERR)
                         continue
-                    Config = ConfigParser.SafeConfigParser()
+                    Config = SafeConfigParser()
                     Config.readfp(data)
                     sections = Config.sections()
                     if not sections[0]:
@@ -64,12 +65,12 @@ class VrouterProcessStat(ProcessStat):
                                 agent_name = \
                                     self.get_vrouter_tor_agent_name(args_val)
                                 return (proc_name, agent_name)
-                            except Exception, err:
+                            except Exception as err:
                                 msg = "Tor Agent command does " + \
                                       "not have config file : "
                                 self.msg_log(msg + command, SandeshLevel.SYS_ERR)
-        return ('vrouter_group', socket.getfqdn(self.host_ip) if self.hostname \
-                                 is None else self.hostname)
+        return ('vrouter_group', socket.getfqdn(self.host_ip) if self.hostname
+                is None else self.hostname)
     # end get_vrouter_process_info
 
     # Read agent_name from vrouter-tor-agent conf file
@@ -79,11 +80,11 @@ class VrouterProcessStat(ProcessStat):
             try:
                 data = StringIO('\n'.join(line.strip()
                                 for line in open(conf_file)))
-                Config = ConfigParser.SafeConfigParser()
+                Config = SafeConfigParser()
                 Config.readfp(data)
-            except Exception, err:
+            except Exception as err:
                 self.msg_log("Error reading file : " + conf_file + " Error : " + str(err),
-                                SandeshLevel.SYS_ERR)
+                             SandeshLevel.SYS_ERR)
                 return tor_agent_name
             tor_agent_name = Config.get("DEFAULT", "agent_name")
         return tor_agent_name

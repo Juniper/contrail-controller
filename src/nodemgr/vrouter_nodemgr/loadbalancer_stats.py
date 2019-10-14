@@ -1,7 +1,7 @@
 import os
 import sys
 
-from haproxy_stats import HaproxyStats
+from nodemgr.vrouter_nodemgr.haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
     LoadbalancerStats, UveLoadbalancerStats, UveLoadbalancerTrace
 from pysandesh.sandesh_logger import SandeshLogger
@@ -9,17 +9,18 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
 
+
 class LoadbalancerStatsUVE(object):
     def __init__(self, logger, host_ip, hostname=None):
-       self.logger = logger
-       self.driver = HaproxyStats(logger, host_ip, hostname=hostname)
-       self.driver.logger = logger
-       if not self.driver.lbaas_dir:
-           self.driver.lbaas_dir = LB_BASE_DIR
-       try:
-           self.old_pool_uuids = os.listdir(self.driver.lbaas_dir)
-       except OSError:
-           self.old_pool_uuids = []
+        self.logger = logger
+        self.driver = HaproxyStats(logger, host_ip, hostname=hostname)
+        self.driver.logger = logger
+        if not self.driver.lbaas_dir:
+            self.driver.lbaas_dir = LB_BASE_DIR
+        try:
+            self.old_pool_uuids = os.listdir(self.driver.lbaas_dir)
+        except OSError:
+            self.old_pool_uuids = []
 
     def msg_log(self, msg, level):
         self.logger.log(SandeshLogger.get_py_logger_level(level), msg)
@@ -71,7 +72,7 @@ class LoadbalancerStatsUVE(object):
         # send stats
         for pool_uuid in pool_uuids:
             lb_stats = self.driver.get_stats(pool_uuid)
-            if not 'listener' in lb_stats or not len(lb_stats['listener']):
+            if 'listener' not in lb_stats or not len(lb_stats['listener']):
                 uve_lb = UveLoadbalancerStats(name=pool_uuid, deleted=True)
                 uve_lb.listener = {}
                 uve_lb.pool = {}

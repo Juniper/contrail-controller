@@ -3,11 +3,12 @@
 #
 
 from gevent import monkey
-monkey.patch_all()
 
 from sandesh_common.vns.ttypes import Module
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
+
+monkey.patch_all()
 
 
 class ControlEventManager(EventManager):
