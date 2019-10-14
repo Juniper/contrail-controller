@@ -4,8 +4,8 @@
 
 import psutil
 
-from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
-from common_sys_cpu import SysCpuShare
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
+from nodemgr.common.common_sys_cpu import SysCpuShare
 
 
 class WindowsSysData(object):
@@ -13,23 +13,23 @@ class WindowsSysData(object):
         self.sys_cpu_share = SysCpuShare(self.get_num_cpu())
 
     def get_num_socket(self):
-        return 1 # just a stub for now
+        return 1  # just a stub for now
 
     def get_num_cpu(self):
         return psutil.cpu_count()
 
     def get_num_core_per_socket(self):
-        return psutil.cpu_count(logical=False) / self.get_num_socket()
+        return psutil.cpu_count(logical=False) // self.get_num_socket()
 
     def get_num_thread_per_core(self):
-        return psutil.cpu_count(logical=False) / psutil.cpu_count()
+        return psutil.cpu_count(logical=False) // psutil.cpu_count()
 
     def get_sys_mem_info(self, node_type):
         sys_mem_info = SysMemInfo()
         virtmem_info = psutil.virtual_memory()
-        sys_mem_info.total = virtmem_info.total / 1024
-        sys_mem_info.used = virtmem_info.used / 1024
-        sys_mem_info.free = virtmem_info.free / 1024
+        sys_mem_info.total = virtmem_info.total // 1024
+        sys_mem_info.used = virtmem_info.used // 1024
+        sys_mem_info.free = virtmem_info.free // 1024
         sys_mem_info.node_type = node_type
         return sys_mem_info
 

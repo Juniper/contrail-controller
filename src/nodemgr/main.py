@@ -1,8 +1,7 @@
+#!/usr/bin/python
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
-
-#!/usr/bin/python
 
 
 doc = """\
@@ -10,33 +9,12 @@ Node manager listens to process state change events and
 other flag value change events to provide advanced service
 management functionality.
 
-Rules files looks like following:
-====================
-{ "Rules": [
-    {"process_name": "contrail-query-engine",
-     "process_state": "PROCESS_STATE_FATAL",
-     "action": "supervisorctl -s http://localhost:9002 """ + \
-    """\stop contrail-analytics-api"},
-    {"process_name": "contrail-query-engine",
-     "process_state": "PROCESS_STATE_STOPPED",
-     "action": "supervisorctl -s http://localhost:9002 """ + \
-    """\stop contrail-analytics-api"},
-    {"processname": "contrail-collector",
-     "process_state": "PROCESS_STATE_RUNNING",
-     "action": "/usr/bin/echo collector is starting >> /tmp/log"},
-    {"flag_name": "test", "flag_value":"true",
-     "action": "/usr/bin/echo flag test is set true >> /tmp/log.1"}
-     ]
-}
-====================
-
 """
 
 from gevent import monkey
-monkey.patch_all()
 
 import argparse
-import ConfigParser
+from six.moves.configparser import ConfigParser, SafeConfigParser, NoOptionError
 import gevent
 import os
 import platform
@@ -46,14 +24,16 @@ import sys
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 
-from analytics_nodemgr.event_manager import AnalyticsEventManager
-from analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
-from analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
-from config_nodemgr.event_manager import ConfigEventManager
-from control_nodemgr.event_manager import ControlEventManager
-from analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
-from config_database_nodemgr.event_manager import ConfigDatabaseEventManager
-from vrouter_nodemgr.event_manager import VrouterEventManager
+from nodemgr.analytics_nodemgr.event_manager import AnalyticsEventManager
+from nodemgr.analytics_alarm_nodemgr.event_manager import AnalyticsAlarmEventManager
+from nodemgr.analytics_snmp_nodemgr.event_manager import AnalyticsSNMPEventManager
+from nodemgr.config_nodemgr.event_manager import ConfigEventManager
+from nodemgr.control_nodemgr.event_manager import ControlEventManager
+from nodemgr.analytics_database_nodemgr.event_manager import AnalyticsDatabaseEventManager
+from nodemgr.config_database_nodemgr.event_manager import ConfigDatabaseEventManager
+from nodemgr.vrouter_nodemgr.event_manager import VrouterEventManager
+
+monkey.patch_all()
 
 
 node_properties = {
@@ -135,7 +115,7 @@ node_properties = {
 
 
 def print_usage_and_exit():
-    print doc
+    print(doc)
     sys.exit(255)
 
 
@@ -147,7 +127,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                              help='Type of node which nodemgr is managing')
     try:
         args, remaining_argv = node_parser.parse_known_args(args_str.split())
-    except:
+    except Exception:
         print_usage_and_exit()
     default = {'rules': '',
                'collectors': [],
@@ -167,10 +147,10 @@ def main(args_str=' '.join(sys.argv[1:])):
                'use_syslog': False,
                'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
                'hostname': None
-              }
+               }
     try:
         default['hostip'] = socket.gethostbyname(socket.getfqdn())
-    except:
+    except Exception:
         pass
     default.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
@@ -184,10 +164,10 @@ def main(args_str=' '.join(sys.argv[1:])):
     if platform.system() == 'Windows':
         config_file_path = os.environ['ProgramData'] + '/Contrail'
     config_file_path += node_properties[node_type]['config_file']
-    if (os.path.exists(config_file_path) == False):
+    if (os.path.exists(config_file_path) is False):
         sys.stderr.write("config file '" + config_file_path + "' is not present\n")
         sys.exit(1)
-    config = ConfigParser.SafeConfigParser()
+    config = SafeConfigParser()
     config.read([config_file_path])
     if 'DEFAULTS' in config.sections():
         default.update(dict(config.items('DEFAULTS')))
@@ -195,10 +175,11 @@ def main(args_str=' '.join(sys.argv[1:])):
         try:
             collector = config.get('COLLECTOR', 'server_list')
             default['collectors'] = collector.split()
-        except ConfigParser.NoOptionError:
+        except NoOptionError:
             pass
     SandeshConfig.update_options(sandesh_opts, config)
-    parser = argparse.ArgumentParser(parents=[node_parser],
+    parser = argparse.ArgumentParser(
+        parents=[node_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     default.update(sandesh_opts)
     parser.set_defaults(**default)
@@ -206,24 +187,26 @@ def main(args_str=' '.join(sys.argv[1:])):
                         help='Rules file to use for processing events')
     parser.add_argument("--collectors",
                         nargs='+',
-                        help='Collector addresses in format' +
-                             'ip1:port1 ip2:port2')
+                        help='Collector addresses in format'
+                             + 'ip1:port1 ip2:port2')
     parser.add_argument("--log_local", action="store_true",
-        help="Enable local logging of sandesh messages")
-    parser.add_argument("--log_level",
+                        help="Enable local logging of sandesh messages")
+    parser.add_argument(
+        "--log_level",
         help="Severity level for local logging of sandesh messages")
-    parser.add_argument("--log_category",
+    parser.add_argument(
+        "--log_category",
         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
-        help="Filename for the logs to be written to")
+                        help="Filename for the logs to be written to")
     parser.add_argument("--use_syslog", action="store_true",
-        help="Use syslog for logging")
+                        help="Use syslog for logging")
     parser.add_argument("--syslog_facility",
-        help="Syslog facility to receive log lines")
+                        help="Syslog facility to receive log lines")
     parser.add_argument("--corefile_path",
-        help="Location where coredump files are stored")
+                        help="Location where coredump files are stored")
     parser.add_argument("--hostname",
-        help="Custom Hostname")
+                        help="Custom Hostname")
     SandeshConfig.add_parser_arguments(parser, add_dscp=True)
     if (node_type == 'contrail-database'
             or node_type == 'contrail-config-database'):
@@ -250,7 +233,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                             help="Directory for storing repair logs")
     try:
         _args = parser.parse_args(remaining_argv)
-    except:
+    except Exception:
         print_usage_and_exit()
 
     _args.config_file_path = config_file_path
@@ -258,7 +241,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     # done parsing arguments
 
     # TODO: restore rule_file logic somehow if needed for microservices
-    #rule_file = _args.rules
+    # rule_file = _args.rules
 
     unit_names = node_properties[node_type]['unit_names']
     event_manager = node_properties[node_type]['event_manager'](_args, unit_names)
