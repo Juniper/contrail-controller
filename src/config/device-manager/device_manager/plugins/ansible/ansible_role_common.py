@@ -442,13 +442,6 @@ class AnsibleRoleCommon(AnsibleConf):
                 if sg not in sg_list:
                     sg_list.append(sg)
 
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
-
         if interface.li_uuid:
             interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
             if interface:
@@ -674,153 +667,6 @@ class AnsibleRoleCommon(AnsibleConf):
             return True
         return False
     # end has_vmi
-
-    def add_addr_term(self, term, addr_match, is_src):
-        if not addr_match:
-            return None
-        subnet = addr_match.get_subnet()
-        if not subnet:
-            return None
-        subnet_ip = subnet.get_ip_prefix()
-        subnet_len = subnet.get_ip_prefix_len()
-        if not subnet_ip or not subnet_len:
-            return None
-        from_ = term.get_from() or From()
-        term.set_from(from_)
-        if is_src:
-            from_.add_source_address(Subnet(prefix=subnet_ip,
-                                            prefix_len=subnet_len))
-        else:
-            from_.add_destination_address(Subnet(prefix=subnet_ip,
-                                                 prefix_len=subnet_len))
-    # end add_addr_term
-
-    def add_port_term(self, term, port_match, is_src):
-        if not port_match:
-            return None
-        start_port = port_match.get_start_port()
-        end_port = port_match.get_end_port()
-        if not start_port or not end_port:
-            return None
-        port_str = str(start_port) + "-" + str(end_port)
-        from_ = term.get_from() or From()
-        term.set_from(from_)
-        if is_src:
-            from_.add_source_ports(port_str)
-        else:
-            from_.add_destination_ports(port_str)
-    # end add_port_term
-
-    def add_protocol_term(self, term, protocol_match):
-        if not protocol_match or protocol_match == 'any':
-            return None
-        from_ = term.get_from() or From()
-        term.set_from(from_)
-        from_.set_ip_protocol(protocol_match)
-    # end add_protocol_term
-
-    def add_filter_term(self, ff, name):
-        term = Term()
-        term.set_name(name)
-        ff.add_terms(term)
-        term.set_then(Then(accept_or_reject=True))
-        return term
-
-    def add_dns_dhcp_terms(self, ff):
-        port_list = [67, 68, 53]
-        term = Term()
-        term.set_name("allow-dns-dhcp")
-        from_ = From()
-        from_.set_ip_protocol("udp")
-        term.set_from(from_)
-        for port in port_list:
-            from_.add_source_ports(str(port))
-        term.set_then(Then(accept_or_reject=True))
-        ff.add_terms(term)
-    # end add_dns_dhcp_terms
-
-    def add_ether_type_term(self, ff, ether_type_match):
-        if not ether_type_match:
-            return None
-        term = Term()
-        from_ = From()
-        term.set_from(from_)
-        term.set_name("ether-type")
-        from_.set_ether_type(ether_type_match.lower())
-        term.set_then(Then(accept_or_reject=True))
-        ff.add_terms(term)
-
-    # end add_ether_type_term
-
-    def build_firewall_filters(self, sg, acl, is_egress=False):
-        acl_rule_present = False
-        if not sg or not acl or not acl.vnc_obj:
-            return
-        acl = acl.vnc_obj
-        entries = acl.get_access_control_list_entries()
-        if not entries:
-            return
-        rules = entries.get_acl_rule() or []
-        if not rules:
-            return
-        self.firewall_config = self.firewall_config or\
-                               Firewall(DMUtils.firewall_comment())
-        for rule in rules:
-            if not self.has_terms(rule):
-                continue
-            match = rule.get_match_condition()
-            if not match:
-                continue
-            acl_rule_present = True
-            break
-
-        if acl_rule_present:
-            filter_name = DMUtils.make_sg_firewall_name(sg.name, acl.uuid)
-            f = FirewallFilter(name=filter_name)
-            f.set_comment(DMUtils.make_sg_firewall_comment(sg.name, acl.uuid))
-            # allow arp ether type always
-            self.add_ether_type_term(f, 'arp')
-            # allow dhcp/dns always
-            self.add_dns_dhcp_terms(f)
-            for rule in rules:
-                if not self.has_terms(rule):
-                    continue
-                match = rule.get_match_condition()
-                if not match:
-                    continue
-                rule_uuid = rule.get_rule_uuid()
-                dst_addr_match = match.get_dst_address()
-                dst_port_match = match.get_dst_port()
-                ether_type_match = match.get_ethertype()
-                protocol_match = match.get_protocol()
-                src_addr_match = match.get_src_address()
-                src_port_match = match.get_src_port()
-                term = self.add_filter_term(f, rule_uuid)
-                self.add_addr_term(term, dst_addr_match, False)
-                self.add_addr_term(term, src_addr_match, True)
-                self.add_port_term(term, dst_port_match, False)
-                # source port match is not needed for now (BMS source port)
-                #self.add_port_term(term, src_port_match, True)
-                self.add_protocol_term(term, protocol_match)
-            self.firewall_config.add_firewall_filters(f)
-    # end build_firewall_filters
-
-    def build_firewall_config(self):
-        pr = self.physical_router
-        if not pr:
-            return
-        sg_list = []
-
-        if LogicalInterfaceDM.get_sg_list():
-            sg_list += LogicalInterfaceDM.get_sg_list()
-
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
-    # end build_firewall_config
 
     def is_default_sg(self, match):
         if (not match.get_dst_address()) or \
@@ -1480,7 +1326,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_internal_vn_irb_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
-        self.build_firewall_config()
         self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
