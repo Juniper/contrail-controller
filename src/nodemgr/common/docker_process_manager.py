@@ -6,9 +6,9 @@ import docker
 import time
 import os
 
-from docker_mem_cpu import DockerMemCpuUsageData
+from nodemgr.common.docker_mem_cpu import DockerMemCpuUsageData
 from sandesh_common.vns.ttypes import Module
-import common_process_manager as cpm
+import nodemgr.common.common_process_manager as cpm
 
 
 # code calculates name from labels and then translate it to unit_name
