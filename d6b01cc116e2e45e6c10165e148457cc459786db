@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "66349557_1698c571",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/global_system_config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 86,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-10-14T20:49:41Z",
+      "side": 1,
+      "message": "if not ri_fq_name_in_str would be better",
+      "revId": "d6b01cc116e2e45e6c10165e148457cc459786db",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
