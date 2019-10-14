@@ -4,13 +4,14 @@
 
 import socket
 from gevent import monkey
-monkey.patch_all()
 
 from sandesh_common.vns.ttypes import Module
-from loadbalancer_stats import LoadbalancerStatsUVE
+from nodemgr.vrouter_nodemgr.loadbalancer_stats import LoadbalancerStatsUVE
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.vrouter_nodemgr.process_stat import VrouterProcessStat
+
+monkey.patch_all()
 
 
 class VrouterEventManager(EventManager):
@@ -19,11 +20,11 @@ class VrouterEventManager(EventManager):
             module_type=Module.COMPUTE_NODE_MGR,
             object_table='ObjectVRouter',
             sandesh_packages=['vrouter.loadbalancer'])
-        super(VrouterEventManager, self).__init__(config, type_info,
-                unit_names, update_process_list=True)
+        super(VrouterEventManager, self).__init__(
+            config, type_info, unit_names, update_process_list=True)
         self.host_ip = config.hostip
         self.hostname = socket.getfqdn(self.hostip) \
-                        if config.hostname is None else config.hostname
+            if config.hostname is None else config.hostname
         self.lb_stats = LoadbalancerStatsUVE(self.logger, self.host_ip,
                                              hostname=self.hostname)
 

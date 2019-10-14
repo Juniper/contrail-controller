@@ -3,12 +3,13 @@
 #
 
 from gevent import monkey
-monkey.patch_all()
 
 from sandesh_common.vns.ttypes import Module
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.common.cassandra_manager import CassandraManager
+
+monkey.patch_all()
 
 
 class AnalyticsDatabaseEventManager(EventManager):
@@ -21,7 +22,7 @@ class AnalyticsDatabaseEventManager(EventManager):
         super(AnalyticsDatabaseEventManager, self).__init__(
             config, type_info, unit_names)
         # TODO: try to understand is next needed here and use it or remove
-        #self.cassandra_repair_interval = config.cassandra_repair_interval
+        # self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_mgr = CassandraManager(
             config.cassandra_repair_logdir, 'analytics', table,
             config.hostip, config.minimum_diskgb,

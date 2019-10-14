@@ -30,6 +30,7 @@ TYPE_FRONTEND_RESPONSE = '0'
 TYPE_BACKEND_RESPONSE = '1'
 TYPE_SERVER_RESPONSE = '2'
 
+
 class HaproxyStats(object):
     def __init__(self, logger, host_ip, hostname=None):
         self.lbaas_dir = HAPROXY_DIR
@@ -70,7 +71,7 @@ class HaproxyStats(object):
                      for k, v in STATS_MAP.items())
         stats['name'] = name
         stats['vrouter'] = socket.getfqdn(self.host_ip) if self.hostname is None \
-                           else self.hostname
+            else self.hostname
         if stats['status'] in ['no check', 'UP', 'OPEN']:
             stats['status'] = 'ACTIVE'
         else:

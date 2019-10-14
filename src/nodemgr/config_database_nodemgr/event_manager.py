@@ -3,11 +3,12 @@
 #
 
 from gevent import monkey
-monkey.patch_all()
 
 from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.common.cassandra_manager import CassandraManager
 from sandesh_common.vns.ttypes import Module
+
+monkey.patch_all()
 
 
 class ConfigDatabaseEventManager(EventManager):

@@ -10,7 +10,7 @@ def get_package_version(pkg):
     if platform.system() == 'Windows':
         return None
 
-    #retrieve current installed version of pkg
+    # retrieve current installed version of pkg
     try:
         cmd = 'rpm -q --qf "%%{VERSION}-%%{RELEASE}" %s' % pkg
         return os.popen(cmd).read()

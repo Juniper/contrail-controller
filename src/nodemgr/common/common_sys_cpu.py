@@ -4,6 +4,7 @@
 
 import psutil
 
+
 class SysCpuShare(object):
     def __init__(self, num_cpu):
         self.last_cpu = 0

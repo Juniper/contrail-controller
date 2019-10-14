@@ -4,8 +4,8 @@
 
 import psutil
 
-from sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
-from common_sys_cpu import SysCpuShare
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import SysMemInfo, SysCpuInfo
+from nodemgr.common.common_sys_cpu import SysCpuShare
 
 
 class WindowsSysData(object):
@@ -13,7 +13,7 @@ class WindowsSysData(object):
         self.sys_cpu_share = SysCpuShare(self.get_num_cpu())
 
     def get_num_socket(self):
-        return 1 # just a stub for now
+        return 1  # just a stub for now
 
     def get_num_cpu(self):
         return psutil.cpu_count()
