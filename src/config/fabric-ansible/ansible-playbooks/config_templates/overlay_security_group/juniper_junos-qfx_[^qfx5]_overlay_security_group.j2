@@ -1,4 +1,4 @@
-{%     set firewall = device_abstract_config.get('firewall') %}
+{%     set firewall = device_abstract_config.get('features', {}).get('firewall', {}).get('firewall') %}
 {%     if firewall != None %}
 {%         set firewall_filters = firewall.get('firewall_filters', []) %}
 {%         for filter in firewall_filters %}
@@ -17,8 +17,8 @@
 {%                 set src_addrs = term_from.get('source_address', []) %}
 {%                 set src_ports = term_from.get('source_ports', []) %}
 {%                 set dst_ports = term_from.get('destination_ports', []) %}
-{%                 set ether_type = term_from.get('ether_type') %}
 {%                 set ip_proto = term_from.get('ip_protocol') %}
+{%                 set ether_type = term_from.get('ether_type') %}
 {%                 set term_then = term.get('then') %}
 {%                 if term_then == None %}
 {%                     continue %}
@@ -41,20 +41,27 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 {%                 if ip_proto %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ip-protocol {{ip_proto}}
 {%                 endif %}
-{%                 if then_accept_or_reject == True and (ether_type != 'arp') %}
+{%                 if ether_type %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ether-type {{ether_type}}
+{%                 endif %}
+{%                 if then_accept_or_reject == True %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
 {%                 endif %}
 {%             endfor %}
-set groups {{cfg_group}} firewall family ethernet-switching filter arp term t1 from ether-type arp
-set groups {{cfg_group}} firewall family ethernet-switching filter arp term t1 then accept
 {%         endfor %}
 {%     endif %}
-{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%     set sys_config = device_abstract_config.get('system', None) %}
+{%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{%     for phy_int in device_abstract_config.get('features', {}).get('firewall', {}).get('physical_interfaces', []) %}
 {%         for li in phy_int.get('logical_interfaces', []) %}
+{%             set unit = li.get('unit') %}
 {%             set firewall_filters = li.get('firewall_filters', []) %}
 {%             for firewall_filter in firewall_filters %}
+{%                 if 'ERB-UCAST-Gateway' in sys_roles %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching filter input-list {{firewall_filter}}
-set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching filter input-list arp
+{%                 else %}
+set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family ethernet-switching filter input-list {{firewall_filter}}
+{%                 endif %}
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}
