@@ -1261,6 +1261,12 @@
         },
         {
           "fq_name": [
+            "default-global-system-config", "firewall"
+          ],
+          "name": "firewall"
+        },
+        {
+          "fq_name": [
             "default-global-system-config", "telemetry"
           ],
           "name": "telemetry"
@@ -1799,6 +1805,12 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "firewall"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
+      "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry"]
     },
     {
@@ -1823,6 +1835,12 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
       "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "firewall"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry"]
     },
     {
@@ -1847,6 +1865,12 @@
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
       "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "firewall"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry"]
     },
     {
@@ -1932,6 +1956,12 @@
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "firewall" ]
     },
     {
       "from_type": "role-definition",
@@ -1962,6 +1992,12 @@
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "vn-interconnect" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "firewall" ]
     },
     {
       "from_type": "role-definition",
