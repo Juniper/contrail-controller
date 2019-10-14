@@ -442,13 +442,6 @@ class AnsibleRoleCommon(AnsibleConf):
                 if sg not in sg_list:
                     sg_list.append(sg)
 
-        for sg in sg_list or []:
-            acls = sg.access_control_lists
-            for acl in acls or []:
-                acl = AccessControlListDM.get(acl)
-                if acl and not acl.is_ingress:
-                    self.build_firewall_filters(sg, acl)
-
         if interface.li_uuid:
             interface = LogicalInterfaceDM.find_by_name_or_uuid(interface.li_uuid)
             if interface:
@@ -1480,7 +1473,6 @@ class AnsibleRoleCommon(AnsibleConf):
         self.set_internal_vn_irb_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
-        self.build_firewall_config()
         self.build_vpg_config()
         self.build_service_chaining_config()
     # end set_common_config
