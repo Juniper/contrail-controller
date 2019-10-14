@@ -4,6 +4,7 @@
 
 import psutil
 
+
 class SysCpuShare(object):
     def __init__(self, num_cpu):
         self.last_cpu = 0
@@ -32,7 +33,7 @@ class SysCpuShare(object):
         if interval_time == 0:
             return 0
 
-        sys_percent = 100 * sys_time / interval_time
-        usr_percent = 100 * usr_time / interval_time
+        sys_percent = 100 * sys_time // interval_time
+        usr_percent = 100 * usr_time // interval_time
         cpu_share = round((sys_percent + usr_percent) / self.num_cpu, 2)
         return cpu_share

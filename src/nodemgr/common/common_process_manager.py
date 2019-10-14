@@ -2,6 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+
 def dummy_process_info(name):
     info = dict()
     info['name'] = name
@@ -18,6 +19,7 @@ def convert_to_pi_event(info):
     if 'start' in pi_event:
         del pi_event['start']
     return pi_event
+
 
 class ProcessInfoCache(object):
     def __init__(self):

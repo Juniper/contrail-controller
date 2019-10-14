@@ -5,12 +5,13 @@
 import psutil
 import time
 
-import common_process_manager as cpm
-from windows_process_mem_cpu import WindowsProcessMemCpuUsageData
+import nodemgr.common.common_process_manager as cpm
+from nodemgr.common.windows_process_mem_cpu import WindowsProcessMemCpuUsageData
 
 
 def _get_process_by_name(name):
     return next((proc for proc in psutil.process_iter() if proc.name() == name), None)
+
 
 class WindowsProcessInfoManager(object):
     def __init__(self, event_handlers):
@@ -24,7 +25,7 @@ class WindowsProcessInfoManager(object):
         agent_name = 'contrail-vrouter-agent'
         agent_process = _get_process_by_name(agent_name + '.exe')
         info = cpm.dummy_process_info(agent_name)
-        if agent_process != None:
+        if agent_process is not None:
             info['statename'] = 'PROCESS_STATE_RUNNING'
             info['pid'] = agent_process.pid
             info['start'] = str(int(agent_process.create_time() * 1000000))
