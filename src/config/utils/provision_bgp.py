@@ -3,6 +3,9 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from builtins import str
+from builtins import object
 import json
 import copy
 from netaddr import IPNetwork
@@ -193,8 +196,8 @@ class BgpProvisioner(object):
         net_obj = vnc_lib.virtual_network_read(fq_name=rt_inst_fq_name[:-1])
 
         if rtgt_val not in net_obj.get_route_target_list().get_route_target():
-            print "%s not configured for VN %s" % (rtgt_val,
-                                                   rt_inst_fq_name[:-1])
+            print("%s not configured for VN %s" % (rtgt_val,
+                                                   rt_inst_fq_name[:-1]))
             return
 
         route_targets = net_obj.get_route_target_list()
