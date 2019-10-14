@@ -16,6 +16,24 @@
       "revId": "d8168ea62244efcbaa63b2dd18dd581893b8b0cd",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ea838435_448da6cd",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 259,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-10-14T15:30:11Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "aa3922b2_458e90b0",
+      "revId": "d8168ea62244efcbaa63b2dd18dd581893b8b0cd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
