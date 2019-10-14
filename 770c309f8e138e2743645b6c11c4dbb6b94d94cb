@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "890f8261_8d2f1ea1",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 2209,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-14T20:32:00Z",
+      "side": 1,
+      "message": "Please Use C++ style for comments.",
+      "revId": "770c309f8e138e2743645b6c11c4dbb6b94d94cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1cfcc753_15eb155c",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 2210,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-14T20:32:00Z",
+      "side": 1,
+      "message": "Why do you think route-\u003evrf() can be NULL ? I see that in the code that follows does not do any such check for route-\u003evrf(). In what scenario can route-\u003evrf()-\u003evn)() can be NULL ?",
+      "revId": "770c309f8e138e2743645b6c11c4dbb6b94d94cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
