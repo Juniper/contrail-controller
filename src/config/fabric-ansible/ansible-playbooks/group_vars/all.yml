@@ -239,9 +239,11 @@ role_to_feature_mapping:
 
 feature_based_plugin_roles:
   CRB-Access@leaf:
+    - overlay_security_group
     - overlay_storm_control
     - overlay_telemetry
   CRB-Access@spine:
+    - overlay_security_group
     - overlay_storm_control
     - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
@@ -251,12 +253,14 @@ feature_based_plugin_roles:
     - overlay_evpn_type5
     - overlay_evpn_ucast_gateway
     - overlay_dhcp_relay
+    - overlay_security_group
     - overlay_storm_control
     - overlay_telemetry
   CRB-Gateway@spine:
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@spine:
+    - overlay_security_group
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@spine:
@@ -269,6 +273,7 @@ feature_based_plugin_roles:
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@leaf:
+    - overlay_security_group
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@leaf:
