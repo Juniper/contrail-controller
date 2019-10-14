@@ -231,3 +231,4 @@ class NodeServer(ResourceMixin, Node):
         db_conn.config_log(str(msg), level=SandeshLevel.SYS_DEBUG)
         cls.process_node_profile(cls, id, None, obj_dict, db_conn)
         return True, ''
+
