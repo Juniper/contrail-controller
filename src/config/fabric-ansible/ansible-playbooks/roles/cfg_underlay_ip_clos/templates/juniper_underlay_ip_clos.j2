@@ -3,7 +3,7 @@
 {%             if ifd.name != 'lo0' %}
 set groups {{cfg_group}} interfaces {{ifd.name}} mtu 9192
 delete protocols rstp interface {{ifd.name}}
-{%         endif %}
+{%             endif %}
 {%             for ifl in ifd.get('logical_interfaces', []) %}
 {%                 if feature not in ifl.get('comment', '') %}
 {%                     continue %}
