@@ -13,7 +13,8 @@ import subprocess
 import xml.etree.ElementTree as etree
 
 from cfgm_common.exceptions import (
-    RefsExistError
+    RefsExistError,
+    NoIdError
 )
 import paramiko
 from vnc_api.gen.resource_client import PhysicalRouter
@@ -343,21 +344,6 @@ class DeviceInfo(object):
         pr_uuid = None
         msg = None
         dhcp_fq_name = None
-        try:
-            # delete the corresponding dhcp state PR object if it exists
-            dhcp_fq_name = ['default-global-system-config', oid_mapped.get(
-                'host')]
-            pr_obj = self.vncapi.physical_router_read(
-                fq_name=dhcp_fq_name,fields=['physical_router_managed_state'])
-
-            if pr_obj.get_physical_router_managed_state() == 'dhcp':
-                self.vncapi.physical_router_delete(fq_name=dhcp_fq_name)
-                self.logger.info(
-                    "Router {} in dhcp state deleted".format(dhcp_fq_name))
-        except NoIdError:
-            self.logger.info(
-                "Router {} in dhcp state doesn't exist".format(dhcp_fq_name))
-            pass
 
         try:
             os_version = oid_mapped.get('os-version', None)
@@ -422,6 +408,23 @@ class DeviceInfo(object):
             self.logger.error("VNC create failed with error: {}".format(str(
                 ex)))
             return False, None
+
+        try:
+            # delete the corresponding dhcp state PR object if it exists
+            dhcp_fq_name = ['default-global-system-config', oid_mapped.get(
+                'host')]
+            pr_obj = self.vncapi.physical_router_read(
+                fq_name=dhcp_fq_name,fields=['physical_router_managed_state'])
+
+            if pr_obj.get_physical_router_managed_state() == 'dhcp':
+                self.vncapi.physical_router_delete(fq_name=dhcp_fq_name)
+                self.logger.info(
+                    "Router {} in dhcp state deleted".format(dhcp_fq_name))
+        except(NoIdError, Exception) as ex:
+            self.logger.info(
+                "Router {} in dhcp state doesn't exist. Failed with "
+                "error {}".format(dhcp_fq_name, str(ex)))
+            pass
 
         self.module.send_job_object_log(
             msg,
