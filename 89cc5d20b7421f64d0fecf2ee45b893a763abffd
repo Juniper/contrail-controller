@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7ed5704b_1d623ab7",
+        "filename": "src/dns/scripts/add_virtual_dns.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-10-15T02:31:07Z",
+      "side": 1,
+      "message": "dont we need to prepend . here for local references? Same is the case in many files. Please confirm.",
+      "range": {
+        "startLine": 14,
+        "startChar": 5,
+        "endLine": 14,
+        "endChar": 13
+      },
+      "revId": "89cc5d20b7421f64d0fecf2ee45b893a763abffd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
