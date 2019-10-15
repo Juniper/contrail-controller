@@ -13,7 +13,8 @@ import subprocess
 import xml.etree.ElementTree as etree
 
 from cfgm_common.exceptions import (
-    RefsExistError
+    RefsExistError,
+    NoIdError
 )
 import paramiko
 from vnc_api.gen.resource_client import PhysicalRouter
@@ -354,9 +355,10 @@ class DeviceInfo(object):
                 self.vncapi.physical_router_delete(fq_name=dhcp_fq_name)
                 self.logger.info(
                     "Router {} in dhcp state deleted".format(dhcp_fq_name))
-        except NoIdError:
+        except(NoIdError, Exception) as ex:
             self.logger.info(
-                "Router {} in dhcp state doesn't exist".format(dhcp_fq_name))
+                "Router {} in dhcp state doesn't exist. Failed with "
+                "error {}".format(dhcp_fq_name, str(ex)))
             pass
 
         try:
