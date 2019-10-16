@@ -33,6 +33,40 @@
       "revId": "a6105f9f209375493e44cabd0b0fc5d7260373a6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cc0919ab_c27f46fd",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/service_chain.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 328,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:30:28Z",
+      "side": 1,
+      "message": "s/first_service_instance/head here and every where else to be consistent",
+      "revId": "a6105f9f209375493e44cabd0b0fc5d7260373a6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "607b9567_d8e0accf",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/service_chain.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 334,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:30:28Z",
+      "side": 1,
+      "message": "s/last_service_instance/tail ?",
+      "revId": "a6105f9f209375493e44cabd0b0fc5d7260373a6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
