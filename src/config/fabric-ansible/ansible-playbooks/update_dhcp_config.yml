@@ -60,32 +60,64 @@
       set_fact:
         fabric_name: "{{fabric_fq_name[-1]}}"
 
-    - name: Save ZTP config directory
+    - name: Save ZTP DHCP config file name
       set_fact:
-        ztp_conf_dir: ./config/ztp
-    - set_fact:
-        ztp_create: True
-        only_restart: True
+        ztp_dhcp_config_file: "{{ fabric_name }}.conf"
 
+    - name: Save ZTP TFTP script file name
+      set_fact:
+        ztp_tftp_script_file: "{{ fabric_name }}_juniper.sh"
+
+- name: Delete TFTP script file
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
     - import_role:
-        name: ztp_dhcp_config
+        name: ztp_tftp
+
+    - name: If error, set output and bail
+      set_fact:
+        output: "{{ output | combine(tftp_output) }}"
+      when: tftp_output is defined
+
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
         current_index: 1
-        jl_message: "Generated DHCP config for fabric {{fabric_name}}"
+        jl_message: "Removed TFTP script file"
+      when: tftp_output is undefined
+
+- name: Delete DHCP config file
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  tasks:
     - import_role:
         name: ztp_dhcp
+      when: tftp_output is undefined
+
+    - name: If error, set output and bail
+      set_fact:
+        output: "{{ output | combine(dhcp_output) }}"
+      when: dhcp_output is defined
+
     - name: Update job log with percentage
       include_tasks: percentage_update.yml
       vars:
         current_index: 2
-        jl_message: "Updated DHCP config for fabric {{fabric_name}}"
-      when: dhcp_output is undefined
-    - name: If error, set output and bail
-      set_fact:
-        output: "{{dhcp_output}}"
-      when: dhcp_output is defined
+        jl_message: "Removed DHCP config file"
+      when:
+        - tftp_output is undefined
+        - dhcp_output is undefined
+
+- name: Finish up
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
     - name: Set output message
       set_fact:
         output: {'status':'Success', 'message':'Updated DHCP config'}

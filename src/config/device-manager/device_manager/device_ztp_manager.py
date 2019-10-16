@@ -208,14 +208,13 @@ class DeviceZtpManager(object):
                 host_name = result.get('physical_router_hostname')
                 lease_table[mac] = (ip_addr, host_name)
 
-            if lease_table:
-                for mac, (ip_addr, host_name) in lease_table.iteritems():
-                    if self._within_dhcp_subnet(ip_addr, config) and \
-                            self._within_ztp_devices(host_name, device_to_ztp):
-                        matched_devices[mac] = (ip_addr, host_name)
-                if len(matched_devices) >= device_count:
-                    break
-                gevent.sleep(1)
+            for mac, (ip_addr, host_name) in lease_table.iteritems():
+                if self._within_dhcp_subnet(ip_addr, config) and \
+                        self._within_ztp_devices(host_name, device_to_ztp):
+                    matched_devices[mac] = (ip_addr, host_name)
+            if len(matched_devices) >= device_count:
+                break
+            gevent.sleep(1)
 
         results['device_list'] = [
             {'ip_addr': ip_addr, 'mac': mac, 'host_name': host_name}
