@@ -1,0 +1,174 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dbf5d958_65c1ae1e",
+        "filename": "src/bgp/routing-instance/iservice_chain_mgr.h",
+        "patchSetId": 12
+      },
+      "lineNbr": 79,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "Can you assert(false) here ?",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "32f0bd34_5b773c95",
+        "filename": "src/bgp/routing-instance/iservice_chain_mgr.h",
+        "patchSetId": 12
+      },
+      "lineNbr": 90,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "Same here assert(false) ?",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "200ff5f4_64046b77",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 288,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "can you place continue in the next line ? (useful to set break points on continue during debugging...)",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a2dac982_1fc4d605",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 290,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "same here",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "81932dc5_c3021744",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 369,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "may be check for family EVPN . here and then call it as ShouldMatchEvpnRoute() ?",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2db1837d_82496ccf",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 596,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "Hmm, if family not EVPN, then you should return false, preferably at the very first line itself",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7cae7f57_f91a27d6",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 923,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "can you combine into a single line above ?",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1ae7c6b4_1f320fa7",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 1358,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "Nice",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f8dcd504_24bb3a1e",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 1701,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "Can you update/remove this comment as now you have \"head\" explicitly set in service_chain_info ?",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "93a9392d_33b36dfa",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 12
+      },
+      "lineNbr": 1860,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:41:53Z",
+      "side": 1,
+      "message": "can you revert this change ?",
+      "revId": "28c7b5085fff216676bc0cd62637663600507a8d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
