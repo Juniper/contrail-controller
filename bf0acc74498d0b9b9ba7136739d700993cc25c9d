@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c0f2f14f_d22c1e72",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 17
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:27:17Z",
+      "side": 1,
+      "message": "Please do not put compile errors into commit log. Instead, clearly summarize the changes that you are making as part of this commit. In a nut-shell. I only see two kinds of changes here. array initializer list and array fill.",
+      "revId": "bf0acc74498d0b9b9ba7136739d700993cc25c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0d09ac64_5a000976",
+        "filename": "src/bgp/bgp_config_listener.cc",
+        "patchSetId": 17
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:27:17Z",
+      "side": 1,
+      "message": "Please wrap before 81st column here and every where else",
+      "revId": "bf0acc74498d0b9b9ba7136739d700993cc25c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5ec0e9a8_01d95743",
+        "filename": "src/bgp/bgp_sandesh.cc",
+        "patchSetId": 17
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:27:17Z",
+      "side": 1,
+      "message": "Please remove std:: here and every where else ? and use \"using std::vector\" at the beginning of the file instead, if not already in there.",
+      "revId": "bf0acc74498d0b9b9ba7136739d700993cc25c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "423fecc4_b4f6ff7c",
+        "filename": "src/bgp/inet6/inet6_route.cc",
+        "patchSetId": 17
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:27:17Z",
+      "side": 1,
+      "message": "Can you add a macro in common header file and use it here please.. I don\u0027t want to clutter .cc files with #ifdefs as much as possible",
+      "revId": "bf0acc74498d0b9b9ba7136739d700993cc25c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c615d768_eaf98cc7",
+        "filename": "src/bgp/inet6/inet6_route.cc",
+        "patchSetId": 17
+      },
+      "lineNbr": 208,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T18:27:17Z",
+      "side": 1,
+      "message": "same here",
+      "revId": "bf0acc74498d0b9b9ba7136739d700993cc25c9d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
