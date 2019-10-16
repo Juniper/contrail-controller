@@ -1,0 +1,327 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3f3277c2_98d05898",
+        "filename": "src/bgp/bgp_config.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 492,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Warp",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f6dee013_6de12012",
+        "filename": "src/bgp/bgp_server.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "would it be cleaner to have a separate evpn6_condition_lister_ also ? (though they would be listening on the same table underneath).. during deletion etc. they can be independently managed then ?",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1331801b_0f001252",
+        "filename": "src/bgp/bgp_show_config.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Can you make SCAddress::SCFamilyToAddressFamily() static so that you don\u0027t need to create sc_addr object unnecessarily.\nOr add family as a private member of SCAddress and assign it in its constructor.",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1a67e3d5_4d704dff",
+        "filename": "src/bgp/bgp_xmpp_channel.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 1283,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Can you treat zero mac is empty mac, by ignoring and proceed forward (instead of return)",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "16ae29ee_df6dfe04",
+        "filename": "src/bgp/bgp_xmpp_channel.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 1608,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Please change hard-coded mac to nit-\u003emac.\nCan you treat zero mac is empty mac, by ignoring and proceed forward (instead of return)",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "15233a21_896cf6be",
+        "filename": "src/bgp/evpn/evpn_route.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 671,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Is it safe to assert(false) here ?",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3f1b58f7_b4ce2efe",
+        "filename": "src/bgp/evpn/evpn_route.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 95,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Can you please change to one liner return (CompareTo(rhs) \u003c 0) ?",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e0e5c205_ec07f36d",
+        "filename": "src/bgp/evpn/evpn_route.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Same here",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8986cf32_4ef6eb0e",
+        "filename": "src/bgp/evpn/evpn_route.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 107,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Change return type to \"const IpAddress \u0026\"",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c51a4b2c_0f6bd366",
+        "filename": "src/bgp/evpn/evpn_route.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Same here, use const IP4Address \u0026 as return type",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aac5cb54_8c2c1432",
+        "filename": "src/bgp/routing-instance/iservice_chain_mgr.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "is this valid ? as SCFamily can be ipv4 or ipv6. Can you assert(false) here ?",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "50999026_418b9f91",
+        "filename": "src/bgp/routing-instance/routing_instance.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 1071,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "s/interval/internal",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "43300c5f_9a361ee8",
+        "filename": "src/bgp/routing-instance/routing_instance.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 1841,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "You can make AddressFamilyToSCFamily static or add private variable family_ inside SCAddress and assign it in constructor.",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "287b8eff_5438cc65",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 8,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Move this above to keep it sorted",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "22f83071_dab303d7",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 8
+      },
+      "lineNbr": 91,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "s/ *\u0026/ */",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2a5dc6d4_cc9c8555",
+        "filename": "src/bgp/routing-instance/service_chaining.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 148,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "s/GetConnFamily/GetConnectedFamily",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b0032c90_32ed6ed3",
+        "filename": "src/bgp/routing-instance/service_chaining.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 250,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "*\u0026 ??",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ca5ec2da_c7d4765c",
+        "filename": "src/bgp/routing-instance/service_chaining.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "Same here. Why *\u0026 ?",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "57dba75b_092cf335",
+        "filename": "src/bgp/routing-instance/service_chaining.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 351,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-10-16T15:27:38Z",
+      "side": 1,
+      "message": "s/GetConnFamily/GetConnectedFamily",
+      "revId": "62e9de0fc50237a21ad2baa687b7ebc08437b3ce",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
