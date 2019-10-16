@@ -101,6 +101,24 @@
     },
     {
       "key": {
+        "uuid": "3af9b858_f728a9c8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 214,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-10-16T23:17:46Z",
+      "side": 1,
+      "message": "_check_default_vn_delete will do that check",
+      "parentUuid": "e19feec7_07117e6c",
+      "revId": "ce235a3db6fcde5d003560318d8287da5078416e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "66880621_5c2892ac",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/host_based_service.py",
         "patchSetId": 16
@@ -370,6 +388,30 @@
       "writtenOn": "2019-10-14T16:05:30Z",
       "side": 1,
       "message": "this could be empty if user provide only the HBS UUID",
+      "range": {
+        "startLine": 3385,
+        "startChar": 38,
+        "endLine": 3385,
+        "endChar": 49
+      },
+      "revId": "ce235a3db6fcde5d003560318d8287da5078416e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "485e5c3b_7e227b25",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 16
+      },
+      "lineNbr": 3385,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-10-16T23:17:46Z",
+      "side": 1,
+      "message": "get_hbs_info can handle empty fq_name. Unit test cases test_get_hbs_template_with_uuid validates\nit.",
+      "parentUuid": "e1dfbcdc_aa966c65",
       "range": {
         "startLine": 3385,
         "startChar": 38,
