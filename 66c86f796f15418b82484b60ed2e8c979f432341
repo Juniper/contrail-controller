@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "08c30e5b_3a994b08",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-16T20:08:00Z",
+      "side": 1,
+      "message": "TODO can be removed",
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a61acc3d_9e2a2e21",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-16T20:08:00Z",
+      "side": 1,
+      "message": "previously it was in config part - and not in database part.\ndoes it mean that repair was called only for config DB and was never called for analytics db?\nor should it also be called from configdb?",
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "918eef13_44796c94",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-10-16T20:08:00Z",
+      "side": 1,
+      "message": "I suggest to write log message to main log. it would be hard to find and collect additional logs by user.",
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
