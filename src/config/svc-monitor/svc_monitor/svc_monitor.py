@@ -5,6 +5,7 @@
 """
 Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
+from __future__ import absolute_import
 
 import sys
 reload(sys)
@@ -36,7 +37,7 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.exceptions import ResourceExhaustionError
 from vnc_api.utils import AAA_MODE_VALID_VALUES
-from config_db import *
+from .config_db import *
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -45,14 +46,14 @@ from sandesh_common.vns.ttypes import Module
 
 from vnc_api.vnc_api import *
 
-from agent_manager import AgentManager
-from db import ServiceMonitorDB
-from logger import ServiceMonitorLogger
-from module_logger import ServiceMonitorModuleLogger
-from loadbalancer_agent import LoadbalancerAgent
-from port_tuple import PortTupleAgent
-from snat_agent import SNATAgent
-from reaction_map import REACTION_MAP
+from .agent_manager import AgentManager
+from .db import ServiceMonitorDB
+from .logger import ServiceMonitorLogger
+from .module_logger import ServiceMonitorModuleLogger
+from .loadbalancer_agent import LoadbalancerAgent
+from .port_tuple import PortTupleAgent
+from .snat_agent import SNATAgent
+from .reaction_map import REACTION_MAP
 
 try:
     from novaclient import exceptions as nc_exc

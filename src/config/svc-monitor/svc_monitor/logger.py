@@ -6,6 +6,7 @@
 """
 Service monitor logger
 """
+from __future__ import absolute_import
 
 from cfgm_common import svc_info
 from cfgm_common.uve.service_instance.ttypes import UveSvcInstanceConfig,\
@@ -13,13 +14,13 @@ from cfgm_common.uve.service_instance.ttypes import UveSvcInstanceConfig,\
 from cfgm_common.vnc_logger import ConfigServiceLogger
 
 from sandesh_common.vns.ttypes import Module
-from sandesh.svc_mon_introspect import ttypes as sandesh
+from .sandesh.svc_mon_introspect import ttypes as sandesh
 
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 
-from config_db import ServiceInstanceSM, ServiceTemplateSM,\
+from .config_db import ServiceInstanceSM, ServiceTemplateSM,\
         VirtualMachineSM, VirtualRouterSM, VirtualNetworkSM
 
 
@@ -119,9 +120,9 @@ class ServiceMonitorLogger(ConfigServiceLogger):
             svc_uve.st_name = st_name
         for vm in vms:
             svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm['uuid'])
-            if vm.has_key('vr_name'):
+            if 'vr_name' in vm:
                 svc_uve_vm.vr_name = vm['vr_name']
-            if vm.has_key('ha'):
+            if 'ha' in vm:
                 svc_uve_vm.ha = vm['ha']
             svc_uve.vm_list.append(svc_uve_vm)
         if status:

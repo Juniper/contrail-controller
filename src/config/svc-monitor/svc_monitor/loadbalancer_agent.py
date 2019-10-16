@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
@@ -5,13 +6,13 @@ from cfgm_common import exceptions as vnc_exc
 from cfgm_common import svc_info
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 
-from agent import Agent
-from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
+from .agent import Agent
+from .config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM, \
     VirtualIpSM, LoadbalancerSM, LoadbalancerListenerSM, LoadbalancerMemberSM, \
     HealthMonitorSM
 
-from sandesh.loadbalancer.ttypes import \
+from .sandesh.loadbalancer.ttypes import \
     LoadbalancerConfig, UveLoadbalancerConfig, UveLoadbalancerConfigTrace
 
 

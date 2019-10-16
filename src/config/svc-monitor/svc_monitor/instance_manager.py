@@ -17,6 +17,8 @@
 #
 # @author: Rudra Rugge
 
+from __future__ import absolute_import
+
 import abc
 import six
 import uuid
@@ -24,7 +26,7 @@ import uuid
 from cfgm_common import analytics_client
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
-from config_db import *
+from .config_db import *
 
 
 @six.add_metaclass(abc.ABCMeta)
