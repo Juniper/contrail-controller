@@ -62,6 +62,8 @@ IFMapLink *IFMapLinkTable::AddLink(IFMapNode *left, IFMapNode *right,
         partition->Add(link);
     }
     link->SetProperties(left, right, metadata, sequence_number, origin);
+    assert(dynamic_cast<IFMapNode *>(left));
+    assert(dynamic_cast<IFMapNode *>(right));
     return link;
 }
 
