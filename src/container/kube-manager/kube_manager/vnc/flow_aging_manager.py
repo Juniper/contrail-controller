@@ -5,9 +5,10 @@
 """
 Flow aging service management functions.
 """
+from __future__ import absolute_import
 
 from vnc_api.vnc_api import *
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from .vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 def create_flow_aging_timeout_entry(vnc_lib, protocol, port,
         timeout_in_seconds):
