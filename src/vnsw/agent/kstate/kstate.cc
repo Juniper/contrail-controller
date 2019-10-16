@@ -62,8 +62,13 @@ int KState::VrResponseMsgHandler(vr_response *r) {
 void KState::EncodeAndSend(Sandesh &encoder) {
 
     int encode_len, error;
-    uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     KSyncSock   *sock = KSyncSock::Get(0);
+   
+    //due to mock mode we have to handle case when this
+    //value is NULL
+    if (sock == NULL)
+        return;
+    uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);
 
     encode_len = encoder.WriteBinary(buf, KSYNC_DEFAULT_MSG_SIZE, &error);
 
