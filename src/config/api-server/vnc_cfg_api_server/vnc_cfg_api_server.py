@@ -2499,7 +2499,7 @@ class VncApiServer(object):
 
     def documentation_http_get(self, filename):
         # ubuntu packaged path
-        doc_root = '/usr/share/doc/contrail-config/doc/contrail-config/html/'
+        doc_root = '/usr/share/doc/contrail-config/doc/source/contrail-config/html/'
         if not os.path.exists(doc_root):
             # centos packaged path
             doc_root='/usr/share/doc/python-vnc_cfg_api_server/contrial-config/html/'
