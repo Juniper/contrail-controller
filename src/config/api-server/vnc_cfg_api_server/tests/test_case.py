@@ -1,3 +1,5 @@
+import json
+
 from vnc_api import vnc_api
 from cfgm_common.tests import test_common
 
@@ -51,6 +53,19 @@ class ApiServerTestCase(test_common.TestCase):
 
         return vn_objs, ipam_objs, ri_objs, vmi_objs
     # end _create_vn_ri_vmi
+
+    def _get_job_transaction_descr(self, pr_uuid):
+        pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
+        trans_descr = ''
+        annotations = pr_obj.get_annotations()
+        if annotations:
+            kv_pairs = annotations.get_key_value_pair() or []
+            for kv_pair in kv_pairs:
+                if kv_pair.get_key() == 'job_transaction':
+                    value = json.loads(kv_pair.get_value())
+                    trans_descr = value.get('transaction_descr')
+                    break
+        return trans_descr
 
     def assert_vnc_db_doesnt_have_ident(self, test_obj):
         self.assertTill(self.vnc_db_doesnt_have_ident, obj=test_obj)

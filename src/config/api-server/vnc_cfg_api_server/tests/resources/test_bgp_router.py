@@ -8,6 +8,7 @@ from vnc_api.vnc_api import BgpRouter
 from vnc_api.vnc_api import BgpRouterParams
 from vnc_api.vnc_api import ControlNodeZone
 from vnc_api.vnc_api import GlobalSystemConfig
+from vnc_api.vnc_api import PhysicalRouter
 
 from vnc_cfg_api_server.tests import test_case
 
@@ -301,3 +302,35 @@ class TestBgpRouter(test_case.ApiServerTestCase):
 
         for i in range(2):
             self.api.control_node_zone_delete(fq_name=cnz[i].fq_name)
+
+    def test_job_transaction(self):
+        pr_name = "test_bgp_router_%s" % self.id()
+        bgp_name = pr_name+'-bgp'
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64512,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name=bgp_name, parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        pr_obj = PhysicalRouter(
+            parent_type='global-system-config',
+            fq_name=["default-global-system-config", pr_name])
+        pr_obj.set_bgp_router(bgp_router_obj)
+        pr_uuid = self._vnc_lib.physical_router_create(pr_obj)
+
+        bgp_router_params = BgpRouterParams(router_type='control-node',
+                                            autonomous_system=64511,
+                                            local_autonomous_system=64500)
+        bgp_router_obj = BgpRouter(name=bgp_name, parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        self.api.bgp_router_update(bgp_router_obj)
+
+        self.assertEqual("BGP Router '%s' Update" % bgp_name,
+                         self._get_job_transaction_descr(pr_uuid))
+
+        self.api.physical_router_delete(id=pr_uuid)
+        self.api.bgp_router_delete(id=bgp_router_uuid)

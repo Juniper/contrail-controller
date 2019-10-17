@@ -4,10 +4,11 @@
 
 from vnc_api.gen.resource_common import BgpRouter
 
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
 
 
-class BgpRouterServer(ResourceMixin, BgpRouter):
+class BgpRouterServer(TransactionResourceBase, BgpRouter):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         bgp_router_prop = obj_dict.get('bgp_router_parameters')
@@ -129,4 +130,21 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
                 msg = ("BgpRouter should refer only one control-node-zone")
                 return False, (400, msg)
 
+        ok, bgp_obj = cls.dbe_read(
+            db_conn,
+            'bgp_router',
+            id,
+            obj_fields=['physical_router_back_refs',
+                        'bgp_router_refs'])
+        addl_refs = []
+        for bgp_router_ref in bgp_obj.get('bgp_router_refs', []):
+            if bgp_router_ref['to'][-1][-4:] == '-bgp':
+                addl_refs.append({'to': ['default-global-system-config',
+                                         bgp_router_ref['to'][-1][:-4]]})
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "BGP Router '{}' Update".format(fq_name[-1]),
+            pr_refs=bgp_obj.get('physical_router_back_refs', []) + addl_refs)
+
         return True, ''
+
