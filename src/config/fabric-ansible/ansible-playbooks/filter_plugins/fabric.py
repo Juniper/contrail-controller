@@ -12,6 +12,9 @@ import struct
 import sys
 import traceback
 import uuid
+from threading import RLock
+
+update_lock = RLock()
 
 from cfgm_common.exceptions import (
     NoIdError,
