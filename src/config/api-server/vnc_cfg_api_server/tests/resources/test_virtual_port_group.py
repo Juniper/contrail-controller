@@ -849,3 +849,78 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj_1.uuid)
         self.api.physical_router_delete(id=pr_obj_2.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
+
+    def test_job_transaction(self):
+        proj_obj, fabric_obj, pr_obj = self._create_prerequisites()
+
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        pi1_name = self.id() + '_physical_interface1'
+        pi1 = PhysicalInterface(name=pi1_name,
+                                parent_obj=pr_obj,
+                                ethernet_segment_identifier=esi_id)
+        pi1_uuid = self._vnc_lib.physical_interface_create(pi1)
+        pi1_obj = self._vnc_lib.physical_interface_read(id=pi1_uuid)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi1_fq_name = pi1_obj.get_fq_name()
+
+        pi2_name = self.id() + '_physical_interface2'
+        pi2 = PhysicalInterface(name=pi2_name,
+                                parent_obj=pr_obj,
+                                ethernet_segment_identifier=esi_id)
+        pi2_uuid = self._vnc_lib.physical_interface_create(pi2)
+        pi2_obj = self._vnc_lib.physical_interface_read(id=pi2_uuid)
+
+        pi2_fq_name = pi2_obj.get_fq_name()
+
+        # Create VPG
+        vpg_name = "vpg-1"
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name = vpg_obj.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj = VirtualMachineInterface(self.id() + "1",
+                                          parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn1)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi1_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=42))
+        vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj)
+        self.assertEqual("Virtual Port Group 'vpg-1' Create",
+                         self._get_job_transaction_descr(pr_obj.uuid))
+        vpg_obj.add_virtual_machine_interface(vmi_obj)
+        self.api.virtual_port_group_update(vpg_obj)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi2_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        self.api.virtual_machine_interface_update(vmi_obj)
+        self.assertEqual("Virtual Port Group 'vpg-1' Update",
+                         self._get_job_transaction_descr(pr_obj.uuid))
+
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        self.assertEqual("Virtual Port Group 'vpg-1' Delete",
+                         self._get_job_transaction_descr(pr_obj.uuid))
+        self.api.physical_interface_delete(id=pi1_uuid)
+        self.api.physical_interface_delete(id=pi2_uuid)
+        self.api.physical_router_delete(id=pr_obj.uuid)
+        self.api.fabric_delete(id=fabric_obj.uuid)

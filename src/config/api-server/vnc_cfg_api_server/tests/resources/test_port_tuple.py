@@ -500,3 +500,29 @@ class TestPnfPortTuple(TestPortTupleBase):
         self.assertEqual(iip_list_len, 5)
         # cleanup
         self.api.port_tuple_delete(id=pt_obj.uuid)
+
+    def test_job_transaction(self):
+        si_obj = self.api.service_instance_read(id=self.si_uuid)
+        left_lr_obj = self.api.logical_router_read(id=self.left_lr_uuid)
+        right_lr_obj = self.api.logical_router_read(id=self.right_lr_uuid)
+        pt_obj = PortTuple('pt-' + self.id(), parent_obj=si_obj)
+        pt_obj.add_logical_router(left_lr_obj)
+        pt_obj.add_logical_router(right_lr_obj)
+        kvp_array = []
+        kvp = KeyValuePair("left-lr", self.left_lr_uuid)
+        kvp_array.append(kvp)
+        kvp = KeyValuePair("right-lr", self.right_lr_uuid)
+        kvp_array.append(kvp)
+        kvps = KeyValuePairs()
+        kvps.set_key_value_pair(kvp_array)
+        pt_obj.set_annotations(kvps)
+
+        # Create PT
+        self.api.port_tuple_create(pt_obj)
+        self.assertEqual("Service Instance '%s' Create" % si_obj.display_name,
+                         self._get_job_transaction_descr(self.pnf_uuid))
+
+        # Delete PT
+        self.api.port_tuple_delete(id=pt_obj.uuid)
+        self.assertEqual("Service Instance '%s' Delete" % si_obj.display_name,
+                         self._get_job_transaction_descr(self.pnf_uuid))
