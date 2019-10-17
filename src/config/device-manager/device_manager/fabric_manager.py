@@ -2,10 +2,7 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
-from builtins import object
-from builtins import str
-import json
-import os
+import time
 import uuid
 
 from cfgm_common.utils import CamelCase, detailed_traceback, str_to_class
@@ -18,11 +15,12 @@ from vnc_api.gen.resource_client import (
 from vnc_api.gen.resource_xsd import (
     IpamSubnets,
     IpamSubnetType,
+    KeyValuePair,
+    KeyValuePairs,
     SubnetListType,
     SubnetType,
     VirtualNetworkType,
     VnSubnetsType
-)
 
 
 class FabricManager(object):
@@ -35,6 +33,7 @@ class FabricManager(object):
         self._logger = logger
         self._vnc_api = vnc_api
         self._load_init_data()
+        self._init_transaction_info()
     # end __init__
 
     @classmethod
@@ -288,5 +287,24 @@ class FabricManager(object):
                             schema_json.get("output_ui_schema"))
         return input_json
     # end _load_json_data
+
+    def _init_transaction_info(self):
+        transaction_id = str(int(round(time.time() * 1000))) + '_' + str(
+            uuid.uuid4())
+        trans_val = {
+            'transaction_id': transaction_id,
+            'transaction_descr': "Docker Init"
+        }
+        pr_map = self._vnc_api.physical_routers_list()
+        for pr in pr_map.get('physical-routers', []):
+            pr_obj = self._vnc_api.physical_router_read(id=pr['uuid'])
+            annotations = pr_obj.get_annotations()
+            if not annotations:
+                annotations = KeyValuePairs()
+            annotations.add_key_value_pair(
+                KeyValuePair(key='job_transaction',
+                             value=json.dumps(trans_val)))
+            pr_obj.set_annotations(annotations)
+            self._vnc_api.physical_router_update(pr_obj)
 
 # end FabricManager
