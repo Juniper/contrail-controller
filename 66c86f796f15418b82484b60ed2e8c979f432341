@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "62ae9a11_e5d3d90d",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-10-17T18:13:19Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "08c30e5b_3a994b08",
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a61acc3d_9e2a2e21",
         "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
         "patchSetId": 1
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "8f1ddbfa_372b4213",
+        "filename": "src/nodemgr/analytics_database_nodemgr/event_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-10-17T18:13:19Z",
+      "side": 1,
+      "message": "Yes, I think repair was not called for analytics db because I didn\u0027t see any keyspace defined for it in vns.sandesh. \nWith this uploaded diff repair runs for configdb too.",
+      "parentUuid": "a61acc3d_9e2a2e21",
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "6bd22ef6_f51233ae",
         "filename": "src/nodemgr/common/cassandra_manager.py",
         "patchSetId": 1
@@ -47,6 +83,30 @@
       "writtenOn": "2019-10-17T09:03:15Z",
       "side": 1,
       "message": "as we talked, can we fix this also along with repair? Not sure if stopping cassandra can/should be done but at least we can log accordingly.",
+      "range": {
+        "startLine": 45,
+        "startChar": 19,
+        "endLine": 46,
+        "endChar": 23
+      },
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "92253893_9910474f",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-10-17T18:13:19Z",
+      "side": 1,
+      "message": "Checking if this can be done",
+      "parentUuid": "6bd22ef6_f51233ae",
       "range": {
         "startLine": 45,
         "startChar": 19,
@@ -82,6 +142,30 @@
     },
     {
       "key": {
+        "uuid": "ebee52b8_d0ae8b7d",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-10-17T18:13:19Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "0e880640_42a22eb7",
+      "range": {
+        "startLine": 54,
+        "startChar": 25,
+        "endLine": 54,
+        "endChar": 31
+      },
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "918eef13_44796c94",
         "filename": "src/nodemgr/common/cassandra_manager.py",
         "patchSetId": 1
@@ -96,6 +180,24 @@
       "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8dc1597a_cc2fd013",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-10-17T18:13:19Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "918eef13_44796c94",
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
