@@ -1288,6 +1288,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         ret_dict['deallocated_ae_id'] = []
         ret_dict['allocated_ae_id'] = []
 
+        jt = cls.create_job_transaction(
+            "Virtual Port Group '{}' Update".format(vpg_name))
+
         # delete old physical interfaces to the vpg
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
             prouter_dict = old_pi_to_pr_dict.get(uuid)
@@ -1295,6 +1298,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 phy_links, prouter_dict,
                 vpg_name, new_pi_to_pr_dict)
             ret_dict['deallocated_ae_id'].append(dealloc_dict)
+
+            # Add job transaction
+            cls.update_job_transaction(api_server, db_conn, jt,
+                                       pr_name=prouter_dict['prouter_name'])
 
             api_server.internal_request_ref_update(
                 'virtual-port-group',
@@ -1322,6 +1329,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             else:
                 attr_obj = VpgInterfaceParametersType(
                     ae_num=pr_to_ae_id.get(prouter_name))
+
+            # Add job transaction
+            cls.update_job_transaction(api_server, db_conn, jt,
+                                       pr_name=prouter_name)
 
             api_server.internal_request_ref_update(
                 'virtual-port-group',
