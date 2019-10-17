@@ -64,7 +64,8 @@ class PortTupleServer(ResourceMixin, PortTuple):
                     ok, sa_result = cls.dbe_read(
                         db_conn, 'service_appliance',
                         sa_uuid,
-                        obj_fields=['physical_interface_refs'])
+                        obj_fields=['physical_interface_refs',
+                                    'service_appliance_properties'])
                     if not ok:
                         return ok, sa_result, si_result, None
                 elif sa and len(sa) > 1:
@@ -225,6 +226,40 @@ class PortTupleServer(ResourceMixin, PortTuple):
 
         return True, ''
 
+    @staticmethod
+    def _get_left_right_attachment_points(obj_dict):
+        intf_list = []
+
+        if obj_dict.get('service_appliance_properties') is not None:
+            kvps = obj_dict.get('service_appliance_properties').get(
+                'key_value_pair')
+            if kvps is not None:
+                for d in kvps:
+                    if d.get('key') == 'left-attachment-point':
+                        value = d.get('value')
+                        left_intf_fqname = value.split(':')
+                        intf_list.append(left_intf_fqname)
+                    elif d.get('key') == 'right-attachment-point':
+                        value = d.get('value')
+                        right_intf_fqname = value.split(':')
+                        intf_list.append(right_intf_fqname)
+        return intf_list
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, msg, si, sa = cls.get_svc_params_from_pt(obj_dict)
+        if not ok:
+            return (False, (400, msg))
+
+        # Add job transaction info
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Service Instance '{}' Create".format(si['fq_name'][-1]),
+            pi_refs=sa.get('physical_interface_refs', []),
+            pi_fqname_list=cls._get_left_right_attachment_points(sa))
+
+        return True, ''
+
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
         # Create logical interfaces for the physical interfaces using
@@ -334,6 +369,13 @@ class PortTupleServer(ResourceMixin, PortTuple):
         # from them
         ok, msg, si, sa = cls.get_svc_params_from_pt(obj_dict)
         if si and sa:
+            # Create job transaction
+            cls.create_job_transaction(
+                cls.server, db_conn,
+                "Service Instance '{}' Create".format(si['fq_name'][-1]),
+                pi_refs=sa.get('physical_interface_refs', []),
+                pi_fqname_list=cls._get_left_right_attachment_points(sa))
+
             # Fetch left and right vlan from the service instance
             left_svc_vlan, right_svc_vlan = cls._get_svc_vlans(
                 si.get('annotations'))
