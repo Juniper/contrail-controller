@@ -8,7 +8,7 @@ standard_library.install_aliases()
 from builtins import str
 import sys
 import argparse
-import configparser
+from six.moves import configparser
 
 
 from vnc_api.exceptions import NoIdError

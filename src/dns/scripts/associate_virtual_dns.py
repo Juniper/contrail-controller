@@ -9,7 +9,7 @@ standard_library.install_aliases()
 from builtins import object
 import sys
 import argparse
-import configparser
+from six.moves import configparser
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
