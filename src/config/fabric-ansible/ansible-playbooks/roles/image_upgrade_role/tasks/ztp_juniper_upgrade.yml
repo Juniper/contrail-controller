@@ -7,6 +7,8 @@
           password: "{{pr_password}}"
           port: 22
         version: "{{image_os_version}}"
+        vmhost: "{{vmhost_flag}}"
+        reboot: true
         remote_package: "{{downloadurl}}"
       register: junos_response
     #  ignore_errors: True
