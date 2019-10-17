@@ -19,10 +19,11 @@ from vnc_api.gen.resource_xsd import RouteTargetList
 from vnc_api.gen.resource_xsd import VirtualNetworkType
 
 from vnc_cfg_api_server.context import get_context
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
 
 
-class LogicalRouterServer(ResourceMixin, LogicalRouter):
+class LogicalRouterServer(TransactionResourceBase, LogicalRouter):
     @classmethod
     def is_port_in_use_by_vm(cls, obj_dict, db_conn):
         for vmi_ref in obj_dict.get('virtual_machine_interface_refs') or []:
@@ -270,6 +271,11 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         if not ok:
             return ok, result
 
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Logical Router '{}' Create".format(obj_dict['fq_name'][-1]),
+            pr_refs=obj_dict.get('physical_router_refs', []))
+
         # Check if we can reference the BGP VPNs
         return cls.server.get_resource_class(
             'bgpvpn').check_router_has_bgpvpn_assoc_via_network(obj_dict)
@@ -373,9 +379,18 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             db_conn,
             'logical_router',
             id,
-            obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
+            obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs',
+                        'physical_router_refs'])
         if not ok:
             return ok, result
+
+        if 'id_perms' in obj_dict:
+            cls.create_job_transaction(
+                cls.server, db_conn,
+                "Logical Router '{}' Update".format(fq_name[-1]),
+                pr_refs=obj_dict.get('physical_router_refs', []) +
+                result.get('physical_router_refs', []))
+
         return cls.server.get_resource_class(
             'bgpvpn').check_router_has_bgpvpn_assoc_via_network(
                 obj_dict, result)
@@ -524,6 +539,12 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Logical Router '{}' Delete".format(obj_dict['fq_name'][-1]),
+            pr_refs=obj_dict.get('physical_router_refs', []))
+
         logical_router_type = cls.check_lr_type(obj_dict)
         if logical_router_type == 'vxlan-routing':
             vn_int_fqname = (obj_dict['fq_name'][:-1] +
