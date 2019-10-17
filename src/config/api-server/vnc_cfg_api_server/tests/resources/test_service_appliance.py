@@ -236,3 +236,48 @@ class TestPnfServiceAppliance(TestServiceApplianceBase):
         self.assertRaises(BadRequest,
                           self.api.service_appliance_create,
                           sa_obj)
+
+    def test_job_transaction(self):
+        sa_name = 'sa-' + self.id()
+        sa_obj = ServiceAppliance(sa_name, parent_obj=self.sas_obj)
+        kvp_array = []
+        kvp = KeyValuePair(
+            "left-attachment-point",
+            self.default_gsc_name +
+            ':' +
+            'spine-' +
+            self.id() +
+            ':' +
+            'xe-0/0/1-' +
+            self.id())
+        kvp_array.append(kvp)
+        kvp = KeyValuePair(
+            "right-attachment-point",
+            self.default_gsc_name +
+            ':' +
+            'spine-' +
+            self.id() +
+            ':' +
+            'xe-0/0/2-' +
+            self.id())
+        kvp_array.append(kvp)
+        kvps = KeyValuePairs()
+        kvps.set_key_value_pair(kvp_array)
+        sa_obj.set_service_appliance_properties(kvps)
+        sa_obj.set_service_appliance_virtualization_type('physical-device')
+
+        # Add PNF PI refs
+        attr = ServiceApplianceInterfaceType(interface_type='left')
+        sa_obj.add_physical_interface(self.left_pnf_pi_obj, attr)
+        attr = ServiceApplianceInterfaceType(interface_type='right')
+        sa_obj.add_physical_interface(self.right_pnf_pi_obj, attr)
+
+        # Create SA
+        self.api.service_appliance_create(sa_obj)
+        self.assertEqual("Service Appliance '%s' Create" % sa_name,
+                         self._get_job_transaction_descr(self.pnf_obj.uuid))
+
+        # Delete service appliance
+        self.api.service_appliance_delete(id=sa_obj.uuid)
+        self.assertEqual("Service Appliance '%s' Delete" % sa_name,
+                         self._get_job_transaction_descr(self.pnf_obj.uuid))
