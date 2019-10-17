@@ -5,10 +5,11 @@ from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_common import ServiceAppliance
 
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
 
 
-class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
+class ServiceApplianceServer(TransactionResourceBase, ServiceAppliance):
     @staticmethod
     def _get_left_right_attachment_points(obj_dict):
         left_intf_list = []
@@ -88,6 +89,16 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
             db_conn = cls.db_conn
             left_intf_list, right_intf_list =\
                 cls._get_left_right_attachment_points(obj_dict)
+
+            cls.create_job_transaction(
+                api_server, db_conn,
+                "Service Appliance '{}' {}".format(
+                    obj_dict.get('display_name'),
+                    'Create' if op == 'ADD' else 'Delete'),
+                pi_refs=obj_dict.get('physical_interface_refs'),
+                pi_fqname_list=[i.split(':') for i in left_intf_list] +
+                [i.split(':') for i in right_intf_list])
+
             for phys_intf_ref in obj_dict.get('physical_interface_refs') or []:
                 if phys_intf_ref.get('uuid') is None:
                     try:

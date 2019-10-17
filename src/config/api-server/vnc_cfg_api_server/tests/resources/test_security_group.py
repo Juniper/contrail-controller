@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+import json
 import logging
 
 from cfgm_common import SG_NO_RULE_FQ_NAME
@@ -9,7 +10,18 @@ from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import PermissionDenied
 from testtools import ExpectedException
+
+from vnc_api.gen.resource_xsd import KeyValuePair
+from vnc_api.gen.resource_xsd import KeyValuePairs
+from vnc_api.vnc_api import Fabric
+from vnc_api.vnc_api import PhysicalInterface
+from vnc_api.vnc_api import PhysicalRouter
+from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import SecurityGroup
+from vnc_api.vnc_api import VirtualMachineInterface
+from vnc_api.vnc_api import VirtualMachineInterfacePropertiesType
+from vnc_api.vnc_api import VirtualNetwork
+from vnc_api.vnc_api import VirtualPortGroup
 
 from vnc_cfg_api_server.tests import test_case
 
@@ -195,3 +207,117 @@ class TestSecurityGroup(test_case.ApiServerTestCase):
                       ':'.join(SG_NO_RULE_FQ_NAME))
         self.assertEqual(no_rule_sg.security_group_id,
                          no_rule_sg_2.security_group_id)
+
+    def _create_kv_pairs(self, pi_fq_name, fabric_name, vpg_name,
+                         tor_port_vlan_id=0):
+        # Populate binding profile to be used in VMI create
+        binding_profile = {'local_link_information': [
+            {'port_id': pi_fq_name[2],
+             'switch_id': pi_fq_name[2],
+             'fabric': fabric_name[-1],
+             'switch_info': pi_fq_name[1]}]}
+
+        if tor_port_vlan_id != 0:
+            kv_pairs = KeyValuePairs(
+                [KeyValuePair(key='vpg', value=vpg_name[-1]),
+                 KeyValuePair(key='vif_type', value='vrouter'),
+                 KeyValuePair(key='tor_port_vlan_id', value=tor_port_vlan_id),
+                 KeyValuePair(key='vnic_type', value='baremetal'),
+                 KeyValuePair(key='profile',
+                              value=json.dumps(binding_profile))])
+        else:
+            kv_pairs = KeyValuePairs(
+                [KeyValuePair(key='vpg', value=vpg_name[-1]),
+                 KeyValuePair(key='vif_type', value='vrouter'),
+                 KeyValuePair(key='vnic_type', value='baremetal'),
+                 KeyValuePair(key='profile',
+                              value=json.dumps(binding_profile))])
+
+        return kv_pairs
+
+    def test_job_transaction(self):
+        # Create project first
+        proj_obj = Project('%s-project' % (self.id()))
+        self.api.project_create(proj_obj)
+
+        # Create Fabric with enterprise style flag set to false
+        fabric_obj = Fabric('%s-fabric' % (self.id()))
+        fabric_obj.set_fabric_enterprise_style(True)
+        fabric_uuid = self.api.fabric_create(fabric_obj)
+        fabric_obj = self.api.fabric_read(id=fabric_uuid)
+
+        # Create physical router
+        pr_name = self.id() + '_physical_router'
+        pr = PhysicalRouter(pr_name)
+        pr_uuid = self._vnc_lib.physical_router_create(pr)
+        pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
+
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+        pi1_name = self.id() + '_physical_interface1'
+        pi1 = PhysicalInterface(name=pi1_name,
+                               parent_obj=pr_obj,
+                               ethernet_segment_identifier=esi_id)
+        pi1_uuid = self._vnc_lib.physical_interface_create(pi1)
+        pi1_obj = self._vnc_lib.physical_interface_read(id=pi1_uuid)
+
+        fabric_name = fabric_obj.get_fq_name()
+        pi1_fq_name = pi1_obj.get_fq_name()
+
+        pi2_name = self.id() + '_physical_interface2'
+        pi2 = PhysicalInterface(name=pi2_name,
+                               parent_obj=pr_obj,
+                               ethernet_segment_identifier=esi_id)
+        pi2_uuid = self._vnc_lib.physical_interface_create(pi2)
+        pi2_obj = self._vnc_lib.physical_interface_read(id=pi2_uuid)
+
+        # Create VPG
+        vpg_name = "vpg-1"
+        vpg = VirtualPortGroup(vpg_name, parent_obj=fabric_obj)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg_obj = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+        vpg_name = vpg_obj.get_fq_name()
+
+        # Create single VN
+        vn1 = VirtualNetwork('vn1-%s' % (self.id()), parent_obj=proj_obj)
+        self.api.virtual_network_create(vn1)
+
+        # Create a VMI that's attached to vpg-1 and having reference
+        # to vn1
+        vmi_obj = VirtualMachineInterface(self.id() + "1",
+                                          parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn1)
+
+        # Create KV_Pairs for this VMI
+        kv_pairs = self._create_kv_pairs(pi1_fq_name,
+                                         fabric_name,
+                                         vpg_name)
+
+        vmi_obj.set_virtual_machine_interface_bindings(kv_pairs)
+
+        vmi_obj.set_virtual_machine_interface_properties(
+            VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=42))
+
+        # Create security group and attach to VMI
+        sg_name = '%s-sg' % self.id()
+        sg_obj = SecurityGroup(sg_name)
+        sg_uuid_1 = self.api.security_group_create(sg_obj)
+        sg_obj = self.api.security_group_read(id=sg_uuid_1)
+        vmi_obj.add_security_group(sg_obj)
+
+        vmi_uuid_1 = self.api.virtual_machine_interface_create(vmi_obj)
+
+        sg_obj = self.api.security_group_read(
+            id=sg_uuid_1,
+            fields=['virtual_machine_interface_back_refs'])
+        sg_obj.set_configured_security_group_id(5)
+        self.api.security_group_update(sg_obj)
+        self.assertEqual("Security Group '%s' Update" % sg_name,
+                         self._get_job_transaction_descr(pr_obj.uuid))
+
+        self.api.virtual_machine_interface_delete(id=vmi_uuid_1)
+        self.api.security_group_delete(id=sg_uuid_1)
+        self.api.virtual_port_group_delete(id=vpg_obj.uuid)
+        self.api.physical_interface_delete(id=pi1_uuid)
+        self.api.physical_interface_delete(id=pi2_uuid)
+        self.api.physical_router_delete(id=pr_obj.uuid)
+        self.api.fabric_delete(id=fabric_obj.uuid)
