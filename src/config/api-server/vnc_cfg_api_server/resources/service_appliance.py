@@ -88,6 +88,16 @@ class ServiceApplianceServer(ResourceMixin, ServiceAppliance):
             db_conn = cls.db_conn
             left_intf_list, right_intf_list =\
                 cls._get_left_right_attachment_points(obj_dict)
+
+            cls.create_job_transaction(
+                api_server, db_conn,
+                "Service Appliance '{}' {}".format(
+                    obj_dict.get('name'),
+                    'Create' if op == 'ADD' else 'Delete'),
+                pi_refs=obj_dict.get('physical_interface_refs'),
+                pi_fqname_list=[i.split(':') for i in left_intf_list] +
+                [i.split(':') for i in right_intf_list])
+
             for phys_intf_ref in obj_dict.get('physical_interface_refs') or []:
                 if phys_intf_ref.get('uuid') is None:
                     try:
