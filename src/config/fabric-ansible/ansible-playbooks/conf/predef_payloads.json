@@ -2692,7 +2692,7 @@
     },
     {
       "from_type": "device-functional-group",
-      "from_fq_name": [ "default-domain", "default-project","L3 Server-Leaf-with-Optimized-Multicast" ],
+      "from_fq_name": [ "default-domain", "default-project","L3-Server-Leaf-with-Optimized-Multicast" ],
       "to_type": "physical_role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
