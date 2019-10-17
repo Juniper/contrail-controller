@@ -14,7 +14,8 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
     @classmethod
     def update_physical_intf_type(cls, obj_dict=None,
-                                  old_obj_dict=None):
+                                  old_obj_dict=None,
+                                  trans_descr=None):
         api_server = cls.server
         db_conn = cls.db_conn
 
@@ -53,6 +54,11 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
 
         to_be_added_pi_uuids = list(set(new_uuid_list) - set(old_uuid_list))
         to_be_deleted_pi_uuids = list(set(old_uuid_list) - set(new_uuid_list))
+
+        if trans_descr:
+            cls.create_job_transaction(
+                api_server, db_conn, trans_descr,
+                pi_id_list=to_be_added_pi_uuids + to_be_deleted_pi_uuids)
 
         for pi_uuid in to_be_added_pi_uuids or []:
             try:
@@ -147,7 +153,10 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
                   % (obj_dict['uuid'])
             return (False, (400, msg), None)
 
-        ok, result = cls.update_physical_intf_type(old_obj_dict=obj_dict)
+        trans_descr = "Virtual Port Group '{}' Delete".format(
+            obj_dict.get('fq_name')[-1])
+        ok, result = cls.update_physical_intf_type(old_obj_dict=obj_dict,
+                                                   trans_descr=trans_descr)
         if not ok:
             return (False, result, None)
 
