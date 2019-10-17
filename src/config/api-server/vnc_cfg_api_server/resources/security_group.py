@@ -169,6 +169,28 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
             if not ok:
                 return ok, result
 
+        # Find affected physical-router objects and insert transaction info
+        pr_name_list = []
+        for vmi_ref in obj_dict.get('virtual_machine_interface_back_refs', []):
+            vmi_id = vmi_ref['uuid']
+            ok, vmi_dict = cls.dbe_read(
+                db_conn, 'virtual_machine_interface', vmi_id)
+            if not ok:
+                return ok, vmi_dict
+
+            bindings = vmi_dict['virtual_machine_interface_bindings']
+            kvps = bindings['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
+            link_info = kvp_dict.get('profile', {}).\
+                get('local_link_information', [])
+            for link in link_info:
+                pr_name_list.append(link['switch_info'])
+
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Security Group {} Update".format(fq_name[-1]),
+            pr_name_list=pr_name_list)
+
         return True, {
             'deallocated_security_group_id': deallocated_security_group_id,
         }
