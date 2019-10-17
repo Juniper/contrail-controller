@@ -1,6 +1,14 @@
 - import_role:
     name: Juniper.junos
 
+- name: Check SSH connectivity
+  wait_for:
+    host: "{{prouter_dynamic_ip}}"
+    port: 22
+    timeout: 300
+    connect_timeout: 10
+    sleep: 5
+
 - name: Execute commands on a Juniper Device to get system info
   juniper_junos_command:
     commands:

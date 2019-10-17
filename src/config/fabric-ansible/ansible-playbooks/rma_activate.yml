@@ -43,7 +43,15 @@
 
         - name: Activate devices and return device_to_ztp list for all devices
           set_fact:
-             devices_to_ztp: "{{ job_ctx | rma_devices_to_ztp(rma_devices) }}"
+             device_to_ztp: "{{ job_ctx | rma_devices_to_ztp(rma_devices) }}"
+
+        - name: Set fabric_uuid
+          set_fact:
+            fabric_uuid: "{{fabric_obj.obj.uuid}}"
+
+        - name: Get device password
+          set_fact:
+            dev_password: "{{ job_ctx | rma_get_device_password(rma_devices) }}"
 
         - name: Update job log with percentage
           include_tasks: percentage_update.yml
@@ -51,28 +59,36 @@
             current_index: 1
             jl_message: "Start reading DHCP leases file"
 
-        - name: Get ZTP DHCP config
+        - name: Save ZTP config directory
           set_fact:
-             ztp_dhcp_config: "{{ job_ctx | ztp_dhcp_config(fabric_obj.obj.uuid) }}"
+            ztp_conf_dir: ./config/ztp
 
-        - name: Save ZTP DHCP config file name
+        - name: This is a create operation
           set_fact:
-             ztp_dhcp_config_file: "{{ fabric_name }}.conf"
+            ztp_create: True
 
-        - name: Read dhcp leases using device info
-          set_fact:
-            leases_result: "{{ devices_to_ztp | read_only_dhcp_leases(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
+        - import_role:
+            name: ztp_dhcp_config
+
+        - import_role:
+            name: ztp_tftp_config
+
+        - import_role:
+            name: ztp_tftp
+
+        - import_role:
+            name: ztp_dhcp
 
         - name: Process RMA
           set_fact:
-            rma_device_info: "{{ job_ctx | rma_activate_devices(rma_devices, leases_result) }}"
+            rma_device_info: "{{ job_ctx | rma_activate_devices(rma_devices, publish_result) }}"
 
         - name: Perform the necessary error handling
           include_tasks: error_handler.yml
           vars:
             op_err_message: "No devices found in DHCP leases file"
             jl_err_message: "No devices found in DHCP leases file"
-          when: leases_result.failed == True
+          when: publish_result.failed == True
 
         - name: Return dynamic DHCP mgmt_ip in output for use in next playbook
           set_fact:
@@ -83,7 +99,6 @@
           vars:
             current_index: 2
             jl_message: "Done reading DHCP leases file"
-
 
         - name: Exit if successful
           set_fact:
