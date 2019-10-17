@@ -270,6 +270,11 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         if not ok:
             return ok, result
 
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Logical Router {} Create".format(obj_dict['fq_name'][-1]),
+            pr_refs=obj_dict.get('physical_router_refs', []))
+
         # Check if we can reference the BGP VPNs
         return cls.server.get_resource_class(
             'bgpvpn').check_router_has_bgpvpn_assoc_via_network(obj_dict)
@@ -373,9 +378,17 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             db_conn,
             'logical_router',
             id,
-            obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
+            obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs',
+                        'physical_router_refs'])
         if not ok:
             return ok, result
+
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Logical Router {} Update".format(obj_dict['fq_name'][-1]),
+            pr_refs=obj_dict.get('physical_router_refs', []) +
+            result.get('physical_router_refs', []))
+
         return cls.server.get_resource_class(
             'bgpvpn').check_router_has_bgpvpn_assoc_via_network(
                 obj_dict, result)
@@ -551,5 +564,10 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
             def undo_int_vn_delete():
                 return cls.create_intvn_and_ref(obj_dict)
             get_context().push_undo(undo_int_vn_delete)
+
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Logical Router {} Delete".format(obj_dict['fq_name'][-1]),
+            pr_refs=obj_dict.get('physical_router_refs', []))
 
         return True, '', None
