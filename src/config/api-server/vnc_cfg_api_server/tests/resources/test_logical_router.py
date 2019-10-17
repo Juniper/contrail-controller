@@ -15,6 +15,7 @@ from vnc_api.gen.resource_client import Domain
 from vnc_api.gen.resource_client import InstanceIp
 from vnc_api.gen.resource_client import LogicalRouter
 from vnc_api.gen.resource_client import NetworkIpam
+from vnc_api.gen.resource_client import PhysicalRouter
 from vnc_api.gen.resource_client import Project
 from vnc_api.gen.resource_client import RouteTable
 from vnc_api.gen.resource_client import VirtualMachine
@@ -659,3 +660,36 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             self._vnc_lib.logical_router_update(lr)
 
         logger.debug('PASS: Could not update LR from SNAT to VXLAN')
+
+    def test_job_transaction(self):
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        lr_name = 'router-test-job-transaction-%s-lr' % (self.id())
+        lr = LogicalRouter(lr_name, project)
+        lr.set_logical_router_type('vxlan-routing')
+        pr1_name = 'router-test-job-transaction-%s-pr1' % (self.id())
+        pr1 = PhysicalRouter(pr1_name)
+        pr1_uuid = self._vnc_lib.physical_router_create(pr1)
+        lr.add_physical_router(pr1)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        self.assertEqual(self._get_job_transaction_descr(pr1_uuid),
+                         "Logical Router '%s' Create" % lr_name)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        pr2_name = 'router-test-job-transaction-%s-pr2' % (self.id())
+        pr2 = PhysicalRouter(pr2_name)
+        pr2_uuid = self._vnc_lib.physical_router_create(pr2)
+        lr.add_physical_router(pr2)
+        lr.id_perms = IdPermsType(enable=True)
+        self._vnc_lib.logical_router_update(lr)
+        self.assertEqual(self._get_job_transaction_descr(pr1_uuid),
+                         "Logical Router '%s' Update" % lr_name)
+
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        self.assertEqual(self._get_job_transaction_descr(pr1_uuid),
+                         "Logical Router '%s' Delete" % lr_name)
+        self.assertEqual(self._get_job_transaction_descr(pr2_uuid),
+                         "Logical Router '%s' Delete" % lr_name)
+        self._vnc_lib.physical_router_delete(id=pr1_uuid)
+        self._vnc_lib.physical_router_delete(id=pr2_uuid)
