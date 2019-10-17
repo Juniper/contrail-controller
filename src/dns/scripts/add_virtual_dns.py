@@ -9,7 +9,7 @@ standard_library.install_aliases()
 from builtins import object
 import sys
 import argparse
-import configparser
+from six.moves import configparser
 
 from provision_dns import DnsProvisioner
 from requests.exceptions import ConnectionError

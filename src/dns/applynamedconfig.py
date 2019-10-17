@@ -20,7 +20,7 @@ from builtins import str
 import sys
 import os
 import subprocess
-import configparser
+from six.moves import configparser
 import logging
 
 def setup_logger():
