@@ -29,9 +29,27 @@ class FilterModule(object):
     def filters(self):
         return {
             'rma_activate_devices': self.rma_activate_devices,
-            'rma_devices_to_ztp': self.rma_devices_to_ztp
+            'rma_devices_to_ztp': self.rma_devices_to_ztp,
+            'rma_get_device_password': self.rma_get_device_password
         }
     # end filters
+
+    #retrieve first device's password
+    def rma_get_device_password(self, job_ctx, rma_devices_list):
+        try:
+            self.vncapi = JobVncApi.vnc_init(job_ctx)
+            device_uuid = rma_devices_list[0]['device_uuid']
+            device_obj = self.vncapi.physical_router_read(id=device_uuid)
+            return self._get_password(device_obj)
+        except Exception as ex:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
 
     # Wrapper to call main routine
     def rma_devices_to_ztp(self, job_ctx, rma_devices_list):

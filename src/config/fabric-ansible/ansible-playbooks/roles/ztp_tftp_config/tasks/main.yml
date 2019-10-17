@@ -8,9 +8,13 @@
     path: "{{ ztp_tftp_dir }}"
     state: directory
 
+- name: This value will not be set incase of ZTP. valid only for RMA
+  set_fact:
+    dev_password: "{{ dev_password | default(none) }}"
+
 - name: Get ZTP TFTP config
   set_fact:
-     ztp_tftp_config: "{{ job_ctx | ztp_tftp_config(fabric_uuid) }}"
+     ztp_tftp_config: "{{ job_ctx | ztp_tftp_config(dev_password) }}"
 
 - name: Save ZTP TFTP script file name
   set_fact:
