@@ -2,20 +2,27 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+import json
+
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from vnc_api.gen.resource_common import SecurityGroup
 
 from vnc_cfg_api_server.context import get_context
 from vnc_cfg_api_server.resources._policy_base import check_policy_rules
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
 from vnc_cfg_api_server.vnc_quota import QUOTA_OVER_ERROR_CODE
 from vnc_cfg_api_server.vnc_quota import QuotaHelper
 
 
-class SecurityGroupServer(ResourceMixin, SecurityGroup):
+class SecurityGroupServer(TransactionResourceBase, SecurityGroup):
     get_nested_key_as_list = classmethod(lambda cls, x, y, z: (
         x.get(y).get(z)
         if (type(x) is dict and x.get(y) and x.get(y).get(z)) else []))
+
+    @staticmethod
+    def _kvp_to_dict(kvps):
+        return dict((kvp['key'], kvp['value']) for kvp in kvps)
 
     @classmethod
     def _set_configured_security_group_id(cls, obj_dict):
@@ -168,6 +175,31 @@ class SecurityGroupServer(ResourceMixin, SecurityGroup):
                 proj_dict, db_conn, rule_count)
             if not ok:
                 return ok, result
+
+        # Find affected physical-router objects and insert transaction info
+        # import pdb; pdb.set_trace()
+        pr_name_list = []
+        for vmi_ref in sg_dict.get('virtual_machine_interface_back_refs', []):
+            vmi_id = vmi_ref['uuid']
+            ok, vmi_dict = cls.dbe_read(
+                db_conn, 'virtual_machine_interface', vmi_id)
+            if not ok:
+                return ok, vmi_dict
+
+            bindings = vmi_dict['virtual_machine_interface_bindings']
+
+            kvps = bindings['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
+            prof_str = kvp_dict.get('profile')
+            if prof_str:
+                profile = json.loads(prof_str)
+                link_info = profile.get('local_link_information', [])
+                for link in link_info:
+                    pr_name_list.append(link['switch_info'])
+        cls.create_job_transaction(
+            cls.server, db_conn,
+            "Security Group '{}' Update".format(fq_name[-1]),
+            pr_name_list=pr_name_list)
 
         return True, {
             'deallocated_security_group_id': deallocated_security_group_id,
