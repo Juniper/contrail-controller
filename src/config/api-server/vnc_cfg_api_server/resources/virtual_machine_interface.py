@@ -16,10 +16,12 @@ from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
 from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
 from vnc_cfg_api_server.context import get_context
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
 
 
-class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
+class VirtualMachineInterfaceServer(TransactionResourceBase,
+                                    VirtualMachineInterface):
     portbindings = {}
     portbindings['VIF_TYPE_VROUTER'] = 'vrouter'
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
@@ -544,7 +546,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = vlan_tag
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
                         obj_dict['uuid'], cls.server, db_conn, links,
-                        vpg_name, vn_uuid, vlan_id, is_untagged_vlan)
+                        vpg_name, vn_uuid, vlan_id, is_untagged_vlan,
+                        trans_descr="Virtual Port Group '{}' Create".format(
+                            vpg_name))
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
@@ -711,7 +715,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = new_vlan
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
                         id, cls.server, db_conn, links, vpg_name,
-                        vn_uuid, vlan_id, is_untagged_vlan)
+                        vn_uuid, vlan_id, is_untagged_vlan,
+                        trans_descr="Virtual Port Group '{}' Update".format(
+                            vpg_name))
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
 
@@ -1147,7 +1153,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _manage_vpg_association(cls, vmi_id, api_server, db_conn, phy_links,
                                 vpg_name=None, vn_uuid=None,
-                                vlan_id=None, is_untagged_vlan=False):
+                                vlan_id=None, is_untagged_vlan=False,
+                                trans_descr=None):
         fabric_name = None
         phy_interface_uuids = []
         old_phy_interface_uuids = []
@@ -1287,6 +1294,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         ret_dict = {}
         ret_dict['deallocated_ae_id'] = []
         ret_dict['allocated_ae_id'] = []
+
+        cls.create_job_transaction(
+            api_server, db_conn, trans_descr,
+            pi_id_list=old_phy_interface_uuids + phy_interface_uuids)
 
         # delete old physical interfaces to the vpg
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
