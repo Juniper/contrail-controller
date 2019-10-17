@@ -22,7 +22,7 @@
       set_fact:
         publish_result: "{{ device_count | read_dhcp_leases_using_count(ztp_dhcp_config['ipam_subnets'], ztp_dhcp_config_file, fabric_name, job_ctx) }}"
       when:
-        - device_to_ztp is not defined
+        - device_count is defined
         - only_restart is undefined or only_restart == False
 
     - name: Restart dhcp server

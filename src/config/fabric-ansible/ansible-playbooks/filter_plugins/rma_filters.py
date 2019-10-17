@@ -29,9 +29,27 @@ class FilterModule(object):
     def filters(self):
         return {
             'rma_activate_devices': self.rma_activate_devices,
-            'rma_devices_to_ztp': self.rma_devices_to_ztp
+            'rma_devices_to_ztp': self.rma_devices_to_ztp,
+            'rma_get_device_password': self.rma_get_device_password
         }
     # end filters
+
+    #retrieve first device's password
+    def rma_get_device_password(self, job_ctx, rma_devices_list):
+        try:
+            self.vncapi = JobVncApi.vnc_init(job_ctx)
+            device_uuid = rma_devices_list[0]['device_uuid']
+            device_obj = self.vncapi.physical_router_read(id=device_uuid)
+            return self._get_password(device_obj)
+        except Exception as ex:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
 
     # Wrapper to call main routine
     def rma_devices_to_ztp(self, job_ctx, rma_devices_list):
@@ -156,7 +174,14 @@ class FilterModule(object):
 
     # Get device password
     def _get_password(self, device_obj):
-        return JobVncApi.decrypt_password(
+        _task_error_log("DEVICE OBJ %s" % device_obj)
+        _task_error_log("ENC PWD %s" %
+                        device_obj.physical_router_user_credentials.
+            get_password())
+        _task_error_log("DEVICE UUID %s" % device_obj.uuid)
+        pwd = JobVncApi.decrypt_password(
             encrypted_password=device_obj.physical_router_user_credentials.
             get_password(),
             pwd_key=device_obj.uuid)
+        _task_error_log("DECRYPTED PWD %s" % pwd)
+        return pwd
