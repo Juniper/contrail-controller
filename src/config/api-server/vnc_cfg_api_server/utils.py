@@ -411,3 +411,7 @@ def encrypt_password(pwd_key, dict_password):
     password = base64.b64encode(cipher.encrypt(padded_text))
     return password
 # end encrypt_password
+
+def kvp_to_dict(kvps):
+    return dict((kvp['key'], kvp['value']) for kvp in kvps)
+# end kvp_to_dict
