@@ -54,6 +54,12 @@ class VirtualPortGroupServer(ResourceMixin, VirtualPortGroup):
         to_be_added_pi_uuids = list(set(new_uuid_list) - set(old_uuid_list))
         to_be_deleted_pi_uuids = list(set(old_uuid_list) - set(new_uuid_list))
 
+        cls.create_job_transaction(
+            api_server, db_conn,
+            "Virtual Port Group '{}' Delete".format(
+                old_obj_dict.get('fq_name')[-1]),
+            pi_id_list=to_be_added_pi_uuids + to_be_deleted_pi_uuids)
+
         for pi_uuid in to_be_added_pi_uuids or []:
             try:
                 api_server.internal_request_update(
