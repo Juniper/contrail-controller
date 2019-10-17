@@ -19,10 +19,13 @@ from vnc_api.gen.resource_xsd import PolicyBasedForwardingRuleType
 from vnc_api.gen.resource_xsd import VpgInterfaceParametersType
 
 from vnc_cfg_api_server.context import get_context
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
+from vnc_cfg_api_server.utils import kvp_to_dict
 
 
-class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
+class VirtualMachineInterfaceServer(TransactionResourceBase,
+                                    VirtualMachineInterface):
     portbindings = {}
     portbindings['VIF_TYPE_VROUTER'] = 'vrouter'
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
@@ -40,10 +43,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     vhostuser_sockets_dir = '/var/run/vrouter/'
     NIC_NAME_LEN = 14
-
-    @staticmethod
-    def _kvp_to_dict(kvps):
-        return dict((kvp['key'], kvp['value']) for kvp in kvps)
 
     @classmethod
     def _check_vrouter_link(cls, vmi_data, kvp_dict, obj_dict, db_conn):
@@ -226,7 +225,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         """
         bindings = obj_dict['virtual_machine_interface_bindings']
         kvps = bindings['key_value_pair']
-        kvp_dict = cls._kvp_to_dict(kvps)
+        kvp_dict = kvp_to_dict(kvps)
         old_vnic_type = kvp_dict.get('vnic_type')
         new_vnic_type = new_kvp_dict.get('vnic_type')
 
@@ -253,7 +252,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             if obj_dict.get('virtual_machine_interface_bindings'):
                 bindings = obj_dict['virtual_machine_interface_bindings']
                 kvps = bindings['key_value_pair']
-                kvp_dict = cls._kvp_to_dict(kvps)
+                kvp_dict = kvp_to_dict(kvps)
                 host_id = kvp_dict.get('host_id')
                 if not host_id or host_id == 'null':
                     return True, False
@@ -289,7 +288,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     def _kvps_update(cls, kvps, kvp):
         key = kvp['key']
         value = kvp['value']
-        kvp_dict = cls._kvp_to_dict(kvps)
+        kvp_dict = kvp_to_dict(kvps)
         if key not in list(kvp_dict.keys()):
             if value:
                 kvps.append(kvp)
@@ -430,7 +429,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if 'virtual_machine_interface_bindings' in obj_dict:
             bindings = obj_dict['virtual_machine_interface_bindings']
             kvps = bindings['key_value_pair']
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
 
             if (kvp_dict.get('vnic_type') ==
                     cls.portbindings['VNIC_TYPE_DIRECT'] or
@@ -489,7 +488,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                              'value': cls.portbindings['VNIC_TYPE_NORMAL']}
                 kvps.append(vnic_type)
 
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             if (kvp_dict.get('vnic_type') ==
                     cls.portbindings['VNIC_TYPE_NORMAL']):
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn)
@@ -529,7 +528,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         # Manage baremetal provisioning here
         if kvps:
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             vnic_type = kvp_dict.get('vnic_type')
             vpg_name = kvp_dict.get('vpg')
             tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
@@ -547,7 +546,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = vlan_tag
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
                         obj_dict['uuid'], cls.server, db_conn, links,
-                        vpg_name, vn_uuid, vlan_id, is_untagged_vlan)
+                        vpg_name, vn_uuid, vlan_id, is_untagged_vlan,
+                        trans_descr="Virtual Port Group '{}' Create".format(
+                            vpg_name))
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
                     obj_dict['port_virtual_port_group_id'] = vpg_uuid
@@ -647,7 +648,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         bindings = read_result.get('virtual_machine_interface_bindings') or {}
         kvps = bindings.get('key_value_pair') or []
-        kvp_dict = cls._kvp_to_dict(kvps)
+        kvp_dict = kvp_to_dict(kvps)
         old_vnic_type = kvp_dict.get('vnic_type',
                                      cls.portbindings['VNIC_TYPE_NORMAL'])
 
@@ -679,7 +680,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         ret_dict = None
         if kvps:
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
             tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
             # IRONIC: allow for normal->baremetal change if bindings has
@@ -714,7 +715,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = new_vlan
                     vpg_uuid, ret_dict = cls._manage_vpg_association(
                         id, cls.server, db_conn, links, vpg_name,
-                        vn_uuid, vlan_id, is_untagged_vlan)
+                        vn_uuid, vlan_id, is_untagged_vlan,
+                        trans_descr="Virtual Port Group '{}' Update".format(
+                            vpg_name))
                     if not vpg_uuid:
                         return vpg_uuid, ret_dict
 
@@ -727,8 +730,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             bindings_port = read_result.get(
                 'virtual_machine_interface_bindings', {})
             kvps_port = bindings_port.get('key_value_pair') or []
-            kvp_dict_port = cls._kvp_to_dict(kvps_port)
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict_port = kvp_to_dict(kvps_port)
+            kvp_dict = kvp_to_dict(kvps)
             if (kvp_dict_port.get('vnic_type') ==
                     cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER'] and
                     kvp_dict.get('host_id') != 'null'):
@@ -957,7 +960,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             bindings = vmi_info.get(
                 'virtual_machine_interface_bindings') or {}
             kvps = bindings.get('key_value_pair') or []
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
             if tor_port_vlan_id != 0:
                 tor_vlan_ids.append(tor_port_vlan_id)
@@ -1036,7 +1039,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             bindings = vmi_info.get(
                 'virtual_machine_interface_bindings') or {}
             kvps = bindings.get('key_value_pair') or []
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
             vlan_tag = (vmi_info.get(
                 'virtual_machine_interface_properties') or {}).get(
@@ -1117,7 +1120,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             bindings = vmi_info.get(
                 'virtual_machine_interface_bindings') or {}
             kvps = bindings.get('key_value_pair') or []
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
             if tor_port_vlan_id != 0:
                 tor_vlan_ids.append(tor_port_vlan_id)
@@ -1150,7 +1153,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
     @classmethod
     def _manage_vpg_association(cls, vmi_id, api_server, db_conn, phy_links,
                                 vpg_name=None, vn_uuid=None,
-                                vlan_id=None, is_untagged_vlan=False):
+                                vlan_id=None, is_untagged_vlan=False,
+                                trans_descr=None):
         fabric_name = None
         phy_interface_uuids = []
         old_phy_interface_uuids = []
@@ -1291,6 +1295,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         ret_dict['deallocated_ae_id'] = []
         ret_dict['allocated_ae_id'] = []
 
+        ok, result = cls.create_job_transaction(
+            trans_descr,
+            pi_id_list=old_phy_interface_uuids + phy_interface_uuids)
+        if not ok:
+            return ok, result
+
         # delete old physical interfaces to the vpg
         for uuid in set(old_phy_interface_uuids) - set(phy_interface_uuids):
             prouter_dict = old_pi_to_pr_dict.get(uuid)
@@ -1377,7 +1387,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         bindings = obj_dict.get('virtual_machine_interface_bindings')
         if bindings:
             kvps = bindings.get('key_value_pair') or []
-            kvp_dict = cls._kvp_to_dict(kvps)
+            kvp_dict = kvp_to_dict(kvps)
             delete_dict = {'virtual_machine_refs': []}
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
