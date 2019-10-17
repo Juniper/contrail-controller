@@ -4,27 +4,24 @@
 
 from vnc_api.gen.resource_common import DataCenterInterconnect
 
-from vnc_cfg_api_server.resources._resource_base import ResourceMixin
+from vnc_cfg_api_server.resources._transaction_base import \
+    TransactionResourceBase
 
 
-class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
-
-    @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        # make sure referenced LRs belongs to different fabrics
-        return cls._make_sure_lrs_belongs_to_different_fabrics(
-            db_conn, obj_dict)
+class DataCenterInterconnectServer(TransactionResourceBase,
+                                   DataCenterInterconnect):
 
     @classmethod
     def _make_sure_lrs_belongs_to_different_fabrics(cls, db_conn, dci):
         lr_list = []
+        pr_id_list = []
         for lr_ref in dci.get('logical_router_refs') or []:
             lr_uuid = lr_ref.get('uuid')
             if lr_uuid:
                 lr_list.append(lr_uuid)
 
         if not lr_list:
-            return True, ''
+            return True, pr_id_list
 
         for lr_uuid in lr_list:
             ok, read_result = cls.dbe_read(
@@ -36,6 +33,11 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                 return False, read_result
 
             lr = read_result
+
+            # Store physical-router IDs in list to return
+            for pr in lr.get('physical_router_refs', []):
+                pr_id_list.append(pr['uuid'])
+
             # check there are no more than one DCI back ref for this LR
             # it is acceptable that dci object can associate with a lr,
             # but lr not associated with any PRs yet
@@ -75,6 +77,40 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
                 msg = ("DCI Logical router is not associated to any fabric: %s"
                        % lr_uuid)
                 return False, (400, msg)
+        return True, pr_id_list
+
+    @classmethod
+    def _job_transaction_update(cls, db_conn, op, dci_name, dci, pr_ids):
+        pr_id_list = pr_ids or []
+        lr_refs = []
+
+        if dci:
+            lr_refs += dci.get('logical_router_refs', [])
+
+        for lr_ref in lr_refs:
+            ok, lr = cls.dbe_read(
+                db_conn, 'logical_router', lr_ref['uuid'],
+                obj_fields=['physical_router_refs'])
+            if not ok:
+                continue
+            for pr in lr.get('physical_router_refs', []):
+                pr_id_list.append(pr['uuid'])
+
+        cls.create_job_transaction(
+            "DCI '{}' {}".format(dci_name, op),
+            pr_id_list=pr_id_list)
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        # make sure referenced LRs belongs to different fabrics
+        ok, result = cls._make_sure_lrs_belongs_to_different_fabrics(
+            db_conn, obj_dict)
+        if not ok:
+            return ok, result
+
+        cls._job_transaction_update(db_conn, "Create",
+                                    obj_dict['fq_name'][-1],
+                                    None, result)
         return True, ''
 
     @classmethod
@@ -85,5 +121,19 @@ class DataCenterInterconnectServer(ResourceMixin, DataCenterInterconnect):
             return ok, read_result
 
         # make sure referenced LRs belongs to different fabrics
-        return cls._make_sure_lrs_belongs_to_different_fabrics(
+        ok, result = cls._make_sure_lrs_belongs_to_different_fabrics(
             db_conn, read_result)
+        if not ok:
+            return ok, result
+
+        cls._job_transaction_update(db_conn, "Update",
+                                    fq_name[-1],
+                                    obj_dict, result)
+        return True, ''
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        cls._job_transaction_update(db_conn, "Delete",
+                                    obj_dict['fq_name'][-1],
+                                    obj_dict, None)
+        return True, '', None
