@@ -66,6 +66,10 @@
           }
       register: prouter_obj
 
+    - name: Set DFG flag if necessary
+      set_fact:
+       output: "{{job_ctx| update_physical_router_annotations(pr_uuid)}}"
+
     - name: PR objectlog update for OS version
       prouter_objectlog:
         prouter_fqname: "{{pr_fqname}}"
@@ -79,4 +83,5 @@
       vars:
         jl_message: Image upgrade version validated. The device OS version is now {{device_version}}.
   when: task_fail is not defined
+
 
