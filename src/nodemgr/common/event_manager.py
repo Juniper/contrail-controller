@@ -2,7 +2,7 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import ConfigParser
+from six.moves.configparser import ConfigParser, NoOptionError, SafeConfigParser
 import copy
 import gevent
 import hashlib
@@ -11,36 +11,35 @@ import random
 import signal
 import socket
 import time
-from ConfigParser import NoOptionError
 
-from buildinfo import build_info
+from .buildinfo import build_info
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig, sandesh_global
 from pysandesh.sandesh_logger import SandeshLogger
-from sandesh.nodeinfo.cpuinfo.ttypes import *
-from sandesh.nodeinfo.process_info.constants import ProcessStateNames
-from sandesh.nodeinfo.process_info.ttypes import (ProcessInfo, ProcessState,
-                                                  ProcessStatus)
-from sandesh.nodeinfo.ttypes import *
-from sandesh.supervisor_events.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
+from nodemgr.common.sandesh.nodeinfo.process_info.constants import ProcessStateNames
+from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import (ProcessInfo, ProcessState,
+                                                                 ProcessStatus)
+from nodemgr.common.sandesh.nodeinfo.ttypes import *
+from nodemgr.common.sandesh.supervisor_events.ttypes import *
 from sandesh_common.vns.constants import (INSTANCE_ID_DEFAULT, Module2NodeType,
                                           ModuleNames, NodeTypeNames,
                                           ServiceHttpPortMap, UVENodeTypeNames)
 
-from process_stat import ProcessStat
-import utils
+from nodemgr.common.process_stat import ProcessStat
+from nodemgr.common import utils
 import os
 try:
-    from docker_process_manager import DockerProcessInfoManager
+    from nodemgr.common.docker_process_manager import DockerProcessInfoManager
 except Exception:
     # there is no docker library. assumes that code runs not for microservices
     DockerProcessInfoManager = None
 if platform.system() == 'Windows':
-    from windows_sys_data import WindowsSysData
-    from windows_process_manager import WindowsProcessInfoManager
+    from nodemgr.common.windows_sys_data import WindowsSysData
+    from nodemgr.common.windows_process_manager import WindowsProcessInfoManager
 else:
-    from linux_sys_data import LinuxSysData
+    from nodemgr.common.linux_sys_data import LinuxSysData
 
 
 class EventManagerTypeInfo(object):
@@ -81,16 +80,17 @@ class EventManager(object):
         self.new_build_info = None
         self.hostip = self.config.hostip
         self.hostname = socket.getfqdn(self.hostip) if self.config.hostname is None \
-                        else self.config.hostname
+            else self.config.hostname
 
         self.collector_chksum = 0
         self.random_collectors = list()
         if config.collectors:
             config.collectors.sort()
-            self.collector_chksum = hashlib.md5("".join(config.collectors)).hexdigest()
+            self.collector_chksum = hashlib.md5(("".join(config.collectors)).encode()).hexdigest()
             self.random_collectors = random.sample(config.collectors, len(config.collectors))
 
-        ConnectionState.init(self.sandesh_instance, self.hostname,
+        ConnectionState.init(
+            self.sandesh_instance, self.hostname,
             self.type_info._module_name, self.instance_id,
             staticmethod(ConnectionState.get_conn_state_cb),
             NodeStatusUVE, NodeStatus, self.type_info._object_table,
@@ -128,7 +128,7 @@ class EventManager(object):
                     update_process_list)
             else:
                 self.msg_log('Node manager could not detect process manager',
-                            SandeshLevel.SYS_ERR)
+                             SandeshLevel.SYS_ERR)
                 exit(-1)
 
         self.process_state_db = self._get_current_processes()
@@ -165,7 +165,7 @@ class EventManager(object):
             stat.pid = proc_pid
             if stat.group not in self.group_names:
                 self.group_names.append(stat.group)
-            if not stat.group in process_state_db:
+            if stat.group not in process_state_db:
                 process_state_db[stat.group] = {}
             process_state_db[stat.group][proc_name] = stat
         return process_state_db
@@ -177,9 +177,9 @@ class EventManager(object):
                % process_state_db)
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         old_process_set = set(key for group in self.process_state_db
-                                  for key in self.process_state_db[group])
+                              for key in self.process_state_db[group])
         new_process_set = set(key for group in process_state_db
-                                  for key in process_state_db[group])
+                              for key in process_state_db[group])
         common_process_set = new_process_set.intersection(old_process_set)
         added_process_set = new_process_set - common_process_set
         deleted_process_set = old_process_set - common_process_set
@@ -287,7 +287,7 @@ class EventManager(object):
                 process_infos.append(process_info)
                 # in tor-agent case, we should use tor-agent name as uve key
                 name = pstat.name
-                if pstat.deleted == False:
+                if pstat.deleted is False:
                     delete_status = False
 
             if not process_infos:
@@ -341,11 +341,12 @@ class EventManager(object):
             proc_stat.last_time = 0
             if not process_info['expected']:
                 self.msg_log('%s with pid: %s exited abnormally' %
-                    (pname, process_info['pid']), SandeshLevel.SYS_ERR)
+                             (pname, process_info['pid']),
+                             SandeshLevel.SYS_ERR)
                 proc_stat.last_exit_unexpected = True
         send_init_uve = False
         # update process state database
-        if not proc_stat.group in self.process_state_db:
+        if proc_stat.group not in self.process_state_db:
             self.process_state_db[proc_stat.group] = {}
             send_init_uve = True
         self.process_state_db[proc_stat.group][pname] = proc_stat
@@ -376,7 +377,7 @@ class EventManager(object):
         process_status_list = []
         process_status_list.append(process_status)
         node_status = NodeStatus(name=self.hostname,
-                        process_status=process_status_list)
+                                 process_status=process_status_list)
         node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                         data=node_status)
         msg = ('send_nodemgr_process_status: Sending UVE:'
@@ -455,8 +456,8 @@ class EventManager(object):
 
     def _event_process_communication(self, pdata):
         flag_and_value = pdata.partition(":")
-        msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0] +
-               " Value:" + flag_and_value[2])
+        msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0]
+               + " Value:" + flag_and_value[2])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
 
     def _event_tick_60(self):
@@ -523,7 +524,7 @@ class EventManager(object):
             else:
                 self.msg_log(
                     'function %s duration exceeded %f interval (took %f)'
-                        % (function.__name__, interval, duration),
+                    % (function.__name__, interval, duration),
                     SandeshLevel.SYS_ERR)
 
     def runforever(self):
@@ -536,16 +537,16 @@ class EventManager(object):
 
     def nodemgr_sighup_handler(self):
         collector_list = list()
-        config = ConfigParser.SafeConfigParser()
+        config = SafeConfigParser()
         config.read([self.config.config_file_path])
         if 'COLLECTOR' in config.sections():
             try:
                 collector = config.get('COLLECTOR', 'server_list')
                 collector_list = collector.split()
-            except ConfigParser.NoOptionError:
+            except NoOptionError:
                 pass
         collector_list.sort()
-        new_chksum = hashlib.md5("".join(collector_list)).hexdigest()
+        new_chksum = hashlib.md5(("".join(collector_list)).encode()).hexdigest()
         if new_chksum != self.collector_chksum:
             self.collector_chksum = new_chksum
             self.random_collectors = random.sample(collector_list, len(collector_list))

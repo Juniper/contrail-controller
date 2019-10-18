@@ -19,7 +19,7 @@ class ProcessStat(object):
         self.process_state = 'PROCESS_STATE_STOPPED'
         self.group = 'default'
         self.name = socket.getfqdn(host_ip) if hostname is None \
-                    else hostname
+            else hostname
         self.pname = pname
         self.pid = 0
         self.last_cpu = last_cpu

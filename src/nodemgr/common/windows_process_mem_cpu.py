@@ -5,7 +5,8 @@
 import psutil
 import time
 
-from sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
+from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import ProcessCpuInfo
+
 
 class WindowsProcessMemCpuUsageData(object):
     def __init__(self, pid, last_cpu, last_time):
@@ -27,7 +28,7 @@ class WindowsProcessMemCpuUsageData(object):
         self.last_time = current_time
 
         if interval_time > 0:
-            usage_percent = 100 * usage_time / interval_time
+            usage_percent = 100 * usage_time // interval_time
             cpu_share = round(usage_percent / psutil.cpu_count(), 2)
             return cpu_share
         else:
@@ -37,6 +38,6 @@ class WindowsProcessMemCpuUsageData(object):
         process_mem_cpu = ProcessCpuInfo()
         p = psutil.Process(self.pid)
         process_mem_cpu.cpu_share = self._get_process_cpu_share(p.cpu_times())
-        process_mem_cpu.mem_virt = p.memory_info().vms / 1024
-        process_mem_cpu.mem_res = p.memory_info().rss / 1024
+        process_mem_cpu.mem_virt = p.memory_info().vms // 1024
+        process_mem_cpu.mem_res = p.memory_info().rss // 1024
         return process_mem_cpu
