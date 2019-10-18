@@ -1326,7 +1326,8 @@ class VncDbClient(object):
                         (ok, lr_list) = self._object_db.object_read(
                                             'logical_router',
                                             obj_uuids=lr_uuid_list,
-                                            field_names=['logical_router_type'])
+                                            field_names=['logical_router_type',
+                                                'virtual_network_refs'])
                         for lr in lr_list:
                             if 'logical_router_type' not in lr:
                                 self._object_db.object_update(
@@ -1334,6 +1335,19 @@ class VncDbClient(object):
                                 lr['uuid'],
                                 {'logical_router_type': 'vxlan-routing'
                                  if vxlan_routing else 'snat-routing'})
+
+                            int_vn_uuid = None
+                            for vn_ref in lr['virtual_network_refs']:
+                                if (vn_ref.get('attr', {}).get(
+                                      'logical_router_virtual_network_type') ==
+                                      'InternalVirtualNetwork'):
+                                    int_vn_uuid = vn_ref.get('uuid')
+                            if int_vn_uuid is not None:
+                                int_vn_display_name = 'LR::%s' % lr['fq_name'][-1]
+                                self._object_db.object_update(
+                                'virtual_network',
+                                int_vn_uuid,
+                                {'display_name': int_vn_display_name})
 
                     if vxlan_routing:
                         obj_dict['vxlan_routing'] = False

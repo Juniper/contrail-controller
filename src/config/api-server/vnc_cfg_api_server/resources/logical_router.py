@@ -476,6 +476,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
         vn_fq_name = (obj_dict['fq_name'][:-1] +
                       [get_lr_internal_vn_name(obj_dict['uuid'])])
         kwargs = {'id_perms': IdPermsType(user_visible=False)}
+        kwargs['display_name'] = 'LR::%s' % obj_dict['fq_name'][-1]
         vn_property = VirtualNetworkType(forwarding_mode='l3')
         if 'vxlan_network_identifier' in obj_dict:
             vn_property.set_vxlan_network_identifier(

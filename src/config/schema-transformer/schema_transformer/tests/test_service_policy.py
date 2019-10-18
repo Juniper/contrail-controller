@@ -4,6 +4,7 @@
 import copy
 from unittest import skip
 
+from cfgm_common import get_lr_internal_vn_name
 from cfgm_common.exceptions import RefsExistError
 from cfgm_common.tests import test_common
 import gevent
@@ -46,6 +47,19 @@ class VerifyServicePolicy(VerifyPolicy):
         raise Exception('Service chain not found')
 
     @retries(5)
+    def check_evpn_service_chain_prefix_match(self, fq_name, prefix):
+        ip_version = IPNetwork(prefix).version
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        if ip_version == 6:
+            sci = ri.get_evpn_ipv6_service_chain_information()
+        else:
+            sci = ri.get_evpn_service_chain_information()
+        if sci is None:
+            print "retrying ... ", test_common.lineno()
+            raise Exception('Service chain info not found for %s' % fq_name)
+        self.assertEqual(sci.prefix[0], prefix)
+
+    @retries(5)
     def check_service_chain_prefix_match(self, fq_name, prefix):
         ip_version = IPNetwork(prefix).version
         ri = self._vnc_lib.routing_instance_read(fq_name)
@@ -78,6 +92,39 @@ class VerifyServicePolicy(VerifyPolicy):
     def check_v6_service_chain_info(self, fq_name, expected):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         sci = ri.get_ipv6_service_chain_information()
+        if sci is None:
+            raise Exception('Ipv6 service chain info not found for %s' %
+                            fq_name)
+        expected_attrs = expected.__dict__
+        sci_attrs = expected.__dict__
+        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
+        for attr in expected_attrs.keys():
+            if attr == 'service_chain_address':
+                self.assertEqual(IPNetwork(expected_attrs[attr]),
+                                 IPNetwork(sci_attrs[attr]))
+            else:
+                self.assertEqual(expected_attrs[attr], sci_attrs[attr])
+
+    @retries(5)
+    def check_evpn_service_chain_info(self, fq_name, expected):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        sci = ri.get_evpn_service_chain_information()
+        if sci is None:
+            raise Exception('Service chain info not found for %s' % fq_name)
+        expected_attrs = expected.__dict__
+        sci_attrs = expected.__dict__
+        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
+        for attr in expected_attrs.keys():
+            if attr == 'service_chain_address':
+                self.assertEqual(IPNetwork(expected_attrs[attr]),
+                                 IPNetwork(sci_attrs[attr]))
+            else:
+                self.assertEqual(expected_attrs[attr], sci_attrs[attr])
+
+    @retries(5)
+    def check_evpn_v6_service_chain_info(self, fq_name, expected):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        sci = ri.get_evpn_ipv6_service_chain_information()
         if sci is None:
             raise Exception('Ipv6 service chain info not found for %s' %
                             fq_name)
@@ -2282,6 +2329,108 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
 
     # end test_service_policy_with_v4_v6_subnets
+
+    def test_evpn_service_policy_with_v4_v6_subnets(self):
+
+        # If the SC chain info changes after the SI is created
+        # (for example, IP address assignment) then the
+        # RI needs to be updated with the new info.
+
+        kwargs = {'logical_router_type': 'vxlan-routing'}
+
+        # create left-lr
+        lr1_name = self.id() + 'lr-left'
+        lr_left_obj, _, _, _ = self.create_logical_router(lr1_name, **kwargs)
+        left_int_vn_fq_name = (lr_left_obj.get_fq_name()[:-1] +
+                               [get_lr_internal_vn_name(lr_left_obj.uuid)])
+        left_int_vn_obj = self._vnc_lib.virtual_network_read(
+            fq_name=left_int_vn_fq_name)
+
+        # create right-lr
+        lr2_name = self.id() + 'lr-right'
+        lr_right_obj, _, _, _ = self.create_logical_router(lr2_name, **kwargs)
+        right_int_vn_fq_name = (lr_right_obj.get_fq_name()[:-1] +
+                                [get_lr_internal_vn_name(lr_right_obj.uuid)])
+        right_int_vn_obj = self._vnc_lib.virtual_network_read(
+            fq_name=right_int_vn_fq_name)
+
+        # Create SC
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(left_int_vn_obj, right_int_vn_obj,
+                                        service_list=[service_name],
+                                        version=2,
+                                        service_mode='in-network')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        left_int_vn_obj.set_network_policy(np, vnp)
+        right_int_vn_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(left_int_vn_obj)
+        self._vnc_lib.virtual_network_update(right_int_vn_obj)
+        sc = self.wait_to_get_sc()
+
+        # Assign prefix after the SC is created
+        self.assign_vn_subnet(left_int_vn_obj, ['10.0.0.0/24', '1000::/16'])
+        self.assign_vn_subnet(right_int_vn_obj, ['20.0.0.0/24', '2000::/16'])
+
+        sc_ri_name = 'service-' + sc + '-default-domain_default-project_' + \
+                     service_name
+        self.check_ri_ref_present(
+            self.get_ri_name(left_int_vn_obj),
+            self.get_ri_name(left_int_vn_obj, sc_ri_name))
+        self.check_ri_ref_present(
+            self.get_ri_name(right_int_vn_obj, sc_ri_name),
+            self.get_ri_name(right_int_vn_obj))
+
+        # Checking the Service chain address in the service RI
+        sci = ServiceChainInfo(
+            service_chain_id=sc,
+            prefix=['10.0.0.0/24'],
+            routing_instance=':'.join(self.get_ri_name(left_int_vn_obj)),
+            service_chain_address='0.255.255.251',
+            service_instance='default-domain:default-project:' +
+                             service_name,
+            source_routing_instance=':'.join(self.get_ri_name(
+                                             right_int_vn_obj)))
+        self.check_evpn_service_chain_info(
+            self.get_ri_name(right_int_vn_obj, sc_ri_name), sci)
+        sci.prefix = ['1000::/16']
+        sci.service_chain_address = '::0.255.255.251'
+        self.check_evpn_v6_service_chain_info(
+            self.get_ri_name(right_int_vn_obj, sc_ri_name), sci)
+
+        sci = ServiceChainInfo(
+            service_chain_id=sc,
+            prefix=['20.0.0.0/24'],
+            routing_instance=':'.join(self.get_ri_name(right_int_vn_obj)),
+            service_chain_address='0.255.255.252',
+            service_instance='default-domain:default-project:' + service_name,
+            source_routing_instance=':'.join(self.get_ri_name(
+                                             left_int_vn_obj)))
+        self.check_evpn_service_chain_info(
+            self.get_ri_name(left_int_vn_obj, sc_ri_name), sci)
+        sci.prefix = ['2000::/16']
+        sci.service_chain_address = '::0.255.255.252'
+        self.check_evpn_v6_service_chain_info(
+            self.get_ri_name(left_int_vn_obj, sc_ri_name), sci)
+        left_ri_fq_name = (left_int_vn_fq_name + [sc_ri_name])
+        right_ri_fq_name = (right_int_vn_fq_name + [sc_ri_name])
+        self.check_evpn_service_chain_prefix_match(left_ri_fq_name,
+                                                   prefix='2000::/16')
+        self.check_evpn_service_chain_prefix_match(left_ri_fq_name,
+                                                   prefix='20.0.0.0/24')
+        self.check_evpn_service_chain_prefix_match(right_ri_fq_name,
+                                                   prefix='1000::/16')
+        self.check_evpn_service_chain_prefix_match(right_ri_fq_name,
+                                                   prefix='10.0.0.0/24')
+
+        right_int_vn_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(right_int_vn_obj)
+        left_int_vn_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(left_int_vn_obj)
+        self.delete_network_policy(np)
+
+    # end test_evpn_service_policy_with_v4_v6_subnets
 
     def test_routing_policy_primary_ri_ref_present(self):
         # create  vn1
