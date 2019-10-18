@@ -1,0 +1,18 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Execute commands on a Juniper Device to get configured interfaces
+  juniper_junos_config:
+    provider:
+      host: "{{host}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+    retrieve: 'committed'
+    format: xml
+  register: execute_command_resp
+  ignore_errors: yes
+
+- name: setting task file to juniper.yml
+  set_fact:
+    task_file: "juniper.yml"
