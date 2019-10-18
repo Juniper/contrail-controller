@@ -35,4 +35,5 @@ def import_feature_plugins():
     from assisted_replicator_feature import AssistedReplicatorFeature
     from storm_control_feature import StormControlFeature
     from telemetry_feature import TelemetryFeature
+    from virtual_port_group_feature import VPGFeature
 # end import_feature_plugins
