@@ -22,6 +22,30 @@
       "revId": "b6f060e9917b7b2fe2d711eddc7022a778934c7f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "280c5a18_68c68088",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-10-18T18:16:17Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4ad12c15_e408a160",
+      "range": {
+        "startLine": 67,
+        "startChar": 16,
+        "endLine": 67,
+        "endChar": 20
+      },
+      "revId": "b6f060e9917b7b2fe2d711eddc7022a778934c7f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
