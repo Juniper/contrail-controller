@@ -410,7 +410,8 @@ int main(int argc, char *argv[])
             config_client,
             options.use_grok(),
             options.grok_key_list(),
-            options.grok_attrib_list());
+            options.grok_attrib_list(),
+            options.host_ip());
 
     config_client->Init();
     analytics->Init();
