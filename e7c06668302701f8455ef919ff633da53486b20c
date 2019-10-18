@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "42116a94_2b5f685f",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 754,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-18T10:44:35Z",
+      "side": 1,
+      "message": "Remove the print statement.",
+      "revId": "e7c06668302701f8455ef919ff633da53486b20c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9262d5f8_385615f2",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 813,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-18T10:44:35Z",
+      "side": 1,
+      "message": "Remove the print statement.",
+      "revId": "e7c06668302701f8455ef919ff633da53486b20c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c226a7a4_d834fbbe",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/security_group.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-18T10:44:35Z",
+      "side": 1,
+      "message": "Just check if you can maintain the same name here(firewall) and in the predef_payload.json (security-group)?",
+      "revId": "e7c06668302701f8455ef919ff633da53486b20c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "666fa76d_26c4b5eb",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_security_group/juniper_junos-qfx_[^qfx10]_overlay_security_group.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 52,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-18T10:44:35Z",
+      "side": 1,
+      "message": "I assume we need to read the physical-interfaces from the the features knob, instesd of reading directly from the abstract config.",
+      "revId": "e7c06668302701f8455ef919ff633da53486b20c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
