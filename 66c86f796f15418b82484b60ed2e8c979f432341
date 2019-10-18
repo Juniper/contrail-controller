@@ -119,6 +119,30 @@
     },
     {
       "key": {
+        "uuid": "e88c6b2a_85280fe4",
+        "filename": "src/nodemgr/common/cassandra_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-10-18T06:03:58Z",
+      "side": 1,
+      "message": "Will create a separate bug to address this issue.",
+      "parentUuid": "92253893_9910474f",
+      "range": {
+        "startLine": 45,
+        "startChar": 19,
+        "endLine": 46,
+        "endChar": 23
+      },
+      "revId": "66c86f796f15418b82484b60ed2e8c979f432341",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0e880640_42a22eb7",
         "filename": "src/nodemgr/common/cassandra_manager.py",
         "patchSetId": 1
