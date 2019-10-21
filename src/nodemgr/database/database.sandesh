@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ *  Definitions of structures added by contrail-database-nodemgr that go into
+ *  Database Node UVE.
+ */
+
+include "base/sandesh/cpuinfo.sandesh"
+include "base/sandesh/process_info.sandesh"
+
+/**
+ * Database disk usage stats struct
+ */
+struct DatabaseUsageStats {
+    1: u64                                 disk_space_used_1k
+    2: u64                                 disk_space_available_1k
+    3: optional u64                        analytics_db_size_1k
+    4: optional u64                        config_db_size_1k
+}
+
+/**
+ * Database Usage info added into the Database Node UVE by
+ * contrail-database-nodemgr
+ */
+struct DatabaseUsageInfo {
+    1: string                              name (key="ObjectDatabaseInfo")
+    2: optional bool                       deleted
+    /** @display_name:Database Usage Statistics*/
+    3: optional list<DatabaseUsageStats>   database_usage (tags="")
+}
+
+/**
+ * @description: Database Usage info added into the Database Node UVE by
+ * contrail-database-nodemgr
+ * @object: database-node
+ */
+uve sandesh DatabaseUsage {
+    1: DatabaseUsageInfo                   data
+}
+
+struct CassandraThreadPoolStats {
+    1: string pool_name
+    2: u64 active
+    3: u64 pending
+    4: u64 all_time_blocked
+}
+
+struct CassandraCompactionTask {
+    1: u64 pending_compaction_tasks
+}
+struct CassandraStatusData {
+    1: string name (key="ObjectDatabaseInfo")
+    2: optional bool deleted
+    /** @display_name:Cassandra Compaction Info*/
+    3: CassandraCompactionTask cassandra_compaction_task (tags="")
+    /** @display_name:Cassandra Thread Pool Info*/
+    4: list<CassandraThreadPoolStats>  thread_pool_stats (tags=".pool_name")
+}
+
+/**
+ * @description: For monitoring nodetool tpstats and compaction pending counts
+ * contrail-database-nodemgr
+ * @object: database-node
+ */
+uve sandesh CassandraStatusUVE {
+    1: CassandraStatusData data
+}
+
