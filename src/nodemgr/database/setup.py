@@ -9,7 +9,6 @@ setup(
     version='0.1dev',
     install_requires=[
         'future',
-        'configparser',
         ],
     packages=['database',
               'database.sandesh',
