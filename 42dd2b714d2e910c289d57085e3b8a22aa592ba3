@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "8b762bfe_22c2ca19",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-10-21T17:42:57Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2491739c_f7c39a81",
+      "revId": "42dd2b714d2e910c289d57085e3b8a22aa592ba3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "0adbfcd0_aa00f8a5",
         "filename": "src/vnsw/agent/kstate/kstate.cc",
         "patchSetId": 3
@@ -33,6 +51,24 @@
       "revId": "42dd2b714d2e910c289d57085e3b8a22aa592ba3",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "59ac5b9e_2f19235a",
+        "filename": "src/vnsw/agent/kstate/kstate.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-10-21T17:42:57Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0adbfcd0_aa00f8a5",
+      "revId": "42dd2b714d2e910c289d57085e3b8a22aa592ba3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
