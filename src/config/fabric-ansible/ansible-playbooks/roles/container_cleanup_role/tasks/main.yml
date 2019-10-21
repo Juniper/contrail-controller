@@ -26,6 +26,19 @@
     var: swift_results
     verbosity: 1
 
+- name: Contruct fq_name of image
+  set_fact:
+    img_fq_name: ['default-global-system-config', filename]
+
+- name: Delete the filename
+  vnc_db_mod:
+    job_ctx: "{{job_ctx}}"
+    object_type: "device-image"
+    object_op: "delete"
+    object_dict: |
+      {
+        "fq_name": img_fq_name
+      }
 # handle error/exception from swift and set output
 - name: Fail if swift module returned error
   include_tasks: error_handler.yml
