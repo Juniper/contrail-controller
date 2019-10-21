@@ -462,10 +462,10 @@ class EventManager(object):
 
     def _event_tick_60(self):
         self.tick_count += 1
+        # get disk usage info periodically
+        disk_usage_info = self.system_data.get_disk_usage()
         for group in self.process_state_db:
             key = next(key for key in self.process_state_db[group])
-            # get disk usage info periodically
-            disk_usage_info = self.system_data.get_disk_usage()
 
             # typical ntp sync time is about 5 min - first time,
             # we scan only after 10 min
@@ -533,7 +533,7 @@ class EventManager(object):
                 self.process_info_manager.run_job()
             except Exception as e:
                 self.msg_log('Exception in periodic job: {}'.format(e), SandeshLevel.SYS_WARN)
-            gevent.sleep(seconds=5)
+            gevent.sleep(seconds=20)
 
     def nodemgr_sighup_handler(self):
         collector_list = list()
