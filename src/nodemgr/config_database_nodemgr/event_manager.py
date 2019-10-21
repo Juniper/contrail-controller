@@ -36,5 +36,5 @@ class ConfigDatabaseEventManager(EventManager):
         self.cassandra_mgr.database_periodic(self)
         # Perform nodetool repair every cassandra_repair_interval hours
         if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
-            self.cassandra_mgr.repair()
+            self.cassandra_mgr.repair(self)
         super(ConfigDatabaseEventManager, self).do_periodic_events()

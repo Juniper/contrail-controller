@@ -658,6 +658,7 @@ const string USERAGENT_KEYSPACE_NAME = "useragent"
 const string DEVICE_MANAGER_KEYSPACE_NAME = "dm_keyspace"
 const string KUBE_MANAGER_KEYSPACE_NAME = "kube_manager_keyspace"
 const string MESOS_MANAGER_KEYSPACE_NAME = "mesos_manager_keyspace"
+const string ANALYTICS_KEYSPACE_NAME = "ContrailAnalyticsCql"
 
 const list<string> RepairNeededKeyspaces = [
     API_SERVER_KEYSPACE_NAME,
@@ -666,6 +667,10 @@ const list<string> RepairNeededKeyspaces = [
     DISCOVERY_SERVER_KEYSPACE_NAME,
     USERAGENT_KEYSPACE_NAME,
     DEVICE_MANAGER_KEYSPACE_NAME,
+]
+
+const list<string> AnalyticsRepairNeededKeyspaces = [
+    ANALYTICS_KEYSPACE_NAME,
 ]
 
 // Set to default of 10 days

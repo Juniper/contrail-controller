@@ -21,8 +21,7 @@ class AnalyticsDatabaseEventManager(EventManager):
             sandesh_packages=['database.sandesh'])
         super(AnalyticsDatabaseEventManager, self).__init__(
             config, type_info, unit_names)
-        # TODO: try to understand is next needed here and use it or remove
-        # self.cassandra_repair_interval = config.cassandra_repair_interval
+        self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_mgr = CassandraManager(
             config.cassandra_repair_logdir, 'analytics', table,
             config.hostip, config.minimum_diskgb,
@@ -36,4 +35,7 @@ class AnalyticsDatabaseEventManager(EventManager):
 
     def do_periodic_events(self):
         self.cassandra_mgr.database_periodic(self)
+        # Perform nodetool repair every cassandra_repair_interval hours
+        if self.tick_count % (60 * self.cassandra_repair_interval) == 0:
+            self.cassandra_mgr.repair(self)
         super(AnalyticsDatabaseEventManager, self).do_periodic_events()
