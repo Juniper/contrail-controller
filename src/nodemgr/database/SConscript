@@ -7,8 +7,7 @@
 import sys
 
 Import('BuildEnv')
-AnalyticsEnv = BuildEnv.Clone()
-DatabaseEnv = AnalyticsEnv.Clone()
+DatabaseEnv = BuildEnv.Clone()
 
 setup_sources = [
            'setup.py',
@@ -17,7 +16,7 @@ setup_sources = [
 
 setup_sources_rules = []
 for file in setup_sources:
-    setup_sources_rules.append(DatabaseEnv.Install("", "#/controller/src/analytics/database/" + file))
+    setup_sources_rules.append(DatabaseEnv.Install("", "#/controller/src/nodemgr/database/" + file))
 
 local_sources = [
            '__init__.py',
@@ -26,7 +25,7 @@ local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(DatabaseEnv.Install("database", file))
 
-database_pkg = DatabaseEnv.SandeshGenPy('#controller/src/analytics/database/database.sandesh', 'database/sandesh/', False)
+database_pkg = DatabaseEnv.SandeshGenPy('#controller/src/nodemgr/database/database.sandesh', 'database/sandesh/', False)
 cpuinfo_pkg  = DatabaseEnv.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'database/sandesh/database/', False)
 DatabaseEnv.Depends(cpuinfo_pkg, database_pkg)
 process_info_pkg = DatabaseEnv.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'database/sandesh/database/', False)
@@ -39,7 +38,7 @@ DatabaseEnv.Depends(sdist_gen, sdist_depends)
 DatabaseEnv.Default(sdist_gen)
 
 DatabaseEnv.Alias("database:node_mgr", sdist_gen)
-DatabaseEnv.Alias("src/analytics/database:database", sdist_gen)
+DatabaseEnv.Alias("src/nodemgr/database:database", sdist_gen)
 DatabaseEnv.Alias("contrail-database", sdist_gen)
 DatabaseEnv.Alias("nodemgr-full", sdist_gen)
 
