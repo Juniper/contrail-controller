@@ -9,6 +9,8 @@ import sys
 Import('BuildEnv')
 OpEnv = BuildEnv.Clone()
 
+BuildEnv.SConscript('database/SConscript', exports='BuildEnv', duplicate=0)
+
 setup_sources = [
            'setup.py',
            'MANIFEST.in',

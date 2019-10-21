@@ -17,6 +17,10 @@ class LinuxSysData(object):
         self.msg_log = msg_log
         self.corefile_path = corefile_path
         self.core_dir_modified_time = 0
+        self.num_socket = None
+        self.num_cpu = None
+        self.num_core_per_socket = None
+        self.num_thread_per_core = None
         self.sys_cpu_share = SysCpuShare(self.get_num_cpu())
 
     @staticmethod
@@ -25,20 +29,32 @@ class LinuxSysData(object):
         return int(proc.communicate()[0])
 
     def get_num_socket(self):
-        return LinuxSysData._run_cmd(
+        if self.num_socket is not None:
+            return self.num_socket
+        self.num_socket = LinuxSysData._run_cmd(
             'lscpu | grep "Socket(s):" | awk \'{print $2}\'')
+        return self.num_socket
 
     def get_num_cpu(self):
-        return LinuxSysData._run_cmd(
+        if self.num_cpu is not None:
+            return self.num_cpu
+        self.num_cpu = LinuxSysData._run_cmd(
             'lscpu | grep "^CPU(s):" | awk \'{print $2}\'')
+        return self.num_cpu
 
     def get_num_core_per_socket(self):
-        return LinuxSysData._run_cmd(
+        if self.num_core_per_socket is not None:
+            return self.num_core_per_socket
+        self.num_core_per_socket = LinuxSysData._run_cmd(
             'lscpu | grep "Core(s) per socket:" | awk \'{print $4}\'')
+        return self.num_core_per_socket
 
     def get_num_thread_per_core(self):
-        return LinuxSysData._run_cmd(
+        if self.num_thread_per_core is not None:
+            return self.num_thread_per_core
+        self.num_thread_per_core = LinuxSysData._run_cmd(
             'lscpu | grep "Thread(s) per core:" | awk \'{print $4}\'')
+        return self.num_thread_per_core
 
     def get_sys_mem_info(self, node_type):
         virtmem_info = psutil.virtual_memory()
@@ -76,6 +92,7 @@ class LinuxSysData(object):
             'ntpq -n -c pe | grep "^\*"',
         ]
         for cmd in ntp_status_cmds:
+            # TODO: cache chosen method and use it later
             proc = subprocess.Popen(
                 cmd, shell=True,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
@@ -85,43 +102,28 @@ class LinuxSysData(object):
         return False
 
     def _get_corefile_path(self):
-        self.core_file_path = self.corefile_path
-        cat_command = "cat /proc/sys/kernel/core_pattern"
-        (core_pattern, _) = subprocess.Popen(
-            cat_command.split(),
-            stdout=subprocess.PIPE, close_fds=True).communicate()
-        core_pattern = core_pattern.decode()
-        if core_pattern is not None and not core_pattern.startswith('|'):
-            dirname_cmd = "dirname " + core_pattern
-            (self.core_file_path, _) = subprocess.Popen(
-                dirname_cmd.split(),
-                stdout=subprocess.PIPE, close_fds=True).communicate()
-        return self.core_file_path.decode().rstrip()
-
-    def find_corefile(self, name_pattern):
-        find_command_option = (
-            "find " + self._get_corefile_path()
-            + " -name " + name_pattern)
-        (corename, _) = subprocess.Popen(
-            find_command_option.split(),
-            stdout=subprocess.PIPE, close_fds=True).communicate()
-        return corename.decode()
+        result = self.corefile_path
+        with open('/proc/sys/kernel/core_pattern', 'r') as fh:
+            try:
+                core_pattern = fh.readline().strip('\n')
+                if core_pattern is not None and not core_pattern.startswith('|'):
+                    result = os.path.dirname(core_pattern)
+            except Exception:
+                pass
+        return result
 
     def get_corefiles(self):
         try:
-            # Get the core files list in the chronological order
-            ls_command = "ls -1tr " + self._get_corefile_path()
-            (corenames, _) = subprocess.Popen(
-                ls_command.split(),
-                stdout=subprocess.PIPE, close_fds=True).communicate()
+            corefile_path = self._get_corefile_path()
+            exception_set = {"lost+found"}
+            files = filter(os.path.isfile, os.listdir(corefile_path))
+            files = [os.path.join(corefile_path, f) for f in files if f not in exception_set]
+            files.sort(key=lambda x: os.path.getmtime(x))
+            return files
         except Exception as e:
             self.msg_log('Failed to get core files: %s' % (str(e)),
                          SandeshLevel.SYS_ERR)
-        else:
-            exception_set = {"lost+found"}
-            return [self._get_corefile_path() + '/' + core
-                    for core in corenames.decode().split()
-                    if core not in exception_set]
+            return list()
 
     def remove_corefiles(self, core_files):
         for core_file in core_files:
@@ -135,13 +137,10 @@ class LinuxSysData(object):
                              SandeshLevel.SYS_ERR)
 
     def update_all_core_file(self):
-        stat_command_option = "stat --printf=%Y " + self._get_corefile_path()
-        modified_time = subprocess.Popen(
-            stat_command_option.split(),
-            stdout=subprocess.PIPE, close_fds=True).communicate()
-        if modified_time[0] == self.core_dir_modified_time:
+        modified_time = os.path.getmtime(self._get_corefile_path())
+        if modified_time == self.core_dir_modified_time:
             return False
-        self.core_dir_modified_time = modified_time[0]
+        self.core_dir_modified_time = modified_time
         self.all_core_file_list = self.get_corefiles()
         return True
 
