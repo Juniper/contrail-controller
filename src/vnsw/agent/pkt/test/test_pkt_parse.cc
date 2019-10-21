@@ -803,6 +803,69 @@ TEST_F(PktParseTest, FlowOverridesDHCP) {
     EXPECT_EQ(invalid_count, GetPktModuleCount(PktHandler::INVALID));
 }
 
+TEST_F(PktParseTest, InvalidICMPv6_Vxlan_IP) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    std::auto_ptr<PktGen> pkt(new PktGen());
+
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr:: TRAP_L3_PROTOCOLS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(4789, 4789, 0);
+    pkt->AddVxlanHdr(5);
+    pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x800);
+    pkt->AddIpHdr("10.10.10.10", "10.10.10.2", IPPROTO_ICMPV6);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+}
+
+TEST_F(PktParseTest, InvalidICMP_Vxlan_IP) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    std::auto_ptr<PktGen> pkt(new PktGen());
+
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr:: TRAP_L3_PROTOCOLS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(4789, 4789, 0);
+    pkt->AddVxlanHdr(5);
+    pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x86DD);
+    pkt->AddIp6Hdr("0b0c:feef:cdde:edce::1", "0cb0:eeef:cedd:eeff::2", IPPROTO_ICMP);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+}
+
+TEST_F(PktParseTest, InvalidIGMP_Vxlan_IP) {
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    std::auto_ptr<PktGen> pkt(new PktGen());
+
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr:: TRAP_L3_PROTOCOLS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_UDP);
+    pkt->AddUdpHdr(4789, 4789, 0);
+    pkt->AddVxlanHdr(5);
+    pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x86DD);
+    pkt->AddIp6Hdr("0b0c:feef:cdde:edce::1", "0cb0:eeef:cedd:eeff::2", IPPROTO_IGMP);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
