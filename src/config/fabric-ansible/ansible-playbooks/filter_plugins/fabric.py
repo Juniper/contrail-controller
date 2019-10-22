@@ -318,8 +318,10 @@ class FilterModule(object):
             'delete_devices': self.delete_fabric_devices,
             'assign_roles': self.assign_roles,
             'update_annotations': self.update_annotations,
-            'validate_device_functional_group': self.validate_device_functional_group,
-            'update_physical_router_annotations': self.update_physical_router_annotations
+            'validate_device_functional_group':
+                self.validate_device_functional_group,
+            'update_physical_router_annotations':
+                self.update_physical_router_annotations
         }
     # end filters
 
@@ -491,6 +493,11 @@ class FilterModule(object):
         :param job_template_fqname: job template fqname
         :return: <vnc_api.gen.resource_client.Fabric>
         """
+        # Validate that each hostname is not already configured with a
+        # different serial number
+        self._validate_device_to_ztp(vnc_api, fabric_info)
+
+        # Create fabric object and install in database
         fabric_obj = self._create_fabric(vnc_api, fabric_info)
 
         # add fabric annotations
@@ -635,6 +642,32 @@ class FilterModule(object):
 
         return fabric_obj
     # end onboard_fabric
+
+    @staticmethod
+    def _validate_device_to_ztp(vnc_api, fabric_info):
+        # Make sure physical router does not already exists with a different
+        # serial number
+        for dtz in fabric_info.get('device_to_ztp', []):
+            ser_num = dtz.get('serial_number')
+            device_name = dtz.get('hostname')
+            device_fq_name = ['default-global-system-config', device_name]
+            try:
+                device_obj = vnc_api.physical_router_read(
+                    fq_name=device_fq_name,
+                    fields=['physical_router_serial_number'])
+            except NoIdError:
+                # Device not found, that's OK
+                continue
+
+            # verify that serial number in the input is the same as that
+            # stored on the object
+            if device_obj:
+                obj_ser_num = device_obj.get_physical_router_serial_number()
+                if obj_ser_num != ser_num:
+                    raise ValueError(
+                        'Device {} found in database with '
+                        'different serial number: {} vs {}'.
+                        format(device_name, obj_ser_num, ser_num))
 
     @staticmethod
     def _carve_out_subnets(subnets, cidr):
