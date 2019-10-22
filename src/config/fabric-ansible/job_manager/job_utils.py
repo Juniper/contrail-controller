@@ -113,6 +113,16 @@ class JobUtils(object):
                 id=self._job_template_id)
             self._logger.debug("Read job template %s from "
                                "database" % self._job_template_id)
+
+            # reorder playbook_info by sequence number
+            
+            def _seqno(elem):
+                return elem.get_playbook_sequence_no()
+
+            playbooks = job_template.get_job_template_playbooks()
+            playbook_info_list = playbooks.get_playbook_info()
+            if len(playbook_info_list) > 1:
+                playbook_info_list.sort(key=_seqno)
         except Exception:
             msg = MsgBundle.getMessage(MsgBundle.READ_JOB_TEMPLATE_ERROR,
                                        job_template_id=self._job_template_id)
