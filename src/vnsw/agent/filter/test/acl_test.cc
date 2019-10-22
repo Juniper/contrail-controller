@@ -313,6 +313,30 @@ TEST_F(AclTest, Config) {
     EXPECT_EQ(action, m_acl.action_info.action);
     delete packet1;
 }
+
+// Test case for CEM-7950
+TEST_F(AclTest, Config_1) {
+    pugi::xml_document xdoc_;
+    xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    client->WaitForIdle();
+
+    AclTable *table = Agent::GetInstance()->acl_table();
+    boost::uuids::uuid acl_id = StringToUuid("65babf07-3bcb-4d38-b920-be3355f11125");
+    AclKey key_1 = AclKey(acl_id);
+    AclDBEntry *acl1 = static_cast<AclDBEntry *>(table->FindActiveEntry(&key_1));
+    EXPECT_TRUE(acl1 != NULL);
+
+    const AclEntry *acl_entry = acl1->GetAclEntryAtIndex(1);
+    const AclEntryMatch *acl_match = acl_entry->Get(0);
+    EXPECT_TRUE(acl_match != NULL);
+
+    const AclEntryMatch *acl_match1 = acl_entry->Get(3);
+    const DstPortMatch *dst_port_match = static_cast<const DstPortMatch *>(acl_match1);
+    EXPECT_TRUE(dst_port_match != NULL);
+    const PortMatch *port_match = static_cast<const PortMatch *>(acl_match1);
+    EXPECT_TRUE(port_match->CheckPortRanges(65535, 65535));
+}
 } //namespace
 
 int main (int argc, char **argv) {
