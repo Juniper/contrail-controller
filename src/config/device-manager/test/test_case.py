@@ -195,7 +195,7 @@ class DMTestCase(test_common.TestCase):
     def create_router(self, name, mgmt_ip, vendor='juniper', product='mx',
             ignore_pr=False, role=None, ignore_bgp=False, rb_roles=None,
             node_profile=None, physical_role=None, overlay_role=None,
-            fabric=None, family='junos'):
+            fabric=None, family='junos', physical_router_underlay_managed = False):
         bgp_router, pr = None, None
         if not ignore_bgp:
             bgp_router = BgpRouter(name=name,
@@ -217,7 +217,7 @@ class DMTestCase(test_common.TestCase):
             pr.physical_router_product_name = product
             pr.physical_router_device_family = family
             pr.physical_router_vnc_managed = True
-            pr.physical_router_underlay_managed = False
+            pr.physical_router_underlay_managed = physical_router_underlay_managed
             if role:
                 pr.physical_router_role = role
             if rb_roles:

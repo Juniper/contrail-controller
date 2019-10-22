@@ -236,12 +236,15 @@ role_to_feature_mapping:
 
 feature_based_plugin_roles:
   CRB-Access@leaf:
+    - underlay_ip_clos
     - overlay_storm_control
     - overlay_telemetry
   CRB-Access@spine:
+    - underlay_ip_clos
     - overlay_storm_control
     - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_bgp
     - overlay_evpn
     - overlay_evpn_erb_access
@@ -251,29 +254,43 @@ feature_based_plugin_roles:
     - overlay_storm_control
     - overlay_telemetry
   CRB-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@spine:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   CRB-MCAST-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DC-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
   DCI-Gateway@leaf:
+    - underlay_ip_clos
     - overlay_dhcp_relay
     - overlay_telemetry
+  Route-Reflector@spine:
+    - underlay_ip_clos
+  Route-Reflector@leaf:
+    - underlay_ip_clos
+  null@spine:
+    - underlay_ip_clos
   AR-Client@leaf:
     - overlay_assisted_replicator_client
     - overlay_telemetry
