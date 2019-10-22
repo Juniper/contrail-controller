@@ -900,6 +900,18 @@ void PortMatch::SetPortRange(const uint16_t min_port, const uint16_t max_port)
     port_ranges_.push_back(*port_range);
 }
 
+bool PortMatch::CheckPortRanges(const uint16_t min_port,
+                            const uint16_t max_port) const {
+    RangeSList::const_iterator it = port_ranges_.begin();
+    while (it != port_ranges_.end()) {
+        if ((min_port == (*it).min) && (max_port == (*it).max)) {
+            return true;
+        }
+        it++;
+    }
+    return false;
+}
+
 bool PortMatch::Compare(const AclEntryMatch &rhs) const {
     const PortMatch &rhs_port_match = static_cast<const PortMatch &>(rhs);
     RangeSList::const_iterator it = port_ranges_.begin();

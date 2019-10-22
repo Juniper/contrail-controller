@@ -95,6 +95,8 @@ public:
     virtual bool Match(const PacketHeader *packet_header,
                        FlowPolicyInfo *info) const = 0;
     virtual bool Compare(const AclEntryMatch &rhs) const;
+    bool CheckPortRanges(const uint16_t min_port,
+                       const uint16_t max_port) const;
 protected:
     RangeSList port_ranges_;
 };
