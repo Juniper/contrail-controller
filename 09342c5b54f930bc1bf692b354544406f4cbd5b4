@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c8907759_5c7e0cf2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/underlay_ip_clos/juniper_underlay_ip_clos.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-22T08:40:22Z",
+      "side": 1,
+      "message": "I assume the name of the feature is \"underlay-ip-clos\" not the underlay_ip_clos. Can you check?",
+      "revId": "09342c5b54f930bc1bf692b354544406f4cbd5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "23c43020_a0851717",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/underlay_ip_clos/juniper_underlay_ip_clos.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-22T08:40:22Z",
+      "side": 1,
+      "message": "We need to read this bgp from the features knob instead of the device_abstract_config.",
+      "revId": "09342c5b54f930bc1bf692b354544406f4cbd5b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
