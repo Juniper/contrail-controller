@@ -831,7 +831,7 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         struct http_parser_url urldata;
         int ret = http_parser_parse_url(p.url_path.c_str(), p.url_path.size(),
                                         false, &urldata);
-        if (ret == 0) {
+        if (ret == 0 && (urldata.field_data[UF_HOST].off < p.url_path.size())) {
             std::string dest_ip_str =
                 p.url_path.substr(urldata.field_data[UF_HOST].off,
                                   urldata.field_data[UF_HOST].len);
