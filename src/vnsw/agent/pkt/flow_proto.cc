@@ -451,10 +451,29 @@ bool FlowProto::FlowEventHandler(FlowEvent *req, FlowTable *table) {
     }
 
     case FlowEvent::AUDIT_FLOW: {
-        if (table->Find(req->get_flow_key()) == NULL) {
-            FlowEntryPtr flow = FlowEntry::Allocate(req->get_flow_key(), table);
-            flow->InitAuditFlow(req->flow_handle(), req->gen_id());
-            flow->flow_table()->Add(flow.get(), NULL);
+        FlowEntryPtr flow_ref = table->Find(req->get_flow_key());
+        FlowEntry *flow  = flow_ref.get();
+        if (flow == NULL) {
+            FlowEntryPtr new_flow = FlowEntry::Allocate(req->get_flow_key(), table);
+            new_flow->InitAuditFlow(req->flow_handle(), req->gen_id());
+            new_flow->flow_table()->Add(new_flow.get(), NULL);
+        } else {
+            // scenario: forward flow trap is received , before installing
+            // reverse flow, traffic received for reverse flow and trap is
+            // dropped and not received in agent. vrouter returns
+            // EEXIST error for reverse flow. flow entry is present
+            // in flow table but it is in hold state.
+            // take lock in forward and reverse flow order to avoid
+            // deadlock.
+            // EEXIST is seen only for reverse flows,
+            if (flow && flow->is_flags_set(FlowEntry::ReverseFlow)) {
+                FLOW_LOCK(flow->reverse_flow_entry(), flow, req->event());
+                if (!(flow->deleted()) &&
+                    flow->ksync_entry() &&
+                    flow->ksync_entry()->ksync_response_error() == EEXIST) {
+                    flow->MakeShortFlow(FlowEntry::SHORT_AUDIT_ENTRY);
+                }
+            }
         }
         break;
     }
