@@ -189,7 +189,7 @@ public:
     static void SetFlowTcpFlags(int idx, uint16_t flags);
     static void SetEvictedFlag(int idx);
     static void ResetEvictedFlag(int idx);
-    static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req);
+    static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req, int code = 0);
     static void SetUnderlaySourcePort(int idx, int port);
     vr_bridge_entry* BridgeMmapAlloc(int size);
     void BridgeMmapFree();
