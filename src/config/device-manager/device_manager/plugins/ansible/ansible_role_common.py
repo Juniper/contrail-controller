@@ -1191,6 +1191,7 @@ class AnsibleRoleCommon(AnsibleConf):
                             left_bd_vlan = Vlan(name=DMUtils.make_bridge_name(left_svc_unit),
                                         vxlan_id=left_svc_unit)
                             left_bd_vlan.set_vlan_id(left_svc_vlan)
+                            left_bd_vlan.set_description("PNF-Service-Chaining")
                             left_bd_vlan.set_comment("PNF-Service-Chaining")
                             self.add_ref_to_list(
                                 left_bd_vlan.get_interfaces(), 'irb.' + str(irb_unit))
@@ -1227,6 +1228,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                 name=DMUtils.make_bridge_name(right_svc_unit),
                                 vxlan_id=right_svc_unit)
                             right_bd_vlan.set_vlan_id(right_svc_vlan)
+                            right_bd_vlan.set_description("PNF-Service-Chaining")
                             right_bd_vlan.set_comment("PNF-Service-Chaining")
                             self.add_ref_to_list(
                                 right_bd_vlan.get_interfaces(), 'irb.' + str(irb_unit))
