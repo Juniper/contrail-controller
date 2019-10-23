@@ -130,15 +130,10 @@
     },
     "contrail-vrouter" : {
         "source_directories" : [
-            "controller/src/ksync",
-            "controller/src/vnsw",
-            "controller/src/xmpp",
             "vrouter"
         ],
         "scons_test_targets" : [
-            "controller/src/agent:test",
-            "controller/src/cat:test",
-            "vrouter:test"
+            "vrouter-py-ut"
         ],
         "misc_test_targets" : [ ]
     },
