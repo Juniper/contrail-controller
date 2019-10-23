@@ -1317,6 +1317,12 @@
             "default-global-system-config", "telemetry"
           ],
           "name": "telemetry"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "infra-bms-access"
+          ],
+          "name": "infra-bms-access"
         }
       ]
     },
@@ -1969,6 +1975,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "erb-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
@@ -1993,6 +2005,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
@@ -2017,6 +2035,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "spine" ]
     },
@@ -2047,6 +2071,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-spine" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-gateway" ]
     },
@@ -2077,6 +2107,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-gateway-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-gateway" ]
     },
@@ -2107,6 +2143,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-spine" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-mcast-gateway" ]
     },
@@ -2137,6 +2179,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-mcast-gateway-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "crb-mcast-gateway" ]
     },
@@ -2163,6 +2211,12 @@
       "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
     },
     {
       "from_type": "role-definition",
@@ -2197,6 +2251,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-leaf" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
     },
@@ -2223,6 +2283,12 @@
       "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
     },
     {
       "from_type": "role-definition",
@@ -2253,6 +2319,12 @@
       "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "infra-bms-access"]
     },
     {
       "from_type": "role-definition",
