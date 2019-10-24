@@ -7,6 +7,8 @@
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 #include "ifmap/ifmap_link.h"
+#include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
 
@@ -63,7 +65,10 @@ bool IFMapTypenameWhiteList::EdgeFilter(const DBGraphVertex *source,
                                         const DBGraphEdge *edge) const {
     const IFMapNode *node = static_cast<const IFMapNode *>(source);
     VertexEdgeMap::const_iterator it = include_vertex.find(node->table()->Typename());
-    assert(it != include_vertex.end());
+    if (it == include_vertex.end()) {
+        IFMAP_WARN(IFMapIdentifierNotFound, "Cant find vertex", node->table()->Typename());
+        return false;
+    }
     const IFMapLink *link = static_cast<const IFMapLink *>(edge);
     if (it->second.find(link->name()) != it->second.end()) {
         return true;
