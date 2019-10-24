@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1fb5a0ba_0fcf03cd",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/rma_filters.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-10-24T19:46:31Z",
+      "side": 1,
+      "message": "can we use the name field instead of display_name. In future we would be allowing the user to change the display name of an object. For backend object fetch, we need to rely on name/fq_name",
+      "revId": "31d9ec072f39cf2b8456c281a062d54b37850381",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
