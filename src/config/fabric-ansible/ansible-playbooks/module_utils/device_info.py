@@ -443,6 +443,22 @@ class DeviceInfo(object):
                 break
         return hostname
 
+    def get_supplemental_config(self, device_name):
+        job_input = self.job_ctx.get('job_input')
+        device_to_ztp = job_input.get('device_to_ztp')
+        supplemental_configs = job_input.get('supplemental_day_0_cfg')
+        supplemental_config = ""
+        if device_name and device_to_ztp and supplemental_configs:
+            device_map = dict((d.get('hostname', d.get('serial_number')), d)
+                              for d in device_to_ztp)
+            config_map = dict((c.get('name'), c) for c in supplemental_configs)
+            if device_name in device_map:
+                config_name = device_map[device_name].get(
+                    'supplemental_day_0_cfg')
+                if config_name in config_map:
+                    supplemental_config = config_map[config_name].get('cfg')
+        return supplemental_config
+
     def device_info_processing(self, host, oid_mapped):
         valid_creds = False
         return_code = True
@@ -487,6 +503,10 @@ class DeviceInfo(object):
                 oid_mapped['hostname'] = user_input_hostname
             elif oid_mapped.get('hostname') is None:
                 oid_mapped['hostname'] = oid_mapped.get('serial-number')
+
+            # Get supplemental config for this device if it exists
+            oid_mapped['supplemental_config'] = \
+                self.get_supplemental_config(oid_mapped['hostname'])
 
             fq_name = [
                 'default-global-system-config',
