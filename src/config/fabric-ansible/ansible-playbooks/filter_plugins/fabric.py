@@ -2167,7 +2167,7 @@ class FilterModule(object):
 
             rb_roles = device_roles.get('routing_bridging_roles')
             if not rb_roles:
-                rb_roles = ['null']
+                rb_roles = ['lean']
 
             supported_roles = device_roles.get('supported_roles', [])
             for role in supported_roles:
