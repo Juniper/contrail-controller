@@ -16,6 +16,24 @@
       "revId": "31d9ec072f39cf2b8456c281a062d54b37850381",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f07ec9cd_f9e9c6a3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/rma_filters.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-10-24T20:30:35Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "1fb5a0ba_0fcf03cd",
+      "revId": "31d9ec072f39cf2b8456c281a062d54b37850381",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
