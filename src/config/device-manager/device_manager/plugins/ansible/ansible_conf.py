@@ -71,6 +71,7 @@ class AnsibleConf(AnsibleBase):
         self.sc_policy_map = {}
         self.bgp_peers = {}
         self.external_peers = {}
+        self.rr_peers = {}
         self.timeout = 120
         self.push_config_state = PushConfigState.PUSH_STATE_INIT
         self.system_config = System()
@@ -458,19 +459,20 @@ class AnsibleConf(AnsibleBase):
         self.bgp_obj = bgp_obj
     # end set_bgp_config
 
-    def get_bgp_config(self, external=False):
+    def get_bgp_config(self, external=False, is_RR=False):
         if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
         bgp = Bgp()
         cluster_id = self.bgp_params.get('cluster_id')
-        if cluster_id and not external:
+        if cluster_id and not external and not is_RR:
             bgp.set_cluster_id(cluster_id)
         bgp.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
+        bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(),
+                                                 external,
+                                                 is_RR))
         if external:
-            bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(), True))
             bgp.set_type('external')
         else:
-            bgp.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
             bgp.set_type('internal')
         bgp.set_ip_address(self.bgp_params['address'])
         bgp.set_autonomous_system(self.get_asn())
@@ -485,7 +487,14 @@ class AnsibleConf(AnsibleBase):
         peer_data['params'] = params
         peer_data['attr'] = attr
         peer_data['obj'] = peer
-        if external:
+
+        peer_pr_uuid = peer.physical_router
+        peer_pr = PhysicalRouterDM.get(peer_pr_uuid)
+        if peer_pr and "Route-Reflector" in peer_pr.routing_bridging_roles\
+                and "Route-Reflector" in \
+                self.physical_router.routing_bridging_roles:
+            self.rr_peers[router] = peer_data
+        elif external:
             self.external_peers[router] = peer_data
         else:
             self.bgp_peers[router] = peer_data
@@ -532,9 +541,13 @@ class AnsibleConf(AnsibleBase):
         self.bgp_map[bgp_config.get_name()] = bgp_config
         self.add_peer_bgp_config(bgp_config, self.bgp_peers)
         if self.external_peers:
-            ext_grp_config = self.get_bgp_config(True)
+            ext_grp_config = self.get_bgp_config(external=True)
             self.bgp_map[ext_grp_config.get_name()] = ext_grp_config
             self.add_peer_bgp_config(ext_grp_config, self.external_peers)
+        if self.rr_peers:
+            rr_grp_config = self.get_bgp_config(is_RR=True)
+            self.bgp_map[rr_grp_config.get_name()] = rr_grp_config
+            self.add_peer_bgp_config(rr_grp_config, self.rr_peers)
         return
     # end set_bgp_group_config
 
