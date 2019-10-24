@@ -66,6 +66,8 @@ class FilterModule(object):
             self.job_input = FilterModule._validate_job_ctx(job_ctx)
             self.vncapi = JobVncApi.vnc_init(job_ctx)
             self.job_ctx = job_ctx
+            self.device_to_ztp = []
+            self.supplemental_config = []
             return self._rma_activate_devices(rma_devices_list, lease_tbl)
         except Exception as ex:
             errmsg = "Unexpected error: %s\n%s" % (
@@ -78,22 +80,6 @@ class FilterModule(object):
             }
     # end rma_activate_devices
 
-    def _get_rma_device_info(self, rma_devices_list, lease_tbl):
-        device_info = {'dynamic_mgmt_ip_tbl': {}}
-        for rma_dev in rma_devices_list:
-            device_uuid = rma_dev['device_uuid']
-            serial_number = rma_dev['serial_number']
-            mgmt_ip = self._get_mgmt_ip(lease_tbl['device_list'],
-                                        serial_number)
-            device_info['dynamic_mgmt_ip_tbl'].update(
-                {
-                    device_uuid: {
-                        'dynamic_mgmt_ip': mgmt_ip
-                    }
-                }
-            )
-        return device_info
-
     def _rma_activate_devices(self, rma_devices_list, lease_tbl):
         device_info = {}
         ip_tbl = {}
@@ -103,13 +89,13 @@ class FilterModule(object):
             mgmt_ip = self._get_mgmt_ip(lease_tbl['device_list'],
                                         new_serial_number)
             device_obj = self.vncapi.physical_router_read(id=device_uuid)
+            device_name = device_obj.display_name
             underlay_managed = \
                 device_obj.get_physical_router_underlay_managed()
 
             # Only handle greenfield devices
             if not underlay_managed:
-                raise("Device {} not underlay managed".format(
-                    device_obj.display_name))
+                raise("Device {} not underlay managed".format(device_name))
 
             # if serial number not found, go into error state on this device
             if not mgmt_ip:
@@ -117,6 +103,13 @@ class FilterModule(object):
                 self.vncapi.physical_router_update(device_obj)
                 continue
 
+            # Get device supplemental config, if any, and append to overall
+            # supplemental config
+            device_supp_cfg = \
+                device_obj.get_physical_router_supplemental_config()
+            self._supplemental_config_append(device_name,
+                                             new_serial_number,
+                                             device_supp_cfg)
             temp = {}
             temp['device_management_ip'] = \
                 device_obj.get_physical_router_management_ip()
@@ -144,7 +137,9 @@ class FilterModule(object):
 
         rma_device_info = {
             'device_info': device_info,
-            'dynamic_mgmt_ip_tbl': ip_tbl
+            'dynamic_mgmt_ip_tbl': ip_tbl,
+            'device_to_ztp': self.device_to_ztp,
+            'supplemental_config': self.supplemental_config
         }
         return rma_device_info
 
@@ -160,3 +155,23 @@ class FilterModule(object):
             encrypted_password=device_obj.physical_router_user_credentials.
             get_password(),
             pwd_key=device_obj.uuid)
+
+    # Recreate supplemental config using only the RMA devices
+    def _supplemental_config_append(self, device_name, serial_number,
+                                    device_supp_cfg):
+        dev2ztp_entry = {
+            'hostname': device_name,
+            'serial_number': serial_number
+        }
+
+        if device_supp_cfg:
+            cfg_name = device_name + '_cfg'
+            supp_cfg_entry = {
+                'name': cfg_name,
+                'cfg': device_supp_cfg
+            }
+            self.supplemental_config.append(supp_cfg_entry)
+
+            dev2ztp_entry['supplemental_day_0_cfg'] = cfg_name
+
+        self.device_to_ztp.append(dev2ztp_entry)
