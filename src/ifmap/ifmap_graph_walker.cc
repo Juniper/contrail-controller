@@ -108,6 +108,14 @@ void IFMapGraphWalker::LinkAdd(IFMapLink *link, IFMapNode *lnode, const BitSet &
                                IFMapNode *rnode, const BitSet &rhs) {
     IFMAP_DEBUG(LinkOper, "LinkAdd", lnode->ToString(), rnode->ToString(),
                 lhs.ToString(), rhs.ToString());
+
+    // Ensure that nodes are passed are indeed nodes and not links.
+    assert(dynamic_cast<IFMapNode *>(lnode));
+    assert(dynamic_cast<IFMapNode *>(rnode));
+
+    assert(!dynamic_cast<IFMapLink *>(lnode));
+    assert(!dynamic_cast<IFMapLink *>(rnode));
+
     if (!lhs.empty() && !rhs.Contains(lhs) &&
         traversal_white_list_->VertexFilter(rnode) &&
         traversal_white_list_->EdgeFilter(lnode, rnode, link))  {
