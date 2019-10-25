@@ -11,6 +11,7 @@
     pr_vendor_name: "{{playbook_input.vendor | lower}}"
     prouter_uuid: "{{playbook_input.device_id}}"
     dfg_os_version: ""
+    dfg_dict: ""
     current_index: 0
     pr_product_name: "{{playbook_input.product_name}}"
     final_task_dict:

@@ -8,6 +8,7 @@
     prouter_uuid: "{{playbook_input.device_id}}"
     dfg_physical_role: ""
     dfg_rb_roles: ""
+    dfg_dict: ""
 
   tasks:
     - name: Include global variables
