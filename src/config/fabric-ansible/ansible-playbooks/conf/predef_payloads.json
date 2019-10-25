@@ -1993,6 +1993,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l2-gateway"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-leaf" ],
       "to_type": "physical-role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
     },
@@ -2013,6 +2019,12 @@
       "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry"]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "crb-access-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "l2-gateway"]
     },
     {
       "from_type": "role-definition",
