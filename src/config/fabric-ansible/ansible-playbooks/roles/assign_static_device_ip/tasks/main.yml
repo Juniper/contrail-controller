@@ -67,6 +67,34 @@
     vc_timeout: "{{timeout}}"
   when: prouter_mgmt_ip == prouter_dynamic_ip
 
+- name:  Lease info handling
+  block:
+    - name: Construct leased PR fq name
+      set_fact:
+        prouter_fq_name: ["default-global-system-config", "{{prouter_dynamic_ip}}"]
+
+    - name: Fq_name to id for pr
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "fq_name_to_id"
+        object_dict: |
+          {
+            "fq_name": "{{prouter_fq_name}}"
+          }
+      register: pr_uuid
+
+    - name: Delete lease info from database
+      vnc_db_mod:
+        job_ctx: "{{ job_ctx }}"
+        object_type: "physical_router"
+        object_op: "delete"
+        object_dict: |
+          {
+            "uuid": "{{pr_uuid.uuid}}"
+          }
+  when: prouter_mgmt_ip != prouter_dynamic_ip
+
 - name: Override with vendor specific config
   include_tasks: "{{ task_file_path }}"
   vars:
