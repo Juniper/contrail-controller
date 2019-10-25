@@ -103,7 +103,6 @@ role_to_feature_mapping:
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
-    - overlay_evpn_access
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
@@ -135,7 +134,6 @@ role_to_feature_mapping:
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
-    - overlay_evpn_access
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
@@ -237,9 +235,11 @@ role_to_feature_mapping:
 feature_based_plugin_roles:
   CRB-Access@leaf:
     - overlay_storm_control
+    - overlay_evpn_access
     - overlay_telemetry
   CRB-Access@spine:
     - overlay_storm_control
+    - overlay_evpn_access
     - overlay_telemetry
   ERB-UCAST-Gateway@leaf:
     - overlay_bgp
