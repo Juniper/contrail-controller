@@ -19,8 +19,7 @@ SConscript(dirs=['lib', 'src'])
 env['api_repo_path'] = '#/src/contrail-api-client'
 SConscript(dirs=['../src/contrail-api-client'])
 
-if platform.system() != 'Windows':
-    SConscript(dirs=['../src/contrail-analytics'])
+SConscript(dirs=['../src/contrail-analytics'])
 
 env.Alias('controller/test', default_target_list)
 env.Alias('controller/cplusplus_test', default_cplusplus_target_list)

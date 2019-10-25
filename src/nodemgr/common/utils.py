@@ -7,8 +7,6 @@ import platform
 
 
 def get_package_version(pkg):
-    if platform.system() == 'Windows':
-        return None
 
     # retrieve current installed version of pkg
     try:

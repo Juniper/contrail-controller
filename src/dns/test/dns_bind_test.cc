@@ -253,8 +253,6 @@ TEST_F(DnsBindTest, Config) {
 }
 #endif
 
-// TODO(WINDOWS): NamedConfig is not used in the Agent
-#ifndef _WIN32
 
 // Create a vdns with negative-cache-ttl of 100 sec, verify same is present in zone file
 TEST_F(DnsBindTest, SoaRecord) {
@@ -849,7 +847,6 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
         EXPECT_FALSE(FileExists(s1.c_str()));
     }
 }
-#endif
 
 TEST_F(DnsBindTest, DnsIp6ReverseZone) {
     string content = FileRead("controller/src/dns/testdata/config_test_ip6.xml");

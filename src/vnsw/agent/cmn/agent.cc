@@ -106,12 +106,10 @@ const string &Agent::vhost_interface_name() const {
 };
 
 bool Agent::is_vhost_interface_up() const {
-    if (tor_agent_enabled() || test_mode() || vrouter_on_windows()||
-        isMockMode()) {
+    if (tor_agent_enabled() || test_mode()|| isMockMode()) {
         return true;
     }
 
-#ifndef _WIN32
     static const int log_rate_limit = 15;
     struct ifreq ifr;
     static int err_count = 0;
@@ -137,7 +135,6 @@ bool Agent::is_vhost_interface_up() const {
         return false;
     }
     close(sock);
-#endif
     return true;
 }
 
@@ -1020,10 +1017,6 @@ bool Agent::vrouter_on_nic_mode() const {
 
 bool Agent::vrouter_on_host_dpdk() const {
     return params_->vrouter_on_host_dpdk();
-}
-
-bool Agent::vrouter_on_windows() const {
-    return params_->vrouter_on_windows();
 }
 
 bool Agent::vrouter_on_host() const {

@@ -20,7 +20,6 @@ headers = [
     '#/build/include/log4cplus/config.hxx',
     '#/build/include/log4cplus/config/macosx.h',
     '#/build/include/log4cplus/configurator.h',
-    '#/build/include/log4cplus/config/win32.h',
     '#/build/include/log4cplus/fileappender.h',
     '#/build/include/log4cplus/fstreams.h',
     '#/build/include/log4cplus/helpers/lockfile.h',

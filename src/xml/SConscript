@@ -6,8 +6,7 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 
-if platform.system() != 'Windows':
-    env.Append(CCFLAGS = '-fPIC')
+env.Append(CCFLAGS = '-fPIC')
 
 libdb = env.Library('xml', [
     'xml_base.cc',
