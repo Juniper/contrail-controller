@@ -5,16 +5,17 @@
 """
 Mesos network manager
 """
+from __future__ import absolute_import
 import gevent
 import sys
 import greenlet
 from gevent.queue import Queue
-import common.args as mesos_args
-import common.logger as logger
+from .common import args as mesos_args
+from .common import logger as logger
 from cfgm_common import vnc_cgitb
-import vnc.vnc_mesos as vnc_mesos
-import mesos.pod_task_monitor as monitor
-import mesos.cni.cni_request_server as cni_server
+from .vnc import vnc_mesos
+from .mesos import pod_task_monitor as monitor
+from .mesos.cni import cni_request_server as cni_server
 
 
 class MesosNetworkManager(object):
