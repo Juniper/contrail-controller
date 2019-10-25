@@ -1676,7 +1676,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway","DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway","ERB-UCAST-Gateway", "PNF-Servicechain", "AR-Client","AR-Replicator"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway","DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway","ERB-UCAST-Gateway", "PNF-Servicechain", "AR-Client","AR-Replicator"]
               }
             ]
           }
@@ -1773,7 +1773,7 @@
             "default-domain","default-project", "L3-Storage-Leaf"
           ],
           "name": "L2-Storage-Leaf",
-          "device_functional_group_description": "Provides L3 servers to storage arrays",
+          "device_functional_group_description": "Provides L3 connectivity to storage arrays",
           "device_functional_group_os_version": "18.4R2",
           "device_functional_group_routing_bridging_roles": {"rb_roles":["ERB-UCAST-Gateway"]}
 
@@ -1803,7 +1803,7 @@
             "default-domain","default-project", "Centrally-Routed-Border-Spine-With-Optimized-Multicast"
           ],
           "name": "Centrally Routed-Border-Spine-With-Optimized-Multicast",
-          "device_functional_group_description": "Provides L3 servers to storage arrays",
+          "device_functional_group_description": "Provides  L3 routing and gateway services for L2 server leafs ; provides route reflector and assisted replication",
           "device_functional_group_os_version": "18.4R2",
           "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","AR-Replicator", "CRB-Gateway","DC-Gateway","DCI-Gateway","PNF-Servicechain"]}
 
@@ -1815,7 +1815,7 @@
           "name": "Border-Spine-in-Edge-Routed",
           "device_functional_group_description": "Provides L3 gateway services, route reflector",
           "device_functional_group_os_version": "18.4R2",
-          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","ERB-UCAST-Gateway"]}
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","ERB-UCAST-Gateway","CRB-MCAST-Gateway"]}
 
         },
         {
@@ -1823,9 +1823,19 @@
             "default-domain","default-project", "Border-Leaf-in-Edge-Routed"
           ],
           "name": "Border-Leaf-in-Edge-Routed",
-          "device_functional_group_description": "Provides L3 servers to storage arrays",
+          "device_functional_group_description": "Provides L3 gateway services, route reflector",
           "device_functional_group_os_version": "18.4R2",
-          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","ERB-UCAST-Gateway"]}
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","DC-Gateway","DCI-Gateway","PNF-Servicechain","ERB-UCAST-Gateway","CRB-MCAST-Gateway"]}
+
+        },
+         {
+          "fq_name": [
+            "default-domain","default-project", "Lean-Spine-with-Route-Reflector"
+          ],
+          "name": "Lean-Spine-with-Route-Reflector",
+          "device_functional_group_description": "Spine only acting as Route Reflector",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["Route-Reflector","lean"]}
 
         }
       ]
@@ -2750,7 +2760,12 @@
       "from_fq_name": [ "default-domain", "default-project","L3-Server-Leaf" ],
       "to_type": "physical_role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","Lean-Spine-with-Route-Reflector" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
     }
-    
   ]
 }
