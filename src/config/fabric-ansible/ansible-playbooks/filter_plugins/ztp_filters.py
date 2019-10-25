@@ -92,13 +92,15 @@ class FilterModule(object):
     # end get_ztp_dhcp_config
 
     @classmethod
-    def get_ztp_tftp_config(cls, job_ctx, fabric_uuid):
+    def get_ztp_tftp_config(cls, job_ctx, dev_password=None):
         tftp_config = {}
-        device_creds = job_ctx['job_input'].get('device_auth')
-        if device_creds:
-            password = device_creds['root_password']
-            tftp_config['password'] = password
-
+        if job_ctx:
+            device_creds = job_ctx['job_input'].get('device_auth')
+            if device_creds:
+                password = device_creds['root_password']
+                tftp_config['password'] = password
+        if dev_password:
+            tftp_config['password'] = dev_password
         return tftp_config
     # end get_ztp_tftp_config
 
