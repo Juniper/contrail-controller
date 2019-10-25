@@ -72,9 +72,13 @@ FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IRouteAggregator,
 
 #include "bgp/routing-instance/service_chaining.h"
 FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
-    Address::INET, ServiceChainMgrInet);
+    SCAddress::INET, ServiceChainMgrInet);
 FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
-    Address::INET6, ServiceChainMgrInet6);
+    SCAddress::INET6, ServiceChainMgrInet6);
+FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
+    SCAddress::EVPN, ServiceChainMgrEvpn);
+FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IServiceChainMgr,
+    SCAddress::EVPN6, ServiceChainMgrEvpn6);
 
 #include "bgp/routing-instance/static_route.h"
 FACTORY_PARAM_STATIC_REGISTER(BgpObjectFactory, IStaticRouteMgr,

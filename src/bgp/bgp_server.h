@@ -22,6 +22,7 @@
 #include "io/tcp_server.h"
 #include "io/tcp_session.h"
 #include "base/address.h"
+#include "bgp/routing-instance/iservice_chain_mgr.h"
 
 class AsPathDB;
 class AsPath4ByteDB;
@@ -115,11 +116,27 @@ public:
         assert(false);
         return NULL;
     }
-    IServiceChainMgr *service_chain_mgr(Address::Family family) {
-        if (family == Address::INET)
+    BgpConditionListener *condition_listener(SCAddress::Family family) {
+        if (family == SCAddress::INET)
+            return inet_condition_listener_.get();
+        if (family == SCAddress::INET6)
+            return inet6_condition_listener_.get();
+        if (family == SCAddress::EVPN)
+            return evpn_condition_listener_.get();
+        if (family == SCAddress::EVPN6)
+            return evpn6_condition_listener_.get();
+        assert(false);
+        return NULL;
+    }
+    IServiceChainMgr *service_chain_mgr(SCAddress::Family family) {
+        if (family == SCAddress::INET)
             return inet_service_chain_mgr_.get();
-        if (family == Address::INET6)
+        if (family == SCAddress::INET6)
             return inet6_service_chain_mgr_.get();
+        if (family == SCAddress::EVPN)
+            return evpn_service_chain_mgr_.get();
+        if (family == SCAddress::EVPN6)
+            return evpn6_service_chain_mgr_.get();
         assert(false);
         return NULL;
     }
@@ -364,6 +381,8 @@ private:
     boost::scoped_ptr<BgpMembershipManager> membership_mgr_;
     boost::scoped_ptr<BgpConditionListener> inet_condition_listener_;
     boost::scoped_ptr<BgpConditionListener> inet6_condition_listener_;
+    boost::scoped_ptr<BgpConditionListener> evpn_condition_listener_;
+    boost::scoped_ptr<BgpConditionListener> evpn6_condition_listener_;
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> mvpn_replicator_;
@@ -371,6 +390,8 @@ private:
     boost::scoped_ptr<RoutePathReplicator> inet6vpn_replicator_;
     boost::scoped_ptr<IServiceChainMgr> inet_service_chain_mgr_;
     boost::scoped_ptr<IServiceChainMgr> inet6_service_chain_mgr_;
+    boost::scoped_ptr<IServiceChainMgr> evpn_service_chain_mgr_;
+    boost::scoped_ptr<IServiceChainMgr> evpn6_service_chain_mgr_;
 
     // configuration
     boost::scoped_ptr<BgpGlobalSystemConfig> global_config_;

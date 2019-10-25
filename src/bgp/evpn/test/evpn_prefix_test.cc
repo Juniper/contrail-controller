@@ -3249,7 +3249,7 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix1) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET, prefix.family());
         EXPECT_EQ("192.1.1.1", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3271,7 +3271,7 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix2) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET, prefix.family());
         EXPECT_EQ("192.1.1.0", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3293,7 +3293,7 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix3) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET6, prefix.family());
         EXPECT_EQ("2001:db8:0:9::1", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3315,7 +3315,7 @@ TEST_F(EvpnIpPrefixTest, BuildPrefix4) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET6, prefix.family());
         EXPECT_EQ("2001:db8:0:9::", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3335,7 +3335,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix1) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET, prefix.family());
         EXPECT_EQ("192.1.1.1", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3357,7 +3357,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix2) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET, prefix.family());
         EXPECT_EQ("192.1.1.0", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3377,7 +3377,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix3) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET6, prefix.family());
         EXPECT_EQ("2001:db8:0:9::1", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 
@@ -3399,7 +3399,7 @@ TEST_F(EvpnIpPrefixTest, ParsePrefix4) {
         EXPECT_EQ(tag, prefix.tag());
         EXPECT_EQ(Address::INET6, prefix.family());
         EXPECT_EQ("2001:db8:0:9::", prefix.ip_address().to_string());
-        EXPECT_EQ(plen, prefix.ip_prefix_length());
+        EXPECT_EQ(plen, prefix.prefixlen());
     }
 }
 

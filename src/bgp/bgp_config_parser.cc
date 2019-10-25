@@ -278,22 +278,19 @@ static bool ParseSession(const string &identifier, const xml_node &node,
 }
 
 static bool ParseServiceChain(const string &instance, const xml_node &node,
-                              bool add_change, Address::Family family,
+                              bool add_change, const string &sc_info,
                               BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
+    property->sc_head = true;
     assert(property->XmlParse(node));
 
     if (add_change) {
         MapObjectSetProperty("routing-instance", instance,
-            family == Address::INET ? "service-chain-information" :
-                                      "ipv6-service-chain-information",
-            property.release(), requests);
+            sc_info, property.release(), requests);
     } else {
         MapObjectClearProperty("routing-instance", instance,
-            family == Address::INET ? "service-chain-information" :
-                                      "ipv6-service-chain-information",
-            requests);
+            sc_info, requests);
     }
 
     return true;
@@ -537,11 +534,17 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
         } else if (strcmp(node.name(), "virtual-network") == 0) {
             ParseInstanceVirtualNetwork(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "service-chain-info") == 0) {
-            ParseServiceChain(instance, node, add_change, Address::INET,
-                              requests);
+            ParseServiceChain(instance, node, add_change,
+                              "service-chain-information", requests);
         } else if (strcmp(node.name(), "ipv6-service-chain-info") == 0) {
-            ParseServiceChain(instance, node, add_change, Address::INET6,
-                              requests);
+            ParseServiceChain(instance, node, add_change,
+                              "ipv6-service-chain-information", requests);
+        } else if (strcmp(node.name(), "evpn-service-chain-info") == 0) {
+            ParseServiceChain(instance, node, add_change,
+                              "evpn-service-chain-information", requests);
+        } else if (strcmp(node.name(), "evpn-ipv6-service-chain-info") == 0) {
+            ParseServiceChain(instance, node, add_change,
+                              "evpn-ipv6-service-chain-information", requests);
         } else if (strcmp(node.name(), "route-aggregate") == 0) {
             ParseInstanceRouteAggregate(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "routing-policy") == 0) {

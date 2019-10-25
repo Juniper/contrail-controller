@@ -10,6 +10,8 @@
 
 #include <string>
 
+#include "base/address.h"
+
 class RoutingInstance;
 class ServiceChainConfig;
 class ServiceChainGroup;
@@ -53,6 +55,43 @@ private:
     virtual void EnableGroupTrigger() = 0;
     virtual void DisableQueue() = 0;
     virtual void EnableQueue() = 0;
+};
+
+struct SCAddress {
+    enum Family {
+        UNSPEC = 0,
+        INET = 1,
+        INET6 = 2,
+        EVPN = 3,
+        EVPN6 = 4,
+        NUM_FAMILIES
+    };
+
+    static Address::Family SCFamilyToAddressFamily(Family family) {
+        if (family == INET) {
+            return Address::INET;
+        } else if (family == INET6) {
+            return Address::INET6;
+        } else if (family == EVPN) {
+            return Address::EVPN;
+        } else if (family == EVPN6) {
+            return Address::EVPN;
+        }
+        assert(false);
+        return Address::UNSPEC;
+    }
+
+    static Family AddressFamilyToSCFamily(Address::Family family) {
+        if (family == Address::INET) {
+            return INET;
+        } else if (family == Address::INET6) {
+            return INET6;
+        } else if (family == Address::EVPN) {
+            return EVPN;
+        }
+        assert(false);
+        return UNSPEC;
+    }
 };
 
 #endif  // SRC_BGP_ROUTING_INSTANCE_ISERVICE_CHAIN_MGR_H_

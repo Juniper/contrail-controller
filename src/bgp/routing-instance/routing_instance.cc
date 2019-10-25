@@ -20,7 +20,6 @@
 #include "bgp/bgp_server.h"
 #include "bgp/mvpn/mvpn_table.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
-#include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
@@ -1059,8 +1058,22 @@ void RoutingInstance::ProcessServiceChainConfig() {
     if (is_master_)
         return;
 
-    vector<Address::Family> families = list_of(Address::INET)(Address::INET6);
-    BOOST_FOREACH(Address::Family family, families) {
+    /**
+      * If any VN (both internal and non-internal) is connnected to an internal
+      * VN via a service-chain, we will create a service chain for EVPN address
+      * family as well so that we can re-originate routes from the internal VN
+      * RI's EVPN table.
+      * For other cases (any VN communicating with a non-internal VN via service
+      * chain), we do not need a service chain to watch the EVPN table.
+      * Schema-transformer needs to make sure to add the service chain config for
+      * EVPN address family to all VNs which need to communicate via a
+      * service-chain with an internal VN.
+      */
+    vector<SCAddress::Family> families = list_of
+        (SCAddress::INET) (SCAddress::INET6)
+        (SCAddress::EVPN) (SCAddress::EVPN6);
+
+    BOOST_FOREACH(SCAddress::Family family, families) {
         const ServiceChainConfig *sc_config =
             config_ ? config_->service_chain_info(family) : NULL;
         IServiceChainMgr *manager = server_->service_chain_mgr(family);
@@ -1823,8 +1836,10 @@ bool RoutingInstance::IsServiceChainRoute(const BgpRoute *route) const {
     if (!rt_config) {
         return false;
     }
+    SCAddress::Family sc_family =
+        SCAddress::AddressFamilyToSCFamily(table->family());
     const ServiceChainConfig *sc_config =
-           rt_config->service_chain_info(table->family());
+           rt_config->service_chain_info(sc_family);
     if (!sc_config) {
         return false;
     }
@@ -1954,8 +1969,11 @@ bool RoutingInstance::IsContributingRoute(const BgpTable *table,
 }
 
 int RoutingInstance::GetOriginVnForAggregateRoute(Address::Family fmly) const {
+    SCAddress sc_addr;
+    SCAddress::Family sc_family =
+         sc_addr.AddressFamilyToSCFamily(fmly);
     const ServiceChainConfig *sc_config =
-        config_ ? config_->service_chain_info(fmly) : NULL;
+        config_ ? config_->service_chain_info(sc_family) : NULL;
     if (sc_config && !sc_config->routing_instance.empty()) {
         RoutingInstance *dest =
             mgr_->GetRoutingInstanceLocked(sc_config->routing_instance);

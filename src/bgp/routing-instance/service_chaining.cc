@@ -5,6 +5,7 @@
 #include "bgp/routing-instance/service_chaining.h"
 
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include <algorithm>
 
@@ -21,6 +22,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/service_chaining_types.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
 using boost::bind;
@@ -34,6 +36,10 @@ template<>
 int ServiceChainMgr<ServiceChainInet>::service_chain_task_id_ = -1;
 template<>
 int ServiceChainMgr<ServiceChainInet6>::service_chain_task_id_ = -1;
+template<>
+int ServiceChainMgr<ServiceChainEvpn>::service_chain_task_id_ = -1;
+template<>
+int ServiceChainMgr<ServiceChainEvpn6>::service_chain_task_id_ = -1;
 
 static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
     const BgpPath *path = route->BestPath();
@@ -54,6 +60,177 @@ static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
     if (path->IsVrfOriginated())
         return table->routing_instance()->virtual_network_index();
     return 0;
+}
+
+/**
+  * Replicate prefix received at head-end of service chain to appropriate
+  * table depending on address-family.
+  * ----------------------------------------------------------------------
+  *      Family       service-chain address-family     Replication Table
+  * ----------------------------------------------------------------------
+  *      EVPN                  INET                      InetTable
+  *      EVPN                  INET6                     Inet6Table
+  *      INET                  INET                      EvpnTable
+  *      INET6                 INET6                     EvpnTable
+  * ----------------------------------------------------------------------
+  * @param partition           -   Reference to DBTablePartition where the
+  *                                service-chain route is to be replicated
+  * @param route               -   Reference to service-chain route
+  * @param table               -   Reference to BgpTable where service-chain
+  *                                route is to be replicated
+  * @param service_chain_addr  -   service-chain address
+  * @param prefix_addr         -   IpAddress of prefix
+  * @param prefix_len          -   Prefix length
+  * @param src_ri              -   Source Routing-Instance
+  * @param family              -   Service Chain address family
+  * @param create              -   when "true" indicates that route should be
+  *                                created if not found and
+  */
+template<typename T>
+void ServiceChain<T>::GetReplicationFamilyInfo(DBTablePartition  *&partition,
+    BgpRoute *&route, BgpTable *&table, PrefixT prefix, bool create) {
+    /**
+      * EVPN prefix received at head end of service-chain.
+      * Replicate route to <vrf>.inet[6] table depending on
+      * whether the EVPN prefix carries inet[6] traffic.
+      */
+    RoutingInstance *src_ri = src_routing_instance();
+    IpAddress addr = prefix.addr();
+    int plen = prefix.prefixlen();
+    if (GetSCFamily() == SCAddress::EVPN) {
+        /**
+         * EVPN route carrying inet prefix
+         */
+        table = src_ri->GetTable(Address::INET);
+        Ip4Prefix inet_prefix = Ip4Prefix(addr.to_v4(), plen);
+        InetRoute inet_route(inet_prefix);
+        partition = static_cast<DBTablePartition *>
+                        (table->GetTablePartition(&inet_route));
+        route = static_cast<BgpRoute *>(partition->Find(&inet_route));
+        if (create) {
+            /**
+             * Create case. Create route if not found.
+             */
+            if (route == NULL) {
+                route = new InetRoute(inet_prefix);
+                partition->Add(route);
+            } else {
+                route->ClearDelete();
+            }
+        }
+    } else if (GetSCFamily() == SCAddress::EVPN6) {
+        /**
+         * EVPN route carrying inet6 prefix
+         */
+        table = src_ri->GetTable(Address::INET6);
+        Inet6Prefix inet6_prefix = Inet6Prefix(addr.to_v6(), plen);
+        Inet6Route inet6_route(inet6_prefix);
+        partition = static_cast<DBTablePartition *>
+                        (table->GetTablePartition(&inet6_route));
+        route = static_cast<BgpRoute *>(partition->Find(&inet6_route));
+        if (create) {
+            /**
+             * Create case. Create route if not found.
+             */
+            if (route == NULL) {
+                route = new Inet6Route(inet6_prefix);
+                partition->Add(route);
+            } else {
+                route->ClearDelete();
+            }
+        }
+    } else {
+        /**
+          * INET/INET6 prefix at head end of service-chain.
+          * Replicate route to <vrf>.evpn.0 table.
+          */
+        table = src_ri->GetTable(Address::EVPN);
+        string type_rd_tag("5-0:0-0-");
+        string prefix_str = type_rd_tag + addr.to_string() + "/" +
+                            boost::lexical_cast<std::string>(plen);
+        EvpnPrefix evpn_prefix(EvpnPrefix::FromString(prefix_str));
+        EvpnRoute evpn_route(evpn_prefix);
+        partition = static_cast<DBTablePartition *>
+                        (table->GetTablePartition(&evpn_route));
+        route = static_cast<BgpRoute *>(partition->Find(&evpn_route));
+        if (create) {
+            /**
+             * Create case. Create route if not found.
+             */
+            if (route == NULL) {
+                route = new EvpnRoute(evpn_prefix);
+                partition->Add(route);
+            } else {
+                route->ClearDelete();
+            }
+        }
+    }
+}
+
+/**
+  * Process service-chain path and add to service-chain route if needed.
+  *
+  * @param path_id    -  PathID
+  * @param path       -  Path to be processed
+  * @param attr       -  Path attribute
+  * @param route      -  Reference to Service-Chain route
+  * @param partition  -  Reference to DBTablePartition where the
+  *                      service-chain route is to be replicated
+  * @param aggregate  -  "true" indicates aggregate route
+  * @param bgptable   -  BgpTable the service-chain route belongs to
+  */
+template<typename T>
+void ServiceChain<T>::ProcessServiceChainPath(uint32_t path_id, BgpPath *path,
+    BgpAttrPtr attr, BgpRoute *&route, DBTablePartition *&partition,
+    bool aggregate, BgpTable *bgptable) {
+    BgpPath *existing_path =
+            route->FindPath(BgpPath::ServiceChain, NULL, path_id);
+    uint32_t label = path->GetLabel();
+    bool path_updated = false;
+
+    /**
+      * If inserting into EVPN table, the label should the L3VNI of
+      * the source RI.
+      */
+    if (bgptable->family() == Address::EVPN) {
+        label = connected_routing_instance()->virtual_network_index();
+    }
+
+    /**
+     * Check if there is an existing path that can be reused.
+     */
+    if (existing_path != NULL) {
+        // Existing path can be reused.
+        if ((attr.get() == existing_path->GetAttr()) &&
+            (path->GetLabel() == existing_path->GetLabel()) &&
+            (path->GetFlags() == existing_path->GetFlags())) {
+            return;
+        }
+
+        /**
+         * Remove existing path, new path will be added below.
+         */
+        path_updated = true;
+        route->RemovePath(BgpPath::ServiceChain, NULL, path_id);
+    }
+
+    /**
+     * No existing path or un-usable existing path
+     * Create new path and insert into service-chain route
+     */
+    BgpPath *new_path =
+        new BgpPath(path_id, BgpPath::ServiceChain, attr.get(),
+                    path->GetFlags(), label);
+    route->InsertPath(new_path);
+    partition->Notify(route);
+
+    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        (path_updated ? "Updated " : "Added ") <<
+        (aggregate ? "Aggregate" : "ExtConnected") <<
+        " ServiceChain path " << route->ToString() <<
+        " path_id " << BgpPath::PathIdString(path_id) <<
+        " in table " << bgptable->name() <<
+        " .Path label: " << label);
 }
 
 template <typename T>
@@ -79,7 +256,8 @@ private:
 template <typename T>
 ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager,
     ServiceChainGroup *group, RoutingInstance *src, RoutingInstance *dest,
-    RoutingInstance *connected, const vector<string> &subnets, AddressT addr)
+    RoutingInstance *connected, const vector<string> &subnets, AddressT addr,
+    bool head)
     : manager_(manager),
       group_(group),
       src_(src),
@@ -91,13 +269,32 @@ ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager,
       connected_table_unregistered_(false),
       dest_table_unregistered_(false),
       aggregate_(false),
+      sc_head_(head),
       src_table_delete_ref_(this, src_table()->deleter()),
       dest_table_delete_ref_(this, dest_table()->deleter()),
       connected_table_delete_ref_(this, connected_table()->deleter()) {
     for (vector<string>::const_iterator it = subnets.begin();
          it != subnets.end(); ++it) {
+        string prefix = *it;
         error_code ec;
-        PrefixT ipam_subnet = PrefixT::FromString(*it, &ec);
+        /**
+          * For EVPN, need to construct EVPN prefix from IPv4 or IPv6 subnet.
+          * Make sure AF in prefix matches service_chain AF.
+          */
+        if (GetFamily() == Address::EVPN) {
+            prefix = "5-0:0-0-" + prefix;
+            EvpnPrefix subnet = EvpnPrefix::FromString(prefix, &ec);
+            if (GetSCFamily() == SCAddress::EVPN) {
+                if (subnet.family() == Address::INET6) {
+                    continue;
+                }
+            } else {
+                if (subnet.family() != Address::INET6) {
+                    continue;
+                }
+            }
+        }
+        PrefixT ipam_subnet = PrefixT::FromString(prefix, &ec);
         if (ec != 0)
             continue;
         prefix_to_routelist_map_[ipam_subnet] = RouteList();
@@ -111,7 +308,7 @@ BgpTable *ServiceChain<T>::src_table() const {
 
 template <typename T>
 BgpTable *ServiceChain<T>::connected_table() const {
-    return connected_->GetTable(GetFamily());
+    return connected_->GetTable(GetConnectedFamily());
 }
 
 template <typename T>
@@ -171,8 +368,20 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
     PrefixT aggregate_match;
 
     if (table == dest_table() && !dest_table_unregistered()) {
-        if (IsConnectedRoute(route))
+        // For EVPN service-chaining, we are only interested in Type 5 routes
+        // from the destination table. Ignore any other route.
+        if (GetFamily() == Address::EVPN) {
+            if (!IsEvpnType5Route(route)) {
+                return (false);
+            }
+        }
+
+        // Skip connected routes
+        if (IsConnectedRoute(route)) {
             return false;
+        }
+
+        // Skip aggregate routes
         if (aggregate_enable() && IsAggregate(route))
             return false;
 
@@ -226,7 +435,8 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
         }
     } else if ((table == connected_table()) &&
                !connected_table_unregistered() &&
-               IsConnectedRoute(route)) {
+               IsConnectedRoute(route, true)) {
+        // Connected routes from source table
         if (!deleted) {
             if (!route->IsValid() ||
                 route->BestPath()->GetSource() != BgpPath::BGP_XMPP) {
@@ -244,7 +454,7 @@ bool ServiceChain<T>::Match(BgpServer *server, BgpTable *table, BgpRoute *route,
         return false;
     }
 
-    BgpConditionListener *listener = server->condition_listener(GetFamily());
+    BgpConditionListener *listener = manager_->GetListener();
     ServiceChainState *state = static_cast<ServiceChainState *>(
         listener->GetMatchState(table, route, this));
     if (!deleted) {
@@ -342,10 +552,57 @@ bool ServiceChain<T>::IsAggregate(BgpRoute *route) const {
     return false;
 }
 
+/**
+ * Check if route belongs to connected table.
+ * For EVPN, connected routes could belong to INET or INET6 AF.
+ * For routes in the destination table we can use template AF.
+ */
 template <typename T>
-bool ServiceChain<T>::IsConnectedRoute(BgpRoute *route) const {
-    RouteT *ip_route = dynamic_cast<RouteT *>(route);
-    return (service_chain_addr() == ip_route->GetPrefix().addr());
+bool ServiceChain<T>::IsConnectedRoute(BgpRoute *route,
+                                       bool is_conn_table) const {
+    if (is_conn_table && GetFamily() == Address::EVPN) {
+        if (GetConnectedFamily() == Address::INET) {
+            InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
+            return (service_chain_addr() == inet_route->GetPrefix().addr());
+        } else {
+            Inet6Route *inet6_route = dynamic_cast<Inet6Route *>(route);
+            return (service_chain_addr() == inet6_route->GetPrefix().addr());
+        }
+    } else {
+        /**
+         * Non-EVPN and EVPN destination table case
+         */
+        RouteT *ip_route = dynamic_cast<RouteT *>(route);
+        return (service_chain_addr() == ip_route->GetPrefix().addr());
+    }
+}
+
+/**
+ * Check if EVPN route being re-originated is Type 5
+ * Also make sure that the address-family of the prefix carried in the EVPN
+ * route matches the service-chain family. This will avoid the routes from
+ * being re-originated twice.
+ */
+template <typename T>
+bool ServiceChain<T>::IsEvpnType5Route(BgpRoute *route) const {
+    if (GetFamily() != Address::EVPN) {
+        return false;
+    }
+
+    EvpnRoute *evpn_route = static_cast<EvpnRoute *>(route);
+    EvpnPrefix prefix = evpn_route->GetPrefix();
+    if (prefix.type() != EvpnPrefix::IpPrefixRoute) {
+        return false;
+    }
+    if (GetSCFamily() == SCAddress::EVPN &&
+        prefix.family() == Address::INET6) {
+       return false;
+    }
+    if (GetSCFamily() == SCAddress::EVPN6 &&
+        prefix.family() == Address::INET) {
+       return false;
+    }
+    return true;
 }
 
 template <typename T>
@@ -359,19 +616,81 @@ void ServiceChain<T>::RemoveMatchState(BgpRoute *route,
     }
 }
 
+/*
+ * To support BMS to VM service-chaining, we could have traffic being
+ * chained between different address-families. This entails the need for
+ * replicating the service-chain route across address-families.
+ * The different possibilities are listed below.
+ *                    ---------------------------------------------------
+ *                    |             service-chain info                  |
+ * ----------------------------------------------------------------------
+ *  Traffic direction | Destination AF    Source AF   Replication Table |
+ * ----------------------------------------------------------------------
+ *    VM(v4) --> BMS  |   EVPN             INET        InetTable        |
+ *    VM(v6) --> BMS  |   EVPN             INET6       Inet6Table       |
+ *    BMS --> VM (v4) |   INET             INET        EvpnTable        |
+ *    BMS --> VM (v6) |   INET6            INET6       EvpnTable        |
+ * ----------------------------------------------------------------------
+ *
+ * This is only done at the RI belonging to the head SI in the service
+ * chain. At the RIs belonging to other SIs in the chain, we always
+ * install the route only in the INET or INET6 table and not in the EVPN
+ * table. This is because, at the RI belonging to the first SI in the
+ * service-chain, we may need to originate a Type 5 route if a BMS happens
+ * to be connected to it.
+ */
 template <typename T>
 void ServiceChain<T>::DeleteServiceChainRoute(PrefixT prefix, bool aggregate) {
+
     CHECK_CONCURRENCY("bgp::ServiceChain");
 
-    BgpTable *bgptable = src_table();
-    RouteT rt_key(prefix);
-    DBTablePartition *partition =
-        static_cast<DBTablePartition *>(bgptable->GetTablePartition(&rt_key));
-    BgpRoute *service_chain_route =
-        static_cast<BgpRoute *>(partition->Find(&rt_key));
+    /*
+     * For deletion within the same AF.
+     * At the RIs belonging to SIs NOT at the head of the service-chain, do
+     * not need to delete EVPN SC routes since only INET or INET6 routes
+     * would have been installed.
+     */
+    if (is_sc_head() || GetFamily() != Address::EVPN) {
+        BgpTable *bgptable = src_table();
+        RouteT rt_key(prefix);
+        DBTablePartition *partition =
+            static_cast<DBTablePartition *>(bgptable->
+                GetTablePartition(&rt_key));
+        BgpRoute *service_chain_route =
+            static_cast<BgpRoute *>(partition->Find(&rt_key));
 
-    if (!service_chain_route || service_chain_route->IsDeleted())
-        return;
+        if (service_chain_route && !service_chain_route->IsDeleted()) {
+            DeleteServiceChainRouteInternal(service_chain_route, partition,
+                                            bgptable, aggregate);
+        }
+    }
+
+    /*
+     * For deletion from replication table.
+     * At the RIs belonging to SIs NOT at the head of the service-chain, do
+     * not need to delete SC routes in the EVPN table since they would have
+     * been installed only in the INET or INET6 table..
+     */
+    if (is_sc_head() || GetFamily() == Address::EVPN) {
+        BgpTable *repl_table;
+        BgpRoute *repl_sc_route;
+        DBTablePartition *repl_partition;
+        GetReplicationFamilyInfo(repl_partition, repl_sc_route, repl_table,
+                             prefix, false);
+        if (repl_sc_route && !repl_sc_route->IsDeleted()) {
+            DeleteServiceChainRouteInternal(repl_sc_route, repl_partition,
+                                            repl_table, aggregate);
+        }
+    }
+}
+
+template <typename T>
+void ServiceChain<T>::DeleteServiceChainRouteInternal(
+                                     BgpRoute          *service_chain_route,
+                                     DBTablePartition  *partition,
+                                     BgpTable          *bgptable,
+                                     bool              aggregate) {
+    CHECK_CONCURRENCY("bgp::ServiceChain");
 
     for (ConnectedPathIdList::const_iterator it = GetConnectedPathIds().begin();
          it != GetConnectedPathIds().end(); ++it) {
@@ -391,25 +710,85 @@ void ServiceChain<T>::DeleteServiceChainRoute(PrefixT prefix, bool aggregate) {
     }
 }
 
+/*
+ * To support BMS to VM service-chaining, we could have traffic being
+ * chained between different address-families. This entails the need for
+ * replicating the service-chain route across address-families.
+ * The different possibilities are listed below.
+ *                    ---------------------------------------------------
+ *                    |             service-chain info                  |
+ * ----------------------------------------------------------------------
+ *  Traffic direction | Destination AF    Source AF   Replication Table |
+ * ----------------------------------------------------------------------
+ *    VM(v4) --> BMS  |   EVPN             INET        InetTable        |
+ *    VM(v6) --> BMS  |   EVPN             INET6       Inet6Table       |
+ *    BMS --> VM (v4) |   INET             INET        EvpnTable        |
+ *    BMS --> VM (v6) |   INET6            INET6       EvpnTable        |
+ * ----------------------------------------------------------------------
+ *
+ * This is only done at the RI belonging to the head SI in the service
+ * chain. At the RIs belonging to other SIs in the chain, we always
+ * install the route only in the INET or INET6 table and not in the EVPN
+ * table. This is because, at the RI belonging to the first SI in the
+ * service-chain, we may need to originate a Type 5 route if a BMS happens
+ * to be connected to it.
+ */
 template <typename T>
 void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
     const RouteT *orig_route, const ConnectedPathIdList &old_path_ids,
     bool aggregate) {
+
     CHECK_CONCURRENCY("bgp::ServiceChain");
 
-    BgpTable *bgptable = src_table();
-    RouteT rt_key(prefix);
-    DBTablePartition *partition =
-        static_cast<DBTablePartition *>(bgptable->GetTablePartition(&rt_key));
-    BgpRoute *service_chain_route =
-        static_cast<BgpRoute *>(partition->Find(&rt_key));
+    /*
+     * For re-origination within the same AF.
+     * At the RIs belonging to SIs NOT at the head of the service-chain, do
+     * not install EVPN SC routes. Only install INET or INET6 routes.
+     */
+    if (is_sc_head() || GetFamily() != Address::EVPN) {
+        BgpTable *bgptable = src_table();
+        RouteT rt_key(prefix);
+        DBTablePartition *partition =
+            static_cast<DBTablePartition *>
+                (bgptable->GetTablePartition(&rt_key));
+        BgpRoute *service_chain_route =
+            static_cast<BgpRoute *>(partition->Find(&rt_key));
 
-    if (service_chain_route == NULL) {
-        service_chain_route = new RouteT(prefix);
-        partition->Add(service_chain_route);
-    } else {
-        service_chain_route->ClearDelete();
+        if (service_chain_route == NULL) {
+            service_chain_route = new RouteT(prefix);
+            partition->Add(service_chain_route);
+        } else {
+            service_chain_route->ClearDelete();
+        }
+
+        UpdateServiceChainRouteInternal(orig_route, old_path_ids,
+                                        service_chain_route, partition,
+                                        bgptable, aggregate);
     }
+
+    /*
+     * For re-origination to replication table.
+     * At the RIs belonging to SIs NOT at the head of the service-chain, do
+     * not install SC routes in the EVPN table. Only install INET or INET6
+     * routes.
+     */
+    if (is_sc_head() || GetFamily() == Address::EVPN) {
+        BgpTable *repl_table;
+        BgpRoute *repl_sc_route;
+        DBTablePartition *repl_partition;
+        GetReplicationFamilyInfo(repl_partition, repl_sc_route, repl_table,
+                                 prefix, true);
+        UpdateServiceChainRouteInternal(orig_route, old_path_ids,
+                                        repl_sc_route, repl_partition,
+                                        repl_table, aggregate);
+   }
+}
+
+template <typename T>
+void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
+    const ConnectedPathIdList &old_path_ids, BgpRoute *service_chain_route,
+    DBTablePartition *partition, BgpTable *bgptable, bool aggregate) {
+    CHECK_CONCURRENCY("bgp::ServiceChain");
 
     int vn_index = dest_routing_instance()->virtual_network_index();
     BgpServer *server = dest_routing_instance()->server();
@@ -542,6 +921,21 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
                                 new_ext_community.get(), origin_vn_bytes);
         }
 
+        // Connected routes always have mpls (udp or gre)  as encap.
+        // If updating service-chain route in the EVPN table, change
+        // tunnel encap to include VxLAN and MPLS. BMS only supports VxLAN.
+        // Vrouter has the choice of using VxLAN or MPLS based on config.
+        if (bgptable->family() == Address::EVPN) {
+            ExtCommunity::ExtCommunityList encaps_list;
+            vector<string> tunnel_encaps = boost::assign::list_of("vxlan");
+            BOOST_FOREACH(string encap, tunnel_encaps) {
+                encaps_list.push_back(TunnelEncap(encap).GetExtCommunity());
+            }
+            new_ext_community = extcomm_db->
+                ReplaceTunnelEncapsulationAndLocate(new_ext_community.get(),
+                                                    encaps_list);
+        }
+
         // Replace extended community, community and origin vn path.
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             attr, new_ext_community);
@@ -594,38 +988,10 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
         // Check whether we already have a path with the associated path id.
         uint32_t path_id =
             connected_path->GetAttr()->nexthop().to_v4().to_ulong();
-        BgpPath *existing_path =
-            service_chain_route->FindPath(BgpPath::ServiceChain, NULL,
-                                          path_id);
-        bool path_updated = false;
-        if (existing_path != NULL) {
-            // Existing path can be reused.
-            if ((new_attr.get() == existing_path->GetAttr()) &&
-                (connected_path->GetLabel() == existing_path->GetLabel()) &&
-                (connected_path->GetFlags() == existing_path->GetFlags())) {
-                new_path_ids.insert(path_id);
-                continue;
-            }
-
-            // Remove existing path, new path will be added below.
-            path_updated = true;
-            service_chain_route->RemovePath(
-                BgpPath::ServiceChain, NULL, path_id);
-        }
-
-        BgpPath *new_path =
-            new BgpPath(path_id, BgpPath::ServiceChain, new_attr.get(),
-                        connected_path->GetFlags(), connected_path->GetLabel());
+        ProcessServiceChainPath(path_id, connected_path, new_attr,
+                                service_chain_route, partition,
+                                aggregate, bgptable);
         new_path_ids.insert(path_id);
-        service_chain_route->InsertPath(new_path);
-        partition->Notify(service_chain_route);
-
-        BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-            (path_updated ? "Updated " : "Added ") <<
-            (aggregate ? "Aggregate" : "ExtConnected") <<
-            " ServiceChain path " << service_chain_route->ToString() <<
-            " path_id " << BgpPath::PathIdString(path_id) <<
-            " in table " << bgptable->name());
     }
 
     // Remove stale paths.
@@ -642,6 +1008,7 @@ void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
             " ServiceChain path " << service_chain_route->ToString() <<
             " path_id " << BgpPath::PathIdString(path_id) <<
             " in table " << bgptable->name());
+
     }
 
     // Delete the route if there's no paths.
@@ -803,6 +1170,19 @@ void ServiceChainGroup::UpdateOperState() {
     BOOST_FOREACH(RoutingInstance *rtinstance, chain_set_) {
         manager_->UpdateServiceChain(rtinstance, oper_state_up_);
     }
+}
+
+/**
+  * Get appropriate listener for watching routes.
+  * For EVPN connected table, listener will depend on the connected AF
+  *
+  * @param addr          -  service-chain address
+  * @param is_conn_table -  "true" indicates connected table
+  * @return              -  Pointer to BgpConditionListener object
+  */
+template <typename T>
+BgpConditionListener *ServiceChainMgr<T>::GetListener() {
+    return server_->condition_listener(GetSCFamily());
 }
 
 template <typename T>
@@ -982,7 +1362,7 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
 template <typename T>
 ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
     : server_(server),
-      listener_(server_->condition_listener(GetFamily())),
+      listener_(GetListener()),
       resolve_trigger_(new TaskTrigger(
           bind(&ServiceChainMgr::ResolvePendingServiceChain, this),
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
@@ -1108,6 +1488,9 @@ bool ServiceChainMgr<T>::ProcessServiceChainGroups() {
     return true;
 }
 
+/**
+ * Address Family - used for GetTable().
+ */
 template <>
 Address::Family ServiceChainMgr<ServiceChainInet>::GetFamily() const {
     return Address::INET;
@@ -1118,6 +1501,63 @@ Address::Family ServiceChainMgr<ServiceChainInet6>::GetFamily() const {
     return Address::INET6;
 }
 
+template <>
+Address::Family ServiceChainMgr<ServiceChainEvpn>::GetFamily() const {
+    return Address::EVPN;
+}
+
+template <>
+Address::Family ServiceChainMgr<ServiceChainEvpn6>::GetFamily() const {
+    return Address::EVPN;
+}
+
+/**
+ * Connected Table Family. For EVPN, it is INET or INET6.
+ */
+template <>
+Address::Family ServiceChainMgr<ServiceChainInet>::GetConnectedFamily() const {
+    return Address::INET;
+}
+
+template <>
+Address::Family ServiceChainMgr<ServiceChainInet6>::GetConnectedFamily() const {
+    return Address::INET6;
+}
+
+template <>
+Address::Family ServiceChainMgr<ServiceChainEvpn>::GetConnectedFamily() const {
+    return Address::INET;
+}
+
+template <>
+Address::Family ServiceChainMgr<ServiceChainEvpn6>::GetConnectedFamily() const {
+    return Address::INET6;
+}
+
+/**
+ * Service Chain Family
+ */
+template <>
+SCAddress::Family ServiceChainMgr<ServiceChainInet>::GetSCFamily() const {
+    return SCAddress::INET;
+}
+
+template <>
+SCAddress::Family ServiceChainMgr<ServiceChainInet6>::GetSCFamily() const {
+    return SCAddress::INET6;
+}
+
+template <>
+SCAddress::Family ServiceChainMgr<ServiceChainEvpn>::GetSCFamily() const {
+    return SCAddress::EVPN;
+}
+
+template <>
+SCAddress::Family ServiceChainMgr<ServiceChainEvpn6>::GetSCFamily() const {
+    return SCAddress::EVPN6;
+}
+
+template <>
 template <typename T>
 void ServiceChainMgr<T>::Enqueue(ServiceChainRequestT *req) {
     process_queue_->Enqueue(req);
@@ -1286,15 +1726,21 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
         return false;
     }
 
-    // Get the BGP Tables to add condition
-    BgpTable *connected_table = connected_ri->GetTable(GetFamily());
+    /**
+     * Get the BGP Tables to add condition
+     * For EVPN, connected table will be INET/INET6 depending on
+     * whether prefix carried is v4/v6.
+     */
+    BgpTable *connected_table = NULL;
+    connected_table = connected_ri->GetTable(GetConnectedFamily());
     assert(connected_table);
     BgpTable *dest_table = dest->GetTable(GetFamily());
     assert(dest_table);
 
     // Allocate the new service chain.
     ServiceChainPtr chain = ServiceChainPtr(new ServiceChainT(this, group,
-        rtinstance, dest, connected_ri, config.prefix, chain_addr));
+        rtinstance, dest, connected_ri, config.prefix, chain_addr,
+        config.sc_head));
 
     if (aggregate_host_route()) {
         ServiceChainT *obj = static_cast<ServiceChainT *>(chain.get());
@@ -1348,7 +1794,7 @@ bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
             group->DeleteRoutingInstance(rtinstance);
         pending_chains_.erase(it);
         const ServiceChainConfig *sc_config =
-            rtinstance->config()->service_chain_info(GetFamily());
+            rtinstance->config()->service_chain_info(GetSCFamily());
         if (sc_config)
             LocateServiceChain(rtinstance, *sc_config);
     }
@@ -1534,3 +1980,5 @@ uint32_t ServiceChainMgr<T>::GetDownServiceChainCount() const {
 // Explicit instantiation of ServiceChainMgr for INET and INET6.
 template class ServiceChainMgr<ServiceChainInet>;
 template class ServiceChainMgr<ServiceChainInet6>;
+template class ServiceChainMgr<ServiceChainEvpn>;
+template class ServiceChainMgr<ServiceChainEvpn6>;
