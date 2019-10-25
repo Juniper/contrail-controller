@@ -1514,7 +1514,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "Route-Reflector", "AR-Client"]
+                "rb_roles": ["lean", "Route-Reflector", "AR-Client"]
               }
             ]
           }
@@ -1535,7 +1535,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
               }
             ]
           }
@@ -1556,7 +1556,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "Route-Reflector", "AR-Client", "AR-Replicator"]
+                "rb_roles": ["lean", "Route-Reflector", "AR-Client", "AR-Replicator"]
               }
             ]
           }
@@ -1594,7 +1594,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client", "AR-Replicator"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client", "AR-Replicator"]
               }
             ]
           }
@@ -1615,7 +1615,7 @@
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["null", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
               }
             ]
           }
