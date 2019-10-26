@@ -294,6 +294,7 @@ class SanityBase(object):
     def _wait_for_job_to_finish(self, job_name, job_execution_id):
         completed = "SUCCESS"
         failed = "FAILURE"
+        warning = "WARNING"
         url = "http://%s:%d/analytics/query" %\
               (self._analytics['host'], self._analytics['port'])
         retry_count = 0
@@ -302,6 +303,11 @@ class SanityBase(object):
             if SanityBase._check_job_status(url, job_execution_id, completed):
                 self._logger.debug("%s job '%s' finished", job_name,
                                    job_execution_id)
+                break
+            # check if job completed semi-successfully
+            if SanityBase._check_job_status(url, job_execution_id, warning):
+                self._logger.debug("%s job '%s' finished with warnings",
+                                   job_name, job_execution_id)
                 break
             # check if job failed
             if SanityBase._check_job_status(url, job_execution_id, failed):
@@ -441,6 +447,7 @@ class SanityBase(object):
 
         completed = "SUCCESS"
         failed = "FAILURE"
+        warning = "WARNING"
         url = "http://%s:%d/analytics/query" %\
               (self._analytics['host'], self._analytics['port'])
         retry_count = 0
@@ -463,6 +470,11 @@ class SanityBase(object):
             if SanityBase._check_job_status(url, job_execution_id, completed):
                 self._logger.debug("%s job '%s' finished", job_name,
                                    job_execution_id)
+                break
+            # check if job completed semi-successfully
+            if SanityBase._check_job_status(url, job_execution_id, warning):
+                self._logger.debug("%s job '%s' finished with warnings",
+                                   job_name, job_execution_id)
                 break
             # check if job failed
             if SanityBase._check_job_status(url, job_execution_id, failed):
