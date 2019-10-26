@@ -163,6 +163,8 @@ class JobResultHandler(object):
                 job_summary_message += "Job failed. "
             job_summary_message += "\n"
         elif self.job_result_status == JobStatus.SUCCESS:
+            if failed_device_jobs_len > 0:
+                self.job_result_status = JobStatus.WARNING
             job_summary_message += MsgBundle.getMessage(
                 MsgBundle.JOB_EXECUTION_COMPLETE)
         device_job_result_len = len(self.job_result)
