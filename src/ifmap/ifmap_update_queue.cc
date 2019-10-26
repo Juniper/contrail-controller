@@ -458,6 +458,7 @@ void IFMapUpdateQueueShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= boost::assign::list_of(s0)(s1);
+    ps.stages_= boost::assign::list_of(s0)(s1)
+        .convert_to_container<vector<RequestPipeline::StageSpec> >();
     RequestPipeline rp(ps);
 }

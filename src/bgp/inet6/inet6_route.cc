@@ -2,9 +2,9 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/inet6/inet6_route.h"
-
+#include "base/misc_utils.h"
 #include "base/string_util.h"
+#include "bgp/inet6/inet6_route.h"
 #include "bgp/inet6/inet6_table.h"
 
 using boost::system::error_code;
@@ -80,8 +80,7 @@ bool Inet6Prefix::IsMoreSpecific(const Inet6Prefix &rhs) const {
 
 Inet6Prefix Inet6Prefix::operator&(const Inet6Prefix& right) const {
     Ip6Address::bytes_type addr_bytes;
-    addr_bytes.assign(0);
-
+    ARRAYBYTES_FILL(addr_bytes,0)
     Ip6Address::bytes_type lhs = ToBytes();
     Ip6Address::bytes_type rhs = right.ToBytes();
     for (size_t i = 0; i < sizeof(Ip6Address::bytes_type); ++i) {
@@ -196,7 +195,7 @@ Inet6Prefix Inet6Masks::CalculateMaskFromPrefixlen(int prefixlen) {
     int num_bits = prefixlen % 8;
 
     Ip6Address::bytes_type addr_bytes;
-    addr_bytes.assign(0);
+    ARRAYBYTES_FILL(addr_bytes,0)
 
     for (int i = 0; i < num_bytes; ++i) {
         addr_bytes[i] = 0xff;
