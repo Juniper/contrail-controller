@@ -13,6 +13,8 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
     CassandraStatusUVE, CassandraStatusData, CassandraThreadPoolStats,\
     CassandraCompactionTask, DatabaseUsageStats, DatabaseUsageInfo,\
     DatabaseUsage
+from sandesh_common.vns.constants import RepairNeededKeyspaces,\
+            AnalyticsRepairNeededKeyspaces
 
 monkey.patch_all()
 
@@ -45,10 +47,22 @@ class CassandraManager(object):
         # and this is not allowed in micrioservices setup
         pass
 
-    def repair(self):
-        # TODO: here was a call to contrail-cassandra-repair utility
-        # but this tool is not present in microservices
-        pass
+    def repair(self, event_mgr):
+        keyspaces = []
+        if self._db_owner == 'analytics':
+            keyspaces = AnalyticsRepairNeededKeyspaces
+        elif self._db_owner == 'config':
+            keyspaces = RepairNeededKeyspaces
+        for keyspace in keyspaces:
+            cmd = "nodetool -p {} repair -pr {}".format(
+                                        self.db_jmx_port, keyspace)
+            try:
+                res = self.exec_cmd(cmd)
+            except Exception as e:
+                err_msg = "Failed to run cmd: {}.\nError: {}".format(cmd, e)
+                event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
+            else:
+                event_mgr.msg_log(res, level=SandeshLevel.SYS_DEBUG)
 
     def exec_cmd(self, cmd):
         # unit name must be equal to definition in main.py
