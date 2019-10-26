@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5da60196_14177ebb",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_access/juniper_junos-qfx_overlay_evpn_access.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-26T00:07:23Z",
+      "side": 1,
+      "message": "correct the path as part of include. It shuld take from config_templates.",
+      "revId": "1fea455a922edf5c1bfcf4791c314f0e1cf4d5c6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "20704b7a_95800488",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_access/juniper_junos-qfx_overlay_evpn_access.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-26T00:07:23Z",
+      "side": 1,
+      "message": "correct the path as part of include. It shuld take from config_templates.",
+      "revId": "1fea455a922edf5c1bfcf4791c314f0e1cf4d5c6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
