@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cb4a9e37_e4952050",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 6
+      },
+      "lineNbr": 187,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-10-28T21:21:36Z",
+      "side": 1,
+      "message": "It has to be removed from the old way. Same comment applies for all other roles too",
+      "revId": "5cb03178a2e0fbf6a8442f3b1a35017591c3dd3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "df6d4fff_478b59f2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 6
+      },
+      "lineNbr": 197,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-10-28T21:21:36Z",
+      "side": 1,
+      "message": "It has to be removed from the old way",
+      "revId": "5cb03178a2e0fbf6a8442f3b1a35017591c3dd3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
