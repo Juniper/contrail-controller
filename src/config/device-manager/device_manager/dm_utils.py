@@ -244,12 +244,10 @@ class DMUtils(object):
     # end make_bgp_group_name
 
     @staticmethod
-    def make_bgp_group_name(asn, is_external=False, is_RR=False):
+    def make_bgp_group_name(asn, is_external=False):
         name = DMUtils.contrail_prefix() + "asn-" + str(asn)
         if is_external:
-            name = name + "-external"
-        if is_RR:
-            name = name + "-rr"
+            return name + "-external"
         return name
     # end make_bgp_group_name
 
