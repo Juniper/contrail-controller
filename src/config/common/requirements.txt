@@ -1,9 +1,14 @@
-pycassa>=1.7.2
-kazoo
-# kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
+attrdict
 bitarray
 bottle
-attrdict
-requests >= 2.20.0
-sandesh
 contrail-api-client
+gevent
+greenlet
+kazoo
+# kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
+pycassa>=1.7.2
+requests>=2.20.0
+sandesh
+simplejson
+six
+stevedore
