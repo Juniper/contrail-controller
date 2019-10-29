@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "f1bbe24f_30dbf560",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 6
+      },
+      "lineNbr": 187,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-29T12:15:43Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cb4a9e37_e4952050",
+      "revId": "5cb03178a2e0fbf6a8442f3b1a35017591c3dd3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "df6d4fff_478b59f2",
         "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
         "patchSetId": 6
@@ -33,6 +51,24 @@
       "revId": "5cb03178a2e0fbf6a8442f3b1a35017591c3dd3f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "78548c8d_5a2789c3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 6
+      },
+      "lineNbr": 197,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-10-29T12:15:43Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "df6d4fff_478b59f2",
+      "revId": "5cb03178a2e0fbf6a8442f3b1a35017591c3dd3f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
