@@ -6,6 +6,7 @@
 """
 Logger for config services
 """
+from __future__ import absolute_import
 
 import datetime
 import logging
@@ -24,7 +25,7 @@ from sandesh_common.vns.constants import (
 from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from vnc_greenlets import VncGreenlet
+from .vnc_greenlets import VncGreenlet
 
 
 class ConfigServiceLogger(object):
