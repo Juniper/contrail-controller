@@ -1,3 +1,4 @@
+from __future__ import print_function
 # USAGE STEPS:
 # To upload db
 # Stop all contrail services including zookeeper.
@@ -250,7 +251,7 @@ def main(args_str):
     try:
         db_exim = DatabaseExim(args_str)
     except InvalidArguments as e:
-        print str(e)
+        print(str(e))
         return
     if 'import-from' in args_str:
         db_exim.db_import()

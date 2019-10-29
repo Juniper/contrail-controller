@@ -2,6 +2,7 @@ attrdict
 bitarray
 bottle
 contrail-api-client
+future
 gevent
 greenlet
 kazoo
