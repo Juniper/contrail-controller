@@ -8,7 +8,6 @@
   vars:
     rma_devices: "{{playbook_input.input.rma_devices}}"
     output: {"status":"", "message":""}
-    os_version: ""
 
   tasks:
     - name: Include global variables
@@ -23,23 +22,6 @@
 
     - name: Invoke IP assignment task
       block:
-        - name: Call vnc to read the fabric object
-          vnc_db_mod:
-            job_ctx: "{{ job_ctx }}"
-            object_type: "fabric"
-            object_op: "read"
-            object_dict: { "fq_name": "{{fabric_fqname}}" }
-          register: fabric_obj
-
-        - name: Set os version only if defined
-          set_fact:
-            os_defined: true
-          when: fabric_obj.obj.fabric_os_version is defined
-
-        - name: Set version
-          set_fact:
-            os_version: "{{fabric_obj.obj.fabric_os_version }}"
-          when: os_defined is defined and os_defined
 
         - name: Activate devices and return device_to_ztp list for all devices
           set_fact:
@@ -81,7 +63,7 @@
 
         - name: Process RMA
           set_fact:
-            rma_device_info: "{{ job_ctx | rma_activate_devices(rma_devices, publish_result) }}"
+            rma_device_info: "{{ job_ctx | rma_activate_devices(rma_devices,publish_result) }}"
 
         - name: Perform the necessary error handling
           include_tasks: error_handler.yml
@@ -102,7 +84,7 @@
 
         - name: Exit if successful
           set_fact:
-            output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating', 'os_version': os_version})}}"
+            output: "{{ output|combine({'status':'SUCCESS', 'message':'Finished with initial RMA activating'})}}"
 
       rescue:
         - name: Perform the necessary error handling
