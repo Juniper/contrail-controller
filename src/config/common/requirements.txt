@@ -1,7 +1,9 @@
 attrdict
 bitarray
 bottle
+configparser
 contrail-api-client
+future
 gevent
 greenlet
 kazoo
