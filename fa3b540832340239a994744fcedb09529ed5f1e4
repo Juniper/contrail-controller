@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "95d8593c_b4c45d97",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/security_group.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2019-10-29T19:47:56Z",
+      "side": 1,
+      "message": "Could we please remove this?",
+      "revId": "fa3b540832340239a994744fcedb09529ed5f1e4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "96c76535_87eed15a",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/security_group.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2019-10-29T19:47:56Z",
+      "side": 1,
+      "message": "Is this resolved ?",
+      "revId": "fa3b540832340239a994744fcedb09529ed5f1e4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
