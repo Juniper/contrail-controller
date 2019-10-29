@@ -22,6 +22,11 @@
     - name: Include global variables
       include_vars: group_vars/all.yml
 
+    - name: Set os version for RMA
+      set_fact:
+        ztp_os_version: "{{playbook_input.device_os_version}}"
+      when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
+
     - set_fact:
         device_to_ztp: "{{ playbook_input.input.device_to_ztp }}"
       when: playbook_input.input.device_to_ztp is defined
