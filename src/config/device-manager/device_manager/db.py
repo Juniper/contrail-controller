@@ -1520,8 +1520,18 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.service_instance = None
         self.service_endpoint = None
         self.virtual_port_group = None
+        self.logical_router = None
         self.update(obj_dict)
     # end __init__
+
+    def update_logical_router(self, obj=None):
+        if obj is None:
+            return
+        for lr_refs in obj.get('logical_router_back_refs', []):
+            if 'uuid' in lr_refs and LogicalRouterDM.get(lr_refs['uuid']):
+                self.logical_router = lr_refs['uuid']
+                break
+    # end
 
     def update(self, obj=None):
         if obj is None:
@@ -1536,6 +1546,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
                 'service_interface_type', None)
         else:
             self.vlan_tag = 0
+        self.update_logical_router(obj)
         self.bindings = obj.get('virtual_machine_interface_bindings') or {}
         kvps = self.bindings.get('key_value_pair') or []
         kvp_dict = dict((kvp['key'], kvp['value']) for kvp in kvps)
@@ -1752,19 +1763,35 @@ class VirtualNetworkDM(DBBaseDM):
     # end get_route_targets
 
     def set_logical_router(self, name):
+        lr_uuid = None
         if DMUtils.get_lr_internal_vn_prefix() in name:
             lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(name)
-            lr_obj = LogicalRouterDM.get(lr_uuid)
-            if lr_obj:
-                self.logical_router = lr_obj.uuid
-                self.router_external = lr_obj.logical_router_gateway_external
+        else:
+            # for overlay VN (non-contrail-vn) set LR through VMI_back_refs
+            for vmi_uuid in self.virtual_machine_interfaces:
+                vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+                if vmi is None or vmi.is_device_owner_bms() is True:
+                    continue
+                if vmi.logical_router:
+                    lr_uuid = vmi.logical_router
+                    break
+        if lr_uuid is None:
+            return
+        lr_obj = LogicalRouterDM.get(lr_uuid)
+        if lr_obj:
+            self.logical_router = lr_obj.uuid
+            self.router_external = lr_obj.logical_router_gateway_external
+            if DMUtils.get_lr_internal_vn_prefix() in name:
                 lr_obj.virtual_network = self.uuid
     # end set_logical_router
 
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
-            self.set_logical_router(obj.get("fq_name")[-1])
+        self.virtual_machine_interfaces = set(
+            [vmi['uuid'] for vmi in
+             obj.get('virtual_machine_interface_back_refs', [])])
+        self.set_logical_router(obj.get("fq_name")[-1])
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('tag', obj)
         self.update_multiple_refs('network_ipam', obj)
@@ -1778,9 +1805,6 @@ class VirtualNetworkDM(DBBaseDM):
         self.set_forwarding_mode(obj)
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
-        self.virtual_machine_interfaces = set(
-            [vmi['uuid'] for vmi in
-             obj.get('virtual_machine_interface_back_refs', [])])
         self.gateways = DMUtils.get_network_gateways(obj.get(
             'network_ipam_refs', []))
         self.route_targets = None
