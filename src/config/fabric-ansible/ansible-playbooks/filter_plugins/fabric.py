@@ -12,9 +12,6 @@ import struct
 import sys
 import traceback
 import uuid
-from threading import RLock
-
-update_lock = RLock()
 
 from cfgm_common.exceptions import (
     NoIdError,
@@ -320,9 +317,16 @@ class FilterModule(object):
             'delete_fabric': self.delete_fabric,
             'delete_devices': self.delete_fabric_devices,
             'assign_roles': self.assign_roles,
+<<<<<<< HEAD   (e2b91f [vnc_openstack]: Fix network list --shared False)
             'update_annotations': self.update_annotations,
             'validate_device_functional_group': self.validate_device_functional_group,
             'update_physical_router_annotations': self.update_physical_router_annotations
+=======
+            'validate_device_functional_group':
+                self.validate_device_functional_group,
+            'update_physical_router_annotations':
+                self.update_physical_router_annotations
+>>>>>>> CHANGE (d57379 [Fabric] Remove fabric annotation update)
         }
     # end filters
 
@@ -1826,16 +1830,21 @@ class FilterModule(object):
                         for item in existing_device_functional_list:
                             if item['fq_name'][2] == given_dfg:
                                 dfg_uuid = item['uuid']
+                                dfg_item = vnc_api.device_functional_group_read(
+                                    id=dfg_uuid)
+                                dfg_item_dict = vnc_api.obj_to_dict(dfg_item)
+                                #check rb_role compatibility
+                                self._check_rb_role_compatibity(vnc_api,
+                                                                prouter_uuid,
+                                                                dfg_item_dict)
                                 # delete the previous dfg reference before
-                                #creating new one
+                                # creating new one
                                 self._delete_dfg_ref(vnc_api, prouter_uuid)
                                 vnc_api.ref_update("physical_router",
                                                    prouter_uuid,
                                                    "device_functional_group",
-                                                   dfg_uuid, None,'ADD')
-                                dfg_item = vnc_api.device_functional_group_read(
-                                    id=dfg_uuid)
-                                dfg_item_dict = vnc_api.obj_to_dict(dfg_item)
+                                                   dfg_uuid, None, 'ADD')
+
                                 final_dict['os_version'] = dfg_item_dict.get(
                                     'device_functional_group_os_version')
                                 physical_role_refs = dfg_item_dict.get(
@@ -1861,57 +1870,13 @@ class FilterModule(object):
             errmsg = str(ex)
             _task_error_log('%s\n%s' % (errmsg, traceback.format_exc()))
 
-        if isinstance(final_dict, dict) and len(final_dict) == 0:
+        if isinstance(final_dict,dict) and len(final_dict) == 0:
             raise NoIdError("The given DFG for device %s is not "
                             "defined" % str(device_name))
         return final_dict
         # end validate_device_functional_group
-# ***************** update annotations filter # ****************************
-    def update_annotations(self, job_ctx, pr_uuid, role_assgn_dict):
-        try:
-            vnc_api = JobVncApi.vnc_init(job_ctx)
-            self._check_rb_role_compatibity(vnc_api, pr_uuid,role_assgn_dict)
-            fabric_info = job_ctx.get('job_input')
-            fabric_fq_name = fabric_info.get('fabric_fq_name')
-            fabric = vnc_api.fabric_read(fq_name=fabric_fq_name)
-            annotations = fabric.get_annotations()
-            kv_pair = annotations.get_key_value_pair()
-            acquired = False
-            if annotations and kv_pair:
-                try:
-                    acquired = update_lock.acquire()
-                    for kv in kv_pair:
-                        if kv.get_key() == 'role_assignment_template':
-                            if kv.get_value() == "{}":
-                                result_dict = {"fabric_fq_name": fabric_fq_name,
-                                               "role_assignments":[role_assgn_dict]}
-                                str_json = json.dumps(result_dict)
-                                kv.set_value(str_json)
-                                break
-                            else:
-                                dict_value = kv.get_value()
-                                load_dict = json.loads(dict_value)
-                                load_dict["role_assignments"].append(role_assgn_dict)
-                                str_json = json.dumps(load_dict)
-                                kv.set_value(str_json)
-                                break
-                    annotations.set_key_value_pair(kv_pair)
-                    fabric.set_annotations(annotations)
-                    vnc_api.fabric_update(fabric)
-                except Exception as ex:
-                    errmsg = str(ex)
-                    _task_error_log('%s' %(errmsg))
 
-                finally:
-                    if acquired:
-                        update_lock.release()
-        except Exception as ex:
-            errmsg = str(ex)
-            _task_error_log('%s\n%s' % (errmsg, traceback.format_exc()))
-
-    # end update_annotations
-
-# *********** update physical router annotations filter # ***
+    # update physical router annotations
     def update_physical_router_annotations(self, job_ctx, pr_uuid):
         vnc_api = JobVncApi.vnc_init(job_ctx)
         pr_obj = vnc_api.physical_router_read(id=pr_uuid)
@@ -1930,7 +1895,7 @@ class FilterModule(object):
                     pr_os_version = pr_obj.physical_router_os_version
                     if pr_os_version!= dfg_item_dict.get(
                             'device_functional_group_os_version'):
-                        set_dfg_flag = True
+                        set_dfg_flag = "device_functional_group_os_version"
                 # Match physical role
                 if dfg_item_dict.get('physical_role_refs')!= None:
                     if pr_obj.get_physical_role_refs()!= None:
@@ -1938,7 +1903,7 @@ class FilterModule(object):
                         dfg_phy_role_refs = dfg_item_dict.get('physical_role_refs')
                         dfg_physical_role = dfg_phy_role_refs[0]['to'][-1]
                         if pr_physical_role!= dfg_physical_role:
-                            set_dfg_flag = True
+                            set_dfg_flag = "physical_role_refs"
                 # Match rb roles
                 if dfg_item_dict.get\
                             ('device_functional_group_routing_bridging_roles')!= None:
@@ -1948,7 +1913,7 @@ class FilterModule(object):
                     if pr_obj.get_routing_bridging_roles()!= None:
                         pr_rb_roles = pr_obj.get_routing_bridging_roles().rb_roles
                         if pr_rb_roles!= dfg_rb_roles_list:
-                            set_dfg_flag = True
+                            set_dfg_flag = "device_functional_group_routing_bridging_roles"
             # Update the pr annotations
             pr_annot = pr_obj.get_annotations()
             kvs = []
@@ -1959,8 +1924,8 @@ class FilterModule(object):
                     if kv.get_key() == 'dfg_flag':
                         kvs.remove(kv)
                         break
-            if set_dfg_flag == True:
-                dfg_flag_value = "Changed"
+            if set_dfg_flag != False:
+                dfg_flag_value = set_dfg_flag
                 kvs.append(KeyValuePair(key="dfg_flag", value=dfg_flag_value))
             if not pr_annot:
                 pr_annot = KeyValuePairs()
