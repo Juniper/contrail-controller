@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -56,7 +57,7 @@ class FakeApiConfigLog(object):
             #body = x.pop('body')
             #pprint(json.loads(body))
             pprint(x)
-            print "\n"
+            print("\n")
 # class FakeApiConfigLog
 
 class FakeWSGIHandler(gevent.pywsgi.WSGIHandler):
@@ -1577,5 +1578,5 @@ class FakeVncApiStatsLog(object):
             #body = x.pop('body')
             #pprint(json.loads(body))
             pprint(x)
-            print "\n"
+            print("\n")
 # class FakeVncApiStatsLog

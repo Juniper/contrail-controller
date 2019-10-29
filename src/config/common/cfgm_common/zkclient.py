@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -335,7 +336,7 @@ class IndexAllocator(object):
 
 class ZookeeperCounter(Counter):
 
-    def __init__(self, client, path, max_count=sys.maxint, default=0):
+    def __init__(self, client, path, max_count=sys.maxsize, default=0):
 
         super(ZookeeperCounter, self).__init__(client, path, default)
 
@@ -377,7 +378,7 @@ class ZookeeperClient(object):
             handler = logging.handlers.RotatingFileHandler(
                 LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
-            print "Cannot open log file in %s" %(LOG_DIR)
+            print("Cannot open log file in %s" %(LOG_DIR))
         else:
             log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s',
                                            datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -520,7 +521,7 @@ class ZookeeperClient(object):
         self._election.run(func, *args, **kwargs)
     # end master_election
 
-    def quota_counter(self, path, max_count=sys.maxint, default=0):
+    def quota_counter(self, path, max_count=sys.maxsize, default=0):
         return ZookeeperCounter(self._zk_client, path, max_count,
                                 default=default)
 

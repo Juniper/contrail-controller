@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
@@ -13,7 +14,7 @@ import gevent
 from pprint import pformat
 
 from vnc_api import vnc_api
-from exceptions import NoIdError, DatabaseUnavailableError, VncError
+from .exceptions import NoIdError, DatabaseUnavailableError, VncError
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -21,7 +22,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants as vns_constants
 import time
 from cfgm_common import jsonutils as json
-import utils
+from . import utils
 import datetime
 from operator import itemgetter
 import itertools
