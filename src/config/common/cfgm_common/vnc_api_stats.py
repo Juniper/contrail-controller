@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
@@ -7,7 +8,7 @@ from datetime import datetime
 
 from uve.vnc_api.ttypes import VncApiStats, VncApiStatsLog
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from exceptions import HttpError
+from .exceptions import HttpError
 
 def log_api_stats(func):
     def wrapper(api_server_obj, resource_type, *args, **kwargs):
