@@ -44,10 +44,6 @@
         - name: Print playbook_input
           debug: var=playbook_input verbosity=1
 
-        - name: Append to role assignment annotations
-          set_fact:
-             output: "{{job_ctx| update_annotations(prouter_uuid, role_assignments_dict)}}"
-
         - name: Set DFG flag if necessary
           set_fact:
             output: "{{job_ctx| update_physical_router_annotations(prouter_uuid)}}"
