@@ -10,6 +10,7 @@ from vnc_api.gen.resource_common import PortGroup
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
+
 class NodeServer(ResourceMixin, Node):
     @staticmethod
     def np_get_portmap(np_uuid, db_conn):
