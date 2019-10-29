@@ -1,6 +1,15 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import sys
 import gevent.monkey
 gevent.monkey.patch_all()
@@ -24,7 +33,7 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 
-from test_utils import *
+from .test_utils import *
 import bottle
 bottle.catchall=False
 
@@ -179,14 +188,14 @@ def launch_mesos_manager(test_id, conf_sections, mesos_api_skip, event_queue):
 #end launch_mesos_manager
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+    print("Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay), file=sys.stderr)
 # end retry_exc_handler
 
 def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:
@@ -326,7 +335,7 @@ def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **ex
     args_str += "--trace_file svc_monitor_%s.err " %(test_id)
     args_str += "--check_service_interval 2 "
 
-    for name, value in extra_args.items():
+    for name, value in list(extra_args.items()):
         args_str += "--{name} {value} ".format(name=name, value=value)
 
     svc_monitor.main(args_str)
@@ -353,7 +362,7 @@ def kill_mesos_manager(glet):
     mesos_manager.MesosNetworkManager.destroy_instance()
 
 def reinit_schema_transformer():
-    for obj_cls in to_bgp.ResourceBaseST.get_obj_type_map().values():
+    for obj_cls in list(to_bgp.ResourceBaseST.get_obj_type_map().values()):
         obj_cls.reset()
     to_bgp.transformer.reinit()
 
@@ -458,7 +467,7 @@ def flexmocks(mocks):
             flexmock(cls, **kwargs)
         yield
     finally:
-        for (cls, method_name), method in orig_values.items():
+        for (cls, method_name), method in list(orig_values.items()):
             setattr(cls, method_name, method)
 # end flexmocks
 
@@ -519,7 +528,7 @@ def patch_imports(imports):
                sys.modules[cur_module] = fake
         yield
     finally:
-        for mod_name, mod in orig_modules.items():
+        for mod_name, mod in list(orig_modules.items()):
             sys.modules[mod_name] = mod
         for mod_name in mocked_modules:
             del sys.modules[mod_name]
@@ -569,7 +578,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def _add_detailed_traceback(self, exc_info):
         vnc_cgitb.enable(format='text')
-        from cStringIO  import StringIO
+        from six import StringIO
 
         tmp_file = StringIO()
         cgitb_hook(format="text", file=tmp_file, info=exc_info)

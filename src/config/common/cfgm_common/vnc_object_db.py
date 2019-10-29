@@ -5,8 +5,11 @@
 """
 This file contains implementation of object db
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
-import vnc_cassandra
+from builtins import object
+from . import vnc_cassandra
 
 class VncObjectDBClient(object):
     def __init__(self, server_list=None, db_prefix=None, rw_keyspaces=None,

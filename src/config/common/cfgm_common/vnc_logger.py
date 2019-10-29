@@ -6,11 +6,16 @@
 """
 Logger for config services
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import datetime
 import logging
 import socket
-import cStringIO
+from six import StringIO
 
 from cfgm_common.utils import cgitb_hook
 
@@ -24,7 +29,7 @@ from sandesh_common.vns.constants import (
 from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from vnc_greenlets import VncGreenlet
+from .vnc_greenlets import VncGreenlet
 
 
 class ConfigServiceLogger(object):
@@ -84,7 +89,7 @@ class ConfigServiceLogger(object):
         self.log(log_msg, level=SandeshLevel.SYS_ERR, fun=log_fun)
 
     def cgitb_error(self):
-        string_buf = cStringIO.StringIO()
+        string_buf = StringIO()
         cgitb_hook(file=string_buf, format="text")
         self.error(string_buf.getvalue())
 
