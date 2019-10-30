@@ -1,12 +1,15 @@
 from __future__ import absolute_import
+from __future__ import unicode_literals
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from builtins import object
 import bottle
 from datetime import datetime
 
-from uve.vnc_api.ttypes import VncApiStats, VncApiStatsLog
+from cfgm_common.uve.vnc_api.ttypes import VncApiStats, VncApiStatsLog
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from .exceptions import HttpError
 

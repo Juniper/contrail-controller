@@ -1,7 +1,12 @@
 from __future__ import print_function
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import zip
+from builtins import str
+from builtins import range
+from builtins import object
 import os
 import gevent
 import logging
