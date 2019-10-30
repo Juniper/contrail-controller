@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
@@ -352,8 +353,8 @@ class DepTrackTester(unittest.TestCase):
         BlueSM.locate("fake-blue-uuid")
         GreenSM.locate("fake-green-uuid")
 
-        blues = [blue.uuid for blue in BlueSM.values()]
-        blues_1 = [uuid for uuid, value in BlueSM.items()]
+        blues = [blue.uuid for blue in list(BlueSM.values())]
+        blues_1 = [uuid for uuid, value in list(BlueSM.items())]
         blues_2 = [value for value in BlueSM]
 
         self.assertEqual(blues, blues_1)

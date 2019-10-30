@@ -41,7 +41,10 @@
 #    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 """Display a subunit stream through a colorized unittest test runner."""
+from __future__ import unicode_literals
 
+from builtins import str
+from builtins import object
 import heapq
 import subunit
 import sys
@@ -270,7 +273,7 @@ class NovaTestResult(testtools.TestResult):
         if not self.last_written or (self._now() - time).total_seconds() > 2.0:
             diff = 3.0
             while diff > 2.0:
-                classes = self.results.keys()
+                classes = list(self.results.keys())
                 oldest = min(classes, key=lambda x: self.last_time[x])
                 diff = (self._now() - self.last_time[oldest]).total_seconds()
                 self.writeTestCase(oldest)
@@ -281,7 +284,7 @@ class NovaTestResult(testtools.TestResult):
         self.stopTestRun()
 
     def stopTestRun(self):
-        for cls in list(self.results.iterkeys()):
+        for cls in list(self.results.keys()):
             self.writeTestCase(cls)
         self.stream.writeln()
         self.writeSlowTests()
