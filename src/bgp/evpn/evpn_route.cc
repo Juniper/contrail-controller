@@ -668,6 +668,7 @@ bool EvpnPrefix::IsMoreSpecific(const EvpnPrefix &rhs) const {
         }
         break;
     default:
+        assert(false);
         break;
     }
     return false;

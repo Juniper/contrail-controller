@@ -1280,13 +1280,13 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
         if (!nit->mac.empty()) {
             MacAddress mac_addr =
                         MacAddress::FromString(nit->mac, &error);
+            if (error) {
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "Bad next-hop mac address " << nit->mac);
+                return false;
+            }
             if (!mac_addr.IsZero()) {
-                if (error) {
-                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                        BGP_LOG_FLAG_ALL,
-                        "Bad next-hop mac address " << nit->mac);
-                   return false;
-                }
                 RouterMac router_mac(mac_addr);
                 ext.communities.push_back(router_mac.GetExtCommunityValue());
             }
@@ -1606,13 +1606,13 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             if (!nit->mac.empty()) {
                 MacAddress mac_addr =
                         MacAddress::FromString(nit->mac, &error);
+                if (error) {
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
+                        "Bad next-hop mac address " << nit->mac);
+                    return false;
+                }
                 if (!mac_addr.IsZero()) {
-                    if (error) {
-                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                            BGP_LOG_FLAG_ALL,
-                            "Bad next-hop mac address " << nit->mac);
-                       return false;
-                    }
                     RouterMac router_mac(mac_addr);
                     ext.communities.push_back(router_mac.GetExtCommunityValue());
                 }

@@ -885,6 +885,27 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
         new_ext_community = extcomm_db->ReplaceRTargetAndLocate(
             attr->ext_community(), ExtCommunity::ExtCommunityList());
 
+        // Add the export route target list from the source routing instance
+        // when inserting into EVPN table. This is required for the case when
+        // service-chain routes are replicated to the BGP table to be used on
+        // the BMS. The TOR switch does not import the cooked-up RT of the
+        // service-RI. It only imports the RTs of the primary RI. Hence, we
+        // add the primary RIs RTs to the route.
+        // Also, we pick only the export route targets in the range used by
+        // schema transformer for non user-configured RTs.
+        if (bgptable->family() == Address::EVPN) {
+            ExtCommunity::ExtCommunityList export_list;
+            RoutingInstance *src_ri = src_routing_instance();
+            BOOST_FOREACH(RouteTarget rtarget, src_ri->GetExportList()) {
+                if (ExtCommunity::get_rtarget_val(
+                    rtarget.GetExtCommunity()) != -1) {
+                    export_list.push_back(rtarget.GetExtCommunity());
+                }
+            }
+            new_ext_community = extcomm_db->AppendAndLocate(
+                attr->ext_community(), export_list);
+        }
+
         // Replace the SGID list with the list from the original route.
         new_ext_community = extcomm_db->ReplaceSGIDListAndLocate(
             new_ext_community.get(), sgid_list);
