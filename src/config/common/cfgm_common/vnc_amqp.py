@@ -1,6 +1,10 @@
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import socket
 import gevent
-import cStringIO
+from six import StringIO
 from pprint import pformat
 from requests.exceptions import ConnectionError
 
@@ -51,7 +55,7 @@ class VncAmqpHandle(object):
                                   sandesh=self.sandesh)
 
     def log_exception(self):
-        string_buf = cStringIO.StringIO()
+        string_buf = StringIO()
         cgitb_hook(file=string_buf, format="text")
         self.logger.error(string_buf.getvalue())
         self.msgbus_store_err_msg(string_buf.getvalue())
@@ -185,7 +189,7 @@ class VncAmqpHandle(object):
                 self.db_cls.get_obj_type_map(), self.reaction_map)
         self.dependency_tracker.evaluate(self.obj_type, self.obj)
         if old_dt:
-            for resource, ids in old_dt.resources.items():
+            for resource, ids in list(old_dt.resources.items()):
                 if resource not in self.dependency_tracker.resources:
                     self.dependency_tracker.resources[resource] = ids
                 else:
@@ -231,7 +235,7 @@ class VncAmqpHandle(object):
         if self.timer and self.timer.yield_in_evaluate:
             evaluate_kwargs['timer'] = self.timer
 
-        for res_type, res_id_list in self.dependency_tracker.resources.items():
+        for res_type, res_id_list in list(self.dependency_tracker.resources.items()):
             if not res_id_list:
                 continue
             self.add_msgbus_dtr(res_type, res_id_list)

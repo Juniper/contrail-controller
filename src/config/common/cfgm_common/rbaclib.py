@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -28,12 +29,12 @@ def match_rule(r1, r2):
     d2 = {r.role_name:set(list(r.role_crud)) for r in r2.rule_perms}
 
     diffs = {}
-    for role, cruds in d2.items():
+    for role, cruds in list(d2.items()):
         diffs[role] = cruds - d1.get(role, set([]))
-    diffs = {role:crud for role,crud in diffs.items() if len(crud) != 0}
+    diffs = {role:crud for role,crud in list(diffs.items()) if len(crud) != 0}
 
     merge = d2.copy()
-    for role, cruds in d1.items():
+    for role, cruds in list(d1.items()):
         merge[role] = cruds|d2.get(role, set([]))
 
     return [True, s1==s2, diffs, merge]
@@ -53,7 +54,7 @@ def find_rule(rge, rule):
 
 def build_perms(rule, perm_dict):
     rule.rule_perms = []
-    for role_name, role_crud in perm_dict.items():
+    for role_name, role_crud in list(perm_dict.items()):
         rule.rule_perms.append(RbacPermType(role_name, "".join(role_crud)))
 # end
 

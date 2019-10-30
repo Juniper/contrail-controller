@@ -1,7 +1,13 @@
 from __future__ import print_function
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import zip
+from builtins import str
+from builtins import range
+from builtins import object
+from future.utils import native_str
 import os
 import gevent
 import logging
@@ -530,12 +536,12 @@ class ZookeeperClient(object):
             if value is None:
                 value = uuid.uuid4()
             retry = self._retry.copy()
-            retry(self._zk_client.create, path, str(value),
+            retry(self._zk_client.create, path, native_str(value),
                   ephemeral=ephemeral, makepath=True)
         except kazoo.exceptions.NodeExistsError:
             current_value = self.read_node(path)
             if current_value == value:
-                return True;
+                return True
             raise ResourceExistsError(path, str(current_value), 'zookeeper')
     # end create_node
 
