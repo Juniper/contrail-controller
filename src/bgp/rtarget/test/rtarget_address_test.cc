@@ -3,6 +3,7 @@
  */
 
 #include "bgp/rtarget/rtarget_address.h"
+#include "bgp/community.h"
 
 #include "testing/gunit.h"
 
@@ -49,6 +50,42 @@ TEST_F(RouteTargetTest, ByteArrayType0_4) {
     EXPECT_EQ(0, rtarget.Type());
     EXPECT_EQ(2, rtarget.Subtype());
     EXPECT_EQ("target:65412:4294967295", rtarget.ToString());
+}
+
+TEST_F(RouteTargetTest, ByteArrayType0_5) {
+    RouteTarget::bytes_type data =
+        { { 0x00, 0x02, 0xff, 0x84, 0x00, 0x7A, 0x12, 0x01 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(0, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412:8000001", rtarget.ToString());
+    EXPECT_EQ(8000001, ExtCommunity::get_rtarget_val(
+        rtarget.GetExtCommunity()));
+}
+
+TEST_F(RouteTargetTest, ByteArrayType0_6) {
+    RouteTarget::bytes_type data =
+        { { 0x00, 0x02, 0xff, 0x84, 0x01, 0x00, 0x00, 0x00 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(0, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412:16777216", rtarget.ToString());
+    EXPECT_EQ(16777216, ExtCommunity::get_rtarget_val(
+        rtarget.GetExtCommunity()));
+}
+
+TEST_F(RouteTargetTest, ByteArrayType0_7) {
+    RouteTarget::bytes_type data =
+        { { 0x00, 0x02, 0xff, 0x84, 0x01, 0x00, 0x00, 0x01 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(0, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412:16777217", rtarget.ToString());
+    EXPECT_EQ(0, ExtCommunity::get_rtarget_val(
+        rtarget.GetExtCommunity()));
 }
 
 TEST_F(RouteTargetTest, ByteArrayType1_1) {
@@ -179,6 +216,42 @@ TEST_F(RouteTargetTest, ByteArrayType2_1) {
     EXPECT_EQ(2, rtarget.Type());
     EXPECT_EQ(2, rtarget.Subtype());
     EXPECT_EQ("target:65412L:772", rtarget.ToString());
+}
+
+TEST_F(RouteTargetTest, ByteArrayType2_2) {
+    RouteTarget::bytes_type data =
+        { { 0x02, 0x02, 0x0, 0x0, 0xff, 0x84, 0x03, 0x04 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412L:772", rtarget.ToString());
+    EXPECT_EQ(0, ExtCommunity::get_rtarget_val(
+        rtarget.GetExtCommunity()));
+}
+
+TEST_F(RouteTargetTest, ByteArrayType2_3) {
+    RouteTarget::bytes_type data =
+        { { 0x02, 0x02, 0x0, 0x0, 0xff, 0x84, 0x1F, 0x40 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412L:8000", rtarget.ToString());
+    EXPECT_EQ(8000, ExtCommunity::get_rtarget_val(
+        rtarget.GetExtCommunity()));
+}
+
+TEST_F(RouteTargetTest, ByteArrayType2_4) {
+    RouteTarget::bytes_type data =
+        { { 0x02, 0x02, 0x0, 0x0, 0xff, 0x84, 0x80, 0x00 } };
+    RouteTarget rtarget(data);
+    EXPECT_FALSE(rtarget.IsNull());
+    EXPECT_EQ(2, rtarget.Type());
+    EXPECT_EQ(2, rtarget.Subtype());
+    EXPECT_EQ("target:65412L:32768", rtarget.ToString());
+    EXPECT_EQ(32768, ExtCommunity::get_rtarget_val(
+        rtarget.GetExtCommunity()));
 }
 
 // Does not contain a colon.
