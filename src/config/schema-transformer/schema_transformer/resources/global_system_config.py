@@ -83,6 +83,8 @@ class GlobalSystemConfigST(ResourceBaseST):
                     (new_asn <= 0xFFFF and asn > 0xFFFF)):
                 ri_fq_name_in_str = cls._object_db.get_ri_from_route_target(
                     int(target), asn)
+                if ri_fq_name_in_str is None or ri_fq_name_in_str == '':
+                    continue
                 # free_route_target has to be called before alloc_route_target.
                 # as get_route_target(ri_fq_name) inside free_route_target
                 # will return wrong values if this order is changed.
