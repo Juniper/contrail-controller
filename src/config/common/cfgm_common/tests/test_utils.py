@@ -1,7 +1,13 @@
 from __future__ import print_function
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 import gevent
 import gevent.queue
 import gevent.pywsgi
@@ -18,7 +24,6 @@ import time
 import errno
 import re
 import copy
-from cStringIO import StringIO
 import uuid
 import six
 import contextlib
@@ -27,7 +32,7 @@ try:
 except ImportError:
     from ordereddict import OrderedDict, defaultdict
 import pycassa
-import Queue
+import queue
 from collections import deque
 from collections import namedtuple
 import kombu
@@ -82,7 +87,7 @@ class FakeSystemManager(object):
             self._keyspaces[name] = {}
 
     def list_keyspaces(self):
-        return self._keyspaces.keys()
+        return list(self._keyspaces.keys())
 
     def get_keyspace_properties(self, ks_name):
         return {'strategy_options': {'replication_factor': '1'}}
@@ -284,6 +289,8 @@ class FakeCF(object):
             raise TypeError("A str or unicode value was expected, but %s "
                             "was received instead (%s)"
                             % (key.__class__.__name__, str(key)))
+        if isinstance(key, six.binary_type):
+            key = key.decode('utf-8')
         if not key in self._rows:
             raise pycassa.NotFoundException
         if columns:
@@ -309,7 +316,7 @@ class FakeCF(object):
                     col_dict[col_name] = col_value
         else:
             col_dict = {}
-            for col_name in self._rows[key].keys():
+            for col_name in list(self._rows[key].keys()):
                 if not self._column_within_range(col_name,
                                     column_start, column_finish):
                     continue
@@ -355,7 +362,7 @@ class FakeCF(object):
 
         #tstamp = datetime.now()
         tstamp = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
-        for col_name in col_dict.keys():
+        for col_name in list(col_dict.keys()):
             self._rows[key][col_name] = (col_dict[col_name], tstamp, ttl)
 
     # end insert
@@ -385,14 +392,14 @@ class FakeCF(object):
         except pycassa.NotFoundException:
             col_dict = {}
 
-        for k, v in col_dict.items():
+        for k, v in list(col_dict.items()):
             yield (k, v)
     # end xget
 
     def get_count(self, key, column_start=None, column_finish=None):
         col_names = []
         if key in self._rows:
-            col_names = self._rows[key].keys()
+            col_names = list(self._rows[key].keys())
 
         counter = 0
         for col_name in col_names:
@@ -461,21 +468,21 @@ class FakeNovaClient(object):
     def initialize(*args, **kwargs):
         return FakeNovaClient
 
-    class flavors:
+    class flavors(object):
 
         @staticmethod
         def find(*args, **kwargs):
             return 1
     # end class flavors
 
-    class images:
+    class images(object):
 
         @staticmethod
         def find(name):
             return 1
     # end class images
 
-    class servers:
+    class servers(object):
 
         @staticmethod
         def create(name, image, flavor, nics, *args, **kwargs):
@@ -547,7 +554,7 @@ class FakeKombu(object):
     @classmethod
     def is_empty(cls, vhost, qname):
         _vhost = ''.join(vhost)
-        for name, q in FakeKombu._exchange[_vhost].items():
+        for name, q in list(FakeKombu._exchange[_vhost].items()):
             if name.startswith(qname) and q.qsize() > 0:
                 return False
         return True
@@ -611,7 +618,7 @@ class FakeKombu(object):
             try:
                 while True:
                     self._sync_q.get_nowait()
-            except Queue.Empty:
+            except queue.Empty:
                 pass
             self._sync_q = gevent.queue.Queue()
     # end class Queue
@@ -741,17 +748,17 @@ class FakeKombu(object):
         # end __init__
 
         def publish(self, payload):
-            for q in FakeKombu._exchange[self.vhost].values():
+            for q in list(FakeKombu._exchange[self.vhost].values()):
                 msg_obj = FakeKombu.Queue.Message(payload)
                 q.put(msg_obj, None)
         #end publish
 
         def close(self):
-            for q in FakeKombu._exchange[self.vhost].values():
+            for q in list(FakeKombu._exchange[self.vhost].values()):
                 while True:
                     try:
                         q.get_nowait()
-                    except Queue.Empty:
+                    except queue.Empty:
                         break
         # end close
 
@@ -759,7 +766,7 @@ class FakeKombu(object):
     @classmethod
     def reset(cls, vhost):
         _vhost = ''.join(vhost)
-        for name, gevent_q in cls._exchange[_vhost].items():
+        for name, gevent_q in list(cls._exchange[_vhost].items()):
             del FakeKombu._exchange[_vhost][name]
         cls._exchange[_vhost].clear()
         cls._exchange = defaultdict(dict)
@@ -901,7 +908,8 @@ class MiniResp(object):
         else:
             self.body = [error_message]
         self.headers = list(headers)
-        self.headers.append(('Content-type', 'text/plain'))
+        self.headers.append(('Content-type'.encode('utf-8'),
+                             'text/plain'.encode('utf-8')))
 
 """
 Fake Keystone Middleware.
@@ -997,9 +1005,11 @@ class FakeAuthProtocol(object):
         :returns HTTPUnauthorized http response
 
         """
-        headers = [('WWW-Authenticate', 'Keystone uri=\'%s\'' % self.auth_uri)]
+        headers = [('WWW-Authenticate'.encode('utf-8'),
+                    ('Keystone uri=\'%s\''.encode('utf-8') %
+                     self.auth_uri.encode('utf-8')))]
         resp = MiniResp('Authentication required', env, headers)
-        start_response('401 Unauthorized', resp.headers)
+        start_response('401 Unauthorized'.encode('utf-8'), resp.headers)
         return resp.body
 
     def __call__(self, env, start_response):
@@ -1055,7 +1065,7 @@ class FakeKeystoneClient(object):
             return self
 
         def list(self):
-            return self._domains.values()
+            return list(self._domains.values())
 
         def get(self, id):
             return self._domains[str(uuid.UUID(id))]
@@ -1083,7 +1093,7 @@ class FakeKeystoneClient(object):
             return self
 
         def list(self):
-            return self._tenants.values()
+            return list(self._tenants.values())
 
         def get(self, id=None, name=None):
             if id:
@@ -1101,10 +1111,10 @@ class FakeKeystoneClient(object):
             return self
 
         def list(self):
-            return self._users.values()
+            return list(self._users.values())
 
         def get(self, name):
-            for x in self._users.values():
+            for x in list(self._users.values()):
                 if x.name == name:
                     return x
             return None
@@ -1118,10 +1128,10 @@ class FakeKeystoneClient(object):
             return self
 
         def list(self):
-            return self._roles.values()
+            return list(self._roles.values())
 
         def get(self, name):
-            for x in self._roles.values():
+            for x in list(self._roles.values()):
                 if x.name == name:
                     return x
             return None
@@ -1328,7 +1338,7 @@ class FakeKazooClient(object):
 
     def command(self, cmd):
         if cmd == 'stat':
-            return 'Mode:standalone\nNode count:%s\n' %(len(self._values.keys()))
+            return 'Mode:standalone\nNode count:%s\n' %(len(list(self._values.keys())))
     # end command
 
     def stop(*args, **kwargs):
@@ -1409,7 +1419,7 @@ class FakeKazooClient(object):
             except KeyError:
                 raise kazoo.exceptions.NoNodeError()
         else:
-            for path_key in self._values.keys():
+            for path_key in list(self._values.keys()):
                 if scrubbed_path in path_key:
                     del self._values[path_key]
     # end delete
@@ -1422,7 +1432,7 @@ class FakeKazooClient(object):
             except KeyError:
                 raise kazoo.exceptions.NoNodeError()
         else:
-            for path_key in self._values.keys():
+            for path_key in list(self._values.keys()):
                 if scrubbed_path in path_key:
                     del self._values[path_key]
     # end delete
@@ -1436,7 +1446,7 @@ class FakeKazooClient(object):
         orig_nodes = {}
         paths_to_patch = []
         # collect path(s) to patch...
-        for node in self._values.keys():
+        for node in list(self._values.keys()):
             if recursive: # simulate wipe of node with path and descendants
                 if node.startswith(scrubbed_path):
                     paths_to_patch.append(node)
@@ -1554,7 +1564,7 @@ class ZookeeperClientMock(object):
             except KeyError:
                 raise kazoo.exceptions.NoNodeError()
         else:
-            for path_key in self._values.keys():
+            for path_key in list(self._values.keys()):
                 if path in path_key:
                     del self._values[path_key]
     # end delete_node
