@@ -1,7 +1,11 @@
+from __future__ import unicode_literals
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+from past.builtins import basestring
+from builtins import object
 from gevent import monkey
 monkey.patch_all()
 
@@ -116,7 +120,7 @@ class KombuAmqpClient(object):
             self._publisher_gl.kill()
         if self._consumer_gl is not None:
             self._consumer_gl.kill()
-        for consumer in (self._removed_consumers + self._consumers.values()):
+        for consumer in (self._removed_consumers + list(self._consumers.values())):
             self._delete_consumer(consumer)
         self._connection.close()
     # end stop
@@ -148,7 +152,7 @@ class KombuAmqpClient(object):
                     self._delete_consumer(removed_consumer)
                     removed_consumer = None
 
-                if len(self._consumers.values()) == 0:
+                if len(list(self._consumers.values())) == 0:
                     msg = 'KombuAmqpClient: Waiting for consumer'
                     self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                     self._consumer_event.wait()
@@ -157,8 +161,8 @@ class KombuAmqpClient(object):
 
                 consumers = [kombu.Consumer(self._connection, queues=c.queue,
                              callbacks=[c.callback] if c.callback else None)
-                             for c in self._consumers.values()]
-                msg = 'KombuAmqpClient: Created consumers %s' % str(self._consumers.keys())
+                             for c in list(self._consumers.values())]
+                msg = 'KombuAmqpClient: Created consumers %s' % str(list(self._consumers.keys()))
                 self._logger(msg, level=SandeshLevel.SYS_DEBUG)
                 self._consumers_changed = False
                 with nested(*consumers):
@@ -214,7 +218,7 @@ class KombuAmqpClient(object):
     def _heartbeat_check(self):
         while self._running:
             try:
-                if self._connected and len(self._consumers.values()) > 0:
+                if self._connected and len(list(self._consumers.values())) > 0:
                     self._connection.heartbeat_check()
             except Exception as e:
                 msg = 'KombuAmqpClient: Error in Kombu amqp heartbeat greenlet: %s' % str(e)
