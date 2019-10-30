@@ -1,8 +1,14 @@
 from __future__ import absolute_import
+from __future__ import unicode_literals
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import next
+from builtins import chr
+from builtins import str
+from builtins import range
+from builtins import object
 import copy
 
 import pycassa
@@ -33,7 +39,7 @@ import ssl
 
 
 def merge_dict(orig_dict, new_dict):
-    for key, value in new_dict.iteritems():
+    for key, value in list(new_dict.items()):
         if key not in orig_dict:
             orig_dict[key] = new_dict[key]
         elif isinstance(value, Mapping):
@@ -212,7 +218,6 @@ class VncCassandraClient(object):
 
     def multiget(self, cf_name, keys, columns=None, start='', finish='',
                  timestamp=False, num_columns=None):
-        keys = [k.encode('utf-8') for k in keys]
         _thrift_limit_size = 10000
         results = {}
         cf = self.get_cf(cf_name)
@@ -239,7 +244,7 @@ class VncCassandraClient(object):
                     if rows:
                         results[key] = rows
 
-            empty_keys = [key for key, value in results.items() if not value]
+            empty_keys = [key for key, value in list(results.items()) if not value]
             if empty_keys:
                 msg = ("Multiget for %d keys returned with an empty value "
                        "CF (%s): Empty Keys (%s), columns (%s), start (%s), "
@@ -259,7 +264,7 @@ class VncCassandraClient(object):
             max_key_range, _ = divmod(_thrift_limit_size, len(columns))
             if max_key_range > 1:
                 for key_chunk in [keys[x:x+max_key_range] for x in
-                                  xrange(0, len(keys), max_key_range)]:
+                                  range(0, len(keys), max_key_range)]:
                     rows = cf.multiget(key_chunk,
                                        columns=columns,
                                        include_timestamp=timestamp,
@@ -267,7 +272,7 @@ class VncCassandraClient(object):
                     merge_dict(results, rows)
             elif max_key_range == 0:
                 for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
-                                     xrange(0, len(columns), _thrift_limit_size - 1)]:
+                                     range(0, len(columns), _thrift_limit_size - 1)]:
                     rows = cf.multiget(keys,
                                        columns=column_chunk,
                                        include_timestamp=timestamp,
@@ -297,7 +302,7 @@ class VncCassandraClient(object):
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
                 empty_row_keys.append(key)
                 continue
-            for col, val in results[key].items():
+            for col, val in list(results[key].items()):
                 try:
                     if timestamp:
                         results[key][col] = (json.loads(val[0]), val[1])
@@ -572,11 +577,11 @@ class VncCassandraClient(object):
 
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
-        for ks, cf_dict in self._rw_keyspaces.items():
+        for ks, cf_dict in list(self._rw_keyspaces.items()):
             keyspace = '%s%s' % (self._db_prefix, ks)
             self._cassandra_ensure_keyspace(keyspace, cf_dict)
 
-        for ks, _ in self._ro_keyspaces.items():
+        for ks, _ in list(self._ro_keyspaces.items()):
             keyspace = '%s%s' % (self._db_prefix, ks)
             self._cassandra_wait_for_keyspace(keyspace)
 
@@ -664,8 +669,8 @@ class VncCassandraClient(object):
 
     def _cassandra_init_conn_pools(self):
         socket_factory = self._make_socket_factory()
-        for ks, cf_dict in itertools.chain(self._rw_keyspaces.items(),
-                                           self._ro_keyspaces.items()):
+        for ks, cf_dict in itertools.chain(list(self._rw_keyspaces.items()),
+                                           list(self._ro_keyspaces.items())):
             keyspace = '%s%s' % (self._db_prefix, ks)
             pool = pycassa.ConnectionPool(
                 keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
@@ -752,7 +757,7 @@ class VncCassandraClient(object):
                 # store list elements in list order
                 # iterate on wrapped element or directly or prop field
                 if obj_class.prop_list_field_has_wrappers[prop_field]:
-                    wrapper_field_keys = field.keys()
+                    wrapper_field_keys = list(field.keys())
                     if wrapper_field_keys:
                         wrapper_field = wrapper_field_keys[0]
                         list_coll = field[wrapper_field]
@@ -767,7 +772,7 @@ class VncCassandraClient(object):
             elif prop_field in obj_class.prop_map_fields:
                 # iterate on wrapped element or directly or prop field
                 if obj_class.prop_map_field_has_wrappers[prop_field]:
-                    wrapper_field_keys = field.keys()
+                    wrapper_field_keys = list(field.keys())
                     if wrapper_field_keys:
                         wrapper_field = wrapper_field_keys[0]
                         map_coll = field[wrapper_field]
@@ -828,7 +833,7 @@ class VncCassandraClient(object):
                                       ['prop:' + x for x in prop_names])
 
         miss_obj_dicts = []
-        for obj_uuid, columns in miss_obj_rows.items():
+        for obj_uuid, columns in list(miss_obj_rows.items()):
             miss_obj_dict = {'uuid': obj_uuid}
             for prop_name in columns:
                 # strip 'prop:' before sending result back
@@ -907,7 +912,7 @@ class VncCassandraClient(object):
                 obj_class, miss_obj_rows, req_fields,
                 include_backrefs_children)
             obj_dicts = hit_obj_dicts + \
-                [v['obj_dict'] for k,v in rendered_objs.items()]
+                [v['obj_dict'] for k,v in list(rendered_objs.items())]
         else:
             # can fit and caller won't modify returned value,
             # so render without filter, cache and return
@@ -1053,15 +1058,15 @@ class VncCassandraClient(object):
         # for all column names
 
         # create new refs
-        for ref_type in new_ref_infos.keys():
-            for ref_uuid in new_ref_infos[ref_type].keys():
+        for ref_type in list(new_ref_infos.keys()):
+            for ref_uuid in list(new_ref_infos[ref_type].keys()):
                 ref_data = new_ref_infos[ref_type][ref_uuid]
                 ret = self._create_ref(bch, obj_type, obj_uuid, ref_type,
                                        ref_uuid, ref_data)
                 symmetric_ref_updates.extend(ret)
 
         # create new props
-        for prop_name in new_props.keys():
+        for prop_name in list(new_props.keys()):
             if prop_name in obj_class.prop_list_fields:
                 # store list elements in list order
                 # iterate on wrapped element or directly on prop field
@@ -1069,7 +1074,7 @@ class VncCassandraClient(object):
                 # wrapper on read
                 if (obj_class.prop_list_field_has_wrappers[prop_name] and
                         new_props[prop_name]):
-                    wrapper_field = new_props[prop_name].keys()[0]
+                    wrapper_field = list(new_props[prop_name].keys())[0]
                     list_coll = new_props[prop_name][wrapper_field]
                 else:
                     list_coll = new_props[prop_name]
@@ -1084,7 +1089,7 @@ class VncCassandraClient(object):
                 # wrapper on read
                 if (obj_class.prop_map_field_has_wrappers[prop_name] and
                         new_props[prop_name]):
-                    wrapper_field = new_props[prop_name].keys()[0]
+                    wrapper_field = list(new_props[prop_name].keys())[0]
                     map_coll = new_props[prop_name][wrapper_field]
                 else:
                     map_coll = new_props[prop_name]
@@ -1125,14 +1130,14 @@ class VncCassandraClient(object):
             if not columns:
                 return coll_infos
             rows = self.multiget(self._OBJ_UUID_CF_NAME,
-                                 coll_infos.keys(),
+                                 list(coll_infos.keys()),
                                  columns=columns)
-            for obj_uuid, properties in rows.items():
+            for obj_uuid, properties in list(rows.items()):
                 # give chance for zk heartbeat/ping
                 gevent.sleep(0)
 
                 full_match = True
-                for filter_key, filter_values in filters.items():
+                for filter_key, filter_values in list(filters.items()):
                     property = 'prop:%s' % filter_key
                     if property not in properties:
                         full_match = False
@@ -1144,8 +1149,8 @@ class VncCassandraClient(object):
                                 filter_dict = json.loads(filter_value)
                             except ValueError:
                                 continue
-                            if (filter_dict.viewitems() <=
-                                    prop_value.viewitems()):
+                            if (list(filter_dict.items()) <=
+                                    list(prop_value.items())):
                                 break
                         else:
                             full_match = False
@@ -1193,8 +1198,8 @@ class VncCassandraClient(object):
 
             def filter_rows_parent_anchor(sort=False):
                 # flatten to [('children:<type>:<uuid>', (<val>,<ts>), *]
-                all_cols = [cols for obj_key in obj_rows.keys()
-                                 for cols in obj_rows[obj_key].items()]
+                all_cols = [cols for obj_key in list(obj_rows.keys())
+                                 for cols in list(obj_rows[obj_key].items())]
                 all_child_infos = {}
                 for col_name, col_val_ts in all_cols:
                     # give chance for zk heartbeat/ping
@@ -1218,9 +1223,9 @@ class VncCassandraClient(object):
                 filt_child_infos = filter_rows(all_child_infos, filters)
 
                 if not sort:
-                    ret_child_infos = filt_child_infos.values()
+                    ret_child_infos = list(filt_child_infos.values())
                 else:
-                    ret_child_infos = sorted(filt_child_infos.values(),
+                    ret_child_infos = sorted(list(filt_child_infos.values()),
                                              key=itemgetter('tstamp'))
 
                 return get_fq_name_uuid_list(r['uuid'] for r in ret_child_infos)
@@ -1248,8 +1253,8 @@ class VncCassandraClient(object):
 
             def filter_rows_backref_anchor():
                 # flatten to [('backref:<obj-type>:<uuid>', (<val>,<ts>), *]
-                all_cols = [cols for obj_key in obj_rows.keys()
-                            for cols in obj_rows[obj_key].items()]
+                all_cols = [cols for obj_key in list(obj_rows.keys())
+                            for cols in list(obj_rows[obj_key].items())]
                 all_backref_infos = {}
                 for col_name, col_val_ts in all_cols:
                     # give chance for zk heartbeat/ping
@@ -1262,7 +1267,7 @@ class VncCassandraClient(object):
 
                 filt_backref_infos = filter_rows(all_backref_infos, filters)
                 return get_fq_name_uuid_list(r['uuid'] for r in
-                                             filt_backref_infos.values())
+                                             list(filt_backref_infos.values()))
             # end filter_rows_backref_anchor
 
             children_fq_names_uuids.extend(filter_rows_backref_anchor())
@@ -1293,7 +1298,7 @@ class VncCassandraClient(object):
                             break
 
                     filt_obj_infos = filter_rows(all_obj_infos, filters)
-                    return get_fq_name_uuid_list(filt_obj_infos.keys()), marker
+                    return get_fq_name_uuid_list(list(filt_obj_infos.keys())), marker
                 # end filter_rows_object_list
 
                 filtered_rows, ret_marker = filter_rows_object_list()
@@ -1326,7 +1331,7 @@ class VncCassandraClient(object):
                             break
 
                     filt_obj_infos = filter_rows(all_obj_infos, filters)
-                    return filt_obj_infos.values(), marker
+                    return list(filt_obj_infos.values()), marker
                 # end filter_rows_no_anchor
 
                 filtered_rows, ret_marker = filter_rows_no_anchor()
@@ -1511,7 +1516,7 @@ class VncCassandraClient(object):
         if not col_infos:
             return None
 
-        for (col_name, col_val) in col_infos.items():
+        for (col_name, col_val) in list(col_infos.items()):
             # ('*:*:f7963198-08a4-4b96-a02e-41cc66593163', u'7')
             obj_uuid = col_name.split(':')[-1]
             result.append((obj_uuid, col_val))
@@ -1539,7 +1544,7 @@ class VncCassandraClient(object):
         prop_fields = obj_class.prop_fields - (list_fields | map_fields)
 
         results = {}
-        for obj_uuid, obj_cols in obj_rows.items():
+        for obj_uuid, obj_cols in list(obj_rows.items()):
             if 'type' not in obj_cols or 'fq_name' not in obj_cols:
                 # if object has been deleted, these fields may not
                 # be present
@@ -1551,7 +1556,7 @@ class VncCassandraClient(object):
             result = {}
             result['uuid'] = obj_uuid
             result['fq_name'] = obj_cols.pop('fq_name')[0]
-            for col_name in obj_cols.keys():
+            for col_name in list(obj_cols.keys()):
                 if self._is_parent(col_name):
                     # non config-root child
                     (_, _, parent_uuid) = col_name.split(':')
@@ -1776,7 +1781,7 @@ class VncCassandraClient(object):
         if fn is None:
             return []
         walk_results = []
-        for obj_type, uuid_list in type_to_object.items():
+        for obj_type, uuid_list in list(type_to_object.items()):
             try:
                 self._logger('DB walk: obj_type %s len %s'
                              % (obj_type, len(uuid_list)),
@@ -1873,7 +1878,7 @@ class ObjectCacheManager(object):
             result_fields = set(req_fields) | set(['fq_name', 'uuid',
                  'parent_type', 'parent_uuid'])
 
-        for obj_uuid, render_info in db_rendered_objs.iteritems():
+        for obj_uuid, render_info in list(db_rendered_objs.items()):
             id_perms_ts = render_info.get('id_perms_ts', 0)
             row_latest_ts = render_info.get('row_latest_ts', 0)
             cached_obj = self._cache.pop(obj_uuid, None)
@@ -1894,7 +1899,7 @@ class ObjectCacheManager(object):
             if len(self._cache) >= self.max_entries:
                 # get first element (least recently used)
                 # without getting full copy of dict keys
-                key = next(self._cache.iterkeys())
+                key = next(iter(list(self._cache.keys())))
                 self.evict(obj_type, [key])
 
             self._cache[obj_uuid] = cached_obj
@@ -2000,7 +2005,7 @@ class ObjectCacheManager(object):
                 except KeyError:
                     continue
                 obj_json = json.dumps(obj, default=lambda o: dict((k, v)
-                                      for k, v in o.__dict__.iteritems()))
+                                      for k, v in list(o.__dict__.items())))
                 obj_dicts[i] = json.loads(obj_json)
                 i += 1
         else:
@@ -2009,7 +2014,7 @@ class ObjectCacheManager(object):
                     break
                 obj = self._cache[key]
                 obj_json = json.dumps(obj, default=lambda o: dict((k, v)
-                                      for k, v in o.__dict__.iteritems()))
+                                      for k, v in list(o.__dict__.items())))
                 obj_dicts[i] = json.loads(obj_json)
                 i += 1
         return obj_dicts

@@ -6,6 +6,9 @@
 This file contains implementation of database model for contrail config daemons
 """
 from __future__ import absolute_import
+from __future__ import unicode_literals
+from past.builtins import basestring
+from builtins import object
 from .exceptions import NoIdError
 from vnc_api.gen.resource_client import *
 from .utils import obj_type_to_vnc_class, compare_refs
@@ -46,17 +49,17 @@ class DBBase(object):
         # end __iter__
 
         def keys(cls):
-            for i in cls._dict.keys():
+            for i in list(cls._dict.keys()):
                 yield i
         # end keys
 
         def values(cls):
-            for i in cls._dict.values():
+            for i in list(cls._dict.values()):
                 yield i
         # end values
 
         def items(cls):
-            for i in cls._dict.items():
+            for i in list(cls._dict.items()):
                 yield i
         # end items
 
@@ -406,7 +409,7 @@ class DBBase(object):
         if obj:
             return obj
 
-        for obj in cls.values():
+        for obj in list(cls.values()):
             if obj.name == name_or_uuid:
                 return obj
         return None
@@ -414,7 +417,7 @@ class DBBase(object):
 
     @classmethod
     def find_by_fq_name(cls, fq_name):
-        for obj in cls.values():
+        for obj in list(cls.values()):
             if obj.fq_name == fq_name:
                 return obj
         return None
