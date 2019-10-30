@@ -82,28 +82,25 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
         }
     }
 
-    if ((state->exported_ == false)) {
+    if ((state->exported_ == false) || (state->force_chg_ == true)) {
         if (AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer, vrf, 
                                                       true)) {
             CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
                              "Subscribe");
 
-            state->exported_ = true;
-            CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
-                         "subscribed now");
+            state->exported_ = true; 
+            if (state->force_chg_ == true) {
+                if (vrf->GetName().compare(bgp_xmpp_peer->agent()->
+                                           fabric_vrf_name()) != 0) {
+                    bgp_peer->route_walker()->StartRouteWalk(vrf, true,
+                                              ControllerRouteWalker::NOTIFYALL);
+                }
+                state->force_chg_ = false;
+            }
+            return;
         }
-    }
-    if ((state->exported_ == true) && (state->force_chg_ == true)) {
-        if (vrf->GetName().compare(bgp_xmpp_peer->agent()->
-            fabric_vrf_name()) != 0) {
-            bgp_peer->route_walker()->StartRouteWalk(vrf, true,
-                                ControllerRouteWalker::NOTIFYALL);
-        }
-        state->force_chg_ = false;
+    } else {
         CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
-                         "started route walker with NOTIFYALL");
-    } else if((state->exported_ == true) && (state->force_chg_ == false)) {
-        CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),
-                         "Already subscribed and already exported all routes");
+                         "Already subscribed");
     }
 }
