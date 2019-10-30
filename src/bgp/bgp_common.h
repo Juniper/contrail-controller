@@ -12,6 +12,12 @@
 #include <utility>
 #include <vector>
 
+#define BGP_RTGT_MIN_ID_AS2 8000000
+#define BGP_RTGT_MIN_ID_AS4 8000
+
+#define BGP_RTGT_MAX_ID_AS2 16777216
+#define BGP_RTGT_MAX_ID_AS4 32768
+
 typedef uint32_t as_t;
 typedef uint16_t as2_t;
 #define AS_TRANS 23456
