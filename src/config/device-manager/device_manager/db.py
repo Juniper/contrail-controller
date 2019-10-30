@@ -29,6 +29,7 @@ from cfgm_common.uve.service_status.ttypes import *
 from cfgm_common.vnc_db import DBBase
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.zkclient import IndexAllocator
+from future.utils import native_str
 import gevent
 from gevent import queue
 from netaddr import IPAddress
@@ -2928,7 +2929,8 @@ class VirtualPortGroupDM(DBBaseDM):
 
     def get_esi(self):
         hash_obj = pyhash.city_64()
-        unpacked = struct.unpack('>8B', struct.pack('>Q', hash_obj(self.uuid)))
+        unpacked = struct.unpack(
+            '>8B', struct.pack('>Q', hash_obj(native_str(self.uuid))))
         self.esi = '00:%s:00' % (':'.join('%02x' % i for i in unpacked))
 
     def build_lag_pr_map(self):

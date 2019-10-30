@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import unittest
 
 from cfgm_common.utils import CacheContainer
@@ -11,7 +13,7 @@ class TestCacheContainer(unittest.TestCase):
         for index, value in enumerate(lst):
             c[value] = index + 1
 
-        self.assertEqual(len(c.dictionary.keys()), 5)
+        self.assertEqual(len(list(c.dictionary.keys())), 5)
         self.assertEqual(set(lst[-5:]), set(c.dictionary.keys()))
 
     def test_cache_container_fetch(self):

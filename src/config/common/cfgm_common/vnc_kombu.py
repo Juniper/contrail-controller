@@ -1,6 +1,11 @@
+from __future__ import division
+from __future__ import unicode_literals
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
+from builtins import object
+from past.utils import old_div
 import re
 from distutils.util import strtobool
 import kombu
@@ -177,7 +182,7 @@ class VncKombuClientBase(object):
                 msg = 'Error in rabbitmq heartbeat greenlet for drain: %s' %(str(e))
                 self._logger(msg, level=SandeshLevel.SYS_ERR)
             finally:
-                gevent.sleep(float(self._heartbeat_seconds/2))
+                gevent.sleep(float(old_div(self._heartbeat_seconds,2)))
     # end _connection_heartbeat
 
     def _publisher(self):

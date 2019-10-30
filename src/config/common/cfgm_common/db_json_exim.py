@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import unicode_literals
 # USAGE STEPS:
 # To upload db
 # Stop all contrail services including zookeeper.
@@ -14,6 +15,8 @@ from __future__ import print_function
 # python db_json_exim.py --export-to <filename>
 
 
+from builtins import str
+from builtins import object
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
@@ -121,14 +124,14 @@ class DatabaseExim(object):
             with open(self._args.import_from, 'r') as f:
                 self.import_data = json.loads(f.read())
 
-        ks_cf_info = dict((ks, dict((c, {}) for c in cf.keys()))
-            for ks,cf in self.import_data['cassandra'].items())
+        ks_cf_info = dict((ks, dict((c, {}) for c in list(cf.keys())))
+            for ks,cf in list(self.import_data['cassandra'].items()))
         self.init_cassandra(ks_cf_info)
 
         # refuse import if db already has data
         non_empty_errors = []
-        for ks in self.import_data['cassandra'].keys():
-            for cf in self.import_data['cassandra'][ks].keys():
+        for ks in list(self.import_data['cassandra'].keys()):
+            for cf in list(self.import_data['cassandra'][ks].keys()):
                 if len(list(self._cassandra.get_cf(cf).get_range(
                     column_count=0))) > 0:
                     non_empty_errors.append(
@@ -152,11 +155,11 @@ class DatabaseExim(object):
             raise ZookeeperNotEmptyError('\n'.join(non_empty_errors))
 
         # seed cassandra
-        for ks_name in self.import_data['cassandra'].keys():
-            for cf_name in self.import_data['cassandra'][ks_name].keys():
+        for ks_name in list(self.import_data['cassandra'].keys()):
+            for cf_name in list(self.import_data['cassandra'][ks_name].keys()):
                 cf = self._cassandra.get_cf(cf_name)
-                for row,cols in self.import_data['cassandra'][ks_name][cf_name].items():
-                    for col_name, col_val_ts in cols.items():
+                for row,cols in list(self.import_data['cassandra'][ks_name][cf_name].items()):
+                    for col_name, col_val_ts in list(cols.items()):
                         cf.insert(row, {col_name: col_val_ts[0]})
         # end seed cassandra
 

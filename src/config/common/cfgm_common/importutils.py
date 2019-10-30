@@ -14,6 +14,7 @@
 #    under the License.
 
 """Import related utilities and helper functions."""
+from __future__ import unicode_literals
 
 import sys
 import traceback
