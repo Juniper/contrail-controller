@@ -1,7 +1,9 @@
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
 from vnc_api.utils import (OP_POST, OP_GET, OP_PUT, OP_DELETE, hdr_client_tenant)
 
 # TODO transform from client value
