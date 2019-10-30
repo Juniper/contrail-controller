@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright (c) 2014 Cloudwatt
@@ -17,6 +18,8 @@
 #
 # @author: Sylvain Afchain, eNovance.
 
+from builtins import range
+from builtins import object
 import os
 import mock
 import unittest
@@ -70,7 +73,7 @@ class TestOpenContrailClient(unittest.TestCase):
             self.assertEqual(expected_data, data)
 
     def mocked_response(*args, **kwargs):
-        class MockResponse:
+        class MockResponse(object):
             def __init__(self, json_data, status_code):
                 self.status_code = status_code
                 self.json_data = json_data

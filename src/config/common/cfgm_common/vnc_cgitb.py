@@ -27,10 +27,13 @@ formatted/masked traceback as string and use it ,
 >>> formatted_tb = string_buf.get_value()
 
 """
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
 import re
 import sys
 import cgitb
-import cStringIO
+from six import StringIO
 
 
 # License: Apache-2.0
@@ -90,7 +93,7 @@ class Hook(cgitb.Hook):
 
     def handle(self, info=None):
         # Format the traceback and store it in StringIO buffer
-        local_buf = cStringIO.StringIO()
+        local_buf = StringIO()
         kwargs = {'display': self.display,
                   'logdir': self.logdir,
                   'context': self.context,
