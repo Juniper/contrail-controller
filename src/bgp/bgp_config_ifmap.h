@@ -21,9 +21,6 @@
 #include "ifmap/ifmap_config_listener.h"
 #include "ifmap/ifmap_node_proxy.h"
 
-#define BGP_RTGT_MIN_ID_AS2 8000000
-#define BGP_RTGT_MIN_ID_AS4 8000
-
 #define EVPN_ES_IMPORT_ROUTE_TARGET_AS2 (BGP_RTGT_MIN_ID_AS2 - 1) // 7999999
 #define EVPN_ES_IMPORT_ROUTE_TARGET_AS4 (BGP_RTGT_MIN_ID_AS4 - 1) // 7999
 
