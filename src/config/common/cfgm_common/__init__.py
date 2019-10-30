@@ -1,7 +1,10 @@
+from __future__ import unicode_literals
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import chr
+from builtins import str
 import re
 import sys
 import uuid
@@ -72,7 +75,7 @@ CANNOT_MODIFY_MSG = (
     "Cannot modify system resource %(resource_type)s %(fq_name)s(%(uuid)s)"
 )
 def obj_to_json(obj):
-    return dict((k, v) for k, v in obj.__dict__.iteritems())
+    return dict((k, v) for k, v in list(obj.__dict__.items()))
 # end obj_to_json
 
 
@@ -107,7 +110,7 @@ if sys.maxunicode >= 0x10000:  # not narrow build
                              (0xDFFFE, 0xDFFFF), (0xEFFFE, 0xEFFFF),
                              (0xFFFFE, 0xFFFFF), (0x10FFFE, 0x10FFFF)])
 
-_illegal_ranges = ["%s-%s" % (unichr(low), unichr(high))
+_illegal_ranges = ["%s-%s" % (chr(low), chr(high))
                    for (low, high) in _illegal_unichrs]
 illegal_xml_chars_RE = re.compile(u'[%s]' % u''.join(_illegal_ranges))
 
@@ -163,4 +166,4 @@ def _obj_serializer_all(obj):
     if hasattr(obj, 'serialize_to_json'):
         return obj.serialize_to_json()
     else:
-        return dict((k, v) for k, v in obj.__dict__.iteritems())
+        return dict((k, v) for k, v in list(obj.__dict__.items()))
