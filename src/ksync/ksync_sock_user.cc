@@ -136,7 +136,7 @@ void KSyncSockTypeMap::PurgeTxBuffer() {
     tx_buff_list_.clear();
 }
 
-void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
+void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req, int code) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     int flow_error = sock->GetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE);
     struct nl_client cl;
@@ -161,6 +161,10 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
         add_error = true;
     } else {
         if (flow_error != -ENOSPC && flow_error != 0) {
+            add_error = true;
+        }
+        if (code != 0) {
+            flow_error = code;
             add_error = true;
         }
     }
@@ -792,6 +796,14 @@ void KSyncUserSockFlowContext::Process() {
                 if (sock->is_incremental_index()) {
                     /* Send reverse-flow index as one more than fwd-flow index */
                     fwd_flow_idx = req_->get_fr_rindex() + 1;
+                    if (sock->flow_map.find(fwd_flow_idx) != sock->flow_map.end()) {
+                        //sock->SimulateResponse(GetSeqNum(), -EEXIST, 0);
+                        int code  = -EEXIST;
+                        req_->set_fr_index(fwd_flow_idx);
+                        req_->set_fr_gen_id((fwd_flow_idx % 255));
+                        KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_, code);
+                        return;
+                    }
                 } else {
                     fwd_flow_idx = rand() % 50000;
                 }
