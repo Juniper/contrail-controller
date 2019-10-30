@@ -110,6 +110,11 @@ public:
     const FlowKSyncResponseInfo *ksync_response_info() const {
         return &ksync_response_info_;
     }
+    
+    int  ksync_response_error() const {
+        return ksync_response_info_.ksync_error_;
+    }
+
 
     uint32_t old_first_mirror_index() {
         return old_first_mirror_index_;
