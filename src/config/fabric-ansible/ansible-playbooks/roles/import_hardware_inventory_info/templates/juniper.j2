@@ -27,23 +27,25 @@
 {%-                 endif %}
 {%-                 for chassis_module_item in chassis_module %}
 {{ create_dict(chassis_module_item, item.name, create_payload_list) }}
-{%-                     if chassis_module_item.get('chassis-sub-module') is defined and chassis_module_item.get('chassis-sub-module') != None %}
-{%-                         set chassis_sub_module = chassis_module_item.get('chassis-sub-module') %}
-{%-                         if chassis_sub_module is mapping %}
-{%-                             set chassis_sub_module = [chassis_sub_module] %}
-{%-                         endif %}
-{%-                         for chassis_sub_module_item in chassis_sub_module %}
-{{ create_dict(chassis_sub_module_item, chassis_module_item.name, create_payload_list) }}
-{%-                             if chassis_sub_module_item.get('chassis-sub-sub-module') is defined and chassis_sub_module_item.get('chassis-sub-sub-module') !=None %}
-{%-                                 set chassis_sub_sub_module = chassis_sub_module_item.get('chassis-sub-sub-module') %}
-{%-                                 if chassis_sub_sub_module is mapping %}
-{%-                                     set chassis_sub_sub_module = [chassis_sub_sub_module] %}
-{%                                  endif %}
-{%-                                 for ultra_item in chassis_sub_sub_module %}
-{{ create_dict(ultra_item, chassis_sub_module_item.name, create_payload_list) }}
-{%-                                 endfor -%}
+{%-                     if chassis_module_item != None and chassis_module_item is mapping %}
+{%-                         if chassis_module_item.get('chassis-sub-module') is defined and chassis_module_item.get('chassis-sub-module') != None %}
+{%-                             set chassis_sub_module = chassis_module_item.get('chassis-sub-module') %}
+{%-                             if chassis_sub_module is mapping %}
+{%-                                 set chassis_sub_module = [chassis_sub_module] %}
 {%-                             endif %}
-{%-                         endfor -%}
+{%-                             for chassis_sub_module_item in chassis_sub_module %}
+{{ create_dict(chassis_sub_module_item, chassis_module_item.name, create_payload_list) }}
+{%-                                 if chassis_sub_module_item.get('chassis-sub-sub-module') is defined and chassis_sub_module_item.get('chassis-sub-sub-module') !=None %}
+{%-                                     set chassis_sub_sub_module = chassis_sub_module_item.get('chassis-sub-sub-module') %}
+{%-                                     if chassis_sub_sub_module is mapping %}
+{%-                                         set chassis_sub_sub_module = [chassis_sub_sub_module] %}
+{%                                  endif %}
+{%-                                     for ultra_item in chassis_sub_sub_module %}
+{{ create_dict(ultra_item, chassis_sub_module_item.name, create_payload_list) }}
+{%-                                     endfor -%}
+{%-                                 endif %}
+{%-                             endfor -%}
+{%-                         endif %}
 {%-                     endif %}
 {%-                 endfor -%}
 {%-             endif %}
