@@ -1329,7 +1329,7 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
         sp = match_condition->src_port;
         rs.min = sp.start_port;
         rs.max = sp.end_port;
-        if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
+        if ((sp.start_port == -1) && (sp.end_port == -1)) {
             rs.min = 0;
         }
         src_port.push_back(rs);
@@ -1339,7 +1339,7 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
         dp = match_condition->dst_port;
         rs.min = dp.start_port;
         rs.max = dp.end_port;
-        if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
+        if ((dp.start_port == -1) && (dp.end_port == -1)) {
             rs.min = 0;
         }
         dst_port.push_back(rs);
