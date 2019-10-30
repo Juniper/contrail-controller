@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright (c) 2014 Cloudwatt
@@ -17,6 +18,11 @@
 #
 # @author: Sylvain Afchain, eNovance.
 
+from builtins import object
+from builtins import range
+
+from future import standard_library
+standard_library.install_aliases()  # noqa
 import requests
 from six.moves.urllib import parse as urlparse
 
@@ -104,8 +110,10 @@ class Client(object):
                 continue
 
         # If we reach here, raise the last encountered exception
-        raise (last_exc if last_exc else
-               Exception("Analytics servers are not accessible."))
+        if last_exc:
+            raise last_exc
+        else:
+            raise Exception("Analytics servers are not accessible.")
 
     def _get_req_params(self, user_token, data=None):
         req_params = {
