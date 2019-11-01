@@ -372,17 +372,18 @@ class PhysicalRouterDM(DBBaseDM):
             self.forced_cfg_push = False
         self.product = obj.get('physical_router_product_name') or ''
         self.device_family = obj.get('physical_router_device_family')
-        self.brownfield_global_asn = ''
-        brownfield_global_asn = obj.get(
-            'physical_router_autonomous_system') or {}
-        if brownfield_global_asn:
-            brownfield_global_asn_list = brownfield_global_asn.get(
-                'asn', [])
-            if brownfield_global_asn_list:
-                self.brownfield_global_asn = str(
-                    brownfield_global_asn_list[-1])
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.underlay_managed = obj.get('physical_router_underlay_managed')
+        self.brownfield_global_asn = ''
+        if not self.underlay_managed:
+            brownfield_global_asn = obj.get(
+                'physical_router_autonomous_system') or {}
+            if brownfield_global_asn:
+                brownfield_global_asn_list = brownfield_global_asn.get(
+                    'asn', [])
+                if brownfield_global_asn_list:
+                    self.brownfield_global_asn = str(
+                        brownfield_global_asn_list[-1])
         self.physical_router_role = obj.get('physical_router_role')
         routing_bridging_roles = obj.get('routing_bridging_roles')
         if routing_bridging_roles is not None:
