@@ -275,3 +275,25 @@ class TestHostBasedService(test_case.ApiServerTestCase):
             self.api.host_based_service_create,
             hbs1
         )
+
+    def test_hbs_create_with_mgmt_vn_ref(self):
+        project2 = Project('project2-%s' % self.id())
+        project2.set_quota(QuotaType(host_based_service=1))
+        self.api.project_create(project2)
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), parent_obj=project2)
+        self.api.virtual_network_create(vn1)
+        hbs1 = HostBasedService('hbs1-%s' % self.id(), parent_obj=project2)
+        hbs1.add_virtual_network(vn1, ServiceVirtualNetworkType('management'))
+        self.api.host_based_service_create(hbs1)
+
+    def test_hbs_create_with_annotations(self):
+        project2 = Project('project2-%s' % self.id())
+        project2.set_quota(QuotaType(host_based_service=1))
+        self.api.project_create(project2)
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), parent_obj=project2)
+        self.api.virtual_network_create(vn1)
+        hbs1 = HostBasedService('hbs1-%s' % self.id(), parent_obj=project2)
+        hbs1.add_annotations(KeyValuePair(
+            key='image', value='hub.juniper.net/security/csrx:19.2R1.8'))
+        hbs1.add_annotations(KeyValuePair(key='imagePullSecrets', value='psd'))
+        self.api.host_based_service_create(hbs1)
