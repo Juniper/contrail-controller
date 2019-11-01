@@ -2738,12 +2738,16 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn1_3_subnet_list = self.list_resource(
                                  'subnet', proj_uuid=proj_obj.uuid,
                                  req_filters={'shared': [False]})
-        self.assertEqual(len(vn1_neutron_list), 2)
-        self.assertEqual(len(vn1_3_subnet_list), 2)
+        # shared = False should return all the networks that belongs to
+        # the tenant which will have either is_shared = False or None
+        self.assertEqual(len(vn1_neutron_list), 3)
+        self.assertEqual(len(vn1_3_subnet_list), 3)
         vn_ids = []
         vn_ids.append(vn1_neutron_list[0]['id'])
         vn_ids.append(vn1_neutron_list[1]['id'])
+        vn_ids.append(vn1_neutron_list[2]['id'])
         self.assertIn(vn1_obj.uuid, vn_ids)
+        self.assertIn(vn2_obj.uuid, vn_ids)
         self.assertIn(vn3_obj.uuid, vn_ids)
 
         #filter for list of router:external='False' net/subnet should return 1
