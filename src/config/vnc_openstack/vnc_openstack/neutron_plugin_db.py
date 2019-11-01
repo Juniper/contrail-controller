@@ -3002,13 +3002,19 @@ class DBInterface(object):
                 all_net_objs.extend(self._network_list_filter(shared=True))
                 all_net_objs.extend(self._network_list_filter(
                                     router_external=True))
-            elif filters and 'shared' in filters or 'router:external' in filters:
+            # if filters['shared'] is False get all the VNs in tenant_id
+            # and prune the return list with shared = False or  shared = None
+            elif (filters and 'shared' in filters  and filters['shared'] is True
+                    or 'router:external' in filters):
                 shared = None
                 router_external = None
                 if 'router:external' in filters:
                     router_external = filters['router:external'][0]
-                if 'shared' in filters:
+                if 'shared' in filters and filters['shared'] is True:
                     shared = filters['shared'][0]
+                elif 'shared' in filters and filters['shared'] == False:
+                    project_uuid = str(uuid.UUID(context['tenant']))
+                    all_net_objs.extend(self._network_list_project(project_uuid))
                 all_net_objs.extend(self._network_list_filter(
                                     shared, router_external))
             else:
@@ -3352,7 +3358,8 @@ class DBInterface(object):
                 net_ids.add(subnet_key.split()[0])
             all_net_objs.extend(self._virtual_network_list(obj_uuids=list(net_ids),
                                                            detail=True))
-        elif filters and 'shared' in filters or 'router:external' in filters:
+        elif (filters and 'shared' in filters  and filters['shared'] is True
+                or 'router:external' in filters):
             shared = None
             router_external = None
             if 'router:external' in filters:
