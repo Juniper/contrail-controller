@@ -59,18 +59,15 @@ class OverlayBgpFeature(FeatureBase):
         config.set_hold_time(params.get('hold_time'))
     # end _add_hold_time_config
 
-    def _get_config(self, bgp, external=False,
-                    is_RR=False):
+    def _get_config(self, bgp, external=False):
         config = Bgp()
 
         cluster_id = bgp.params.get('cluster_id')
-        if cluster_id and not is_RR:
+        if cluster_id:
             config.set_cluster_id(cluster_id)
 
         config.set_name(DMUtils.make_bgp_group_name(self._get_asn(bgp),
-                                                    external,
-                                                    is_RR))
-
+                                                    external))
         config.set_type('external' if external else 'internal')
 
         config.set_ip_address(bgp.params['address'])
@@ -116,24 +113,14 @@ class OverlayBgpFeature(FeatureBase):
 
         ibgp_peers = OrderedDict()
         ebgp_peers = OrderedDict()
-        rr_peers = OrderedDict()
 
         local_asn = self._get_asn(bgp_router)
-
         for peer_uuid, attr in bgp_router.bgp_routers.iteritems():
             peer = db.BgpRouterDM.get(peer_uuid)
             if not self._is_valid(peer):
                 continue
-            peer_pr_uuid = peer.physical_router
-            peer_pr = db.PhysicalRouterDM.get(peer_pr_uuid)
             peer_asn = self._get_asn(peer)
-
-            if peer_pr and "Route-Reflector" in \
-                    peer_pr.routing_bridging_roles \
-                    and "Route-Reflector" in \
-                    self._physical_router.routing_bridging_roles:
-                rr_peers[peer] = attr
-            elif local_asn != peer_asn:
+            if local_asn != peer_asn:
                 ebgp_peers[peer] = attr
             else:
                 ibgp_peers[peer] = attr
@@ -147,12 +134,6 @@ class OverlayBgpFeature(FeatureBase):
             ebgp = self._get_config(bgp_router, external=True)
             self._add_peers(ebgp, bgp_router, ebgp_peers)
             feature_config.add_bgp(ebgp)
-
-        if rr_peers:
-            rr = self._get_config(bgp_router, is_RR=True)
-            self._add_peers(rr, bgp_router, rr_peers)
-            feature_config.add_bgp(rr)
-
     # end _build_bgp_config
 
     def _add_dynamic_tunnels(self, feature_config, tunnel_source_ip,
