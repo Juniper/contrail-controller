@@ -3178,7 +3178,7 @@ class DBInterface(object):
                 router_external = None
                 if 'router:external' in filters:
                     router_external = filters['router:external'][0]
-                if 'shared' in filters:
+                if 'shared' in filters and filters['shared'] is True:
                     shared = filters['shared'][0]
                 all_net_objs.extend(self._network_list_filter(
                                     shared, router_external))
