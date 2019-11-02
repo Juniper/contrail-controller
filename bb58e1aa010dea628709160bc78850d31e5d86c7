@@ -16,6 +16,24 @@
       "revId": "bb58e1aa010dea628709160bc78850d31e5d86c7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9df802ea_8c69d1ec",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_host_based_service.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2019-11-02T00:52:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "41c5ce7a_f070da3f",
+      "revId": "bb58e1aa010dea628709160bc78850d31e5d86c7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
