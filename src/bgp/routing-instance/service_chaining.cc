@@ -885,6 +885,35 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
         new_ext_community = extcomm_db->ReplaceRTargetAndLocate(
             attr->ext_community(), ExtCommunity::ExtCommunityList());
 
+        // Add the export route target list from the source routing instance
+        // when inserting into EVPN table. This is required for the case when
+        // service-chain routes are replicated to the BGP table to be used on
+        // the BMS. The TOR switch does not import the cooked-up RT of the
+        // service-RI. It only imports the RTs of the primary RI. Hence, we
+        // add the primary RIs RTs to the route.
+        // NOTE: There is an assumption that connected_ri on the head SI
+        // will always point to the primary RI. Need to change that if the
+        // assumption is not true.
+        // Also, we pick only the export route targets in the range used by
+        // schema transformer for non user-configured RTs.
+        if (is_sc_head() && bgptable->family() == Address::EVPN) {
+            ExtCommunity::ExtCommunityList export_list;
+            RoutingInstance *con_ri = connected_routing_instance();
+            BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                "Adding primary RI " << con_ri->name() << " route targets " <<
+                "to service-chain route for EVPN table " << bgptable->name());
+            BOOST_FOREACH(RouteTarget rtarget, con_ri->GetExportList()) {
+                if (ExtCommunity::get_rtarget_val(
+                    rtarget.GetExtCommunity()) != 0) {
+                    BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG,
+                        BGP_LOG_FLAG_TRACE, "RT value " << rtarget.ToString());
+                    export_list.push_back(rtarget.GetExtCommunity());
+                }
+            }
+            new_ext_community = extcomm_db->AppendAndLocate(
+                new_ext_community.get(), export_list);
+        }
+
         // Replace the SGID list with the list from the original route.
         new_ext_community = extcomm_db->ReplaceSGIDListAndLocate(
             new_ext_community.get(), sgid_list);
@@ -925,7 +954,7 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
         // If updating service-chain route in the EVPN table, change
         // tunnel encap to include VxLAN and MPLS. BMS only supports VxLAN.
         // Vrouter has the choice of using VxLAN or MPLS based on config.
-        if (bgptable->family() == Address::EVPN) {
+        if (is_sc_head() && bgptable->family() == Address::EVPN) {
             ExtCommunity::ExtCommunityList encaps_list;
             vector<string> tunnel_encaps = boost::assign::list_of("vxlan");
             BOOST_FOREACH(string encap, tunnel_encaps) {

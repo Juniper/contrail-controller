@@ -267,6 +267,32 @@ public:
                 (val[1] == BgpExtendedCommunitySubType::RouteTarget));
     }
 
+    static uint32_t get_rtarget_val(const ExtCommunityValue &val) {
+        //
+        // Get non user-configured RT value from Route Target extended
+        // community for
+        // 1. 2 Octet AS specific extended community Route Target
+        // 2. 4 Octet AS specific extended community Route Target
+        //
+        if (is_route_target(val)) {
+            uint8_t data[8];
+            uint32_t rt;
+            std::copy(val.begin(), val.end(), &data[0]);
+            if (data[0] == BgpExtendedCommunityType::TwoOctetAS) {
+                rt = get_value(data + 4, 4);
+                if (rt >= BGP_RTGT_MIN_ID_AS2 && rt <= BGP_RTGT_MAX_ID_AS2) {
+                    return (rt);
+                }
+            } else if (data[0] == BgpExtendedCommunityType::FourOctetAS) {
+                rt = get_value(data + 6, 2);
+                if (rt >= BGP_RTGT_MIN_ID_AS4 && rt <= BGP_RTGT_MAX_ID_AS4) {
+                    return (rt);
+                }
+            }
+        }
+        return (0);
+    }
+
     static bool is_security_group(const ExtCommunityValue &val) {
         //
         // SG ID extended community
