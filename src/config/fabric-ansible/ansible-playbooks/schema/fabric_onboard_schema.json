@@ -202,7 +202,8 @@
         "items": {
           "type": "object",
           "required": [
-            "serial_number"
+            "serial_number",
+            "hostname"
           ],
           "properties": {
             "serial_number": {
