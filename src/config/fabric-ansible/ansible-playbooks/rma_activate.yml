@@ -92,7 +92,7 @@
 
         - name: Return dynamic DHCP mgmt_ip in output for use in next playbook
           set_fact:
-            output: "{{ output|combine({'dynamic_mgmt_ip_tbl': rma_device_info['dynamic_mgmt_ip_tbl'], 'fabric_uuid': fabric_obj.obj.uuid, 'device_json': rma_device_info['device_info'] })}}"
+            output: "{{ output|combine({'dynamic_mgmt_ip_tbl': rma_device_info['dynamic_mgmt_ip_tbl'], 'fabric_uuid': fabric_obj.obj.uuid, 'device_json': rma_device_info['device_info'], 'device_to_ztp': rma_device_info['device_to_ztp'], 'supplemental_day_0_cfg': rma_device_info['supplemental_config'] })}}"
 
         - name: Update job log with percentage
           include_tasks: percentage_update.yml
