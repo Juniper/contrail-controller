@@ -6,6 +6,7 @@
 #
 import argparse
 import copy
+import ipaddress
 import json
 import socket
 import struct
@@ -2466,7 +2467,9 @@ class FilterModule(object):
             bgp_router_name = bgp_router_fq_name[-1]
             cluster_id = None
             if 'Route-Reflector' in rb_roles:
-                cluster_id = device_obj.physical_router_loopback_ip
+                loopback_ip_int = FilterModule.get_int_for_lo0_ip(
+                    device_obj.physical_router_loopback_ip)
+                cluster_id = loopback_ip_int
             try:
                 bgp_router_obj = vnc_api.bgp_router_read(
                     fq_name=bgp_router_fq_name
@@ -2562,6 +2565,14 @@ class FilterModule(object):
                 vnc_api.logical_router_update(logical_router_obj)
         return logical_router_obj
     # end _add_logical_router
+
+    @staticmethod
+    def get_int_for_lo0_ip(phy_router_loopback_ip):
+        ip_obj = ipaddress.ip_address(unicode(str(
+            phy_router_loopback_ip
+        )))
+        return int(ip_obj)
+    # end get_int_for_lo0_ip
 
     @staticmethod
     def _get_ibgp_asn(vnc_api, fabric_name):
