@@ -54,15 +54,13 @@ class CassandraManager(object):
         elif self._db_owner == 'config':
             keyspaces = RepairNeededKeyspaces
         for keyspace in keyspaces:
-            cmd = "nodetool -p {} repair -pr {}".format(
-                                        self.db_jmx_port, keyspace)
+            cmd = "nodetool -p {} repair -pr {}".format(self.db_jmx_port, keyspace)
             try:
                 res = self.exec_cmd(cmd)
-            except Exception as e:
-                err_msg = "Failed to run cmd: {}.\nError: {}".format(cmd, e)
-                event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
-            else:
                 event_mgr.msg_log(res, level=SandeshLevel.SYS_DEBUG)
+            except Exception as e:
+                err_msg = "Failed to run cmd: '{}'. Error is: {}".format(cmd, e)
+                event_mgr.msg_log(err_msg, level=SandeshLevel.SYS_ERR)
 
     def exec_cmd(self, cmd):
         # unit name must be equal to definition in main.py
