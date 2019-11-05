@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "c1a88925_92b6649c",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 26
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-11-05T23:10:08Z",
+      "side": 1,
+      "message": "See line 2597",
+      "parentUuid": "d3762cd9_43e112f4",
+      "revId": "dd01713cd8fa46ed2f03139294d50e29f5ae8a3e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "5e977948_5ea442d2",
         "filename": "src/config/device-manager/device_manager/device_manager.py",
         "patchSetId": 26
@@ -30,6 +48,24 @@
       "writtenOn": "2019-11-05T22:45:00Z",
       "side": 1,
       "message": "Hoping DM Logger doesnot call sandesh. else would need monkey patching.",
+      "revId": "dd01713cd8fa46ed2f03139294d50e29f5ae8a3e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bdd8b0d2_1ba60fc8",
+        "filename": "src/config/device-manager/device_manager/device_manager.py",
+        "patchSetId": 26
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-11-05T23:10:08Z",
+      "side": 1,
+      "message": "Are you worried about the ordering? The fact that money patch occurs before logger import?",
+      "parentUuid": "5e977948_5ea442d2",
       "revId": "dd01713cd8fa46ed2f03139294d50e29f5ae8a3e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
