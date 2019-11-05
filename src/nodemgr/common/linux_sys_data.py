@@ -137,7 +137,11 @@ class LinuxSysData(object):
                              SandeshLevel.SYS_ERR)
 
     def update_all_core_file(self):
-        modified_time = os.path.getmtime(self._get_corefile_path())
+        try:
+            modified_time = os.path.getmtime(self._get_corefile_path())
+        except OSError:
+            # folder is not present - corefiles have not been changed
+            return False
         if modified_time == self.core_dir_modified_time:
             return False
         self.core_dir_modified_time = modified_time
