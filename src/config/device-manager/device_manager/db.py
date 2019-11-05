@@ -1165,7 +1165,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.mtu = 0
         self.esi = None
         self.interface_type = None
-        self.port = None
+        self.ports = set()
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -1185,7 +1185,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.interface_type = obj.get('physical_interface_type')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
-        self.update_single_ref('port', obj)
+        self.update_multiple_refs('port', obj)
         return obj
     # end update
 
@@ -1195,7 +1195,7 @@ class PhysicalInterfaceDM(DBBaseDM):
     def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.update_multiple_refs('physical_interface', {})
-        self.update_single_ref('port', None)
+        self.update_multiple_refs('port', {})
         self.remove_from_parent()
     # end delete_obj
 # end PhysicalInterfaceDM

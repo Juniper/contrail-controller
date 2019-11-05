@@ -1396,9 +1396,12 @@ class AnsibleRoleCommon(AnsibleConf):
             pi_obj = PhysicalInterfaceDM.get(pi)
             if not pi_obj:
                 continue
-            if pi_obj.port:
-                port = PortDM.get(pi_obj.port)
-                pi_info = {'pi': pi, 'tag': port.tags}
+            if pi_obj.ports:
+                tag_list = []
+                for port_uuid in pi_obj.ports:
+                    port = PortDM.get(port_uuid)
+                    tag_list.extend(port.tags)
+                pi_info = {'pi': pi, 'tag': tag_list}
                 pi_tag.append(pi_info)
 
         if not pi_tag:
