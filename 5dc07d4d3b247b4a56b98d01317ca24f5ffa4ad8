@@ -16,6 +16,24 @@
       "revId": "5dc07d4d3b247b4a56b98d01317ca24f5ffa4ad8",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "04ea3a9c_17084ac3",
+        "filename": "ci_unittests.json",
+        "patchSetId": 4
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 643
+      },
+      "writtenOn": "2019-11-05T10:26:22Z",
+      "side": 1,
+      "message": "vrouter-py-ut target will not build vrouter",
+      "parentUuid": "d3701599_c5b94e59",
+      "revId": "5dc07d4d3b247b4a56b98d01317ca24f5ffa4ad8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
