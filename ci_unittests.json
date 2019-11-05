@@ -189,7 +189,12 @@
             "src/contrail-common/zookeeper:test",
             "controller/src/net:test",
             "src/contrail-api-client/schema:test",
-            "sandesh:test"
+            "sandesh:test",
+            "controller/src/config/svc_monitor:test",
+            "controller/src/config/schema-transformer:test",
+            "controller/src/config/api-server:test",
+            "controller/src/config/vnc_openstack:test",
+            "controller/src/config/common:test"
         ],
         "misc_test_targets" : [
             "contrail-collector",
