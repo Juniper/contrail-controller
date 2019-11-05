@@ -120,8 +120,21 @@ class FilterModule(object):
         vf_feature = '_'.join([self.device_vendor, self.device_family,
                                feature])
         ffile = vf_feature + '.j2'
+
+        # Find vendor-common family-feature templates
+        common_file = ''
+        if '-' in self.device_family:
+            # For instance junos-mx will be applied to junos family
+            common_family = self.device_family.split('-')[0]
+            common_vf_feature = '_'.join([self.device_vendor, common_family, feature])
+            common_file = common_vf_feature + '.j2'
+
         if ffile in template_list:
             feature_template_list.\
+                append('/'.join([feature_template_dir, ffile]))
+        elif common_file in template_list:
+            ffile = common_file
+            feature_template_list. \
                 append('/'.join([feature_template_dir, ffile]))
         # Find vendor-feature templates
         else:
