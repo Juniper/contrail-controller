@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d3701599_c5b94e59",
+        "filename": "ci_unittests.json",
+        "patchSetId": 4
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-11-05T09:35:50Z",
+      "side": 1,
+      "message": "this target will run vrouter build, won\u0027t it?",
+      "revId": "5dc07d4d3b247b4a56b98d01317ca24f5ffa4ad8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
