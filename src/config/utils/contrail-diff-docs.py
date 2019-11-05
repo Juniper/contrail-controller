@@ -3,6 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import json
 
@@ -24,27 +25,27 @@ class DocDiff(object):
             self._compare_message_dicts(old_sdict["messages"],
                                         new_sdict["messages"])
         if added or removed or modified:
-            print '\n'
+            print('\n')
         if added:
-            print 'Added systemlog and objectlog messages:'
+            print('Added systemlog and objectlog messages:')
             for idx, mname in enumerate(added):
-                print '    %d. %s' % (idx + 1, mname)
-            print '\n'
+                print('    %d. %s' % (idx + 1, mname))
+            print('\n')
         if removed:
-            print 'Removed systemlog and objectlog messages:'
+            print('Removed systemlog and objectlog messages:')
             for idx, mname in enumerate(removed):
-                print '    %d. %s' % (idx + 1, mname)
-            print '\n'
+                print('    %d. %s' % (idx + 1, mname))
+            print('\n')
         if modified:
-            print 'Modified systemlog and objectlog messages:'
+            print('Modified systemlog and objectlog messages:')
             for idx, mname in enumerate(modified.keys()):
                 if mname in cmodified:
-                    print '    %d. %s: Contents' % (idx + 1, mname)
+                    print('    %d. %s: Contents' % (idx + 1, mname))
                 else:
                     stuple = smodified[mname]
-                    print '    %d. %s: Severity : [%s] -> [%s]' % \
-                         (idx + 1, mname, stuple[0], stuple[1])
-            print '\n'
+                    print('    %d. %s: Severity : [%s] -> [%s]' % \
+                         (idx + 1, mname, stuple[0], stuple[1]))
+            print('\n')
     # end run
 
     def _compare_message_dicts(self, old_mdict, new_mdict):
@@ -74,7 +75,7 @@ class DocDiff(object):
 
 def main():
     if len(sys.argv) != 3:
-        print 'Usage is python contrail-diff-docs.py <path to old index_logs.doc.schema.json> <path new index_logs.doc.schema.json>'
+        print('Usage is python contrail-diff-docs.py <path to old index_logs.doc.schema.json> <path new index_logs.doc.schema.json>')
         exit(-1)
     diff = DocDiff(sys.argv[1], sys.argv[2])
     diff.run()

@@ -3,6 +3,7 @@
 #Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -27,7 +28,7 @@ class RulesToFromSLO(object):
         try:
             slo = self._vnc_lib.security_logging_object_read(fq_name = None, fq_name_str=self._args.slo_fq_name)
         except NoIdError:
-            print "security-logging-object %s does NOT exist" %(self._args.slo_fq_name)
+            print("security-logging-object %s does NOT exist" %(self._args.slo_fq_name))
             return
 
         #Parse json to build a dictionary of rule and rate
@@ -38,7 +39,7 @@ class RulesToFromSLO(object):
             rule_dict = json.loads(self._args.rules)
             #Add rules to the rule_list from rule_dict
             for key in rule_dict:
-                print key, " = ", rule_dict[key]
+                print(key, " = ", rule_dict[key])
                 entry = SecurityLoggingObjectRuleEntryType(rule_uuid=key, rate=rule_dict[key])
                 rule_list.add_rule(entry)
             #Update SLO with built rule_list
@@ -106,27 +107,27 @@ class RulesToFromSLO(object):
 
         ret_value  = True
         if self._args.sg_fq_name and self._args.policy_fq_name:
-            print "The arguments --sg_fq_name and --policy_fq_name cannot be specified together"
+            print("The arguments --sg_fq_name and --policy_fq_name cannot be specified together")
             ret_value = False
 
         if self._args.sg_fq_name and not self._args.oper:
-            print "The argument --sg_fq_name requires --oper to be specified"
+            print("The argument --sg_fq_name requires --oper to be specified")
             ret_value = False
 
         if self._args.policy_fq_name and not self._args.oper:
-            print "The argument --policy_fq_name requires --oper to be specified"
+            print("The argument --policy_fq_name requires --oper to be specified")
             ret_value = False
 
         if self._args.rules and self._args.sg_fq_name:
-            print "The arguments --rules and --sg_fq_name cannot be specified together"
+            print("The arguments --rules and --sg_fq_name cannot be specified together")
             ret_value = False
 
         if self._args.rules and self._args.policy_fq_name:
-            print "The arguments --rules and --policy_fq_name cannot be specified together"
+            print("The arguments --rules and --policy_fq_name cannot be specified together")
             ret_value = False
 
         if self._args.rules and self._args.rate:
-            print "The arguments --rules and --rate cannot be specified together"
+            print("The arguments --rules and --rate cannot be specified together")
             ret_value = False
         return ret_value
     #end _parse_args
@@ -138,7 +139,7 @@ class RulesToFromSLO(object):
             #Iterate SG rules, create SLO rule and add to SLO rule list
             rule_list = rule_list_obj.get_policy_rule()
             for rule in rule_list:
-                print "rule-uuid ", str(rule.get_rule_uuid())
+                print("rule-uuid ", str(rule.get_rule_uuid()))
                 #Create SLO rule
                 entry = SecurityLoggingObjectRuleEntryType(rule_uuid=rule.get_rule_uuid(), rate=self._args.rate)
                 #Add to SLO rule list
@@ -152,7 +153,7 @@ class RulesToFromSLO(object):
         try:
             sg = self._vnc_lib.security_group_read(fq_name = None, fq_name_str=self._args.sg_fq_name)
         except NoIdError:
-            print "security-group %s does NOT exist" %(self._args.sg_fq_name)
+            print("security-group %s does NOT exist" %(self._args.sg_fq_name))
             return
         #create empty SLO rule list
         slo_rule_list = SecurityLoggingObjectRuleListType()
@@ -165,7 +166,7 @@ class RulesToFromSLO(object):
         try:
             sg = self._vnc_lib.security_group_read(fq_name = None, fq_name_str=self._args.sg_fq_name)
         except NoIdError:
-            print "security-group %s does NOT exist" %(self._args.sg_fq_name)
+            print("security-group %s does NOT exist" %(self._args.sg_fq_name))
             return
         #Remove SG from SLO.
         slo.del_security_group(sg)
@@ -176,7 +177,7 @@ class RulesToFromSLO(object):
         try:
             pol = self._vnc_lib.network_policy_read(fq_name = None, fq_name_str=self._args.policy_fq_name)
         except NoIdError:
-            print "Network policy %s does NOT exist" %(self._args.policy_fq_name)
+            print("Network policy %s does NOT exist" %(self._args.policy_fq_name))
             return
         #create empty SLO rule list
         slo_rule_list = SecurityLoggingObjectRuleListType()
@@ -189,7 +190,7 @@ class RulesToFromSLO(object):
         try:
             pol = self._vnc_lib.network_policy_read(fq_name = None, fq_name_str=self._args.policy_fq_name)
         except NoIdError:
-            print "Network policy %s does NOT exist" %(self._args.policy_fq_name)
+            print("Network policy %s does NOT exist" %(self._args.policy_fq_name))
             return
         #Remove NetworkPolicy from SLO.
         slo.del_network_policy(pol)

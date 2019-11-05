@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import os
 import subprocess
 import sys
@@ -70,18 +71,18 @@ class QosmapProv(object):
         self.bandwidth = ",".join(self.bandwidth)
         self.scheduling = "".join(self.scheduling)
         if (not self.qos_scheduling_config):
-            print "Priority group configuration not found"
+            print("Priority group configuration not found")
 
     # end _parse_args
 
     def execute_command(self, cmd):
-        print cmd
+        print(cmd)
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         (out, err) = proc.communicate()
-        print out
+        print(out)
         outwithoutreturn = out.rstrip('\n')
         if err:
-            print "Error executing : " + cmd + "\n Cmd output " + out
+            print("Error executing : " + cmd + "\n Cmd output " + out)
             return False
 
         return outwithoutreturn
@@ -152,7 +153,7 @@ class QosmapProv(object):
                     num_tx_queue_cmd = "cd %s;ls -l | grep tx- | wc -l " % (file_path)
                     num_tx_queues = self.execute_command(num_tx_queue_cmd)
             else:
-                    print "Path for interface queue %s does not exist" % file_path
+                    print("Path for interface queue %s does not exist" % file_path)
                     return True
             if (num_tx_queues and num_tx_queues !='0'):
                 for i in range(int(num_tx_queues)):
@@ -160,12 +161,12 @@ class QosmapProv(object):
                     filename = file_path + file_str
                     xps_cpu_file = os.path.isfile(filename)
                     if (not xps_cpu_file):
-                        print "xps_cpu file not found %s on compute %s while disabling Xmit-Packet-Steering" % (xps_cpu_file, compute_host_string)
+                        print("xps_cpu file not found %s on compute %s while disabling Xmit-Packet-Steering" % (xps_cpu_file, compute_host_string))
                         return True
                     cmd = "echo 0 > %s" % filename
                     self.execute_command(cmd)
             else:
-                print "Error: No tx queues found for file paths %s " % (file_path)
+                print("Error: No tx queues found for file paths %s " % (file_path))
                 return True
 
 # end class QosmapProv

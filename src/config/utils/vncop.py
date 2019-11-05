@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -7,6 +8,7 @@ import os
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_common import *
+from functools import reduce
 
 
 def CamelCase(input):
@@ -77,8 +79,8 @@ vnc_op.parse_args()
 # Validate API server information
 server = vnc_op.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port, '\
-          'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port, '\
+          'for example 127.0.0.1:8082')
     sys.exit(1)
 
 
@@ -87,17 +89,17 @@ conf = {}
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = vnc_op.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 username = conf['username']
 password = conf['password']
 tenant_name = conf['tenant_name']
 
-print 'Oper = ', vnc_op.args.oper
-print 'Type = ', vnc_op.args.type
-print 'Name = ', vnc_op.args.name
-print 'API Server = ', vnc_op.args.server
+print('Oper = ', vnc_op.args.oper)
+print('Type = ', vnc_op.args.type)
+print('Name = ', vnc_op.args.name)
+print('API Server = ', vnc_op.args.server)
 
 ui = {}
 if vnc_op.args.user:
@@ -105,15 +107,15 @@ if vnc_op.args.user:
 if vnc_op.args.role:
     ui['role'] = vnc_op.args.role
 if ui:
-    print 'Sending user, role as %s/%s' % (vnc_op.args.user, vnc_op.args.role)
+    print('Sending user, role as %s/%s' % (vnc_op.args.user, vnc_op.args.role))
 
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
 
 if vnc_op.args.uuid:
-    print 'UUID = ', vnc_op.args.uuid
+    print('UUID = ', vnc_op.args.uuid)
     fq_name = vnc.id_to_fq_name(vnc_op.args.uuid)
-    print 'FQNAME = ', fq_name
+    print('FQNAME = ', fq_name)
     sys.exit(1)
 
 domain = Domain(name='default-domain')
@@ -138,21 +140,21 @@ if vnc_op.args.oper == 'create':
     method = getattr(vnc, "%s_create" % (method_name))
     #obj.set_network_ipam(ipam, vns)
     id = method(obj)
-    print 'Created %s "%s", uuid = %s' % (vnc_op.args.type,
-                                          vnc_op.args.name, id)
+    print('Created %s "%s", uuid = %s' % (vnc_op.args.type,
+                                          vnc_op.args.name, id))
     obj.dump()
 elif vnc_op.args.oper == 'read':
     method_name = vnc_op.args.type.replace('-', '_')
     method = getattr(vnc, "%s_read" % (method_name))
     obj = method(fq_name=fq_name)
-    print 'Read %s "%s"' % (vnc_op.args.type, fq_name)
+    print('Read %s "%s"' % (vnc_op.args.type, fq_name))
     obj.dump()
 elif vnc_op.args.oper == 'update':
     # read
     method_name = vnc_op.args.type.replace('-', '_')
     method = getattr(vnc, "%s_read" % (method_name))
     obj = method(fq_name=fq_name)
-    print 'Read %s "%s"' % (vnc_op.args.type, fq_name)
+    print('Read %s "%s"' % (vnc_op.args.type, fq_name))
     obj.dump()
     # print ''
 
@@ -160,10 +162,10 @@ elif vnc_op.args.oper == 'update':
     method_name = vnc_op.args.type.replace('-', '_')
     method = getattr(vnc, "%s_update" % (method_name))
     result = method(obj)
-    print 'Write result = ', result
+    print('Write result = ', result)
 elif vnc_op.args.oper == 'delete':
     method_name = vnc_op.args.type.replace('-', '_')
     method = getattr(vnc, "%s_delete" % (method_name))
     result = method(fq_name=fq_name)
-    print 'Deleting %s "%s"' % (vnc_op.args.type, fq_name)
-    print 'Result = ', result
+    print('Deleting %s "%s"' % (vnc_op.args.type, fq_name))
+    print('Result = ', result)

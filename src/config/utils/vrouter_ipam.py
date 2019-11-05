@@ -3,6 +3,7 @@
 #Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -81,17 +82,17 @@ class VrouterIpam(object):
         ret_value  = True
         if self._args.oper == 'associate' or self._args.oper == 'disassociate':
             if not self._args.vrouter_name:
-                print "virtual-router FQ-name required for --oper=associate/disassociate"
+                print("virtual-router FQ-name required for --oper=associate/disassociate")
                 ret_value = False
         else:
             if not self._args.name:
-                print "Argument --name required for --oper=add or --oper=delete"
+                print("Argument --name required for --oper=add or --oper=delete")
                 ret_value = False
             if not self._args.prefix and self._args.oper == 'add':
-                print "Argument --prefix required for --oper=add"
+                print("Argument --prefix required for --oper=add")
                 ret_value = False
             if not self._args.prefix_len and self._args.oper == 'add':
-                print "Argument --prefix_len required for --oper=add"
+                print("Argument --prefix_len required for --oper=add")
                 ret_value = False
         return ret_value
     #end _parse_args
@@ -104,7 +105,7 @@ class VrouterIpam(object):
         except NoIdError:
             pass
         if ipam_obj is not None:
-            print "Ipam %s already present" %(ipam_fq_name)
+            print("Ipam %s already present" %(ipam_fq_name))
             return
         ipam_subnets_obj = IpamSubnets()
         ipam_subnets_obj.add_subnets(IpamSubnetType(SubnetType(self._args.prefix, self._args.prefix_len)))
@@ -118,7 +119,7 @@ class VrouterIpam(object):
         try:
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name = None, fq_name_str=ipam_fq_name)
         except NoIdError:
-            print "Ipam %s does not exist" %(ipam_fq_name)
+            print("Ipam %s does not exist" %(ipam_fq_name))
             return
         if ipam_obj is not None:
             self._vnc_lib.network_ipam_delete(ipam_obj.get_fq_name())
@@ -130,13 +131,13 @@ class VrouterIpam(object):
         try:
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name = None, fq_name_str=ipam_fq_name)
         except NoIdError:
-            print "Ipam %s does not exist" %(ipam_fq_name)
+            print("Ipam %s does not exist" %(ipam_fq_name))
             return
         vr_obj = None
         try:
             vr_obj = self._vnc_lib.virtual_router_read(fq_name = None, fq_name_str=self._args.vrouter_name)
         except NoIdError:
-            print "Vrouter %s does not exist" %(self._args.vrouter_name)
+            print("Vrouter %s does not exist" %(self._args.vrouter_name))
             return
         pool_data = AllocationPoolType(start=None, end=None, vrouter_specific_pool=True)
         subnet_data = SubnetType(self._args.prefix, self._args.prefix_len)
@@ -151,13 +152,13 @@ class VrouterIpam(object):
         try:
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name = None, fq_name_str=ipam_fq_name)
         except NoIdError:
-            print "Ipam %s does not exist" %(ipam_fq_name)
+            print("Ipam %s does not exist" %(ipam_fq_name))
             return
         vr_obj = None
         try:
             vr_obj = self._vnc_lib.virtual_router_read(fq_name = None, fq_name_str=self._args.vrouter_name)
         except NoIdError:
-            print "Vrouter %s does not exist" %(self._args.vrouter_name)
+            print("Vrouter %s does not exist" %(self._args.vrouter_name))
             return
         vr_obj.del_network_ipam(ipam_obj)
         self._vnc_lib.virtual_router_update(vr_obj)

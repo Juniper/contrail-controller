@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -50,8 +51,8 @@ class WebuiNodeProvisioner(object):
         elif self._args.oper == 'del':
             self.del_webui_node()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 
@@ -154,7 +155,7 @@ class WebuiNodeProvisioner(object):
             try:
                 self._vnc_lib.webui_node_create(webui_node_obj)
             except RefsExistError:
-                print "Already created!"
+                print("Already created!")
 
     # end add_webui_node
 

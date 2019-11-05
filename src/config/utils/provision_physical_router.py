@@ -1,3 +1,4 @@
+from __future__ import print_function
 #This is a python based script for configuring required MX router resources in the contrail controller. It uses the VNC Rest API provided by contrail controller.
 #Usage : # python provision_physical_router.py --api_server_ip <127.0.0.1> --api_server_port <8082> --admin_user <user1> --admin_password <password1> --admin_tenant_name default-domain --op {add_basic|remove_basic|fip_test|delete_fip_test}  {--public_vrf_test [True|False]} {--vxlan <vxlan-identifier>}
 #Note: make sure, api server authentication is disabled in contrail api server to run this script.
@@ -50,13 +51,13 @@ class VncProvisioner(object):
                 vxlan = self._args.vxlan 
             self.add_physical_router_config(router_external, vxlan)
         elif self._args.op == 'delete_basic':
-            print 'calling delete_physical_router_config\n'
+            print('calling delete_physical_router_config\n')
             self.delete_physical_router_config()
         elif self._args.op == 'delete_fip_test':
-            print 'calling delete_physical_router_config: fip_test\n'
+            print('calling delete_physical_router_config: fip_test\n')
             self.delete_bms_config()
         elif self._args.op == 'fip_test':
-            print 'calling add_physical_router_config: fip_test\n'
+            print('calling add_physical_router_config: fip_test\n')
             self.add_bms_config()
     # end __init__
 
@@ -170,7 +171,7 @@ class VncProvisioner(object):
 
     def delete_physical_router_config(self):
 
-        print 'delete_physical_router_config\n'
+        print('delete_physical_router_config\n')
         li = None
         try:
             li = self._vnc_lib.logical_interface_read(fq_name=[u'default-global-system-config', u'a7-mx-80', u'ge-1/0/5', u'ge-1/0/5.0'])

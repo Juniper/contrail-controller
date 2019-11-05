@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -167,7 +168,7 @@ class ISSUContrailPreProvisioner(object):
                 if self._args.md5:
                     bgp_params = existing_obj.get_bgp_router_parameters()
                     # set md5
-                    print "Setting md5 on the existing uuid"
+                    print("Setting md5 on the existing uuid")
                     md5 = {'key_items': [ { 'key': self._args.md5 ,"key_id":0 } ], "key_type":"md5"}
                     bgp_params.set_auth_data(md5)
                     existing_obj.set_bgp_router_parameters(bgp_params)

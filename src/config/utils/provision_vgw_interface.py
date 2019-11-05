@@ -3,6 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import os
 import sys
 import argparse
@@ -24,7 +25,7 @@ class ProvisionVgwInterface(object):
         url = "http://localhost:9091/gateway"
 
         if self._args.oper == "create":
-            print "Creating virtual-gateway ..."
+            print("Creating virtual-gateway ...")
 
             with open("/proc/sys/net/ipv4/ip_forward", "w") as file:
                 file.write("1")
@@ -68,23 +69,23 @@ class ProvisionVgwInterface(object):
             try:
                 r = requests.post(url, data=gw_str, headers=headers)
             except ConnectionError:
-                print "Error: Error adding VGW interface"
+                print("Error: Error adding VGW interface")
                 return
             if r.status_code != 200:
-                print "Failed to Add VGW interface"
+                print("Failed to Add VGW interface")
                 return
-            print "Done creating virtual-gateway..."
+            print("Done creating virtual-gateway...")
 
         else:
-            print "Deleting virtual-gateway ..."
+            print("Deleting virtual-gateway ...")
             gw_str = "[{\"interface\":\"%s\"}]" % (self._args.interface)
             try:
                 r = requests.delete(url, data=gw_str, headers=headers)
             except ConnectionError:
-                print "Error: Error deleting VGW interface"
+                print("Error: Error deleting VGW interface")
                 return
             if r.status_code != 200:
-                print "Failed to Delete VGW interface"
+                print("Failed to Delete VGW interface")
                 return
             for subnet in self._args.subnets:
                 route_command = 'route del -net ' + subnet
@@ -101,15 +102,15 @@ class ProvisionVgwInterface(object):
 
             del_cmd = 'ip link del ' + self._args.interface
             self.execute_command(del_cmd)
-            print "Done deleting virtual-gateway..."
+            print("Done deleting virtual-gateway...")
 
     # end __init__
     
     def execute_command(self, cmd):
-        print cmd
+        print(cmd)
         out = os.system(cmd)
         if out != 0:
-            print "Error executing : " + cmd
+            print("Error executing : " + cmd)
     #end execute_command
 
     def get_interface_index(self, interface):

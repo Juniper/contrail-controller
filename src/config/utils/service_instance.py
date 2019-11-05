@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import print_function
 import os
 import sys
 import errno
@@ -77,7 +78,7 @@ class ServiceInstanceCmd(object):
         config = ConfigParser.SafeConfigParser()
         ret = config.read([args.conf_file])
         if args.conf_file not in ret:
-            print "Error: Unable to read the config file %s" % args.conf_file
+            print("Error: Unable to read the config file %s" % args.conf_file)
             sys.exit(-1)
 
         global_defaults.update(dict(config.items("DEFAULTS")))
@@ -143,12 +144,12 @@ class ServiceInstanceCmd(object):
                 fq_name=self._st_fq_name)
             st_prop = st_obj.get_service_template_properties()
             if st_prop is None:
-                print "Error: Service template %s properties not found"\
-                    % (self._args.template_name)
+                print("Error: Service template %s properties not found"\
+                    % (self._args.template_name))
                 return
         except NoIdError:
-            print "Error: Service template %s not found"\
-                % (self._args.template_name)
+            print("Error: Service template %s not found"\
+                % (self._args.template_name))
             return
 
         if st_prop.get_image_name():
@@ -156,7 +157,7 @@ class ServiceInstanceCmd(object):
             try:
                 self._nova.images.find(name=st_prop.get_image_name())
             except nc_exc.NotFound:
-                print "Error: Image %s not found" % (st_prop.get_image_name())
+                print("Error: Image %s not found" % (st_prop.get_image_name()))
                 return
 
         # check if passed VNs exist
@@ -165,28 +166,28 @@ class ServiceInstanceCmd(object):
                 self._vnc_lib.virtual_network_read(
                     fq_name=self._left_vn_fq_name)
             except NoIdError:
-                print "Error: Left VN %s not found" % (self._left_vn_fq_name)
+                print("Error: Left VN %s not found" % (self._left_vn_fq_name))
                 return
         if self._args.right_vn:
             try:
                 self._vnc_lib.virtual_network_read(
                     fq_name=self._right_vn_fq_name)
             except NoIdError:
-                print "Error: Right VN %s not found" % (self._right_vn_fq_name)
+                print("Error: Right VN %s not found" % (self._right_vn_fq_name))
                 return
         if self._args.mgmt_vn:
             try:
                 self._vnc_lib.virtual_network_read(
                     fq_name=self._mgmt_vn_fq_name)
             except NoIdError:
-                print "Error: Management VN %s not found" % (self._mgmt_vn_fq_name)
+                print("Error: Management VN %s not found" % (self._mgmt_vn_fq_name))
                 return
         else:
             self._mgmt_vn_fq_name = []
             
 
         # create si
-        print "Creating service instance %s" % (self._args.instance_name)
+        print("Creating service instance %s" % (self._args.instance_name))
         project = self._vnc_lib.project_read(fq_name=self._proj_fq_name)
         try:
             si_obj = self._vnc_lib.service_instance_read(
@@ -218,7 +219,7 @@ class ServiceInstanceCmd(object):
 
     def delete_si(self):
         try:
-            print "Deleting service instance %s" % (self._args.instance_name)
+            print("Deleting service instance %s" % (self._args.instance_name))
             self._vnc_lib.service_instance_delete(fq_name=self._si_fq_name)
         except NoIdError:
             return

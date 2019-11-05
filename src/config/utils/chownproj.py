@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 
@@ -71,9 +72,9 @@ def set_perms(obj, owner=None):
     try:
         rv = vnc.chmod(obj.get_uuid(), owner)
         if rv is None:
-            print 'Error in setting perms'
+            print('Error in setting perms')
     except cfgm_common.exceptions.PermissionDenied:
-        print 'Permission denied!'
+        print('Permission denied!')
         sys.exit(1)
 # end set_perms
 
@@ -90,11 +91,11 @@ def read_owner_field(parent_fq_name, obj, owner):
                 try:
                     child = read_child(id=each['uuid'])
                 except NoIdError:
-                    print child_name, each['uuid'], "Encountered exception"
+                    print(child_name, each['uuid'], "Encountered exception")
                     continue
                 read_owner_field(parent_fq_name + child.fq_name, child, owner)
-                print "object_type = %s, object_name = %s, perms2.owner = %s, uuid = %s" % (child_name[:-1], child.fq_name, child.get_perms2().owner, each['uuid'])
-                print
+                print("object_type = %s, object_name = %s, perms2.owner = %s, uuid = %s" % (child_name[:-1], child.fq_name, child.get_perms2().owner, each['uuid']))
+                print()
 # end
 
 
@@ -104,7 +105,7 @@ def update_owner_field(parent_fq_name, obj, owner):
     else:
         for child_name in obj.children_fields:
             if child_name in ignore_list:
-                print "Ignoring update of %s owner" %(child_name)
+                print("Ignoring update of %s owner" %(child_name))
                 continue
             method = getattr(obj, "get_%s" % (child_name))
             val = method() or []
@@ -113,14 +114,14 @@ def update_owner_field(parent_fq_name, obj, owner):
                 try:
                     child = read_child(id=each['uuid'])
                 except Exception as e:
-                    print child_name, each['uuid'], "Encountered exception ", e
+                    print(child_name, each['uuid'], "Encountered exception ", e)
                     continue
                 update_owner_field(parent_fq_name + child.fq_name, child, owner)
-                print "BEFORE UPDATE object_type = %s, object_name = %s, perms2.owner = %s, uuid = %s" % (child_name[:-1], child.fq_name, child.get_perms2().owner, each['uuid'])
+                print("BEFORE UPDATE object_type = %s, object_name = %s, perms2.owner = %s, uuid = %s" % (child_name[:-1], child.fq_name, child.get_perms2().owner, each['uuid']))
                 set_perms(child, owner=owner)
                 child = read_child(id=each['uuid'])
-                print "AFTER UPDATE object_type = %s, object_name = %s, perms2.owner = %s, uuid = %s" % (child_name[:-1], child.fq_name, child.get_perms2().owner, each['uuid'])
-                print
+                print("AFTER UPDATE object_type = %s, object_name = %s, perms2.owner = %s, uuid = %s" % (child_name[:-1], child.fq_name, child.get_perms2().owner, each['uuid']))
+                print()
 # end
 
 
@@ -132,19 +133,19 @@ args = chmod.args
 # Validate API server information
 server = chmod.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port,'\
-          'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port,'\
+          'for example 127.0.0.1:8082')
     sys.exit(1)
 
 # Validate keystone credentials
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = chmod.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 
-print 'API Server = ', chmod.args.server
+print('API Server = ', chmod.args.server)
 
 vnc = VncApi(conf['username'], conf['password'], conf[
              'tenant_name'], server[0], server[1])
@@ -159,18 +160,18 @@ def read_owner():
             project_uuid = str(__uuid.UUID(chmod.args.project_uuid))
             proj = vnc.project_read(id=project_uuid)
         except NoIdError:
-            print 'Project not present, perhaps deleted'
+            print('Project not present, perhaps deleted')
             sys.exit(1)
-        print 'PROJECT- ', proj.uuid, proj.get_perms2().owner
+        print('PROJECT- ', proj.uuid, proj.get_perms2().owner)
         read_owner_field(proj.fq_name, proj, proj.uuid)
     else:
         for project in project_list['projects']:
             try:
                 proj = vnc.project_read(id=project['uuid'])
             except NoIdError:
-                print proj.uuid, "Not present perhaps Deleted"
+                print(proj.uuid, "Not present perhaps Deleted")
                 continue
-            print 'PROJECT- ', proj.uuid, proj.get_perms2().owner
+            print('PROJECT- ', proj.uuid, proj.get_perms2().owner)
             read_owner_field(proj.fq_name, proj, proj.uuid)
 # end
 
@@ -182,9 +183,9 @@ def update_owner():
             project_uuid = str(__uuid.UUID(chmod.args.project_uuid))
             proj = vnc.project_read(id=project_uuid)
         except NoIdError:
-            print 'Project not present, perhaps deleted'
+            print('Project not present, perhaps deleted')
             sys.exit(1)
-        print 'PROJECT- ', proj.uuid, proj.get_perms2().owner
+        print('PROJECT- ', proj.uuid, proj.get_perms2().owner)
         set_perms(proj, owner=proj.uuid)
         update_owner_field(proj.fq_name, proj, proj.uuid)
     else:
@@ -192,9 +193,9 @@ def update_owner():
             try:
                 proj = vnc.project_read(id=project['uuid'])
             except NoIdError:
-                print 'Project not present, perhaps deleted'
+                print('Project not present, perhaps deleted')
                 continue
-            print 'PROJECT- ', proj.uuid, proj.get_perms2().owner
+            print('PROJECT- ', proj.uuid, proj.get_perms2().owner)
             set_perms(proj, owner=proj.uuid)
             update_owner_field(proj.fq_name, proj, proj.uuid)
 # end
@@ -205,5 +206,5 @@ if chmod.args.operation == 'R':
 elif chmod.args.operation == 'U':
     update_owner()
 else:
-    print "--operation is needed"
+    print("--operation is needed")
     sys.exit(1)

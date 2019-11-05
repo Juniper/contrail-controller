@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import argparse
 import ConfigParser
 
@@ -63,7 +64,7 @@ class DemoCfg(object):
     # end __init__
 
     def _create_vn(self, vn_name, vn_subnet):
-        print "Creating network %s, subnet %s" % (vn_name, vn_subnet)
+        print("Creating network %s, subnet %s" % (vn_name, vn_subnet))
         net_req = {'name': '%s' % (vn_name)}
         net_rsp = self._quantum.create_network({'network': net_req})
         net1_id = net_rsp['network']['id']
@@ -79,7 +80,7 @@ class DemoCfg(object):
         net1_fq_name_str = ':'.join(net1_fq_name)
         net2_fq_name_str = ':'.join(net2_fq_name)
 
-        print "Creating policy front-end-to-back-end"
+        print("Creating policy front-end-to-back-end")
         np_rules = [PolicyRuleType(
             direction='<>',
             action_list=ActionListType(simple_action='pass'), protocol='any',
@@ -100,11 +101,11 @@ class DemoCfg(object):
         policy_rsp = self._quantum.create_policy({'policy': policy_req})
         policy1_fq_name = policy_rsp['policy']['fq_name']
 
-        print "Setting front-end policy to [front-end-to-back-end]"
+        print("Setting front-end policy to [front-end-to-back-end]")
         net_req = {'policys': [policy1_fq_name]}
         net_rsp = self._quantum.update_network(net1_id, {'network': net_req})
 
-        print "Setting back-end policy to [front-end-to-back-end]"
+        print("Setting back-end policy to [front-end-to-back-end]")
         net_req = {'policys': [policy1_fq_name]}
         net_rsp = self._quantum.update_network(net2_id, {'network': net_req})
 
@@ -117,7 +118,7 @@ class DemoCfg(object):
         if not vn2_name:
             vn2_name = 'vn2'
 
-        print "Creating network %s, subnet 192.168.1.0/24" % (vn1_name)
+        print("Creating network %s, subnet 192.168.1.0/24" % (vn1_name))
         net_req = {'name': vn1_name}
         net_rsp = self._quantum.create_network({'network': net_req})
         net1_id = net_rsp['network']['id']
@@ -125,7 +126,7 @@ class DemoCfg(object):
         net1_fq_name_str = ':'.join(net1_fq_name)
         self._create_subnet(u'192.168.1.0/24', net1_id)
 
-        print "Creating network %s, subnet 192.168.2.0/24" % (vn2_name)
+        print("Creating network %s, subnet 192.168.2.0/24" % (vn2_name))
         net_req = {'name': vn2_name}
         net_rsp = self._quantum.create_network({'network': net_req})
         net2_id = net_rsp['network']['id']

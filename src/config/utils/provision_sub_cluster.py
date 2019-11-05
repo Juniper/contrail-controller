@@ -18,6 +18,7 @@
 # --admin_password c0ntrail123 --admin_tenant_name admin
 # --sub_cluster_name issu-vm4 --oper add --openstack_ip 10.87.64.55
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -59,8 +60,8 @@ class SubClusterProvisioner(object):
         elif self._args.oper == 'del':
             self.del_sub_cluster()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 

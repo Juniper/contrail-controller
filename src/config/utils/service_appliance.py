@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -44,8 +45,8 @@ class SAProvisioner(object):
         elif self._args.oper == 'del':
             self.del_sa()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 
@@ -135,7 +136,7 @@ class SAProvisioner(object):
         try:
             sa_set_obj = self._vnc_lib.service_appliance_set_read(fq_name=sa_set_fq_name)
         except NoIdError as e:
-            print str(e)
+            print(str(e))
             return
 
         sa_obj = ServiceAppliance(self._args.name, sa_set_obj)

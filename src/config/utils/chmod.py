@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -71,34 +72,34 @@ conf = {}
 # Validate API server information
 server = chmod.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port,'\
-          'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port,'\
+          'for example 127.0.0.1:8082')
     sys.exit(1)
 if chmod.args.uuid:
     if chmod.args.type or chmod.args.name:
-        print 'Ignoring type/name; will derive from UUID'
+        print('Ignoring type/name; will derive from UUID')
 elif not chmod.args.type:
-    print 'You must provide a object type via --type'
+    print('You must provide a object type via --type')
     sys.exit(1)
 elif not chmod.args.name:
-    print 'You must provide a fully qualified name via --name'
+    print('You must provide a fully qualified name via --name')
     sys.exit(1)
 
 # Validate keystone credentials
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = chmod.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 
-print 'API Server = ', chmod.args.server
+print('API Server = ', chmod.args.server)
 if chmod.args.owner:
-    print 'Owner = ', chmod.args.owner
+    print('Owner = ', chmod.args.owner)
 if chmod.args.group:
-    print 'Group = ', chmod.args.group
+    print('Group = ', chmod.args.group)
 if chmod.args.perms:
-    print 'Perms = ', chmod.args.perms
+    print('Perms = ', chmod.args.perms)
 
 ui = {}
 if chmod.args.user:
@@ -106,11 +107,11 @@ if chmod.args.user:
 if chmod.args.role:
     ui['role'] = chmod.args.role
 if ui:
-    print 'Sending user, role as %s/%s' % (chmod.args.user, chmod.args.role)
+    print('Sending user, role as %s/%s' % (chmod.args.user, chmod.args.role))
 
-print 'Keystone credentials %s/%s/%s' % (conf['username'],
+print('Keystone credentials %s/%s/%s' % (conf['username'],
                                          conf['password'],
-                                         conf['tenant_name'])
+                                         conf['tenant_name']))
 vnc = VncApi(conf['username'], conf['password'], conf[
              'tenant_name'], server[0], server[1], user_info=ui)
 
@@ -119,8 +120,8 @@ if chmod.args.uuid:
     chmod.args.type = type
     chmod.args.name = ":".join(name)
 
-print 'Type = ', chmod.args.type
-print 'Name = ', chmod.args.name
+print('Type = ', chmod.args.type)
+print('Name = ', chmod.args.name)
 
 # read object from API server
 method_name = chmod.args.type.replace('-', '_')
@@ -128,11 +129,11 @@ method = getattr(vnc, "%s_read" % (method_name))
 obj = method(fq_name_str=chmod.args.name)
 
 perms = obj.get_id_perms()
-print 'Obj uuid = ', obj.uuid
-print 'Obj perms = %s/%s %d%d%d' \
+print('Obj uuid = ', obj.uuid)
+print('Obj perms = %s/%s %d%d%d' \
     % (perms.permissions.owner, perms.permissions.group,
        perms.permissions.owner_access,
-       perms.permissions.group_access, perms.permissions.other_access)
+       perms.permissions.group_access, perms.permissions.other_access))
 
 write = False
 
@@ -158,9 +159,9 @@ if chmod.args.group:
 
 # write to API server
 if write:
-    print 'New perms = %s/%s %d%d%d' \
+    print('New perms = %s/%s %d%d%d' \
         % (perms.permissions.owner, perms.permissions.group,
            perms.permissions.owner_access,
-           perms.permissions.group_access, perms.permissions.other_access)
+           perms.permissions.group_access, perms.permissions.other_access))
     write_method = getattr(vnc, "%s_update" % (method_name))
     rv = write_method(obj)

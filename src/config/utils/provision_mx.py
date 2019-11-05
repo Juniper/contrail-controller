@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -167,8 +168,8 @@ class MxProvisioner(object):
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.router_name)
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
     # end add_bgp_router
 
     def add_physical_device(self):
@@ -200,7 +201,7 @@ class MxProvisioner(object):
         if uuid:
             self._vnc_lib.physical_router_delete(id=uuid)
         else:
-            print 'No device found with Name : %s' %(self._args.device_name)
+            print('No device found with Name : %s' %(self._args.device_name))
     # end del_physical_device
 
 # end class MxProvisioner

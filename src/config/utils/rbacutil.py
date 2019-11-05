@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -43,13 +44,13 @@ example_usage = \
 
 def show_rbac_rules(api_access_list_entries):
     if api_access_list_entries is None:
-        print 'Empty RBAC group!'
+        print('Empty RBAC group!')
         return
 
     # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
     rule_list = api_access_list_entries.get_rbac_rule()
-    print 'Rules (%d):' % len(rule_list)
-    print '----------'
+    print('Rules (%d):' % len(rule_list))
+    print('----------')
     idx = 1
     for rule in rule_list:
             o = rule.rule_object
@@ -58,9 +59,9 @@ def show_rbac_rules(api_access_list_entries):
             for p in rule.rule_perms:
                 ps += p.role_name + ':' + p.role_crud + ','
             o_f = "%s.%s" % (o,f) if f else o
-            print '%2d %-32s   %s' % (idx, o_f, ps)
+            print('%2d %-32s   %s' % (idx, o_f, ps))
             idx += 1
-    print ''
+    print('')
 # end
 
 # Read VNC object. Return None if object doesn't exists
@@ -70,7 +71,7 @@ def vnc_read_obj(vnc, obj_type, fq_name):
     try:
         return method(fq_name=fq_name)
     except NoIdError:
-        print '%s %s not found!' % (obj_type, fq_name)
+        print('%s %s not found!' % (obj_type, fq_name))
         return None
 # end
 
@@ -142,8 +143,8 @@ vnc_op.parse_args()
 # Validate API server information
 server = vnc_op.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port, '\
-          'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port, '\
+          'for example 127.0.0.1:8082')
     sys.exit(1)
 
 
@@ -152,7 +153,7 @@ conf = {}
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = vnc_op.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 
@@ -167,7 +168,7 @@ if vnc_op.args.user:
 if vnc_op.args.role:
     ui['role'] = vnc_op.args.role
 if ui:
-    print 'Sending user, role as %s/%s' % (vnc_op.args.user, vnc_op.args.role)
+    print('Sending user, role as %s/%s' % (vnc_op.args.user, vnc_op.args.role))
 
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
@@ -176,15 +177,15 @@ if vnc_op.args.aaa_mode:
     try:
         rv = vnc.set_aaa_mode(vnc_op.args.aaa_mode)
     except PermissionDenied:
-        print 'Permission denied'
+        print('Permission denied')
         sys.exit(1)
 
 try:
     rv = vnc.get_aaa_mode()
-    print 'AAA mode is %s' % rv['aaa-mode']
+    print('AAA mode is %s' % rv['aaa-mode'])
 except Exception as e:
-    print str(e)
-    print 'Rbac not supported'
+    print(str(e))
+    print('Rbac not supported')
     sys.exit(1)
 
 if not vnc_op.args.uuid and not vnc_op.args.name:
@@ -198,20 +199,20 @@ if uuid and '-' not in uuid:
 
 fq_name = vnc.id_to_fq_name(uuid) if uuid else vnc_op.args.name.split(':')
 
-print ''
-print 'Oper       = ', vnc_op.args.op
-print 'Name       = %s' % fq_name
-print 'UUID       = %s' % uuid
-print 'API Server = ', vnc_op.args.server
-print ''
+print('')
+print('Oper       = ', vnc_op.args.op)
+print('Name       = %s' % fq_name)
+print('UUID       = %s' % uuid)
+print('API Server = ', vnc_op.args.server)
+print('')
 
 if vnc_op.args.op == 'create':
     # given uuid of domain or parent
     if vnc_op.args.uuid:
         fq_name.append('default-api-access-list')
     elif len(fq_name) != 2 and len(fq_name) != 3:
-        print 'Fully qualified name of rbac group expected'
-        print '<domain>:<rback-group> or <domain>:<project>:<api-access-list>'
+        print('Fully qualified name of rbac group expected')
+        print('<domain>:<rback-group> or <domain>:<project>:<api-access-list>')
         sys.exit(1)
 
     name = fq_name[-1]
@@ -241,8 +242,8 @@ if vnc_op.args.op == 'create':
     show_rbac_rules(rge)
 elif vnc_op.args.op == 'delete':
     if len(fq_name) != 2 and len(fq_name) != 3:
-        print 'Fully qualified name of rbac group expected'
-        print '<domain>:<rback-group> or <domain>:<project>:<api-access-list>'
+        print('Fully qualified name of rbac group expected')
+        print('<domain>:<rback-group> or <domain>:<project>:<api-access-list>')
         sys.exit(1)
     name = fq_name[-1]
 
@@ -266,11 +267,11 @@ elif vnc_op.args.op == 'read':
 elif vnc_op.args.op == 'add-rule':
     rule = build_rule(vnc_op.args.rule)
     if rule is None:
-        print 'A rule string must be specified for this operation'
-        print 'rule format: <resource>.<field> role1:<crud1>,role2:<crud2>'
-        print 'eg * admin:CRUD'
-        print 'eg virtual-network admin:CRUD'
-        print 'eg virtual-network.subnet admin:CRUD,member:R'
+        print('A rule string must be specified for this operation')
+        print('rule format: <resource>.<field> role1:<crud1>,role2:<crud2>')
+        print('eg * admin:CRUD')
+        print('eg virtual-network admin:CRUD')
+        print('eg virtual-network.subnet admin:CRUD,member:R')
         sys.exit(1)
 
     # rbac rule entry consists of one or more rules
@@ -300,10 +301,10 @@ elif vnc_op.args.op == 'add-rule':
     vnc.api_access_list_update(rg)
 elif vnc_op.args.op == 'del-rule':
     if vnc_op.args.rule is None:
-        print 'A rule string must be specified for this operation'
-        print 'Rule format: <resource>.<field> role1:<crud1>,role2:<crud2>'
-        print 'eg virtual-network admin:CRUD'
-        print 'eg virtual-network.subnet admin:CRUD,member:R'
+        print('A rule string must be specified for this operation')
+        print('Rule format: <resource>.<field> role1:<crud1>,role2:<crud2>')
+        print('eg virtual-network admin:CRUD')
+        print('eg virtual-network.subnet admin:CRUD,member:R')
         sys.exit(1)
 
     rg = vnc_read_obj(vnc, 'api-access-list', fq_name)
@@ -317,7 +318,7 @@ elif vnc_op.args.op == 'del-rule':
         del_idx = int(del_idx.group())
         rc = len(rge.rbac_rule)
         if del_idx > rc or del_idx < 1:
-            print 'Invalid rule index to delete. Value must be 1-%d' % rc
+            print('Invalid rule index to delete. Value must be 1-%d' % rc)
             sys.exit(1)
         match = (del_idx, True)
     else:
@@ -325,7 +326,7 @@ elif vnc_op.args.op == 'del-rule':
         match = find_rule(rge, rule)
 
     if not match:
-        print 'Rule not found. Unchanged'
+        print('Rule not found. Unchanged')
         sys.exit(1)
     elif match[1]:
         rge.rbac_rule.pop(match[0]-1)

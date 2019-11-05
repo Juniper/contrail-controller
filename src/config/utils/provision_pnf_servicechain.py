@@ -3,6 +3,7 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -50,8 +51,8 @@ class PnfScProvisioner(object):
         elif self._args.oper == 'del':
             self.del_pnf()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 
@@ -108,7 +109,7 @@ class PnfScProvisioner(object):
         try:
             sas_obj = self._vnc_lib.service_appliance_set_read(
                     fq_name=sa_set_fq_name)
-            print "Service Appliance Set Exists " + (sas_obj.uuid)
+            print("Service Appliance Set Exists " + (sas_obj.uuid))
             return
         except NoIdError:
             sas_obj = ServiceApplianceSet(self._args.name, gsc_obj)
@@ -128,7 +129,7 @@ class PnfScProvisioner(object):
         except AttributeError:
             pass
         sa_set_uuid = self._vnc_lib.service_appliance_set_create(sas_obj)
-        print "Service Appliance Set Created " + (sa_set_uuid)
+        print("Service Appliance Set Created " + (sa_set_uuid))
     # end add_service_appliance_set
 
     def del_service_appliance_set(self):
@@ -141,10 +142,10 @@ class PnfScProvisioner(object):
         try:
             self._vnc_lib.service_appliance_set_delete(fq_name=sa_set_fq_name)
         except NoIdError:
-            print "Error: Service Appliance Set does not exist %s"\
-                                                         % (self._args.name)
+            print("Error: Service Appliance Set does not exist %s"\
+                                                         % (self._args.name))
         else:
-            print "Deleted Service Appliance Set %s " % (self._args.name)
+            print("Deleted Service Appliance Set %s " % (self._args.name))
     # end del_service_appliance_set
 
     def add_service_template(self):
@@ -160,9 +161,9 @@ class PnfScProvisioner(object):
             st_obj = ServiceTemplate(
                 name=template_name, domain_obj=domain)
             st_uuid = self._vnc_lib.service_template_create(st_obj)
-            print "Service Template Created " + (st_uuid)
+            print("Service Template Created " + (st_uuid))
         else:
-            print "Service Template Exists " + (st_uuid)
+            print("Service Template Exists " + (st_uuid))
 
         try:
             sas_obj = self._vnc_lib.service_appliance_set_read(
@@ -171,7 +172,7 @@ class PnfScProvisioner(object):
                     self._args.name)
             st_obj.set_service_appliance_set(sas_obj)
         except NoIdError:
-                print "Cannot find %s" % (self._args.service_appliance_set_name)
+                print("Cannot find %s" % (self._args.service_appliance_set_name))
 
         try:
             svc_properties = ServiceTemplateType()
@@ -184,12 +185,12 @@ class PnfScProvisioner(object):
             if_type.set_service_interface_type('right')
             svc_properties.add_interface_type(if_type)
         except AttributeError:
-            print "Warning: Service template could not be fully updated "\
-                                                            + (st_uuid)
+            print("Warning: Service template could not be fully updated "\
+                                                            + (st_uuid))
         else:
             st_obj.set_service_template_properties(svc_properties)
             self._vnc_lib.service_template_update(st_obj)
-            print "Service Template Updated " + (st_uuid)
+            print("Service Template Updated " + (st_uuid))
 
     # end add_service_template
 
@@ -199,10 +200,10 @@ class PnfScProvisioner(object):
         try:
             self._vnc_lib.service_template_delete(fq_name=st_fq_name)
         except NoIdError:
-            print "Error: Service template does not exist %s "\
-                                              % (template_name)
+            print("Error: Service template does not exist %s "\
+                                              % (template_name))
         else:
-            print "Deleted Service Template " + (template_name)
+            print("Deleted Service Template " + (template_name))
     # end del_service_template
 
     def add_service_appliance(self):
@@ -214,14 +215,14 @@ class PnfScProvisioner(object):
             sas_obj = self._vnc_lib.service_appliance_set_read(
                                                        fq_name=sas_fq_name)
         except NoIdError:
-            print "Error: Service Appliance Set does not exist %s "\
-                                                       % (self._args.name)
+            print("Error: Service Appliance Set does not exist %s "\
+                                                       % (self._args.name))
             sys.exit(-1)
 
         sa_obj = ServiceAppliance(appliance_name, sas_obj)
         try:
             sa_obj = self._vnc_lib.service_appliance_read(fq_name=sa_fq_name)
-            print "Service Appliance Exists " + (sa_obj.uuid)
+            print("Service Appliance Exists " + (sa_obj.uuid))
         except NoIdError:
             # sa_uuid = self._vnc_lib.service_appliance_create(sa_obj)
             # print "Service Appliance Created " + (sa_uuid)
@@ -241,8 +242,8 @@ class PnfScProvisioner(object):
             sa_obj.set_service_appliance_virtualization_type(
                                              self._args.virtualization_type)
         except AttributeError:
-            print "Warning: Some attributes of Service Appliance missing "\
-                                                            + (appliance_name)
+            print("Warning: Some attributes of Service Appliance missing "\
+                                                            + (appliance_name))
 
         try:
             pnf_left_intf_obj = self._vnc_lib.physical_interface_read(
@@ -252,11 +253,11 @@ class PnfScProvisioner(object):
             attr = ServiceApplianceInterfaceType( interface_type='left')
             sa_obj.add_physical_interface(pnf_left_intf_obj, attr)
         except NoIdError:
-            print "Error: Left PNF interface does not exist %s "\
-                                                  % (self._args.pnf_left_intf)
+            print("Error: Left PNF interface does not exist %s "\
+                                                  % (self._args.pnf_left_intf))
             sys.exit(-1)
         except AttributeError:
-            print "Error: Left PNF interface missing"
+            print("Error: Left PNF interface missing")
             sys.exit(-1)
 
         try:
@@ -267,15 +268,15 @@ class PnfScProvisioner(object):
             attr = ServiceApplianceInterfaceType( interface_type='right')
             sa_obj.add_physical_interface(pnf_right_intf_obj, attr)
         except NoIdError:
-            print "Error: Right PNF interface does not exist %s "\
-                                               % (self._args.pnf_right_intf)
+            print("Error: Right PNF interface does not exist %s "\
+                                               % (self._args.pnf_right_intf))
             sys.exit(-1)
         except AttributeError:
-            print "Error: Right PNF interface missing"
+            print("Error: Right PNF interface missing")
             sys.exit(-1)
 
         self._vnc_lib.service_appliance_create(sa_obj)
-        print "Service Appliance Updated " + (sa_obj.uuid)
+        print("Service Appliance Updated " + (sa_obj.uuid))
     # end add_service_appliance
 
     def del_service_appliance(self):
@@ -285,9 +286,9 @@ class PnfScProvisioner(object):
         try:
             self._vnc_lib.service_appliance_delete(fq_name=sa_fq_name)
         except NoIdError:
-            print "Error: Service Appliance does not exist " + (appliance_name)
+            print("Error: Service Appliance does not exist " + (appliance_name))
         else:
-            print "Deleted Service Appliance " + (appliance_name)
+            print("Deleted Service Appliance " + (appliance_name))
     # end del_service_instance
 
     def add_service_instance(self):
@@ -299,7 +300,7 @@ class PnfScProvisioner(object):
         si_obj.fq_name = si_fq_name
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
-            print "Service Instance exists " + (si_obj.uuid)
+            print("Service Instance exists " + (si_obj.uuid))
         except NoIdError:
             # si_uuid = self._vnc_lib.service_instance_create(si_obj)
             # print "Service Instance created " + (si_uuid)
@@ -308,7 +309,7 @@ class PnfScProvisioner(object):
             st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
             si_obj.add_service_template(st_obj)
         except NoIdError:
-            print "Error! Service template not found " + (st_name)
+            print("Error! Service template not found " + (st_name))
             sys.exit(-1)
 
         try:
@@ -330,10 +331,10 @@ class PnfScProvisioner(object):
             props.set_ha_mode("active-standby")
             si_obj.set_service_instance_properties(props)
         except AttributeError:
-            print "Warning: Some attributes of Service Instance missing "\
-                                                                   + (si_name)
+            print("Warning: Some attributes of Service Instance missing "\
+                                                                   + (si_name))
         self._vnc_lib.service_instance_create(si_obj)
-        print "Service Instance created " + (si_obj.uuid)
+        print("Service Instance created " + (si_obj.uuid))
     # end add_service_instance
 
     def del_service_instance(self):
@@ -342,9 +343,9 @@ class PnfScProvisioner(object):
         try:
             self._vnc_lib.service_instance_delete(fq_name=si_fq_name)
         except NoIdError:
-            print "Error: Service Instance does not exist " + (si_name)
+            print("Error: Service Instance does not exist " + (si_name))
         else:
-            print "Deleted Service Instance " + (si_name)
+            print("Deleted Service Instance " + (si_name))
     # end del_service_instance
 
     def add_port_tuple(self):
@@ -355,12 +356,12 @@ class PnfScProvisioner(object):
         try:
             si_obj = self._vnc_lib.service_instance_read(fq_name=si_fq_name)
         except NoIdError:
-            print "Service Instance Not found " + (si_name)
+            print("Service Instance Not found " + (si_name))
             sys.exit(-1)
         pt_obj = PortTuple(pt_name, parent_obj=si_obj)
         try:
             pt_obj = self._vnc_lib.port_tuple_read(fq_name=pt_fq_name)
-            print "Port Tuple Exists " + (pt_obj.uuid)
+            print("Port Tuple Exists " + (pt_obj.uuid))
         except NoIdError:
             # pt_uuid = self._vnc_lib.port_tuple_create(pt_obj)
             # print "Port Tuple Created " + (pt_uuid)
@@ -379,7 +380,7 @@ class PnfScProvisioner(object):
             pt_obj.add_logical_router(left_lr_obj)
             pt_obj.add_logical_router(right_lr_obj)
         except NoIdError as e:
-            print "Error! LR not found " + (e.message)
+            print("Error! LR not found " + (e.message))
             sys.exit(-1)
 	# Add annotations of left-LR UUID and right-LR UUID
 	try:
@@ -392,9 +393,9 @@ class PnfScProvisioner(object):
 	    kvps.set_key_value_pair(kvp_array)
 	    pt_obj.set_annotations(kvps)
 	except AttributeError:
-	    print "Warning: Some attributes of PT missing " + pt_name
+	    print("Warning: Some attributes of PT missing " + pt_name)
         self._vnc_lib.port_tuple_create(pt_obj)
-        print "Port Tuple Updated " + (pt_obj.uuid)
+        print("Port Tuple Updated " + (pt_obj.uuid))
     # end add_port_tuple
 
     def del_port_tuple(self):
@@ -404,9 +405,9 @@ class PnfScProvisioner(object):
         try:
             self._vnc_lib.port_tuple_delete(fq_name=pt_fq_name)
         except NoIdError:
-            print "Error: Port Tuple does not exist " + (pt_name)
+            print("Error: Port Tuple does not exist " + (pt_name))
         else:
-            print "Deleted Port Tuple " + (pt_name)
+            print("Deleted Port Tuple " + (pt_name))
         # end del_port_tuple
 
     def add_pnf(self):
