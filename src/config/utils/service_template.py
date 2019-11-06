@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import print_function
 import os
 import sys
 import errno
@@ -64,7 +65,7 @@ class ServiceTemplateCmd(object):
         config = ConfigParser.SafeConfigParser()
         ret = config.read([args.conf_file])
         if args.conf_file not in ret:
-            print "Error: Unable to read the config file %s" % args.conf_file
+            print("Error: Unable to read the config file %s" % args.conf_file)
             sys.exit(-1)
 
         global_defaults.update(dict(config.items("DEFAULTS")))
@@ -115,7 +116,7 @@ class ServiceTemplateCmd(object):
 
     # create service template
     def create_st(self):
-        print "Creating service template %s" % (self._args.template_name)
+        print("Creating service template %s" % (self._args.template_name))
         try:
             st_obj = self._vnc_lib.service_template_read(
                 fq_name=self._st_fq_name)
@@ -148,16 +149,16 @@ class ServiceTemplateCmd(object):
 
     def delete_st(self):
         try:
-            print "Deleting service template %s" % (self._args.template_name)
+            print("Deleting service template %s" % (self._args.template_name))
             self._vnc_lib.service_template_delete(fq_name=self._st_fq_name)
         except NoIdError:
-            print "Error: Service template %s not found"\
-                % (self._args.template_name)
+            print("Error: Service template %s not found"\
+                % (self._args.template_name))
             return
     #_delete_st
 
     def list_st(self):
-        print "Listing service templates"
+        print("Listing service templates")
         templates = self._vnc_lib.service_templates_list()
         pprint.pprint(templates)
     #_list_st

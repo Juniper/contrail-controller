@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -39,7 +40,7 @@ class StaticRouteProvisioner(object):
         try:
             ip_nw = IPNetwork(prefix)
         except AddrFormatError:
-            print 'Invalid ip address format'
+            print('Invalid ip address format')
             sys.exit(1)
 
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
@@ -58,9 +59,9 @@ class StaticRouteProvisioner(object):
             intf_route_table_id = route_table_obj.uuid
         except NoIdError:
             if self._args.oper == 'del':
-                print "Route table %s does not exist" %(route_table_name)
+                print("Route table %s does not exist" %(route_table_name))
                 sys.exit(1)
-            print "Creating Route table"
+            print("Creating Route table")
             intf_route_table_id = self._vnc_lib.interface_route_table_create(
                                     intf_route_table)
         intf_route_table_obj = self._vnc_lib.interface_route_table_read(
@@ -88,7 +89,7 @@ class StaticRouteProvisioner(object):
         found = False
         for route in routes:
             if route.prefix == prefix:
-                print "Prefix already present in Interface Route Table, not adding"
+                print("Prefix already present in Interface Route Table, not adding")
                 found = True
                 sys.exit(0)
         if not found:
@@ -108,7 +109,7 @@ class StaticRouteProvisioner(object):
                 found = True
                 routes.remove(route)
         if not found:
-            print "Prefix %s not found in Route table %s!" %( prefix, intf_route_table_obj.name)
+            print("Prefix %s not found in Route table %s!" %( prefix, intf_route_table_obj.name))
             sys.exit(1)
         intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj

@@ -2,6 +2,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from __future__ import print_function
 import os
 import sys
 import errno
@@ -169,7 +170,7 @@ class ContrailConfigCmd(object):
 
     #restore config from a file - overwrite old config with the same uuid
     def restore_contrail_config(self):
-        print "Restoring config from %s" % (self._args.filename)
+        print("Restoring config from %s" % (self._args.filename))
         objs = {}
 
         #scan through the file
@@ -222,7 +223,7 @@ class ContrailConfigCmd(object):
             self.final_list.extend(bfs_list)
 
         #post(create) object to api server
-        print self.final_list
+        print(self.final_list)
         print ("Phase create")
         print ("------------")
         for type in self.final_list:
@@ -240,12 +241,12 @@ class ContrailConfigCmd(object):
             self._update_objects(objs, type)
             print("%-64s -- done" % '')
 
-        print "Config restore complete %s" % (self._args.filename)
+        print("Config restore complete %s" % (self._args.filename))
     #restore_contrail_config
 
     #backup config
     def backup_contrail_config(self):
-        print "Snapshot config database to %s" % (self._args.name)
+        print("Snapshot config database to %s" % (self._args.name))
         f = open(self._args.name, 'w')
         records = self._vnc_lib.fetch_records()
 
@@ -255,7 +256,7 @@ class ContrailConfigCmd(object):
             f.write(json.dumps(record) + '\n')
 
         f.close()
-        print "Snapshot config database to %s done" % (self._args.name)
+        print("Snapshot config database to %s done" % (self._args.name))
     #backup_contrail_config
 
 #end class ContrailConfigCmd

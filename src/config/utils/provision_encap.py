@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -38,11 +39,11 @@ class EncapsulationProvision(object):
                     fq_name=global_vrouter_fq_name)
             try:
                 result = self._vnc_lib.global_vrouter_config_create(conf_obj)
-                print 'Created.UUID is %s' % result
+                print('Created.UUID is %s' % result)
             except RefsExistError:
-                print "Already created! Updating the object."
+                print("Already created! Updating the object.")
                 result = self._vnc_lib.global_vrouter_config_update(conf_obj)
-                print 'Updated.%s' % result
+                print('Updated.%s' % result)
             return
         elif self._args.oper != "add":
             encap_obj = EncapsulationPrioritiesType(encapsulation=[])

@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -42,10 +43,10 @@ class MetadataProvisioner(object):
                 linklocal_services_obj = LinklocalServicesTypes([linklocal_obj])
                 conf_obj = GlobalVrouterConfig(linklocal_services=linklocal_services_obj)
                 result = self._vnc_lib.global_vrouter_config_create(conf_obj)
-                print 'Created.UUID is %s'%(result)
+                print('Created.UUID is %s'%(result))
                 return
         except RefsExistError:
-            print "Already created! Updating the object."
+            print("Already created! Updating the object.")
             sleep(5)
 
         current_config = self._vnc_lib.global_vrouter_config_read(
@@ -73,7 +74,7 @@ class MetadataProvisioner(object):
         
         conf_obj=GlobalVrouterConfig(linklocal_services=obj)
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
-        print 'Updated.%s'%(result)
+        print('Updated.%s'%(result))
 
     # end __init__
     

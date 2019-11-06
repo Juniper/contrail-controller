@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -45,8 +46,8 @@ class VrouterProvisioner(object):
         elif self._args.oper == 'del':
             self.del_physical_device()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 
@@ -195,7 +196,7 @@ class VrouterProvisioner(object):
         if uuid:
             self._vnc_lib.physical_router_delete(id=uuid)
         else:
-            print 'No device found with Name : %s' %(self._args.device_name)
+            print('No device found with Name : %s' %(self._args.device_name))
     # end del_physical_device
 
 # end class VrouterProvisioner
@@ -214,7 +215,7 @@ class GetVrouter():
                 self.uuid=vrouter_list['virtual-routers'][i]['uuid']
                 vrouter = self.handle.virtual_router_read(id = self.uuid)
         if not vrouter:
-            print 'No router found with VRouter Name : %s' %(self.vrouter_name)
+            print('No router found with VRouter Name : %s' %(self.vrouter_name))
         return vrouter
 # end class GetVrouter
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 
@@ -81,9 +82,9 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
     try:
         rv = vnc.chmod(obj.get_uuid(), owner, owner_access, share, global_access)
         if rv == None:
-            print 'Error in setting perms'
+            print('Error in setting perms')
     except cfgm_common.exceptions.PermissionDenied:
-        print 'Permission denied!'
+        print('Permission denied!')
         sys.exit(1)
 # end set_perms
 
@@ -95,36 +96,36 @@ args = chmod.args
 # Validate API server information
 server = chmod.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port,'\
-          'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port,'\
+          'for example 127.0.0.1:8082')
     sys.exit(1)
 if chmod.args.uuid:
     if chmod.args.type or chmod.args.name:
-        print 'Ignoring type/name; will derive from UUID'
+        print('Ignoring type/name; will derive from UUID')
 elif not chmod.args.type:
-    print 'You must provide a object type via --type'
+    print('You must provide a object type via --type')
     sys.exit(1)
 elif not chmod.args.name:
-    print 'You must provide a fully qualified name via --name'
+    print('You must provide a fully qualified name via --name')
     sys.exit(1)
 
 # Validate keystone credentials
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = chmod.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 
-print 'API Server = ', chmod.args.server
+print('API Server = ', chmod.args.server)
 if chmod.args.owner:
-    print 'Owner = ', chmod.args.owner
+    print('Owner = ', chmod.args.owner)
 if chmod.args.owner_access:
-    print 'Owner access = ', chmod.args.owner_access
+    print('Owner access = ', chmod.args.owner_access)
 if chmod.args.global_access:
-    print 'global_access = ', chmod.args.global_access
+    print('global_access = ', chmod.args.global_access)
 if chmod.args.share_list:
-    print 'share_list = ', chmod.args.share_list
+    print('share_list = ', chmod.args.share_list)
 
 ui = {}
 if chmod.args.user:
@@ -132,11 +133,11 @@ if chmod.args.user:
 if chmod.args.role:
     ui['role'] = chmod.args.role
 if ui:
-    print 'Sending user, role as %s/%s' % (chmod.args.user, chmod.args.role)
+    print('Sending user, role as %s/%s' % (chmod.args.user, chmod.args.role))
 
-print 'Keystone credentials %s/%s/%s' % (conf['username'],
+print('Keystone credentials %s/%s/%s' % (conf['username'],
                                          conf['password'],
-                                         conf['tenant_name'])
+                                         conf['tenant_name']))
 vnc = VncApi(conf['username'], conf['password'], conf[
              'tenant_name'], server[0], server[1], user_info=ui)
 
@@ -146,25 +147,25 @@ if chmod.args.uuid:
     try:
         name, type = vnc.id_to_fq_name_type(chmod.args.uuid)
     except cfgm_common.exceptions.NoIdError:
-        print 'Unknown UUID %s' % chmod.args.uuid
+        print('Unknown UUID %s' % chmod.args.uuid)
         sys.exit(1)
     except cfgm_common.exceptions.PermissionDenied:
-        print 'Permission denied!'
+        print('Permission denied!')
         sys.exit(1)
     chmod.args.type = type
     chmod.args.name = ":".join(name)
 
-print 'Type = ', chmod.args.type
-print 'Name = ', chmod.args.name
+print('Type = ', chmod.args.type)
+print('Name = ', chmod.args.name)
 
 # read object from API server
 method_name = chmod.args.type.replace('-', '_')
 method = getattr(vnc, "%s_read" % (method_name))
 try:
     obj = method(fq_name_str=chmod.args.name)
-    print 'Cur perms %s' % print_perms(obj.get_perms2())
+    print('Cur perms %s' % print_perms(obj.get_perms2()))
 except cfgm_common.exceptions.PermissionDenied:
-    print 'Permission denied!'
+    print('Permission denied!')
     sys.exit(1)
 
 # write to API server
@@ -183,7 +184,7 @@ if args.owner or args.owner_access or args.global_access is not None or args.sha
            try:
                share_list.append((x[0], int(x[1])))
            except ValueError:
-               print 'share list is tuple of <uuid:octal-perms>, for example "0ed5ea...700:7"'
+               print('share list is tuple of <uuid:octal-perms>, for example "0ed5ea...700:7"')
                sys.exit(1)
     set_perms(obj,
         owner = chmod.args.owner,
@@ -191,4 +192,4 @@ if args.owner or args.owner_access or args.global_access is not None or args.sha
         global_access = int(chmod.args.global_access) if chmod.args.global_access else None,
         share = share_list)
     obj = method(fq_name_str=chmod.args.name)
-    print 'New perms %s' % print_perms(obj.get_perms2())
+    print('New perms %s' % print_perms(obj.get_perms2()))

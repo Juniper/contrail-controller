@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -63,27 +64,27 @@ conf = {}
 # Validate API server information
 server = mt.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port, '
-    print 'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port, ')
+    print('for example 127.0.0.1:8082')
     sys.exit(1)
 
 # Validate keystone credentials
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = mt.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 
 if mt.args.on and mt.args.off:
-    print 'Only one of --on or --off must be specified'
+    print('Only one of --on or --off must be specified')
     sys.exit(1)
 
-print 'API Server = ', mt.args.server
-print 'Keystone credentials %s/%s/%s' % (conf['username'],
+print('API Server = ', mt.args.server)
+print('Keystone credentials %s/%s/%s' % (conf['username'],
                                          conf['password'],
-                                         conf['tenant_name'])
-print ''
+                                         conf['tenant_name']))
+print('')
 
 vnc = VncApi(conf['username'], conf['password'], conf[
              'tenant_name'], server[0], server[1], user_info=None)
@@ -97,9 +98,9 @@ if mt.args.on or mt.args.off:
     try:
         rv = vnc._request_server(rest.OP_PUT, url, json.dumps(data))
     except cfgm_common.exceptions.PermissionDenied:
-        print 'Permission denied'
+        print('Permission denied')
         sys.exit(1)
 
 rv_json = vnc._request_server(rest.OP_GET, url)
 rv = json.loads(rv_json)
-print 'Multi Tenancy is %s' % ('enabled' if rv['enabled'] else 'disabled')
+print('Multi Tenancy is %s' % ('enabled' if rv['enabled'] else 'disabled'))

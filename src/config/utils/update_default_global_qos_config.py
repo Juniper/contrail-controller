@@ -3,6 +3,7 @@
 #Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -21,20 +22,20 @@ class SetDefaultGlobalQos(object):
         self._parse_args(args_str)
 
         if self._args.control < 0 or self._args.control > 63:
-            print 'Invalid control DSCP value ' , self._args.control
+            print('Invalid control DSCP value ' , self._args.control)
             return
 
         if self._args.analytics < 0 or self._args.analytics > 63:
-            print 'Invalid Analytics DSCP value ' , self._args.analytics
+            print('Invalid Analytics DSCP value ' , self._args.analytics)
             return
 
         if self._args.dns < 0 or self._args.dns > 63:
-            print 'Invalid DNS DSCP value ' , self._args.dns
+            print('Invalid DNS DSCP value ' , self._args.dns)
             return
         
-        print "Control ", hex(self._args.control)
-        print "Analytics ", hex(self._args.analytics)
-        print "DNS ", hex(self._args.dns)
+        print("Control ", hex(self._args.control))
+        print("Analytics ", hex(self._args.analytics))
+        print("DNS ", hex(self._args.dns))
         self._vnc_lib = VncApi(self._args.admin_user, self._args.admin_password, 
                                self._args.admin_tenant_name, 
                                self._args.api_server_ip, self._args.api_server_port, '/')
@@ -42,7 +43,7 @@ class SetDefaultGlobalQos(object):
         try:
             qos_obj = self._vnc_lib.global_qos_config_read(fq_name_str=name)
         except NoIdError:
-            print 'Global Qos Config ' + name + ' not found!'
+            print('Global Qos Config ' + name + ' not found!')
             return
  
         value = ControlTrafficDscpType(control=self._args.control, analytics=self._args.analytics, dns=self._args.dns)
@@ -52,10 +53,10 @@ class SetDefaultGlobalQos(object):
         try:
             qos_obj = self._vnc_lib.global_qos_config_read(fq_name_str=name)
         except NoIdError:
-            print 'Global Qos Config ' + name + ' not found!'
+            print('Global Qos Config ' + name + ' not found!')
             return
  
-        print "Updated global qos config ", str(qos_obj)
+        print("Updated global qos config ", str(qos_obj))
 
     #end __init__
 

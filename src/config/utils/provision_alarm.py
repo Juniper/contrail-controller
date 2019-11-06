@@ -3,6 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import json
 import sys
 import time
@@ -43,9 +44,9 @@ class AlarmProvisioner(object):
             try:
                 self._vnc_lib.alarm_create(alarm_obj)
             except AttributeError:
-                print "Invalid alarm config for %s" % (fq_name)
+                print("Invalid alarm config for %s" % (fq_name))
             except RefsExistError:
-                print "alarm config %s already exists, updating" % (fq_name)
+                print("alarm config %s already exists, updating" % (fq_name))
                 try:
                     # we need to keep id_perms field empty in the alarm object
                     # otherwise vnc-api expects a valid id_perms.uuid field.
@@ -56,15 +57,15 @@ class AlarmProvisioner(object):
                     alarm_obj2 = Alarm(**kwargs)
                     self._vnc_lib.alarm_update(alarm_obj2)
                 except AttributeError:
-                    print "Invalid alarm config for %s" % (fq_name)
+                    print("Invalid alarm config for %s" % (fq_name))
                 except Exception as e:
-                    print "Failed to update alarm config %s - %s" % (fq_name, str(e))
+                    print("Failed to update alarm config %s - %s" % (fq_name, str(e)))
                 else:
-                    print "Updated alarm %s" % (fq_name)
+                    print("Updated alarm %s" % (fq_name))
             except Exception as e:
-                print "Failed to create alarm config %s - %s" % (fq_name, str(e))
+                print("Failed to create alarm config %s - %s" % (fq_name, str(e)))
             else:
-                print "Created alarm %s" % (fq_name)
+                print("Created alarm %s" % (fq_name))
     # end __init__
 
     def _parse_args(self, args_str):

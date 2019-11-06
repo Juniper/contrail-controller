@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -47,8 +48,8 @@ class SASProvisioner(object):
         elif self._args.oper == 'del':
             self.del_sas()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 

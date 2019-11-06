@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import re
 
@@ -30,12 +31,12 @@ for row, cols in OBJ_UUID_TABLE.get_range():
     try:
         validate_mandatory_fields(row, cols)
     except Exception as e:
-        print str(e)
+        print(str(e))
         continue
 
     fq_name = cols['fq_name']
     if illegal_xml_chars_RE.search(fq_name[-1]):
-        print "Error, illegal xml char in name %s" %(fq_name[-1])
+        print("Error, illegal xml char in name %s" %(fq_name[-1]))
         continue
 
         if obj_type[:].replace('-','_') == 'route_target':
@@ -44,7 +45,7 @@ for row, cols in OBJ_UUID_TABLE.get_range():
             invalid_chars = INVALID_NAME_CHARS
 
         if any((c in invalid_chars) for c in fq_name[-1]):
-            print "Error, restricted xml characters %s in name %s" %(str(invalid_chars), fq_name[-1])
+            print("Error, restricted xml characters %s in name %s" %(str(invalid_chars), fq_name[-1]))
             continue
 
 exit()

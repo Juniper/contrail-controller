@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -57,8 +58,8 @@ class VrouterProvisioner(object):
             self.del_vhost0_vmi()
             self.del_vrouter()
         else:
-            print "Unknown operation %s. Only 'add' and 'del' supported"\
-                % (self._args.oper)
+            print("Unknown operation %s. Only 'add' and 'del' supported"\
+                % (self._args.oper))
 
     # end __init__
 
@@ -216,7 +217,7 @@ class VrouterProvisioner(object):
                 self.vrouter_fq_name = vrouter_obj.get_fq_name()
                 self._vnc_lib.virtual_router_create(vrouter_obj)
             except RefsExistError:
-                print "Already created!"
+                print("Already created!")
 
     # end add_vrouter
 
@@ -229,7 +230,7 @@ class VrouterProvisioner(object):
             vrouter_exists = False
 
         if not vrouter_exists:
-            print "No vrouter object found cannot add vhost0 vmi !"
+            print("No vrouter object found cannot add vhost0 vmi !")
             return
 
         try:
@@ -256,7 +257,7 @@ class VrouterProvisioner(object):
             try:
                 self._vnc_lib.virtual_machine_interface_create(vhost0_vmi)
             except RefsExistError:
-                print "vhost0 vmi already created!"
+                print("vhost0 vmi already created!")
 
     # end add_vhost0_vmi
 
@@ -274,7 +275,7 @@ class VrouterProvisioner(object):
             self._vnc_lib.virtual_router_delete(
                 fq_name=vrouter_obj.get_fq_name())
         else:
-            print " vrouter object not found "
+            print(" vrouter object not found ")
 
     # end del_vrouter
 
@@ -292,9 +293,9 @@ class VrouterProvisioner(object):
 
         if vhost0_vmi_exists:
             self._vnc_lib.virtual_machine_interface_delete(fq_name=vhost0_vmi_fq_name)
-            print " Deleted vhost0 vmi %s " % vhost0_vmi_fq_name
+            print(" Deleted vhost0 vmi %s " % vhost0_vmi_fq_name)
         else:
-            print " No vhost0 vmi found "
+            print(" No vhost0 vmi found ")
 
     # end del_vhost0_vmi
 

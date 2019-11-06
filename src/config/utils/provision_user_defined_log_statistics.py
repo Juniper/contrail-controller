@@ -53,6 +53,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import argparse
 import ConfigParser
 import sys
@@ -83,13 +84,13 @@ class VncProvisioner(object):
         gsc = vnc.global_system_config_read(id=gsc_uuid)
 
         if hasattr(self._args, 'add'):
-            print 'Add -> ', ', '.join(self._args.add)
+            print('Add -> ', ', '.join(self._args.add))
             g=GlobalSystemConfig()
             g.add_user_defined_log_statistics(UserDefinedLogStat(
                                                         *self._args.add))
             vnc.global_system_config_update(g)
         elif hasattr(self._args, 'delete'):
-            print 'Delete -> ', ', '.join(self._args.delete)
+            print('Delete -> ', ', '.join(self._args.delete))
             if gsc.user_defined_log_statistics:
                 gsc.user_defined_log_statistics.statlist = filter(
                         lambda x: x.name not in self._args.delete,
@@ -98,12 +99,12 @@ class VncProvisioner(object):
                         gsc.user_defined_log_statistics)
                 vnc.global_system_config_update(gsc)
         elif hasattr(self._args, 'list'):
-            print 'ls -> ', ', '.join(self._args.list)
-            print 'Configured:'
+            print('ls -> ', ', '.join(self._args.list))
+            print('Configured:')
             if gsc.user_defined_log_statistics:
                 for x in gsc.user_defined_log_statistics.statlist:
                     if self._chk2print(x.name):
-                        print 'Name: "%s", Pattern: "%s"' % (x.name, x.pattern)
+                        print('Name: "%s", Pattern: "%s"' % (x.name, x.pattern))
     # end __init__
 
     def _chk2print(self, n):

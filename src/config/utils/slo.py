@@ -3,6 +3,7 @@
 #Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -33,15 +34,15 @@ class CreateDeleteSLO(object):
             slo = self._vnc_lib.security_logging_object_read(fq_name = None, fq_name_str=slo_fq_name)
             if slo:
                 if self._args.oper == 'add':
-                    print "security-logging-object %s already exists" %(slo_fq_name)
-                    print "    Details %s", str(slo)
+                    print("security-logging-object %s already exists" %(slo_fq_name))
+                    print("    Details %s", str(slo))
                 else:
                     self._vnc_lib.security_logging_object_delete(fq_name = slo.get_fq_name())
-                    print "security-logging-object %s deleted successfully" %(slo_fq_name)
+                    print("security-logging-object %s deleted successfully" %(slo_fq_name))
                     return
         except NoIdError:
             if self._args.oper == 'delete':
-                print "security-logging-object %s does NOT exist" %(slo_fq_name)
+                print("security-logging-object %s does NOT exist" %(slo_fq_name))
                 return
             parent = None
 
@@ -115,18 +116,18 @@ class CreateDeleteSLO(object):
         ret_value  = True
         if self._args.oper == 'associate' or self._args.oper == 'disassociate':
             if not self._args.slo_fq_name:
-                print "SLO FQ-name required for --oper=associate/disassociate"
+                print("SLO FQ-name required for --oper=associate/disassociate")
                 ret_value = False
             if not self._args.vn_fq_name and not self._args.vmi_fq_name and not self._args.fw_rule_fq_name and \
                 not self._args.fw_policy_fq_name:
-                print "VN/VMI/Firewall-rule/Firewall-policy FQ-name required for --oper=associate/disassociate"
+                print("VN/VMI/Firewall-rule/Firewall-policy FQ-name required for --oper=associate/disassociate")
                 ret_value = False
         else:
             if not self._args.name:
-                print "Argument --name required for --oper=add or --oper=delete"
+                print("Argument --name required for --oper=add or --oper=delete")
                 ret_value = False
             if not self._args.parent:
-                print "Argument --parent required for --oper=add or --oper=delete"
+                print("Argument --parent required for --oper=add or --oper=delete")
                 ret_value = False
         return ret_value
     #end _parse_args
@@ -135,13 +136,13 @@ class CreateDeleteSLO(object):
         try:
             slo = self._vnc_lib.security_logging_object_read(fq_name = None, fq_name_str=self._args.slo_fq_name)
         except NoIdError:
-            print "security-logging-object %s does NOT exist" %(self._args.slo_fq_name)
+            print("security-logging-object %s does NOT exist" %(self._args.slo_fq_name))
             return
         if self._args.vn_fq_name:
             try:
                 vn = self._vnc_lib.virtual_network_read(fq_name_str = self._args.vn_fq_name)
             except NoIdError:
-                print "Virtual Network %s does NOT exist" %(self._args.vn_fq_name)
+                print("Virtual Network %s does NOT exist" %(self._args.vn_fq_name))
                 return
             if self._args.oper == 'associate':
                 vn.add_security_logging_object(slo)
@@ -152,7 +153,7 @@ class CreateDeleteSLO(object):
             try:
                 vmi = self._vnc_lib.virtual_machine_interface_read(fq_name_str = self._args.vmi_fq_name)
             except NoIdError:
-                print "Virtual Machine Interface %s does NOT exist" %(self._args.vmi_fq_name)
+                print("Virtual Machine Interface %s does NOT exist" %(self._args.vmi_fq_name))
                 return
             if self._args.oper == 'associate':
                 vmi.add_security_logging_object(slo)
@@ -163,7 +164,7 @@ class CreateDeleteSLO(object):
             try:
                 fp = self._vnc_lib.firewall_policy_read(fq_name_str = self._args.fw_policy_fq_name)
             except NoIdError:
-                print "Firewall Policy %s does NOT exist" %(self._args.fw_policy_fq_name)
+                print("Firewall Policy %s does NOT exist" %(self._args.fw_policy_fq_name))
                 return
             if self._args.oper == 'associate':
                 fp.add_security_logging_object(slo)
@@ -174,7 +175,7 @@ class CreateDeleteSLO(object):
             try:
                 fr = self._vnc_lib.firewall_rule_read(fq_name_str = self._args.fw_rule_fq_name)
             except NoIdError:
-                print "Firewall rule %s does NOT exist" %(self._args.fw_rule_fq_name)
+                print("Firewall rule %s does NOT exist" %(self._args.fw_rule_fq_name))
                 return
             if self._args.oper == 'associate':
                 fr.add_security_logging_object(slo)

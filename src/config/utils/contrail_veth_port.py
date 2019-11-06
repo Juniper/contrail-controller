@@ -80,6 +80,7 @@ AUTHOR
   Noel Burton-Krahn <noel@pistoncloud.com>
 
 """
+from __future__ import print_function
 __docformat__ = "restructuredtext en"
 
 import sys
@@ -435,7 +436,7 @@ class ContrailVethPort(object):
             self.delete()
         else:
             ret = self.create()
-            print format_dict(ret, self.args.get('format'))
+            print(format_dict(ret, self.args.get('format')))
 
 if __name__ == '__main__':
     ContrailVethPort().main()

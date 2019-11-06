@@ -79,6 +79,7 @@ provider_config:
       ssh_key_file: '/home/stack/.ssh/id_rsa'
   gcore_needed: true
 """
+from __future__ import print_function
 
 import subprocess
 import time
@@ -472,7 +473,7 @@ class Debug(object):
 
     def get_vrouter_logs(self):
         print('\nTASK : copy vrouter logs')
-        print "\nDumping the output of commands to files"
+        print("\nDumping the output of commands to files")
         commands = ['nh --list', 'vrouter --info', 'dropstats',
                     'dropstats -l 0', 'vif --list', 'mpls --dump',
                     'vxlan --dump', 'vrfstats --dump', 'vrmemstats',
@@ -516,7 +517,7 @@ class Debug(object):
     # end get_vrouter_logs
 
     def get_per_vrf_logs(self):
-        print "\nParsing through the vrfstats dump and getting logs per vrf"
+        print("\nParsing through the vrfstats dump and getting logs per vrf")
         myCmd = sudo_prefix + 'docker exec %s /bin/sh -c \
                 "vrfstats --dump"' % (self._container)
         cmd_op = self.get_ssh_cmd_output(myCmd)
@@ -591,7 +592,7 @@ class Debug(object):
     # end get_per_vrf_logs
 
     def get_virsh_individual_stats(self):
-        print "\nParsing through the virsh list and getting logs per virsh"
+        print("\nParsing through the virsh list and getting logs per virsh")
 
         myCmd = sudo_prefix + 'docker exec %s /bin/sh -c \
             "virsh list"' % (self._container)
@@ -728,14 +729,14 @@ class Introspect:
         try:
             response = urlopen(url)
         except HTTPError as e:
-            print 'The server couldn\'t fulfill the request.'
-            print 'URL: ' + url
-            print 'Error code: ', e.code
+            print('The server couldn\'t fulfill the request.')
+            print('URL: ' + url)
+            print('Error code: ', e.code)
             return 0
         except URLError as e:
-            print 'Failed to reach destination'
-            print 'URL: ' + url
-            print 'Reason: ', e.reason
+            print('Failed to reach destination')
+            print('URL: ' + url)
+            print('Reason: ', e.reason)
             return 0
         else:
             ISOutput = response.read()
@@ -789,7 +790,7 @@ USAGE_TEXT = __doc__
 
 
 def usage():
-    print USAGE_TEXT
+    print(USAGE_TEXT)
     sys.exit(1)
 
 

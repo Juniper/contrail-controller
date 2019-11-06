@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -54,7 +55,7 @@ class ForwardingModeSetup(object):
                 found = True
 
         if not found:
-            print "No Virtual Network  %s" %(vn_name)
+            print("No Virtual Network  %s" %(vn_name))
             sys.exit(1)
         
     # end __init__

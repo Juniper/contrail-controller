@@ -3,6 +3,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import time
 import argparse
@@ -152,10 +153,10 @@ class ISSUContrailPostProvisioner(object):
                 database_node_exists = False
 
             if database_node_exists:
-                print "updated"
+                print("updated")
                 self._vnc_lib.database_node_update(database_node_obj)
             else:
-                print "created"
+                print("created")
                 self._vnc_lib.database_node_create(database_node_obj)
 
         for k,v in self._args.config_host_info.items():
@@ -170,10 +171,10 @@ class ISSUContrailPostProvisioner(object):
                 config_node_exists = False
 
             if config_node_exists:
-                print "updated config"
+                print("updated config")
                 self._vnc_lib.config_node_update(config_node_obj)
             else:
-                print "created config"
+                print("created config")
                 self._vnc_lib.config_node_create(config_node_obj)
 
         for k,v in self._args.analytics_host_info.items():
@@ -188,10 +189,10 @@ class ISSUContrailPostProvisioner(object):
                 analytics_node_exists = False
 
             if analytics_node_exists:
-                print "updated analytics"
+                print("updated analytics")
                 self._vnc_lib.analytics_node_update(analytics_node_obj)
             else:
-                print "created analytics"
+                print("created analytics")
                 self._vnc_lib.analytics_node_create(analytics_node_obj)
 
 
@@ -207,7 +208,7 @@ class ISSUContrailPostProvisioner(object):
         for node_list_value in node_list_values[0]:
             if node_list_value['fq_name'][1] in db_name_list:
                 continue
-            print "deleting %s" %(node_list_value['fq_name'])
+            print("deleting %s" %(node_list_value['fq_name']))
             self._vnc_lib.database_node_delete(
              fq_name=node_list_value['fq_name'])
 
@@ -220,7 +221,7 @@ class ISSUContrailPostProvisioner(object):
         for node_list_value in node_list_values[0]:
             if node_list_value['fq_name'][1] in analytics_name_list:
                 continue;
-            print "deleting %s" %(node_list_value['fq_name'])
+            print("deleting %s" %(node_list_value['fq_name']))
             self._vnc_lib.analytics_node_delete(
              fq_name=node_list_value['fq_name'])
 
@@ -233,7 +234,7 @@ class ISSUContrailPostProvisioner(object):
         for node_list_value in node_list_values[0]:
             if node_list_value['fq_name'][1] in config_name_list:
                 continue;
-            print "deleting %s" %(node_list_value['fq_name'])
+            print("deleting %s" %(node_list_value['fq_name']))
             self._vnc_lib.config_node_delete(
              fq_name=node_list_value['fq_name'])
 
@@ -245,12 +246,12 @@ class ISSUContrailPostProvisioner(object):
             control_name_list.append(v)
         for node_list_value in node_list_values[0]:
             router_info = self._vnc_lib.bgp_router_read(id=node_list_value['uuid'])
-            print "control name lists %s " %(control_name_list)
+            print("control name lists %s " %(control_name_list))
             if node_list_value['fq_name'][4] in control_name_list or \
                router_info.bgp_router_parameters.router_type != 'control-node':
                 continue;
-            print "deleting %s %s" %(node_list_value['fq_name'][4],
-                    router_info.bgp_router_parameters.router_type)
+            print("deleting %s %s" %(node_list_value['fq_name'][4],
+                    router_info.bgp_router_parameters.router_type))
             self._vnc_lib.bgp_router_delete(id=node_list_value['uuid'])
 
         # delete old TSN nodes and refs
@@ -280,10 +281,10 @@ class ISSUContrailPostProvisioner(object):
                     try:
                         self._vnc_lib.virtual_router_delete(fq_name=vr_obj.fq_name)
                     except RefsExistError:
-                        print "refs existing on the virtual-router %s, " + \
+                        print("refs existing on the virtual-router %s, " + \
                               "inspect the objects linked to this vrouter " + \
                               "and clean them manually, and re-run the script" \
-                               %vr_obj.fq_name
+                               %vr_obj.fq_name)
 # end class ISSUContrailPostProvisioner
 
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -10,6 +11,7 @@ import os
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import *
 from cfgm_common.exceptions import *
+from functools import reduce
 
 
 def CamelCase(input):
@@ -27,13 +29,13 @@ def str_to_class(class_name):
 def print_perms2(obj):
     perms2 = obj.get_perms2()
     if perms2 is None:
-        print '** EMPTY PERMS2 **'
+        print('** EMPTY PERMS2 **')
         return
 
     share_perms = ['%s:%s' % (x.tenant, x.tenant_access) for x in perms2.share]
-    print 'perms2 o=%s/%d g=%d s=%s' \
+    print('perms2 o=%s/%d g=%d s=%s' \
         % (perms2.owner, perms2.owner_access,
-           perms2.global_access, share_perms)
+           perms2.global_access, share_perms))
 # end print_perms
 
 # Read VNC object. Return None if object doesn't exists
@@ -43,10 +45,10 @@ def vnc_read_obj(vnc, obj_type, fq_name):
     try:
         return method(fq_name=fq_name)
     except NoIdError:
-        print '%s %s not found!' % (obj_type, fq_name)
+        print('%s %s not found!' % (obj_type, fq_name))
         return None
     except PermissionDenied:
-        print 'No permission to read %s' % fq_name
+        print('No permission to read %s' % fq_name)
         return None
 # end
 
@@ -109,8 +111,8 @@ vnc_op.parse_args()
 # Validate API server information
 server = vnc_op.args.server.split(':')
 if len(server) != 2:
-    print 'API server address must be of the form ip:port, '\
-          'for example 127.0.0.1:8082'
+    print('API server address must be of the form ip:port, '\
+          'for example 127.0.0.1:8082')
     sys.exit(1)
 
 
@@ -119,15 +121,15 @@ conf = {}
 for name in ['username', 'password', 'tenant_name']:
     val, rsp = vnc_op.get_ks_var(name)
     if val is None:
-        print rsp
+        print(rsp)
         sys.exit(1)
     conf[name] = val
 username = conf['username']
 password = conf['password']
 tenant_name = conf['tenant_name']
 
-print 'Oper = ', vnc_op.args.op
-print 'API Server = ', vnc_op.args.server
+print('Oper = ', vnc_op.args.op)
+print('API Server = ', vnc_op.args.server)
 
 ui = {}
 if vnc_op.args.user:
@@ -135,37 +137,37 @@ if vnc_op.args.user:
 if vnc_op.args.role:
     ui['role'] = vnc_op.args.role
 if ui:
-    print 'Sending user, role as %s/%s' % (vnc_op.args.user, vnc_op.args.role)
+    print('Sending user, role as %s/%s' % (vnc_op.args.user, vnc_op.args.role))
 
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
 
 if vnc_op.args.uuid and vnc_op.args.name:
-    print 'Only one of uuid and fqname should be specified'
+    print('Only one of uuid and fqname should be specified')
     sys.exit(1)
 elif not vnc_op.args.uuid and not vnc_op.args.name:
-    print 'One of uuid or fqname should be specified'
+    print('One of uuid or fqname should be specified')
     sys.exit(1)
 
 uuid = vnc_op.args.uuid
 if uuid:
     if '-' not in uuid:
         uuid = str(__uuid.UUID(uuid))
-    print 'UUID = ', uuid
+    print('UUID = ', uuid)
     fq_name, obj_type = vnc.id_to_fq_name_type(uuid)
     if vnc_op.args.type and obj_type != vnc_op.args.type:
-        print 'Object type mismatch! From UUID %s, specified %s' %\
-            (obj_type, vnc_op.args.type)
+        print('Object type mismatch! From UUID %s, specified %s' %\
+            (obj_type, vnc_op.args.type))
         sys.exit(1)
 else:
     fq_name = vnc_op.args.name.split(':')
     obj_type = vnc_op.args.type
 
-print 'Name = ', fq_name
-print 'Type = ', obj_type
+print('Name = ', fq_name)
+print('Type = ', obj_type)
 
 if obj_type is None:
-    print 'Missing object type'
+    print('Missing object type')
     sys.exit(1)
 
 cls = str_to_class(CamelCase(obj_type))
@@ -188,8 +190,8 @@ if vnc_op.args.op == 'create':
     method = getattr(vnc, "%s_create" % (method_name))
     #obj.set_network_ipam(ipam, vns)
     id = method(obj)
-    print 'Created %s "%s", uuid = %s' % (obj_type,
-                                          vnc_op.args.name, id)
+    print('Created %s "%s", uuid = %s' % (obj_type,
+                                          vnc_op.args.name, id))
     obj2 = vnc_read_obj(vnc, obj_type, obj.get_fq_name())
     obj2.dump()
     print_perms2(obj2)
@@ -207,7 +209,7 @@ elif vnc_op.args.op == 'read':
     else:
         obj = vnc_read_obj(vnc, obj_type, fq_name)
         if obj:
-            print 'Read %s "%s"' % (obj_type, fq_name)
+            print('Read %s "%s"' % (obj_type, fq_name))
             obj.dump()
             print_perms2(obj)
 elif vnc_op.args.op == 'update':
@@ -215,7 +217,7 @@ elif vnc_op.args.op == 'update':
     method_name = obj_type.replace('-', '_')
     method = getattr(vnc, "%s_read" % (method_name))
     obj = method(fq_name=fq_name)
-    print 'Read %s "%s"' % (obj_type, fq_name)
+    print('Read %s "%s"' % (obj_type, fq_name))
     obj.dump()
     # print ''
 
@@ -223,10 +225,10 @@ elif vnc_op.args.op == 'update':
     method_name = obj_type.replace('-', '_')
     method = getattr(vnc, "%s_update" % (method_name))
     result = method(obj)
-    print 'Write result = ', result
+    print('Write result = ', result)
 elif vnc_op.args.op == 'delete':
     method_name = obj_type.replace('-', '_')
     method = getattr(vnc, "%s_delete" % (method_name))
     result = method(fq_name=fq_name)
-    print 'Deleting %s "%s"' % (obj_type, fq_name)
-    print 'Result = ', result
+    print('Deleting %s "%s"' % (obj_type, fq_name))
+    print('Result = ', result)

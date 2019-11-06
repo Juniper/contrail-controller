@@ -3,6 +3,7 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ConfigParser
@@ -60,10 +61,10 @@ class GlobalVrouterConfigProvisioner(object):
                     conf_obj=GlobalVrouterConfig(flow_export_rate=self._args.flow_export_rate)
                     conf_obj.set_port_translation_pools(port_trans_pools_obj)
                     result=self._vnc_lib.global_vrouter_config_create(conf_obj)
-                    print 'Created.UUID is %s'%(result)
+                    print('Created.UUID is %s'%(result))
                 return
             except RefsExistError:
-                print "Already created!"
+                print("Already created!")
 
         existing_snat_pools = current_config.get_port_translation_pools()
         if not existing_snat_pools:
@@ -80,7 +81,7 @@ class GlobalVrouterConfigProvisioner(object):
             conf_obj.set_port_translation_pools(existing_snat_pools)
 
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
-        print 'Updated.%s'%(result)
+        print('Updated.%s'%(result))
     # end __init__
 
     def check_dup_snat_pool(self, snat_pool, existing_snat_pools):
