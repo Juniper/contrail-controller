@@ -95,6 +95,7 @@ class DMUtils(object):
     MAX_SERVICE_SET_NAME_LENGTH = 23
     MAX_FILTER_NAME_LENGTH = 63
     MAX_FILTER_TERM_NAME_LENGTH = 63
+    MAX_SG_NAME_LENGTH = 17
     LO0_INTF_UNIT_START_ID = 1000
 
     @staticmethod
@@ -438,22 +439,30 @@ class DMUtils(object):
         return "/* Firewalls Configuration */"
 
     @staticmethod
+    def make_sg_name(sg_name):
+        return sg_name.strip().replace(' ', '-')[:DMUtils.MAX_SG_NAME_LENGTH]
+
+    @staticmethod
     def make_sg_filter_name(sg_name, ether_match, rule_uuid):
-        return "sg-filter-" + ether_match + "-" + sg_name + "-" + rule_uuid
+        return "sg-filter-" + ether_match + "-" + \
+               DMUtils.make_sg_name(sg_name) + "-" + rule_uuid
 
     @staticmethod
     def sg_firewall_comment(sg_name, ether_type_match, rule_uuid):
         return "/* Firewall Filter for : Ether Type: " + ether_type_match + \
-            ", Security Group: " + sg_name + ", Rule UUID: " + rule_uuid
+               ", Security Group: " + DMUtils.make_sg_name(sg_name) +\
+               ", Rule UUID: " + rule_uuid
 
     @staticmethod
     def make_sg_firewall_name(sg_name, acl_uuid):
-        return "sg-filter-" + sg_name + "-" + acl_uuid
+        return "sg-filter-" + DMUtils.make_sg_name(sg_name) + \
+               "-" + acl_uuid
 
     @staticmethod
     def make_sg_firewall_comment(sg_name, acl_uuid):
-        return "/* Firewall Filter for : Security Group: " + sg_name + \
-            ", ACL UUID: " + acl_uuid
+        return "/* Firewall Filter for : Security Group: " + \
+               DMUtils.make_sg_name(sg_name) + \
+               ", ACL UUID: " + acl_uuid
 
     @staticmethod
     def interfaces_comment():
