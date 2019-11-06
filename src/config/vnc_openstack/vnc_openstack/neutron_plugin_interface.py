@@ -3,10 +3,14 @@
 #
 
 from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import bottle
 from cfgm_common import jsonutils as json
 from pprint import pformat
-import ConfigParser
+from six.moves import configparser
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -47,38 +51,38 @@ class NeutronPluginInterface(object):
         try:
             exts_enabled = conf_sections.getboolean('NEUTRON',
                 'contrail_extensions_enabled')
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+        except (configparser.NoSectionError, configparser.NoOptionError):
             exts_enabled = True
         self._contrail_extensions_enabled = exts_enabled
 
         try:
             strict = conf_sections.getboolean('NEUTRON',
                 'strict_compliance')
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+        except (configparser.NoSectionError, configparser.NoOptionError):
             strict = False
         self._strict_compliance = strict
 
         try:
             _vnc_connection_cache_size = int(
                 conf_sections.get("DEFAULTS", "vnc_connection_cache_size"))
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             _vnc_connection_cache_size = 0
 
         try:
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             self._multi_tenancy = True
 
         try:
             self._list_optimization_enabled = \
                 conf_sections.get('DEFAULTS', 'list_optimization_enabled')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             self._list_optimization_enabled = False
 
         try:
             self._sn_host_route = conf_sections.get('DEFAULTS',
                                                     'apply_subnet_host_routes')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             self._sn_host_route = False
 
         self._cfgdb = None
