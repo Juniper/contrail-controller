@@ -6,6 +6,11 @@
 """
 
 from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from past.builtins import basestring
+from builtins import object
 import sys
 import copy
 from collections import namedtuple
@@ -40,7 +45,7 @@ from .context import get_context, use_context
 import datetime
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import TagTypeIdToName
-import StringIO
+from six import StringIO
 
 from vnc_openstack.utils import filter_fields
 from vnc_openstack.utils import resource_is_in_use
@@ -139,12 +144,12 @@ class LocalVncApi(VncApi):
                                                     for k,v in data.items()])
         else:
             if data:
-                x = StringIO.StringIO()
+                x = StringIO()
                 x.write(data)
                 environ['bottle.request.data'] = x
                 environ['bottle.request.json'] = json.loads(data)
                 environ['CONTENT_TYPE'] = 'application/json; charset="UTF-8"',
-                environ['CONTENT_LEN'] = x.len
+                environ['CONTENT_LEN'] = x.tell()
 
         vnc_cfg_api_server.context.set_context(
             vnc_cfg_api_server.context.ApiContext(
@@ -3238,7 +3243,7 @@ class DBInterface(object):
         for net_obj in all_net_objs:
             if net_obj.uuid in ret_dict:
                 continue
-            net_fq_name = unicode(net_obj.get_fq_name())
+            net_fq_name = str(net_obj.get_fq_name())
             if not self._filters_is_present(filters, 'fq_name',
                                             net_fq_name):
                 continue
@@ -3968,7 +3973,7 @@ class DBInterface(object):
                 if not self._filters_is_present(filters, 'id', proj_rtr_id):
                     continue
 
-                proj_rtr_fq_name = unicode(proj_rtr['fq_name'])
+                proj_rtr_fq_name = str(proj_rtr['fq_name'])
                 if not self._filters_is_present(filters, 'fq_name',
                                                 proj_rtr_fq_name):
                     continue
