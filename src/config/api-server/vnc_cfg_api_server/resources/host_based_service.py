@@ -22,13 +22,13 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
     RIGHT = 'right'
     hbf = {
         LEFT: {
-            'IP': '0.1.1.0',
-            'PREFIX_LEN': '24',
+            'IP': '0.1.0.0',
+            'PREFIX_LEN': '16',
             'NAME': 'hbf-left'
         },
         RIGHT: {
-            'IP': '0.2.2.0',
-            'PREFIX_LEN': '24',
+            'IP': '0.2.0.0',
+            'PREFIX_LEN': '16',
             'NAME': 'hbf-right'
         }
     }
@@ -66,8 +66,8 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         return True
 
     @classmethod
-    def _check_default_vn_valid(self, req_dict, is_create):
-        if is_internal_request():
+    def _check_default_vn_valid(self, req_dict, is_create, is_prop_update):
+        if is_internal_request() or is_prop_update:
             return True, ''
         vn_type_set = set()
 
@@ -75,7 +75,7 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         if is_create:
             err_op = 'created'
         else:
-            err_op = 'removed'
+            err_op = 'updated'
 
         for ref in req_dict.get('virtual_network_refs', []):
             if 'attr' in ref and ref['attr'].get('virtual_network_type'):
@@ -212,14 +212,15 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
     def pre_dbe_create(cls, fq_name, obj_dict, db_conn):
         obj_dict.setdefault('host_based_service_type', 'firewall')
 
-        ok, result = cls._check_default_vn_valid(obj_dict, True)
+        ok, result = cls._check_default_vn_valid(obj_dict, True, False)
         if not ok:
             return ok, result
 
         return cls._check_only_one_vn_per_type(obj_dict)
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                       prop_collection_updates=None, **kwargs):
         ok, result = cls.locate(uuid=id, create_it=False,
                                 fields=['virtual_network_refs',
                                         'host_based_service_type'])
@@ -235,7 +236,8 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         if not ok:
             return ok, result
 
-        ok, result = cls._check_default_vn_valid(obj_dict, False)
+        ok, result = cls._check_default_vn_valid(
+            obj_dict, False, prop_collection_updates is not None)
         if not ok:
             return ok, result
 
