@@ -57,7 +57,7 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 {%             set unit = li.get('unit') %}
 {%             set firewall_filters = li.get('firewall_filters', []) %}
 {%             for firewall_filter in firewall_filters %}
-{%                 if 'ERB-UCAST-Gateway' in sys_roles %}
+{%                 if enterprise_style == True %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching filter input-list {{firewall_filter}}
 {%                 else %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family ethernet-switching filter input-list {{firewall_filter}}
