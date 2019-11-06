@@ -7,6 +7,7 @@
 {%             endif %}
 {%             set filter_name = filter.get('name', '') %}
 {%             set terms = filter.get('terms', []) %}
+{%             set ns = namespace(found=false) %}
 {%             for term in terms %}
 {%                 set term_name = term.get('name') %}
 {%                 set term_from = term.get('fromxx') %}
@@ -45,9 +46,13 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} from ether-type {{ether_type}}
 {%                 endif %}
 {%                 if then_accept_or_reject == True %}
+{%                     set ns.found = true %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
 {%                 endif %}
 {%             endfor %}
+{%             if ns.found == true %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term tdenyall then discard
+{%             endif %}
 {%         endfor %}
 {%     endif %}
 {%     set sys_config = device_abstract_config.get('system', None) %}
