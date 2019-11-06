@@ -47,6 +47,7 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 {%             endfor %}
 set groups {{cfg_group}} firewall family ethernet-switching filter arp term t1 from ether-type arp
 set groups {{cfg_group}} firewall family ethernet-switching filter arp term t1 then accept
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term t_deny_all then reject
 {%         endfor %}
 {%     endif %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}

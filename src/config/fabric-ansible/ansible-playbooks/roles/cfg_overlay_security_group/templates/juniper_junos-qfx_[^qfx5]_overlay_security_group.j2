@@ -48,6 +48,7 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
 {%                 endif %}
 {%             endfor %}
+set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term t_deny_all then reject
 {%         endfor %}
 {%     endif %}
 {%     set sys_config = device_abstract_config.get('system', None) %}
