@@ -223,12 +223,13 @@ class AnsibleRoleCommon(AnsibleConf):
         if not is_l2:
             ri.set_routing_instance_type("vrf")
             if fip_map is None:
-                for interface in interfaces:
-                    self.add_ref_to_list(ri.get_interfaces(), interface.name)
-                if prefixes:
-                    for prefix in prefixes:
-                        ri.add_static_routes(self.get_route_for_cidr(prefix))
-                        ri.add_prefixes(self.get_subnet_for_cidr(prefix))
+                if not is_internal_vn:
+                    for interface in interfaces:
+                        self.add_ref_to_list(ri.get_interfaces(), interface.name)
+                    if prefixes:
+                        for prefix in prefixes:
+                            ri.add_static_routes(self.get_route_for_cidr(prefix))
+                            ri.add_prefixes(self.get_subnet_for_cidr(prefix))
         else:
             if highest_encapsulation == "VXLAN":
                 ri.set_routing_instance_type("virtual-switch")
@@ -242,7 +243,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if is_internal_vn or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
 
-        if self.is_gateway() and is_l2_l3:
+        if self.is_gateway() and is_l2_l3 and not is_internal_vn:
             self.add_irb_config(ri_conf)
             self.attach_irb(ri_conf, ri)
 
@@ -335,17 +336,18 @@ class AnsibleRoleCommon(AnsibleConf):
                 self.is_family_configured(self.bgp_params, "e-vpn")):
             vlan = None
             if highest_encapsulation == "VXLAN":
-                vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
-                vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
-                desc = "Virtual Network - %s" % vn.name
-                vlan.set_description(desc)
-                self.vlan_map[vlan.get_name()] = vlan
-                for interface in interfaces:
-                    self.add_ref_to_list(vlan.get_interfaces(), interface.name)
-                if is_l2_l3 and self.is_gateway():
-                    # network_id is unique, hence irb
-                    irb_intf = "irb." + str(network_id)
-                    self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
+                if not is_internal_vn:
+                    vlan = Vlan(name=DMUtils.make_bridge_name(vni), vxlan_id=vni)
+                    vlan.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
+                    desc = "Virtual Network - %s" % vn.name
+                    vlan.set_description(desc)
+                    self.vlan_map[vlan.get_name()] = vlan
+                    for interface in interfaces:
+                        self.add_ref_to_list(vlan.get_interfaces(), interface.name)
+                    if is_l2_l3 and self.is_gateway():
+                        # network_id is unique, hence irb
+                        irb_intf = "irb." + str(network_id)
+                        self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
             elif highest_encapsulation in ["MPLSoGRE", "MPLSoUDP"]:
                 self.init_evpn_config(highest_encapsulation)
                 self.evpn.set_comment(

@@ -746,6 +746,10 @@ class PhysicalRouterDM(DBBaseDM):
                 vn = VirtualNetworkDM.get(vn_uuid)
                 if not vn:
                     continue
+                is_internal_vn = True if '_contrail_lr_internal_vn_' in \
+                    vn.name else False
+                if is_internal_vn:
+                    continue
                 # dont need irb ip, gateway ip
                 if vn.get_forwarding_mode() != fwd_mode:
                     continue
@@ -2626,7 +2630,7 @@ class FabricNamespaceDM(DBBaseDM):
         value = obj.get('fabric_namespace_value')
         if value is not None and value['asn_ranges'] is not None:
             self.asn_ranges = list([(int(asn_range['asn_min']),
-                                    int(asn_range['asn_max']))
+                                     int(asn_range['asn_max']))
                                     for asn_range in value['asn_ranges']])
     # end _read_asn_ranges
 
