@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "a25170ad_0b20a610",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 1776,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-11-06T01:55:47Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8ec5626c_f658e667",
+      "revId": "0e1afd84b5babba4e0a7a1cd23424c3509f3be22",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "15d2beb0_879379fe",
         "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
         "patchSetId": 20
@@ -30,6 +48,24 @@
       "writtenOn": "2019-11-06T00:41:43Z",
       "side": 1,
       "message": "could you please repeat what the difference between job_description and job_transaction_descr is ?",
+      "revId": "0e1afd84b5babba4e0a7a1cd23424c3509f3be22",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bd1158de_d0830a16",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 20
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-11-06T01:55:47Z",
+      "side": 1,
+      "message": "Best explained by example. For role_assignment job, say there are 2 devices affected. There will be one main role_assignment job, then 2 per-device config push (fabric_config) jobs. The role_assignment job will have job_description\u003d\"Role Assignment\" while the 2 config push jobs will have job_description\u003d\"Device Config Push\". All 3 jobs will have job_transaction_descr\u003d\"Role Assignment\".",
+      "parentUuid": "15d2beb0_879379fe",
       "revId": "0e1afd84b5babba4e0a7a1cd23424c3509f3be22",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
