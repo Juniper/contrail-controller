@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a9d4e5c2_22aecdbe",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_security_group/templates/juniper_junos-qfx_[^qfx10]_overlay_security_group.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-11-06T18:25:11Z",
+      "side": 1,
+      "message": "What is there is no firewall term in abstract config, will we still push this deny term always? Let\u0027s check this",
+      "revId": "46db3fc712b8b0dd14fc887f1c785c802b26bc58",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
