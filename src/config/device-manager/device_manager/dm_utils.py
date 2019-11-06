@@ -436,21 +436,25 @@ class DMUtils(object):
 
     @staticmethod
     def make_sg_filter_name(sg_name, ether_match, rule_uuid):
-        return "sg-filter-" + ether_match + "-" + sg_name + "-" + rule_uuid
+        return "sg-filter-" + ether_match + "-" + \
+               sg_name.strip().replace(' ', '_') + "-" + rule_uuid
 
     @staticmethod
     def sg_firewall_comment(sg_name, ether_type_match, rule_uuid):
         return "/* Firewall Filter for : Ether Type: " + ether_type_match + \
-            ", Security Group: " + sg_name + ", Rule UUID: " + rule_uuid
+                ", Security Group: " + sg_name.strip().replace(' ', '_') + \
+                ", Rule UUID: " + rule_uuid
 
     @staticmethod
     def make_sg_firewall_name(sg_name, acl_uuid):
-        return "sg-filter-" + sg_name + "-" + acl_uuid
+        return "sg-filter-" + sg_name.strip().replace(' ', '_') + \
+               "-" + acl_uuid
 
     @staticmethod
     def make_sg_firewall_comment(sg_name, acl_uuid):
-        return "/* Firewall Filter for : Security Group: " + sg_name + \
-            ", ACL UUID: " + acl_uuid
+        return  "/* Firewall Filter for : Security Group: " + \
+                sg_name.strip().replace(' ', '_') + \
+                ", ACL UUID: " + acl_uuid
 
     @staticmethod
     def interfaces_comment():
