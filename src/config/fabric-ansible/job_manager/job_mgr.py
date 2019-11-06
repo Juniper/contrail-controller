@@ -46,6 +46,10 @@ class ExecutableManager(object):
         self.executable_timeout = 1800
         self.job_template = None
         self.job_execution_id = None
+        self.device_name = ""
+        self.job_description = None
+        self.job_transaction_id = None
+        self.job_transaction_descr = None
         self.job_template_id = None
         self.result_handler = None
         self.parse_job_input(job_input)
@@ -59,6 +63,10 @@ class ExecutableManager(object):
         # job input should have job_template_id and execution_id field
         self.job_template_id = job_input_json.get('job_template_id')
         self.job_execution_id = job_input_json.get('job_execution_id')
+        self.job_description = job_input_json.get('job_description', "")
+        self.job_transaction_id = job_input_json.get('job_transaction_id', "")
+        self.job_transaction_descr = \
+            job_input_json.get('job_transaction_descr', "")
         self.job_data = job_input_json.get('input')
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
         self.auth_token = job_input_json.get('auth_token')
@@ -98,6 +106,9 @@ class ExecutableManager(object):
                 'job_execution_id': self.job_execution_id ,
                 'sandesh_args': self.sandesh_args,
                 'vnc_api_init_params': self.vnc_api_init_params,
+                'job_description': self.job_description,
+                'job_transaction_id': self.job_transaction_id,
+                'job_transaction_descr': self.job_transaction_descr
             }
             return extra_vars
 
@@ -112,7 +123,11 @@ class ExecutableManager(object):
                                                    self.fabric_fq_name,
                                                    self._logger,
                                                    self.job_utils,
-                                                   self.job_log_utils)
+                                                   self.job_log_utils,
+                                                   self.device_name,
+                                                   self.job_description,
+                                                   self.job_transaction_id,
+                                                   self.job_transaction_descr)
 
 
             msg = MsgBundle.getMessage(MsgBundle.START_JOB_MESSAGE,
@@ -122,12 +137,16 @@ class ExecutableManager(object):
             self._logger.debug(msg)
 
             timestamp = int(round(time.time() * 1000))
-            self.job_log_utils.send_job_log(job_template.fq_name,
-                                            self.job_execution_id,
-                                            self.fabric_fq_name,
-                                            msg,
-                                            JobStatus.STARTING.value,
-                                            timestamp=timestamp)
+            self.job_log_utils.send_job_log(
+                job_template.fq_name,
+                self.job_execution_id,
+                self.fabric_fq_name,
+                msg,
+                JobStatus.STARTING.value,
+                timestamp=timestamp,
+                description=self.job_description,
+                transaction_id=self.job_transaction_id,
+                transaction_descr=self.job_transaction_descr)
 
             # validate job input if required by job_template input_schema
             input_schema = job_template.get_job_template_input_schema()
@@ -160,12 +179,16 @@ class ExecutableManager(object):
                     self._logger.notice(str(out))
                     self._logger.notice(str(err))
                     timestamp = int(round(time.time() * 1000))
-                    self.job_log_utils.send_job_log(job_template.fq_name,
-                                                self.job_execution_id,
-                                                self.fabric_fq_name,
-                                                str(err),
-                                                JobStatus.IN_PROGRESS.value,
-                                                timestamp=timestamp)
+                    self.job_log_utils.send_job_log(
+                        job_template.fq_name,
+                        self.job_execution_id,
+                        self.fabric_fq_name,
+                        str(err),
+                        JobStatus.IN_PROGRESS.value,
+                        timestamp=timestamp,
+                        description=self.job_description,
+                        transaction_id=self.job_transaction_id,
+                        transaction_descr=self.job_transaction_descr)
                 except subprocess32.TimeoutExpired as timeout_exp:
                     if exec_process is not None:
                         os.kill(exec_process.pid, 9)
@@ -198,12 +221,16 @@ class ExecutableManager(object):
 
                 self._logger.debug(msg)
                 timestamp = int(round(time.time() * 1000))
-                self.job_log_utils.send_job_log(job_template.fq_name,
-                                            self.job_execution_id,
-                                            self.fabric_fq_name,
-                                            msg,
-                                            job_status,
-                                            timestamp=timestamp)
+                self.job_log_utils.send_job_log(
+                    job_template.fq_name,
+                    self.job_execution_id,
+                    self.fabric_fq_name,
+                    msg,
+                    job_status,
+                    timestamp=timestamp,
+                    description=self.job_description,
+                    transaction_id=self.job_transaction_id,
+                    transaction_descr=self.job_transaction_descr)
 
         except JobException as exp:
             err_msg = "Job Exception recieved: %s " % repr(exp)
@@ -236,11 +263,14 @@ class JobManager(object):
 
     def __init__(self, logger, vnc_api, job_input, job_log_utils, job_template,
                  result_handler, job_utils, playbook_seq, job_percent,
-                 zk_client):
+                 zk_client, job_description, job_transaction_id,
+                 job_transaction_descr):
         """Initializes job manager."""
         self._logger = logger
         self._vnc_api = vnc_api
         self.job_execution_id = None
+        self.job_transaction_id = job_transaction_id
+        self.job_transaction_descr = job_transaction_descr
         self.job_data = None
         self.device_json = None
         self.auth_token = None
@@ -253,6 +283,7 @@ class JobManager(object):
         self.fabric_fq_name = None
         self.vnc_api_init_params = None
         self.parse_job_input(job_input)
+        self.job_description = job_description
         self.job_utils = job_utils
         self.playbook_seq = playbook_seq
         self.result_handler = result_handler
@@ -264,7 +295,6 @@ class JobManager(object):
     def parse_job_input(self, job_input_json):
 
         self.job_execution_id = job_input_json.get('job_execution_id')
-
         self.job_data = job_input_json.get('input')
         if self.job_data is None:
             self._logger.debug("Job input data is not provided.")
@@ -297,7 +327,9 @@ class JobManager(object):
                                  self.sandesh_args, self.fabric_fq_name,
                                  self.job_log_utils.args.playbook_timeout,
                                  self.playbook_seq, self.vnc_api_init_params,
-                                 self._zk_client)
+                                 self._zk_client, self.job_description,
+                                 self.job_transaction_id,
+                                 self.job_transaction_descr)
         self.job_handler = job_handler
 
         # check if its a multi device playbook
@@ -371,8 +403,12 @@ class WFManager(object):
         self.job_input = job_input
         self.job_log_utils = job_log_utils
         self.job_execution_id = None
+        self.job_description = None
+        self.job_transaction_id = None
+        self.job_transaction_descr = None
         self.job_template_id = None
         self.device_json = None
+        self.device_name = ""
         self.result_handler = None
         self.job_data = None
         self.fabric_fq_name = None
@@ -399,10 +435,17 @@ class WFManager(object):
                 MsgBundle.JOB_EXECUTION_ID_MISSING)
             raise Exception(msg)
 
+        self.device_json = job_input_json.get('device_json')
+        self.job_description = job_input_json.get('job_description', "")
         self.job_template_id = job_input_json.get('job_template_id')
         self.job_execution_id = job_input_json.get('job_execution_id')
+        self.job_transaction_id = \
+            job_input_json.get('job_transaction_id', self.job_execution_id)
+        self.job_transaction_descr = \
+            job_input_json.get('job_transaction_descr')
         self.job_data = job_input_json.get('input')
         self.fabric_fq_name = job_input_json.get('fabric_fq_name')
+        self.device_name = self._get_device_name()
 
     def _validate_job_input(self, input_schema, ip_json):
         if ip_json is None:
@@ -423,20 +466,52 @@ class WFManager(object):
                                        exc_obj=exp)
             raise JobException(msg, self.job_execution_id)
 
+    def _generate_transaction_descr(self):
+        transaction_descr = self.job_template.display_name
+        if self.device_json:
+            transaction_descr += " for "
+            device_uuid_list = list(self.device_json.keys())
+            for device_uuid in device_uuid_list:
+                device_info = self.device_json[device_uuid]
+                device_fqname = device_info.get('device_fqname')
+                if device_fqname:
+                    device_name = device_fqname[-1]
+                    transaction_descr += device_name + " "
+                    if len(device_uuid_list) == 1:
+                        self.device_name = device_name
+        return transaction_descr
+
+    def _get_device_name(self):
+        if self.device_json:
+            device_uuid_list = list(self.device_json.keys())
+            if len(device_uuid_list) == 1:
+                device_info = self.device_json[device_uuid_list[0]]
+                device_fqname = device_info.get('device_fqname')
+                if device_fqname:
+                    return device_fqname[-1]
+        return ""
+
     def start_job(self):
         job_error_msg = None
         job_template = None
         try:
             # create job UVE and log
+            job_template = self.job_utils.read_job_template()
+            self.job_template = job_template
+            self.job_description = self.job_template.display_name
+            if not self.job_transaction_descr:
+                self.job_transaction_descr = self._generate_transaction_descr()
+
             self.result_handler = JobResultHandler(self.job_template_id,
                                                    self.job_execution_id,
                                                    self.fabric_fq_name,
                                                    self._logger,
                                                    self.job_utils,
-                                                   self.job_log_utils)
-
-            job_template = self.job_utils.read_job_template()
-            self.job_template = job_template
+                                                   self.job_log_utils,
+                                                   self.device_name,
+                                                   self.job_description,
+                                                   self.job_transaction_id,
+                                                   self.job_transaction_descr)
 
             msg = MsgBundle.getMessage(
                 MsgBundle.START_JOB_MESSAGE,
@@ -445,12 +520,17 @@ class WFManager(object):
             self._logger.debug(msg)
 
             timestamp = int(round(time.time() * 1000))
-            self.job_log_utils.send_job_log(job_template.fq_name,
-                                            self.job_execution_id,
-                                            self.fabric_fq_name,
-                                            msg,
-                                            JobStatus.STARTING.value,
-                                            timestamp=timestamp)
+            self.job_log_utils.send_job_log(
+                job_template.fq_name,
+                self.job_execution_id,
+                self.fabric_fq_name,
+                msg,
+                JobStatus.STARTING.value,
+                timestamp=timestamp,
+                device_name=self.device_name,
+                description=self.job_description,
+                transaction_id=self.job_transaction_id,
+                transaction_descr=self.job_transaction_descr)
 
             # validate job input if required by job_template input_schema
             input_schema = job_template.get_job_template_input_schema()
@@ -494,7 +574,10 @@ class WFManager(object):
                                          self.job_input, self.job_log_utils,
                                          job_template,
                                          self.result_handler, self.job_utils,
-                                         i, job_percent, self._zk_client)
+                                         i, job_percent, self._zk_client,
+                                         self.job_description,
+                                         self.job_transaction_id,
+                                         self.job_transaction_descr)
                     self.job_mgr = job_mgr
                     job_mgr.start_job()
 

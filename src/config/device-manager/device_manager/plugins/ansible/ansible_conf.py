@@ -250,6 +250,8 @@ class AnsibleConf(AnsibleBase):
                     device_manager.get_api_server_config(),
                     self._logger,
                     device_manager._amqp_client,
+                    self.physical_router.transaction_id,
+                    self.physical_router.transaction_descr,
                     device_manager._args)
                 self.commit_stats['total_commits_sent_since_up'] += 1
                 start_time = time.time()

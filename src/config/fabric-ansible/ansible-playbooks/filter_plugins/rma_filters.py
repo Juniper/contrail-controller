@@ -11,7 +11,8 @@ import traceback
 from job_manager.job_utils import JobVncApi
 
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
-from filter_utils import FilterLog, _task_error_log  # noqa
+from filter_utils import FilterLog, _task_error_log, get_job_transaction, \
+    set_job_transaction  # noqa
 
 
 class FilterModule(object):
@@ -149,6 +150,11 @@ class FilterModule(object):
 
             # Update serial number on object and save
             device_obj.set_physical_router_serial_number(new_serial_number)
+
+            # Update job transaction ID
+            trans_info = get_job_transaction(self.job_ctx)
+            set_job_transaction(device_obj, None, trans_info)
+
             self.vncapi.physical_router_update(device_obj)
 
             ip_tbl.update({device_uuid: {'dynamic_mgmt_ip': mgmt_ip}})

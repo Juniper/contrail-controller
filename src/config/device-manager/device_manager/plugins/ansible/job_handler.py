@@ -42,7 +42,8 @@ class JobHandler(object):
     JOB_STATUS_ROUTING_KEY = "job.status."
 
     def __init__(self, job_template_name, job_input, device_list,
-                 api_server_config, logger, amqp_client, args):
+                 api_server_config, logger, amqp_client,
+                 transaction_id, transaction_descr, args):
         """Initialize JobHandler init params."""
         self._job_template_name = job_template_name
         self._job_input = job_input
@@ -52,6 +53,8 @@ class JobHandler(object):
         self._job_id = None
         self._job_status = None
         self._amqp_client = amqp_client
+        self._transaction_id = transaction_id
+        self._transaction_descr = transaction_descr
         self._args = args
         super(JobHandler, self).__init__()
     # end __init__
@@ -154,7 +157,9 @@ class JobHandler(object):
                 "api_server_use_ssl":
                     self._args.api_server_use_ssl
             },
-            "cluster_id": self._args.cluster_id
+            "cluster_id": self._args.cluster_id,
+            "job_transaction_id": self._transaction_id,
+            "job_transaction_descr": self._transaction_descr
         }
         return job_input_json
 
