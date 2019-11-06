@@ -13,6 +13,8 @@
 #    under the License.
 #
 
+from builtins import str
+from builtins import range
 import uuid
 
 from gevent import monkey
@@ -617,7 +619,7 @@ class TestFirewallGroup(TestFirewallBase):
 
         # admin can update default firewall group but not the name
         attrs.pop('name')
-        for attr, value in attrs.items():
+        for attr, value in list(attrs.items()):
             self.update_resource(
                 'firewall_group',
                 neutron_default_fg['id'],

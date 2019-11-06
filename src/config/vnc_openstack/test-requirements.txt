@@ -26,3 +26,5 @@ sandesh-common
 pyOpenSSL
 mock
 vine==1.1.3
+configparser
+future

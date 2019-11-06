@@ -1,4 +1,8 @@
 from __future__ import absolute_import
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 from datetime import datetime
 import sys
 import json
@@ -899,7 +903,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             binding_profile = {'local_link_information':[]}
 
             # Create required resources
-            for tor_name, tor_info in tors.iteritems():
+            for tor_name, tor_info in tors.items():
                 pr_name = tor_name
                 pr = vnc_api.PhysicalRouter(pr_name)
                 tor_info['pr_uuid'] = self._vnc_lib.physical_router_create(pr)
@@ -911,7 +915,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                                            parent_obj=tor_info['pr_obj'])
                     tor_info['pi_uuid'][pi_name] = self._vnc_lib.physical_interface_create(pi)
 
-            for bond, bond_info in bonds.iteritems():
+            for bond, bond_info in bonds.items():
                 binding_profile['local_link_information'] = []
                 for t in range(len(bond_info['tors'])):
                     for i in range(len(bond_info['tors'][t]['interfaces'])):
@@ -927,7 +931,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 fq_name=['default-domain', 'default-project'])
 
             zk_index = 0
-            for bond, bond_info in bonds.iteritems():
+            for bond, bond_info in bonds.items():
                 context = {'operation': 'CREATE',
                            'user_id': '',
                            'is_admin': True,
@@ -1014,7 +1018,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             # created to facilitate LAG interface are deleted with the
             # deleetion of portDed and/or bound.
 
-            for bond, bond_info in bonds.iteritems():
+            for bond, bond_info in bonds.items():
                 port_dict = bond_info['port_dict']
                 self.delete_resource('port', proj_uuid, port_dict['id'])
 
@@ -1053,14 +1057,14 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 self.assertFalse(True)
 
             # Clen up the resources
-            for tor_name, tor_info in tors.iteritems():
+            for tor_name, tor_info in tors.items():
                 interfaces = tor_info['pi_uuid']
                 for i in interfaces.values():
                     self._vnc_lib.physical_interface_delete(id=i)
             self._vnc_lib.security_group_delete(id=sg_obj.uuid)
             self._vnc_lib.virtual_router_delete(id=vr_obj)
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-            for tor_name, tor_info in tors.iteritems():
+            for tor_name, tor_info in tors.items():
                 self._vnc_lib.physical_router_delete(id=tor_info['pr_uuid'])
 
 

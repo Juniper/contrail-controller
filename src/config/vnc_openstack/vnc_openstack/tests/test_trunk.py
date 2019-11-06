@@ -1,5 +1,7 @@
 # Copyright 2019 Juniper Networks. All rights reserved.
 
+from builtins import str
+from builtins import range
 import uuid
 import json
 import re
