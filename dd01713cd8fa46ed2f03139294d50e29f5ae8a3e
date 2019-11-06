@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "613aad70_770da2fa",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 26
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-11-06T06:16:26Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "c1a88925_92b6649c",
+      "revId": "dd01713cd8fa46ed2f03139294d50e29f5ae8a3e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "5e977948_5ea442d2",
         "filename": "src/config/device-manager/device_manager/device_manager.py",
         "patchSetId": 26
@@ -69,6 +87,24 @@
       "revId": "dd01713cd8fa46ed2f03139294d50e29f5ae8a3e",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "421777c0_e31b3ed3",
+        "filename": "src/config/device-manager/device_manager/device_manager.py",
+        "patchSetId": 26
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-11-06T06:16:26Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bdd8b0d2_1ba60fc8",
+      "revId": "dd01713cd8fa46ed2f03139294d50e29f5ae8a3e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
