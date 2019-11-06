@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec5626c_f658e667",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 20
+      },
+      "lineNbr": 1776,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2019-11-06T00:41:43Z",
+      "side": 1,
+      "message": "I think I removed this function as part of RR redundancy. We could have this removed if not used elsewhere.",
+      "revId": "0e1afd84b5babba4e0a7a1cd23424c3509f3be22",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "15d2beb0_879379fe",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 20
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 504
+      },
+      "writtenOn": "2019-11-06T00:41:43Z",
+      "side": 1,
+      "message": "could you please repeat what the difference between job_description and job_transaction_descr is ?",
+      "revId": "0e1afd84b5babba4e0a7a1cd23424c3509f3be22",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
