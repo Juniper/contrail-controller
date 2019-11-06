@@ -1,5 +1,6 @@
 # Copyright 2019 Juniper Networks. All rights reserved.
 
+from builtins import str
 import uuid
 
 from gevent import monkey
