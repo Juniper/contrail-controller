@@ -28,7 +28,7 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
-from vnc_cfg_api_server import utils
+import utils
 
 import copy
 from cfgm_common import jsonutils as json
