@@ -3,6 +3,10 @@
 #
 
 from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import uuid
 import gevent
 import gevent.event
@@ -10,13 +14,13 @@ import gevent.monkey
 gevent.monkey.patch_all()
 import requests
 import copy
-from cStringIO import StringIO
+from six import StringIO
 import bottle
 import logging
 import logging.handlers
 from datetime import datetime
-import Queue
-import ConfigParser
+import queue
+from six.moves import configparser
 from keystoneclient import session as ksession
 from keystoneclient.auth.identity import generic as kauth
 from keystoneclient import client as kclient
@@ -62,35 +66,35 @@ def fill_keystone_opts(obj, conf_sections):
     obj._admin_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
     try:
         obj._region_name = conf_sections.get('KEYSTONE', 'region_name')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         try:
             obj._region_name = conf_sections.get('DEFAULTS', 'region_name')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             obj._region_name = 'RegionOne'
     try:
         obj._keystone_sync_on_demand = conf_sections.getboolean('KEYSTONE',
                                                'keystone_sync_on_demand')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._keystone_sync_on_demand = True
 
     try:
         obj._insecure = conf_sections.getboolean('KEYSTONE', 'insecure')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._insecure = True
 
     try:
         obj._certfile = conf_sections.get('KEYSTONE', 'certfile')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._certfile = ''
 
     try:
         obj._keyfile = conf_sections.get('KEYSTONE', 'keyfile')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._keyfile = ''
 
     try:
         obj._cafile= conf_sections.get('KEYSTONE', 'cafile')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._cafile = ''
 
     obj._kscertbundle=''
@@ -104,7 +108,7 @@ def fill_keystone_opts(obj, conf_sections):
 
     try:
         obj._auth_url = conf_sections.get('KEYSTONE', 'auth_url')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         # deprecated knobs - for backward compat
         obj._auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
         obj._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
@@ -113,14 +117,14 @@ def fill_keystone_opts(obj, conf_sections):
                                              obj._auth_port)
     try:
         obj._err_file = conf_sections.get('DEFAULTS', 'trace_file')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._err_file = '/var/log/contrail/vnc_openstack.err'
 
     try:
         # Duration between polls to keystone to find deleted projects
         resync_interval = conf_sections.get('DEFAULTS',
                                             'keystone_resync_interval_secs')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         resync_interval = '60'
     obj._resync_interval_secs = float(resync_interval)
 
@@ -128,7 +132,7 @@ def fill_keystone_opts(obj, conf_sections):
         # Number of workers used to process keystone project resyncing
         resync_workers = conf_sections.get('DEFAULTS',
                                            'keystone_resync_workers')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         resync_workers = '10'
     obj._resync_number_workers = int(resync_workers)
 
@@ -141,44 +145,44 @@ def fill_keystone_opts(obj, conf_sections):
         # c. cascade delete (TODO)
         resync_mode = conf_sections.get('DEFAULTS',
                                         'keystone_resync_stale_mode')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         resync_mode = 'new_unique_fqn'
     obj._resync_stale_mode = resync_mode
 
     try:
         # Get the domain_id for keystone v3
         obj._domain_id = conf_sections.get('KEYSTONE', 'admin_domain_id')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._domain_id = 'default'
 
     try:
         # Get the user_domain_name for keystone v3
         obj._user_domain_name = conf_sections.get('KEYSTONE', 'admin_user_domain_name')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._user_domain_name = 'Default'
 
     try:
         # Get the project_domain_name for keystone v3
         obj._project_domain_name = conf_sections.get('KEYSTONE', 'project_domain_name')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._project_domain_name = 'Default'
 
     try:
         # Get the project_name for keystone v3
         obj._project_name = conf_sections.get('KEYSTONE', 'project_name')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._project_name = obj._admin_tenant
 
     try:
         # Get the endpoint_type
         obj._endpoint_type = conf_sections.get('KEYSTONE', 'endpoint_type')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._endpoint_type = None
 
     try:
         obj._keystone_default_domain_id = conf_sections.get(
             'KEYSTONE', 'default_domain_id')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         obj._keystone_default_domain_id = 'default'
 
 def _create_default_security_group(vnc_lib, proj_obj):
@@ -392,7 +396,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except IOError:
             self._sandesh_logger.error("Failed to open trace file %s" %
                                        self._err_file)
-        self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
+        self.q = queue.Queue(maxsize=Q_MAX_ITEMS)
     #end __init__
 
     def _cgitb_error_log(self):
@@ -951,7 +955,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         try:
             self._neutron_fwaas_enabled = conf_sections.getboolean(
                 'NEUTRON', 'fwaas_enabled')
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+        except (configparser.NoSectionError, configparser.NoOptionError):
             self._neutron_fwaas_enabled = False
     # end __init__
 
@@ -1218,7 +1222,7 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         try:
             self._neutron_fwaas_enabled = conf_sections.getboolean(
                 'NEUTRON', 'fwaas_enabled')
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+        except (configparser.NoSectionError, configparser.NoOptionError):
             self._neutron_fwaas_enabled = False
 
         self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
