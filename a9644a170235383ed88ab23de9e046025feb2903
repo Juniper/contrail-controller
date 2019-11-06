@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "eaf854df_6f162c34",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_security_group/templates/juniper_junos-qfx_[^qfx5]_overlay_security_group.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-11-06T18:22:56Z",
+      "side": 1,
+      "message": "Remove the code to derive sys_roles as well, since we do not need sys_roles now",
+      "revId": "a9644a170235383ed88ab23de9e046025feb2903",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
