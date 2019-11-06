@@ -601,7 +601,7 @@ class AnsibleRoleCommon(AnsibleConf):
             lr = LogicalRouterDM.get(lr_id)
             if not lr:
                 continue
-            vn_list += lr.get_connected_networks(include_internal=True)
+            vn_list += lr.get_connected_networks(include_internal=False)
 
         vn_dict = {}
         for vn_id in vn_list:
