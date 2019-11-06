@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e5f22e27_f13cd686",
+        "filename": "src/vnsw/agent/uve/interface_uve_table.cc",
+        "patchSetId": 13
+      },
+      "lineNbr": 231,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-11-06T08:54:25Z",
+      "side": 1,
+      "message": "stick to same name either hbs or hbf?",
+      "range": {
+        "startLine": 231,
+        "startChar": 4,
+        "endLine": 231,
+        "endChar": 6
+      },
+      "revId": "9a8be5ed51e7924ddb20a88ba569aab80d824501",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
