@@ -936,10 +936,21 @@ void AgentXmppChannel::AddEvpnEcmpRoute(string vrf_name,
                                         uint32_t plen,
                                         EnetItemType *item,
                                         const VnListType &vn_list) {
+    // Verify that vrf is present and active
+    VrfKey vrf_key(vrf_name);
+    VrfEntry *vrf =
+        static_cast<VrfEntry *>(agent_->vrf_table()->
+                                FindActiveEntry(&vrf_key));
+    if (!vrf) {
+        CONTROLLER_INFO_TRACE (Trace, GetBgpPeerName(), vrf_name,
+                                     "VRF not found");
+        return;
+    }
+
     BgpPeer *bgp_peer = bgp_peer_id();
     EvpnAgentRouteTable *rt_table = static_cast<EvpnAgentRouteTable *>
         (agent_->vrf_table()->GetEvpnRouteTable(vrf_name));
-    if (rt_table == NULL) {
+    if (rt_table == NULL || rt_table->vrf_entry() == NULL) {
         return;
     }
 
@@ -1124,11 +1135,22 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     const IpAddress &ip_addr,
                                     uint32_t plen,
                                     EnetItemType *item) {
+    // Verify that vrf is present and active
+    VrfKey vrf_key(vrf_name);
+    VrfEntry *vrf =
+        static_cast<VrfEntry *>(agent_->vrf_table()->
+                                FindActiveEntry(&vrf_key));
+    if (!vrf) {
+        CONTROLLER_INFO_TRACE (Trace, GetBgpPeerName(), vrf_name,
+                                     "VRF not found, ignoring request");
+        return;
+    }
+
     // Validate VRF first
     EvpnAgentRouteTable *rt_table =
         static_cast<EvpnAgentRouteTable *>
         (agent_->vrf_table()->GetEvpnRouteTable(vrf_name));
-    if (rt_table == NULL) {
+    if (rt_table == NULL || rt_table->vrf_entry() == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Invalid VRF. Ignoring route");
         return;
@@ -1190,13 +1212,6 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     // When encap is MPLS based, the nexthop can be found by label lookup
     // When encapsulation used is VXLAN, nexthop cannot be found from message
     // To have common design, get nexthop from the route already present
-    VrfEntry *vrf =
-        agent_->vrf_table()->FindVrfFromName(vrf_name);
-    if (vrf == NULL) {
-        CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                    "vrf not found, ignoring request");
-        return;
-    }
 
     EvpnRouteKey key(agent_->local_vm_peer(), vrf_name, mac,
                      ip_addr, plen, item->entry.nlri.ethernet_tag);
