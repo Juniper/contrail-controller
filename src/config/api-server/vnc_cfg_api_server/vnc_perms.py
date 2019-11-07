@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -6,10 +7,10 @@ import cfgm_common
 from cfgm_common import has_role
 from cfgm_common import jsonutils as json
 from cfgm_common.utils import shareinfo_from_perms2_tenant
-from context import is_internal_request
+from .context import is_internal_request
 import string
 import uuid
-from provision_defaults import *
+from .provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
@@ -77,15 +78,15 @@ class VncPermissions(object):
         # check perms
         mask = 0
         if user == owner:
-            mask |= 0700
+            mask |= 0o700
         if group in roles:
-            mask |= 0070
+            mask |= 0o070
         if mask == 0:   # neither user nor group
-            mask = 07
+            mask = 0o7
 
         mode_mask = mode | mode << 3 | mode << 6
         ok = (mask & perms & mode_mask)
-        granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
+        granted = ok & 0o7 | (ok >> 3) & 0o7 | (ok >> 6) & 0o7
 
         if ok and mode == PERMS_W:
             ok = self.validate_user_visible_perm(id_perms, is_admin)
@@ -120,9 +121,9 @@ class VncPermissions(object):
         perms |= perms2.get('global_access', 0)
 
         # build perms
-        mask = 07
+        mask = 0o7
         if project_id == owner:
-            mask |= 0700
+            mask |= 0o700
 
         share_items = perms2.get('share', [])
         shares = [item['tenant'] for item in share_items]
@@ -135,7 +136,7 @@ class VncPermissions(object):
             if ((share_type == 'tenant' and project_id == share_uuid) or
                     (share_type == 'domain' and domain_id == share_uuid)):
                 perms = perms | item['tenant_access'] << 3
-                mask |= 0070
+                mask |= 0o070
                 break
 
         mode_mask = mode | mode << 3 | mode << 6
@@ -144,7 +145,7 @@ class VncPermissions(object):
             obj_owner_for_delete = obj_owner_for_delete.replace('-','')
             ok = (project_id == obj_owner_for_delete)
 
-        granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
+        granted = ok & 0o7 | (ok >> 3) & 0o7 | (ok >> 6) & 0o7
 
         msg = ("RBAC: %s (%s:%s) mode=%03o mask=%03o perms=%03o, "
                "(user=%s(%s)/owner=%s/shares=%s)" %

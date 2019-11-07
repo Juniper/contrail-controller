@@ -5,6 +5,7 @@
 """
 Layer that transforms VNC config objects to database representation
 """
+from __future__ import absolute_import
 from cfgm_common.zkclient import ZookeeperClient, IndexAllocator
 from gevent import monkey
 monkey.patch_all()
@@ -16,7 +17,7 @@ from pprint import pformat
 
 import socket
 from netaddr import IPNetwork, IPAddress
-from context import get_request
+from .context import get_request
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
@@ -39,9 +40,9 @@ from pycassa.util import *
 
 import os
 
-from provision_defaults import *
+from .provision_defaults import *
 from cfgm_common.exceptions import *
-from vnc_quota import *
+from .vnc_quota import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
@@ -521,7 +522,7 @@ class VncZkClient(object):
             func, *args)
     # end master_election
 
-    def quota_counter(self, path, max_count=sys.maxint, default=0):
+    def quota_counter(self, path, max_count=sys.maxsize, default=0):
         return self._zk_client.quota_counter(self._zk_path_pfx + path,
                                              max_count, default)
 

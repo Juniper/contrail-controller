@@ -5,6 +5,7 @@
 """
 This file contains implementation of job api handler code
 """
+from __future__ import print_function
 import gevent
 import json
 import random
@@ -192,7 +193,7 @@ def main():
     test_sd_obj.push(30,5)
     end_time = time.time()
 
-    print "time taken: " + str(end_time - start_time)
+    print("time taken: " + str(end_time - start_time))
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -1,3 +1,4 @@
+from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -122,7 +123,7 @@ class TestIp(unittest.TestCase):
     def testAlloc(self):
         self.addr_mgmt.net_create(todict(self.vn_1))
         ip = self.addr_mgmt.ip_alloc(self.vn_fq_name)
-        print 'VN=%s, Got IP address %s' % (':'.join(self.vn_fq_name), str(ip))
+        print('VN=%s, Got IP address %s' % (':'.join(self.vn_fq_name), str(ip)))
         ipnet = IPNetwork('10.4.8.0/29')
         self.failUnless(IPAddress(ip) in ipnet)
         self.addr_mgmt.ip_free(ip, self.vn_fq_name)
@@ -142,7 +143,7 @@ class TestIp(unittest.TestCase):
                 break
             count += 1
             alloclist.append(ip)
-        print 'Got %d IP address' % (count)
+        print('Got %d IP address' % (count))
         self.failUnless(count == 5)
         # free all addresses
         for ip in alloclist:
@@ -210,7 +211,7 @@ class TestIp(unittest.TestCase):
                 break
             count += 1
             alloclist.append(ip)
-        print 'Got %d IP address' % (count)
+        print('Got %d IP address' % (count))
         self.failUnless(count == 10)
         # free all addresses
         for ip in alloclist:
