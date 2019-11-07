@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "871e8f52_58eaa126",
+        "filename": "src/vnsw/agent/pkt/flow_proto.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 474,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-11-07T12:56:06Z",
+      "side": 1,
+      "message": "Sure this is needed? If the flow can get deleted while this processing is happening, is it not possible that it might get deleted after line 463 and before 474? Same issue should exist with case FlowEvent::FLOW_MESSAGE above where its working on a flow? Maybe the task that runs this already excludes the task that runs delete operation?",
+      "parentUuid": "cf1337bd_8b654b89",
+      "revId": "68d808ed5b67630d1395f6f0626afb4070520c78",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "aa312b22_113fad35",
         "filename": "src/vnsw/agent/pkt/flow_proto.cc",
         "patchSetId": 2
