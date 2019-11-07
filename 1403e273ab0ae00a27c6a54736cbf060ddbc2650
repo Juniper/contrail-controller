@@ -34,6 +34,24 @@
       "revId": "1403e273ab0ae00a27c6a54736cbf060ddbc2650",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "53b3e247_5f55d296",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_security_group/templates/juniper_junos-qfx_[^qfx5]_overlay_security_group.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2019-11-07T18:59:48Z",
+      "side": 1,
+      "message": "Yes, that\u0027s correct, i will push new changes which covers ERB-UCAST-GW case too. I tested this scenario with new fix.",
+      "parentUuid": "8b5ccf52_d764d421",
+      "revId": "1403e273ab0ae00a27c6a54736cbf060ddbc2650",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
