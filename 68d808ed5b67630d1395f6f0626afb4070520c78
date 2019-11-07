@@ -55,6 +55,24 @@
     },
     {
       "key": {
+        "uuid": "bb56e4b5_b3d076b2",
+        "filename": "src/vnsw/agent/pkt/flow_proto.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 474,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2019-11-07T13:20:32Z",
+      "side": 1,
+      "message": "yes it is possible that flow get deleted after 463 and before 474. added defensive checks to handle that possibility.\nincrementing ref count for flow is needed. because in line 479, if first condition is passed then flow object is expected to be non NULL because of holding ref count. \nall flow tasks run in parallel.",
+      "parentUuid": "871e8f52_58eaa126",
+      "revId": "68d808ed5b67630d1395f6f0626afb4070520c78",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "aa312b22_113fad35",
         "filename": "src/vnsw/agent/pkt/flow_proto.cc",
         "patchSetId": 2
