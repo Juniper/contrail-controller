@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -42,12 +44,13 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import rest
+from functools import reduce
 vnc_cgitb.enable(format='text')
 
 from cfgm_common.tests import test_common
 from cfgm_common.tests.test_utils import FakeKombu
 from cfgm_common.tests.test_utils import FakeExtensionManager
-import test_case
+from . import test_case
 from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 
 logger = logging.getLogger(__name__)
@@ -788,7 +791,7 @@ class TestCrud(test_case.ApiServerTestCase):
        for ip_address, prefix in ip_addresses.items():
            ip_family = netaddr.IPNetwork(ip_address).version
            vmi = VirtualMachineInterface('vmi-%s-' % prefix +self.id(), parent_obj=proj)
-           print 'Validating with ip (%s) and prefix (%s)' % (ip_address, prefix)
+           print('Validating with ip (%s) and prefix (%s)' % (ip_address, prefix))
            aap = AllowedAddressPair(ip=SubnetType(ip_address, prefix), address_mode='active-standby')
            aaps = AllowedAddressPairs()
            aaps.allowed_address_pair.append(aap)
@@ -802,10 +805,10 @@ class TestCrud(test_case.ApiServerTestCase):
                    raise RuntimeError('Prefix of length < 120 should have been rejected')
            except cfgm_common.exceptions.BadRequest:
                if ip_family == 4 and prefix >= 24:
-                   print 'ERROR: Prefix >= 24 should be accepted'
+                   print('ERROR: Prefix >= 24 should be accepted')
                    raise
                if ip_family == 6 and prefix >= 120:
-                   print 'ERROR: Prefix >= 120 should be accepted'
+                   print('ERROR: Prefix >= 120 should be accepted')
                    raise
            finally:
                if ip_family == 4 and prefix >= 24:

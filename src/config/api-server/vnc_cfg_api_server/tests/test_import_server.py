@@ -5,6 +5,7 @@
 """
 This file contains implementation of job api handler code
 """
+from __future__ import print_function
 import gevent
 from enum import Enum
 from vnc_api.vnc_api import VncApi
@@ -175,7 +176,7 @@ def main():
     test_sd_obj.push(100, 5)
     end_time = time.time()
 
-    print "time taken: " + str(end_time - start_time)
+    print("time taken: " + str(end_time - start_time))
 
 if __name__ == '__main__':
     sys.exit(main())

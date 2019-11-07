@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
@@ -33,7 +34,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
@@ -7,7 +8,7 @@ import uuid
 import string
 import re
 import ConfigParser
-from provision_defaults import *
+from .provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.vnc_api_client_gen import all_resource_types
