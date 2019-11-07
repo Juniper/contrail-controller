@@ -90,7 +90,7 @@ def initialize_all_server_resource_classes(server_instance):
     class does not defines its server class in that module.
 
     :param server_instance:
-        `vnc_cfg_api_server.vnc_cfg_api_server.VncApiServer` instance
+        `vnc_cfg_api_server.api_server.VncApiServer` instance
     :returns: map of server resource class with the resource type as key (in
         both formats ('-' and '_') if resource have multiple word in its name
     """
