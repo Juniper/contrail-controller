@@ -1778,7 +1778,7 @@ class FirewallDraftModeCommonTestSuite(object):
         self.api.firewall_policy_create(fp)
 
         for action in self.ACTIONS:
-            with patch('vnc_cfg_api_server.vnc_cfg_api_server.VncApiServer.'
+            with patch('vnc_cfg_api_server.api_server.VncApiServer.'
                        'internal_request_delete') as ird_mock:
                 ird_mock.side_effect = Exception('fake %s exception' % action)
                 with ExpectedException(HttpError):
