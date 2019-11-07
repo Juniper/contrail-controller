@@ -5,6 +5,7 @@
 This is the main module in vnc_cfg_api_server package. It manages interaction
 between http/rest, address management, authentication and database interfaces.
 """
+from __future__ import absolute_import
 
 from gevent import monkey
 monkey.patch_all()
@@ -30,7 +31,7 @@ import random
 import socket
 import ast
 from cfgm_common import jsonutils as json
-from provision_defaults import *
+from .provision_defaults import *
 import uuid
 import copy
 from pprint import pformat
@@ -75,13 +76,13 @@ CONFIG_VERSION = '1.0'
 
 import bottle
 
-import utils
-import context
-from context import get_request, get_context, set_context, use_context
-from context import ApiContext
-from context import is_internal_request
-from resources import initialize_all_server_resource_classes
-from vnc_db import VncDbClient
+from . import utils
+from . import context
+from .context import get_request, get_context, set_context, use_context
+from .context import ApiContext
+from .context import is_internal_request
+from .resources import initialize_all_server_resource_classes
+from .vnc_db import VncDbClient
 
 import cfgm_common
 from cfgm_common import ignore_exceptions
@@ -96,8 +97,8 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
     TAG_TYPE_NOT_UNIQUE_PER_OBJECT, TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP,\
     POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT, SECURITY_OBJECT_TYPES
 
-from provision_defaults import Provision
-from vnc_quota import *
+from .provision_defaults import Provision
+from .vnc_quota import *
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 from vnc_api.gen.vnc_api_client_gen import all_resource_type_tuples
@@ -106,11 +107,11 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.rest import LinkObject, hdr_server_tenant
 from cfgm_common.exceptions import *
 from cfgm_common.vnc_extensions import ExtensionManager
-import vnc_addr_mgmt
-import vnc_auth
-import vnc_auth_keystone
-import vnc_perms
-import vnc_rbac
+from . import vnc_addr_mgmt
+from . import vnc_auth
+from . import vnc_auth_keystone
+from . import vnc_perms
+from . import vnc_rbac
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import ModuleCpuState, ModuleCpuStateTrace
 from cfgm_common.buildinfo import build_info
 from cfgm_common.vnc_api_stats import log_api_stats
@@ -123,8 +124,8 @@ from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
-from sandesh.traces.ttypes import RestApiTrace
-from vnc_bottle import get_bottle_server
+from .sandesh.traces.ttypes import RestApiTrace
+from .vnc_bottle import get_bottle_server
 from cfgm_common.vnc_greenlets import VncGreenlet
 from cfgm_common.kombu_amqp import KombuAmqpClient
 import ssl
@@ -2556,7 +2557,7 @@ class VncApiServer(object):
                 try:
                     domain = token_info['token']['project']['domain']['id']
                     domain = str(uuid.UUID(domain))
-                except ValueError, TypeError:
+                except ValueError as TypeError:
                     if domain == self._args.default_domain_id:
                         domain = 'default-domain'
                     domain = self._db_conn.fq_name_to_uuid('domain', [domain])

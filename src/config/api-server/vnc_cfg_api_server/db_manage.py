@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
@@ -14,14 +16,14 @@ try:
     from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
 except ImportError as err:
     # must be older release, assigning old path
-    print "WARN: Ignoring ImportError (%s)" % err
+    print("WARN: Ignoring ImportError (%s)" % err)
     BGP_RTGT_ALLOC_PATH_TYPE0 = '/id/bgp/route-targets'
     BGP_RTGT_ALLOC_PATH_TYPE1_2 = '/id/bgp/route-targets'
 try:
     from cfgm_common import get_bgp_rtgt_min_id
 except ImportError as err:
     # must be older release, assigning default min ID
-    print "WARN: Ignoring ImportError (%s)" % err
+    print("WARN: Ignoring ImportError (%s)" % err)
     get_bgp_rtgt_min_id = lambda _get_bgp_rtgt_min_id: 8000000
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
@@ -40,13 +42,13 @@ import pycassa
 import pycassa.connection
 from thrift.transport import TSSLSocket
 import ssl
-import utils
+from . import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
 from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 
 try:
-    from vnc_db import VncServerCassandraClient
+    from .vnc_db import VncServerCassandraClient
 except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
@@ -222,21 +224,21 @@ def get_operations():
     module = sys.modules[__name__]
     global_functions = inspect.getmembers(module, inspect.isfunction)
     for name, func in global_functions:
-        if func.func_dict.get('is_checker', False):
+        if func.__dict__.get('is_checker', False):
             checkers.update({name: func})
-        elif func.func_dict.get('is_healer', False):
+        elif func.__dict__.get('is_healer', False):
             healers.update({name: func})
-        elif func.func_dict.get('is_cleaner', False):
+        elif func.__dict__.get('is_cleaner', False):
             cleaners.update({name: func})
     global_classes = inspect.getmembers(module, inspect.isclass)
     for cname, a_class in global_classes:
         class_methods = inspect.getmembers(a_class, predicate=inspect.ismethod)
         for name, method in class_methods:
-            if method.func_dict.get('is_checker', False):
+            if method.__dict__.get('is_checker', False):
                 checkers.update({name: method})
-            elif method.func_dict.get('is_healer', False):
+            elif method.__dict__.get('is_healer', False):
                 healers.update({name: method})
-            elif method.func_dict.get('is_cleaner', False):
+            elif method.__dict__.get('is_cleaner', False):
                 cleaners.update({name: method})
 
     operations = {'checkers': checkers,
@@ -1405,7 +1407,7 @@ class DatabaseChecker(DatabaseManager):
                 raise
         # end wrapper
 
-        wrapper.func_dict['is_checker'] = True
+        wrapper.__dict__['is_checker'] = True
         return wrapper
     # end checker
 
@@ -1958,7 +1960,7 @@ class DatabaseCleaner(DatabaseManager):
                 raise
         # end wrapper
 
-        wrapper.func_dict['is_cleaner'] = True
+        wrapper.__dict__['is_cleaner'] = True
         return wrapper
     # end cleaner
 
@@ -2708,7 +2710,7 @@ class DatabaseHealer(DatabaseManager):
                 raise
         # end wrapper
 
-        wrapper.func_dict['is_healer'] = True
+        wrapper.__dict__['is_healer'] = True
         return wrapper
     # end healer
 
@@ -3171,7 +3173,7 @@ def main():
         db_healer = DatabaseHealer(args, api_args)
         return getattr(db_healer, verb)()
 
-    print "Warning: Unknown operation '%s'\n\t Use --help" % verb
+    print("Warning: Unknown operation '%s'\n\t Use --help" % verb)
 # end main
 
 

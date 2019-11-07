@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
@@ -26,7 +28,7 @@ import cfgm_common
 from cfgm_common import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -59,38 +61,38 @@ class TestSubnet(test_case.ApiServerTestCase):
 
         domain = Domain(domain_name)
         self._vnc_lib.domain_create(domain)
-        print 'Created domain'
+        print('Created domain')
 
         project = Project(proj_name, domain)
         self._vnc_lib.project_create(project)
-        print 'Created Project'
+        print('Created Project')
 
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        print 'Created network ipam'
+        print('Created network ipam')
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=[domain_name, proj_name,
                                                'default-network-ipam'])
-        print 'Read network ipam'
+        print('Read network ipam')
         ipam_sn_1 = IpamSubnetType(subnet=SubnetType(subnet1, prefix1))
         ipam_sn_2 = IpamSubnetType(subnet=SubnetType(subnet2, prefix2))
 
         vn = VirtualNetwork(vn_name, project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_1, ipam_sn_2]))
         self._vnc_lib.virtual_network_create(vn)
-        print 'Created Virtual Network object ', vn.uuid
-        print 'Read no of instance ip for each subnet'
-        print '["192.168.1.0/30", "10.10.1.0/29"]'
+        print('Created Virtual Network object ', vn.uuid)
+        print('Read no of instance ip for each subnet')
+        print('["192.168.1.0/30", "10.10.1.0/29"]')
         subnet_list = ["192.168.1.0/30", "10.10.1.0/29"]
         result = self._vnc_lib.virtual_network_subnet_ip_count(vn, subnet_list)
-        print 'Expected output: {"ip_count_list": [0, 0]}'
-        print 'Actual output:', result
+        print('Expected output: {"ip_count_list": [0, 0]}')
+        print('Actual output:', result)
 
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
 
         ip_obj1 = InstanceIp(name=str(uuid.uuid4()))
         ip_obj1.uuid = ip_obj1.name
-        print 'Created Instance IP object 1 ', ip_obj1.uuid
+        print('Created Instance IP object 1 ', ip_obj1.uuid)
 
         vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
         vm_inst_obj1.uuid = vm_inst_obj1.name
@@ -106,22 +108,22 @@ class TestSubnet(test_case.ApiServerTestCase):
         ip_obj1.set_virtual_network(net_obj)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
-        print 'Allocating an IP address for first VM'
+        print('Allocating an IP address for first VM')
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
         ip_addr1 = ip_obj1.get_instance_ip_address()
-        print ' got IP Address for first instance', ip_addr1
+        print(' got IP Address for first instance', ip_addr1)
 
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
         result = self._vnc_lib.virtual_network_subnet_ip_count(vn, subnet_list)
-        print 'Expected output: {"ip_count_list": [1, 0]}'
-        print 'Actual output:', result
+        print('Expected output: {"ip_count_list": [1, 0]}')
+        print('Actual output:', result)
 
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
 
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()))
         ip_obj2.uuid = ip_obj2.name
-        print 'Created Instance IP object 2', ip_obj2.uuid
+        print('Created Instance IP object 2', ip_obj2.uuid)
 
         vm_inst_obj2 = VirtualMachine(str(uuid.uuid4()))
         vm_inst_obj2.uuid = vm_inst_obj2.name
@@ -137,20 +139,20 @@ class TestSubnet(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_network(net_obj)
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
 
-        print 'Allocating an IP address for Second VM'
+        print('Allocating an IP address for Second VM')
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
         ip_addr2 = ip_obj2.get_instance_ip_address()
-        print ' got IP Address for Second instance', ip_addr2
+        print(' got IP Address for Second instance', ip_addr2)
 
         net_obj = self._vnc_lib.virtual_network_read(id=vn.uuid)
         result = self._vnc_lib.virtual_network_subnet_ip_count(vn, subnet_list)
-        print 'Expected output: {"ip_count_list": [1, 1]}'
-        print 'Actual output:', result
-        print result
+        print('Expected output: {"ip_count_list": [1, 1]}')
+        print('Actual output:', result)
+        print(result)
 
         # cleanup
-        print 'Cleaning up'
+        print('Cleaning up')
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)

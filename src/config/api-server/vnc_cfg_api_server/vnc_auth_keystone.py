@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -27,14 +28,14 @@ except ImportError:
 from keystoneauth1 import exceptions as k_exc
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from vnc_bottle import get_bottle_server
+from .vnc_bottle import get_bottle_server
 from cfgm_common.exceptions import NoIdError
 from cfgm_common import utils as cfgmutils
 from cfgm_common import vnc_greenlets
-from context import get_request, get_context, set_context, use_context
-from context import ApiContext, ApiInternalRequest
+from .context import get_request, get_context, set_context, use_context
+from .context import ApiContext, ApiInternalRequest
 
-from auth_context import set_auth_context, use_auth_context
+from .auth_context import set_auth_context, use_auth_context
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"

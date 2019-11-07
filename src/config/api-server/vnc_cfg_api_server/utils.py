@@ -4,12 +4,13 @@
 """
 Provides utility routines for modules in api-server
 """
+from __future__ import absolute_import
 import argparse
 import base64
 from cfgm_common import jsonutils as json
 import ConfigParser
 import vnc_api.gen.resource_xsd
-import vnc_quota
+from . import vnc_quota
 import cfgm_common
 from Crypto.Cipher import AES
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
