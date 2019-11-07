@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
@@ -5,7 +7,7 @@ import sys
 import os
 import logging
 import json
-import test_case
+from . import test_case
 from vnc_api.exceptions import NoIdError, RefsExistError
 from vnc_api.gen.resource_client import *
 from vnc_api.gen.resource_xsd import *
@@ -19,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+    print("Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay), file=sys.stderr)
 
 def retries(max_tries, delay=5, backoff=1, exceptions=(Exception,),hook=None):
     def dec(func):

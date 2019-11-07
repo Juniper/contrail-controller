@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import gevent
 import kombu
 import sys
@@ -11,7 +12,7 @@ from vnc_cfg_api_server.vnc_db import VncServerKombuClient
 from distutils.version import LooseVersion
 from vnc_api.vnc_api import VirtualNetwork, NetworkIpam, VnSubnetsType
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
