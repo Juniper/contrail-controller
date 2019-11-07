@@ -7,6 +7,7 @@
 
 #include <boost/array.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <boost/system/error_code.hpp>
 #include <tbb/atomic.h>
 
 #include <set>
@@ -185,6 +186,8 @@ public:
     bool ContainsTunnelEncapVxlan() const;
     int GetOriginVnIndex() const;
     static ExtCommunityList ExtCommunityFromString(const std::string &comm);
+    static ExtCommunityValue FromHexString(const std::string &comm,
+            boost::system::error_code *errorp);
 
     static bool is_origin_vn(const ExtCommunityValue &val) {
         //
