@@ -222,6 +222,130 @@ TEST_F(UpdateAsPathTest, UpdateNonNullAs4) {
     EXPECT_EQ(4000, as_path_spec.path_segments[0]->path_segment[3]);
 }
 
+TEST_F(UpdateExtCommunityTest, ValidHexString1) {
+    vector<string> communities = list_of("0x123456789abcdef0");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ 123456789abcdef0 ]",
+              action.ToString());
+}
+
+TEST_F(UpdateExtCommunityTest, ValidHexString2) {
+    //hex string without prefix '0x'
+    vector<string> communities = list_of("123456789abcdef0");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ 123456789abcdef0 ]",
+              action.ToString());
+}
+
+TEST_F(UpdateExtCommunityTest, ValidHexString3) {
+    //hex string for target:53:11 is 0x200350000000b
+    vector<string> communities = list_of("0x200350000000b");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ target:53:11 ]",
+              action.ToString());
+}
+
+TEST_F(UpdateExtCommunityTest, ValidHexString4) {
+    vector<string> communities = list_of("0xffffffffffffffff");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ ffffffffffffffff ]",
+              action.ToString());
+}
+
+TEST_F(UpdateExtCommunityTest, InValidHexString1) {
+    vector<string> communities = list_of("xxxxxxxxffffffff");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 0);
+}
+
+TEST_F(UpdateExtCommunityTest, InValidHexString2) {
+    //hex string greater than 8 Byte (0xffffffffffffffff)
+    vector<string> communities = list_of("123456789abcdef0f");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 0);
+}
+
+TEST_F(UpdateExtCommunityTest, InValidHexString3) {
+    //hex string with prefix '0x' greater than 8 Byte (0xffffffffffffffff)
+    vector<string> communities = list_of("0x123456789abcdef0f");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 0);
+}
+
+TEST_F(UpdateExtCommunityTest, InValidHexString4) {
+    vector<string> communities = list_of("123x456");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 0);
+}
+
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();

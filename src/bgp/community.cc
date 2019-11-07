@@ -267,9 +267,42 @@ void ExtCommunity::Append(const ExtCommunityValue &value) {
     communities_.erase(it, communities_.end());
 }
 
+ExtCommunity::ExtCommunityValue ExtCommunity::FromHexString(
+        const string &comm, boost::system::error_code *errorp) {
+    ExtCommunityValue data;
+    char *end;
+    uint64_t value = strtoull(comm.c_str(), &end, 16);
+    if (value == 0 || *end) {
+        // e.g. 0 or 12x34ff (invalid hex)
+        if (errorp != NULL) {
+            *errorp = make_error_code(
+                    boost::system::errc::invalid_argument);
+            return data;
+        }
+    }
+    if (comm[0] == '0' && (comm[1] == 'x' || comm[1] == 'X')) {
+        if (comm.length() > 18 && errorp != NULL) {
+            // e.g. 0xabcdef0123456789f is an invalid 8byte hex value
+            *errorp = make_error_code(
+                    boost::system::errc::invalid_argument);
+            return data;
+        }
+    } else {
+        if (comm.length() > 16 && errorp != NULL) {
+            // e.g. abcdef0123456789f is an invalid 8byte hex value
+            *errorp = make_error_code(
+                    boost::system::errc::invalid_argument);
+            return data;
+        }
+    }
+    put_value(&data[0], 8, value);
+    return data;
+}
+
 ExtCommunity::ExtCommunityList ExtCommunity::ExtCommunityFromString(
         const string &comm) {
     ExtCommunityList commList;
+    ExtCommunityValue value;
     size_t pos = comm.find(':');
     string first(comm.substr(0, pos));
     boost::system::error_code error;
@@ -297,6 +330,12 @@ ExtCommunity::ExtCommunityList ExtCommunity::ExtCommunityFromString(
             return commList;
         }
         commList.push_back(vit.GetExtCommunity());
+    } else {
+        value = FromHexString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(value);
     }
     return commList;
 }
