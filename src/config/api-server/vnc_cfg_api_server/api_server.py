@@ -1,4 +1,3 @@
-<<<<<<< HEAD   (6c72d6 Dont create a VMI with zero mac.)
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -8,6 +7,13 @@ between http/rest, address management, authentication and database interfaces.
 """
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 from gevent import monkey
 monkey.patch_all()
 from gevent import hub
@@ -18,9 +24,12 @@ import gevent.pywsgi
 gevent.pywsgi.MAX_REQUEST_LINE = 65535
 
 import sys
-reload(sys)
-sys.setdefaultencoding('UTF8')
-import ConfigParser
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('UTF8')
+from six import string_types
+from six.moves import reload_module
+from six.moves.configparser import SafeConfigParser, NoOptionError
 import functools
 import hashlib
 import itertools
@@ -36,7 +45,7 @@ from .provision_defaults import *
 import uuid
 import copy
 from pprint import pformat
-from cStringIO import StringIO
+from io import StringIO
 from vnc_api.utils import AAA_MODE_VALID_VALUES
 # import GreenletProfiler
 from cfgm_common import vnc_cgitb
@@ -248,7 +257,7 @@ class VncApiServer(object):
     JOB_ABORT_ROUTING_KEY = "job.abort"
 
     def __new__(cls, *args, **kwargs):
-        obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
+        obj = super(VncApiServer, cls).__new__(cls)
         obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
@@ -274,7 +283,7 @@ class VncApiServer(object):
     def _validate_complex_type(cls, dict_cls, dict_body):
         if dict_body is None:
             return
-        for key, value in dict_body.items():
+        for key, value in list(dict_body.items()):
             if key not in dict_cls.attr_fields:
                 raise ValueError('class %s does not have field %s' % (
                                   str(dict_cls), key))
@@ -670,7 +679,7 @@ class VncApiServer(object):
         if value is None:
             return
         elif xsd_type in ('unsignedLong', 'integer'):
-            if not isinstance(value, (int, long)):
+            if not isinstance(value, (int, int)):
                 # If value is not an integer, then try to convert it to integer
                 try:
                     value = int(value)
@@ -781,7 +790,7 @@ class VncApiServer(object):
             ref_type = ref['to'][-1].partition('=')[0]
             refs_per_type.setdefault(ref_type, []).append(ref)
 
-        for tag_type, refs in refs_per_type.items():
+        for tag_type, refs in list(refs_per_type.items()):
             # Tag type is unique per object, unless
             # TAG_TYPE_NOT_UNIQUE_PER_OBJECT tag type or object type is a
             # Firewall Rule
@@ -1767,7 +1776,7 @@ class VncApiServer(object):
     def create_default_children(self, object_type, parent_obj):
         childs = self.get_resource_class(object_type).children_field_types
         # Create a default child only if provisioned for
-        child_types = {type for _, (type, derivate) in childs.items()
+        child_types = {type for _, (type, derivate) in list(childs.items())
                        if (not derivate and
                            type in self._GENERATE_DEFAULT_INSTANCE)}
         if not child_types:
@@ -2552,8 +2561,8 @@ class VncApiServer(object):
         if obj_uuid:
             result['permissions'] = self._permissions.obj_perms(get_request(),
                                                                 obj_uuid)
-        if 'token' in token_info.keys():
-            if 'project' in token_info['token'].keys():
+        if 'token' in list(token_info.keys()):
+            if 'project' in list(token_info['token'].keys()):
                 domain = None
                 try:
                     domain = token_info['token']['project']['domain']['id']
@@ -2572,7 +2581,7 @@ class VncApiServer(object):
         return self.re_uuid.match(uuid) is None
 
     def invalid_access(self, access):
-        return type(access) is not int or access not in range(0, 8)
+        return type(access) is not int or access not in list(range(0, 8))
 
     def invalid_share_type(self, share_type):
         return share_type not in cfgm_common.PERMS2_VALID_SHARE_TYPES
@@ -2957,11 +2966,11 @@ class VncApiServer(object):
 
         if operation == 'ADD':
             if ref_obj_type+'_refs' not in obj_dict:
-                obj_dict[ref_obj_type+'_refs'] = []
-            existing_ref = [ref for ref in obj_dict[ref_obj_type+'_refs']
-                            if ref['uuid'] == ref_uuid]
-            if existing_ref:
-                ref['attr'] = attr
+                obj_dict[ref_obj_type + '_refs'] = []
+            for ref in obj_dict.get(ref_obj_type + '_refs', []):
+                if ref['uuid'] == ref_uuid:
+                    ref['attr'] = attr
+                    break
             else:
                 obj_dict[ref_obj_type+'_refs'].append(
                     {'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
@@ -3250,35 +3259,6 @@ class VncApiServer(object):
 
     # Private Methods
     def _parse_args(self, args_str):
-        '''
-        Eg. python vnc_cfg_api_server.py --cassandra_server_list
-                                             10.1.2.3:9160 10.1.2.4:9160
-                                         --redis_server_ip 127.0.0.1
-                                         --redis_server_port 6382
-                                         --collectors 127.0.0.1:8086
-                                         --http_server_port 8090
-                                         --listen_ip_addr 127.0.0.1
-                                         --listen_port 8082
-                                         --admin_port 8095
-                                         --region_name RegionOne
-                                         --log_local
-                                         --log_level SYS_DEBUG
-                                         --logging_conf <logger-conf-file>
-                                         --log_category test
-                                         --log_file <stdout>
-                                         --trace_file /var/log/contrail/vnc_openstack.err
-                                         --use_syslog
-                                         --syslog_facility LOG_USER
-                                         --worker_id 1
-                                         --rabbit_max_pending_updates 4096
-                                         --rabbit_health_check_interval 120.0
-                                         --cluster_id <testbed-name>
-                                         [--auth keystone]
-                                         [--default_encoding ascii ]
-                                         --object_cache_size 10000
-                                         --object_cache_exclude_types ''
-                                         --max_request_size 1024000
-        '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
 
@@ -3297,12 +3277,12 @@ class VncApiServer(object):
     # sighup handler for applying new configs
     def sighup_handler(self):
         if self._args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = SafeConfigParser()
             config.read(self._args.conf_file)
             if 'DEFAULTS' in config.sections():
                 try:
                     collectors = config.get('DEFAULTS', 'collectors')
-                    if type(collectors) is str:
+                    if isinstance(collectors, string_types):
                         collectors = collectors.split()
                         new_chksum = hashlib.md5("".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
@@ -3310,7 +3290,7 @@ class VncApiServer(object):
                             self._random_collectors = random.sample(collectors, len(collectors))
                         # Reconnect to achieve load-balance irrespective of list
                         self._sandesh.reconfig_collectors(self._random_collectors)
-                except ConfigParser.NoOptionError as e:
+                except NoOptionError as e:
                     pass
     # end sighup_handler
 
@@ -3418,7 +3398,7 @@ class VncApiServer(object):
         if obj_uuid is not None:
             try:
                 old_id_perms = self._db_conn.uuid_to_obj_perms(obj_uuid)
-                for field, value in old_id_perms.items():
+                for field, value in list(old_id_perms.items()):
                     if value is not None:
                         id_perms[field] = value
             except NoIdError:
@@ -3443,7 +3423,7 @@ class VncApiServer(object):
     def _get_default_id_perms(self, **kwargs):
         id_perms = copy.deepcopy(Provision.defaults.perms)
         id_perms_json = json.dumps(id_perms, default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
+                                   for k, v in o.__dict__.items()))
         id_perms_dict = json.loads(id_perms_json)
         id_perms_dict.update(kwargs)
         return id_perms_dict
@@ -3522,7 +3502,7 @@ class VncApiServer(object):
         if obj_uuid is not None:
             try:
                 old_perms2 = self._db_conn.uuid_to_obj_perms2(obj_uuid)
-                for field, value in old_perms2.items():
+                for field, value in list(old_perms2.items()):
                     if value is not None:
                         perms2[field] = value
             except NoIdError:
@@ -3554,7 +3534,7 @@ class VncApiServer(object):
     def _get_default_perms2(self):
         perms2 = copy.deepcopy(Provision.defaults.perms2)
         perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
+                                   for k, v in o.__dict__.items()))
         perms2_dict = json.loads(perms2_json)
         return perms2_dict
     # end _get_default_perms2
@@ -3679,7 +3659,7 @@ class VncApiServer(object):
         self.create_singleton_entry(sc_ipam_obj)
 
         # Create pre-defined tag-type
-        for type_str, type_id in TagTypeNameToId.items():
+        for type_str, type_id in list(TagTypeNameToId.items()):
             type_id_hex = "0x{:04x}".format(type_id)
             tag = TagType(name=type_str, tag_type_id=type_id_hex)
             tag.display_name = type_str
@@ -4064,9 +4044,9 @@ class VncApiServer(object):
             pass
 
         for field, field_info in itertools.chain(
-                    r_class.children_field_types.items(),
-                    r_class.ref_field_types.items(),
-                    r_class.backref_field_types.items(),
+                    list(r_class.children_field_types.items()),
+                    list(r_class.ref_field_types.items()),
+                    list(r_class.backref_field_types.items()),
                 ):
             try:
                 type = field_info[0]
@@ -4755,7 +4735,7 @@ class VncApiServer(object):
             ref_type = ref['to'][-1].partition('=')[0]
             refs_per_type.setdefault(ref_type, []).append(ref)
 
-        for tag_type, attrs in req_dict.items():
+        for tag_type, attrs in list(req_dict.items()):
             tag_type = tag_type.lower()
 
             # If the body of a Tag type is None, all references to that Tag
@@ -4803,7 +4783,7 @@ class VncApiServer(object):
                 if value in refs_per_values:
                     continue
 
-                for ref in refs_per_values.values():
+                for ref in list(refs_per_values.values()):
                     need_update = True
                     # object already have a reference to that tag type with a
                     # different value, remove it
@@ -5145,5 +5125,3 @@ def server_main(args_str=None):
 if __name__ == "__main__":
     server_main()
 
-=======
->>>>>>> CHANGE (3d5690 [config] Fix API server cycle import)
