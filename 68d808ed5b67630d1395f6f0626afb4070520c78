@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "463f37a4_56e2dde8",
+        "filename": "src/vnsw/agent/pkt/flow_proto.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 474,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-11-07T09:53:51Z",
+      "side": 1,
+      "message": "audit_flow is not used anywhere?",
+      "revId": "68d808ed5b67630d1395f6f0626afb4070520c78",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aa312b22_113fad35",
+        "filename": "src/vnsw/agent/pkt/flow_proto.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 483,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2019-11-07T09:53:51Z",
+      "side": 1,
+      "message": "Is it guaranteed that vrouter does not send any message for this flow after sending EEXIST?",
+      "revId": "68d808ed5b67630d1395f6f0626afb4070520c78",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
