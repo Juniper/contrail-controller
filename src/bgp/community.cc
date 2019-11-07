@@ -7,6 +7,7 @@
 #include <boost/foreach.hpp>
 
 #include <algorithm>
+#include <sstream>
 #include <string>
 
 #include "base/string_util.h"
@@ -30,6 +31,7 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
+using std::istringstream;
 using std::sort;
 using std::string;
 using std::unique;
@@ -267,9 +269,41 @@ void ExtCommunity::Append(const ExtCommunityValue &value) {
     communities_.erase(it, communities_.end());
 }
 
+ExtCommunity::ExtCommunityValue ExtCommunity::FromHexString(
+        const string &comm, boost::system::error_code *errorp) {
+    ExtCommunityValue data;
+    uint64_t value = 0;
+    if (comm[0] == '0' && (comm[1] == 'x' || comm[1] == 'X')) {
+        if (comm.length() > 18) {
+            if (errorp != NULL) {
+                *errorp = make_error_code(
+                        boost::system::errc::invalid_argument);
+            }
+        }
+    } else {
+        if (comm.length() > 16) {
+            if (errorp != NULL) {
+                *errorp = make_error_code(
+                        boost::system::errc::invalid_argument);
+            }
+        }
+    }
+    istringstream converter(comm);
+    converter >> std::hex >> value;
+    if (value == 0) {
+        if (errorp != NULL) {
+            *errorp = make_error_code(boost::system::errc::invalid_argument);
+        }
+        return data;
+    }
+    put_value(&data[0], 8, value);
+    return data;
+}
+
 ExtCommunity::ExtCommunityList ExtCommunity::ExtCommunityFromString(
         const string &comm) {
     ExtCommunityList commList;
+    ExtCommunityValue value;
     size_t pos = comm.find(':');
     string first(comm.substr(0, pos));
     boost::system::error_code error;
@@ -297,6 +331,12 @@ ExtCommunity::ExtCommunityList ExtCommunity::ExtCommunityFromString(
             return commList;
         }
         commList.push_back(vit.GetExtCommunity());
+    } else {
+        value = FromHexString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(value);
     }
     return commList;
 }
