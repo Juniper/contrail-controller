@@ -121,7 +121,7 @@ class ControlProvisioner(BgpProvisioner):
                                 self._args.local_autonomous_system,
                                 self._args.bgp_server_port)
         elif self._args.oper == 'del':
-            self._vnc_lib.del_bgp_router(self._args.host_name)
+            self.del_bgp_router(self._args.host_name)
         return
 
 
