@@ -78,11 +78,7 @@ static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
   * @param route               -   Reference to service-chain route
   * @param table               -   Reference to BgpTable where service-chain
   *                                route is to be replicated
-  * @param service_chain_addr  -   service-chain address
-  * @param prefix_addr         -   IpAddress of prefix
-  * @param prefix_len          -   Prefix length
-  * @param src_ri              -   Source Routing-Instance
-  * @param family              -   Service Chain address family
+  * @param prefix              -   Prefix
   * @param create              -   when "true" indicates that route should be
   *                                created if not found and
   */
@@ -189,11 +185,15 @@ void ServiceChain<T>::ProcessServiceChainPath(uint32_t path_id, BgpPath *path,
     bool path_updated = false;
 
     /**
-      * If inserting into EVPN table, the label should the L3VNI of
-      * the source RI.
+      * If inserting into EVPN table, the label should the vxlan_id of
+      * the connected RI if non-zero and if not, the VNI.
       */
     if (bgptable->family() == Address::EVPN) {
-        label = connected_routing_instance()->virtual_network_index();
+        RoutingInstance *conn_ri = connected_routing_instance();
+        label = conn_ri->vxlan_id();
+        if (!label) {
+            label = conn_ri->virtual_network_index();
+        }
     }
 
     /**
