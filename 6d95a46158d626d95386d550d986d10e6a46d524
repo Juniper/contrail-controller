@@ -16,6 +16,24 @@
       "revId": "6d95a46158d626d95386d550d986d10e6a46d524",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "743bc7d8_4ec993f7",
+        "filename": "src/bgp/routing-instance/service_chaining.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 192,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2019-11-07T23:59:30Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "d6354177_e79fee67",
+      "revId": "6d95a46158d626d95386d550d986d10e6a46d524",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
