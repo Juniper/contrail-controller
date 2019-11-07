@@ -69,25 +69,25 @@ class JobResultHandler(object):
                     }
             else:
                 self.job_warning_message += message + "\n"
-
-        # collect the result message
-        if message is not None:
-            if device_id is not None:
-                if device_id in self.job_result:
-                    self.job_result[device_id].update(
-                        {
-                            "message": message,
-                            "device_name": device_name,
-                            "device_op_result": pb_results
-                        }
-                    )
+        else:
+            # collect the result message
+            if message is not None:
+                if device_id is not None:
+                    if device_id in self.job_result:
+                        self.job_result[device_id].update(
+                            {
+                                "message": message,
+                                "device_name": device_name,
+                                "device_op_result": pb_results
+                            }
+                        )
+                    else:
+                        self.job_result.update(
+                            {device_id: {"message": message,
+                                         "device_name": device_name,
+                                         "device_op_result": pb_results}})
                 else:
-                    self.job_result.update(
-                        {device_id: {"message": message,
-                                     "device_name": device_name,
-                                     "device_op_result": pb_results}})
-            else:
-                self.job_result_message = message
+                    self.job_result_message = message
     # end update_job_status
 
     def update_playbook_output(self, pb_output):
