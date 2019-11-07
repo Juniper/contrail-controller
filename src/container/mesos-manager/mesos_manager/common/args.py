@@ -4,8 +4,10 @@
 
 from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
 import argparse
-import ConfigParser
+from six.moves import configparser
 import sys
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -138,7 +140,7 @@ def parse_args(args_str=None):
         'auth_tenant': 'admin',
     }
 
-    config = ConfigParser.SafeConfigParser()
+    config = configparser.ConfigParser()
     if args.config_file:
         config.read(args.config_file)
         if 'VNC' in config.sections():
