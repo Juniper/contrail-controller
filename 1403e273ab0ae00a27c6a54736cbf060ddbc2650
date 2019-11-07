@@ -16,6 +16,24 @@
       "revId": "1403e273ab0ae00a27c6a54736cbf060ddbc2650",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8b5ccf52_d764d421",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_security_group/templates/juniper_junos-qfx_[^qfx5]_overlay_security_group.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-11-07T18:33:54Z",
+      "side": 1,
+      "message": "Yes, there should be check for ERB-UCAST-Gateway role as well along with enterprise_style. It should be OR operation",
+      "parentUuid": "0a4a7a84_3104d5f0",
+      "revId": "1403e273ab0ae00a27c6a54736cbf060ddbc2650",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
