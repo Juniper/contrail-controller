@@ -792,7 +792,8 @@ class AddrMgmt(object):
                 old_dns_addr = str(subnet_obj.dns_server_address)
                 if not subnetting:
                     if ('dns_server_address' not in ipam_subnet) or \
-                        (ipam_subnet['dns_server_address'] is None):
+                        (ipam_subnet['dns_server_address'] is None) or \
+                        (ipam_subnet['dns_server_address'] is 'None'):
                         #we need to make sure subnet_obj has a default dns
                         network = subnet_obj._network
                         if addr_from_start:
@@ -2442,8 +2443,10 @@ class AddrMgmt(object):
                 except KeyError:
                     pass
 
+        subnetting = ipam_dict.get('ipam_subnetting', False)
         self._create_ipam_subnet_objs(obj_id, ipam_dict,
-                                     should_persist=False)
+                                     should_persist=False,
+                                     ipam_subnetting=subnetting)
 
         return True, ''
     # end ipam_update_notify
