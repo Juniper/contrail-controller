@@ -1,8 +1,13 @@
 #!/usr/bin/python
 
+from __future__ import print_function
+
+from builtins import object
+from future import standard_library
+standard_library.install_aliases()  # noqa
 import json
 import pprint
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 from keystoneauth1 import session
 from keystoneauth1.identity import v3
@@ -146,7 +151,7 @@ class CreateCCResource(object):
     def get_rest_api_response(self, url, headers, data=None,
                               request_type=None):
         response = None
-        print data
+        print(data)
         if request_type == "post":
             response = requests.post(url, headers=headers, data=data,
                                      verify=False)
@@ -248,4 +253,4 @@ if __name__ == '__main__':
     try:
         main(cc_auth_args=my_auth_args)
     except Exception as e:
-        print e.message
+        print(e.message)

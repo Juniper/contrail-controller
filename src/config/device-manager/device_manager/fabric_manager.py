@@ -2,6 +2,8 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
+from builtins import str
 import json
 import os
 
