@@ -9,7 +9,7 @@ from flexmock import flexmock, Mock
 from testtools.matchers import Equals, Contains, Not
 import stevedore.extension
 
-from vnc_cfg_api_server import vnc_cfg_api_server
+from vnc_cfg_api_server import api_server
 from cfgm_common.tests.test_utils import FakeExtensionManager
 from cfgm_common.tests.test_utils import get_keystone_client
 from cfgm_common.tests.test_common import TestCase, setup_extra_flexmock
