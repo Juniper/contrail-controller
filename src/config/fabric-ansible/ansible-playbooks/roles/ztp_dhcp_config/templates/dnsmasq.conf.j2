@@ -33,5 +33,5 @@ dhcp-option=tag:jn,encap:43,3,"tftp"
 dhcp-host={{ mac }},{{ ip }}
 {%   endfor %}
 {% endif %}
-dhcp-script=/etc/dnsmasq/dnsmasq_init_script.sh
+dhcp-script=/etc/scripts/dnsmasq_init_script.sh
 leasefile-ro
