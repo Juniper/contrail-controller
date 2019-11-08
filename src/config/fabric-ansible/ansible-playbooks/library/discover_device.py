@@ -126,11 +126,13 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
                 time_diff = current_time - host_params.get('time')
                 elapsed_time = time_diff.total_seconds()
                 if host_params.get('remaining_retry_duration') <= 0.0:
-                    logger.info(
-                        "Host {} tried for the given retry timeout {}. "
-                        "Discovery FAILED".format(
-                            host_params.get('host'),
-                            deviceinfo.total_retry_timeout))
+                    msg = "Host {} tried for the given retry timeout {}. " \
+                          "Discovery FAILED" % (host_params.get('host'),
+                                              deviceinfo.total_retry_timeout)
+                    logger.info(msg)
+                    deviceinfo.module.results['warning_msg'] += msg
+                    deviceinfo.module.send_job_object_log(
+                        msg, JOB_IN_PROGRESS, None)
                     return
                 if elapsed_time < 30:
                     retry_queue.put(host_params)
@@ -167,22 +169,26 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
                     success = deviceinfo.get_device_info_ssh(
                         host_params.get('host'), oid_mapped,
                         deviceinfo.credentials)
-                    if not success and deviceinfo.total_retry_timeout:
-                        logger.info("HOST {}: SSH UNSUCCESSFUL".format(
-                            host_params.get('host')))
-                        logger.info(
-                            "Add in retry queue for host: {}".format(
-                                host_params.get('host')))
-                        host_params['time'] = datetime.now()
-                        retry_queue.put(host_params)
+                    if not success:
+                        if deviceinfo.total_retry_timeout:
+                            logger.info(
+                                "HOST {}: SSH UNSUCCESSFUL. Add in retry "
+                                "queue".format(
+                                    host_params.get('host')))
+                            host_params['time'] = datetime.now()
+                            retry_queue.put(host_params)
+                        else:
+                            msg = "HOST {}: SSH UNSUCCESSFUL".format(
+                                host_params.get('host'))
+                            logger.info(msg)
+                            deviceinfo.module.results['warning_msg'] += msg
+                            deviceinfo.module.send_job_object_log(
+                                msg, JOB_IN_PROGRESS, None)
                         return
 
                     deviceinfo.device_info_processing(host_params.get('host'),
                                                       oid_mapped)
                 else:
-                    logger.debug(
-                        "HOST {}: NOT REACHABLE".format(
-                            host_params.get('host')))
                     if deviceinfo.total_retry_timeout:
                         logger.info(
                             "HOST {}: not reachable, "
@@ -190,6 +196,14 @@ def _single_greenlet_processing(deviceinfo, retry_queue):
                                 host_params.get('host')))
                         host_params['time'] = datetime.now()
                         retry_queue.put(host_params)
+                    else:
+                        msg = "HOST {}: NOT REACHABLE".format(host_params.get(
+                            'host'))
+                        logger.info(msg)
+                        deviceinfo.module.results['warning_msg'] += msg
+                        deviceinfo.module.send_job_object_log(
+                            msg, JOB_IN_PROGRESS, None)
+
         except queue.Empty:
             logger.debug("QUEUE EMPTY EXIT")
             return
@@ -208,6 +222,7 @@ def _exit_with_error(module, msg):
 def module_process(module):
     deviceinfo = DeviceInfo(module)
     concurrent = module.params['pool_size']
+    module.results['warning_msg'] = ''
 
     all_hosts = []
 

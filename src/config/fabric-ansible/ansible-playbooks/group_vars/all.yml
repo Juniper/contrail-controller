@@ -61,7 +61,7 @@ job_ctx:
 POOL_SIZE: 500
 
 #Device Retry Timeout in Seconds
-TOTAL_RETRY_TIMEOUT: 3600
+TOTAL_RETRY_TIMEOUT: 600
 
 #vendor mapping
 vendor_mapping:

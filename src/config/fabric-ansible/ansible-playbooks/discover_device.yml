@@ -34,9 +34,15 @@
    - discover_device_role
 
   post_tasks:
-    - name: set output parameter
+    - name: set output warning message
+      set_fact:
+        output: "{{ output|combine({'status': 'Warning', 'message': discovery_results.warning_msg, 'device_json': discovery_results.device_info})}}"
+      when: discovery_results.warning_msg is defined and discovery_results.warning_msg|length > 0
+
+    - name: set output warning message
       set_fact:
          output: "{{ output|combine({'status':'SUCCESS', 'message':'Completed device discovery', 'device_json': discovery_results.device_info})}}"
+      when: discovery_results.warning_msg is defined and discovery_results.warning_msg|length == 0
 
     - name: print output
       debug: var=output verbosity=1
