@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "28d198b4_a9d5d277",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-11-08T01:08:10Z",
+      "side": 1,
+      "message": "Also, it should be removed from the old way in all.yml",
+      "revId": "1ae9f53a5a549c0e749e551b0bdc48a31651c684",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
