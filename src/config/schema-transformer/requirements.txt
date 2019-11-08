@@ -1,6 +1,5 @@
 gevent==1.1.2
 geventhttpclient==1.0a
-pycassa>=1.7.2
 netaddr>=0.7.5
 contrail-config-common
 jsonpickle
