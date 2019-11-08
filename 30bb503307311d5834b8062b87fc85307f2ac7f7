@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "67c3b60f_694b6551",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-11-08T13:17:08Z",
+      "side": 1,
+      "message": "value is uint64_t so it cant be \u003e 0xffFFffFF. We should figure out if the number is bigger than 4 byte from string itself.",
+      "range": {
+        "startLine": 278,
+        "startChar": 24,
+        "endLine": 278,
+        "endChar": 40
+      },
+      "revId": "30bb503307311d5834b8062b87fc85307f2ac7f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "33f50abc_eb19ae44",
+        "filename": "src/bgp/test/routing_policy_action_test.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 241,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-11-08T13:17:08Z",
+      "side": 1,
+      "message": "I thought we can not have same name for 2 tests?",
+      "range": {
+        "startLine": 241,
+        "startChar": 31,
+        "endLine": 241,
+        "endChar": 46
+      },
+      "revId": "30bb503307311d5834b8062b87fc85307f2ac7f7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
