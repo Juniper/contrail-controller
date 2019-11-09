@@ -4,7 +4,12 @@ vpath = '#/third_party/log4cplus-1.1.1'
 
 env = DefaultEnvironment()
 
-config_opts = '--prefix=' + str(Dir('#/build'))
+if env['CPP_STANDARD'] != 'c++11':
+  stdoption = ''
+else:
+  stdoption = 'CXXFLAGS=-std=c++11 '
+
+config_opts = stdoption + '--prefix=' + str(Dir('#/build'))
 
 cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
        '/configure' + ' ' + config_opts + '; make clean; make; make install)')
