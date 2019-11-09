@@ -2295,7 +2295,8 @@ TEST_F(BgpIfmapConfigManagerTest, RoutingInstanceRoutingPolicy_1) {
     ASSERT_TRUE(test_ri->routing_policy_list().size() == 2);
     list = test_ri->routing_policy_list();
 
-    expect_list = list_of("basic_1")("basic_0");
+    expect_list = list_of("basic_1")("basic_0")
+        .convert_to_container<vector<string> >();
     current_list.clear();
     BOOST_FOREACH(RoutingPolicyAttachInfo info, list) {
         current_list.push_back(info.routing_policy_);
@@ -2941,7 +2942,8 @@ TEST_F(BgpIfmapConfigManagerTest, RouteAggregate_MultipleInet_Unlink) {
 
     list = test_ri->aggregate_routes(Address::INET);
 
-    expect_list = list_of<string_pair_t>("4.0.0.0/8", "1.1.1.1");
+    expect_list = list_of<string_pair_t>("4.0.0.0/8", "1.1.1.1")
+        .convert_to_container<set<string_pair_t> >();
     current_list.clear();
     BOOST_FOREACH(AggregateRouteConfig info, list) {
         ostringstream oss;

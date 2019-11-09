@@ -436,18 +436,26 @@ protected:
 
         if (ServiceChainIntegrationTestGlobals::single_si_) {
             instance_names = list_of
-                ("blue")("blue-i1")("red-i2")("red")("purple");
-            networks = list_of("blue")("blue")("red")("red")("purple");
-            network_ids = list_of(1)(1)(2)(2)(3);
+                ("blue")("blue-i1")("red-i2")("red")("purple")
+                    .convert_to_container<vector<string> >();
+            networks = list_of("blue")("blue")("red")("red")("purple")
+                .convert_to_container<vector<string> >();
+            network_ids = list_of(1)(1)(2)(2)(3)
+                .convert_to_container<vector<int> >();
             connections = map_list_of
-                ("blue","blue-i1")("red-i2","red")("red","purple");
+                ("blue","blue-i1")("red-i2","red")("red","purple")
+                    .convert_to_container<multimap<string, string> >();
         } else {
             instance_names = list_of
-                ("blue")("blue-i1")("red-i2")("blue-i3")("red-i4")("red");
-            networks = list_of("blue")("blue")("red")("blue")("red")("red");
-            network_ids = list_of(1)(1)(2)(1)(2)(2);
+                ("blue")("blue-i1")("red-i2")("blue-i3")("red-i4")("red")
+                    .convert_to_container<vector<string> >();
+            networks = list_of("blue")("blue")("red")("blue")("red")("red")
+                .convert_to_container<vector<string> >();
+            network_ids = list_of(1)(1)(2)(1)(2)(2)
+                .convert_to_container<vector<int> >();
             connections = map_list_of
-                ("blue","blue-i1")("red-i2","blue-i3")("red-i4","red");
+                ("blue","blue-i1")("red-i2","blue-i3")("red-i4","red")
+                    .convert_to_container<multimap<string, string> >();
         }
         NetworkConfig(instance_names, connections, networks, network_ids);
 

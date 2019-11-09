@@ -510,7 +510,8 @@ TYPED_TEST(BgpXmppIpTest, RouteWithCommunity) {
         this->BuildNextHop(1), comm);
 
     // Change route from agent A.
-    comm = list_of("64512:201")("64512:202");
+    comm = list_of("64512:201")("64512:202")
+        .convert_to_container<vector<string> >();
     attr = test::RouteAttributes(comm);
     this->AddRoute(this->agent_a_, this->BuildPrefix(1), nexthop, attr);
     task_util::WaitForIdle();

@@ -3584,7 +3584,8 @@ TEST_F(BgpConfigTest, RoutePolicy_7) {
 
     policies = rti->routing_policies();
 
-    expect_list = boost::assign::list_of("basic_0")("basic_1");
+    expect_list = boost::assign::list_of("basic_0")("basic_1")
+        .convert_to_container<vector<string> >();
     current_list.clear();
     BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
@@ -3650,7 +3651,8 @@ TEST_F(BgpConfigTest, RoutePolicy_8) {
 
     policies = rti->routing_policies();
 
-    expect_list = boost::assign::list_of("basic_1")("basic_0");
+    expect_list = boost::assign::list_of("basic_1")("basic_0")
+        .convert_to_container<vector<string> >();
     current_list.clear();
     BOOST_FOREACH(RoutingPolicyInfo info, *policies) {
         current_list.push_back(info.first->name());
