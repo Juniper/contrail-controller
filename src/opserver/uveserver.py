@@ -161,8 +161,8 @@ class UVEServer(object):
                     '''
                     when rinst.redis_handle is none, redis down
                     when rkey.ip not in collectors, collector down
-                    if redis and collector are up or down, state should be up
-                    if one of redis/collecor is down, state should be down
+                    if both redis and collector are up or down, state should be up
+                    if collecor is down and redis is up, state should be up
                     '''
                     if rinst.redis_handle is None:
                         if collectors is not None and rkey.ip not in collectors:
@@ -174,14 +174,9 @@ class UVEServer(object):
                                 rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN,
                             [rkey.ip+":"+str(rkey.port)])
                     else:
-                        if collectors is not None and rkey.ip not in collectors:
-                            ConnectionState.update(ConnectionType.REDIS_UVE,\
-                                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN,
-                            [rkey.ip+":"+str(rkey.port)])
-                        else:
-                            ConnectionState.update(ConnectionType.REDIS_UVE,\
-                                rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP,
-                            [rkey.ip+":"+str(rkey.port)])
+                        ConnectionState.update(ConnectionType.REDIS_UVE,\
+                            rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP,
+                        [rkey.ip+":"+str(rkey.port)])
 
             if not exitrun:
                 gevent.sleep(self._freq)
