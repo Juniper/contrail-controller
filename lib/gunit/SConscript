@@ -7,9 +7,12 @@ env = default.Clone()
 
 (distname, version, _) = platform.dist()
 if distname != 'Ubuntu' or float(version) < 14.04:
-    gtest_path = '#/third_party/gtest-1.6.0'
-    gmock_path = '#/third_party/gmock-1.6.0'
-
+    if env['CPP_STANDARD'] != 'c++11':
+        gtest_path = '#/third_party/gtest-1.6.0'
+        gmock_path = '#/third_party/gmock-1.6.0'
+    else:
+        gtest_path = '#/third_party/googletest-release-1.8.1/googletest/'
+        gmock_path = '#/third_party/googletest-release-1.8.1/googlemock/'
     gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
     gmock_dir = env.Install('#/build/include', gmock_path + '/include/gmock')
     gunit_h = env.Install('#/build/include/testing', 'gunit.h')
