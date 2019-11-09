@@ -940,21 +940,24 @@ TYPED_TEST(StaticRouteTest, InvalidRouteTarget) {
     this->SetStaticRouteEntries("nat",
         "controller/src/bgp/testdata/static_route_11a.xml");
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    rtarget_list = list_of("target:64496:1")("target:64496:3");
+    rtarget_list = list_of("target:64496:1")("target:64496:3")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
     this->SetStaticRouteEntries("nat",
         "controller/src/bgp/testdata/static_route_11b.xml");
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    rtarget_list = list_of("target:64496:2")("target:64496:3");
+    rtarget_list = list_of("target:64496:2")("target:64496:3")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
     this->SetStaticRouteEntries("nat",
         "controller/src/bgp/testdata/static_route_11c.xml");
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    rtarget_list = list_of("target:64496:1")("target:64496:2");
+    rtarget_list = list_of("target:64496:1")("target:64496:2")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1041,7 +1044,8 @@ TYPED_TEST(StaticRouteTest, Basic2) {
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24), 2);
     rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+        list_of("target:64496:1")("target:64496:2")("target:64496:3")
+            .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
@@ -1059,7 +1063,8 @@ TYPED_TEST(StaticRouteTest, Basic2) {
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
     rtarget_list =
-        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+        list_of("target:64496:1")("target:64496:2")("target:64496:3")
+            .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.6"), "unresolved", rtarget_list);
 
@@ -1109,7 +1114,7 @@ TYPED_TEST(StaticRouteTest, UpdateRtList) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    rtarget_list = list_of("target:1:1");
+    rtarget_list = list_of("target:1:1").convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1140,7 +1145,8 @@ TYPED_TEST(StaticRouteTest, UpdateCommunityList) {
         "controller/src/bgp/testdata/static_route_15b.xml");
 
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
-    comm_list = list_of("64496:201")("64496:202");
+    comm_list = list_of("64496:201")("64496:202")
+        .convert_to_container<vector<string> >();
     this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("2.3.4.5"), "blue", comm_list);
 
@@ -1186,7 +1192,8 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
         this->BuildNextHopAddress("5.4.3.2"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    rtarget_list = list_of("target:64496:1");
+    rtarget_list = list_of("target:64496:1")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("5.4.3.2"), "unresolved", rtarget_list);
 
@@ -1238,7 +1245,8 @@ TYPED_TEST(StaticRouteTest, DuplicatePrefix) {
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
-    rtarget_list = list_of("target:1:1")("target:1:2")("target:1:3");
+    rtarget_list = list_of("target:1:1")("target:1:2")("target:1:3")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("5.4.3.2"), "unresolved", rtarget_list);
 
@@ -1297,7 +1305,8 @@ TYPED_TEST(StaticRouteTest, DuplicatePrefix_1) {
         this->BuildNextHopAddress("5.4.3.2"), "blue");
 
     this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24), 2);
-    rtarget_list = list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    rtarget_list = list_of("target:64496:1")("target:64496:2")("target:64496:3")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
         this->BuildNextHopAddress("5.4.3.2"), "unresolved", rtarget_list);
 
@@ -1456,7 +1465,8 @@ TYPED_TEST(StaticRouteTest, MultipleRoutingInstance) {
 
     this->VerifyRouteExists("nat-1", this->BuildPrefix("192.168.1.0", 24));
     this->VerifyRouteExists("nat-1", this->BuildPrefix("1.1.0.0", 16));
-    rtarget_list = list_of("target:1:1")("target:1:2");
+    rtarget_list = list_of("target:1:1")("target:1:2")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat-1", this->BuildPrefix("1.1.0.0", 16),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1497,7 +1507,8 @@ TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger1) {
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
     this->VerifyRouteExists("nat-1", this->BuildPrefix("1.1.0.0", 16));
-    rtarget_list = list_of("target:1:1")("target:1:2");
+    rtarget_list = list_of("target:1:1")("target:1:2")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat-1", this->BuildPrefix("1.1.0.0", 16),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1576,7 +1587,8 @@ TYPED_TEST(StaticRouteTest, MultipleRoutingInstance_DisableUnregisterTrigger2) {
 
     this->VerifyRouteExists("nat-1", this->BuildPrefix("192.168.1.0", 24));
     this->VerifyRouteExists("nat-1", this->BuildPrefix("1.1.0.0", 16));
-    rtarget_list = list_of("target:1:1")("target:1:2");
+    rtarget_list = list_of("target:1:1")("target:1:2")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat-1", this->BuildPrefix("1.1.0.0", 16),
         this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
 
@@ -1685,7 +1697,8 @@ TYPED_TEST(StaticRouteTest, ConfigUpdate) {
         this->BuildNextHopAddress("9.8.7.6"), "unresolved", rtarget_list);
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.4.0", 24),
         this->BuildNextHopAddress("9.8.7.6"), "unresolved", rtarget_list);
-    rtarget_list = list_of("target:64496:3");
+    rtarget_list = list_of("target:64496:3")
+        .convert_to_container<set<string> >();
     this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.2.0", 24),
         this->BuildNextHopAddress("9.8.7.6"), "unresolved", rtarget_list);
 
@@ -1834,7 +1847,7 @@ TYPED_TEST(StaticRouteTest, TunnelEncap) {
         encap_list);
 
     // Update Nexthop Route
-    encap_list = list_of("udp");
+    encap_list = list_of("udp").convert_to_container<set<string> >();
     this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32), 100,
         this->BuildNextHopAddress("2.3.4.5"), encap_list);
 
@@ -2289,7 +2302,8 @@ TYPED_TEST(StaticRouteTest, AddRoutingInstance) {
 
     // Add the blue instance.
     // Make sure that the id and route target for nat instance don't change.
-    instance_names = list_of("nat")("blue");
+    instance_names = list_of("nat")("blue")
+        .convert_to_container<vector<string> >();
     this->NetworkConfig(instance_names);
 
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));

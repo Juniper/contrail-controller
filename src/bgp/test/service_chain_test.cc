@@ -2845,8 +2845,10 @@ TYPED_TEST(ServiceChainTest, PendingChain) {
     this->VerifyPendingServiceChainSandesh(this, list_of("blue-i1"));
 
     // Add "red" routing instance and create connection with "red-i2"
-    instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
+    instance_names = list_of("blue")("blue-i1")("red-i2")("red")
+        .convert_to_container<vector<string> >();
+    connections = map_list_of("blue", "blue-i1") ("red-i2", "red")
+        .convert_to_container<multimap<string,string> >();
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -3215,8 +3217,9 @@ TYPED_TEST(ServiceChainTest, EcmpPathUpdate) {
 
     this->AddConnectedRoute(this->peers_[1], this->BuildConnPrefix("1.1.2.3", 32),
                             100, this->BuildNextHopAddress("2.3.1.8"));
-    path_ids = list_of(this->BuildNextHopAddress("2.3.0.5"))
-        (this->BuildNextHopAddress("2.3.1.8"));
+    path_ids = list_of(string(this->BuildNextHopAddress("2.3.0.5")))
+        (string(this->BuildNextHopAddress("2.3.1.8")))
+            .convert_to_container<vector<string> >();
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
                                 path_ids, "red");
     this->VerifyRouteAttributes("blue",
@@ -3426,8 +3429,9 @@ TYPED_TEST(ServiceChainTest, EcmpWithDuplicateForwardingPaths) {
     // Check for aggregated route
     this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
     path_ids = list_of(
-        this->BuildNextHopAddress("2.3.4.5"))
-        (this->BuildNextHopAddress("2.3.4.6"));
+        string(this->BuildNextHopAddress("2.3.4.5")))
+        (string(this->BuildNextHopAddress("2.3.4.6")))
+            .convert_to_container<vector<string> >();
     this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
                                 path_ids, "red");
     this->VerifyRouteExists("blue",
@@ -6137,8 +6141,10 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain1) {
     this->VerifyServiceChainGroup("blue-i1", "group1");
 
     // Add "red" routing instance and create connection with "red-i2"
-    instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
+    instance_names = list_of("blue")("blue-i1")("red-i2")("red")
+        .convert_to_container<vector<string> >();
+    connections = map_list_of("blue", "blue-i1") ("red-i2", "red")
+        .convert_to_container<multimap<string, string> >();
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 
@@ -6171,8 +6177,10 @@ TYPED_TEST(ServiceChainTest, GroupPendingChain2) {
     this->VerifyServiceChainGroup("blue-i1", "group2");
 
     // Add "red" routing instance and create connection with "red-i2"
-    instance_names = list_of("blue")("blue-i1")("red-i2")("red");
-    connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
+    instance_names = list_of("blue")("blue-i1")("red-i2")("red")
+        .convert_to_container<vector<string> >();
+    connections = map_list_of("blue", "blue-i1") ("red-i2", "red")
+        .convert_to_container<multimap<string, string> >();
     this->NetworkConfig(instance_names, connections);
     this->VerifyNetworkConfig(instance_names);
 

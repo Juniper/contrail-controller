@@ -1894,17 +1894,19 @@ TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelArTypeString) {
 TEST_F(BgpAttrTest, PmsiTunnelSpecTunnelFlagsStrings) {
     PmsiTunnelSpec pmsi_spec;
     vector<string> flags;
-    flags = list_of("None");
+    flags = list_of("None").convert_to_container<vector<string> >();
     EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
-    flags = list_of("LeafInfoRequired");
+    flags = list_of("LeafInfoRequired").convert_to_container<vector<string> >();
     EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
-    flags = list_of("EdgeReplicationSupported");
+    flags = list_of("EdgeReplicationSupported")
+        .convert_to_container<vector<string> >();
     EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
     pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
     pmsi_spec.tunnel_flags |= PmsiTunnelSpec::EdgeReplicationSupported;
-    flags = list_of("LeafInfoRequired")("EdgeReplicationSupported");
+    flags = list_of("LeafInfoRequired")("EdgeReplicationSupported")
+        .convert_to_container<vector<string> >();
     EXPECT_EQ(flags, pmsi_spec.GetTunnelFlagsStrings());
 }
 

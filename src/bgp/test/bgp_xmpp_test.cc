@@ -394,7 +394,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
 
     // show route for a table
     cout << "ValidateShowRouteResponse for bgp.l3vpn.0:" << endl;
-    result = list_of(1);
+    result = list_of(1).convert_to_container<vector<size_t> >();
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     show_req = new ShowRouteReq;
@@ -407,7 +407,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
 
     // show route for a routing instance
     cout << "ValidateShowRouteResponse for __default__:" << endl;
-    result = list_of(1)(6);
+    result = list_of(1)(6).convert_to_container<vector<size_t> >();
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     show_req = new ShowRouteReq;
@@ -466,7 +466,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
 
     // show route
     cout << "ValidateShowRouteResponse for empty tables:" << endl;
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<size_t> >();
     ShowRouteReq *show_req2 = new ShowRouteReq;
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                                result));

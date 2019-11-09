@@ -50,7 +50,8 @@ TEST_F(UpdateExtCommunityTest, Update) {
     EXPECT_TRUE(val0.ToString() == communities[0]);
     EXPECT_TRUE(val1.ToString() == communities[1]);
 
-    communities = list_of("target:33:11")("target:53:11");
+    communities = list_of("target:33:11")("target:53:11")
+        .convert_to_container<vector<string> >();
     UpdateExtCommunity action2(communities, "set");
     action2(const_cast<BgpAttr *>(attr.get()));
     comm = attr->ext_community();
@@ -178,7 +179,8 @@ TEST_F(UpdateAsPathTest, UpdateNonNull) {
     AsPathSpec *path = new AsPathSpec;
     AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
     ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
-    ps->path_segment = list_of(3000)(4000);
+    ps->path_segment = list_of(3000)(4000)
+        .convert_to_container<vector<as2_t> >() ;
     path->path_segments.push_back(ps);
     spec.push_back(path);
 
@@ -205,7 +207,8 @@ TEST_F(UpdateAsPathTest, UpdateNonNullAs4) {
     AsPath4ByteSpec *path = new AsPath4ByteSpec;
     AsPath4ByteSpec::PathSegment *ps = new AsPath4ByteSpec::PathSegment;
     ps->path_segment_type = AsPath4ByteSpec::PathSegment::AS_SEQUENCE;
-    ps->path_segment = list_of(3000)(4000);
+    ps->path_segment = list_of(3000)(4000)
+        .convert_to_container<std::vector<as_t> >();
     path->path_segments.push_back(ps);
     spec.push_back(path);
 
