@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "8de76418_47d62b0a",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-11-10T18:05:56Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ea99a32d_f84f7be5",
+      "revId": "888bb77104d5d37faac4be1d70aa648fbe6191d1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "07cc40ae_312f1125",
         "filename": "src/bgp/community.cc",
         "patchSetId": 3
@@ -30,6 +48,24 @@
       "writtenOn": "2019-11-08T16:46:54Z",
       "side": 1,
       "message": "why \u003e\u003d ? shouldn\u0027t it be just \"\u003e\". in any case, uint64_t cannot be greater than 0xffffffffffffffff",
+      "revId": "888bb77104d5d37faac4be1d70aa648fbe6191d1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c450099e_483c93d8",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-11-10T18:05:56Z",
+      "side": 1,
+      "message": "Yes you are correct value can never be greater than 0xffffffffffffffff.\nBut hex string which is greater than\u00270xffffffffffffffff\u0027 for example \"0x1234567890abcdefff\" is automatically converted to \"0xffffffffffffffff\" by istringstream, hence value \n \u003d 0xffffffffffffffff should be treated as invalid. Also seeing at other ext-communities test cases I feel that  \"0xffffffffffffffff\" should be invalid.\ncorrect check should be:  if (value \u003d\u003d 0 || value \u003d\u003d 0xffffffffffffffff) {",
+      "parentUuid": "07cc40ae_312f1125",
       "revId": "888bb77104d5d37faac4be1d70aa648fbe6191d1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -50,6 +86,24 @@
       "revId": "888bb77104d5d37faac4be1d70aa648fbe6191d1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4d0b07ab_5c36e136",
+        "filename": "src/bgp/test/routing_policy_action_test.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 285,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-11-10T18:05:56Z",
+      "side": 1,
+      "message": "Done.",
+      "parentUuid": "128a373b_e7a07da8",
+      "revId": "888bb77104d5d37faac4be1d70aa648fbe6191d1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
