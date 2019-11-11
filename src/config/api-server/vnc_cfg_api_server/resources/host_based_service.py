@@ -66,8 +66,8 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         return True
 
     @classmethod
-    def _check_default_vn_valid(self, req_dict, is_create, is_prop_update):
-        if is_internal_request() or is_prop_update:
+    def _check_default_vn_valid(self, req_dict, is_create, non_vn_ref_update):
+        if is_internal_request() or non_vn_ref_update:
             return True, ''
         vn_type_set = set()
 
@@ -228,6 +228,8 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
             return False, result
         db_obj_dict = result
 
+        non_vn_ref_update = False
+
         ok, result = cls._check_type(obj_dict, db_obj_dict)
         if not ok:
             return False, result
@@ -236,8 +238,11 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
         if not ok:
             return ok, result
 
+        if 'virtual_network_refs' not in obj_dict:
+            non_vn_ref_update = True
+
         ok, result = cls._check_default_vn_valid(
-            obj_dict, False, prop_collection_updates is not None)
+            obj_dict, False, non_vn_ref_update)
         if not ok:
             return ok, result
 
