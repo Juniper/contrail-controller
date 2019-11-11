@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "bf5cba16_8ac69fb3",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 7
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-11-11T20:27:06Z",
+      "side": 1,
+      "message": "Isn\u0027t it simpler to use strtoull() by passing base value as 0 ?",
+      "revId": "86e39642351dc87b3293999e9a54d76707dfa38f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "179af805_e3d05201",
         "filename": "src/bgp/community.cc",
         "patchSetId": 7
