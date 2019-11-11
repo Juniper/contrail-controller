@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "179af805_e3d05201",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 7
+      },
+      "lineNbr": 281,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-11-11T17:48:45Z",
+      "side": 1,
+      "message": "Nit: we can rearrange this code to avoid code duplication. maybe in next checkin you can do that.",
+      "range": {
+        "startLine": 277,
+        "startChar": 14,
+        "endLine": 281,
+        "endChar": 13
+      },
+      "revId": "86e39642351dc87b3293999e9a54d76707dfa38f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
