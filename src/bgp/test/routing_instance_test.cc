@@ -554,6 +554,38 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     TASK_UTIL_EXPECT_EQ(0, red_->Size());
     TASK_UTIL_EXPECT_EQ(0, purple_->Size());
 }
+
+}
+
+class RoutingInstanceMiscTest : public ::testing::Test {
+protected:
+    RoutingInstanceMiscTest() : server_(&evm_) { }
+
+    EventManager evm_;
+    BgpServer server_;
+};
+
+TEST_F(RoutingInstanceMiscTest, LogicalRouterPrimaryRoutingInstance) {
+    EXPECT_EQ("", RoutingInstanceMgr::GetPrimaryRoutingInstanceName(""));
+    EXPECT_EQ("", RoutingInstanceMgr::GetPrimaryRoutingInstanceName(
+                      "default-domain"));
+    EXPECT_EQ("", RoutingInstanceMgr::GetPrimaryRoutingInstanceName(
+        "default-domain:ctest-TestECMPwithSVMChange-73219229"));
+    EXPECT_EQ("default-domain:ctest-TestECMPwithSVMChange-73219229:"
+              "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219:"
+              "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219",
+              RoutingInstanceMgr::GetPrimaryRoutingInstanceName(
+                  "default-domain:ctest-TestECMPwithSVMChange-73219229:"
+                  "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219:"
+                  "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219"));
+    EXPECT_EQ("default-domain:ctest-TestECMPwithSVMChange-73219229:"
+              "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219:"
+              "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219",
+              RoutingInstanceMgr::GetPrimaryRoutingInstanceName(
+                  "default-domain:ctest-TestECMPwithSVMChange-73219229:"
+                  "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219:"
+                  "ctest-left_ctest-TestECMPwithSVMChange-73219229-64754219:"
+                  "73219229-64754219"));
 }
 
 class RoutingInstanceMappingTest : public ::testing::Test {
