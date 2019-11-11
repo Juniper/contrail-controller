@@ -310,6 +310,39 @@ TEST_F(RemoteEcmpTest, Fabric_NonEcmpToEcmp_1) {
             CompositeNH::kInvalidComponentNHIdx);
 }
 
+// Ping from from fabric. Non-ECMP to ECMP
+// delete first member and verify that no crash is
+// seen in processing flow trap originated from remote server to
+// local ecmp destination
+TEST_F(RemoteEcmpTest, Fabric_NonEcmpToEcmp_2) {
+    //VIP of vrf2 interfaces
+    char vm_ip[80] = "2.1.1.1";
+    char router_id[80];
+    char remote_server_ip[80];
+    char remote_vm_ip[80];
+
+    strcpy(router_id, agent_->router_id().to_string().c_str());
+    strcpy(remote_server_ip, remote_server_ip_.to_string().c_str());
+    strcpy(remote_vm_ip, remote_vm_ip1_.to_string().c_str());
+
+    DeleteVmportEnv(input2, 1, false);
+    client->WaitForIdle();
+    TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, mpls_label_2,
+                   remote_vm_ip, vm_ip, 1, 10);
+
+    client->WaitForIdle();
+    int nh_id = GetActiveLabel(mpls_label_2)->nexthop()->id();
+    FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+                               remote_vm_ip, vm_ip, 1, 0, 0,  nh_id);
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+            CompositeNH::kInvalidComponentNHIdx);
+
+    //Reverse flow should be set and should also be ECMP
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+            CompositeNH::kInvalidComponentNHIdx);
+}
 // Ping from fabric.
 // Non-ECMP to ECMP
 // FIP DNAT case with source in vrf2 and dest in vrf1
