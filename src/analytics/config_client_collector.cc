@@ -63,6 +63,7 @@ void ConfigJsonParserCollector::SetupObjectFilter() {
     AddObjectType("structured_syslog_sla_profile");
     AddObjectType("structured_syslog_application_record");
     AddObjectType("structured_syslog_hostname_record");
+    AddObjectType("structured_syslog_tenant_record");
     AddObjectType("structured_syslog_config");
     AddObjectType("project");
     AddObjectType("global_analytics_config");
@@ -80,6 +81,9 @@ void ConfigJsonParserCollector::SetupSchemaGraphFilter() {
     AddParentName(make_pair("structured_syslog_config",
                             "structured_syslog_hostname_record"),
                  "structured-syslog-config-structured-syslog-hostname-record");
+    AddParentName(make_pair("structured_syslog_config",
+                            "structured_syslog_tenant_record"),
+                 "structured-syslog-config-structured-syslog-tenant-record");
     AddParentName(make_pair("structured_syslog_config",
                             "structured_syslog_application_record"), 
                  "structured-syslog-config-structured-syslog-application-record");
