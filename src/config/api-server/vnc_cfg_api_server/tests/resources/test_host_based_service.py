@@ -334,3 +334,32 @@ class TestHostBasedService(test_case.ApiServerTestCase):
             self.api.host_based_service_create,
             hbs1
         )
+
+    def test_hbs_update_property(self):
+        project2 = Project('project2-%s' % self.id())
+        project2.set_quota(QuotaType(host_based_service=1))
+        self.api.project_create(project2)
+        hbs = HostBasedService('hbs1-%s' % self.id(), parent_obj=project2)
+        self.api.host_based_service_create(hbs)
+        hbs.set_display_name('new display name')
+        self.api.host_based_service_update(hbs)
+
+    def test_hbs_update_default_vn_property(self):
+        project2 = Project('project2-%s' % self.id())
+        project2.set_quota(QuotaType(host_based_service=1))
+        self.api.project_create(project2)
+        hbs = HostBasedService('hbs1-%s' % self.id(), parent_obj=project2)
+        self.api.host_based_service_create(hbs)
+        hbs = self.api.host_based_service_read(id=hbs.uuid)
+        vn_ref_left_uuid = hbs.virtual_network_refs[0]['uuid']
+        self.assertRaises(
+            BadRequest,
+            self.api.ref_update,
+            hbs.resource_type,
+            hbs.uuid,
+            'virtual_network',
+            vn_ref_left_uuid,
+            None,
+            'ADD',
+            ServiceVirtualNetworkType('management'),
+        )
