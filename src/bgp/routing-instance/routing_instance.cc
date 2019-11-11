@@ -33,6 +33,7 @@ using boost::assign::list_of;
 using boost::system::error_code;
 using boost::tie;
 using std::make_pair;
+using std::ostringstream;
 using std::set;
 using std::string;
 using std::vector;
@@ -1990,4 +1991,20 @@ PeerManager *RoutingInstance::LocatePeerManager() {
     if (!peer_manager_)
         peer_manager_.reset(BgpObjectFactory::Create<PeerManager>(this));
     return peer_manager_.get();
+}
+
+// Get primary routing instance name from service RI names which works for both
+// in-network and transparent service chains. Use name based lookup to identify
+// the primary RI of service instance.
+// Service RI Name Format: <domain>:<project>:<VN>:<ServiceRI>
+// Primaru RI Name Format: <domain>:<project>:<VN>:<VN>
+string RoutingInstanceMgr::GetPrimaryRoutingInstanceName(const string &name) {
+    string n = name;
+    vector<string> tokens;
+    boost::split(tokens, n, boost::is_any_of(":"));
+    if (tokens.size() < 3)
+        return "";
+    ostringstream os;
+    os << tokens[0] << ":" << tokens[1] << ":" << tokens[2] << ":" << tokens[2];
+    return os.str();
 }

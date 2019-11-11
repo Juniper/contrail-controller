@@ -47,9 +47,9 @@ public:
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
         MULTICAST_PEER,
-        EVPN_ROUTING_PEER,
         EVPN_PEER,
         BGP_PEER,
+        EVPN_ROUTING_PEER,
         LINKLOCAL_PEER,
         ECMP_PEER,
         LOCAL_VM_PORT_PEER,
