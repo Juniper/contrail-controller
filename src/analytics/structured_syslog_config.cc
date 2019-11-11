@@ -6,11 +6,15 @@
 #include <sstream>
 #include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/asio.hpp>
 #include "analytics_types.h"
 #include "structured_syslog_config.h"
 #include "options.h"
 #include "base/logging.h"
 #include "base/regex.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 using boost::regex_error;
 using contrail::regex;
@@ -27,6 +31,8 @@ StructuredSyslogConfig::StructuredSyslogConfig(ConfigClientCollector *config_cli
 StructuredSyslogConfig::~StructuredSyslogConfig() {
     hostname_records_.erase(hostname_records_.begin(),
                             hostname_records_.end());
+    tenant_records_.erase(tenant_records_.begin(),
+                            tenant_records_.end());
     application_records_.erase(application_records_.begin(),
                                application_records_.end());
     tenant_application_records_.erase(tenant_application_records_.begin(),
@@ -34,6 +40,25 @@ StructuredSyslogConfig::~StructuredSyslogConfig() {
     networks_map_.erase(networks_map_.begin(), networks_map_.end());
 }
 
+
+/*  Return int 4 when IP belongs to protocol IPv4 or
+    Return int 6 when IP belongs to protocol IPv6, otherwise
+    Return int -1 if IP is not valid */
+int
+StructuredSyslogConfig::get_ip_version (const std::string ip) {
+    int version = -1;
+    try {
+        boost::asio::ip::address addr = boost::asio::ip::address::from_string(ip);
+        if (addr.is_v4())
+            version = 4;
+        else if (addr.is_v6())
+            version = 6;
+    }
+    catch (std::exception &e){
+        LOG(ERROR, "IP : "<< ip <<" found while checking IP protocol is invalid. ERROR: " << e.what());
+    }
+    return version;
+}
 
 uint32_t
 StructuredSyslogConfig::IPToUInt(std::string ip) {
@@ -184,12 +209,17 @@ StructuredSyslogConfig::HostnameRecordsHandler(const contrail_rapidjson::Documen
             const contrail_rapidjson::Value& links_array = linkmap_fields["links"];
             assert(links_array.IsArray());
             for (contrail_rapidjson::SizeType i = 0; i < links_array.Size(); i++) {
+                std::string underlay = links_array[i]["underlay"].GetString();
+                std::string link_type = links_array[i]["link_type"].GetString() ;
+                std::string traffic_destination = links_array[i]["traffic_destination"].GetString() ; 
+                std::string link_metadata = links_array[i]["metadata"].GetString() ;
+                std::string overlay_link_data = underlay + "@" + link_type + "@" + traffic_destination + "@" + link_metadata ;
                 linkmap.insert(std::make_pair<std::string,
                 std::string >(links_array[i]["overlay"].GetString(),
-                links_array[i]["underlay"].GetString()));
+                overlay_link_data));
                 LOG(DEBUG, "Adding HostnameRecord: " << name << " linkmap: "
                 << links_array[i]["overlay"].GetString() << " : "
-                << links_array[i]["underlay"].GetString());
+                << overlay_link_data);
             }
         }
         if (hr.HasMember("structured_syslog_lan_segment_list")) {
@@ -240,6 +270,69 @@ StructuredSyslogConfig::HostnameRecordsHandler(const contrail_rapidjson::Documen
         return;
     }
 }
+
+void
+StructuredSyslogConfig::TenantRecordsHandler(const contrail_rapidjson::Document &jdoc,
+                                               bool add_update) {
+    if (jdoc.IsObject() && jdoc.HasMember("structured_syslog_tenant_record")) {
+        const contrail_rapidjson::Value& hr = jdoc["structured_syslog_tenant_record"];
+        std::string name, tenantaddr, tenant, tags;
+        std::map< std::string, std::string > dscpmap_ipv4;
+        std::map< std::string, std::string > dscpmap_ipv6;
+
+        if (hr.HasMember("fq_name")) {
+            const contrail_rapidjson::Value& fq_name = hr["fq_name"];
+            contrail_rapidjson::SizeType sz = fq_name.Size();
+            name = fq_name[sz-1].GetString();
+            LOG(DEBUG, "NAME got from fq_name: " << name);
+        }
+        if (hr.HasMember("structured_syslog_tenantaddr")) {
+            tenantaddr = hr["structured_syslog_tenantaddr"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_tenant")) {
+            tenant = hr["structured_syslog_tenant"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_tenant_tags")) {
+            tags = hr["structured_syslog_tenant_tags"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_dscpmap")) {
+            const contrail_rapidjson::Value& dscpmap_fields = hr["structured_syslog_dscpmap"];
+            const contrail_rapidjson::Value& dscpmapipv4_array = dscpmap_fields["dscpListIPv4"];
+            const contrail_rapidjson::Value& dscpmapipv6_array = dscpmap_fields["dscpListIPv6"];
+            assert(dscpmapipv6_array.IsArray());
+            assert(dscpmapipv4_array.IsArray());
+            for (contrail_rapidjson::SizeType i = 0; i < dscpmapipv4_array.Size(); i++) {
+                dscpmap_ipv4.insert(std::make_pair<std::string,
+                std::string >(dscpmapipv4_array[i]["dscp_value"].GetString(),
+                dscpmapipv4_array[i]["alias_code"].GetString()));
+                LOG(DEBUG, "Adding TenantRecord: " << name << " dscpmap ipv4: "
+                << dscpmapipv4_array[i]["dscp_value"].GetString() << " : "
+                << dscpmapipv4_array[i]["alias_code"].GetString());
+            }
+            for (contrail_rapidjson::SizeType i = 0; i < dscpmapipv6_array.Size(); i++) {
+                dscpmap_ipv6.insert(std::make_pair<std::string,
+                std::string >(dscpmapipv6_array[i]["dscp_value"].GetString(),
+                dscpmapipv6_array[i]["alias_code"].GetString()));
+                LOG(DEBUG, "Adding TenantRecord: " << name << " dscpmap ipv6: "
+                << dscpmapipv6_array[i]["dscp_value"].GetString() << " : "
+                << dscpmapipv6_array[i]["alias_code"].GetString());
+            }
+        }
+        if (add_update) {
+            LOG(DEBUG, "Adding TenantRecord: " << name);
+            AddTenantRecord(name, tenantaddr, tenant,
+                                tags, dscpmap_ipv4, dscpmap_ipv6);
+        } else {
+            Ctr_t::iterator cit = tenant_records_.find(name);
+            if (cit != tenant_records_.end()) {
+                LOG(DEBUG, "Erasing TenantRecord: " << cit->second->name());
+                tenant_records_.erase(cit);
+            }
+        }
+        return;
+    }
+}
+
 
 void
 StructuredSyslogConfig::ApplicationRecordsHandler(const contrail_rapidjson::Document &jdoc,
@@ -402,6 +495,7 @@ StructuredSyslogConfig::SlaProfileRecordsHandler(const contrail_rapidjson::Docum
 void
 StructuredSyslogConfig::ReceiveConfig(const contrail_rapidjson::Document &jdoc, bool add_change) {
     HostnameRecordsHandler(jdoc, add_change);
+    TenantRecordsHandler(jdoc, add_change);
     ApplicationRecordsHandler(jdoc, add_change);
     MessageConfigsHandler(jdoc, add_change);
     SlaProfileRecordsHandler(jdoc, add_change);
@@ -430,6 +524,31 @@ StructuredSyslogConfig::AddHostnameRecord(const std::string &name,
                     name, hostaddr, tenant, location, device, tags, linkmap));
         hostname_records_.insert(std::make_pair<std::string,
                 boost::shared_ptr<HostnameRecord> >(name, c));
+    }
+}
+
+boost::shared_ptr<TenantRecord>
+StructuredSyslogConfig::GetTenantRecord(const std::string &name) {
+    Ctr_t::iterator it = tenant_records_.find(name);
+    if (it  != tenant_records_.end()) {
+        return it->second;
+    }
+    return boost::shared_ptr<TenantRecord>();
+}
+
+void
+StructuredSyslogConfig::AddTenantRecord(const std::string &name,
+        const std::string &tenantaddr, const std::string &tenant,
+        const std::string &tags, const std::map< std::string, std::string > &dscpmap_ipv4,
+        const std::map< std::string, std::string > &dscpmap_ipv6) {
+    Ctr_t::iterator it = tenant_records_.find(name);
+    if (it  != tenant_records_.end()) {
+        it->second->Refresh(name, tenantaddr, tenant, tags, dscpmap_ipv4, dscpmap_ipv6);
+    } else {
+        boost::shared_ptr<TenantRecord> c(new TenantRecord(
+                    name, tenantaddr, tenant, tags, dscpmap_ipv4, dscpmap_ipv6));
+        tenant_records_.insert(std::make_pair<std::string,
+                boost::shared_ptr<TenantRecord> >(name, c));
     }
 }
 
