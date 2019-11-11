@@ -165,7 +165,6 @@ void ServiceChain<T>::GetReplicationFamilyInfo(DBTablePartition  *&partition,
 
 /**
   * Process service-chain path and add to service-chain route if needed.
-  *
   * @param path_id    -  PathID
   * @param path       -  Path to be processed
   * @param attr       -  Path attribute
