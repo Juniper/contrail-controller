@@ -189,7 +189,10 @@ void ServiceChain<T>::ProcessServiceChainPath(uint32_t path_id, BgpPath *path,
       * the connected RI if non-zero and if not, the VNI.
       */
     if (bgptable->family() == Address::EVPN) {
-        const RoutingInstance *conn_ri = connected_routing_instance();
+        const RoutingInstance *conn_ri =
+            bgptable->server()->routing_instance_mgr()->GetRoutingInstance(
+                RoutingInstanceMgr::GetPrimaryRoutingInstanceName(
+                    connected_->name()));
         label = conn_ri->vxlan_id();
         if (!label) {
             label = conn_ri->virtual_network_index();
@@ -898,11 +901,15 @@ void ServiceChain<T>::UpdateServiceChainRouteInternal(const RouteT *orig_route,
         // schema transformer for non user-configured RTs.
         if (is_sc_head() && bgptable->family() == Address::EVPN) {
             ExtCommunity::ExtCommunityList export_list;
-            RoutingInstance *con_ri = connected_routing_instance();
+            const RoutingInstance *conn_ri =
+                server->routing_instance_mgr()->GetRoutingInstance(
+                    RoutingInstanceMgr::GetPrimaryRoutingInstanceName(
+                        connected_->name()));
             BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                "Adding primary RI " << con_ri->name() << " route targets " <<
+                "Adding primary RI " << conn_ri->name() << " route targets " <<
                 "to service-chain route for EVPN table " << bgptable->name());
-            BOOST_FOREACH(RouteTarget rtarget, con_ri->GetExportList()) {
+            BOOST_FOREACH(const RouteTarget &rtarget,
+                          conn_ri->GetExportList()) {
                 if (ExtCommunity::get_rtarget_val(
                     rtarget.GetExtCommunity()) != 0) {
                     BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG,
