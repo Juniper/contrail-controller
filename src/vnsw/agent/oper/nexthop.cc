@@ -1661,7 +1661,10 @@ const Interface *CompositeNH::GetFirstLocalEcmpMemberInterface() const {
     }
     ComponentNHList::const_iterator comp_nh_it =
         component_nh_list_.begin();
-    if (comp_nh_it != component_nh_list_.end()) {
+    for(;comp_nh_it != component_nh_list_.end(); comp_nh_it++) {
+        if (*comp_nh_it == NULL) {
+            continue;
+        }
         if ((*comp_nh_it)->nh()->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>
                 ((*comp_nh_it)->nh());
