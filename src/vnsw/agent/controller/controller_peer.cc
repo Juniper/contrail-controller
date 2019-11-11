@@ -2219,9 +2219,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     nh.address = rtr;
     nh.label = mpls_label;
 
-    // EVPN (VNF) service chaining requires router MAC address advertisement
-    // for vxlan routing VN's.
-    if (route->vrf()->vn() && route->vrf()->vn()->vxlan_routing_vn()) {
+    // EVPN (VNF) service chaining requires router MAC address advertisement.
+    if (agent_->vhost_interface()) {
         nh.mac = agent_->vhost_interface()->mac().ToString();
     }
     if (bmap & TunnelType::GREType()) {

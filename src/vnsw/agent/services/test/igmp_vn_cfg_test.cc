@@ -750,7 +750,7 @@ TEST_F(IgmpTest, V2_TwoVns) {
 // - Check the route and nexthop when two VNs are
 //   configured. routes should have VRF Translate NH
 // - Check vxlan routing VRF for the routes.
-TEST_F(IgmpTest, V2_VxlanRoutingEnabled) {
+TEST_F(IgmpTest, DISABLED_V2_VxlanRoutingEnabled) {
 
     bool ret = false;
     boost::system::error_code ec;
