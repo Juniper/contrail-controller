@@ -396,6 +396,7 @@ public:
         return mvpn_project_managers_;
     }
     size_t GetMvpnProjectManagerCount(const std::string &network) const;
+    static std::string GetPrimaryRoutingInstanceName(const string &name_in);
 
 private:
     friend class BgpConfigTest;
