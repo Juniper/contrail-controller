@@ -8,6 +8,10 @@
 - name: Read Image info
   include_tasks: read_image_info.yml
 
+- name: Set the vmhost flag
+  set_fact:
+    vmhost_flag: false
+
 - name: parse image uri to get container name
   set_fact:
     container_name: "{{image_uri.split('/')[-2]}}"
@@ -40,6 +44,12 @@
     jl_message: >
       Now starting image upgrade with image name {{filename}} on the device
       {{prouter_name}}. It may take 10 to 15 mins.
+
+
+- name: Reset vmhost flag
+  set_fact:
+    vmhost_flag: true
+  when: pr_product == "qfx10002-60c"
 
 # continue workflow even if upgrade fails
 - name: Vendor specific image upgrade and device bring up for ztp
