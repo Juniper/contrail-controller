@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "7068c089_44d112e0",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 7
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2019-11-12T09:58:42Z",
+      "side": 1,
+      "message": "Sure we can use strtoull here, but strtoull also return 0xffffffffffffffff for an input greater than 0xffffffffffffffff. For e.g abcdef0123456789f which is greater than 0xffffffffffffffff when passed to strtoull returns 0xffffffffffffffff which is not correct, hence we need to depend on the length of the hex string to validate if its a valid string.",
+      "parentUuid": "bf5cba16_8ac69fb3",
+      "revId": "86e39642351dc87b3293999e9a54d76707dfa38f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "179af805_e3d05201",
         "filename": "src/bgp/community.cc",
         "patchSetId": 7
