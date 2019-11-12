@@ -2051,6 +2051,13 @@ class VncApiServer(object):
         self._default_domain = None
         self._default_project = None
 
+        # Feature flag initialization
+        self._vnc_feature_flag = VncFeatureFlag()
+        for f in self._vnc_feature_flag.retired:
+            # Delete it
+        for f in self._vnc_feature_flag.evolved:
+            # Update it
+
         # DB interface initialization
         if self._args.wipe_config:
             self._db_connect(True)
@@ -3562,6 +3569,8 @@ class VncApiServer(object):
         gsc = self.create_singleton_entry(GlobalSystemConfig(
             autonomous_system=64512, config_version=CONFIG_VERSION))
         self._gsc_uuid = gsc.uuid
+        for f in self._vnc_feature_flag.introduced:
+            # Create singleton entry
         gvc = self.create_singleton_entry(GlobalVrouterConfig(
             parent_obj=gsc))
         domain = self.create_singleton_entry(Domain())
