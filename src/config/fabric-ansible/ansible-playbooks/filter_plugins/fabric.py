@@ -1716,7 +1716,6 @@ class FilterModule(object):
                         'physical_router_loopback_ip',
                         'physical_router_management_ip',
                         'physical_router_os_version',
-                        'routing_bridging_roles',
                         'physical_router_underlay_managed',
                         'display_name',
                         'annotations',
