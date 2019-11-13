@@ -827,13 +827,14 @@ class PhysicalRouterDM(DBBaseDM):
             ip_map[vn_subnet] = ip_addr + '/' + length
     # end evaluate_vn_ip_map
 
-    def allocate_irb_ips_for(self, vns, use_gateway_ip):
+    def allocate_irb_ips_for(self, vns, use_gateway_ip, mode='l3'):
         new_vns = set()
         for vn_uuid in vns:
             vn = VirtualNetworkDM.get(vn_uuid)
             if not vn:
                 continue
-            if vn.get_forwarding_mode() != 'l2_l3':
+            if vn.get_forwarding_mode() is None or \
+               vn.get_forwarding_mode() != mode:
                 continue
             for subnet_prefix in list(vn.gateways.keys()):
                 new_vns.add(vn_uuid + ':' + subnet_prefix)
