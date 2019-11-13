@@ -70,24 +70,23 @@ class L3GatewayFeature(FeatureBase):
         if vns:
             irb_ip_map = self._physical_router.allocate_irb_ips_for(
                 vns, use_gateway_ip)
-
-        for vn_uuid in vns:
-            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
-            ri_obj = self._get_primary_ri(vn_obj)
-            if ri_obj is None:
-                continue
-            ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                            vn_obj.vn_network_id, 'l3')
-            export_targets, import_targets = self._get_export_import_targets(
-                vn_obj, ri_obj)
-            ri = self._build_ri_config(
-                vn_obj, ri_name, ri_obj, export_targets,
-                import_targets, feature_config, irb_ip_map.get(vn_uuid, []))
-            feature_config.add_routing_instances(ri)
-
-        for pi, li_map in list(self.pi_map.values()):
-            pi.set_logical_interfaces(list(li_map.values()))
-            feature_config.add_physical_interfaces(pi)
+            for vn_uuid in vns:
+                vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+                ri_obj = self._get_primary_ri(vn_obj)
+                if ri_obj is None:
+                    continue
+                ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                vn_obj.vn_network_id, 'l3')
+                export_targets, import_targets = \
+                    self._get_export_import_targets(vn_obj, ri_obj)
+                ri = self._build_ri_config(vn_obj, ri_name, ri_obj,
+                                           export_targets, import_targets,
+                                           feature_config,
+                                           irb_ip_map.get(vn_uuid, []))
+                feature_config.add_routing_instances(ri)
+            for pi, li_map in list(self.pi_map.values()):
+                pi.set_logical_interfaces(list(li_map.values()))
+                feature_config.add_physical_interfaces(pi)
 
         return feature_config
     # end push_conf
