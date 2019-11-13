@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from test_case import retries, STTestCase
-from test_policy import VerifyPolicy
+from .test_case import retries, STTestCase
+from .test_policy import VerifyPolicy
 from vnc_api.vnc_api import CommunityAttributes, IpamSubnetType, LogicalRouter
 from vnc_api.vnc_api import NetworkIpam, RouteTableType, RouteTargetList
 from vnc_api.vnc_api import RouteTable, RouteType, SubnetType

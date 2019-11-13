@@ -9,6 +9,8 @@ This file contains implementation of transforming user-exposed VNC
 configuration model/schema to a representation needed by VNC Control Plane
 (BGP-based)
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import argparse
 import ConfigParser
@@ -25,42 +27,42 @@ from cfgm_common.exceptions import NoIdError, ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
 # Import kazoo.client before monkey patching
 from cfgm_common.zkclient import ZookeeperClient
-from db import SchemaTransformerDB
+from .db import SchemaTransformerDB
 import gevent
 from gevent import monkey
-from logger import SchemaTransformerLogger
+from .logger import SchemaTransformerLogger
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 import requests
-from resources._resource_base import ResourceBaseST
-from resources.alias_ip import AliasIpST
-from resources.bgp_as_a_service import BgpAsAServiceST
-from resources.bgp_router import BgpRouterST
-from resources.bgp_vpn import BgpvpnST
-from resources.floating_ip import FloatingIpST
-from resources.global_system_config import GlobalSystemConfigST
-from resources.instance_ip import InstanceIpST
-from resources.logical_router import LogicalRouterST
-from resources.network_policy import NetworkPolicyST
-from resources.physical_router import PhysicalRouterST
-from resources.port_tuple import PortTupleST
-from resources.route_aggregate import RouteAggregateST
-from resources.route_table import RouteTableST
-from resources.route_target import RouteTargetST
-from resources.routing_instance import RoutingInstanceST
-from resources.routing_policy import RoutingPolicyST
-from resources.security_group import SecurityGroupST
+from .resources._resource_base import ResourceBaseST
+from .resources.alias_ip import AliasIpST
+from .resources.bgp_as_a_service import BgpAsAServiceST
+from .resources.bgp_router import BgpRouterST
+from .resources.bgp_vpn import BgpvpnST
+from .resources.floating_ip import FloatingIpST
+from .resources.global_system_config import GlobalSystemConfigST
+from .resources.instance_ip import InstanceIpST
+from .resources.logical_router import LogicalRouterST
+from .resources.network_policy import NetworkPolicyST
+from .resources.physical_router import PhysicalRouterST
+from .resources.port_tuple import PortTupleST
+from .resources.route_aggregate import RouteAggregateST
+from .resources.route_table import RouteTableST
+from .resources.route_target import RouteTargetST
+from .resources.routing_instance import RoutingInstanceST
+from .resources.routing_policy import RoutingPolicyST
+from .resources.security_group import SecurityGroupST
 # this import is not used here but it's needed somehow for dependent projects.
-from resources.security_logging_object import SecurityLoggingObjectST # noqa
-from resources.service_chain import ServiceChain
-from resources.service_instance import ServiceInstanceST
-from resources.virtual_machine import VirtualMachineST
-from resources.virtual_machine_interface import VirtualMachineInterfaceST
-from resources.virtual_network import VirtualNetworkST
-from st_amqp import STAmqpHandle
+from .resources.security_logging_object import SecurityLoggingObjectST # noqa
+from .resources.service_chain import ServiceChain
+from .resources.service_instance import ServiceInstanceST
+from .resources.virtual_machine import VirtualMachineST
+from .resources.virtual_machine_interface import VirtualMachineInterfaceST
+from .resources.virtual_network import VirtualNetworkST
+from .st_amqp import STAmqpHandle
 from vnc_api.vnc_api import VncApi
 
 monkey.patch_all()

@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -9,8 +11,8 @@ from cfgm_common.exceptions import RefsExistError
 from cfgm_common.tests import test_common
 import gevent
 from netaddr import IPAddress, IPNetwork
-from test_case import retries, STTestCase
-from test_policy import VerifyPolicy
+from .test_case import retries, STTestCase
+from .test_policy import VerifyPolicy
 from vnc_api.vnc_api import FloatingIp, FloatingIpPool, InterfaceMirrorType
 from vnc_api.vnc_api import IpamSubnetType, MirrorActionType, NetworkIpam
 from vnc_api.vnc_api import NoIdError, PolicyBasedForwardingRuleType, PortType
@@ -55,7 +57,7 @@ class VerifyServicePolicy(VerifyPolicy):
         else:
             sci = ri.get_evpn_service_chain_information()
         if sci is None:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('Service chain info not found for %s' % fq_name)
         self.assertEqual(sci.prefix[0], prefix)
 
@@ -68,7 +70,7 @@ class VerifyServicePolicy(VerifyPolicy):
         else:
             sci = ri.get_service_chain_information()
         if sci is None:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('Service chain info not found for %s' % fq_name)
         self.assertEqual(sci.prefix[0], prefix)
 
@@ -332,9 +334,9 @@ class VerifyServicePolicy(VerifyPolicy):
     def delete_vn(self, fq_name):
         try:
             self._vnc_lib.virtual_network_delete(fq_name=fq_name)
-            print 'vn deleted'
+            print('vn deleted')
         except RefsExistError:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('virtual network %s still exists' % str(fq_name))
 
     @retries(5)
@@ -358,13 +360,13 @@ class VerifyServicePolicy(VerifyPolicy):
     def check_all_vmis_are_deleted(self, test_name):
         vmi_list = self._vnc_lib.virtual_machine_interfaces_list()
         if not vmi_list.get('virtual-machine-interfaces'):
-            print 'all virtual machine interfaces deleted'
+            print('all virtual machine interfaces deleted')
             return
         for vmi in vmi_list['virtual-machine-interfaces']:
             if test_name in vmi['fq_name'][2]:
                 raise Exception('virtual machine interfaces still exist' +
                                 str(vmi_list))
-        print 'VMIs related to %s are deleted' % test_name
+        print('VMIs related to %s are deleted' % test_name)
 
     @retries(5)
     def check_acl_match_subnets(self, fq_name, subnet1,

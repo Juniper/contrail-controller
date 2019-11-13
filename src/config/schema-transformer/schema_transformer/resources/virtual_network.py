@@ -283,8 +283,8 @@ class VirtualNetworkST(ResourceBaseST):
     def add_policy(self, policy_name, attrib=None):
         # Add a policy ref to the vn. Keep it sorted by sequence number
         if attrib is None:
-            attrib = VirtualNetworkPolicyType(SequenceType(sys.maxint,
-                                                           sys.maxint))
+            attrib = VirtualNetworkPolicyType(SequenceType(sys.maxsize,
+                                                           sys.maxsize))
         if attrib.sequence is None:
             self._logger.error("Cannot assign policy %s to %s: sequence "
                                "number is not available" % (policy_name,
