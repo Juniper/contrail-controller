@@ -27,7 +27,15 @@ class L3GatewayFeature(FeatureBase):
     # end __init__
 
     def _get_connected_vn_ids(self):
-        return self._get_connected_vns('l3')
+        # note: vnstmp may have forwarding mode l2_l3, l3, so
+        # extract l3 type forwarding mode only.
+        vns = []
+        vnstmp = self._get_connected_vns('l3')
+        for vn_uuid in vnstmp:
+            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+            if vn_obj and'l3' == vn_obj.get_forwarding_mode():
+                vns.append(vn_uuid)
+        return vns
     # end _get_connected_vn_ids
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
@@ -69,25 +77,26 @@ class L3GatewayFeature(FeatureBase):
                 for c in self._configs])
         if vns:
             irb_ip_map = self._physical_router.allocate_irb_ips_for(
-                vns, use_gateway_ip)
+                vns, use_gateway_ip, 'l3')
 
-        for vn_uuid in vns:
-            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
-            ri_obj = self._get_primary_ri(vn_obj)
-            if ri_obj is None:
-                continue
-            ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                            vn_obj.vn_network_id, 'l3')
-            export_targets, import_targets = self._get_export_import_targets(
-                vn_obj, ri_obj)
-            ri = self._build_ri_config(
-                vn_obj, ri_name, ri_obj, export_targets,
-                import_targets, feature_config, irb_ip_map.get(vn_uuid, []))
-            feature_config.add_routing_instances(ri)
+            for vn_uuid in vns:
+                vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+                ri_obj = self._get_primary_ri(vn_obj)
+                if ri_obj is None:
+                    continue
+                ri_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                vn_obj.vn_network_id, 'l3')
+                export_targets, import_targets = \
+                    self._get_export_import_targets(vn_obj, ri_obj)
+                ri = self._build_ri_config(vn_obj, ri_name, ri_obj,
+                                           export_targets, import_targets,
+                                           feature_config,
+                                           irb_ip_map.get(vn_uuid, []))
+                feature_config.add_routing_instances(ri)
 
-        for pi, li_map in list(self.pi_map.values()):
-            pi.set_logical_interfaces(list(li_map.values()))
-            feature_config.add_physical_interfaces(pi)
+            for pi, li_map in list(self.pi_map.values()):
+                pi.set_logical_interfaces(list(li_map.values()))
+                feature_config.add_physical_interfaces(pi)
 
         return feature_config
     # end push_conf
