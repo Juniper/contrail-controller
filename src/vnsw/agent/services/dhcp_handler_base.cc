@@ -567,6 +567,9 @@ uint16_t DhcpHandlerBase::AddDhcpOptions(
 
             case Int32bit:
             case Uint32bit:
+                if (option == DHCP_OPTION_IP_LEASE_TIME) {
+                    set_flag(DHCP_OPTION_IP_LEASE_TIME);
+                }
                 opt_len = AddIntegerOption(option, opt_len,
                                            options[i].dhcp_option_value);
                 break;

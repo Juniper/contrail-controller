@@ -35,11 +35,11 @@
 #define BUF_SIZE 8192
 MacAddress src_mac;
 MacAddress dest_mac(0x00, 0x11, 0x12, 0x13, 0x14, 0x15);
-#define DHCP_RESPONSE_STRING "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Gateway : 1.1.1.200; Host Name : vm1; DNS : 1.1.1.200; Domain Name : test.contrail.juniper.net; "
+#define DHCP_RESPONSE_STRING "Server : 1.1.1.200; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Lease time : 4294967295; Gateway : 1.1.1.200; Host Name : vm1; DNS : 1.1.1.200; Domain Name : test.contrail.juniper.net; "
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 150.25.75.254;192.168.1.128/28 -> 1.1.1.200;"
 #define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
 #define IPAM_DHCP_OPTIONS_STRING "DNS : 1.2.3.4; Domain Name : test.com; Time Server : 3.2.14.5"
-#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 3.2.14.5; Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 150.25.75.254;192.168.1.128/28 -> 1.1.1.200;Gateway : 1.2.3.4; Gateway : 5.6.7.8; Gateway : 1.1.1.200;"
+#define SUBNET_DHCP_OPTIONS_STRING "DNS : 11.12.13.14; Domain Name : subnet.com; Time Server : 3.2.14.5; Lease time : 4294967295; Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 150.25.75.254;192.168.1.128/28 -> 1.1.1.200;Gateway : 1.2.3.4; Gateway : 5.6.7.8; Gateway : 1.1.1.200;"
 #define PORT_DHCP_OPTIONS_STRING "DNS : 21.22.23.24; Time Server : 13.12.14.15; Domain Name : test.com;"
 #define PORT_HOST_ROUTE_STRING "Host Routes : 99.2.3.0/24 -> 1.1.1.200;99.5.0.0/16 -> 99.5.0.1;"
 
@@ -1834,7 +1834,7 @@ TEST_F(DhcpTest, DnsZeroPortOption) {
      </virtual-machine-interface-dhcp-option-list>";
 
     // no DNS in the output
-    #define OPTION_DNS_ZERO "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Time Server : 3.2.14.5; Gateway : 1.1.1.200; Host Name : vm1; "
+    #define OPTION_DNS_ZERO "Server : 1.1.1.200; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Time Server : 3.2.14.5; Lease time : 4294967295; Gateway : 1.1.1.200; Host Name : vm1; "
     DhcpOptionCategoryTest(vm_interface_attr, true, OPTION_DNS_ZERO,
                            false, "");
 }
@@ -1903,7 +1903,7 @@ TEST_F(DhcpTest, DnsZeroSubnetOption) {
     EXPECT_EQ(1U, stats.offers);
     EXPECT_EQ(1U, stats.acks);
 
-    #define ZERO_DNS_SUBNET_OPTION "Server : 1.1.1.200; Lease time : 4294967295; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Time Server : 13.12.14.15; Domain Name : test.com; Gateway : 1.1.1.200; Host Name : vm1; "
+    #define ZERO_DNS_SUBNET_OPTION "Server : 1.1.1.200; Subnet mask : 255.255.255.0; Broadcast : 1.1.1.255; Time Server : 13.12.14.15; Domain Name : test.com; Lease time : 4294967295; Gateway : 1.1.1.200; Host Name : vm1; "
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true, "",
@@ -2060,7 +2060,7 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasic) {
     EXPECT_EQ(1U, stats.offers);
     EXPECT_EQ(1U, stats.acks);
 
-#define GW_LEASE_OPTIONS_STRING "Ack; Server : 7.8.9.1; Lease time : 86400; Subnet mask : 255.255.255.0; Broadcast : 7.8.9.255; Gateway : 7.8.9.1; DNS : 7.8.9.1; "
+#define GW_LEASE_OPTIONS_STRING "Ack; Server : 7.8.9.1; Subnet mask : 255.255.255.0; Broadcast : 7.8.9.255; Lease time : 86400; Gateway : 7.8.9.1; DNS : 7.8.9.1; "
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true, "",
@@ -2175,7 +2175,7 @@ TEST_F(DhcpTest, GatewayDhcpLeaseBasicVpg) {
     EXPECT_EQ(1U, stats.offers);
     EXPECT_EQ(1U, stats.acks);
 
-#define GW_LEASE_OPTIONS_STRING "Ack; Server : 7.8.9.1; Lease time : 86400; Subnet mask : 255.255.255.0; Broadcast : 7.8.9.255; Gateway : 7.8.9.1; DNS : 7.8.9.1; "
+#define GW_LEASE_OPTIONS_STRING "Ack; Server : 7.8.9.1; Subnet mask : 255.255.255.0; Broadcast : 7.8.9.255; Lease time : 86400; Gateway : 7.8.9.1; DNS : 7.8.9.1; "
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
                                                this, _1, true, "",
