@@ -12,10 +12,17 @@
 #include "pkt/flow_table.h"
 
 #define vm1_ip "11.1.1.1"
+#define vm2_ip "22.1.1.1"
 struct PortInfo input[] = {
         {"vmi0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
+        {"vmi1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
+};
+IpamInfo ipam_info[] = {
+    {"11.1.1.0", 24, "11.1.1.10"},
+    {"22.1.1.0", 24, "22.1.1.10"},
 };
 VmInterface *vmi0;
+VmInterface *vmi1;
 
 class FlowAuditTest : public ::testing::Test {
 public:
@@ -29,11 +36,15 @@ public:
         EXPECT_EQ(0U, get_flow_proto()->FlowCount());
         client->Reset();
 
-        CreateVmportEnv(input, 1, 1);
+        CreateVmportEnv(input, 2, 0);
+        client->WaitForIdle();
+        AddIPAM("vn5", ipam_info, 2);
         client->WaitForIdle();
 
         vmi0 = VmInterfaceGet(input[0].intf_id);
+        vmi1 = VmInterfaceGet(input[1].intf_id);
         assert(vmi0);
+        assert(vmi1);
         FlowStatsTimerStartStop(agent_, true);
         KFlowPurgeHold();
     }
@@ -42,7 +53,9 @@ public:
         FlushFlowTable();
         client->Reset();
 
-        DeleteVmportEnv(input, 1, true, 1);
+        DeleteVmportEnv(input, 2, true, 0);
+        client->WaitForIdle();
+        DelIPAM("vn5");
         client->WaitForIdle();
         FlowStatsTimerStartStop(agent_, false);
         KFlowPurgeHold();
@@ -86,6 +99,7 @@ public:
     bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip,
                       const char *dip, int proto, int sport, int dport,
                       int nh_id) {
+        KSyncSockTypeMap *sock = static_cast<KSyncSockTypeMap *>(KSyncSock::Get(0));
         KSyncFlowMemory *flow_memory = agent_->ksync()->ksync_flow_memory();
         if (hash_id >= flow_memory->table_entries_count()) {
             return false;
@@ -117,6 +131,8 @@ public:
         req.set_fr_flow_nh_id(nh_id);
 
         vr_flow->fe_action = VR_FLOW_ACTION_HOLD;
+        vr_flow_req flow_info(req);
+        sock->flow_map[hash_id] = flow_info;
         KSyncSockTypeMap::SetFlowEntry(&req, true);
 
         return true;
@@ -145,7 +161,6 @@ public:
     FlowProto *flow_proto_;
     FlowStatsCollectorObject* flow_stats_collector_;
 };
-
 // Validate flows audit
 TEST_F(FlowAuditTest, FlowAudit_1) {
     // Create two hold-flows
@@ -223,6 +238,56 @@ TEST_F(FlowAuditTest, FlowAudit_3) {
     RunHoldFlowAudit();
     hold_flow_count  = agent_->stats()->hold_flow_count();
     EXPECT_TRUE(hold_flow_count>0);
+}
+// create reverse flow hold entry first and
+// then send traffic , reverse flow creation request
+// fails due to eexist, verify that flows are deleted
+// during flow audit process.
+TEST_F(FlowAuditTest, FlowAudit_4) {
+    KSyncSockTypeMap *sock = static_cast<KSyncSockTypeMap *>(KSyncSock::Get(0));
+    sock->set_is_incremental_index(true);
+
+    // Create the flow first
+    string vrf_name = agent_->vrf_table()->FindVrfFromId(2)->GetName();
+    uint32_t rev_flow_nh_id = vmi1->flow_key_nh()->id();
+    uint32_t fwd_flow_nh_id = vmi0->flow_key_nh()->id();
+    // Enqueue Audit message
+    EXPECT_TRUE(KFlowHoldAdd(2, 2, "22.1.1.1", "11.1.1.1", 1, 0, 0,
+                                rev_flow_nh_id));
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, "11.1.1.1", "22.1.1.1", 1, 0, 0,
+                    vrf_name, vmi0->id(), 1),
+            {
+            }
+        }
+    };
+    CreateFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(2));
+
+    // Validate that flow is not short flow
+    FlowEntry *fe = FlowGet(1, "11.1.1.1", "22.1.1.1", 1, 0, 0, fwd_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == 0);
+    fe = FlowGet(2,  "22.1.1.1", "11.1.1.1",  1, 0, 0, rev_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == 0 &&
+                fe->ksync_entry()->ksync_response_error()
+                == EEXIST);
+
+    // Wait till flow-stats-collector sees the flows
+    WAIT_FOR(1000, 1000, (flow_stats_collector_->Size() == 2));
+
+    RunFlowAudit();
+    client->WaitForIdle();
+
+    // Validate that flow-drop-reason is not AUDIT
+    fe = FlowGet(1, "11.1.1.1", "22.1.1.1", 1, 0, 0, fwd_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
+    fe = FlowGet(2,  "22.1.1.1", "11.1.1.1",  1, 0, 0, rev_flow_nh_id);
+    EXPECT_TRUE(fe != NULL &&
+                fe->short_flow_reason() == FlowEntry::SHORT_AUDIT_ENTRY);
 }
 
 // Validate flow do not get deleted in following case,
