@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "62dfde28_6a8c5005",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 2
+      },
+      "lineNbr": 1304,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-11-13T19:02:46Z",
+      "side": 1,
+      "message": "why do we need this?",
+      "revId": "9c9ddea65528a40c89b20a20474e3fe4810336d3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aceb4551_e0e9b410",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 2
+      },
+      "lineNbr": 1982,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-11-13T19:02:46Z",
+      "side": 1,
+      "message": "for CRB-access, we do not need gateway functionality. If we are using same l2-gateway feature plug-in, that will render IRB configs too which is not needed in CRB-access role, I would say let\u0027s make l2-access as a seperate feature and run only l2-access in CRB-access role",
+      "revId": "9c9ddea65528a40c89b20a20474e3fe4810336d3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
