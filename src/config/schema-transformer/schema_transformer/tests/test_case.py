@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import uuid
 
@@ -12,7 +14,7 @@ from vnc_api.vnc_api import VirtualMachine, VirtualMachineInterface
 
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print sys.stderr, "."
+    print(sys.stderr, ".")
 
 
 # License: MIT

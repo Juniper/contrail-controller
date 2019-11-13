@@ -1,11 +1,12 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
-from test_case import retries, STTestCase
-from test_policy import VerifyPolicy
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
+
+from .test_case import retries, STTestCase
+from .test_policy import VerifyPolicy
 
 from schema_transformer.resources.security_group import SecurityGroupST
 
