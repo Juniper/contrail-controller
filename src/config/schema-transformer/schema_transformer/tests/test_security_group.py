@@ -2,12 +2,14 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from test_case import retries, STTestCase
-from test_policy import VerifyPolicy
+from __future__ import absolute_import
+
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
 
 from schema_transformer.resources.security_group import SecurityGroupST
+from .test_case import retries, STTestCase
+from .test_policy import VerifyPolicy
 
 
 _PROTO_STR_TO_NUM = {

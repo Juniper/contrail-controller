@@ -2,12 +2,15 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import absolute_import
+
 from gevent import monkey
 from gevent import sleep
-from test_case import STTestCase
-from test_route_target import VerifyRouteTarget
 from vnc_api.vnc_api import Bgpvpn
 from vnc_api.vnc_api import RouteTargetList
+
+from .test_case import STTestCase
+from .test_route_target import VerifyRouteTarget
 
 
 monkey.patch_all()
