@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+
 from cfgm_common.exceptions import VncError
 from vnc_api.gen.resource_common import RoutingPolicy
 
