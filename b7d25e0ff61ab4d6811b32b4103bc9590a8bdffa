@@ -16,6 +16,24 @@
       "revId": "b7d25e0ff61ab4d6811b32b4103bc9590a8bdffa",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5a91afeb_9ce0b500",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 299
+      },
+      "writtenOn": "2019-11-14T18:54:42Z",
+      "side": 0,
+      "message": "I think the main change reuqired there was only \"if host_id is None or not host_id:\" But let us discuss",
+      "parentUuid": "6613d3ee_ae95bd2a",
+      "revId": "b7d25e0ff61ab4d6811b32b4103bc9590a8bdffa",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
