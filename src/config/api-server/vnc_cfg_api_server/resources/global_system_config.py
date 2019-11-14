@@ -2,6 +2,12 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 import json
 import re
 
@@ -262,10 +268,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        udcs = filter(
-            lambda x: (x.get('field', '') == 'user_defined_log_statistics' and
-                       x.get('operation', '') == 'set'),
-            kwargs.get('prop_collection_updates') or [])
+        udcs = [x for x in kwargs.get('prop_collection_updates') or [] if (x.get('field', '') == 'user_defined_log_statistics' and
+                       x.get('operation', '') == 'set')]
         ok, result = cls._check_udc(obj_dict, udcs)
         if not ok:
             return ok, result
