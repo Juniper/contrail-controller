@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
 from vnc_api.gen.resource_xsd import PermType, PermType2, IdPermsType
 from cfgm_common import *
 
