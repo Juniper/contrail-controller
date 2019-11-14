@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+
+from builtins import str
 import re
 import socket
 

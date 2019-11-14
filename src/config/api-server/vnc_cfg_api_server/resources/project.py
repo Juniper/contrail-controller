@@ -165,7 +165,7 @@ class ProjectServer(ResourceMixin, Project):
         proj_dict = result
 
         quota_limits = QuotaHelper.get_quota_limits(proj_dict)
-        for obj_type, quota_limit in quota_limits.items():
+        for obj_type, quota_limit in list(quota_limits.items()):
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_id
             path = path_prefix + "/" + obj_type
             if (quota_counter.get(path) and (quota_limit == -1 or
@@ -179,7 +179,7 @@ class ProjectServer(ResourceMixin, Project):
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         quota_counter = cls.server.quota_counter
-        for obj_type in obj_dict.get('quota', {}).keys():
+        for obj_type in list(obj_dict.get('quota', {}).keys()):
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_id
             path = path_prefix + "/" + obj_type
             if quota_counter.get(path):
