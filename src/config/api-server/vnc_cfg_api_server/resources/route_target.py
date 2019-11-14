@@ -2,6 +2,12 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common.exceptions import VncError

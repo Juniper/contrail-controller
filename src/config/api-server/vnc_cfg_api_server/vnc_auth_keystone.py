@@ -8,10 +8,18 @@ from __future__ import absolute_import
 # future by moved to vnc_auth_keystone.py
 #
 
+from future import standard_library
+standard_library.install_aliases()
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import object
 import gevent
 from gevent import monkey
 monkey.patch_all()
-import ConfigParser
 import bottle
 import time
 import base64

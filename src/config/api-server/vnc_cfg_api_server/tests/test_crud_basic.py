@@ -1,8 +1,18 @@
 from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import gevent
 import os
 import sys
@@ -346,9 +356,7 @@ class TestCrud(test_case.ApiServerTestCase):
                                     'global-system-configs'][0]['uuid']
         gsc = self._vnc_lib.global_system_config_read(id=gsc_uuid)
         tst_trgt = ('Test01', 'Test02')
-        self.assertTrue(reduce(lambda x, y: x and y, map(
-                        lambda p: p.name in tst_trgt,
-                        gsc.user_defined_log_statistics.statlist),  True))
+        self.assertTrue(reduce(lambda x, y: x and y, [p.name in tst_trgt for p in gsc.user_defined_log_statistics.statlist],  True))
     #end test_user_defined_log_statistics_crud
 
     def test_user_defined_log_statistics_bad_add(self):
@@ -376,9 +384,7 @@ class TestCrud(test_case.ApiServerTestCase):
                                     'global-system-configs'][0]['uuid']
         gsc = self._vnc_lib.global_system_config_read(id=gsc_uuid)
         tst_trgt = ('Test01', 'Test02')
-        self.assertTrue(reduce(lambda x, y: x and y, map(
-                        lambda p: p.name in tst_trgt,
-                        gsc.user_defined_log_statistics.statlist),  True))
+        self.assertTrue(reduce(lambda x, y: x and y, [p.name in tst_trgt for p in gsc.user_defined_log_statistics.statlist],  True))
     #end test_user_defined_log_statistics_set
 
     def test_user_defined_log_statistics_bad_set(self):
@@ -788,7 +794,7 @@ class TestCrud(test_case.ApiServerTestCase):
                       }
        proj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
        vn = VirtualNetwork()
-       for ip_address, prefix in ip_addresses.items():
+       for ip_address, prefix in list(ip_addresses.items()):
            ip_family = netaddr.IPNetwork(ip_address).version
            vmi = VirtualMachineInterface('vmi-%s-' % prefix +self.id(), parent_obj=proj)
            print('Validating with ip (%s) and prefix (%s)' % (ip_address, prefix))
@@ -961,7 +967,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
             logger.info("Creating objects to hit max rabbit pending.")
             # every VN create, creates RI too
-            test_objs = self._create_test_objects(count=max_pend_upd/2+1)
+            test_objs = self._create_test_objects(count=old_div(max_pend_upd,2)+1)
 
             def asserts_on_max_pending():
                 self.assertEqual(e.status_code, 500)
@@ -1787,8 +1793,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
 
-        self.assertThat(ret_vn.keys(), Contains('routing_instances'))
-        self.assertThat(ret_vn.keys(), Contains('virtual_machine_interface_back_refs'))
+        self.assertThat(list(ret_vn.keys()), Contains('routing_instances'))
+        self.assertThat(list(ret_vn.keys()), Contains('virtual_machine_interface_back_refs'))
         for link_key, linked_obj in [('routing_instances', ri_objs[0]),
             ('virtual_machine_interface_back_refs', vmi_objs[0])]:
             found = False
@@ -1808,8 +1814,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
 
-        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
-        self.assertThat(ret_vn.keys(), Contains(
+        self.assertThat(list(ret_vn.keys()), Not(Contains('routing_instances')))
+        self.assertThat(list(ret_vn.keys()), Contains(
             'virtual_machine_interface_back_refs'))
         for link_key, linked_obj in [('virtual_machine_interface_back_refs',
                                      vmi_objs[0])]:
@@ -1826,8 +1832,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
 
-        self.assertThat(ret_vn.keys(), Contains('routing_instances'))
-        self.assertThat(ret_vn.keys(), Not(Contains(
+        self.assertThat(list(ret_vn.keys()), Contains('routing_instances'))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(
             'virtual_machine_interface_back_refs')))
         for link_key, linked_obj in [('routing_instances',
                                      ri_objs[0])]:
@@ -1849,8 +1855,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
 
-        self.assertThat(ret_vn.keys(), Not(Contains('routing_instances')))
-        self.assertThat(ret_vn.keys(), Not(Contains(
+        self.assertThat(list(ret_vn.keys()), Not(Contains('routing_instances')))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(
             'virtual_machine_interface_back_refs')))
 
         # id_perms and perms2 are always returned irrespective of what
@@ -1867,12 +1873,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(ret_vn.keys(), Contains(property))
-        self.assertThat(ret_vn.keys(), Contains('id_perms'))
-        self.assertThat(ret_vn.keys(), Contains('perms2'))
-        self.assertThat(ret_vn.keys(), Not(Contains(reference)))
-        self.assertThat(ret_vn.keys(), Not(Contains(children)))
-        self.assertThat(ret_vn.keys(), Not(Contains(back_reference)))
+        self.assertThat(list(ret_vn.keys()), Contains(property))
+        self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
+        self.assertThat(list(ret_vn.keys()), Contains('perms2'))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(reference)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(children)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(back_reference)))
 
         logger.info("Reading VN with one specific ref field.")
         query_param_str = 'fields=%s' % reference
@@ -1881,12 +1887,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(ret_vn.keys(), Not(Contains(property)))
-        self.assertThat(ret_vn.keys(), Contains('id_perms'))
-        self.assertThat(ret_vn.keys(), Contains('perms2'))
-        self.assertThat(ret_vn.keys(), Contains(reference))
-        self.assertThat(ret_vn.keys(), Not(Contains(children)))
-        self.assertThat(ret_vn.keys(), Not(Contains(back_reference)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(property)))
+        self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
+        self.assertThat(list(ret_vn.keys()), Contains('perms2'))
+        self.assertThat(list(ret_vn.keys()), Contains(reference))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(children)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(back_reference)))
 
         logger.info("Reading VN with one specific children field.")
         query_param_str = 'fields=%s' % children
@@ -1895,12 +1901,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(ret_vn.keys(), Not(Contains(property)))
-        self.assertThat(ret_vn.keys(), Not(Contains(reference)))
-        self.assertThat(ret_vn.keys(), Contains('id_perms'))
-        self.assertThat(ret_vn.keys(), Contains('perms2'))
-        self.assertThat(ret_vn.keys(), Contains(children))
-        self.assertThat(ret_vn.keys(), Not(Contains(back_reference)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(property)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(reference)))
+        self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
+        self.assertThat(list(ret_vn.keys()), Contains('perms2'))
+        self.assertThat(list(ret_vn.keys()), Contains(children))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(back_reference)))
 
         logger.info("Reading VN with one specific back-reference field.")
         query_param_str = 'fields=%s' % back_reference
@@ -1909,12 +1915,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(ret_vn.keys(), Not(Contains(property)))
-        self.assertThat(ret_vn.keys(), Not(Contains(reference)))
-        self.assertThat(ret_vn.keys(), Contains('id_perms'))
-        self.assertThat(ret_vn.keys(), Contains('perms2'))
-        self.assertThat(ret_vn.keys(), Not(Contains(children)))
-        self.assertThat(ret_vn.keys(), Contains(back_reference))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(property)))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(reference)))
+        self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
+        self.assertThat(list(ret_vn.keys()), Contains('perms2'))
+        self.assertThat(list(ret_vn.keys()), Not(Contains(children)))
+        self.assertThat(list(ret_vn.keys()), Contains(back_reference))
 
         logger.info("Reading VN with property, reference, children and "
                     "back-reference fields.")
@@ -1925,12 +1931,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
         ret_vn = json.loads(resp.text)['virtual-network']
-        self.assertThat(ret_vn.keys(), Contains('id_perms'))
-        self.assertThat(ret_vn.keys(), Contains('perms2'))
-        self.assertThat(ret_vn.keys(), Contains(property))
-        self.assertThat(ret_vn.keys(), Contains(reference))
-        self.assertThat(ret_vn.keys(), Contains(children))
-        self.assertThat(ret_vn.keys(), Contains(back_reference))
+        self.assertThat(list(ret_vn.keys()), Contains('id_perms'))
+        self.assertThat(list(ret_vn.keys()), Contains('perms2'))
+        self.assertThat(list(ret_vn.keys()), Contains(property))
+        self.assertThat(list(ret_vn.keys()), Contains(reference))
+        self.assertThat(list(ret_vn.keys()), Contains(children))
+        self.assertThat(list(ret_vn.keys()), Contains(back_reference))
     # end test_read_rest_api
 
     def test_bulk_read_rest_api_with_fqns(self):
@@ -2985,8 +2991,8 @@ class TestExtensionApi(test_case.ApiServerTestCase):
                     return
                 obj_name = request.json[obj_type]['fq_name'][-1]
                 if 'transform-create' in obj_name:
-                    TestExtensionApi.test_case.assertIn('X_TEST_DUMMY', request.environ.keys())
-                    TestExtensionApi.test_case.assertNotIn('SERVER_SOFTWARE', request.environ.keys())
+                    TestExtensionApi.test_case.assertIn('X_TEST_DUMMY', list(request.environ.keys()))
+                    TestExtensionApi.test_case.assertNotIn('SERVER_SOFTWARE', list(request.environ.keys()))
                     TestExtensionApi.test_case.assertThat(request.environ['HTTP_X_CONTRAIL_USERAGENT'],
                                                Equals('bar'))
                     bottle.response.status = '234 Transformed Response'
@@ -3629,7 +3635,7 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
                               'k2': 'v2',
                               'k3': 'v3',
                               'k4': 'v4'}
-        for key, val in fake_bindings_dict.iteritems():
+        for key, val in fake_bindings_dict.items():
             vmi_obj.add_virtual_machine_interface_bindings(
                 KeyValuePair(key=key, value=val))
 
@@ -3758,7 +3764,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 include_timestamp=True)
             omit_col_names = random.sample(set(
                 ['type', 'fq_name', 'prop:id_perms']), 1)
-            wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
+            wrong_col_val_ts = dict((k,v) for k,v in list(orig_col_val_ts.items())
                 if k not in omit_col_names)
             with uuid_cf.patch_row(
                 test_obj.uuid, wrong_col_val_ts):
@@ -3819,7 +3825,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             orig_col_val_ts = fq_name_cf.get(test_obj_type,
                 include_timestamp=True)
             # remove test obj in fq-name table
-            wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
+            wrong_col_val_ts = dict((k,v) for k,v in list(orig_col_val_ts.items())
                 if ':'.join(test_obj.fq_name) not in k)
             with fq_name_cf.patch_row(test_obj_type, new_columns=wrong_col_val_ts):
                 db_checker = db_manage.DatabaseChecker(
@@ -3892,7 +3898,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         orig_col_val_ts = fq_name_cf.get('virtual_network',
             include_timestamp=True)
         # remove test obj in fq-name table
-        wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
+        wrong_col_val_ts = dict((k,v) for k,v in list(orig_col_val_ts.items())
             if ':'.join(vn_obj.fq_name) not in k)
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
@@ -4400,7 +4406,7 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
     def test_hit_and_stale(self):
         vn_obj = self.create_and_prime_test_object()
         cache_mgr = self.cache_mgr
-        self.assertIn(vn_obj.uuid, cache_mgr._cache.keys())
+        self.assertIn(vn_obj.uuid, list(cache_mgr._cache.keys()))
 
         uuid_cf = self.uuid_cf
         vn_row = uuid_cf.get(vn_obj.uuid)
@@ -4417,7 +4423,7 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
     def test_miss(self):
         vn_obj = self.create_test_object()
         cache_mgr = self.cache_mgr
-        self.assertNotIn(vn_obj.uuid, cache_mgr._cache.keys())
+        self.assertNotIn(vn_obj.uuid, list(cache_mgr._cache.keys()))
 
         ret_vn_dicts = self._vnc_lib.virtual_networks_list(
             obj_uuids=[vn_obj.uuid],
@@ -4436,7 +4442,7 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
             'vn-hit-stale-%s' %(self.id()))
         vn_miss_obj = self.create_test_object('vn-miss-%s' %(self.id()))
 
-        self.assertNotIn(vn_miss_obj.uuid, cache_mgr._cache.keys())
+        self.assertNotIn(vn_miss_obj.uuid, list(cache_mgr._cache.keys()))
         vn_hit_stale_row = uuid_cf.get(vn_hit_stale_obj.uuid)
         with uuid_cf.patches([
             ('column', (vn_hit_fresh_obj.uuid,
@@ -4476,12 +4482,12 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
         ri2_obj = self._vnc_lib.routing_instance_read(
             fq_name=vn2_obj.fq_name+[vn2_name])
 
-        self.assertIn(ri1_obj.uuid, cache_mgr._cache.keys())
-        self.assertIn(ri2_obj.uuid, cache_mgr._cache.keys())
+        self.assertIn(ri1_obj.uuid, list(cache_mgr._cache.keys()))
+        self.assertIn(ri2_obj.uuid, list(cache_mgr._cache.keys()))
 
         ri1_obj.add_routing_instance(ri2_obj, None)
         self._vnc_lib.routing_instance_update(ri1_obj)
-        self.assertNotIn(ri2_obj.uuid, cache_mgr._cache.keys())
+        self.assertNotIn(ri2_obj.uuid, list(cache_mgr._cache.keys()))
     # end test_evict_on_ref_type_same
 
     def test_stale_for_backref_on_ref_update(self):
@@ -4495,7 +4501,7 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_create(vn_obj)
         # prime ipam in cache
         self._vnc_lib.network_ipam_read(fq_name=ipam_obj.fq_name)
-        self.assertIn(ipam_obj.uuid, cache_mgr._cache.keys())
+        self.assertIn(ipam_obj.uuid, list(cache_mgr._cache.keys()))
 
         vn_obj.add_network_ipam(ipam_obj,
             VnSubnetsType(
@@ -4524,7 +4530,7 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_create(ipam_obj)
         # prime ipam in cache
         self._vnc_lib.network_ipam_read(fq_name=ipam_obj.fq_name)
-        self.assertIn(ipam_obj.uuid, cache_mgr._cache.keys())
+        self.assertIn(ipam_obj.uuid, list(cache_mgr._cache.keys()))
 
         vn_obj = VirtualNetwork('vn-%s' %(self.id()))
         self._vnc_lib.virtual_network_create(vn_obj)
@@ -4571,14 +4577,14 @@ class TestCacheWithMetadataEviction(test_case.ApiServerTestCase):
         cache_mgr = self._api_server._db_conn._object_db._obj_cache_mgr
         self._vnc_lib.virtual_network_read(id=vn1_obj.uuid)
         self._vnc_lib.virtual_network_read(id=vn2_obj.uuid)
-        cache_keys = cache_mgr._cache.keys()
+        cache_keys = list(cache_mgr._cache.keys())
         self.assertIn(vn1_obj.uuid, cache_keys)
         self.assertIn(vn2_obj.uuid, cache_keys)
         self.assertNotIn(vn3_obj.uuid, cache_keys)
 
         # prime vn-3 and test eviction
         self._vnc_lib.virtual_network_read(id=vn3_obj.uuid)
-        cache_keys = cache_mgr._cache.keys()
+        cache_keys = list(cache_mgr._cache.keys())
         self.assertIn(vn3_obj.uuid, cache_keys)
         if vn1_obj.uuid in cache_keys:
             self.assertNotIn(vn2_obj.uuid, cache_keys)
@@ -4614,20 +4620,20 @@ class TestCacheWithMetadataExcludeTypes(test_case.ApiServerTestCase):
         self._vnc_lib.project_create(obj)
         self._vnc_lib.project_read(id=obj.uuid)
         cache_mgr = self._api_server._db_conn._object_db._obj_cache_mgr
-        self.assertNotIn(obj.uuid, cache_mgr._cache.keys())
+        self.assertNotIn(obj.uuid, list(cache_mgr._cache.keys()))
 
         obj = vnc_api.NetworkIpam('ipam-%s' %(self.id()))
         self._vnc_lib.network_ipam_create(obj)
         self._vnc_lib.network_ipam_read(id=obj.uuid)
         cache_mgr = self._api_server._db_conn._object_db._obj_cache_mgr
-        self.assertNotIn(obj.uuid, cache_mgr._cache.keys())
+        self.assertNotIn(obj.uuid, list(cache_mgr._cache.keys()))
 
         # verify cached for others
         obj = vnc_api.VirtualNetwork('vn-%s' %(self.id()))
         self._vnc_lib.virtual_network_create(obj)
         self._vnc_lib.virtual_network_read(id=obj.uuid)
         cache_mgr = self._api_server._db_conn._object_db._obj_cache_mgr
-        self.assertIn(obj.uuid, cache_mgr._cache.keys())
+        self.assertIn(obj.uuid, list(cache_mgr._cache.keys()))
     # end test_exclude_types_not_cached
 # end class TestCacheWithMetadataExcludeTypes
 
@@ -4932,8 +4938,8 @@ class TestPagination(test_case.ApiServerTestCase):
             all_vn_ids = []
             all_vn_count = self._vnc_lib.virtual_networks_list(
                 count=True)['virtual-networks']['count']
-            max_fetches = (all_vn_count /
-                           (page_limit or self.default_paginate_count)) + 1
+            max_fetches = (old_div(all_vn_count,
+                           (page_limit or self.default_paginate_count))) + 1
             fetches = 0
             while True:
                 if ((max_fetches > 0) and (fetches > max_fetches)):
@@ -5026,7 +5032,7 @@ class TestPagination(test_case.ApiServerTestCase):
             [FetchExpect(0, None)])
         verify_collection_walk(page_limit=2, fetch_expects=[
             FetchExpect(2, sorted_vn_uuid[(i*2)+1])
-                for i in range(len(vn_objs)/2)] +
+                for i in range(old_div(len(vn_objs),2))] +
             [FetchExpect(0, None)])
 
         logger.info("Verified anchored pagination fetch with one parent.")

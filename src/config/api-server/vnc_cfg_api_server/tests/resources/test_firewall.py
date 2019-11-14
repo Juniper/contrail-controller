@@ -1,6 +1,13 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import object
 import abc
 import logging
 
@@ -2120,7 +2127,7 @@ class FirewallDraftModeCommonTestSuite(object):
         self._setup_complex_security_environment()
 
         self.api.commit_security(self._scope)
-        for r in self.security_resources.values():
+        for r in list(self.security_resources.values()):
             r = getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
             self.assertEqual(r.parent_uuid, self._owner.uuid)
 
@@ -2129,7 +2136,7 @@ class FirewallDraftModeCommonTestSuite(object):
         self._setup_complex_security_environment()
 
         self.api.discard_security(self._scope)
-        for r in self.security_resources.values():
+        for r in list(self.security_resources.values()):
             with ExpectedException(NoIdError):
                 getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
 
@@ -2140,7 +2147,7 @@ class FirewallDraftModeCommonTestSuite(object):
 
         self._update_complex_security_environment()
         self.api.commit_security(self._scope)
-        for r in self.updates_security_resources.values():
+        for r in list(self.updates_security_resources.values()):
             r = getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
             self.assertEqual(r.parent_uuid, self._owner.uuid)
 
@@ -2152,7 +2159,7 @@ class FirewallDraftModeCommonTestSuite(object):
         self._update_complex_security_environment()
         self.api.discard_security(self._scope)
 
-        for r in self.security_resources.values():
+        for r in list(self.security_resources.values()):
             r = getattr(self.api, '%s_read' % r.object_type)(id=r.uuid)
             self.assertEqual(r.parent_uuid, self._owner.uuid)
 
