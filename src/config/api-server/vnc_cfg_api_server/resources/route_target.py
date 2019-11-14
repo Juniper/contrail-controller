@@ -2,6 +2,8 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+
+from builtins import str
 from cfgm_common import get_bgp_rtgt_max_id
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common.exceptions import VncError
