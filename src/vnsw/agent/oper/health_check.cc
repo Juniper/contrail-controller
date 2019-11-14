@@ -833,14 +833,16 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         int ret = http_parser_parse_url(p.url_path.c_str(), p.url_path.size(),
                                         false, &urldata);
         if (ret == 0) {
-            std::string dest_ip_str =
-                p.url_path.substr(urldata.field_data[UF_HOST].off,
-                                  urldata.field_data[UF_HOST].len);
-            // Parse dest-ip from the url to translate to metadata IP
-            dest_ip = Ip4Address::from_string(dest_ip_str, ec);
-            // keep rest of the url string as is
-            url_path = p.url_path.substr(urldata.field_data[UF_HOST].off +\
-                                         urldata.field_data[UF_HOST].len);
+            if (urldata.field_set & (1 << UF_HOST)) {
+                std::string dest_ip_str =
+                    p.url_path.substr(urldata.field_data[UF_HOST].off,
+                            urldata.field_data[UF_HOST].len);
+                // Parse dest-ip from the url to translate to metadata IP
+                dest_ip = Ip4Address::from_string(dest_ip_str, ec);
+                // keep rest of the url string as is
+                url_path = p.url_path.substr(urldata.field_data[UF_HOST].off +\
+                        urldata.field_data[UF_HOST].len);
+            }
             url_port = urldata.port;
             if ((urldata.field_set & (1 << UF_PORT)) == 0) {
                 url_port = 80;
