@@ -1,4 +1,10 @@
 from __future__ import absolute_import
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 import gevent
 import kombu
 import sys

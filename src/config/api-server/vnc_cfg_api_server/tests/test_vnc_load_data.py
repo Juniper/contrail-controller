@@ -3,6 +3,13 @@ from __future__ import absolute_import
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import range
 import sys
 import os
 import logging
@@ -27,7 +34,7 @@ def retries(max_tries, delay=5, backoff=1, exceptions=(Exception,),hook=None):
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:
