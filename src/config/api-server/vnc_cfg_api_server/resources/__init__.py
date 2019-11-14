@@ -4,6 +4,7 @@
 
 # flake8: noqa
 
+from builtins import str
 from cfgm_common.utils import str_to_class
 from vnc_api.gen import resource_common
 from vnc_api.gen.vnc_api_client_gen import all_resource_type_tuples

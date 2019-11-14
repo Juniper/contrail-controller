@@ -1,6 +1,8 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
+from builtins import object
 from keystoneclient.v2_0 import client
 from vnc_api.vnc_api import *
 import uuid
@@ -21,7 +23,7 @@ PERMS_RX = 5
 PERMS_RW = 6
 PERMS_RWX = 7
 
-class TestPerms():
+class TestPerms(object):
     def parse_args(self):
         # Eg. python test_perms.py <api-server-ip>
 

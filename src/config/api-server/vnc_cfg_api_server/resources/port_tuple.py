@@ -2,6 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 import json
 
 from cfgm_common import _obj_serializer_all

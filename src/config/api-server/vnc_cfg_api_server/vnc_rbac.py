@@ -2,12 +2,16 @@ from __future__ import absolute_import
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import sys
 import json
 import uuid
 import string
 import re
-import ConfigParser
+import configparser
 from .provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -38,14 +42,14 @@ class VncRbac(object):
         return id_perms.get('user_visible', True) is not False or is_admin
 
     def read_default_rbac_rules(self, conf_file):
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read(conf_file)
         raw_rules = {}
         if 'default-domain' in config.sections():
             raw_rules = dict(config.items('default-domain'))
 
         rbac_rules = []
-        for lhs, rhs in raw_rules.items():
+        for lhs, rhs in list(raw_rules.items()):
             # lhs is object.field, rhs is list of perms
             obj_field = lhs.split(".")
             perms = rhs.split(",")
@@ -69,7 +73,7 @@ class VncRbac(object):
             rule = {
                 'rule_object': obj_field[0],
                 'rule_field' : obj_field[1] if len(obj_field) > 1 else None,
-                'rule_perms' : [{'role_name':rn, 'role_crud':rc} for rn,rc in role_to_crud_dict.items()],
+                'rule_perms' : [{'role_name':rn, 'role_crud':rc} for rn,rc in list(role_to_crud_dict.items())],
             }
             rbac_rules.append(rule)
         return rbac_rules
@@ -147,9 +151,9 @@ class VncRbac(object):
                     else:
                         role_to_crud_dict[role_name] = role_crud
                 # update perms in existing rule
-                rule_dict[o_f]['rule_perms'] = [{'role_crud': rc, 'role_name':rn} for rn,rc in role_to_crud_dict.items()]
+                rule_dict[o_f]['rule_perms'] = [{'role_crud': rc, 'role_name':rn} for rn,rc in list(role_to_crud_dict.items())]
 
-        return rule_dict.values()
+        return list(rule_dict.values())
     # end
 
     def request_path_to_obj_type(self, path):
