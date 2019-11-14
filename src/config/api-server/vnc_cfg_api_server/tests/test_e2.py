@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
@@ -29,7 +30,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 vnc_cgitb.enable(format='text')
 
-import test_case
+from . import test_case
 from netaddr import IPNetwork
 
 logger = logging.getLogger(__name__)

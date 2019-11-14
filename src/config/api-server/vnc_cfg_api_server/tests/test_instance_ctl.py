@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import argparse
 
@@ -44,8 +45,8 @@ class Provisioner(object):
             pass
 
         if not self._subnet:
-            print "%s does not exist" %  self._network_name
-            print "Please specify a subnet IP address in order to create virtual-network"
+            print("%s does not exist" %  self._network_name)
+            print("Please specify a subnet IP address in order to create virtual-network")
             return None
 
         vnet = VirtualNetwork(fq_name[-1], parent_type = 'project',
@@ -95,7 +96,7 @@ class Provisioner(object):
 
         ip = self._client.instance_ip_read(id=uuid)
 
-        print "IP address: %s" % ip.get_instance_ip_address()
+        print("IP address: %s" % ip.get_instance_ip_address())
         return vmi
 
     def vmi_clean(self, vm_instance):
@@ -155,7 +156,7 @@ def main(argv):
     elif arguments.delete:
         instance_unconfig(arguments.instance, arguments)
     else:
-        print "Please specify one of --add or --delete"
+        print("Please specify one of --add or --delete")
         sys.exit(1)
 
 if __name__ == '__main__':

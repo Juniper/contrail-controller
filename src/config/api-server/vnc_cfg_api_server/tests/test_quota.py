@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -17,7 +18,7 @@ from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 from vnc_cfg_api_server.vnc_quota import QuotaHelper
 vnc_cgitb.enable(format='text')
 
-import test_case
+from . import test_case
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

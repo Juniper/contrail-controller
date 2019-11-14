@@ -1,16 +1,18 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from future.utils import raise_
 import copy
 import uuid
 import netaddr
 from netaddr import IPNetwork, IPAddress, IPRange, all_matching_cidrs
-from vnc_quota import QuotaHelper
+from .vnc_quota import QuotaHelper
 from pprint import pformat
 import cfgm_common.exceptions
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
-from context import get_context
+from .context import get_context
 try:
     # python2.7
     from collections import OrderedDict
@@ -2241,7 +2243,7 @@ class AddrMgmt(object):
             ok, result = self._uuid_to_obj_dict('virtual_network', vn_uuid,
                                                  obj_fields)
             if not ok:
-                raise False, result
+                raise_(False, result)
             ipam_refs = result['network_ipam_refs']
 
         for ipam_ref in ipam_refs:

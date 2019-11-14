@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
@@ -11,7 +12,7 @@ import json
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_test import *
 
-import test_case
+from . import test_case
 
 import uuid
 
