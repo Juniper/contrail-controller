@@ -203,8 +203,10 @@ class KubeMonitor(object):
         json_data = {}
         base_url = self._get_base_url(self.url, beta, api_group, api_version)
 
-        if resource_type in ("namespaces", "customresourcedefinitions"):
+        if resource_type == "namespaces":
             url = "%s/%s" % (base_url, resource_type)
+        if resource_type == "customresourcedefinitions":
+            url = "%s/%s/%s" % (base_url, resource_type, resource_name)
         else:
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
