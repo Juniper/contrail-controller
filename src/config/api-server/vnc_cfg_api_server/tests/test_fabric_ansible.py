@@ -3,6 +3,7 @@ from __future__ import absolute_import
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 import sys
 import logging
 

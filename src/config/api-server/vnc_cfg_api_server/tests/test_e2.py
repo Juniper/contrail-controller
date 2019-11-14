@@ -2,6 +2,7 @@ from __future__ import absolute_import
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
 import os
 import sys
 import socket
@@ -185,7 +186,7 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
                          ]
         }
         tmetry = TelemetryStateInfo()
-        for key, value in telemetry_config.iteritems():
+        for key, value in telemetry_config.items():
            if 'resources' in key:
                for lst in value:
                    telemetry_resource = TelemetryResourceInfo()
@@ -264,7 +265,7 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
             'as-number': '100',
             'mtu': '1400',
         }
-        for skey,sval in service_flavor.items():
+        for skey,sval in list(service_flavor.items()):
             service_options = sval
         #Create virtual-network
         vn1_name = self.id() + '-vn-e2-1'
@@ -288,7 +289,7 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         #Create service-connection-module
         scm_name1 = self.id() + '-scm-e2-1'
         set_config = False
-        for skey,sval in service_attributes.items():
+        for skey,sval in list(service_attributes.items()):
             if skey == 'set-config':
                 set_config = True
         scm_id_perms = IdPermsType(enable=set_config,
@@ -296,7 +297,7 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         scm1 = ServiceConnectionModule(scm_name1, id_perms=scm_id_perms)
         scm1.e2_service      = 'point-to-point'
         scm1.service_type    = service_options
-        for skey,sval in service_attributes.items():
+        for skey,sval in list(service_attributes.items()):
             if skey != 'set-config':
                 scm1.add_annotations(KeyValuePair(key=skey, value=sval))
         logger.info('Creating service-connection-module %s', scm_name1)
@@ -340,7 +341,7 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         ret_sep_list = ret_scm_entry.get_service_endpoint_back_refs()
         for each_sep in ret_sep_list:
             ret_sep_entry = self._vnc_lib.service_endpoint_read(fq_name=each_sep['to'])
-            self.assertEqual(ret_sep_entry.get_fq_name_str(), unicode(sep_name1))
+            self.assertEqual(ret_sep_entry.get_fq_name_str(), str(sep_name1))
             ret_vmis = ret_sep_entry.get_virtual_machine_interface_back_refs()
             ret_vmi_entry = self._vnc_lib.virtual_machine_interface_read(fq_name=ret_vmis[0]['to'])
             ret_lis = ret_vmi_entry.get_logical_interface_back_refs()

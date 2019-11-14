@@ -2,6 +2,7 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 import itertools
 import uuid
 
@@ -13,7 +14,7 @@ def check_policy_rules(entries, network_policy_rule=False):
         return True, ""
     rules = entries.get('policy_rule') or []
     ignore_keys = ['rule_uuid', 'created', 'last_modified']
-    rules_no_uuid = [dict((k, v) for k, v in r.items() if k not in ignore_keys)
+    rules_no_uuid = [dict((k, v) for k, v in list(r.items()) if k not in ignore_keys)
                      for r in rules]
     for index, rule in enumerate(rules_no_uuid):
         rules_no_uuid[index] = None
