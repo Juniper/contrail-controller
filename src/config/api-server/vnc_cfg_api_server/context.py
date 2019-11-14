@@ -1,3 +1,4 @@
+from builtins import object
 import gevent
 import bottle
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel

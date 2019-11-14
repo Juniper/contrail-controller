@@ -233,7 +233,7 @@ class TestTag(TestTagBase):
     def test_pre_defined_tag_type_is_not_deleted_even_if_not_use(self):
         mock_zk = self._api_server._db_conn._zk_db
         tag_value = 'fake_value1-%s' % self.id()
-        for tag_type_name in constants.TagTypeNameToId.keys():
+        for tag_type_name in list(constants.TagTypeNameToId.keys()):
             tag = Tag(tag_type_name=tag_type_name, tag_value=tag_value)
             tag_uuid = self.api.tag_create(tag)
             tag = self.api.tag_read(id=tag_uuid)
