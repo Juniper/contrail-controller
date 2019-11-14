@@ -44,7 +44,7 @@ class HostBasedServiceServer(ResourceMixin, HostBasedService):
                     set([]),
                 ).add(ref['uuid'])
 
-        for vn_type, vn_uuids in vn_type_map.items():
+        for vn_type, vn_uuids in list(vn_type_map.items()):
             if len(vn_uuids) > 1:
                 msg = ("Virtual network type %s cannot be referenced by more "
                        "than one virtual network at a time" % vn_type)
