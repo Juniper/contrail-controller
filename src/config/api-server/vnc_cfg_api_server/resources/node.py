@@ -1,3 +1,6 @@
+
+from builtins import range
+from builtins import str
 import json
 from pprint import pformat
 
