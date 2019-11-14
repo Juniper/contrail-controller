@@ -348,7 +348,7 @@ Icmpv6PathPreferenceState::Icmpv6PathPreferenceState(
         Icmpv6VrfState *vrf_state, uint32_t vrf_id,
         IpAddress ip, uint8_t plen) :
     vrf_state_(vrf_state), ns_req_timer_(NULL), vrf_id_(vrf_id), vm_ip_(ip),
-    plen_(plen), gw_ip_(Ip6Address()) {
+    plen_(plen), svc_ip_(Ip6Address()) {
     refcount_ = 0;
 }
 
@@ -388,8 +388,8 @@ bool Icmpv6PathPreferenceState::SendNeighborSolicit(WaitForTrafficIntfMap
             continue;
         }
         Ip6Address src_addr;
-        if (gw_ip_.is_unspecified() == false && gw_ip_.is_v6())
-            src_addr = gw_ip_.to_v6();
+        if (svc_ip_.is_unspecified() == false && svc_ip_.is_v6())
+            src_addr = svc_ip_.to_v6();
         handler.SendNeighborSolicit(src_addr, vm_ip_.to_v6(), vm_intf, vrf_id_);
         vrf_state_->icmp_proto()->IncrementStatsNeighborSolicit(vm_intf);
         ret = true;
@@ -481,7 +481,7 @@ void Icmpv6PathPreferenceState::SendNeighborSolicitForAllIntf
                 const VmInterface *vm_intf =
                     static_cast<const VmInterface *>(intf);
                 if (vm_intf->primary_ip6_addr().is_unspecified() == false) {
-                    gw_ip_ = vm_intf->GetGatewayIp(vm_intf->primary_ip6_addr());
+                    svc_ip_ = vm_intf->GetServiceIp(vm_intf->primary_ip6_addr());
                 }
             }
 
