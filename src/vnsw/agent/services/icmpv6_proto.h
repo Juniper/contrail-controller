@@ -218,7 +218,7 @@ private:
     uint32_t vrf_id_;
     IpAddress vm_ip_;
     uint8_t plen_;
-    IpAddress gw_ip_;
+    IpAddress svc_ip_;
     WaitForTrafficIntfMap l3_wait_for_traffic_map_;
     WaitForTrafficIntfMap evpn_wait_for_traffic_map_;
     tbb::atomic<int> refcount_;
