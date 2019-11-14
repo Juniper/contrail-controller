@@ -20,12 +20,20 @@ class NetworkMonitor(KubeMonitor):
         # Check if Network CustomResourceDefinition is already created,
         # If not create it internally
         (crd_info) = self.get_resource(resource_type= \
-                "customresourcedefinitions", resource_name='',
+                "customresourcedefinitions", resource_name= \
+                "network-attachment-definitions.k8s.cni.cncf.io",
                 api_group="apis/apiextensions.k8s.io", api_version="v1beta1")
         if crd_info is None:
             self.logger.error("%s - Could not get CRD list.  CRD INFO = %s"
                   %(self.name, crd_info))
             return
+        # assume that v1beta doesn't exist anymore
+        if len(crd_info) == 0:
+            (crd_info) = self.get_resource(resource_type= \
+                    "customresourcedefinitions",
+                    resource_name= \
+                    "network-attachment-definitions.k8s.cni.cncf.io",
+                    api_group="apis/apiextensions.k8s.io", api_version="v1")
         else:
             current_crds = []
             if 'items' in crd_info:
