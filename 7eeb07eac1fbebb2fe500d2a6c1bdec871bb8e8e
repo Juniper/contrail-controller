@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7ed2f387_e4bbaf2e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_global_system_config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 172,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-11-14T19:21:03Z",
+      "side": 1,
+      "message": "The custom route target value should not be between 8000 and 32768. It\u0027s reserved for Schema Transformer auto allocation. because of this, your VN create at line 174 will raise an exception and fail. Set it to a random value not in the range specified above, like 1000.",
+      "revId": "7eeb07eac1fbebb2fe500d2a6c1bdec871bb8e8e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "531c580a_a8f70c24",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_global_system_config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 186,
+      "author": {
+        "id": 623
+      },
+      "writtenOn": "2019-11-14T19:21:03Z",
+      "side": 1,
+      "message": "You will have to set ASN back to DEFAULT value. As other tests following this will check initially if the ASN is set to DEFAULT value. Something like:\ngsc.autonomous_system \u003d self.DEFAULT_ASN\nself.api.global_system_config_update(gsc)",
+      "revId": "7eeb07eac1fbebb2fe500d2a6c1bdec871bb8e8e",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
