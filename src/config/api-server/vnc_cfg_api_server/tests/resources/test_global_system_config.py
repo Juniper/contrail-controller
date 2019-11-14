@@ -6,7 +6,7 @@ import logging
 from cfgm_common import get_bgp_rtgt_min_id
 from cfgm_common.exceptions import BadRequest
 import mock
-from vnc_api.vnc_api import GlobalSystemConfig
+from vnc_api.vnc_api import GlobalSystemConfig, RouteTargetList, VirtualNetwork
 
 from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 from vnc_cfg_api_server.tests import test_case
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     DEFAULT_ASN = 64512
     NEW_ASN = 42
+    ASN_4_BYTES = 6553692
     FAKE_VN_LIST = [
         {
             'fq_name': ['fake-name1'],
@@ -147,3 +148,45 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
                                return_value=(True, self.FAKE_VN_LIST, None)):
             self.assertRaises(BadRequest, self.api.global_system_config_update,
                               gsc)
+
+    def test_update_asn_if_any_rt_uses_4_byte(self):
+        """
+        Test scenario.
+
+        1. Set enable_4byte_as to true
+        2. Create RT with 4 bytes ASN
+        3. Set enable_4byte_as to false
+        4. Change global ASN to different 2 bytes numbers
+        """
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+
+        # Set enable_4byte_as to True
+        gsc.enable_4byte_as = True
+        gsc.autonomous_system = self.ASN_4_BYTES
+        self.api.global_system_config_update(gsc)
+
+        # reread gsc
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        self.assertEqual(gsc.enable_4byte_as, True)
+
+        # create VN and RT with 4bytes ASN
+        vn = VirtualNetwork('%s-vn' % self.id())
+        rt_name = 'target:%d:%d' % (self.ASN_4_BYTES, 1000)
+        vn.set_route_target_list(RouteTargetList([rt_name]))
+        self.api.virtual_network_create(vn)
+
+        # Set enable_4byte_as to false
+        gsc.enable_4byte_as = False
+        self.api.global_system_config_update(gsc)
+        # Change global ASN to 2 bytes numbers (must be in separate step)
+        gsc.autonomous_system = self.NEW_ASN
+        self.api.global_system_config_update(gsc)
+
+        # reread gsc to confirm change
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        self.assertEqual(gsc.autonomous_system, self.NEW_ASN)
+
+        # cleanup
+        self.api.virtual_network_delete(id=vn.uuid)
+        gsc.autonomous_system = self.DEFAULT_ASN
+        self.api.global_system_config_update(gsc)

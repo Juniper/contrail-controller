@@ -52,6 +52,20 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
 
     @classmethod
     def validate_route_target(cls, route_target_name, global_asn=None):
+        if not global_asn:
+            try:
+                global_asn = cls.server.global_autonomous_system
+            except VncError as e:
+                return False, str(e), None
+
+        ok, result, _ = cls.validate_route_target_asn_range(route_target_name)
+        if not ok:
+            return ok, result, None
+
+        return cls.validate_route_target_range(route_target_name, global_asn)
+
+    @classmethod
+    def validate_route_target_range(cls, route_target_name, global_asn):
         ok, result = cls._parse_route_target_name(route_target_name)
         if not ok:
             return False, result, None
@@ -62,12 +76,6 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
                 global_asn = cls.server.global_autonomous_system
             except VncError as e:
                 return False, str(e), None
-
-        if type(asn) == int:
-            ok, result = cls.server.get_resource_class(
-                'global_system_config').check_asn_range(asn)
-            if not ok:
-                return ok, result, None
 
         ret_val = "target:" + str(asn) + ":" + str(target)
 
@@ -100,3 +108,17 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
                     return True, False, ret_val
 
         return True, True, ret_val
+
+    @classmethod
+    def validate_route_target_asn_range(cls, route_target_name):
+        ok, result = cls._parse_route_target_name(route_target_name)
+        if not ok:
+            return False, result, None
+        asn, _ = result
+
+        if type(asn) == int:
+            ok, result = cls.server.get_resource_class(
+                'global_system_config').check_asn_range(asn)
+            if not ok:
+                return ok, result, None
+        return True, True, None
