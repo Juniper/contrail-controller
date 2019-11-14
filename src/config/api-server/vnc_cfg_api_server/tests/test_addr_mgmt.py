@@ -2,11 +2,17 @@ from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from future import standard_library
+standard_library.install_aliases()
+
+from builtins import str
+from builtins import range
+from builtins import object
 import copy
 import types
 import uuid
 import sys
-import StringIO
+import io
 import string
 import unittest
 from netaddr import *
@@ -25,20 +31,20 @@ from vnc_api.gen.resource_xsd import *
 def todict(obj):
     if isinstance(obj, dict):
         obj_dict = {}
-        for k in obj.keys():
+        for k in list(obj.keys()):
             obj_dict[k] = todict(obj[k])
     elif hasattr(obj, "__iter__"):
         obj_dict = [todict(v) for v in obj]
     elif hasattr(obj, "__dict__"):
         obj_dict = dict([(key, todict(value))
-                         for key, value in obj.__dict__.iteritems()
+                         for key, value in obj.__dict__.items()
                          if not callable(value)])
     else:
         obj_dict = obj
     return obj_dict
 
 
-class Db():
+class Db(object):
 
     def __init__(self):
         self.db = {}

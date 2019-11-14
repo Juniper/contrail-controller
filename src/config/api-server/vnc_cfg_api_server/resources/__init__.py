@@ -4,6 +4,13 @@
 
 # flake8: noqa
 
+try:
+    # Python 2
+    from __builtin__ import str as builtin_str
+except ImportError:
+    # Python 3
+    from builtins import str as builtin_str
+
 from cfgm_common.utils import str_to_class
 from vnc_api.gen import resource_common
 from vnc_api.gen.vnc_api_client_gen import all_resource_type_tuples
@@ -105,7 +112,7 @@ def initialize_all_server_resource_classes(server_instance):
             # resource server class methods can be invoked in CRUD methods
             # without checking for None
             server_class = type(
-                str(server_name),
+                native_str(server_name),
                 (ResourceMixin, common_class, object),
                 {})
         server_class.server = server_instance
