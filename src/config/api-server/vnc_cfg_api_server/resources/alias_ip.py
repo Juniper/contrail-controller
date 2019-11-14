@@ -2,6 +2,9 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+
+from builtins import str
+
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_api.gen.resource_common import AliasIp
 

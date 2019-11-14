@@ -1,7 +1,13 @@
 from __future__ import absolute_import
+from __future__ import division
 #
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import map
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 import os
 import sys
 import socket
@@ -124,7 +130,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # check that it remains only one subnet
         self.assertEqual(len(addr_mgmt._subnet_objs[vn1.uuid]), 1)
-        self.assertEqual(addr_mgmt._subnet_objs[vn1.uuid].keys()[0], '192.168.150.0/24')
+        self.assertEqual(list(addr_mgmt._subnet_objs[vn1.uuid].keys())[0], '192.168.150.0/24')
 
         # restore
         vn1.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_1, ipam1_sn_2]))
@@ -151,7 +157,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # check that it remains only one subnet
         self.assertEqual(len(addr_mgmt._subnet_objs[ipam2.uuid]), 1)
-        self.assertEqual(addr_mgmt._subnet_objs[ipam2.uuid].keys()[0], '11.1.2.0/23')
+        self.assertEqual(list(addr_mgmt._subnet_objs[ipam2.uuid].keys())[0], '11.1.2.0/23')
 
         # restore
         ipam2.set_ipam_subnets(IpamSubnets([ipam2_sn_1, ipam2_sn_2]))
@@ -166,19 +172,19 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # vn1:
         # check that we have 2 elements in '_subnet_objs'
-        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 2)
+        self.assertEqual(len(list(addr_mgmt._subnet_objs.keys())), 2)
 
         # check that '_subnet_objs' has not been modifed yet
-        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 2)
+        self.assertEqual(len(list(addr_mgmt._subnet_objs.keys())), 2)
 
         # exec delete notify should delete data from '_subnet_objs'
         addr_mgmt.net_delete_notify(vn1.uuid, vn1_dict)
 
         # check that 'vn1' has been delete from '_subnet_objs'
-        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 1)
+        self.assertEqual(len(list(addr_mgmt._subnet_objs.keys())), 1)
 
         # check that ipam2 still remains in '_subnet_objs'
-        self.assertEqual(addr_mgmt._subnet_objs.keys()[0],
+        self.assertEqual(list(addr_mgmt._subnet_objs.keys())[0],
             ipam2.uuid)
 
         # ipam2:
@@ -186,13 +192,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         addr_mgmt.ipam_delete_req(ipam2_dict)
 
         # check that '_subnet_objs' has not been modifed yet
-        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 1)
+        self.assertEqual(len(list(addr_mgmt._subnet_objs.keys())), 1)
 
         # exec delete notify should delete data from '_subnet_objs'
         addr_mgmt.ipam_delete_notify(ipam2.uuid, ipam2_dict)
 
         # check that '_subnet_objs' is empty
-        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 0)
+        self.assertEqual(len(list(addr_mgmt._subnet_objs.keys())), 0)
 
         # delete ressources:
 
@@ -2866,7 +2872,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             # Repeat this for 2 VMs from middle of the alloc_pool
             total_ip_addr = len(ip_addr_list)
             to_modifies = [[0, total_ip_addr-1],
-                           [total_ip_addr/2 -1, total_ip_addr/2]]
+                           [old_div(total_ip_addr,2) -1, old_div(total_ip_addr,2)]]
             for to_modify in to_modifies:
                 logger.debug('Delete Instances %s %s', to_modify[0], to_modify[1])
                 for idx, val in enumerate(to_modify):
@@ -3566,7 +3572,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             r_class.post_dbe_delete = post_dbe_delete_with_no_cassandra_connection
             mock_zk = api_server._db_conn._zk_db
             subnet_zk = None
-            for subnet_zk in mock_zk._subnet_allocators.keys():
+            for subnet_zk in list(mock_zk._subnet_allocators.keys()):
                 if ipam_sn_v4.subnet.ip_prefix in subnet_zk:
                     break
             self.assertIsNotNone(subnet_zk)
