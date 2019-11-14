@@ -2,6 +2,12 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 from vnc_api.gen.resource_common import VirtualDnsRecord
 
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin

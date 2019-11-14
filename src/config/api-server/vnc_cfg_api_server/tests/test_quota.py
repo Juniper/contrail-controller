@@ -3,6 +3,14 @@ from __future__ import absolute_import
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import range
 import gevent
 import sys
 import uuid
@@ -69,7 +77,7 @@ class TestQuota(test_case.ApiServerTestCase):
         quota_counters = self._server_info['api_server'].quota_counter
         quota_counter_key = '%s%s/virtual_machine_interface' % (
                 _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
-        self.assertTrue(quota_counter_key in quota_counters.keys())
+        self.assertTrue(quota_counter_key in list(quota_counters.keys()))
         vmi_quota_counter = quota_counters[quota_counter_key]
         self.assertEqual(vmi_quota_counter.value, 3)
         # Try deleting vmi, should not raise OverQuota(Test LP#1745665)
@@ -89,7 +97,7 @@ class TestQuota(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_interface_delete(id=vmis[1].uuid)
         # Make sure quota counter is initialized in this api-server
         quota_counters = self._server_info['api_server'].quota_counter
-        self.assertTrue(quota_counter_key in quota_counters.keys())
+        self.assertTrue(quota_counter_key in list(quota_counters.keys()))
         # make sure vmi quota counter is set to 1 (created[3] - deleted[2])
         vmi_quota_counter = quota_counters[quota_counter_key]
         self.assertEqual(vmi_quota_counter.value, 1)
@@ -105,7 +113,7 @@ class TestQuota(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_interface_delete(id=vmis[2].uuid)
         # Make sure quota counter is destroyed
         quota_counters = self._server_info['api_server'].quota_counter
-        self.assertTrue(quota_counter_key not in quota_counters.keys())
+        self.assertTrue(quota_counter_key not in list(quota_counters.keys()))
     # test_update_quota_less_than_resources
 
     def test_create_vmi_with_quota_in_parallels(self, project=None):
@@ -118,7 +126,7 @@ class TestQuota(test_case.ApiServerTestCase):
         vn = VirtualNetwork(vn_name, project)
         self._vnc_lib.virtual_network_create(vn)
         vmi_list=[]
-        for i in xrange(self._port_quota+1):
+        for i in range(self._port_quota+1):
             vmi_list.insert(i,VirtualMachineInterface(str(uuid.uuid4()), project))
             vmi_list[i].uuid = vmi_list[i].name
             vmi_list[i].set_virtual_network(vn)
@@ -130,7 +138,7 @@ class TestQuota(test_case.ApiServerTestCase):
                 result['exception'] +=1
                 return
             result['ok'] +=1
-        threads_vmi = [gevent.spawn(create_port, vmi_list[i]) for i in xrange(self._port_quota+1)]
+        threads_vmi = [gevent.spawn(create_port, vmi_list[i]) for i in range(self._port_quota+1)]
         gevent.joinall(threads_vmi)
         self.assertEqual(result['ok'], self._port_quota)
         self.assertEqual(result['exception'], 1)
@@ -158,7 +166,7 @@ class TestQuota(test_case.ApiServerTestCase):
             'fip-pool-%s' %(self.id()), parent_obj=vn)
         self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
         fip=[]
-        for i in xrange(self._fip_quota+1):
+        for i in range(self._fip_quota+1):
             fip.append(FloatingIp(str(uuid.uuid4()), fip_pool_obj))
             fip[i].add_project(project)
             fip[i].uuid = fip[i].name
@@ -170,7 +178,7 @@ class TestQuota(test_case.ApiServerTestCase):
                 result['exception'] +=1
                 return
             result['ok'] +=1
-        threads_fip = [gevent.spawn(create_fip, fip[i]) for i in xrange(self._fip_quota+1)]
+        threads_fip = [gevent.spawn(create_fip, fip[i]) for i in range(self._fip_quota+1)]
         gevent.joinall(threads_fip)
         self.assertEqual(result['ok'], self._fip_quota)
         self.assertEqual(result['exception'], 1)
@@ -185,7 +193,7 @@ class TestQuota(test_case.ApiServerTestCase):
         vn.set_router_external(True)
         self._vnc_lib.virtual_network_create(vn)
         fip_pool = []
-        for i in xrange(self._fip_pool_quota+1):
+        for i in range(self._fip_pool_quota+1):
             fip_pool.append(FloatingIpPool(str(uuid.uuid4()), parent_obj=vn))
             fip_pool[i].uuid = fip_pool[i].name
         result = {'ok': 0, 'exception': 0}
@@ -197,7 +205,7 @@ class TestQuota(test_case.ApiServerTestCase):
                 return
             result['ok'] +=1
         threads_fip_pool = [gevent.spawn(create_fip_pool, fip_pool[i])
-                                   for i in xrange(self._fip_pool_quota+1)]
+                                   for i in range(self._fip_pool_quota+1)]
         gevent.joinall(threads_fip_pool)
         self.assertEqual(result['ok'], self._fip_pool_quota)
         self.assertEqual(result['exception'], 1)
@@ -210,7 +218,7 @@ class TestQuota(test_case.ApiServerTestCase):
         vn = VirtualNetwork('vn-ext-%s' %(self.id()), project)
         vn.set_router_external(True)
         self._vnc_lib.virtual_network_create(vn)
-        for i in xrange(self._fip_pool_quota):
+        for i in range(self._fip_pool_quota):
             fip_pool_obj = FloatingIpPool(str(uuid.uuid4()), parent_obj=vn)
             fip_pool_obj.uuid = fip_pool_obj.name
             self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
@@ -253,7 +261,7 @@ class TestQuota(test_case.ApiServerTestCase):
         quota_counters = self._server_info['api_server'].quota_counter
         quota_counter_key = '%s%s/virtual_machine_interface' % (
                 _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
-        self.assertTrue(quota_counter_key not in quota_counters.keys())
+        self.assertTrue(quota_counter_key not in list(quota_counters.keys()))
         # set quota of vmi
         kwargs = {'virtual_machine_interface': 1}
         quota = QuotaType(**kwargs)
@@ -297,7 +305,7 @@ class TestQuota(test_case.ApiServerTestCase):
         lb_pool = LoadbalancerPool('lb-pool-%s' %(self.id()), project)
         self._vnc_lib.loadbalancer_pool_create(lb_pool)
         lb_member = []
-        for i in xrange(self._lb_member_quota+1):
+        for i in range(self._lb_member_quota+1):
             lb_member.append(LoadbalancerMember(str(uuid.uuid4()), parent_obj=lb_pool))
             lb_member[i].uuid = lb_member[i].name
         result = {'ok': 0, 'exception': 0}
@@ -309,7 +317,7 @@ class TestQuota(test_case.ApiServerTestCase):
                 return
             result['ok'] +=1
         threads_lb_members = [gevent.spawn(create_lb_pool_member, lb_member[i])
-                                     for i in xrange(self._lb_member_quota+1)]
+                                     for i in range(self._lb_member_quota+1)]
         gevent.joinall(threads_lb_members)
         self.assertEqual(result['ok'], self._lb_member_quota)
         self.assertEqual(result['exception'], 1)
@@ -321,7 +329,7 @@ class TestQuota(test_case.ApiServerTestCase):
         self._vnc_lib.project_create(project)
         lb_pool = LoadbalancerPool('lb-pool-%s' %(self.id()), project)
         self._vnc_lib.loadbalancer_pool_create(lb_pool)
-        for i in xrange(self._lb_member_quota):
+        for i in range(self._lb_member_quota):
             lb_mem = LoadbalancerMember(str(uuid.uuid4()), parent_obj=lb_pool)
             lb_mem.uuid = lb_mem.name
             self._vnc_lib.loadbalancer_member_create(lb_mem)
@@ -356,7 +364,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
         extra_config_knobs = []
-        for k, v in cls.global_quotas.items():
+        for k, v in list(cls.global_quotas.items()):
             extra_config_knobs.append(('QUOTA', k, v))
         kwargs.update({'extra_config_knobs' : extra_config_knobs})
         super(TestGlobalQuota, cls).setUpClass(*args, **kwargs)
@@ -393,7 +401,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         sgr_quota_counter_key = '%s%s/security_group_rule' % (
                 _DEFAULT_ZK_COUNTER_PATH_PREFIX, proj_obj.uuid)
         quota_counters = self._server_info['api_server'].quota_counter
-        self.assertEqual(True, sgr_quota_counter_key in quota_counters.keys())
+        self.assertEqual(True, sgr_quota_counter_key in list(quota_counters.keys()))
         # make sure sgr quota counter is incremented
         sgr_quota_counter = quota_counters[sgr_quota_counter_key]
         self.assertEqual(sgr_quota_counter.value, 1)
@@ -739,7 +747,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         subnet_counter = '%s%s/subnet' % (
                 _DEFAULT_ZK_COUNTER_PATH_PREFIX, proj_obj.uuid)
         quota_counters = self._server_info['api_server'].quota_counter
-        self.assertEqual(True, subnet_counter in quota_counters.keys())
+        self.assertEqual(True, subnet_counter in list(quota_counters.keys()))
         # make sure subnet quota counter is incremented
         subnet_quota_counter = quota_counters[subnet_counter]
         self.assertEqual(subnet_quota_counter.value, 1)

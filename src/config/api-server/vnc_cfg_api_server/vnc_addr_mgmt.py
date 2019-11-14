@@ -1,8 +1,20 @@
 from __future__ import absolute_import
+from __future__ import division
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import map
+from builtins import zip
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 from future.utils import raise_
 import copy
 import uuid
@@ -75,7 +87,7 @@ class AddrMgmtSubnetInvalid(AddrMgmtError):
 class AddrMgmtSubnetAbsent(AddrMgmtError):
 
     def __init__(self, vn_fq_name):
-        self.vn_fq_name = map(str, vn_fq_name)
+        self.vn_fq_name = list(map(str, vn_fq_name))
     # end __init__
 
     def __str__(self):
@@ -87,8 +99,8 @@ class AddrMgmtSubnetAbsent(AddrMgmtError):
 class AddrMgmtSubnetExhausted(AddrMgmtError):
 
     def __init__(self, vn_fq_name, subnet_val):
-        self.vn_fq_name = map(str, vn_fq_name)
-        self.subnet_val = map(str, subnet_val)
+        self.vn_fq_name = list(map(str, vn_fq_name))
+        self.subnet_val = list(map(str, subnet_val))
     # end __init__
 
     def __str__(self):
@@ -350,7 +362,7 @@ class Subnet(object):
 
             # each alloc-pool should have minimum block_alloc_unit+1,
             # possible allocation
-            if (alloc_pool_range/ip_alloc_unit) <= block_alloc_unit:
+            if (old_div(alloc_pool_range,ip_alloc_unit)) <= block_alloc_unit:
                 raise AddrMgmtAllocUnitInvalid(name, prefix+'/'+prefix_len,
                     ip_alloc_unit, 'Pool range<=block_alloc_unit')
 
@@ -376,7 +388,7 @@ class Subnet(object):
 
         # reserve excluded addresses only in bitmap but not in zk
         for addr in exclude:
-            self._db_conn.subnet_set_in_use(name, int(addr)/ip_alloc_unit)
+            self._db_conn.subnet_set_in_use(name, old_div(int(addr),ip_alloc_unit))
         self._name = name
         self._network = network
         self._version = network.version
@@ -416,26 +428,26 @@ class Subnet(object):
         if ip in self._exclude:
             return True
         addr = int(ip)
-        return self._db_conn.subnet_is_addr_allocated(self._name, addr/self.alloc_unit)
+        return self._db_conn.subnet_is_addr_allocated(self._name, old_div(addr,self.alloc_unit))
     # end is_ip_allocated
 
     def ip_set_in_use(self, ipaddr):
         ip = IPAddress(ipaddr)
         addr = int(ip)
-        return self._db_conn.subnet_set_in_use(self._name, addr/self.alloc_unit)
+        return self._db_conn.subnet_set_in_use(self._name, old_div(addr,self.alloc_unit))
     # end ip_set_in_use
 
     def ip_reset_in_use(self, ipaddr):
         ip = IPAddress(ipaddr)
         addr = int(ip)
-        return self._db_conn.subnet_reset_in_use(self._name, addr/self.alloc_unit)
+        return self._db_conn.subnet_reset_in_use(self._name, old_div(addr,self.alloc_unit))
     # end ip_reset_in_use
 
     def ip_reserve(self, ipaddr, value):
         ip = IPAddress(ipaddr)
         req = int(ip)
 
-        addr = self._db_conn.subnet_reserve_req(self._name, req/self.alloc_unit, value)
+        addr = self._db_conn.subnet_reserve_req(self._name, old_div(req,self.alloc_unit), value)
         if addr:
             return str(IPAddress(addr*self.alloc_unit))
         return None
@@ -453,7 +465,7 @@ class Subnet(object):
                 raise AddrMgmtAllocUnitInvalid(self._name,
                           self._prefix+'/'+self._prefix_len, self.alloc_unit,
                           'IP address %s not aligned' %(ipaddr))
-            return self.ip_reserve(ipaddr/self.alloc_unit, value)
+            return self.ip_reserve(old_div(ipaddr,self.alloc_unit), value)
 
         addr = self._db_conn.subnet_alloc_req(self._name, value,
                                               alloc_pools=sn_alloc_pools,
@@ -471,7 +483,7 @@ class Subnet(object):
         ip = IPAddress(ip_addr)
         if ((ip in ip_network) and (ip not in exclude_addrs)):
             if cls._db_conn:
-                cls._db_conn.subnet_free_req(subnet_fq_name, int(ip)/alloc_unit)
+                cls._db_conn.subnet_free_req(subnet_fq_name, old_div(int(ip),alloc_unit))
                 return True
 
         return False
@@ -647,7 +659,7 @@ class AddrMgmt(object):
 
     def _get_subnet_obj_for_subs_tag(self, subnet_objs, subnet_tag):
 
-        for subnet_name, subnet_obj in subnet_objs.items():
+        for subnet_name, subnet_obj in list(subnet_objs.items()):
             if ((subnet_obj.subscriber_tag) and
                 (subnet_obj.subscriber_tag == subnet_tag)):
                 return (subnet_name, subnet_obj)
@@ -899,7 +911,7 @@ class AddrMgmt(object):
         req_subnet_dicts = self._get_net_subnet_dicts(vn_uuid, obj_dict)
 
         if req_subnet_dicts:
-            for key in req_subnet_dicts.keys():
+            for key in list(req_subnet_dicts.keys()):
                 req_subnet = req_subnet_dicts[key]
                 (ok, msg, result) = self._check_subnet_alloc_pools(req_subnet)
                 if not ok:
@@ -951,9 +963,9 @@ class AddrMgmt(object):
         # allocation_pool,dns_nameservers
 
         subnets_pool_change = []
-        for key in req_subnet_dicts.keys():
+        for key in list(req_subnet_dicts.keys()):
             req_subnet = req_subnet_dicts[key]
-            if key in db_subnet_dicts.keys():
+            if key in list(db_subnet_dicts.keys()):
                 db_subnet = db_subnet_dicts[key]
                 if (req_subnet['gw'] and
                     req_subnet['gw'].lower() != db_subnet['gw'].lower()):
@@ -988,7 +1000,7 @@ class AddrMgmt(object):
 
         # Gets vn's subnets list
         vn_list_subnets = self._vn_to_subnets(vn_dict) or []
-        if obj_id in self._subnet_objs.keys():
+        if obj_id in list(self._subnet_objs.keys()):
             del_subnet_names = set(self._subnet_objs[obj_id]) - set(vn_list_subnets)
             for subnet_name in del_subnet_names:
                 Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
@@ -1530,7 +1542,7 @@ class AddrMgmt(object):
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
         req_subnet_name = None
-        for subnet_name, subnet_dict in subnet_dicts.items():
+        for subnet_name, subnet_dict in list(subnet_dicts.items()):
             if subnet_uuid == subnet_dict.get('subnet_uuid'):
                 req_subnet_name = subnet_name
                 break
@@ -1615,7 +1627,7 @@ class AddrMgmt(object):
             if not tagged_subnet:
                 # No subnet found for a given tag, allocation ip address
                 # from subnetted subnet without any subscriber tag
-                for subnet_name, subnet_obj in subnet_objs.items():
+                for subnet_name, subnet_obj in list(subnet_objs.items()):
                     subnet_obj=subnet_objs[subnet_name]
                     if not subnet_obj.subnetting:
                         continue
@@ -2312,7 +2324,7 @@ class AddrMgmt(object):
             req_subnet_dicts = self._get_ipam_subnet_dicts(ipam_uuid,
                                                            obj_dict)
             if req_subnet_dicts:
-                for key in req_subnet_dicts.keys():
+                for key in list(req_subnet_dicts.keys()):
                     req_subnet = req_subnet_dicts[key]
                     (ok, msg, result) = self._check_subnet_alloc_pools(
                                             req_subnet)
@@ -2399,9 +2411,9 @@ class AddrMgmt(object):
         # default_gateway,dns_server_address
         # allocation_pool,dns_nameservers
         subnets_pool_change = []
-        for key in req_subnet_dicts.keys():
+        for key in list(req_subnet_dicts.keys()):
             req_subnet = req_subnet_dicts[key]
-            if key in db_subnet_dicts.keys():
+            if key in list(db_subnet_dicts.keys()):
                 db_subnet = db_subnet_dicts[key]
                 if not subnetting:
                     if ((req_subnet['gw'] is not None) and

@@ -6,6 +6,13 @@
 This file contains implementation of job api handler code
 """
 from __future__ import print_function
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import object
 import gevent
 import json
 import random
