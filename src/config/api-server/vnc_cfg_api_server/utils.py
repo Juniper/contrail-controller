@@ -5,10 +5,14 @@
 Provides utility routines for modules in api-server
 """
 from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import argparse
 import base64
 from cfgm_common import jsonutils as json
-import ConfigParser
+import configparser
 import vnc_api.gen.resource_xsd
 from . import vnc_quota
 import cfgm_common
@@ -134,7 +138,7 @@ def parse_args(args_str):
     config = None
     saved_conf_file = args.conf_file
     if args.conf_file:
-        config = ConfigParser.SafeConfigParser({'admin_token': None})
+        config = configparser.SafeConfigParser({'admin_token': None})
         config.read(args.conf_file)
         if 'DEFAULTS' in config.sections():
             defaults.update(dict(config.items("DEFAULTS")))
