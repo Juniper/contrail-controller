@@ -6,6 +6,9 @@
 This file contains implementation of job api handler code
 """
 from __future__ import print_function
+
+from builtins import str
+from builtins import object
 import gevent
 from enum import Enum
 from vnc_api.vnc_api import VncApi
