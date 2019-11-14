@@ -1,6 +1,9 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+
+from builtins import range
+from builtins import str
 import json
 import logging
 
