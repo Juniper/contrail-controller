@@ -1,3 +1,9 @@
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 import logging
 import pprint
 

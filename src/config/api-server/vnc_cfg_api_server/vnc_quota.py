@@ -1,3 +1,10 @@
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import object
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 from pprint import pformat
@@ -25,7 +32,7 @@ class QuotaHelper(object):
     def get_quota_limits(cls, project_dict):
         quota_limits = {}
         quota_project = project_dict.get('quota') or {}
-        for obj_type in quota_project.keys():
+        for obj_type in list(quota_project.keys()):
             quota_limits[obj_type] = cls.get_quota_limit(project_dict,
                                                          obj_type)
         return quota_limits
@@ -192,7 +199,7 @@ class QuotaHelper(object):
                                  db_conn, quota_counter):
         new_quota_dict = {}
         for (obj_type, quota) in cls.get_quota_limits(
-                project_dict).iteritems():
+                project_dict).items():
             path = path_prefix + "/" + obj_type
             if path in quota_counter:
                 if quota in [-1, None]:
@@ -224,7 +231,7 @@ class QuotaHelper(object):
                                          db_conn, quota_counter)
 
         elif project_dict == None and quota_counter:
-            for counter in quota_counter.values():
+            for counter in list(quota_counter.values()):
                 if db_conn._zk_db.quota_counter_exists(counter.path):
                     db_conn._zk_db.delete_quota_counter(counter.path)
             quota_counter = {}
@@ -233,7 +240,7 @@ class QuotaHelper(object):
     def _zk_quota_counter_init(cls, path_prefix, quota_dict, proj_id, db_conn,
                                quota_counter):
 
-        for (obj_type, quota) in quota_dict.iteritems():
+        for (obj_type, quota) in quota_dict.items():
             path = path_prefix + "/" + obj_type
             if  obj_type != 'defaults' and (quota != -1 and quota != None):
                 resource_count = cls.get_resource_count(db_conn,

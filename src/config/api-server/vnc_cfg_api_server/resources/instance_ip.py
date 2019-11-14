@@ -2,6 +2,12 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 from cfgm_common import IP_FABRIC_VN_FQ_NAME
 from cfgm_common import LINK_LOCAL_VN_FQ_NAME
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
