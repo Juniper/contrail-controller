@@ -140,7 +140,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                 continue
             for rt in rt_dict.get('route_target', []):
                 ok, result, _ = cls.server.get_resource_class(
-                    'route_target').validate_route_target(rt, global_asn)
+                    'route_target').validate_route_target(rt, global_asn,
+                                                          check_asn=False)
                 if not ok:
                     return False, (400, result)
                 user_defined_rt = result

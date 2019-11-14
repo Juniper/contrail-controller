@@ -51,7 +51,8 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
         return cls._parse_route_target_name(obj_dict['fq_name'][-1])
 
     @classmethod
-    def validate_route_target(cls, route_target_name, global_asn=None):
+    def validate_route_target(cls, route_target_name, global_asn=None,
+                              check_asn=True):
         ok, result = cls._parse_route_target_name(route_target_name)
         if not ok:
             return False, result, None
@@ -63,7 +64,7 @@ class RouteTargetServer(ResourceMixin, RouteTarget):
             except VncError as e:
                 return False, str(e), None
 
-        if type(asn) == int:
+        if check_asn and type(asn) == int:
             ok, result = cls.server.get_resource_class(
                 'global_system_config').check_asn_range(asn)
             if not ok:
