@@ -1,3 +1,4 @@
+from builtins import range
 from vnc_api import vnc_api
 from cfgm_common.tests import test_common
 

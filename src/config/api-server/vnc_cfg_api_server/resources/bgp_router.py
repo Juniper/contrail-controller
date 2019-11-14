@@ -62,7 +62,7 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
                 sub_cluster_asn = None
         else:
             bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
-            sub_cluster_ref = ([key for key in bgp_obj.keys()
+            sub_cluster_ref = ([key for key in list(bgp_obj.keys())
                                 if key.startswith('ref:sub_cluster')])
             if len(sub_cluster_ref):
                 sub_cluster_uuid = sub_cluster_ref[0].split(':')[-1]
@@ -123,7 +123,7 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
                 return False, (400, msg)
             if not bgp_obj:
                 bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
-            cnz_ref_db = ([key for key in bgp_obj.keys()
+            cnz_ref_db = ([key for key in list(bgp_obj.keys())
                           if key.startswith('ref:control_node_zone')])
             if (len(cnz_ref_db) or len(control_node_zone_ref) > 1):
                 msg = ("BgpRouter should refer only one control-node-zone")

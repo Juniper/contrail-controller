@@ -6,6 +6,13 @@
 Layer that transforms VNC config objects to database representation
 """
 from __future__ import absolute_import
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from builtins import zip
+from builtins import str
+from builtins import object
+from past.utils import old_div
 from cfgm_common.zkclient import ZookeeperClient, IndexAllocator
 from gevent import monkey
 monkey.patch_all()
@@ -513,7 +520,7 @@ class VncZkClient(object):
                 self._zk_client,
                 self._tag_value_id_alloc_path % type_name,
                 self._TAG_VALUE_MAX_ID,
-            ) for type_name in constants.TagTypeNameToId.keys()}
+            ) for type_name in list(constants.TagTypeNameToId.keys())}
     # end __init__
 
     def master_election(self, path, func, *args):
@@ -548,8 +555,8 @@ class VncZkClient(object):
                                 subnet_alloc_list, alloc_unit):
         allocator = self._subnet_allocators[subnet]
         allocator.reallocate(
-            new_alloc_list=[{'start': x['start']/alloc_unit,
-                         'end':x['end']/alloc_unit}
+            new_alloc_list=[{'start': old_div(x['start'],alloc_unit),
+                         'end':old_div(x['end'],alloc_unit)}
                         for x in subnet_alloc_list])
     # end
 
@@ -563,11 +570,11 @@ class VncZkClient(object):
                 addr_from_start = False
             self._subnet_allocators[subnet] = IndexAllocator(
                 self._zk_client, self._subnet_path+'/'+subnet+'/',
-                size=size/alloc_unit, start_idx=start_subnet/alloc_unit,
+                size=old_div(size,alloc_unit), start_idx=old_div(start_subnet,alloc_unit),
                 reverse=not addr_from_start,
-                alloc_list=[{'start': x['start']/alloc_unit, 'end':x['end']/alloc_unit}
+                alloc_list=[{'start': old_div(x['start'],alloc_unit), 'end':old_div(x['end'],alloc_unit)}
                             for x in subnet_alloc_list],
-                max_alloc=self._MAX_SUBNET_ADDR_ALLOC/alloc_unit)
+                max_alloc=old_div(self._MAX_SUBNET_ADDR_ALLOC,alloc_unit))
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet, notify=True):
@@ -616,7 +623,7 @@ class VncZkClient(object):
                          alloc_unit=1):
         allocator = self._get_subnet_allocator(subnet)
         if alloc_pools:
-            alloc_list=[{'start': x['start']/alloc_unit, 'end':x['end']/alloc_unit}
+            alloc_list=[{'start': old_div(x['start'],alloc_unit), 'end':old_div(x['end'],alloc_unit)}
                          for x in alloc_pools]
         else:
             alloc_list = []
@@ -1994,7 +2001,7 @@ class VncDbClient(object):
     def update_perms2(self, obj_uuid):
         perms2 = copy.deepcopy(Provision.defaults.perms2)
         perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
-                               for k, v in o.__dict__.iteritems()))
+                               for k, v in o.__dict__.items()))
         perms2 = json.loads(perms2_json)
         return perms2
 
