@@ -1,6 +1,13 @@
 #
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import range
 import copy
 import uuid
 

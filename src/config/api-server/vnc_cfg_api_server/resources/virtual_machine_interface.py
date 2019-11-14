@@ -2,6 +2,13 @@
 # Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+from builtins import range
 from collections import defaultdict
 
 from cfgm_common import _obj_serializer_all
@@ -287,7 +294,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         key = kvp['key']
         value = kvp['value']
         kvp_dict = cls._kvp_to_dict(kvps)
-        if key not in kvp_dict.keys():
+        if key not in list(kvp_dict.keys()):
             if value:
                 kvps.append(kvp)
         else:
@@ -419,7 +426,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         mac_addrs_json = json.dumps(
             mac_addrs_obj,
             default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
+                                   for k, v in o.__dict__.items()))
         mac_addrs_dict = json.loads(mac_addrs_json)
         obj_dict['virtual_machine_interface_mac_addresses'] = mac_addrs_dict
 
@@ -856,7 +863,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if not len(links) > 1:
             return None, None
 
-        for pr in old_pi_to_pr_dict.itervalues():
+        for pr in old_pi_to_pr_dict.values():
             if (pr.get('prouter_name') == prouter_name and
                     pr.get('ae_id') is not None):
                 attr_obj = VpgInterfaceParametersType(pr.get('ae_id'))
@@ -876,7 +883,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                               vpg_name, pi_to_pr_dict):
         prouter_list = []
         dealloc_dict = {}
-        for pr in pi_to_pr_dict.itervalues():
+        for pr in pi_to_pr_dict.values():
             prouter_list.append(pr)
 
         prouter_name = prouter_dict.get('prouter_name')
@@ -1053,7 +1060,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         # Now that all the VMIs has been traversed for this fabric
         # First, check that each VN has only one VLAN assigned
-        for vn_id, vlan_list in vn_to_vlan_mapping.items():
+        for vn_id, vlan_list in list(vn_to_vlan_mapping.items()):
             if len(set(vlan_list)) > 1:
                 msg = ("Virtual Network(%s) has been associated to more "
                        "than one VLAN. This is disallowed in Enterprise "
@@ -1061,7 +1068,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 return (False, (400, msg))
 
         # Second, check if a VLAN is assigned to only one VN
-        for vlan, vn_list in vlan_to_vn_mapping.items():
+        for vlan, vn_list in list(vlan_to_vn_mapping.items()):
             if len(set(vn_list)) > 1:
                 msg = ("VLAN(%s) has been associated to more "
                        "than one Virtual Network. This is disallowed in "
@@ -1134,7 +1141,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                   'in a Enterprise style Fabric'
             return (False, (400, msg))
 
-        for vn_id, vlan_list in all_vns_in_vpg_dict.items():
+        for vn_id, vlan_list in list(all_vns_in_vpg_dict.items()):
             if len(vlan_list) > len(set(vlan_list)):
                 msg = ("Virtual Network(%s) has been associated to VPG(%s) "
                        "more than once, but not with different VLAN ID "
