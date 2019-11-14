@@ -442,8 +442,11 @@ TEST_F(MatchExtCommunityTest, FromHexValues) {
     vector<string> communities = list_of(".*200170000000b")("0708000000bc5bf7");
     MatchExtCommunity match(communities, false);
     MatchExtCommunity match2(communities, true);
-    EXPECT_EQ(2, match.regex_strings().size());
-    EXPECT_EQ(2, match2.regex_strings().size());
+    // 0708000000bc5bf7 will match to hex string, but .*200170000000b will be
+    // treated as regex string hence regex_strings().size() should be 1 now.
+    // This is because of fix done for bug CEM-9843
+    EXPECT_EQ(1, match.regex_strings().size());
+    EXPECT_EQ(1, match2.regex_strings().size());
 
     ExtCommunitySpec comm_spec;
     BgpAttrSpec spec;
