@@ -179,16 +179,13 @@ public:
                                   6, sport, dport);
         EXPECT_TRUE(flow != NULL);
         EXPECT_FALSE(flow->IsShortFlow());
-        EXPECT_TRUE(flow->IsNatFlow());
 
         FlowEntry *rflow = flow->reverse_flow_entry();
         EXPECT_TRUE(rflow != NULL);
         EXPECT_FALSE(rflow->IsShortFlow());
-        EXPECT_TRUE(rflow->IsNatFlow());
 
-        EXPECT_TRUE(rflow->key().src_addr == router_id_);
-        EXPECT_TRUE(rflow->key().dst_addr.to_v4() ==
-                    mip_[id]->GetLinkLocalIp());
+        EXPECT_TRUE(rflow->key().src_addr == mip_[id]->service_ip());
+        EXPECT_TRUE(rflow->key().dst_addr == vmi_[id]->primary_ip_addr());
     }
 
     void AddFatFlow(struct PortInfo *input, uint8_t id,
