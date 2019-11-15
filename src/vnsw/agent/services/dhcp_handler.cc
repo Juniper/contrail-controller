@@ -976,12 +976,6 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
                             nak_msg_.data(), &opt_len);
     }
     else {
-        if (msg_type_ != DHCP_INFORM &&
-            !is_flag_set(DHCP_OPTION_IP_LEASE_TIME)) {
-            option_->SetNextOptionPtr(opt_len);
-            uint32_t value = htonl(config_.lease_time);
-            option_->WriteData(DHCP_OPTION_IP_LEASE_TIME, 4, &value, &opt_len);
-        }
 
         if (config_.subnet_mask) {
             option_->SetNextOptionPtr(opt_len);
@@ -997,6 +991,13 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
 
         // Add dhcp options coming from Config
         opt_len = AddConfigDhcpOptions(opt_len, false);
+
+        if (msg_type_ != DHCP_INFORM &&
+            !is_flag_set(DHCP_OPTION_IP_LEASE_TIME)) {
+            option_->SetNextOptionPtr(opt_len);
+            uint32_t value = htonl(config_.lease_time);
+            option_->WriteData(DHCP_OPTION_IP_LEASE_TIME, 4, &value, &opt_len);
+        }
 
         // Add classless route option
         option_->SetNextOptionPtr(opt_len);
