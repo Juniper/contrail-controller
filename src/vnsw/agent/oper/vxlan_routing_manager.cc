@@ -648,7 +648,8 @@ bool VxlanRoutingManager::InetRouteNotify(DBTablePartBase *partition,
     }
 
     const VrfEntry *routing_vrf = evpn_routing_path->routing_vrf();
-    assert(routing_vrf != inet_rt->vrf());
+    // The vrfs need to be different for copying unless they belong to IVN.
+    assert(routing_vrf != inet_rt->vrf() || routing_vrf->vn()->vxlan_routing_vn());
     //This delete aggresively handles delete on local vm peer port going off
     //before evpn routing path
     if (inet_rt->IsDeleted() || (local_vm_port_path == NULL) ||
@@ -781,6 +782,10 @@ bool VxlanRoutingManager::EvpnType2RouteNotify(DBTablePartBase *partition,
 
     const VrfEntry *routing_vrf =
         vrf_mapper_.GetRoutingVrfUsingEvpnRoute(evpn_rt);
+    // Use IVN itself if the [type-2] route belongs to it.
+    if (!routing_vrf && evpn_rt->vrf()->vn()->vxlan_routing_vn()) {
+        routing_vrf = evpn_rt->vrf();
+    }
     if (evpn_rt->IsDeleted() || !routing_vrf) {
         DeleteInetRoute(partition, e);
     } else {
