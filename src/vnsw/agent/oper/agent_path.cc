@@ -2030,14 +2030,16 @@ EvpnRoutingData::EvpnRoutingData(DBRequest &nh_req,
                                  const EcmpLoadBalance &ecmp_load_balance,
                                  const TagList &tag_list,
                                  VrfEntryConstRef vrf_entry,
-                                 uint32_t vxlan_id) :
+                                 uint32_t vxlan_id,
+                                 const VnListType& vn_list) :
     AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
     sg_list_(sg_list),
     communities_(communities),
     path_preference_(path_preference),
     ecmp_load_balance_(ecmp_load_balance),
     tag_list_(tag_list),
-    routing_vrf_(vrf_entry), vxlan_id_(vxlan_id) {
+    routing_vrf_(vrf_entry), vxlan_id_(vxlan_id),
+    dest_vn_list_(vn_list) {
         nh_req_.Swap(&nh_req);
 }
 
@@ -2074,6 +2076,11 @@ bool EvpnRoutingData::AddChangePathExtended(Agent *agent,
 
     if (sg_list_ != path->sg_list()) {
         path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    if (path->dest_vn_list() != dest_vn_list_) {
+        path->set_dest_vn_list(dest_vn_list_);
         ret = true;
     }
 
