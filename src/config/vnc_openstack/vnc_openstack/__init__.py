@@ -1184,7 +1184,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         for subnet in del_subnets or []:
             try:
                 self._vnc_lib.kv_delete(existing_subnets[subnet])
-            except NoIdError:
+            except vnc_exc.NoIdError:
                 pass
             self._vnc_lib.kv_delete(subnet)
         for subnet in add_subnets or []:
