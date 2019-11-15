@@ -2,6 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+
 import uuid
 
 from cfgm_common.exceptions import BadRequest
@@ -58,26 +60,26 @@ class VerifyPolicy(VerifyCommon):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         ri_refs = ri.get_routing_instance_refs()
         if ri_refs:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('ri_refs still exist for %s' % fq_name)
 
     @retries(5)
     def check_ri_is_deleted(self, fq_name):
         try:
             self._vnc_lib.routing_instance_read(fq_name)
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('routing instance %s still exists' % fq_name)
         except NoIdError:
-            print 'ri deleted'
+            print('ri deleted')
 
     @retries(5)
     def check_vn_is_deleted(self, uuid):
         try:
             self._vnc_lib.virtual_network_read(id=uuid)
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('virtual network %s still exists' % uuid)
         except NoIdError:
-            print 'vn deleted'
+            print('vn deleted')
 
     @retries(5)
     def check_acl_match_dst_cidr(self, fq_name, ip_prefix, ip_len):

@@ -2,6 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+
 from unittest import skip
 
 from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
@@ -44,7 +46,7 @@ class VerifyBgp(VerifyRouteTarget):
                     'InternalVirtualNetwork'):
                 intvns.append(vn_ref)
         if len(intvns) != 1 and err_on_fail:
-            print "Expecting only one internalVN connected to LR"
+            print("Expecting only one internalVN connected to LR")
             raise Exception("Internal VN attached to LR (%s) == %s" % (lr.uuid,
                                                                        intvns))
         return intvns
@@ -54,7 +56,7 @@ class VerifyBgp(VerifyRouteTarget):
         lr = self._vnc_lib.logical_router_read(lr_fq_name)
         si_refs = lr.get_service_instance_refs()
         if si_refs:
-            print 'Service Instance Refs: \n\n%s\n' % si_refs
+            print('Service Instance Refs: \n\n%s\n' % si_refs)
             raise Exception("Service Instance Refs found "
                             "while its not expected")
 
@@ -63,7 +65,7 @@ class VerifyBgp(VerifyRouteTarget):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
         if not rt_refs:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('ri_refs is None for %s' % fq_name)
         if not rt_target:
             return rt_refs[0]['to'][0]
@@ -78,7 +80,7 @@ class VerifyBgp(VerifyRouteTarget):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
         if not rt_refs:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('ri_refs is None for %s' % fq_name)
         if not rt_target:
             return rt_refs[0]['to'][0]
@@ -96,7 +98,7 @@ class VerifyBgp(VerifyRouteTarget):
         router = self._vnc_lib.bgp_router_read(fq_name)
         params = router.get_bgp_router_parameters()
         if not params:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('bgp params is None for %s' % fq_name)
         self.assertEqual(params.get_autonomous_system(), asn)
 
@@ -105,7 +107,7 @@ class VerifyBgp(VerifyRouteTarget):
         router = self._vnc_lib.logical_router_read(fq_name)
         rt_refs = router.get_route_target_refs()
         if not rt_refs:
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('ri_refs is None for %s' % fq_name)
         if rt_target:
             self.assertEqual(rt_refs[0]['to'][0], rt_target)
@@ -115,10 +117,10 @@ class VerifyBgp(VerifyRouteTarget):
     def check_lr_is_deleted(self, uuid):
         try:
             self._vnc_lib.logical_router_read(id=uuid)
-            print "retrying ... ", test_common.lineno()
+            print("retrying ... ", test_common.lineno())
             raise Exception('logical router %s still exists' % uuid)
         except NoIdError:
-            print 'lr deleted'
+            print('lr deleted')
 
     @retries(5)
     def check_bgp_peering(self, router1, router2, length):
@@ -1167,7 +1169,7 @@ class TestBgp(STTestCase, VerifyBgp):
         try:
             self._vnc_lib.bgp_router_read(fq_name_str=router3_name)
         except NoIdError:
-            print 'Second BGP Router not created for second port - PASS'
+            print('Second BGP Router not created for second port - PASS')
         else:
             assert(True)
 
@@ -1326,7 +1328,7 @@ class TestBgp(STTestCase, VerifyBgp):
                 self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
             if not port_obj_updated.get_bgp_router_refs():
                 gevent.sleep(1)
-                print 'retrying...'
+                print('retrying...')
         self.assertNotEqual(port_obj_updated.get_bgp_router_refs(), None,
                             msg="vmi did not get ref to bgp-router")
 
