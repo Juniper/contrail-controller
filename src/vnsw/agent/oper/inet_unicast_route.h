@@ -414,7 +414,8 @@ public:
                              const EcmpLoadBalance &ecmp_load_balance,
                              const TagList &tag_list,
                              DBRequest &nh_req,
-                             uint32_t vxlan_id);
+                             uint32_t vxlan_id,
+                             const VnListType& vn_list);
 
 private:
     Agent::RouteTableType type_;
