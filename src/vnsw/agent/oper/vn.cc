@@ -201,6 +201,13 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
         ret = true;
     }
 
+    if (data->vxlan_routing_vn_) {
+        if (forwarding_mode_ != Agent::L2_L3) {
+            forwarding_mode_ = Agent::L2_L3;
+            ret = true;
+        }
+    }
+
     // Recompute the forwarding modes in VN
     // Must rebake the routes if any change in forwarding modes
     bool resync_routes = false;
@@ -1133,7 +1140,8 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     return new VnData(agent(), node, node->name(), acl_uuid, vrf_name,
                       mirror_acl_uuid, mirror_cfg_acl_uuid, vn_ipam,
                       vn_ipam_data, cfg->properties().vxlan_network_identifier,
-                      GetCfgVnId(cfg), cfg->id_perms().enable, enable_rpf,
+                      GetCfgVnId(cfg),
+                      vxlan_routing_vn ?: cfg->id_perms().enable, enable_rpf,
                       flood_unknown_unicast, forwarding_mode,
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
                       pbb_evpn_enable, layer2_control_word, slo_list,
