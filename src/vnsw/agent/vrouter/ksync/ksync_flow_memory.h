@@ -40,7 +40,7 @@ public:
                                               uint8_t gen_id,
                                               vr_flow_stats *stats,
                                               KFlowData *info) const;
-    bool GetFlowKey(uint32_t index, FlowKey *key);
+    bool GetFlowKey(uint32_t index, FlowKey *key, bool *is_nat_flow);
 
     bool IsEvictionMarked(const vr_flow_entry *entry, uint16_t flags) const;
 

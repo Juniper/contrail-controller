@@ -22,8 +22,8 @@ ProtoHandler *IcmpErrorProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
     return new IcmpErrorHandler(agent(), this, info, &io);
 }
 
-bool IcmpErrorProto::FlowIndexToKey(uint32_t index, FlowKey *key) {
+bool IcmpErrorProto::FlowIndexToKey(uint32_t index, FlowKey *key, bool *is_nat_flow) {
     if (flow_index_to_key_fn_.empty())
         return false;
-    return flow_index_to_key_fn_(index, key);
+    return flow_index_to_key_fn_(index, key, is_nat_flow);
 }

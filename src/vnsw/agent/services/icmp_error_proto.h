@@ -26,14 +26,14 @@ class IcmpErrorProto : public Proto {
         uint32_t interface_errors;
         uint32_t invalid_flow_index;
     };
-    typedef boost::function<bool(uint32_t, FlowKey *)> FlowIndexToKeyFn;
+    typedef boost::function<bool(uint32_t, FlowKey *, bool *)> FlowIndexToKeyFn;
 
     IcmpErrorProto(Agent *agent, boost::asio::io_service &io);
     virtual ~IcmpErrorProto();
 
     void Shutdown() { }
     void Register(FlowIndexToKeyFn fn) { flow_index_to_key_fn_ = fn; }
-    bool FlowIndexToKey(uint32_t index, FlowKey *key);
+    bool FlowIndexToKey(uint32_t index, FlowKey *key, bool *is_nat_flow);
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
 

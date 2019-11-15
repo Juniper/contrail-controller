@@ -55,6 +55,8 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
 
     uint32_t src_ip = 0;
     FlowKey key;
+    bool is_nat_flow = false;
+
     if (pkt_info_->agent_hdr.flow_index == (uint32_t)-1) {
         // flow index is -1 for 255.255.255.255
         if (pkt_info_->ip_daddr.to_v4().to_ulong() != 0xFFFFFFFF) {
@@ -63,14 +65,15 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         }
         src_ip = pkt_info_->ip_saddr.to_v4().to_ulong();
     } else {
-        if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
+        if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key, &is_nat_flow)
             == false ||
             key.family != Address::INET ||
-            key.src_addr != pkt_info_->ip_saddr ||
-            key.dst_addr != pkt_info_->ip_daddr ||
-            key.protocol != pkt_info_->ip_proto ||
-            key.src_port != pkt_info_->sport ||
-            key.dst_port != pkt_info_->dport) {
+            ((!is_nat_flow) &&
+             (key.src_addr != pkt_info_->ip_saddr ||
+              key.dst_addr != pkt_info_->ip_daddr ||
+              key.protocol != pkt_info_->ip_proto ||
+              key.src_port != pkt_info_->sport ||
+              key.dst_port != pkt_info_->dport))) {
             proto_->increment_invalid_flow_index();
             return true;
         }
