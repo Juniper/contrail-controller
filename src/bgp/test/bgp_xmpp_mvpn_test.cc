@@ -509,7 +509,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
 
     // Now get blue.mvpn.0.
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<size_t> >();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     show_req = new ShowRouteReq;
@@ -521,7 +521,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
 
     // Now get bgp.mvpn.0.
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<size_t> >();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     show_req = new ShowRouteReq;
@@ -543,7 +543,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 
     // Get blue.mvpn.0 again.
-    result = list_of(1);
+    result = list_of(1).convert_to_container<vector<size_t> >();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     show_req = new ShowRouteReq;
@@ -555,7 +555,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
 
     // Get bgp.mvpn.0 again.
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<size_t> >();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     show_req = new ShowRouteReq;

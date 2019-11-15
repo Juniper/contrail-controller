@@ -32,6 +32,8 @@ using namespace std;
 using namespace pugi;
 using boost::asio::ip::address;
 using boost::assign::list_of;
+using std::string;
+using std::vector;
 
 namespace test {
 
@@ -490,7 +492,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
             if (!primary_instance_index)
                 item_nexthop.label = label_alloc_++;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
-                list_of("gre");
+                list_of("gre").convert_to_container<vector<string> >();
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         } else {
             autogen::NextHopType item_nexthop;
@@ -541,7 +543,7 @@ pugi::xml_document *XmppDocumentMock::LabeledInetRouteAddDeleteXmlDoc(
             item_nexthop.address = localaddr();
             item_nexthop.label = label;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
-                list_of("gre");
+                list_of("gre").convert_to_container<vector<string> >();
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         } else {
             autogen::NextHopType item_nexthop;
@@ -785,7 +787,7 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
             item_nexthop.address = localaddr();
             item_nexthop.label = label_alloc_++;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
-                list_of("gre");
+                list_of("gre").convert_to_container<vector<string> >();
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         } else {
             autogen::EnetNextHopType item_nexthop;
