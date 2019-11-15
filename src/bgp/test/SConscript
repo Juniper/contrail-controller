@@ -794,8 +794,10 @@ env.Alias('controller/src/bgp:test', [
 
 bgp_cat_test = env.UnitTest('bgp_cat_test', ['bgp_cat_test.cc'])
 env.Alias('src/bgp:bgp_cat_test', bgp_cat_test)
-cat_tests = env.TestSuite('cat-test', [ bgp_cat_test ])
-env.Alias('controller/src/cat:test', [ cat_tests ])
+cat_test_env = env.Clone()
+cat_test_env['ENV']['CONTRAIL_UT_TEST_TIMEOUT'] = '600'
+cat_tests = cat_test_env.TestSuite('cat-test', [ bgp_cat_test ])
+cat_test_env.Alias('controller/src/cat:test', [ cat_tests ])
 
 env.Depends(bgp_cat_test, dependency = [
     'src/bgp:bgp_ifmap_xmpp_integration_test',
