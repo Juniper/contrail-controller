@@ -96,7 +96,6 @@ class DnsProvisioner(object):
         vdns_fqname = vdns_fqname_str.split(':') 
         #Verify this VDNS is not being referred by any other VDNSs as next-DNS
         vdns_list = vnc_lib.virtual_DNSs_list() 
-        vdns_list = json.loads(vdns_list)
         for k, v in vdns_list.items():
             for elem in v:
                 fqname = elem["fq_name"][0] + ':' + elem["fq_name"][1]
