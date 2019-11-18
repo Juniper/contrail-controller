@@ -380,15 +380,6 @@ class PhysicalRouterDM(DBBaseDM):
             self.forced_cfg_push = False
         self.product = obj.get('physical_router_product_name') or ''
         self.device_family = obj.get('physical_router_device_family')
-        self.brownfield_global_asn = ''
-        brownfield_global_asn = obj.get(
-            'physical_router_autonomous_system') or {}
-        if brownfield_global_asn:
-            brownfield_global_asn_list = brownfield_global_asn.get(
-                'asn', [])
-            if brownfield_global_asn_list:
-                self.brownfield_global_asn = str(
-                    brownfield_global_asn_list[-1])
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.underlay_managed = obj.get('physical_router_underlay_managed')
         self.physical_router_role = obj.get('physical_router_role')
@@ -431,9 +422,41 @@ class PhysicalRouterDM(DBBaseDM):
             self.overlay_roles = [OverlayRoleDM.get(o)
                                   for o in self.overlay_roles]
 
+        # In case of brownfield deployment if user has already configured
+        # ASN number use that, otherwise default to system configured
+        # ASN number
+        self.brownfield_global_asn = ''
+        brownfield_global_asn = obj.get(
+            'physical_router_autonomous_system') or {}
+        if brownfield_global_asn:
+            brownfield_global_asn_list = brownfield_global_asn.get(
+                'asn', [])
+            if brownfield_global_asn_list:
+                self.brownfield_global_asn = str(
+                    brownfield_global_asn_list[-1])
+        else:
+            self.get_overlay_ibgp_asn()
         self.reinit_device_plugin()
         self.allocate_asn()
     # end update
+
+    # Get IBGP ASN from FabricNamespace
+    def get_overlay_ibgp_asn(self):
+        if self.fabric is not None:
+            for namespace_uuid in self.fabric_obj.fabric_namespaces:
+                if namespace_uuid is not None:
+                    namespace = FabricNamespaceDM.get(namespace_uuid)
+                    if namespace is None:
+                        continue
+                    if namespace.name == 'overlay_ibgp_asn':
+                        if namespace.as_numbers is not None:
+                            self.brownfield_global_asn = \
+                                str(namespace.as_numbers[-1])
+
+        if self.brownfield_global_asn == '':
+            self.brownfield_global_asn = \
+                str(GlobalSystemConfigDM.get_global_asn())
+    # end get_overlay_ibgp_asn
 
     def get_dummy_ip(self, obj):
         annotations = obj.get('annotations')
@@ -2608,7 +2631,8 @@ class FabricNamespaceDM(DBBaseDM):
             return
         tag = self.read_obj(tag_ids[0], "tag")
         if tag.get('tag_type_name') != 'label' or\
-                tag.get('tag_value') != 'fabric-ebgp-as-number':
+                (tag.get('tag_value') != 'fabric-ebgp-as-number' and
+                 tag.get('tag_value') != 'fabric-as-number'):
             return
         value = obj.get('fabric_namespace_value')
         if value is not None and value['asn'] is not None and\
