@@ -52,7 +52,7 @@ KSyncFlowMemory::KSyncFlowMemory(KSync *ksync, uint32_t minor_id) :
 
 void KSyncFlowMemory::Init() {
     IcmpErrorProto *proto = ksync_->agent()->services()->icmp_error_proto();
-    proto->Register(boost::bind(&KSyncFlowMemory::GetFlowKey, this, _1, _2));
+    proto->Register(boost::bind(&KSyncFlowMemory::GetFlowKey, this, _1, _2, _3));
 
     KSyncMemory::Init();
 }
@@ -200,7 +200,7 @@ const vr_flow_entry *KSyncFlowMemory::GetKernelFlowEntry
     return NULL;
 }
 
-bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
+bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key, bool *is_nat_flow) {
     const vr_flow_entry *kflow = GetKernelFlowEntry(index, false);
     if (!kflow) {
         return false;
@@ -213,6 +213,11 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
     key->dst_port = ntohs(kflow->fe_key.flow4_dport);
     key->protocol = kflow->fe_key.flow4_proto;
     key->family = family;
+    if (kflow->fe_action == VR_FLOW_ACTION_NAT) {
+        *is_nat_flow = true;
+    } else {
+        *is_nat_flow = false;
+    }
     return true;
 }
 
