@@ -45,19 +45,19 @@ class AddVirtualDns(object):
              return
   
         if self._args.dyn_updates:
-            dyn_updates = 'true'
+            dyn_updates = True
         else:
-            dyn_updates = 'false'
+            dyn_updates = False
 
         if self._args.external_visible:
-            external_visible = 'true'
+            external_visible = True
         else:
-            external_visible = 'false'
+            external_visible = False
 
         if self._args.reverse_resolution:
-            reverse_resolution = 'true'
+            reverse_resolution = True
         else:
-            reverse_resolution = 'false'
+            reverse_resolution = False
 
         dp_obj.add_virtual_dns(self._args.name, self._args.domain_name, 
                                self._args.dns_domain, dyn_updates, 
