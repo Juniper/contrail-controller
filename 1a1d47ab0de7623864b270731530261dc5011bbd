@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "31af0aea_20d9e10a",
+        "filename": "ci_unittests.json",
+        "patchSetId": 5
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-11-19T20:40:52Z",
+      "side": 1,
+      "message": "test target must be defined with \u0027:test\u0027 suffix.\nand i still do not understand why previous targets were removed",
+      "revId": "1a1d47ab0de7623864b270731530261dc5011bbd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
