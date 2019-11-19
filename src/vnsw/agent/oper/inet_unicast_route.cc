@@ -1713,7 +1713,8 @@ void InetUnicastAgentRouteTable::AddEvpnRoutingRoute(const IpAddress &ip_addr,
                                     const EcmpLoadBalance &ecmp_load_balance,
                                     const TagList &tag_list,
                                     DBRequest &nh_req,
-                                    uint32_t vxlan_id) {
+                                    uint32_t vxlan_id,
+                                    const VnListType& vn_list) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     //Set key and data
@@ -1728,6 +1729,7 @@ void InetUnicastAgentRouteTable::AddEvpnRoutingRoute(const IpAddress &ip_addr,
                                        ecmp_load_balance,
                                        tag_list,
                                        vrf,
-                                       vxlan_id));
+                                       vxlan_id,
+                                       vn_list));
     Process(req);
 }
