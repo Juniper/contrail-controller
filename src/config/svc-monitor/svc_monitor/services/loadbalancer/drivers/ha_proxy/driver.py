@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 
+from builtins import str
 import uuid
 
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
@@ -44,7 +45,7 @@ class OpencontrailLoadbalancerDriver(
         if self._lb_template is not None:
             return
 
-        for st in ServiceTemplateSM.values():
+        for st in list(ServiceTemplateSM.values()):
             if st.fq_name == LOADBALANCER_SERVICE_TEMPLATE:
                 self._lb_template = st.uuid
                 return

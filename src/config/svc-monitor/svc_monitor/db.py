@@ -6,6 +6,7 @@
 """
 Service monitor DB to store VM, SI information
 """
+from builtins import str
 import inspect
 
 from cfgm_common import jsonutils as json
@@ -109,7 +110,7 @@ class ServiceMonitorDB(VncObjectDBClient):
             return
 
         prefix = None
-        for key, item in si_info.items():
+        for key, item in list(si_info.items()):
             if item == vm_uuid:
                 prefix = key.split('-')[0]
                 break
@@ -117,7 +118,7 @@ class ServiceMonitorDB(VncObjectDBClient):
             return
 
         vm_column_list = []
-        for key in si_info.keys():
+        for key in list(si_info.keys()):
             if key.startswith(prefix):
                 vm_column_list.append(key)
         self.service_instance_remove(si_fq_str, vm_column_list)
