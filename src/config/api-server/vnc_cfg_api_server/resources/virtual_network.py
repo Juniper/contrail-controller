@@ -575,21 +575,22 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         if new_vxlan_status and new_vxlan_id != old_vxlan_id:
 
             vxlan_fq_name = ':'.join(fq_name) + '_vxlan'
-            if(new_vxlan_id is not None):
+            if new_vxlan_id is not None:
                 # First, check if the new_vxlan_id being updated exist for
                 # some other VN.
                 new_vxlan_fq_name_in_db = cls.vnc_zk_client.get_vn_from_id(
                     int(new_vxlan_id))
-                if new_vxlan_fq_name_in_db is not None:
-                    if new_vxlan_fq_name_in_db != vxlan_fq_name:
-                        msg = ("Cannot set VXLAN_ID: %s, it has already been "
-                               "set" % new_vxlan_id)
-                        return False, (400, msg)
+
+                if new_vxlan_fq_name_in_db and \
+                   not vxlan_fq_name.startswith(new_vxlan_fq_name_in_db):
+                    msg = ("Cannot set VXLAN_ID: %s, it has already been "
+                           "set" % new_vxlan_id)
+                    return False, (400, msg)
 
                 # Second, set the new_vxlan_id in Zookeeper.
-                cls.vnc_zk_client.alloc_vxlan_id(
-                    vxlan_fq_name,
-                    int(new_vxlan_id))
+                cls.vnc_zk_client.alloc_vxlan_id(vxlan_fq_name,
+                                                 int(new_vxlan_id),
+                                                 notify=True)
 
                 def undo_alloc():
                     cls.vnc_zk_client.free_vxlan_id(
