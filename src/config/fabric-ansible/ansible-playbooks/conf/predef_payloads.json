@@ -1778,7 +1778,7 @@
           "name": "L2-Server-Leaf",
           "device_functional_group_description": "Provides L2 servers connectivity with ingress replication for multicast in the spine",
           "device_functional_group_os_version": "18.4R2",
-          "device_functional_group_routing_bridging_roles": {"rb_roles": ["CRB-Access"]}
+          "device_functional_group_routing_bridging_roles": {"rb_roles": ["CRB-Access","AR-Client"]}
         },
         {
           "fq_name": [
@@ -1788,6 +1788,16 @@
           "device_functional_group_description": "Provides L3 servers connectivity",
           "device_functional_group_os_version": "19.1R3",
           "device_functional_group_routing_bridging_roles": {"rb_roles": ["ERB-UCAST-Gateway"]}
+        },
+        {
+          "fq_name": [
+            "default-domain","default-project", "L3-Gateway-Spine"
+          ],
+          "name": "L3-Gateway-Spine",
+          "device_functional_group_description": "Provides L3 gateway connectivity at spines",
+          "device_functional_group_os_version": "18.4R2",
+          "device_functional_group_routing_bridging_roles": {"rb_roles":["CRB-Gateway"]}
+
         },
         {
           "fq_name": [
@@ -2745,6 +2755,12 @@
       "from_fq_name": [ "default-domain", "default-project","L3-Storage-Leaf" ],
       "to_type": "physical_role",
       "to_fq_name": [ "default-global-system-config", "leaf" ]
+    },
+    {
+      "from_type": "device-functional-group",
+      "from_fq_name": [ "default-domain", "default-project","L3-Gateway-Spine" ],
+      "to_type": "physical_role",
+      "to_fq_name": [ "default-global-system-config", "spine" ]
     },
     {
       "from_type": "device-functional-group",
