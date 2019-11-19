@@ -255,7 +255,7 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                 # zookeeper only if the resource hasn't been reserved already
                 cls.vnc_zk_client.alloc_vxlan_id(vxlan_fq_name, int(vxlan_id))
             except ResourceExistsError:
-                msg = ("Cannot set VXLAN_ID: %s, it has already been set"
+                msg = ("--Cannot set VXLAN_ID: %s, it has already been set--"
                        % vxlan_id)
                 return False, (400, msg)
 
@@ -338,13 +338,18 @@ class LogicalRouterServer(ResourceMixin, LogicalRouter):
                         int(new_vxlan_id))
                     if new_vxlan_fq_name_in_db is not None:
                         if new_vxlan_fq_name_in_db != vxlan_fq_name:
-                            msg = ("Cannot set VXLAN_ID: %s, it has already "
-                                   "been set" % new_vxlan_id)
+                            msg = ("??Cannot set VXLAN_ID: %s, it has already "
+                                   "been set??" % new_vxlan_id)
                             return False, (400, msg)
 
-                    # Second, set the new_vxlan_id in Zookeeper.
-                    cls.vnc_zk_client.alloc_vxlan_id(vxlan_fq_name,
-                                                     int(new_vxlan_id))
+                    try:
+                        # Second, set the new_vxlan_id in Zookeeper.
+                        cls.vnc_zk_client.alloc_vxlan_id(vxlan_fq_name,
+                                                         int(new_vxlan_id))
+                    except Exception as err:
+                        print('????????????????????????')
+                        print(err)
+                        print('????????????????????????')
 
                     def undo_alloc():
                         cls.vnc_zk_client.free_vxlan_id(
