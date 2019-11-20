@@ -9,11 +9,15 @@ This file contains implementation of transforming user-exposed VNC
 configuration model/schema to a representation needed by VNC Control Plane
 (BGP-based)
 """
+
 from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
 
 import argparse
-import ConfigParser
+from builtins import object
+from builtins import str
+import configparser
 import hashlib
 import os
 import random
@@ -27,8 +31,11 @@ from cfgm_common.exceptions import NoIdError, ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
 # Import kazoo.client before monkey patching
 from cfgm_common.zkclient import ZookeeperClient
+from future import standard_library
+standard_library.install_aliases()
 import gevent
 from gevent import monkey
+from past.utils import old_div
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -190,7 +197,7 @@ class SchemaTransformer(object):
     }
     _schema_transformer = None
 
-    class STtimer:
+    class STtimer(object):
         """No description."""
 
         def __init__(self,
@@ -198,7 +205,7 @@ class SchemaTransformer(object):
                      yield_in_evaluate=False,
                      print_stats=False):
             self.timeout = time.time()
-            self.max_time = zk_timeout / 6
+            self.max_time = old_div(zk_timeout, 6)
             if self.max_time < 60:
                 self.max_time = 60
             self.total_yield_stats = 0
@@ -371,7 +378,7 @@ class SchemaTransformer(object):
 
         # update sg rules after all SG objects are initialized to avoid
         # rewriting of ACLs multiple times
-        for sg in SecurityGroupST.values():
+        for sg in list(SecurityGroupST.values()):
             try:
                 sg.update_policy_entries()
                 self.timer_obj.timed_yield()
@@ -392,14 +399,14 @@ class SchemaTransformer(object):
             except Exception as e:
                 self.logger.error("Error in reinit virtual network %s: %s" % (
                     vn.get_fq_name_str(), str(e)))
-        for ri_name, ri_obj in ri_dict.items():
+        for ri_name, ri_obj in list(ri_dict.items()):
             try:
                 RoutingInstanceST.locate(ri_name, ri_obj)
             except Exception as e:
                 self.logger.error("Error in reinit routing instance %s: %s" % (
                     ri_name, str(e)))
         # Initialize service instance RI's after Primary RI's
-        for si_ri_name, si_ri_obj in service_ri_dict.items():
+        for si_ri_name, si_ri_obj in list(service_ri_dict.items()):
             try:
                 RoutingInstanceST.locate(si_ri_name, si_ri_obj)
             except Exception as e:
@@ -430,7 +437,7 @@ class SchemaTransformer(object):
         evaluate_kwargs = {}
         if self.timer_obj.yield_in_evaluate:
             evaluate_kwargs['timer'] = self.timer_obj
-        for vn_obj in VirtualNetworkST.values():
+        for vn_obj in list(VirtualNetworkST.values()):
             try:
                 vn_obj.evaluate(**evaluate_kwargs)
                 self.timer_obj.timed_yield()
@@ -438,10 +445,10 @@ class SchemaTransformer(object):
                 self.logger.error(
                     "Error in reinit evaluate virtual network %s: %s" %
                     (vn_obj.name, str(e)))
-        for cls in ResourceBaseST.get_obj_type_map().values():
+        for cls in list(ResourceBaseST.get_obj_type_map().values()):
             if cls is VirtualNetworkST:
                 continue
-            for obj in cls.values():
+            for obj in list(cls.values()):
                 try:
                     obj.evaluate(**evaluate_kwargs)
                     self.timer_obj.timed_yield()
@@ -457,12 +464,12 @@ class SchemaTransformer(object):
     # end cleanup
 
     def process_stale_objects(self):
-        for sc in ServiceChain.values():
+        for sc in list(ServiceChain.values()):
             if sc.created_stale:
                 sc.destroy()
             if sc.present_stale:
                 sc.delete()
-        for rinst in RoutingInstanceST.values():
+        for rinst in list(RoutingInstanceST.values()):
             if rinst.stale_route_targets:
                 rinst.update_route_target_list(
                     rt_del=rinst.stale_route_targets)
@@ -477,7 +484,7 @@ class SchemaTransformer(object):
         inst = cls.get_instance()
         if inst:
             inst._vnc_amqp.close()
-        for obj_cls in ResourceBaseST.get_obj_type_map().values():
+        for obj_cls in list(ResourceBaseST.get_obj_type_map().values()):
             obj_cls.reset()
         DBBase.clear()
         if inst:
@@ -487,7 +494,7 @@ class SchemaTransformer(object):
 
     def sighup_handler(self):
         if self._conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser(strict=False)
             config.read(self._conf_file)
             if 'DEFAULTS' in config.sections():
                 try:
@@ -503,7 +510,7 @@ class SchemaTransformer(object):
                         # Reconnect to achieve load-balance
                         # irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
-                except ConfigParser.NoOptionError:
+                except configparser.NoOptionError:
                     pass
     # end sighup_handler
 
@@ -575,7 +582,7 @@ def parse_args(args_str):
 
     saved_conf_file = args.conf_file
     if args.conf_file:
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser(strict=False)
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if ('SECURITY' in config.sections() and

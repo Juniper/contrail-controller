@@ -3,3 +3,5 @@ geventhttpclient==1.0a
 netaddr>=0.7.5
 contrail-config-common
 jsonpickle
+future
+configparser
