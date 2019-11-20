@@ -4,7 +4,9 @@
 
 import copy
 import json
+from builtins import str
 import uuid
+
 
 from cfgm_common.uve.virtual_network.ttypes import UveServiceChain
 from cfgm_common.uve.virtual_network.ttypes import UveServiceChainData
@@ -99,7 +101,7 @@ class ServiceChain(ResourceBaseST):
     @classmethod
     def find(cls, left_vn, right_vn, direction, sp_list, dp_list, protocol,
              service_list):
-        for sc in ServiceChain.values():
+        for sc in list(ServiceChain.values()):
             if (left_vn == sc.left_vn and
                     right_vn == sc.right_vn and
                     sp_list == sc.sp_list and
