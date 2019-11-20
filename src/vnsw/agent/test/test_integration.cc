@@ -625,12 +625,12 @@ public:
 };
 
 struct RandomNumGen : unary_function<unsigned, unsigned> {
-    mt19937 &state_;
+    boost::mt19937 &state_;
     unsigned operator() (unsigned i) {
         boost::uniform_int<> rng(0, i-1);
         return rng(state_);
     }
-    RandomNumGen(mt19937 &state) : state_(state) {}
+    RandomNumGen(boost::mt19937 &state) : state_(state) {}
 };
 
 TEST_F(IntegrationTest, LoadCfgFile) {
@@ -638,7 +638,7 @@ TEST_F(IntegrationTest, LoadCfgFile) {
     LOG(ERROR, "Iteration : " << i << "   Random Seed : " << seed);
     xml_document xdoc;
     xml_document d_xdoc;
-    mt19937 mt_gen(seed);
+    boost::mt19937 mt_gen(seed);
     char file_name[1024];
     vector<pair<xml_node, GroupEntry *> > config_all = c_all;
     RandomNumGen    rand_num(mt_gen);

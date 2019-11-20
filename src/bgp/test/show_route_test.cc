@@ -543,7 +543,7 @@ TEST_F(ShowRouteTest1, Basic) {
 
     // Exact match for 192.168.242.0/24
     show_req = new ShowRouteReq;
-    result = list_of(1);
+    result = list_of(1).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_prefix("192.168.242.0/24");
@@ -555,7 +555,7 @@ TEST_F(ShowRouteTest1, Basic) {
 
     // longest match for 192.168.240.0/20 in inet.0 table.
     show_req = new ShowRouteReq;
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_prefix("192.168.240.0/20");
@@ -568,7 +568,7 @@ TEST_F(ShowRouteTest1, Basic) {
 
     // longest match for 2:20:192.240.11.0/12 in bgp.l3vpn.0 table.
     show_req = new ShowRouteReq;
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_prefix("2:20:192.240.11.0/12");
@@ -580,7 +580,7 @@ TEST_F(ShowRouteTest1, Basic) {
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
     show_req = new ShowRouteReq;
-    result = list_of(2);
+    result = list_of(2).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance(BgpConfigManager::kMasterInstance);
@@ -593,7 +593,7 @@ TEST_F(ShowRouteTest1, Basic) {
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
     show_req = new ShowRouteReq;
-    result = list_of(3)(1)(3);
+    result = list_of(3)(1)(3).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_routing_instance(
@@ -604,7 +604,7 @@ TEST_F(ShowRouteTest1, Basic) {
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 
     show_req = new ShowRouteReq;
-    result = list_of(3);
+    result = list_of(3).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_routing_table("blue.inet.0");
@@ -654,8 +654,10 @@ TEST_F(ShowRouteTest1, TableListeners) {
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
 
-    vector<int> ids = list_of(id0)(id1)(id2)(id3);
-    vector<string> names = list_of(name0)(name1)(name2)(name3);
+    vector<int> ids = list_of(id0)(id1)(id2)(id3)
+        .convert_to_container<vector<int>>();
+    vector<string> names = list_of(name0)(name1)(name2)(name3)
+        .convert_to_container<vector<string>>();
     ShowRouteReq *show_req = new ShowRouteReq;
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteListenersSandeshResponse, _1, ids, names,
@@ -670,8 +672,8 @@ TEST_F(ShowRouteTest1, TableListeners) {
     Unregister("blue", id2);
     TASK_UTIL_EXPECT_EQ(3, ListenerCount("blue"));
 
-    ids = list_of(id0)(id1)(id3);
-    names = list_of(name0)(name1)(name3);
+    ids = list_of(id0)(id1)(id3).convert_to_container<vector<int>>();
+    names = list_of(name0)(name1)(name3).convert_to_container<vector<string>>();
     show_req = new ShowRouteReq;
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteListenersSandeshResponse, _1, ids, names,
@@ -732,7 +734,7 @@ TEST_F(ShowRouteTest2, ExactInstance1) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(3);
+        vector<int> result = list_of(3).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_routing_instance(instance);
@@ -772,7 +774,7 @@ TEST_F(ShowRouteTest2, ExactTable1) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(3);
+        vector<int> result = list_of(3).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_routing_table(table);
@@ -816,7 +818,7 @@ TEST_F(ShowRouteTest2, ExactPrefix1) {
     };
     BOOST_FOREACH(const char *prefix, prefix_list) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1)(1);
+        vector<int> result = list_of(1)(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix(prefix);
@@ -836,7 +838,7 @@ TEST_F(ShowRouteTest2, ExactPrefix2) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix("192.168.12.0/24");
@@ -857,7 +859,7 @@ TEST_F(ShowRouteTest2, ExactPrefix3) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix("192.168.12.0/24");
@@ -878,7 +880,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix1) {
     const char *prefix_formats[] = { "192.168.0.0/16", "192.168/16" };
     BOOST_FOREACH(const char *prefix, prefix_formats) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(3)(3);
+        vector<int> result = list_of(3)(3).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix(prefix);
@@ -917,7 +919,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix3) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(3);
+        vector<int> result = list_of(3).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix("192.168.0.0/16");
@@ -961,7 +963,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix5) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(3);
+        vector<int> result = list_of(3).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix("192.168.0.0/16");
@@ -1007,7 +1009,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix7) {
     };
     BOOST_FOREACH(const char *prefix, prefix_list) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1)(1);
+        vector<int> result = list_of(1)(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix(prefix);
@@ -1034,7 +1036,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix8) {
     };
     BOOST_FOREACH(const char *prefix, prefix_formats) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1)(1);
+        vector<int> result = list_of(1)(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix(prefix);
@@ -1082,7 +1084,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix10) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix("192.168.11.240/28");
@@ -1126,7 +1128,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix12) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix("192.168.11.240/28");
@@ -1174,9 +1176,9 @@ TEST_F(ShowRouteTest2, MatchingPrefix14) {
         "168.1[1-3].0/24"
     };
     const vector<int> result[] = {
-    list_of(3)(1)(3),
-    list_of(3)(3),
-    list_of(3)(3)
+    list_of(3)(1)(3).convert_to_container<vector<int>>(),
+    list_of(3)(3).convert_to_container<vector<int>>(),
+    list_of(3)(3).convert_to_container<vector<int>>()
     };
     int i = 0;
     BOOST_FOREACH(const char *prefix, prefix_formats) {
@@ -1206,7 +1208,7 @@ TEST_F(ShowRouteTest2, MatchingPrefix15) {
     };
     BOOST_FOREACH(const char *prefix, prefix_formats) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(2)(2);
+        vector<int> result = list_of(2)(2).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_prefix(prefix);
@@ -1274,7 +1276,7 @@ TEST_F(ShowRouteTest2, StartPrefix1) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(2)(1)(3);
+    vector<int> result = list_of(2)(1)(3).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -1294,7 +1296,7 @@ TEST_F(ShowRouteTest2, StartPrefix2) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(2)(1)(1);
+    vector<int> result = list_of(2)(1)(1).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -1314,7 +1316,7 @@ TEST_F(ShowRouteTest2, StartPrefix3) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(2);
+    vector<int> result = list_of(2).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("red");
@@ -1334,7 +1336,7 @@ TEST_F(ShowRouteTest2, StartPrefix4) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(1)(1);
+    vector<int> result = list_of(1)(1).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -1355,7 +1357,7 @@ TEST_F(ShowRouteTest2, StartPrefix5) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(1);
+    vector<int> result = list_of(1).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -1377,7 +1379,7 @@ TEST_F(ShowRouteTest2, StartPrefix6) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(1);
+    vector<int> result = list_of(1).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("red");
@@ -1400,7 +1402,7 @@ TEST_F(ShowRouteTest2, StartPrefix7) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(2);
+        vector<int> result = list_of(2).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_start_routing_instance(instance);
@@ -1424,7 +1426,7 @@ TEST_F(ShowRouteTest2, StartPrefix8) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_start_routing_instance(instance);
@@ -1446,7 +1448,7 @@ TEST_F(ShowRouteTest2, StartPrefix9) {
     Sandesh::set_client_context(&sandesh_context);
 
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(1)(1);
+    vector<int> result = list_of(1)(1).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -1470,7 +1472,7 @@ TEST_F(ShowRouteTest2, StartPrefix10) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(2);
+        vector<int> result = list_of(2).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_start_routing_instance(instance);
@@ -1494,7 +1496,7 @@ TEST_F(ShowRouteTest2, StartPrefix11) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_start_routing_instance(instance);
@@ -1519,7 +1521,7 @@ TEST_F(ShowRouteTest2, StartPrefix12) {
     const char *instance_names[] = { "blue", "red" };
     BOOST_FOREACH(const char *instance, instance_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
         show_req->set_start_routing_instance(instance);
@@ -1574,7 +1576,7 @@ TEST_F(ShowRouteTest3, PageLimit1) {
 
     // (kMaxCount+1) routes. Read should return the first kMaxCount entries.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(100);
+    vector<int> result = list_of(100).convert_to_container<vector<int>>();
     string next_batch =
         "||||||red||red.inet.0||10.1.1.0/24||0||||||||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -1607,7 +1609,7 @@ TEST_F(ShowRouteTest3, PageLimit2) {
 
     // Should get back all the routes.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(50);
+    vector<int> result = list_of(50).convert_to_container<vector<int>>();
     string next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1641,7 +1643,7 @@ TEST_F(ShowRouteTest3, PageLimit3) {
     // Should get back all routes for both instances since:
     // total_routes == kMaxCount.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(49)(1)(49);
+    vector<int> result = list_of(49)(1)(49).convert_to_container<vector<int>>();
     string next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1675,7 +1677,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
     // Ask to start with 'blue'. We should get back 90 blue and 10 red routes
     // for a total of kMaxCount.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(90)(1)(9);
+    vector<int> result = list_of(90)(1)(9).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -1686,7 +1688,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
 
     // Ask for 40 routes. We should get back 40 since its less than kMaxCount.
     show_req = new ShowRouteReq;
-    result = list_of(40);
+    result = list_of(40).convert_to_container<vector<int>>();
     string next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1700,7 +1702,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
     // in next_batch should have 80 and the next IP should be 1.2.3.10 in red.
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     show_req = new ShowRouteReq;
-    result = list_of(90)(1)(9);
+    result = list_of(90)(1)(9).convert_to_container<vector<int>>();
     next_batch =
         "||||||red||red.inet.0||1.2.3.9/32||80||||||||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -1714,7 +1716,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
     // Ask for 95 routes. We should get back 90 blue and 5 red routes for a
     // total of kMaxCount.
     show_req = new ShowRouteReq;
-    result = list_of(90)(1)(4);
+    result = list_of(90)(1)(4).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1727,7 +1729,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
     // Ask for 89 routes. We should only get back 89 blue routes and no red
     // routes.
     show_req = new ShowRouteReq;
-    result = list_of(89);
+    result = list_of(89).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1739,7 +1741,7 @@ TEST_F(ShowRouteTest3, PageLimit4) {
 
     // Ask for 91 routes. We should get back 90 blue and 1 red route.
     show_req = new ShowRouteReq;
-    result = list_of(90)(1)(1);
+    result = list_of(90)(1)(1).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1776,7 +1778,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for only blue instance. We should get back all 80 blue routes since
     // its less than kMaxCount.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(80);
+    vector<int> result = list_of(80).convert_to_container<vector<int>>();
     string next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1789,7 +1791,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for only red instance. We should get back all 80 red routes since
     // its less than kMaxCount.
     show_req = new ShowRouteReq;
-    result = list_of(80);
+    result = list_of(80).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1801,7 +1803,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
 
     // Ask for routes only in blue.inet.0. We should get back all 80 routes.
     show_req = new ShowRouteReq;
-    result = list_of(80);
+    result = list_of(80).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1813,7 +1815,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
 
     // Ask for routes only in red.inet.0. We should get back all 80 routes.
     show_req = new ShowRouteReq;
-    result = list_of(80);
+    result = list_of(80).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1826,7 +1828,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for a specific prefix that exists in both 'blue' and 'red'. We
     // should get back exactly 2 routes.
     show_req = new ShowRouteReq;
-    result = list_of(1)(1);
+    result = list_of(1)(1).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1839,7 +1841,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match' in blue. We should get back all blue
     // routes since all the routes match the filter.
     show_req = new ShowRouteReq;
-    result = list_of(80);
+    result = list_of(80).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1854,7 +1856,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match' in red. We should get back all red
     // routes since all the routes match the filter.
     show_req = new ShowRouteReq;
-    result = list_of(80);
+    result = list_of(80).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1869,7 +1871,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for 8 routes with 'longer match' in blue. We should get back 8 blue
     // routes.
     show_req = new ShowRouteReq;
-    result = list_of(8);
+    result = list_of(8).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_routing_instance("blue");
@@ -1884,7 +1886,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for 15 routes with 'longer match' in red. We should get back 15 red
     // routes.
     show_req = new ShowRouteReq;
-    result = list_of(15);
+    result = list_of(15).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_routing_instance("red");
@@ -1899,7 +1901,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match'. Since all routes match this filter,
     // we should get back 80 blue and 20 red routes.
     show_req = new ShowRouteReq;
-    result = list_of(80)(20);
+    result = list_of(80)(20).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_prefix("10.10.0.0/16");
@@ -1912,7 +1914,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match'. Each instance has 40 routes with
     // this filter. We should get back 40 blue and 40 red routes.
     show_req = new ShowRouteReq;
-    result = list_of(40)(40);
+    result = list_of(40)(40).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1927,7 +1929,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // this filter. Although we are asking for 81 routes, we should get back
     // 80 routes, 40 blue and 40 red routes.
     show_req = new ShowRouteReq;
-    result = list_of(40)(40);
+    result = list_of(40)(40).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1942,7 +1944,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match' only in 'blue'. Each instance has 40
     // routes with this filter. We should get back only 40 blue routes.
     show_req = new ShowRouteReq;
-    result = list_of(40);
+    result = list_of(40).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1957,7 +1959,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match' only in 'red'. Each instance has 40
     // routes with this filter. We should get back only 40 red routes.
     show_req = new ShowRouteReq;
-    result = list_of(40);
+    result = list_of(40).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -1972,7 +1974,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match' only in 'blue'. Each instance has 40
     // routes with this filter. But, we should get back only 30 blue routes.
     show_req = new ShowRouteReq;
-    result = list_of(30);
+    result = list_of(30).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_routing_instance("blue");
@@ -1987,7 +1989,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // Ask for routes with 'longer match' only in 'red'. Each instance has 40
     // routes with this filter. But, we should get back only 25 red routes.
     show_req = new ShowRouteReq;
-    result = list_of(25);
+    result = list_of(25).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_routing_instance("red");
@@ -2003,7 +2005,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // has 40 routes with this filter. We should get back all 40 blue routes
     // and 25 red routes matching the filter.
     show_req = new ShowRouteReq;
-    result = list_of(40)(25);
+    result = list_of(40)(25).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_prefix("10.10.2.0/24");
@@ -2018,7 +2020,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // routes with this filter. Although we are asking for 90, we should get
     // back 40 blue routes.
     show_req = new ShowRouteReq;
-    result = list_of(40);
+    result = list_of(40).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2035,7 +2037,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // routes with this filter. Although we are asking for 45, we should get
     // back 40 red routes.
     show_req = new ShowRouteReq;
-    result = list_of(40);
+    result = list_of(40).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2054,7 +2056,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
     // The next request extends this by 1 and we should get the first red route
     // too.
     show_req = new ShowRouteReq;
-    result = list_of(80);
+    result = list_of(80).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2066,7 +2068,7 @@ TEST_F(ShowRouteTest3, PageLimit5) {
 
     // Should get back the first red route too.
     show_req = new ShowRouteReq;
-    result = list_of(80)(1);
+    result = list_of(80)(1).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2101,7 +2103,7 @@ TEST_F(ShowRouteTest3, PageLimit6) {
 
     // Even though we ask for 200 entries, we will get back only kMaxCount.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(100);
+    vector<int> result = list_of(100).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
     show_req->set_start_routing_instance("blue");
@@ -2133,7 +2135,7 @@ TEST_F(ShowRouteTest3, PageLimit7) {
 
     // Request only the first route; next_batch should be the second route.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(1);
+    vector<int> result = list_of(1).convert_to_container<vector<int>>();
     string next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2146,7 +2148,7 @@ TEST_F(ShowRouteTest3, PageLimit7) {
     // Number requested is at the border of 'blue' and 'red'. next_batch should
     // be the first route in 'red'.
     show_req = new ShowRouteReq;
-    result = list_of(4);
+    result = list_of(4).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2159,7 +2161,7 @@ TEST_F(ShowRouteTest3, PageLimit7) {
     // Number requested is in the middle of the second instance i.e. 'red'.
     // next_batch should be the third route in 'red'.
     show_req = new ShowRouteReq;
-    result = list_of(4)(1)(1);
+    result = list_of(4)(1)(1).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2172,7 +2174,7 @@ TEST_F(ShowRouteTest3, PageLimit7) {
     // Number requested is at the end of the second instance, 'red'.
     // 'next_batch' should be empty.
     show_req = new ShowRouteReq;
-    result = list_of(4)(1)(3);
+    result = list_of(4)(1)(3).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2185,7 +2187,7 @@ TEST_F(ShowRouteTest3, PageLimit7) {
     // Number requested is greater than total number of routes.
     // 'next_batch' should be empty.
     show_req = new ShowRouteReq;
-    result = list_of(4)(1)(4);
+    result = list_of(4)(1)(4).convert_to_container<vector<int>>();
     next_batch = "";
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
@@ -2224,7 +2226,7 @@ TEST_F(ShowRouteTest3, PageLimit8) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     // matching source based filter is also specified.
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(90)(10);
+    vector<int> result = list_of(90)(10).convert_to_container<vector<int>>();
     string next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
                         peers_[0]->ToString() + "||||||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -2241,7 +2243,7 @@ TEST_F(ShowRouteTest3, PageLimit8) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     // matching protocol based filter is also specified.
     show_req = new ShowRouteReq;
-    result = list_of(90)(10);
+    result = list_of(90)(10).convert_to_container<vector<int>>();
     next_batch =
         "||||||red||red.inet.0||1.2.3.10/32||80||||BGP||||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -2258,7 +2260,7 @@ TEST_F(ShowRouteTest3, PageLimit8) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     // matching source and protocol based filters are also specified.
     show_req = new ShowRouteReq;
-    result = list_of(90)(10);
+    result = list_of(90)(10).convert_to_container<vector<int>>();
     next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
                         peers_[0]->ToString() + "||BGP||||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -2276,7 +2278,7 @@ TEST_F(ShowRouteTest3, PageLimit8) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     // matching source and family based filters are also specified.
     show_req = new ShowRouteReq;
-    result = list_of(90)(10);
+    result = list_of(90)(10).convert_to_container<vector<int>>();
     next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
                         peers_[0]->ToString() + "||||inet||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -2294,7 +2296,7 @@ TEST_F(ShowRouteTest3, PageLimit8) {
     // We will get back [blue:all routes] and [red:1.2.3.0 to 1.2.3.9].
     // matching source, protocol and family based filters are also specified.
     show_req = new ShowRouteReq;
-    result = list_of(90)(10);
+    result = list_of(90)(10).convert_to_container<vector<int>>();
     next_batch = "||||||red||red.inet.0||1.2.3.10/32||80||" +
                         peers_[0]->ToString() + "||BGP||inet||false||false";
     Sandesh::set_response_callback(boost::bind(
@@ -2410,7 +2412,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     // (kMaxCount+1) routes. We should get [1.2.0.0 to 1.2.0.99]
     // i.e. 100 entries
     ShowRouteReq *show_req = new ShowRouteReq;
-    vector<int> result = list_of(1)(99);
+    vector<int> result = list_of(1)(99).convert_to_container<vector<int>>();
     string next_batch =
         "||||||red||red.inet.0||1.2.0.99/32||300||||||||false||false";
     show_req->set_count(400);
@@ -2430,7 +2432,7 @@ TEST_F(ShowRouteTest3, SimulateClickingNextBatch) {
     show_req->set_count(300);
     show_req->set_longer_match(false);
     next_batch = "||||||red||red.inet.0||1.2.0.200/32||200||||||||false||false";
-    result = list_of(100);
+    result = list_of(100).convert_to_container<vector<int>>();
     Sandesh::set_response_callback(boost::bind(
         ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
     validate_done_ = false;
@@ -2611,7 +2613,7 @@ TEST_F(ShowRouteTest4, Source1) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result,
                         __LINE__));
@@ -2655,7 +2657,7 @@ TEST_F(ShowRouteTest4, Source3) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result,
                         __LINE__));
@@ -2699,7 +2701,7 @@ TEST_F(ShowRouteTest4, Source5) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result,
                         __LINE__));
@@ -2791,7 +2793,7 @@ TEST_F(ShowRouteTest4, Source9) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(2);
+        vector<int> result = list_of(2).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result,
                         __LINE__));
@@ -2813,7 +2815,7 @@ TEST_F(ShowRouteTest4, Source10) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result,
                         __LINE__));
@@ -2836,7 +2838,7 @@ TEST_F(ShowRouteTest4, Source11) {
     const char *table_names[] = { "blue.inet.0", "red.inet.0" };
     BOOST_FOREACH(const char *table, table_names) {
         ShowRouteReq *show_req = new ShowRouteReq;
-        vector<int> result = list_of(1);
+        vector<int> result = list_of(1).convert_to_container<vector<int>>();
         Sandesh::set_response_callback(
             boost::bind(ValidateShowRouteSandeshResponse, _1, result,
                         __LINE__));
