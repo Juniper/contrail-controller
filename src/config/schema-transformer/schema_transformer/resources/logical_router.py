@@ -2,6 +2,8 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, RefsExistError
 from vnc_api.gen.resource_xsd import RouteTargetList
