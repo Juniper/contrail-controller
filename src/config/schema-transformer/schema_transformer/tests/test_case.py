@@ -1,5 +1,9 @@
 from __future__ import print_function
 
+from builtins import str
+from builtins import range
+from past.builtins import basestring
+from builtins import object
 import sys
 import uuid
 
@@ -25,7 +29,7 @@ def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:
