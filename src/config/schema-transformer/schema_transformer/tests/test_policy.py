@@ -5,6 +5,12 @@
 from __future__ import print_function
 
 import uuid
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.tests import test_common

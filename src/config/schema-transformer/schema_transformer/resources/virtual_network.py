@@ -2,16 +2,22 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import object
 try:
     # python2.7
     from collections import OrderedDict
 except Exception:
     # python2.6
     from ordereddict import OrderedDict
-
 import copy
 import itertools
 import sys
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, RefsExistError
@@ -185,7 +191,7 @@ class VirtualNetworkST(ResourceBaseST):
         if not self.multi_policy_service_chains_status_changed:
             return
         self.multi_policy_service_chains_status_changed = False
-        for sc_list in self.service_chains.values():
+        for sc_list in list(self.service_chains.values()):
             for sc in sc_list:
                 if sc is None or not sc.created:
                     continue
@@ -294,9 +300,10 @@ class VirtualNetworkST(ResourceBaseST):
         if self.network_policys.get(policy_name) == attrib:
             return False
         self.network_policys[policy_name] = attrib
-        self.network_policys = OrderedDict(sorted(self.network_policys.items(),
-                                           key=lambda t: (t[1].sequence.major,
-                                           t[1].sequence.minor)))
+        self.network_policys = OrderedDict(
+            sorted(list(self.network_policys.items()),
+                   key=lambda t: (t[1].sequence.major,
+                                  t[1].sequence.minor)))
         return True
     # end add_policy
 
@@ -386,7 +393,7 @@ class VirtualNetworkST(ResourceBaseST):
 
     def get_vns_in_project(self):
         # return a set of all virtual networks with the same parent as self
-        return set((k) for k, v in self._dict.items()
+        return set((k) for k, v in list(self._dict.items())
                    if (self.name != v.name and
                        self.obj.get_parent_fq_name() ==
                        v.obj.get_parent_fq_name()))
@@ -510,7 +517,7 @@ class VirtualNetworkST(ResourceBaseST):
 
     def update_ipams(self):
         # update prefixes on service chain routing instances
-        for sc_list in self.service_chains.values():
+        for sc_list in list(self.service_chains.values()):
             for service_chain in sc_list:
                 service_chain.update_ipams(self.name)
     # end update_ipams
@@ -518,7 +525,7 @@ class VirtualNetworkST(ResourceBaseST):
     def expand_connections(self):
         if '*' in self.connections:
             conn = self.connections - set(['*']) | self.get_vns_in_project()
-            for vn in self._dict.values():
+            for vn in list(self._dict.values()):
                 if self.name in vn.connections:
                     conn.add(vn.name)
             return conn
@@ -531,7 +538,7 @@ class VirtualNetworkST(ResourceBaseST):
             return False
         self.allow_transit = properties.allow_transit
         ret = False
-        for sc_list in self.service_chains.values():
+        for sc_list in list(self.service_chains.values()):
             for service_chain in sc_list:
                 if not service_chain.created:
                     continue
@@ -1210,8 +1217,8 @@ class VirtualNetworkST(ResourceBaseST):
         # This VN could be the VN for an analyzer interface. If so, we need
         # to create a link from all VNs containing a policy with that
         # analyzer
-        for policy in ResourceBaseST.get_obj_type_map().get(
-                'network_policy').values():
+        for policy in list(ResourceBaseST.get_obj_type_map().get(
+                'network_policy').values()):
             for prule in policy.rules:
                 if (prule.action_list is None or
                         prule.action_list.mirror_to is None or
@@ -1289,7 +1296,7 @@ class VirtualNetworkST(ResourceBaseST):
 
     def get_prefixes(self, ip_version):
         prefixes = []
-        for ipam in self.ipams.values():
+        for ipam in list(self.ipams.values()):
             for ipam_subnet in ipam.ipam_subnets:
                 # LP #1717838
                 # IPAMs with subnet method = FLAT do not have subnet
@@ -1333,7 +1340,7 @@ class VirtualNetworkST(ResourceBaseST):
 
         to which the 'address' belongs.
         """
-        for ipam in self.ipams.values():
+        for ipam in list(self.ipams.values()):
             for ipam_subnet in ipam.ipam_subnets:
                 network = IPNetwork('%s/%s' % (ipam_subnet.subnet.ip_prefix,
                                     ipam_subnet.subnet.ip_prefix_len))

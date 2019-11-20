@@ -2,6 +2,13 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+
 from cfgm_common.exceptions import BadRequest, NoIdError
 from cfgm_common.exceptions import HttpError, RequestSizeError
 from vnc_api.gen.resource_client import AccessControlList
