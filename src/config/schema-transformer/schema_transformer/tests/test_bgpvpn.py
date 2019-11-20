@@ -4,6 +4,8 @@
 
 from __future__ import absolute_import
 
+from builtins import range
+
 from gevent import monkey
 from gevent import sleep
 from vnc_api.vnc_api import Bgpvpn

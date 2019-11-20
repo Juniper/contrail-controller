@@ -4,6 +4,8 @@
 
 from __future__ import absolute_import
 
+from builtins import str
+
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
 

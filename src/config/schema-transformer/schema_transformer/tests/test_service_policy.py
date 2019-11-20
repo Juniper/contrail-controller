@@ -5,8 +5,11 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+from builtins import range
+from builtins import str
 import copy
 from unittest import skip
+
 
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common.exceptions import RefsExistError
@@ -41,7 +44,7 @@ class VerifyServicePolicy(VerifyPolicy):
     @retries(5)
     def wait_to_get_sc(self, left_vn=None, right_vn=None, si_name=None,
                        check_create=False):
-        for sc in ServiceChain.values():
+        for sc in list(ServiceChain.values()):
             if (left_vn in (None, sc.left_vn) and
                     right_vn in (None, sc.right_vn) and
                     si_name in (sc.service_list[0], None)):
@@ -84,8 +87,8 @@ class VerifyServicePolicy(VerifyPolicy):
             raise Exception('Service chain info not found for %s' % fq_name)
         expected_attrs = expected.__dict__
         sci_attrs = expected.__dict__
-        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
-        for attr in expected_attrs.keys():
+        self.assertEqual(list(expected_attrs.keys()), list(sci_attrs.keys()))
+        for attr in list(expected_attrs.keys()):
             if attr == 'service_chain_address':
                 self.assertEqual(IPNetwork(expected_attrs[attr]),
                                  IPNetwork(sci_attrs[attr]))
@@ -101,8 +104,8 @@ class VerifyServicePolicy(VerifyPolicy):
                             fq_name)
         expected_attrs = expected.__dict__
         sci_attrs = expected.__dict__
-        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
-        for attr in expected_attrs.keys():
+        self.assertEqual(list(expected_attrs.keys()), list(sci_attrs.keys()))
+        for attr in list(expected_attrs.keys()):
             if attr == 'service_chain_address':
                 self.assertEqual(IPNetwork(expected_attrs[attr]),
                                  IPNetwork(sci_attrs[attr]))
@@ -117,8 +120,8 @@ class VerifyServicePolicy(VerifyPolicy):
             raise Exception('Service chain info not found for %s' % fq_name)
         expected_attrs = expected.__dict__
         sci_attrs = expected.__dict__
-        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
-        for attr in expected_attrs.keys():
+        self.assertEqual(list(expected_attrs.keys()), list(sci_attrs.keys()))
+        for attr in list(expected_attrs.keys()):
             if attr == 'service_chain_address':
                 self.assertEqual(IPNetwork(expected_attrs[attr]),
                                  IPNetwork(sci_attrs[attr]))
@@ -134,8 +137,8 @@ class VerifyServicePolicy(VerifyPolicy):
                             fq_name)
         expected_attrs = expected.__dict__
         sci_attrs = expected.__dict__
-        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
-        for attr in expected_attrs.keys():
+        self.assertEqual(list(expected_attrs.keys()), list(sci_attrs.keys()))
+        for attr in list(expected_attrs.keys()):
             if attr == 'service_chain_address':
                 self.assertEqual(IPNetwork(expected_attrs[attr]),
                                  IPNetwork(sci_attrs[attr]))
@@ -144,7 +147,7 @@ class VerifyServicePolicy(VerifyPolicy):
 
     @retries(5)
     def check_service_chain_is_deleted(self, sc_uuid):
-        for sc in ServiceChain.values():
+        for sc in list(ServiceChain.values()):
             if sc_uuid == sc.name:
                 raise Exception('Service chain %s not deleted' % sc_uuid)
 
