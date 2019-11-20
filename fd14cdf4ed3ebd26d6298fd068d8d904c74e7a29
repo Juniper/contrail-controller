@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fc8ddafb_21c5dcbb",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 593,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-11-20T10:21:53Z",
+      "side": 1,
+      "message": "Why are you set notify to true? If moving from auto allocated to user defined, zk lock value need to be updated from \u0027\u003cfq_name\u003e\u0027 to \u0027\u003cfq_name\u003e_vxlan\u0027. But \u0027alloc_vxlan_id\u0027 will raise \u0027ResourceExistsError\u0027 exception, you probably need to recreate zk lock. Or you can change \u0027alloc_vxlan_id\u0027 method to allow update zk lock value if it only add or remove suffix \u0027_vxlan\u0027",
+      "range": {
+        "startLine": 593,
+        "startChar": 49,
+        "endLine": 593,
+        "endChar": 60
+      },
+      "revId": "fd14cdf4ed3ebd26d6298fd068d8d904c74e7a29",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a263119b_971085ae",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_network.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 877,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-11-20T10:21:53Z",
+      "side": 1,
+      "message": "You probably also need to update the code in the update notification hook code.",
+      "revId": "fd14cdf4ed3ebd26d6298fd068d8d904c74e7a29",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
