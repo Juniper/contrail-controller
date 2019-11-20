@@ -2,6 +2,8 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+
 from cfgm_common.exceptions import ResourceExhaustionError
 from vnc_api.gen.resource_client import BgpRouter
 from vnc_api.gen.resource_xsd import BgpPeeringAttributes, BgpRouterParams
@@ -67,7 +69,7 @@ class BgpAsAServiceST(ResourceBaseST):
     def evaluate(self, **kwargs):
         # If the BGP Service is shared, just create
         # one BGP Router.
-        if self.obj.get_bgpaas_shared() == True:
+        if self.obj.get_bgpaas_shared():
             if set([self.obj.name]) - set(self.bgpaas_clients.keys()):
                 self.create_bgp_router(self.name, shared=True)
         else:

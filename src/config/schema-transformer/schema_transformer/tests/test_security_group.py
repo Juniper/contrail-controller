@@ -4,6 +4,8 @@
 
 from __future__ import absolute_import
 
+from builtins import str
+
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
 
@@ -74,7 +76,7 @@ class VerifySecurityGroup(VerifyPolicy):
                 else:
                     match = True
                     break
-        if match == False:
+        if not match:
             raise Exception('sg %s/%s not found in %s' %
                             (str(fq_name), str(sg_id), acl_name))
         return
