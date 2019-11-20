@@ -1,11 +1,15 @@
 from __future__ import print_function
 
+from builtins import object
+from builtins import range
+from builtins import str
 import sys
 import uuid
 
 from cfgm_common.tests import test_common
 from gevent import sleep
 from gevent import spawn
+from past.builtins import basestring
 from vnc_api.vnc_api import ActionListType, AddressType
 from vnc_api.vnc_api import InstanceIp, MirrorActionType, NetworkPolicy
 from vnc_api.vnc_api import PolicyEntriesType, PolicyRuleType, PortType
@@ -25,7 +29,7 @@ def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:
