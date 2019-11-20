@@ -4,6 +4,7 @@
 #
 
 """Schema transformer DB to store ids allocated by it."""
+from builtins import str
 import uuid
 
 import cfgm_common as common
