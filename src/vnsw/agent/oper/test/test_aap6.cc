@@ -12,6 +12,8 @@
 #include <base/task.h>
 
 #include <cmn/agent_cmn.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 
 #include "cfg/cfg_init.h"
 #include "oper/operdb_init.h"
@@ -46,13 +48,14 @@ struct PortInfo input[] = {
 };
 IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.10"},
-    {"fd10::", 96, "fd10::1"},
+    {"fd10::", 96, "fd10::1", false, 1, "fd10::3"},
 };
 
 class TestAap6 : public ::testing::Test {
 public:
     TestAap6() {
         peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+        valid_ipv6_ns_rcvd_ = 0;
     }
 
     ~TestAap6() {
@@ -153,18 +156,56 @@ public:
         EXPECT_FALSE(VrfFind("vrf1", true));
         client->WaitForIdle();
     }
+
+    void Pkt0IntfReceiveIPv6NS(uint8_t *buf, std::size_t len) {
+        #define IP6_ICMPV6TYPE  58
+        struct ether_header *eth = (struct ether_header *)buf;
+        agent_hdr *agent = (agent_hdr *)(eth + 1);
+        eth = (struct ether_header *) (agent + 1);
+        if (ntohs(eth->ether_type) == ETHERTYPE_IPV6) {
+            struct ip6_hdr *ip6 = (struct ip6_hdr *) (eth + 1);
+            if (ip6->ip6_nxt == IP6_ICMPV6TYPE) {
+                struct icmp6_hdr *icmpv6hdr = (struct icmp6_hdr *) (ip6 + 1);
+                if (icmpv6hdr->icmp6_type == ND_NEIGHBOR_SOLICIT) {
+                    if (ip6->ip6_src.s6_addr[15] == 0x03) {
+                        valid_ipv6_ns_rcvd_++;
+                    }
+                }
+            }
+        }
+    }
+
 protected:
     BgpPeer *peer_;
+    int valid_ipv6_ns_rcvd_;
 };
 
 //Add and delete allowed address pair route
 TEST_F(TestAap6, AddDel_1) {
+    int max_wait_count=100;
     Ip6Address ip = Ip6Address::from_string("fd10::10");
     std::vector<IpAddress> v;
     v.push_back(ip);
 
     AddAap("intf1", 1, v);
     EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
+    valid_ipv6_ns_rcvd_ = 0;
+
+    // register for getting the IPv6 NS pkts
+    TestPkt0Interface *tap = (TestPkt0Interface *)
+                    (Agent::GetInstance()->pkt()->control_interface());
+    tap->RegisterCallback(
+                boost::bind(&TestAap6::Pkt0IntfReceiveIPv6NS, this, _1, _2));
+
+    // wait for max_wait_count to check for ipv6 ns received
+    while ((max_wait_count > 0) && (valid_ipv6_ns_rcvd_ == 0)) {
+        usleep(100000);
+        client->WaitForIdle();
+        max_wait_count--;
+    }
+
+    EXPECT_TRUE(valid_ipv6_ns_rcvd_ > 0);
+
     v.clear();
     AddAap("intf1", 1, v);
     EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
