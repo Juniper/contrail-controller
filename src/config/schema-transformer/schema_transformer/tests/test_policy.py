@@ -5,6 +5,7 @@
 from __future__ import print_function
 
 import uuid
+from builtins import str
 
 from cfgm_common.exceptions import BadRequest
 from cfgm_common.tests import test_common

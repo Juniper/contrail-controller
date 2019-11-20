@@ -4,6 +4,8 @@
 
 import copy
 
+from builtins import str
+
 from vnc_api.gen.resource_xsd import AclEntriesType, AclRuleType
 from vnc_api.gen.resource_xsd import ActionListType, MatchConditionType
 from vnc_api.gen.resource_xsd import PortType

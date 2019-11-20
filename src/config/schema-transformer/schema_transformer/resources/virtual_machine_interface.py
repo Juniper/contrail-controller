@@ -4,6 +4,8 @@
 
 import copy
 
+from builtins import str
+
 from cfgm_common.exceptions import NoIdError
 import jsonpickle
 from vnc_api.gen.resource_xsd import AddressType, MatchConditionType
@@ -182,8 +184,8 @@ class VirtualMachineInterfaceST(ResourceBaseST):
         for vm_pt in vm_pt_list:
             if vm_pt.get_service_mode() != 'transparent':
                 return
-            for service_chain in ResourceBaseST.get_obj_type_map().get(
-                    'service_chain').values():
+            for service_chain in list(ResourceBaseST.get_obj_type_map().get(
+                    'service_chain').values()):
                 if vm_pt.service_instance not in service_chain.service_list:
                     continue
                 if not service_chain.created:
@@ -302,7 +304,7 @@ class VirtualMachineInterfaceST(ResourceBaseST):
                 vrf_table.add_vrf_assign_rule(vrf_rule)
 
             si_name = vm_pt.service_instance
-            for service_chain_list in vn.service_chains.values():
+            for service_chain_list in list(vn.service_chains.values()):
                 for service_chain in service_chain_list:
                     if not service_chain.created:
                         continue

@@ -5,6 +5,7 @@
 
 """Schema transformer DB to store ids allocated by it."""
 import uuid
+from builtins import str
 
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, VncError
