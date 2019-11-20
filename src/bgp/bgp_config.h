@@ -90,6 +90,7 @@ struct BgpFamilyAttributesConfig {
     explicit BgpFamilyAttributesConfig(const std::string &family)
         : family(family), loop_count(0), prefix_limit(0), idle_timeout(0) {
     }
+    bool operator==(const BgpFamilyAttributesConfig &rhs) const;
 
     std::string family;
     uint8_t loop_count;

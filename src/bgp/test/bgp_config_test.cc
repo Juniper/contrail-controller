@@ -9,6 +9,7 @@
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
 
+#include "base/address_util.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_common.h"
@@ -3910,6 +3911,65 @@ TEST_F(BgpConfigTest, RouteDistinguisherClusterSeedChange) {
 
     TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigTest, BgpNeighborConfigCopyValues) {
+    BgpNeighborConfig n1;
+    n1.set_instance_name("i1");
+    n1.set_group_name("g1");
+    n1.set_peer_type(BgpNeighborConfig::EBGP);
+    n1.set_admin_down(true);
+    n1.set_passive(true);
+    n1.set_as_override(true);
+    n1.set_private_as_action("strip");
+    n1.set_cluster_id(10);
+    n1.set_peer_as(20);
+    n1.set_peer_identifier(20);
+
+    boost::system::error_code e;
+    n1.set_peer_address(AddressFromString("10.0.0.3", &e));
+    n1.set_gateway_address(Address::INET, AddressFromString("10.1.0.3", &e));
+    n1.set_gateway_address(Address::INET6, AddressFromString("5::2", &e));
+    n1.set_port(100);
+    n1.set_source_port(200);
+    n1.set_hold_time(400);
+    n1.set_loop_count(5);
+    n1.set_local_as(600);
+    n1.set_local_identifier(700);
+    n1.SetOriginOverride(true, "IGP");
+
+    BgpNeighborConfig::FamilyAttributesList vl;
+    vl.push_back(BgpFamilyAttributesConfig("ipv4"));
+    n1.set_family_attributes_list(vl);
+
+
+    BgpNeighborConfig n2;
+    n2.CopyValues(n1);
+    EXPECT_EQ(n1.instance_name(), n2.instance_name());
+    EXPECT_EQ(n1.group_name(), n2.group_name());
+    EXPECT_EQ(n1.peer_type(), n2.peer_type());
+    EXPECT_EQ(n1.admin_down(), n2.admin_down());
+    EXPECT_EQ(n1.passive(), n2.passive());
+    EXPECT_EQ(n1.as_override(), n2.as_override());
+    EXPECT_EQ(n1.private_as_action(), n2.private_as_action());
+    EXPECT_EQ(n1.cluster_id(), n2.cluster_id());
+    EXPECT_EQ(n1.peer_as(), n2.peer_as());
+    EXPECT_EQ(n1.peer_identifier(), n2.peer_identifier());
+    EXPECT_EQ(n1.peer_address(), n2.peer_address());
+    EXPECT_EQ(n1.gateway_address(Address::INET),
+              n2.gateway_address(Address::INET));
+    EXPECT_EQ(n1.gateway_address(Address::INET6),
+              n2.gateway_address(Address::INET6));
+    EXPECT_EQ(n1.port(), n2.port());
+    EXPECT_EQ(n1.source_port(), n2.source_port());
+    EXPECT_EQ(n1.hold_time(), n2.hold_time());
+    EXPECT_EQ(n1.loop_count(), n2.loop_count());
+    EXPECT_EQ(n1.local_as(), n2.local_as());
+    EXPECT_EQ(n1.local_identifier(), n2.local_identifier());
+    EXPECT_EQ(n1.family_attributes_list(), n2.family_attributes_list());
+    EXPECT_EQ(n1.origin_override().origin_override,
+              n2.origin_override().origin_override);
+    EXPECT_EQ(n1.origin_override().origin, n2.origin_override().origin);
 }
 
 int main(int argc, char **argv) {

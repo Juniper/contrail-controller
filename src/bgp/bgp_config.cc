@@ -167,6 +167,21 @@ bool BgpNeighborConfig::OriginOverrideConfig::operator<(
     return origin_override < rhs.origin_override;
 }
 
+bool BgpFamilyAttributesConfig::operator==(
+        const BgpFamilyAttributesConfig &rhs) const {
+    if (family != rhs.family)
+        return false;
+    if (loop_count != rhs.loop_count)
+        return false;
+    if (prefix_limit != rhs.prefix_limit)
+        return false;
+    if (idle_timeout != rhs.idle_timeout)
+        return false;
+    if (default_tunnel_encap_list != rhs.default_tunnel_encap_list)
+        return false;
+    return true;
+}
+
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           admin_down_(false),
