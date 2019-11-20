@@ -68,7 +68,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
     def sandesh_vn_build(self, vn_name):
         vn = VirtualNetworkST.get(vn_name)
         sandesh_vn = sandesh.VirtualNetwork(name=vn_name)
-        sandesh_vn.policies = vn.network_policys.keys()
+        sandesh_vn.policies = list(vn.network_policys.keys())
         sandesh_vn.connections = list(vn.connections)
         sandesh_vn.routing_instances = vn.routing_instances
         if vn.acl:
@@ -95,7 +95,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
     def sandesh_sc_handle_request(self, req):
         sc_resp = sandesh.ServiceChainListResp(service_chains=[])
         if req.sc_name is None:
-            for sc in ServiceChain.values():
+            for sc in list(ServiceChain.values()):
                 sandesh_sc = sc.build_introspect()
                 sc_resp.service_chains.append(sandesh_sc)
         elif req.sc_name in ServiceChain:
@@ -112,7 +112,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
                 return st_resp
             obj_cls_list = [obj_type_map[req.object_type]]
         else:
-            obj_cls_list = obj_type_map.values()
+            obj_cls_list = list(obj_type_map.values())
         for obj_cls in obj_cls_list:
             id_or_name = req.object_id_or_fq_name
             if id_or_name:
@@ -122,7 +122,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
                     continue
                 st_resp.objects.append(obj.handle_st_object_req())
             else:
-                for obj in obj_cls.values():
+                for obj in list(obj_cls.values()):
                     st_resp.objects.append(obj.handle_st_object_req())
         st_resp.response(req.context())
     # end sandesh_st_object_handle_request
