@@ -2,6 +2,13 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+
 from cfgm_common.vnc_db import DBBase
 
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
@@ -68,7 +75,7 @@ class ResourceBaseST(DBBase):
             try:
                 refs = getattr(self, ref_type + 's')
                 if isinstance(refs, dict):
-                    refs = refs.keys()
+                    refs = list(refs.keys())
             except AttributeError:
                 return
         return sandesh.RefList(ref_type, refs)

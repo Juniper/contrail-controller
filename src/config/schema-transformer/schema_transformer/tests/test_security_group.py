@@ -4,6 +4,13 @@
 
 from __future__ import absolute_import
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+
 from vnc_api.vnc_api import NoIdError
 from vnc_api.vnc_api import SecurityGroup
 

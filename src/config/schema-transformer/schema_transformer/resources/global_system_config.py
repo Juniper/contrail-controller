@@ -2,6 +2,13 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
+
 import cfgm_common as common
 from vnc_api.gen.resource_client import RouteTarget
 from vnc_api.gen.resource_xsd import InstanceTargetType
@@ -69,8 +76,8 @@ class GlobalSystemConfigST(ResourceBaseST):
         # changed ASN, and update the routing instances' referred
         # by the route target
 
-        for route_tgt in ResourceBaseST.get_obj_type_map().get(
-                'route_target').values():
+        for route_tgt in list(ResourceBaseST.get_obj_type_map().get(
+                'route_target').values()):
             _, asn, target = route_tgt.obj.get_fq_name()[0].split(':')
             if int(asn) != cls.get_autonomous_system():
                 continue
@@ -168,13 +175,13 @@ class GlobalSystemConfigST(ResourceBaseST):
     # end update_autonomous_system
 
     def evaluate(self, **kwargs):
-        for router in ResourceBaseST.get_obj_type_map().get(
-                'bgp_router').values():
+        for router in list(ResourceBaseST.get_obj_type_map().get(
+                'bgp_router').values()):
             router.update_global_asn(self._autonomous_system)
             router.update_peering()
         # end for router
-        for router in ResourceBaseST.get_obj_type_map().get(
-                'logical_router').values():
+        for router in list(ResourceBaseST.get_obj_type_map().get(
+                'logical_router').values()):
             router.update_autonomous_system(self._autonomous_system)
         # end for router
         if self.obj.bgpaas_parameters:
