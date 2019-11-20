@@ -3,6 +3,12 @@
 #
 
 import copy
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 
 from vnc_api.gen.resource_xsd import AclEntriesType, AclRuleType
 from vnc_api.gen.resource_xsd import ActionListType, MatchConditionType

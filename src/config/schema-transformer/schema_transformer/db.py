@@ -5,6 +5,12 @@
 
 """Schema transformer DB to store ids allocated by it."""
 import uuid
+try:
+    # Python 2
+    from __builtin__ import str
+except ImportError:
+    # Python 3
+    from builtins import str
 
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, VncError
