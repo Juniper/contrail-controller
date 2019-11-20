@@ -22,6 +22,12 @@
       }
     }
   },
+  "input_ui_schema": {
+    "mac_details": {
+      "ui:help": "Enter MAC address",
+      "ui:placeholder": "00:aa:bb:cc:dd:11"
+    }
+  },
   "output_schema": {
     "$schema": "http://json-schema.org/draft-06/schema#",
     "title": "Show MAC mobility Output",

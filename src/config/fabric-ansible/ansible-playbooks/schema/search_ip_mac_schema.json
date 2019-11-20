@@ -18,6 +18,16 @@
            }
        }
    },
+   "input_ui_schema": {
+    "ip_address": {
+      "ui:help": "Enter IP address",
+      "ui:placeholder": "XXX.XXX.XXX.XXX"
+    },
+    "mac_address": {
+      "ui:help": "Enter MAC address",
+      "ui:placeholder": "00:aa:bb:cc:dd:11"
+    }
+  },
    "output_schema":{
       "$schema":"http://json-schema.org/draft-06/schema#",
       "title":"Search ip or mac schema command Playbook Output",
