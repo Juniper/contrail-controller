@@ -7,6 +7,10 @@ adapted from from contrail_lib.py in https://github.com/Juniper/vrouter-xen-util
 Noel Burton-Krahn <noel@pistoncloud.com>
 """
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import sys
 
 import thrift
@@ -34,7 +38,7 @@ def format_dict(dict, style='table'):
         return str(s)
 
     elif style == 'shell':
-        from StringIO import StringIO
+        from io import StringIO
         import pipes
         
         s = StringIO()

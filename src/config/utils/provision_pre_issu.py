@@ -4,10 +4,13 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import time
 import argparse
-import ConfigParser
+import configparser
 
 from cfgm_common.exceptions import *
 from provision_bgp import BgpProvisioner
@@ -78,7 +81,7 @@ class ISSUContrailPreProvisioner(object):
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read(args.conf_file)
             defaults.update(dict(config.items("DEFAULTS")))
 
@@ -150,7 +153,7 @@ class ISSUContrailPreProvisioner(object):
             fq_name=['default-domain', 'default-project',
                      'ip-fabric', '__default__'])
 
-        for k,v in self._args.control_host_info.items():
+        for k,v in list(self._args.control_host_info.items()):
             router_params = BgpRouterParams(router_type='control-node',
                                vendor='contrail' , 
                                autonomous_system=64512,

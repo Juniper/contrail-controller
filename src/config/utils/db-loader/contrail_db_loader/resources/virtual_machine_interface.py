@@ -3,6 +3,8 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import unicode_literals
+from builtins import str
+from builtins import range
 import logging
 from netaddr import IPNetwork, IPAddress
 from random import randint
@@ -148,7 +150,7 @@ class VirtualMachineInterface(Resource):
                 vn_fq_name = vmi['virtual_network_refs'][0]['to']
                 vn_fq_name_str = ':'.join(vn_fq_name)
                 subnet = IPNetwork(self._SUBNET_CIDR)
-                if vn_fq_name_str not in ip_allocator.keys():
+                if vn_fq_name_str not in list(ip_allocator.keys()):
                     ip = IPAddress(subnet.first + 3)
                     ip_allocator[vn_fq_name_str] = int(ip)
                 else:

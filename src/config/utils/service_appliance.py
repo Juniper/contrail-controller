@@ -4,10 +4,14 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import sys
 import time
 import argparse
-import ConfigParser
+import configparser
 import json
 
 from vnc_api.vnc_api import *
@@ -79,7 +83,7 @@ class SAProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():
@@ -150,7 +154,7 @@ class SAProvisioner(object):
                 self._args.user_credential['password'])
         sa_obj.set_service_appliance_user_credentials(uci)
         kvp_array = []
-        for r,c in self._args.properties.iteritems():
+        for r,c in self._args.properties.items():
             kvp = KeyValuePair(r,c)
             kvp_array.append(kvp)
         kvps = KeyValuePairs()

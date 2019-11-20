@@ -10,8 +10,12 @@ from __future__ import print_function
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import argparse
-import ConfigParser
+import configparser
 
 import json
 import copy
@@ -534,7 +538,7 @@ class VncProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():

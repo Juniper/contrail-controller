@@ -3,6 +3,8 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import unicode_literals
+from builtins import str
+from builtins import object
 import abc
 import logging
 from six import add_metaclass
@@ -78,7 +80,7 @@ class Resource(object):
         try:
             self._db_manger.fq_name_to_uuid(type, fq_name)
         except NoIdError:
-            if not attributs or 'uuid' not in attributs.keys():
+            if not attributs or 'uuid' not in list(attributs.keys()):
                 id = uuid.uuid4()
             else:
                 id = uuid.UUID(attributs['uuid'])

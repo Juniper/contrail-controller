@@ -4,9 +4,12 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import argparse
-import ConfigParser
+import configparser
 from time import sleep
 
 from cfgm_common.exceptions import RefsExistError
@@ -57,7 +60,7 @@ class MetadataProvisioner(object):
         else:
             obj = current_linklocal.__dict__
         new_linklocal=[]
-        for key, value in obj.iteritems():
+        for key, value in obj.items():
             found=False
             for vl in value:
                 entry = vl.__dict__
@@ -120,7 +123,7 @@ class MetadataProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():

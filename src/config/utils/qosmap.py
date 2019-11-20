@@ -4,11 +4,15 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
+from builtins import object
 import os
 import subprocess
 import sys
 import argparse
-import ConfigParser
+import configparser
 import tempfile
 from shutil import move
 
@@ -44,7 +48,7 @@ class QosmapProv(object):
         self.scheduling = []
         scheduling = ""
         bandwidth = ""
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read([self.conf_file])
         if self._args.interface_list:
             self.ifname_list = self._args.interface_list

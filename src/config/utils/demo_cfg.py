@@ -4,8 +4,12 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import argparse
-import ConfigParser
+import configparser
 
 #from ginkgo import Service
 #from fabric.api import env
@@ -70,7 +74,7 @@ class DemoCfg(object):
         net1_id = net_rsp['network']['id']
         net1_fq_name = net_rsp['network']['fq_name']
         net1_fq_name_str = ':'.join(net1_fq_name)
-        self._create_subnet(unicode(vn_subnet), net1_id)
+        self._create_subnet(str(vn_subnet), net1_id)
     # end _create_vn
 
     def _policy_link_vns(self):
@@ -94,7 +98,7 @@ class DemoCfg(object):
                 json.dumps(
                     pol_entries,
                     default=lambda o: dict((k, v) for k,
-                                           v in o.__dict__.iteritems())))
+                                           v in o.__dict__.items())))
         policy_req = {'name': 'front-end-to-back-end',
                       'entries': pol_entries_dict}
 
@@ -176,7 +180,7 @@ class DemoCfg(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():

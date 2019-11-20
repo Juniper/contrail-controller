@@ -81,13 +81,19 @@ provider_config:
 """
 from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 import subprocess
 import time
 import sys
 import warnings
 
 warnings.filterwarnings(action='ignore', module='.*paramiko.*')
-from urllib2 import urlopen, URLError, HTTPError
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
 import paramiko
 import yaml
 import xml.etree.ElementTree as ET
@@ -716,7 +722,7 @@ class Debug(object):
     # end delete_base_dir
 
 
-class Introspect:
+class Introspect(object):
     def __init__(self, host, port):
         self.host_url = "http://" + host + ":" + str(port) + "/"
 

@@ -54,8 +54,11 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import argparse
-import ConfigParser
+import configparser
 import sys
 
 from vnc_api.vnc_api import *
@@ -92,9 +95,7 @@ class VncProvisioner(object):
         elif hasattr(self._args, 'delete'):
             print('Delete -> ', ', '.join(self._args.delete))
             if gsc.user_defined_log_statistics:
-                gsc.user_defined_log_statistics.statlist = filter(
-                        lambda x: x.name not in self._args.delete,
-                        gsc.user_defined_log_statistics.statlist)
+                gsc.user_defined_log_statistics.statlist = [x for x in gsc.user_defined_log_statistics.statlist if x.name not in self._args.delete]
                 gsc.set_user_defined_log_statistics(
                         gsc.user_defined_log_statistics)
                 vnc.global_system_config_update(gsc)
@@ -140,7 +141,7 @@ class VncProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))

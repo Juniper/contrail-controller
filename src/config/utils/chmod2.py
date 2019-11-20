@@ -4,6 +4,8 @@ from __future__ import print_function
 
 # Show and change object ownership and permissions2 fields
 #
+from builtins import str
+from builtins import object
 import argparse
 import uuid as __uuid
 import os
@@ -12,7 +14,7 @@ import cfgm_common.exceptions
 from vnc_api.vnc_api import *
 
 
-class VncChmod():
+class VncChmod(object):
 
     def parse_args(self):
         # Eg. python chmod.py VirtualNetwork

@@ -3,6 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import unicode_literals
+from builtins import input
 from distutils.util import strtobool
 import logging
 import sys
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def prompt(query):
     sys.stdout.write('%s [y/n]: ' % query)
-    val = raw_input()
+    val = input()
     try:
         ret = strtobool(val.lower())
     except ValueError:

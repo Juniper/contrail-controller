@@ -37,7 +37,7 @@ class VncApiAdmin(VncApi):
     def _authenticate(self, response=None, headers=None):
         if self.use_admin_api:
             sessions = self._api_server_session.api_server_sessions
-            for host, session in sessions.items():
+            for host, session in list(sessions.items()):
                 session.auth = (self._username, self._password)
                 sessions.update({host: session})
             return headers
