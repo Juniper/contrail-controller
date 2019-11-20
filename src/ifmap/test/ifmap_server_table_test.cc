@@ -442,9 +442,10 @@ TEST_F(IFMapServerTableTest, Traversal) {
     // walk the networks associated with vs1
     IFMapTypenameFilter criteria;
 
-    criteria.exclude_vertex = list_of<std::string> ("tenant");
+    criteria.exclude_vertex = list_of<std::string> ("tenant").convert_to_container<std::set<std::string>>();
     criteria.exclude_edge = map_list_of<std::string, std::set<std::string> >
-        ("virtual-network", list_of("virtual-network-virtual-machine"));
+        ("virtual-network", list_of("virtual-network-virtual-machine")).convert_to_container<std::map<std::string,
+        DBGraph::VisitorFilter::AllowedEdgeSet>>();
 
     LOG(DEBUG, "filtered visit 1");
     graph_visitor f1;
