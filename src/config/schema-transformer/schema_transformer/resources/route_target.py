@@ -2,6 +2,8 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
+
 from cfgm_common.exceptions import NoIdError
 from vnc_api.gen.resource_client import RouteTarget
 

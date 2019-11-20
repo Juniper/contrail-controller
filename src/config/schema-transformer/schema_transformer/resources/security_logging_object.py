@@ -42,7 +42,7 @@ class SecurityLoggingObjectST(ResourceBaseST):
 
     def populate_rules(self, rule_type, refs):
         rule_entries = set()
-        for np_sg, attr in refs.items():
+        for np_sg, attr in list(refs.items()):
             if attr and attr.rule:
                 # List of rule UUIDs is provided. Populate
                 # the SLO with the list alone.
