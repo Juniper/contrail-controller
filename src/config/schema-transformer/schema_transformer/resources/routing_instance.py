@@ -2,6 +2,7 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 import cfgm_common as common
 from cfgm_common.exceptions import NoIdError, RefsExistError
 from cfgm_common.uve.virtual_network.ttypes import\
@@ -125,15 +126,15 @@ class RoutingInstanceST(ResourceBaseST):
                 return
             if sc.left_vn == self.virtual_network:
                 rp_dict = dict((rp, attr.get_left_sequence())
-                               for rp, attr in si.routing_policys.items()
+                               for rp, attr in list(si.routing_policys.items())
                                if attr.get_left_sequence())
-                ra_set = set(ra for ra, if_type in si.route_aggregates.items()
+                ra_set = set(ra for ra, if_type in list(si.route_aggregates.items())
                              if if_type == 'left')
             elif sc.right_vn == self.virtual_network:
                 rp_dict = dict((rp, attr.get_right_sequence())
-                               for rp, attr in si.routing_policys.items()
+                               for rp, attr in list(si.routing_policys.items())
                                if attr.get_right_sequence())
-                ra_set = set(ra for ra, if_type in si.route_aggregates.items()
+                ra_set = set(ra for ra, if_type in list(si.route_aggregates.items())
                              if if_type == 'right')
             else:
                 break
@@ -143,7 +144,7 @@ class RoutingInstanceST(ResourceBaseST):
                         'routing_policy').get(rp_name)
                     if rp:
                         rp.delete_routing_instance(self)
-            for rp_name, seq in rp_dict.items():
+            for rp_name, seq in list(rp_dict.items()):
                 if (rp_name not in self.routing_policys or
                         seq != self.routing_policys[rp_name]):
                     rp = ResourceBaseST.get_obj_type_map().get(
