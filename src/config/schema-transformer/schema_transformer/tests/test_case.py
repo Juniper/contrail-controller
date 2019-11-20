@@ -1,7 +1,12 @@
-from __future__ import print_function
-
 import sys
 import uuid
+
+from __future__ import print_function
+
+from builtins import object
+from builtins import range
+from builtins import str
+from past.builtins import basestring
 
 from cfgm_common.tests import test_common
 from gevent import sleep
@@ -25,7 +30,7 @@ def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,),
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
-            tries = range(max_tries)
+            tries = list(range(max_tries))
             tries.reverse()
             for tries_remaining in tries:
                 try:

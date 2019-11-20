@@ -2,6 +2,7 @@
 # Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
+from builtins import str
 from cfgm_common.exceptions import NoIdError, RefsExistError
 from vnc_api.gen.resource_client import BgpRouter
 from vnc_api.gen.resource_xsd import AddressFamilies, BgpSessionAttributes
@@ -145,19 +146,19 @@ class BgpRouterST(ResourceBaseST):
             return -1
         if bgpaas.bgpaas_shared:
             if (bgpaas.virtual_machine_interfaces and
-                    self.name in bgpaas.bgpaas_clients.values()):
+                    self.name in list(bgpaas.bgpaas_clients.values())):
                 vmi_names = list(bgpaas.virtual_machine_interfaces)
                 vmis = [ResourceBaseST.get_obj_type_map().get(
                     'virtual_machine_interface').get(vmi_name)
                     for vmi_name in vmi_names]
                 vmi = vmis[0]
-            elif self.name in bgpaas.bgpaas_clients.values():
+            elif self.name in list(bgpaas.bgpaas_clients.values()):
                 del bgpaas.bgpaas_clients[bgpaas.obj.name]
                 return -1
             else:
                 return -1
         else:
-            for vmi_name, router in bgpaas.bgpaas_clients.items():
+            for vmi_name, router in list(bgpaas.bgpaas_clients.items()):
                 if router == self.name:
                     break
             else:
@@ -252,7 +253,7 @@ class BgpRouterST(ResourceBaseST):
     def _is_route_reflector_supported(self):
         cluster_rr_supported = False
         control_rr_supported = False
-        for router in self._dict.values():
+        for router in list(self._dict.values()):
             if router.cluster_id:
                 if router.router_type == 'control-node':
                     control_rr_supported = True
@@ -308,7 +309,7 @@ class BgpRouterST(ResourceBaseST):
     # end _skip_bgp_router_peering_add
 
     def update_full_mesh_to_rr_peering(self):
-        for router in BgpRouterST.values():
+        for router in list(BgpRouterST.values()):
             router.update_peering(rr_changed=True)
     # end update_full_mesh_to_rr_peering
 
@@ -345,7 +346,7 @@ class BgpRouterST(ResourceBaseST):
 
         new_peerings_list = []
         new_peerings_attrs = []
-        for router in self._dict.values():
+        for router in list(self._dict.values()):
             if router.name == self.name:
                 continue
             if router.sub_cluster != self.sub_cluster:
