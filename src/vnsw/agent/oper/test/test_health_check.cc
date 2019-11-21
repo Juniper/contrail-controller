@@ -346,6 +346,89 @@ TEST_F(HealthCheckConfigTest, segment_hc) {
     WAIT_FOR(100, 100, (VmInterfaceGet(input[2].intf_id) == NULL));
 }
 
+TEST_F(HealthCheckConfigTest, http_monitor_type_1) {
+    boost::system::error_code ec;
+    struct PortInfo input[] = {
+        {"vnet10", 10, "1.1.1.10", "00:00:00:01:01:10", 10, 10},
+    };
+
+    EXPECT_TRUE(agent->health_check_table()->Size() == 0);
+    AddHealthCheckService("HC_test", 1, "http://10.10.10.1/test/", "HTTP");
+    client->WaitForIdle();
+    WAIT_FOR(100, 100, agent->health_check_table()->Size() == 1);
+
+    HealthCheckService *hc = FindHealthCheck(1);
+    EXPECT_TRUE(hc != NULL);
+    EXPECT_TRUE(hc->name().compare("HC_test") == 0);
+    EXPECT_TRUE(hc->monitor_type() == "HTTP");
+    EXPECT_TRUE(hc->url_path() == "/test/");
+    EXPECT_TRUE(hc->dest_ip() == Ip4Address::from_string("10.10.10.1", ec));
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet10",
+            "service-health-check", "HC_test", "service-port-health-check");
+    client->WaitForIdle();
+
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
+    EXPECT_TRUE(intf != NULL);
+
+    // Validate health check instance running on interface
+    WAIT_FOR(100, 100, intf->hc_instance_set().size() != 0);
+
+    DelLink("virtual-machine-interface", "vnet10",
+            "service-health-check", "HC_test");
+    client->WaitForIdle();
+
+    // Validate health check instance stopped running on interface
+    WAIT_FOR(100, 100, intf->hc_instance_set().size() == 0);
+
+    DelHealthCheckService("HC_test");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
+TEST_F(HealthCheckConfigTest, http_monitor_type_2) {
+    boost::system::error_code ec;
+    struct PortInfo input[] = {
+        {"vnet10", 10, "1.1.1.10", "00:00:00:01:01:10", 10, 10},
+    };
+
+    EXPECT_TRUE(agent->health_check_table()->Size() == 0);
+    AddHealthCheckService("HC_test", 1, "/", "HTTP");
+    client->WaitForIdle();
+    WAIT_FOR(100, 100, agent->health_check_table()->Size() == 1);
+
+    HealthCheckService *hc = FindHealthCheck(1);
+    EXPECT_TRUE(hc != NULL);
+    EXPECT_TRUE(hc->name().compare("HC_test") == 0);
+    EXPECT_TRUE(hc->monitor_type() == "HTTP");
+    EXPECT_TRUE(hc->url_path() == "");
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet10",
+            "service-health-check", "HC_test", "service-port-health-check");
+    client->WaitForIdle();
+
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
+    EXPECT_TRUE(intf != NULL);
+
+    // Validate health check instance running on interface
+    WAIT_FOR(100, 100, intf->hc_instance_set().size() != 0);
+
+    DelLink("virtual-machine-interface", "vnet10",
+            "service-health-check", "HC_test");
+    client->WaitForIdle();
+
+    // Validate health check instance stopped running on interface
+    WAIT_FOR(100, 100, intf->hc_instance_set().size() == 0);
+
+    DelHealthCheckService("HC_test");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

@@ -298,6 +298,7 @@ public:
     HealthCheckType health_check_type() const {
         return health_check_type_;
     }
+    IpAddress dest_ip() const { return dest_ip_; }
 
 private:
     friend class HealthCheckInstanceEvent;
