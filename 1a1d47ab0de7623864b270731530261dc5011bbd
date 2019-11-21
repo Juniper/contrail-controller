@@ -16,6 +16,24 @@
       "revId": "1a1d47ab0de7623864b270731530261dc5011bbd",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c64a564f_5f82933a",
+        "filename": "ci_unittests.json",
+        "patchSetId": 5
+      },
+      "lineNbr": 136,
+      "author": {
+        "id": 643
+      },
+      "writtenOn": "2019-11-21T17:48:06Z",
+      "side": 1,
+      "message": "We will take adding .test as separate request.\nPrevious targets were removed because those are not valid entries for vrouter module.",
+      "parentUuid": "31af0aea_20d9e10a",
+      "revId": "1a1d47ab0de7623864b270731530261dc5011bbd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
