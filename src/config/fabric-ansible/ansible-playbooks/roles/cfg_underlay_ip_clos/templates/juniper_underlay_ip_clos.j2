@@ -42,7 +42,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} mtu-discovery
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multipath multiple-as
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export IPCLOS_BGP_EXP
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} import IPCLOS_BGP_IMP
-set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection minimum-interval 350
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection minimum-interval 1000
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection multiplier 3
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} bfd-liveness-detection session-mode automatic
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.autonomous_system}}
