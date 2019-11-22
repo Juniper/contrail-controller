@@ -195,10 +195,12 @@ class JobLogUtils(object):
             job_template_fqname = self.get_fq_name_log_str(job_template_fqname)
             if timestamp is None:
                 timestamp = int(round(time.time() * 1000))
+            fabric_name = fabric_fq_name.split(':')[-1] if \
+                fabric_fq_name else fabric_fq_name
             details_str = json.dumps(details) if details else None
             job_log_entry = JobLogEntry(
                 name=job_template_fqname, execution_id=job_execution_id,
-                fabric_name=fabric_fq_name, timestamp=timestamp,
+                fabric_name=fabric_name, timestamp=timestamp,
                 message=message, status=status,
                 percentage_completed=completion_percent, result=result,
                 device_name=device_name, details=details_str,
