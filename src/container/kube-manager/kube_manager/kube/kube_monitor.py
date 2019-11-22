@@ -1,12 +1,15 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-from cStringIO import StringIO
+from future import standard_library
+standard_library.install_aliases()
+from builtins import next
+from builtins import object
 import json
 import socket
 import time
-
 import requests
+from six import StringIO
 
 from cfgm_common.utils import cgitb_hook
 

@@ -7,6 +7,7 @@ Database for Kubernetes objects.
 """
 from __future__ import absolute_import
 
+from builtins import str
 import json
 
 from cfgm_common.vnc_db import DBBase
@@ -110,7 +111,7 @@ class PodKM(KubeDBBase):
         pod_resp = introspect.PodDatabaseListResp(pods=[])
 
         # Iterate through all elements of Pod DB.
-        for pod in PodKM.values():
+        for pod in list(PodKM.values()):
 
             # If the request is for a specific entry, then locate the entry.
             if req.pod_uuid and req.pod_uuid != pod.uuid:
@@ -186,7 +187,7 @@ class PodKM(KubeDBBase):
     def get_namespace_pods(cls, namespace):
         """ Return a list of pods from a namespace. """
         pod_uuids = []
-        for pod_uuid, pod in cls._dict.iteritems():
+        for pod_uuid, pod in cls._dict.items():
             if pod.namespace == namespace:
                 pod_uuids.append(pod_uuid)
         return pod_uuids
@@ -345,7 +346,7 @@ class NamespaceKM(KubeDBBase):
         ns_resp = introspect.NamespaceDatabaseListResp(namespaces=[])
 
         # Iterate through all elements of Namespace DB.
-        for ns in NamespaceKM.values():
+        for ns in list(NamespaceKM.values()):
 
             # If the request is for a specific entry, then locate the entry.
             if req.namespace_uuid and req.namespace_uuid != ns.uuid:
@@ -372,11 +373,11 @@ class NamespaceKM(KubeDBBase):
         self.removed_labels = {}
         new_labels = labels if labels else {}
 
-        for k,v in new_labels.iteritems():
+        for k,v in new_labels.items():
             if k not in self.labels or v != self.labels[k]:
                 self.added_labels[k] = v
 
-        for k,v in self.labels.iteritems():
+        for k,v in self.labels.items():
             if k not in new_labels or v != new_labels[k]:
                 self.removed_labels[k] = v
 
@@ -446,7 +447,7 @@ class ServiceKM(KubeDBBase):
         svc_resp = introspect.ServiceDatabaseListResp(services=[])
 
         # Iterate through all elements of Pod DB.
-        for svc in ServiceKM.values():
+        for svc in list(ServiceKM.values()):
 
             # If the request is for a specific entry, then locate the entry.
             if req.service_uuid and req.service_uuid != svc.uuid:
@@ -548,7 +549,7 @@ class NetworkPolicyKM(KubeDBBase):
         np_resp = introspect.NetworkPolicyDatabaseListResp(network_policies=[])
 
         # Iterate through all elements of Network Policy DB.
-        for np in NetworkPolicyKM.values():
+        for np in list(NetworkPolicyKM.values()):
 
             # If the request is for a specific entry, then locate the entry.
             if req.network_policy_uuid and req.network_policy_uuid != np.uuid:
@@ -708,7 +709,7 @@ class IngressKM(KubeDBBase):
         ingress_resp = introspect.IngressDatabaseListResp(ingress=[])
 
         # Iterate through all elements of Ingress DB.
-        for ingress in IngressKM.values():
+        for ingress in list(IngressKM.values()):
 
             # If the request is for a specific entry, then locate the entry.
             if req.ingress_uuid and req.ingress_uuid != ingress.uuid:
@@ -723,7 +724,7 @@ class IngressKM(KubeDBBase):
             rules = []
             for rule in ingress.rules:
                 ingress_rule = introspect.IngressRule(spec=[])
-                for key,value in rule.iteritems():
+                for key,value in rule.items():
                     if key == 'host':
                         # Get host info from rule.
                         ingress_rule.host = value
@@ -820,7 +821,7 @@ class NetworkKM(KubeDBBase):
 
     @classmethod
     def get_network_fq_name(cls, name, namespace):
-        for key, value in cls._dict.iteritems():
+        for key, value in cls._dict.items():
             if value.name == name and value.namespace == namespace:
                 return value
         return None
