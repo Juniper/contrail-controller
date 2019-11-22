@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -25,7 +27,7 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 
-from test_utils import *
+from .test_utils import *
 import bottle
 bottle.catchall=False
 
@@ -180,7 +182,7 @@ def launch_mesos_manager(test_id, conf_sections, mesos_api_skip, event_queue):
 #end launch_mesos_manager
 
 def retry_exc_handler(tries_remaining, exception, delay):
-    print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
+    print("Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay), file=sys.stderr)
 # end retry_exc_handler
 
 def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):

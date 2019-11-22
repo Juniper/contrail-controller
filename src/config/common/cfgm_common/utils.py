@@ -25,7 +25,7 @@ import urllib
 from collections import OrderedDict
 import sys
 import cStringIO
-from ConfigParser import NoOptionError
+from six.moves.configparser import NoOptionError
 
 from cfgm_common import vnc_cgitb
 from vnc_api.utils import (
