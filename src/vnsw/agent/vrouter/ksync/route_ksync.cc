@@ -398,7 +398,10 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
 
     const NextHop *tmp = NULL;
     tmp = GetActiveNextHop(route);
-    if (tmp == NULL) {
+    if (tmp == NULL || tmp->IsDeleted()) {
+        if (tmp && tmp->IsDeleted()) {
+            LOG(ERROR, "NextHop Index = " << tmp->id() << " is delete marked");
+        }
         DiscardNHKey key;
         tmp = static_cast<NextHop *>(agent->nexthop_table()->
              FindActiveEntry(&key));
