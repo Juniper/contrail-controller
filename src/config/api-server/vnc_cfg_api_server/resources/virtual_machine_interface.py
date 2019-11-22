@@ -273,7 +273,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         host_id.partition('.')[0]):
                     vrouter = vr
                     break
-            if type(vrouter) is str and not vrouter:
+            if not vrouter:
                 return True, result
         elif not ok:
             return False, result
