@@ -21,10 +21,15 @@
 # @author: Numan Siddique, eNovance.
 
 
-import urllib
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
+import urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
 import sys
-import cStringIO
+from six import StringIO
 from six.moves.configparser import NoOptionError
 
 from cfgm_common import vnc_cgitb
@@ -45,7 +50,7 @@ def cgitb_hook(info=None, **kwargs):
 
 
 def detailed_traceback():
-    buf = cStringIO.StringIO()
+    buf = StringIO()
     cgitb_hook(format="text", file=buf)
     tb_txt = buf.getvalue()
     buf.close()
@@ -66,9 +71,9 @@ def encode_string(enc_str, encoding='utf-8'):
     try:
         enc_str.encode()
     except (UnicodeDecodeError, UnicodeEncodeError):
-        if type(enc_str) is unicode:
+        if type(enc_str) is str:
             enc_str = enc_str.encode(encoding)
-        enc_str = urllib.quote_plus(enc_str)
+        enc_str = urllib.parse.quote_plus(enc_str)
     except Exception:
         pass
     return enc_str
@@ -85,9 +90,9 @@ def decode_string(dec_str, encoding='utf-8'):
     """
     ret_dec_str = dec_str
     try:
-        if type(ret_dec_str) is unicode:
+        if type(ret_dec_str) is str:
             ret_dec_str = str(ret_dec_str)
-        ret_dec_str = urllib.unquote_plus(ret_dec_str)
+        ret_dec_str = urllib.parse.unquote_plus(ret_dec_str)
         return ret_dec_str.decode(encoding)
     except Exception:
         return dec_str
@@ -108,7 +113,7 @@ class CacheContainer(object):
 
     def __setitem__(self, key, value):
         self.dictionary[key] = value
-        if len(self.dictionary.keys()) > self.container_size:
+        if len(list(self.dictionary.keys())) > self.container_size:
             # container is full, loose the least used item
             self.dictionary.popitem(last=False)
 

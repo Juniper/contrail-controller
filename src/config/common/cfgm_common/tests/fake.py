@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright 2012 IBM
@@ -15,11 +16,12 @@
 #    under the License.
 
 
-class FakeDriver():
+from builtins import object
+class FakeDriver(object):
     def __init__(self, first_arg=True):
         self.first_arg = first_arg
 
 
-class FakeDriver2():
+class FakeDriver2(object):
     def __init__(self, first_arg):
         self.first_arg = first_arg
