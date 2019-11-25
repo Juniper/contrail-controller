@@ -1,5 +1,4 @@
 ---
-
     - name: Pushing config ... please wait
       block:
         - import_role:
@@ -18,6 +17,24 @@
               port: 22
               timeout: "{{ JUNOS_COMMIT_TIMEOUT | int }}"
           register: junos_response
+
+        - name: Retry to execute the previous command
+          block:
+            - name: Update count to ("{{ count | int + 1 }}")
+              set_fact:
+                count: "{{ count | int + 1 }}"
+
+            - name: wait and retry if count is lesser than or equal retry limit
+              block:
+                - name: Wait for "{{ delay }}" seconds
+                  wait_for:
+                    timeout: "{{ delay }}"
+
+                - name: Retry no."{{count}}"
+                  include_tasks: "juniper.yml"
+              when: count | int <= retries | int
+          when: "'failed' in junos_response and junos_response.failed == true"
+
         - set_fact:
            device_push_response: "{{ junos_response }}"
         - set_fact:
@@ -41,4 +58,5 @@
               }
             jl_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{junos_response.msg}}"
             prouter_name: "{{ device_name }}"
+
 
