@@ -13,6 +13,10 @@
     device_name: "{{ device_name }}"
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
 
+- name: Check commit mode before initiating config push to avoid failures
+  import_role:
+    name: check_config_mode
+
 - name: finish with vendor-specific commit logic
   include_tasks: "{{ device_vendor }}.yml"
 
@@ -25,3 +29,4 @@
     message: "{{ device_push_message_job_log }}"
     device_name: "{{ device_name }}"
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+
