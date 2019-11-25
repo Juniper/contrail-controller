@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "46f14d42_02efaaf5",
+        "filename": "ci_unittests.json",
+        "patchSetId": 8
+      },
+      "lineNbr": 140,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-11-25T19:03:25Z",
+      "side": 1,
+      "message": "should we care about vrouter:test here?",
+      "revId": "b57db57ede34c16006d24f427dce746843a12672",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ef870ef5_e8a863bd",
+        "filename": "ci_unittests.json",
+        "patchSetId": 8
+      },
+      "lineNbr": 149,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-11-25T19:03:25Z",
+      "side": 1,
+      "message": "it\u0027s a bit strange to have \u0027py\u0027 and \u0027ut\u0027 here... what do you think?",
+      "revId": "b57db57ede34c16006d24f427dce746843a12672",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
