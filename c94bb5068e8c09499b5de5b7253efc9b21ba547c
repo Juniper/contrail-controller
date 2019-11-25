@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "687422e9_34d99d6d",
+        "filename": "ci_unittests.json",
+        "patchSetId": 7
+      },
+      "lineNbr": 149,
+      "author": {
+        "id": 382
+      },
+      "writtenOn": "2019-11-25T14:53:39Z",
+      "side": 1,
+      "message": "is it possible to use target with \u0027:test\u0027 suffix? it might be critical to current infra.",
+      "revId": "c94bb5068e8c09499b5de5b7253efc9b21ba547c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
