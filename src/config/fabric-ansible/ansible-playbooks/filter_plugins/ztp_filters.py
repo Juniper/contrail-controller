@@ -14,7 +14,8 @@ from cfgm_common.exceptions import NoIdError
 from vnc_api.vnc_api import VncApi
 
 from job_manager.job_utils import JobVncApi
-
+from netifaces import interfaces, ifaddresses, AF_INET
+from pyroute2 import IPRoute
 
 class FilterModule(object):
 
@@ -38,6 +39,27 @@ class FilterModule(object):
             'read_dhcp_leases_using_info': self.read_dhcp_leases_using_info,
             'read_only_dhcp_leases': self.read_only_dhcp_leases,
         }
+
+    # Method to get interface name and configured ip address from
+    # subnet/ip address from subnet.
+    @classmethod
+    def get_host_ip_and_name(cls, subnet):
+        ip = IPRoute()
+        lookup_ip = ''
+        route_lst = ip.route('get', dst= \
+                             (subnet['subnet']['ip_prefix'] +\
+                             '/'+ str(subnet['subnet']['ip_prefix_len'])))
+        for tup in route_lst[0]['attrs'] or []:
+            if tup[0] == 'RTA_PREFSRC':
+                lookup_ip = str(tup[1])
+
+        for ifaceName in interfaces():
+            addresses = [i['addr'] for i in ifaddresses(ifaceName)\
+                         .setdefault(AF_INET, [{'addr':'No IP addr'}] )]
+            if (addresses[0]) == lookup_ip.decode('utf-8'):
+                return lookup_ip, ifaceName
+
+
 
     @classmethod
     def get_ztp_dhcp_config(cls, job_ctx, fabric_uuid):
@@ -71,6 +93,14 @@ class FilterModule(object):
                 ipam_subnets = ipam_dict.get('ipam_subnets')
                 if ipam_subnets:
                     dhcp_config['ipam_subnets'] = ipam_subnets.get('subnets')
+                # To support multiple subnet and interface for DHCP, each dhcp
+                # option is tagged with interface name. eg.
+                # dhcp-option=set:eth0, <ip-range start> <ip-range end>.
+                for subnet in dhcp_config['ipam_subnets']:
+                    intf_ip, intf_name = cls.get_host_ip_and_name(subnet)
+                    if intf_ip and intf_name:
+                        subnet.update({'intf_ip':intf_ip})
+                        subnet.update({'intf_name':intf_name})
 
             # Get static ip configuration for physical routers
             pr_refs = fabric.get_physical_router_back_refs()
