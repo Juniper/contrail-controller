@@ -52,6 +52,7 @@ public:
     virtual int VrResponseMsgHandler(vr_response *r);
     virtual void FlowMsgHandler(vr_flow_req *req) {}
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req);
+    virtual void VrfMsgHandler(vr_vrf_req *req);
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);

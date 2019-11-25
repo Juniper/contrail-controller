@@ -38,6 +38,9 @@ public:
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req) {
         assert(0);
     }
+    virtual void VrfMsgHandler(vr_vrf_req *req) {
+        assert(0);
+    }
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req) {
         assert(0);
     }

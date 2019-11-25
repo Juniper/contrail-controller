@@ -368,6 +368,32 @@ response sandesh KVrfAssignResp {
 }
 
 /**
+ * Sandesh defenition for vrf
+ */
+struct KVrfInfo {
+    1: i16          rid;
+    2: i32          vrf_idx;
+    3: i32          hbf_lintf;
+    4: i32          hbf_rintf;
+}
+
+/**
+ * @description: Request message to get vrf assign list from kernel in agent introspect
+ * @cli_name: read kernel vrfassign list
+ */
+request sandesh KVrfReq {
+    /** send vrf for an index. Send all if -1 */
+    1: i32 vrf_idx = -1;
+}
+
+/**
+ * Response message for vrf assign list from kernel in agent introspect
+ */
+response sandesh KVrfResp {
+    1: list<KVrfInfo> vrf_list;
+}
+
+/**
  * Sandesh defenition for vrf in kernel
  */
 struct KVrfStatsInfo {

@@ -228,6 +228,13 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     std::vector<std::string> fixed_ip6_list;
     intf_->BuildIpStringList(Address::INET6, &fixed_ip6_list);
     s_intf->set_fixed_ip6_list(fixed_ip6_list);
+    if (intf_->hbs_intf_type() == VmInterface::HBS_INTF_LEFT) {
+        s_intf->set_hbf_intf_type("left");
+    } else if (intf_->hbs_intf_type() == VmInterface::HBS_INTF_RIGHT) {
+        s_intf->set_hbf_intf_type("right");
+    } else if (intf_->hbs_intf_type() == VmInterface::HBS_INTF_MGMT) {
+        s_intf->set_hbf_intf_type("mgmt");
+    }
     return true;
 }
 

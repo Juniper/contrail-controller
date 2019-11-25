@@ -63,6 +63,7 @@ env.Alias('agent:test_ipv6', test_ipv6)
 test_tag = AgentEnv.MakeTestCmd(env, 'test_tag', oper_test_suite)
 test_vhost_vmi = AgentEnv.MakeTestCmd(env, 'test_vhost_vmi', oper_test_suite)
 test_vrouter = AgentEnv.MakeTestCmd(env, 'test_vrouter', oper_test_suite)
+test_hbf = AgentEnv.MakeTestCmd(env, 'test_hbf', oper_test_suite)
 
 env.Append(LIBPATH = [
         '../../../../db/test',
