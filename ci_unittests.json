@@ -128,17 +128,25 @@
             }
         ]
     },
-    "contrail-vrouter" : {
+    "contrail-vrouter-agent" : {
         "source_directories" : [
             "controller/src/ksync",
             "controller/src/vnsw",
-            "controller/src/xmpp",
-            "vrouter"
+            "controller/src/xmpp"
         ],
         "scons_test_targets" : [
             "controller/src/agent:test",
             "controller/src/cat:test",
             "vrouter:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-vrouter" : {
+        "source_directories" : [
+            "vrouter"
+        ],
+        "scons_test_targets" : [
+            "vrouter-py-ut:test"
         ],
         "misc_test_targets" : [ ]
     },
@@ -194,6 +202,7 @@
         "misc_test_targets" : [
             "contrail-collector",
             "contrail-control",
+            "contrail-vrouter-agent",
             "contrail-vrouter"
          ]
     },
