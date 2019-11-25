@@ -20,6 +20,7 @@
 
 const std::string TrafficAction::kActionLogStr = "log";
 const std::string TrafficAction::kActionAlertStr = "alert";
+const std::string TrafficAction::kActionHbsStr = "hbs";
 
 bool TrafficAction::IsDrop() const {
     if (((1 << action_) & TrafficAction::DROP_FLAGS) ||
@@ -48,6 +49,8 @@ std::string TrafficAction::ActionToString(enum Action at)
             return("VRF assign");
         case APPLY_QOS:
             return ("Apply QOS marking");
+        case HBS:
+            return ("Apply HBS");
         default:
             return("unknown");
     }

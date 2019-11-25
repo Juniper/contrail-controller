@@ -782,7 +782,8 @@ void AddFirewall(const std::string &name, uint32_t id,
                  const std::vector<std::string> &match,
                  TestTag *src, uint32_t src_count,
                  TestTag *dst, uint32_t dst_count,
-                 const std::string action, const std::string direction="<>");
+                 const std::string action, const std::string direction="<>",
+                 const std::string hbs="false");
 void AddServiceGroup(const std::string &name, uint32_t id,
                      const std::vector<std::string> &protocol,
                      const std::vector<uint16_t> &port);

@@ -27,7 +27,8 @@ public:
       VRF_TRANSLATE_ACTION = 3,
       LOG_ACTION = 4,
       ALERT_ACTION = 5,
-      QOS_ACTION = 6
+      QOS_ACTION = 6,
+      HBS_ACTION = 7
     };
     // Don't go beyond 31
     enum Action {
@@ -38,12 +39,14 @@ public:
         MIRROR = 7,
         VRF_TRANSLATE = 8,
         APPLY_QOS = 9,
+        HBS = 10,
         IMPLICIT_DENY = 29,
         RESERVED = 30,
         UNKNOWN = 31,
     };
     static const std::string kActionLogStr;
     static const std::string kActionAlertStr;
+    static const std::string kActionHbsStr;
     static const uint32_t DROP_FLAGS = ((1 << DENY));
     static const uint32_t PASS_FLAGS = ((1 << PASS));
     static const uint32_t IMPLICIT_DENY_FLAGS = ((1 << IMPLICIT_DENY));
@@ -176,5 +179,19 @@ public:
     }
 private:
     DISALLOW_COPY_AND_ASSIGN(AlertAction);
+};
+
+class HbsAction : public TrafficAction {
+public:
+    HbsAction() : TrafficAction(HBS, HBS_ACTION) {}
+    ~HbsAction() {}
+    virtual bool Compare(const TrafficAction &rhs) const {
+        if (action() != rhs.action()) {
+            return false;
+        }
+        return true;
+    }
+private:
+    DISALLOW_COPY_AND_ASSIGN(HbsAction);
 };
 #endif

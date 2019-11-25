@@ -131,6 +131,7 @@ VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
                         ip6_addr_, device_type_, vmi_type_, vhostuser_mode_,
                         os_oper_state, logical_router_uuid_);
     vmi->SetConfigurer(VmInterface::CONFIG);
+    vmi->set_hbs_intf_type(hbs_intf_type_);
     return vmi;
 }
 
@@ -760,6 +761,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             tx_vlan_id_ = data->tx_vlan_id_;
             ret = true;
         }
+    }
+
+    if (hbs_intf_type_ != data->hbs_intf_type_) {
+        hbs_intf_type_ = data->hbs_intf_type_;
+        ret = true;
     }
 
     if (logical_interface_ != data->logical_interface_) {

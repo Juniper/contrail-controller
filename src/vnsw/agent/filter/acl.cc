@@ -363,6 +363,8 @@ static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &
             astr.action = TrafficAction::kActionLogStr;
         } else if (action.ta_type == TrafficAction::ALERT_ACTION) {
             astr.action = TrafficAction::kActionAlertStr;
+        } else if (action.ta_type == TrafficAction::HBS_ACTION) {
+            astr.action = TrafficAction::kActionHbsStr;
         } else if (action.ta_type == TrafficAction::MIRROR_ACTION) {
             astr.action = action.ma.vrf_name + " " +
                     action.ma.analyzer_name + " " +
@@ -1546,6 +1548,13 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
         qos_translate_spec.qos_config_action.set_name(
                 action_list.qos_action);
         action_l.push_back(qos_translate_spec);
+    }
+
+    if (action_list.host_based_service) {
+        ActionSpec action;
+        action.ta_type = TrafficAction::HBS_ACTION;
+        action.simple_action = TrafficAction::HBS;
+        action_l.push_back(action);
     }
 }
 
