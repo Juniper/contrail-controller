@@ -190,6 +190,7 @@
             "controller/src/net:test",
             "src/contrail-api-client/schema:test",
             "sandesh:test",
+            "sandesh:pysandesh_test --python3",
             "controller/src/config/svc_monitor:test",
             "controller/src/config/schema-transformer:test",
             "controller/src/config/api-server:test",
