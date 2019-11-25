@@ -18,6 +18,16 @@
            }
        }
    },
+   "input_ui_schema": {
+    "ip_address": {
+      "ui:help": "Enter an IP Address. The field value must include a IPv4 address without subnet mask; for example, 192.168.3.120",
+      "ui:placeholder": "Enter IP address"
+    },
+    "mac_address": {
+      "ui:help": "Enter a 48 bit MAC address in colon separated format; for example, 00:00:0A:BB:28:FC",
+      "ui:placeholder": "Enter MAC address"
+    }
+  },
    "output_schema":{
       "$schema":"http://json-schema.org/draft-06/schema#",
       "title":"Search ip or mac schema command Playbook Output",

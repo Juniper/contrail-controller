@@ -6,12 +6,12 @@
     "properties": {
       "mac_details": {
         "src": "https://spacetelescope.github.io/understanding-json-schema/reference/object.html#dependencies",
-        "title": "MAC Address",
+        "title": "MAC Details",
         "type": "object",
         "properties": {
           "mac_address": {
             "$id": "/properties/mac_address",
-            "title": "Enter Mac Address, for example 00:2b:01:00:00:05",
+            "title": "Mac Address",
             "pattern": "^\\s*([A-Fa-f0-9]{2}(:{1}[A-Fa-f0-9]{2}){5})\\s*$",
             "type": "string"
           }
@@ -19,6 +19,14 @@
         "required": [
           "mac_address"
         ]
+      }
+    }
+  },
+  "input_ui_schema": {
+    "mac_details": {
+      "mac_address": {
+        "ui:help": "Enter a 48 bit MAC address in colon separated format; for example, 00:00:0A:BB:28:FC",
+        "ui:placeholder": "Enter MAC address"
       }
     }
   },
