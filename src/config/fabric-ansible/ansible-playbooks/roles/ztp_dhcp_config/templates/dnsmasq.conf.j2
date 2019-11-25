@@ -16,16 +16,25 @@ dhcp-vendorclass=set:jn,Juniper
 {%       if alloc_list[idx+1] != alloc_list[idx]+1 %}
 {%         set first_ip = (alloc_list[idx]+1) | ipaddr %}
 {%         set last_ip = (alloc_list[idx+1]-1) | ipaddr %}
-dhcp-range={{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
+{%           if subnet.intf_name is defined %}
+dhcp-range=set:{{subnet.intf_name}},{{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
+{%           else %}
+dhcp-range={{subnet.intf_name}},{{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
+{%           endif %}
 {%       endif %}
 {%     endfor %}
 {%     if subnet.default_gateway is defined %}
 dhcp-option=option:router,{{ subnet.default_gateway }}
 {%     endif %}
+{%     if subnet.intf_name is defined %}
+dhcp-option=tag:{{subnet.intf_name}},66,{{subnet.intf_ip}}
+dhcp-option=tag:{{subnet.intf_name}},150,{{subnet.intf_ip}}
+{%     else %}
+dhcp-option=66,<host-ip>
+dhcp-option=150,<host-ip>
+{%     endif %}
 {%   endfor %}
 {% endif %}
-dhcp-option=66,<host_ip>
-dhcp-option=150,<host_ip>
 dhcp-option=tag:jn,encap:43,1,"{{ fabric_name }}_juniper.sh"
 dhcp-option=tag:jn,encap:43,3,"tftp"
 {% if ztp_dhcp_config.static_ips is defined %}
