@@ -355,6 +355,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl7) {
 }
 
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
+    client->agent()->flow_stats_manager()->set_delete_short_flow(false);
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.2");
     Ip4Address vm_ip = Ip4Address::from_string("2.1.1.1");
     Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1", vm_ip, 32,
@@ -379,10 +380,13 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
     int nh_id = VmPortGet(1)->flow_key_nh()->id();
     FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
                             10, 20, nh_id);
-    EXPECT_TRUE(fe != NULL);
-    EXPECT_TRUE(fe->acl_assigned_vrf() == "default-project:vn3:vn3");
+    if (fe != NULL) {
+        EXPECT_TRUE(fe->acl_assigned_vrf() == "default-project:vn3:vn3");
+        EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    }
     DeleteRoute("default-project:vn1:vn1", "2.1.1.1", 32, bgp_peer_);
     client->WaitForIdle();
+    client->agent()->flow_stats_manager()->set_delete_short_flow(true);
 }
 
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl9) {
