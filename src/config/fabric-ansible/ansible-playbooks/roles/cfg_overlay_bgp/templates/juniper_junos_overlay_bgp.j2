@@ -55,7 +55,10 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} hold-time {{bgp.
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multipath
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 {%             for family in bgp.get('families', []) %}
-{%                 if family.startswith('inet') %}
+{%                 if family == 'inet-labeled' %}
+{%                       set family = 'inet' %}
+{%                       set mode = 'labeled-unicast' %}
+{%                 elif family.startswith('inet') %}
 {%                     set mode='unicast' %}
 {%                 elif family == 'evpn' %}
 {%                     set mode='signaling' %}
@@ -69,8 +72,11 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} multihop
 {%             endif %}
 {%             if bgp_group_type == 'internal' %}
 {%                 for family in bgp.get('families', []) %}
-{%                     if family.startswith('inet') %}
-set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{family}} from family {{family}}
+{%                     if family == 'inet-labeled' %}
+{%                         set family_input='inet' %}
+{%                     elif family.startswith('inet') %}
+{%                         set family_input = family %}
+set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{family}} from family {{family_input}}
 set groups {{cfg_group}} policy-options policy-statement _contrail_ibgp_export_policy term {{family}} then next-hop self
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export _contrail_ibgp_export_policy
 {%                     endif %}
