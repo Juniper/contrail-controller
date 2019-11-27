@@ -22,6 +22,11 @@ from vnc_cfg_api_server.resources._security_base import SecurityResourceBase
 
 
 class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
+    USER_DEFINED_RT_FIELDS = {
+        'virtual_network': ['route_target_list', 'import_route_target_list',
+                            'export_route_target_list'],
+    }
+
     @classmethod
     def _get_global_system_config(cls, fields=None):
         return cls.locate(fq_name=['default-global-system-config'],
@@ -127,34 +132,42 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                 # /id/bgp/route-targets/type0 not to exist
                 pass
 
-        ok, result, _ = cls.db_conn.dbe_list('virtual_network',
-                                             field_names=['route_target_list'])
+        for obj_name, fields in cls.USER_DEFINED_RT_FIELDS.items():
+            ok, result = cls._rt_validate_fields(obj_name, fields,
+                                                 asn=global_asn)
+            if not ok:
+                return False, result
+        return True, ''
+
+    @classmethod
+    def _rt_validate_fields(cls, obj_name, fields, asn):
+        ok, result, _ = cls.db_conn.dbe_list(obj_name, field_names=fields)
         if not ok:
             return False, (500, 'Error in dbe_list: %s' % result)
-        vn_list = result
+        obj_list = result
 
-        founded_vn_using_asn = []
-        for vn in vn_list:
-            rt_dict = vn.get('route_target_list', {})
-            if not rt_dict:
-                continue
-            for rt in rt_dict.get('route_target', []):
-                ok, result, _ = cls.server.get_resource_class(
-                    'route_target').validate_route_target_range(rt, global_asn)
-                if not ok:
-                    return False, (400, result)
-                user_defined_rt = result
-                if not user_defined_rt:
-                    founded_vn_using_asn.append((':'.join(vn['fq_name']),
-                                                vn['uuid'], rt))
-        if not founded_vn_using_asn:
+        found_obj_using_asn = []
+        for obj in obj_list:
+            for field in fields:
+                route_targets = obj.get(field, {}).get('route_target', [])
+                for rt in route_targets:
+                    ok, result, _ = cls.server.get_resource_class(
+                        'route_target').validate_route_target_range(rt, asn)
+                    if not ok:
+                        return False, (400, result)
+                    user_defined_rt = result
+                    if not user_defined_rt:
+                        found_obj_using_asn.append((':'.join(obj['fq_name']),
+                                                    obj['uuid'], field, rt))
+
+        if not found_obj_using_asn:
             return True, ''
         msg = ("Virtual networks are configured with a route target with this "
                "ASN %d and route target value in the same range as used by "
-               "automatically allocated route targets:\n" % global_asn)
-        for fq_name, uuid, rt in founded_vn_using_asn:
-            msg += ("\t- %s (%s) have route target %s configured\n" %
-                    (':'.join(fq_name), uuid, rt[7:]))
+               "automatically allocated route targets:\n" % asn)
+        for fq_name, uuid, field, rt in found_obj_using_asn:
+            msg += ("\t- %s (%s) have route target %s configured in %s\n" %
+                    (fq_name, uuid, rt[7:], field))
         return False, (400, msg)
 
     @classmethod
