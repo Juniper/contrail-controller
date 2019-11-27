@@ -28,6 +28,18 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
                     'target:%d:%d' % (NEW_ASN,
                                       get_bgp_rtgt_min_id(NEW_ASN) + 1000),
                 ]
+            },
+            'import_route_target_list': {
+                'route_target': [
+                    'target:%d:%d' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN) + 1001),
+                ]
+            },
+            'export_route_target_list': {
+                'route_target': [
+                    'target:%d:%d' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN) + 1002),
+                ]
             }
         }
     ]
