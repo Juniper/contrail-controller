@@ -11,7 +11,6 @@ from vnc_api.vnc_api import GlobalSystemConfig, RouteTargetList, VirtualNetwork
 from vnc_cfg_api_server.resources import GlobalSystemConfigServer
 from vnc_cfg_api_server.tests import test_case
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -28,8 +27,47 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
                     'target:%d:%d' % (NEW_ASN,
                                       get_bgp_rtgt_min_id(NEW_ASN) + 1000),
                 ]
+            },
+            'import_route_target_list': {
+                'route_target': [
+                    'target:%d:%d' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN) + 1001),
+                ]
+            },
+            'export_route_target_list': {
+                'route_target': [
+                    'target:%d:%d' % (NEW_ASN,
+                                      get_bgp_rtgt_min_id(NEW_ASN) + 1002),
+                ]
             }
-        }
+        },
+        {
+            'fq_name': ['fake-name2'],
+            'uuid': 'fake_uuid2',
+            'route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
+        {
+            'fq_name': ['fake-name3'],
+            'uuid': 'fake_uuid3',
+            'import_route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
+        {
+            'fq_name': ['fake-name4'],
+            'uuid': 'fake_uuid4',
+            'export_route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
     ]
 
     @classmethod
@@ -146,8 +184,32 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         gsc.autonomous_system = self.NEW_ASN
         with mock.patch.object(self._api_server._db_conn, 'dbe_list',
                                return_value=(True, self.FAKE_VN_LIST, None)):
-            self.assertRaises(BadRequest, self.api.global_system_config_update,
-                              gsc)
+            try:
+                self.api.global_system_config_update(gsc)
+                self.assertFail()
+            except Exception as ext:
+                self.assertIsInstance(ext, BadRequest)
+                self.assertEqual(ext.status_code, 400)
+                existing_rt = ext.content.split('\t')[1:]
+                rt_count_in_fake_vn_list = 6
+                self.assertEqual(len(existing_rt), rt_count_in_fake_vn_list)
+
+    def test_can_update_global_asn_if_not_used_by_user(self):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.autonomous_system = self.NEW_ASN - 1
+        gsc.enable_4byte_as = False
+
+        with mock.patch.object(self._api_server._db_conn, 'dbe_list',
+                               return_value=(True, self.FAKE_VN_LIST, None)):
+            self.api.global_system_config_update(gsc)
+
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        self.assertEqual(gsc.autonomous_system, self.NEW_ASN - 1)
+
+        # clean up
+        gsc.autonomous_system = self.DEFAULT_ASN
+        self.api.global_system_config_update(gsc)
+        self._api_server._global_asn = None
 
     def test_update_asn_if_any_rt_uses_4_byte(self):
         """
