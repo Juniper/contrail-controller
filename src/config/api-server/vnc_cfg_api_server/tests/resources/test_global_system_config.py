@@ -31,6 +31,20 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
             }
         }
     ]
+    FAKE_LR_LIST = [
+        {
+            'fq_name': ['lr-fake-name1'],
+            'uuid': 'lr_fake_uuid1',
+            'route_target_refs': [
+                {
+                    'to': [
+                        'target:%d:%d' % (NEW_ASN,
+                                          get_bgp_rtgt_min_id(NEW_ASN) + 1000),
+                    ]
+                }
+            ]
+        }
+    ]
 
     @classmethod
     def setUpClass(cls, *args, **kwargs):
@@ -146,6 +160,11 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
         gsc.autonomous_system = self.NEW_ASN
         with mock.patch.object(self._api_server._db_conn, 'dbe_list',
                                return_value=(True, self.FAKE_VN_LIST, None)):
+            self.assertRaises(BadRequest, self.api.global_system_config_update,
+                              gsc)
+
+        with mock.patch.object(self._api_server._db_conn, 'dbe_list',
+                               return_value=(True, self.FAKE_LR_LIST, None)):
             self.assertRaises(BadRequest, self.api.global_system_config_update,
                               gsc)
 

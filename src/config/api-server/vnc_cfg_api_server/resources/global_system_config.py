@@ -127,35 +127,86 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                 # /id/bgp/route-targets/type0 not to exist
                 pass
 
-        ok, result, _ = cls.db_conn.dbe_list('virtual_network',
-                                             field_names=['route_target_list'])
+        ok, result = cls._check_vn_route_targets(global_asn)
+        if not ok:
+            return False, result
+        ok, result = cls._check_lr_route_targets(global_asn)
+        if not ok:
+            return False, result
+
+        return True, ''
+
+    @classmethod
+    def _check_vn_route_targets(cls, global_asn):
+        ok, result, _ = cls.db_conn.dbe_list(
+            'virtual_network',
+            field_names=['route_target_list',
+                         'import_route_target_list',
+                         'export_route_target_list'])
         if not ok:
             return False, (500, 'Error in dbe_list: %s' % result)
         vn_list = result
 
-        founded_vn_using_asn = []
+        found_vn_using_asn = []
         for vn in vn_list:
-            rt_dict = vn.get('route_target_list', {})
-            if not rt_dict:
-                continue
-            for rt in rt_dict.get('route_target', []):
-                ok, result, _ = cls.server.get_resource_class(
-                    'route_target').validate_route_target_range(rt, global_asn)
-                if not ok:
-                    return False, (400, result)
-                user_defined_rt = result
-                if not user_defined_rt:
-                    founded_vn_using_asn.append((':'.join(vn['fq_name']),
-                                                vn['uuid'], rt))
-        if not founded_vn_using_asn:
+            route_targets = []
+            route_targets.extend(vn.get('route_target_list', {})
+                                 .get('route_target', []))
+            route_targets.extend(vn.get('import_route_target_list', {})
+                                 .get('route_target', []))
+            route_targets.extend(vn.get('export_route_target_list', {})
+                                 .get('route_target', []))
+            for rt in cls._find_used_route_targets(route_targets, global_asn):
+                found_vn_using_asn.append((':'.join(vn['fq_name']),
+                                           vn['uuid'], rt))
+        if not found_vn_using_asn:
             return True, ''
         msg = ("Virtual networks are configured with a route target with this "
                "ASN %d and route target value in the same range as used by "
                "automatically allocated route targets:\n" % global_asn)
-        for fq_name, uuid, rt in founded_vn_using_asn:
+        for fq_name, uuid, rt in found_vn_using_asn:
             msg += ("\t- %s (%s) have route target %s configured\n" %
                     (':'.join(fq_name), uuid, rt[7:]))
         return False, (400, msg)
+
+    @classmethod
+    def _check_lr_route_targets(cls, global_asn):
+        ok, result, _ = cls.db_conn.dbe_list('logical_router',
+                                             field_names=['route_target_refs'])
+        if not ok:
+            return False, (500, 'Error in dbe_list: %s' % result)
+        lr_list = result
+
+        found_lr_using_asn = []
+        for lr in lr_list:
+            lr_rt_refs = lr.get('route_target_refs', [])
+            route_targets = [rt['to'][0] for rt in lr_rt_refs]
+            for rt in cls._find_used_route_targets(route_targets, global_asn):
+                found_lr_using_asn.append((':'.join(lr['fq_name']),
+                                           lr['uuid'], rt))
+
+        if not found_lr_using_asn:
+            return True, ''
+        msg = ("Logical routers are configured with a route target with this "
+               "ASN %d and route target value in the same range as used by "
+               "automatically allocated route targets:\n" % global_asn)
+        for fq_name, uuid, rt in found_lr_using_asn:
+            msg += ("\t- %s (%s) have route target %s configured\n" %
+                    (':'.join(fq_name), uuid, rt[7:]))
+        return False, (400, msg)
+
+    @classmethod
+    def _find_used_route_targets(cls, route_targets, global_asn):
+        found = []
+        for rt in route_targets:
+            ok, result, _ = cls.server.get_resource_class(
+                'route_target').validate_route_target_range(rt, global_asn)
+            if not ok:
+                return False, (400, result)
+            user_defined_rt = result
+            if not user_defined_rt:
+                found.append(rt)
+        return found
 
     @classmethod
     def _check_udc(cls, obj_dict, udcs):
