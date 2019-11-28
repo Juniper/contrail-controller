@@ -1,0 +1,84 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f1556207_63729dcd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 158,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-11-28T14:03:06Z",
+      "side": 1,
+      "message": "nit: with that append to the same list of rt, import rt and export rt, we lost the information on which VN RT fields the overlap occurred for the error message",
+      "revId": "45ec204c0326280730bea2f5d32727850ae9c111",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "59aa01d6_2e8eb94a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 159,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-11-28T14:03:06Z",
+      "side": 1,
+      "message": "You should loop on the returned list when you construct the error meessage\nThis method return a tuple where the first element is boolean to know if something get wrong and the second is the error message/code or the result",
+      "revId": "45ec204c0326280730bea2f5d32727850ae9c111",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7fa9dc5a_d78ea798",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 169,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-11-28T14:03:06Z",
+      "side": 1,
+      "message": "not defined",
+      "range": {
+        "startLine": 169,
+        "startChar": 46,
+        "endLine": 169,
+        "endChar": 48
+      },
+      "revId": "45ec204c0326280730bea2f5d32727850ae9c111",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0af78764_1d950327",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 209,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-11-28T14:03:06Z",
+      "side": 1,
+      "message": "you should return a tuple: True, found",
+      "range": {
+        "startLine": 209,
+        "startChar": 15,
+        "endLine": 209,
+        "endChar": 20
+      },
+      "revId": "45ec204c0326280730bea2f5d32727850ae9c111",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
