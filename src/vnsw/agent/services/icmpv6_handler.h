@@ -7,6 +7,7 @@
 
 #include "pkt/proto_handler.h"
 
+#define IPV6_ADDR_SIZE_BYTES  16
 #define IPV6_ICMP_NEXT_HEADER 58
 
 // ICMPv6 protocol handler
@@ -16,6 +17,7 @@ public:
     static const Ip6Address::bytes_type kSuffix;
     static const Ip6Address kSolicitedNodeIpPrefix;
     static const Ip6Address kSolicitedNodeIpSuffixMask;
+    static const uint8_t kIPv6AddrUnspecifiedBytes[IPV6_ADDR_SIZE_BYTES];
     Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
                   boost::asio::io_service &io);
     virtual ~Icmpv6Handler();
@@ -45,6 +47,7 @@ private:
     void Ipv6Lower24BitsExtract(uint8_t *dst, uint8_t *src);
     void Ipv6AddressBitwiseOr(uint8_t *dst, uint8_t *src);
     bool IsDefaultGatewayConfigured(uint32_t ifindex, const Ip6Address &addr);
+    bool IsIPv6AddrUnspecifiedBytes(const uint8_t *ip);
 
     icmp6_hdr *icmp_;
     uint16_t icmp_len_;
