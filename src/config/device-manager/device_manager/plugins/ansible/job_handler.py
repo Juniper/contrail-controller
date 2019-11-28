@@ -19,6 +19,7 @@ class JobStatus(Enum):
     IN_PROGRESS = "IN_PROGRESS"
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
+    WARNING = "WARNING"
 
     @staticmethod
     def from_str(status):
@@ -30,6 +31,8 @@ class JobStatus(Enum):
             return JobStatus.SUCCESS
         elif status == JobStatus.FAILURE.value:
             return JobStatus.FAILURE
+        elif status == JobStatus.WARNING.value:
+            return JobStatus.WARNING
         else:
             raise NotImplementedError
 # end class JobStatus
@@ -199,7 +202,8 @@ class JobHandler(object):
 
     def _is_job_done(self):
         if self._job_status == JobStatus.SUCCESS or \
-                self._job_status == JobStatus.FAILURE:
+                self._job_status == JobStatus.FAILURE or \
+                self._job_status == JobStatus.WARNING:
             return True
         return False
     # end _is_job_done
