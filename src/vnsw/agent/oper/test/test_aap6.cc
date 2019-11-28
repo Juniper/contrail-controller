@@ -39,6 +39,7 @@
 using namespace boost::assign;
 
 MacAddress zero_mac;
+uint8_t zero_addr[16] = { 0 };
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -165,10 +166,19 @@ public:
         if (ntohs(eth->ether_type) == ETHERTYPE_IPV6) {
             struct ip6_hdr *ip6 = (struct ip6_hdr *) (eth + 1);
             if (ip6->ip6_nxt == IP6_ICMPV6TYPE) {
-                struct icmp6_hdr *icmpv6hdr = (struct icmp6_hdr *) (ip6 + 1);
-                if (icmpv6hdr->icmp6_type == ND_NEIGHBOR_SOLICIT) {
+                nd_neighbor_solicit *nshdr = (nd_neighbor_solicit *) (ip6 + 1);
+                if (nshdr->nd_ns_hdr.icmp6_type == ND_NEIGHBOR_SOLICIT) {
                     if (ip6->ip6_src.s6_addr[15] == 0x03) {
+                        // service ip set as per test case
                         valid_ipv6_ns_rcvd_++;
+                    } else if (!memcmp(ip6->ip6_src.s6_addr, zero_addr, 16)) {
+                        // service ip is 0::0, source link layer addr should
+                        // not be present
+                        nd_opt_hdr *nd_opt = (nd_opt_hdr *)(nshdr + 1);
+                        if ( ((uint8_t *) nd_opt >= (uint8_t *) (buf+len)) ||
+                             (nd_opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR) ) {
+                            valid_ipv6_ns_rcvd_++;
+                        }
                     }
                 }
             }
@@ -228,6 +238,41 @@ TEST_F(TestAap6, AddDel_2) {
             "routing-instance", "vrf1");
     client->WaitForIdle();
     EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
+}
+
+//Add and delete allowed address pair route with service ip 0::0
+TEST_F(TestAap6, AddDel_3) {
+    IpamInfo ipam_info_upd[] = {
+        {"fd10::", 96, "0::0", false, 1, "0::0"},
+    };
+    int max_wait_count=100;
+    Ip6Address ip = Ip6Address::from_string("fd10::10");
+    std::vector<IpAddress> v;
+    v.push_back(ip);
+
+    AddIPAM("vn1", ipam_info_upd, 1);
+    AddAap("intf1", 1, v);
+    EXPECT_TRUE(RouteFindV6("vrf1", ip, 128));
+    valid_ipv6_ns_rcvd_ = 0;
+
+    // register for getting the IPv6 NS pkts
+    TestPkt0Interface *tap = (TestPkt0Interface *)
+                    (Agent::GetInstance()->pkt()->control_interface());
+    tap->RegisterCallback(
+                boost::bind(&TestAap6::Pkt0IntfReceiveIPv6NS, this, _1, _2));
+
+    // wait for max_wait_count to check for ipv6 ns received
+    while ((max_wait_count > 0) && (valid_ipv6_ns_rcvd_ == 0)) {
+        usleep(100000);
+        client->WaitForIdle();
+        max_wait_count--;
+    }
+
+    EXPECT_TRUE(valid_ipv6_ns_rcvd_ > 0);
+
+    v.clear();
+    AddAap("intf1", 1, v);
+    EXPECT_FALSE(RouteFindV6("vrf1", ip, 128));
 }
 
 TEST_F(TestAap6, Update) {

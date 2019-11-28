@@ -24,6 +24,7 @@ const Ip6Address::bytes_type Icmpv6Handler::kSuffix =
     { {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF} };
 const Ip6Address Icmpv6Handler::kSolicitedNodeIpPrefix(kPrefix);
 const Ip6Address Icmpv6Handler::kSolicitedNodeIpSuffixMask(kSuffix);
+const uint8_t Icmpv6Handler::kIPv6AddrUnspecifiedBytes[IPV6_ADDR_SIZE_BYTES] = { 0 };
 
 Icmpv6Handler::Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
                              boost::asio::io_service &io)
@@ -294,6 +295,10 @@ void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
     Send(ifindex, vrfindex, command, PktHandler::ICMPV6);
 }
 
+bool Icmpv6Handler::IsIPv6AddrUnspecifiedBytes(const uint8_t *ip) {
+    return !memcmp(ip, Icmpv6Handler::kIPv6AddrUnspecifiedBytes, IPV6_ADDR_SIZE_BYTES);
+}
+
 uint16_t Icmpv6Handler::FillNeighborSolicit(uint8_t *buf,
                                             const Ip6Address &target,
                                             uint8_t *sip, uint8_t *dip) {
@@ -305,15 +310,16 @@ uint16_t Icmpv6Handler::FillNeighborSolicit(uint8_t *buf,
     memcpy(icmp->nd_ns_target.s6_addr, target.to_bytes().data(), 16);
     uint16_t offset = sizeof(nd_neighbor_solicit);
 
-    // add source linklayer address information
-    nd_opt_hdr *src_linklayer_addr = (nd_opt_hdr *)(buf + offset);
-    src_linklayer_addr->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
-    src_linklayer_addr->nd_opt_len = 1;
-    //XXX instead of ETHER_ADDR_LEN, actual buffer size should be given
-    //to preven buffer overrun.
-    agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
-
-    offset += sizeof(nd_opt_hdr) + ETHER_ADDR_LEN;
+    if (!IsIPv6AddrUnspecifiedBytes(sip)) {
+        // add source linklayer address information
+        nd_opt_hdr *src_linklayer_addr = (nd_opt_hdr *)(buf + offset);
+        src_linklayer_addr->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
+        src_linklayer_addr->nd_opt_len = 1;
+        //XXX instead of ETHER_ADDR_LEN, actual buffer size should be given
+        //to preven buffer overrun.
+        agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
+        offset += sizeof(nd_opt_hdr) + ETHER_ADDR_LEN;
+    }
 
     icmp->nd_ns_cksum = Icmpv6Csum(sip, dip, (icmp6_hdr *)icmp, offset);
     return offset;
