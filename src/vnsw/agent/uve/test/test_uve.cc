@@ -546,6 +546,15 @@ TEST_F(UveTest, SandeshTest) {
 /* Service IPs are not configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
     Agent *agent = Agent::GetInstance();
+    AgentParamTest params(agent->params());
+    agent->reset_controller_ifmap_xmpp_server(0);
+    agent->reset_controller_ifmap_xmpp_server(1);
+    agent->reset_dns_server(0);
+    agent->reset_dns_server(1);
+    params.set_controller_server_list("");
+    params.set_dns_server_list("");
+    params.set_collector_server_list("");
+    client->WaitForIdle();
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
 
     uint8_t num_c_nodes, num_d_servers;
