@@ -245,6 +245,14 @@ public:
     }
     uint32_t vn_max_flows() const {return vn_max_flows_;}
 
+    const VrfEntry* lr_vrf() const {
+        return lr_vrf_.get();
+    }
+
+    void set_lr_vrf(const VrfEntry *vrf) {
+        lr_vrf_.reset(vrf);
+    }
+
 private:
     friend class VnTable;
     bool Resync(Agent *agent);
@@ -301,6 +309,7 @@ private:
     UuidList mp_list_;
     bool cfg_igmp_enable_;
     uint32_t vn_max_flows_;
+    VrfEntryConstRef lr_vrf_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
