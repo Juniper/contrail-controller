@@ -153,7 +153,9 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
     for (Icmpv6Proto::VmInterfaceMap::const_iterator it = interfaces.begin();
          it != interfaces.end(); ++it) {
         VmInterface *vmi = it->first;
-        if (vmi->vmi_type() == VmInterface::VHOST) {
+        if (vmi->vmi_type() == VmInterface::VHOST ||
+            (vmi->vmi_type() == VmInterface::BAREMETAL &&
+             vmi->vn() != NULL && vmi->vn()->lr_vrf() != NULL)) {
             continue;
         }
 
@@ -161,6 +163,12 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
             pkt_info_->AllocPacketBuffer(agent(), PktHandler::ICMPV6, ICMP_PKT_SIZE, 0);
             pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
             pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
+            /* For baremetal/local vm set the appropriate information that will be used
+             * to decide to route/switch the RA packet to the TOR switch
+             */
+            pkt_info_->agent_hdr.cmd =
+                (vmi->vmi_type() == VmInterface::BAREMETAL) ?
+                    AgentHdr::TRAP_TOR_CONTROL_PKT:AgentHdr::TX_SWITCH;
             uint32_t vlan_offset = 0;
             if (vmi->tx_vlan_id() != VmInterface::kInvalidVlanId)
                 vlan_offset += 4;
