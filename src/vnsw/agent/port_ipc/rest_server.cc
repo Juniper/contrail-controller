@@ -16,6 +16,7 @@
 #include "base/contrail_ports.h"
 #include "port_ipc/port_ipc_handler.h"
 #include "cmn/agent.h"
+#include "init/agent_param.h"
 #include "rest_server.h"
 #include "rest_common.h"
 
@@ -254,7 +255,20 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         &RESTServer::VmPortDisableHandler));
 
 RESTServer::RESTServer(Agent *agent)
-    : agent_(agent), http_server_(new HttpServer(agent->event_manager())) {
+    : agent_(agent) {
+
+    struct SslConfig sslConfig;
+    sslConfig.ssl_enabled = agent->params()->port_ipc_ssl_enable();
+    sslConfig.ca_cert = agent->params()->port_ipc_ca_cert();
+    sslConfig.certfile = agent->params()->port_ipc_cert();
+    sslConfig.keyfile = agent->params()->port_ipc_key();
+    std::cout << "SSL " << sslConfig.ssl_enabled
+              << "Ca Cert " << sslConfig.ca_cert
+              << "Cert " << sslConfig.certfile
+              << "Key " << sslConfig.keyfile
+              << std::endl;
+    http_server_ = new HttpServer(agent->event_manager(), sslConfig);
+
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
         boost::bind(&RESTServer::HandleRequest, this, _1, _2));
 }
