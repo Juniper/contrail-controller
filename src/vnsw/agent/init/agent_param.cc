@@ -596,6 +596,18 @@ void AgentParam::ParseMetadataProxyArguments
                         "METADATA.metadata_ca_cert");
 }
 
+void AgentParam::ParsePortIPCArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, port_ipc_ssl_enable_,
+                        "PORT-IPC.port_ipc_ssl_enable");
+    GetOptValue<string>(var_map, port_ipc_cert_,
+                        "PORT-IPC.port_ipc_cert");
+    GetOptValue<string>(var_map, port_ipc_key_,
+                        "PORT-IPC.port_ipc_key");
+    GetOptValue<string>(var_map, port_ipc_ca_cert_,
+                        "PORT-IPC.port_ipc_ca_cert");
+}
+
 void AgentParam::ParseFlowArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<uint16_t>(var_map, flow_thread_count_,
@@ -1048,6 +1060,7 @@ void AgentParam::ProcessArguments() {
     ParseTaskSectionArguments(var_map_);
     ParseFlowArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
+    // ParsePortIPCArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
     ParseSimulateEvpnTorArguments(var_map_);
@@ -1489,6 +1502,13 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Metadata CA Certificate         : " << metadata_ca_cert_);
     }
 
+    LOG(DEBUG, "PORT IPC SSL Flag           : " << port_ipc_ssl_enable_);
+    if (port_ipc_ssl_enable_) {
+        LOG(DEBUG, "PORT IPC Certificate            : " << port_ipc_cert_);
+        LOG(DEBUG, "PORT IPC Key                    : " << port_ipc_key_);
+        LOG(DEBUG, "PORT IPC CA Certificate         : " << port_ipc_ca_cert_);
+    }
+
     LOG(DEBUG, "Max Vm Flows                : " << max_vm_flows_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
@@ -1631,7 +1651,10 @@ AgentParam::AgentParam(bool enable_flow_options,
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
         metadata_proxy_port_(0), metadata_use_ssl_(false),
         metadata_client_cert_(""), metadata_client_cert_type_("PEM"),
-        metadata_client_key_(""), metadata_ca_cert_(""), max_vm_flows_(),
+        metadata_client_key_(""), metadata_ca_cert_(""),
+        port_ipc_ssl_enable_(true), port_ipc_cert_("/etc/contrail/ssl/certs/server.pem"),
+        port_ipc_key_("/etc/contrail/ssl/private/server-privkey.pem"), port_ipc_ca_cert_("/etc/contrail/ssl/certs/ca-cert.pem"),
+        max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), flow_index_sm_log_count_(),
         flow_add_tokens_(Agent::kFlowAddTokens),
@@ -1998,6 +2021,20 @@ AgentParam::AgentParam(bool enable_flow_options,
           "METADATA Client ssl private key")
         ("METADATA.metadata_ca_cert", opt::value<string>()->default_value(""),
           "METADATA CA ssl certificate")
+#if 0
+        ("PORT-IPC.port_ipc_ssl_enable",
+         opt::bool_switch(&port_ipc_ssl_enable_),
+         "Enable SSL for PORT IPC connection")
+        ("PORT-IPC.port_ipc_keyfile", opt::value<std::string>()->default_value(
+         "/etc/contrail/ssl/private/server-privkey.pem"),
+         "PORT IPC SSL private key")
+        ("PORT-IPC.port_ipc_certfile", opt::value<std::string>()->default_value(
+         "/etc/contrail/ssl/certs/server.pem"),
+         "PORT IPC SSL certificate")
+        ("PORT-IPC.port_ipc_ca_cert", opt::value<std::string>()->default_value(
+         "/etc/contrail/ssl/certs/ca-cert.pem"),
+         "PORT IPC CA SSL certificate")
+#endif
         ("NETWORKS.control_network_ip", opt::value<string>(),
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),

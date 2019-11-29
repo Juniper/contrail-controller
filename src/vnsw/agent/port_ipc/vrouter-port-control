@@ -14,6 +14,9 @@ import datetime
 import re
 import time
 import socket
+from six.moves import configparser
+import os.path
+from os import path
 
 PORT_PATH = "/var/lib/contrail/ports/"
 PORT_IPC_VROUTER_AGENT_PORT = 9091
@@ -37,7 +40,29 @@ class VrouterPortControl(object):
         port_type_value = 0
         ret_code = 0
         headers = {'content-type': 'application/json'}
-        base_url = "http://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
+
+        port_ipc_conf = {
+            'port_ipc_use_ssl' : 'false',
+            'port_ipc_insecure_enable' : 'true',
+            'port_ipc_certfile' : '/etc/contrail/ssl/certs/server.pem',
+            'port_ipc_keyfile' : '/etc/contrail/ssl/private/server-privkey.pem',
+            'port_ipc_ca_cert' : '/etc/contrail/ssl/certs/ca-cert.pem'
+        }
+
+        if path.exists('/etc/contrail/port-ipc.conf'):
+            cfg = configparser.SafeConfigParser()
+            cfg.read('/etc/contrail/port-ipc.conf')
+            port_ipc_conf.update(dict(cfg.items("PORT-IPC")))
+
+        if (port_ipc_conf['port_ipc_use_ssl'] == 'true'):
+            base_url = "https://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
+            certfile = port_ipc_conf['port_ipc_certfile']
+            keyfile = port_ipc_conf['port_ipc_keyfile']
+            certificate = (certfile, keyfile)
+            ca_cert = port_ipc_conf['port_ipc_ca_cert']
+        else:
+            base_url = "http://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
+
         if self._args.oper == "add":
             if self._args.vif_type == "VhostUser":
                 if not self._args.vhostuser_socket:
@@ -71,7 +96,18 @@ class VrouterPortControl(object):
                 '''We post the request to agent even if WriteToFile has failed.
                    Agent will write to file if file is not already present
                 '''
-                r = requests.post(url, data=json_dump, headers=headers)
+                if (port_ipc_conf['port_ipc_use_ssl'] == 'true'):
+                    if (port_ipc_conf['port_ipc_insecure_enable'] == 'true'):
+                        r = requests.post(url, data=json_dump,
+                                            headers=headers, cert=certificate,
+                                            verify=False)
+                    else:
+                        r = requests.post(url, data=json_dump,
+                                            headers=headers, cert=certificate,
+                                            verify=ca_cert)
+                else:
+                    r = requests.post(url, data=json_dump, headers=headers)
+
                 '''Overwrite the ret_code based on agent response '''
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
@@ -96,7 +132,17 @@ class VrouterPortControl(object):
                 self.DeleteFile()
             url = base_url + "/port/" + self._args.uuid
             try:
-                r = requests.delete(url, data=None, headers=headers)
+                if (port_ipc_conf['port_ipc_use_ssl'] == 'true'):
+                    if (port_ipc_conf['port_ipc_insecure_enable'] == 'true'):
+                        r = requests.delete(url, data=None,
+                                            headers=headers, cert=certificate,
+                                            verify=False)
+                    else:
+                        r = requests.delete(url, data=None,
+                                            headers=headers, cert=certificate,
+                                            verify=ca_cert)
+                else:
+                    r = requests.delete(url, data=None, headers=headers)
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
                     ret_code = 1
@@ -110,7 +156,17 @@ class VrouterPortControl(object):
                     self.WriteToFile(port_data)
             url = base_url + "/enable-port/" + self._args.uuid
             try:
-                r = requests.put(url, data=None, headers=headers)
+                if (port_ipc_conf['port_ipc_use_ssl'] == 'true'):
+                    if (port_ipc_conf['port_ipc_insecure_enable'] == 'true'):
+                        r = requests.put(url, data=None,
+                                            headers=headers, cert=certificate,
+                                            verify=False)
+                    else:
+                        r = requests.put(url, data=None,
+                                            headers=headers, cert=certificate,
+                                            verify=ca_cert)
+                else:
+                    r = requests.put(url, data=None, headers=headers)
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
                     ret_code = 1
@@ -125,7 +181,17 @@ class VrouterPortControl(object):
                         self.WriteToFile(port_data)
             url = base_url + "/disable-port/" + self._args.uuid
             try:
-                r = requests.put(url, data=None, headers=headers)
+                if (port_ipc_conf['port_ipc_use_ssl'] == 'true'):
+                    if (port_ipc_conf['port_ipc_insecure_enable'] == 'true'):
+                        r = requests.put(url, data=None,
+                                            headers=headers, cert=certificate,
+                                            verify=False)
+                    else:
+                        r = requests.put(url, data=None,
+                                            headers=headers, cert=certificate,
+                                            verify=ca_cert)
+                else:
+                    r = requests.put(url, data=None, headers=headers)
                 if r.status_code != 200:
                     print "Request failed: %s" % r.text
                     ret_code = 1

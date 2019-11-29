@@ -14,6 +14,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"crypto/tls"
+	"crypto/x509"
 	"os"
 	"strconv"
 	"strings"
@@ -45,10 +47,72 @@ type VRouter struct {
 	containerVn   string
 	VmiUuid       string
 	httpClient    *http.Client
+	UseSSL        bool
+}
+
+type Kvmap map[string]string
+type SectionMap map[string]Kvmap
+
+type CONF struct {
+    sections SectionMap
+}
+
+func New() *CONF {
+	ini := &CONF{
+		sections:     make(SectionMap),
+	}
+	return ini
 }
 
 type vrouterJson struct {
 	VRouter VRouter `json:"contrail"`
+}
+
+func parse_conf_file() *CONF {
+
+	contents, err := ioutil.ReadFile("config.conf")
+	if err != nil {
+		os.Exit(1)
+	}
+
+	conf := New()
+
+	// Insert the default section
+	var section string
+	var kvmap = make(Kvmap)
+
+	lines := bytes.Split(contents, []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		size := len(line)
+		if size == 0 {
+			// Skip blank lines
+			continue
+		}
+		if line[0] == ';' || line[0] == '#' {
+			// Skip comments
+			continue
+		}
+		if line[0] == '[' && line[size-1] == ']' {
+			// Parse INI-Section
+			section = string(line[1 : size-1])
+			fmt.Printf("%s\n", section)
+			kvmap = make(Kvmap)
+			conf.sections[section] = kvmap
+			continue
+		}
+
+		pos := bytes.Index(line, []byte("="))
+		if pos < 0 {
+			// ERROR happened when parsing
+			os.Exit(1)
+		}
+
+		k := bytes.TrimSpace(line[0:pos])
+		v := bytes.TrimSpace(line[pos+len("="):])
+		kvmap[string(k)] = string(v)
+	}
+	return conf
 }
 
 // Make filename to store config
@@ -64,7 +128,13 @@ func (vrouter *VRouter) makeFileName(VmiUUID string) string {
 // Make URL for operation
 func (vrouter *VRouter) makeUrl(containerUuid, containerVn,
 	page string) string {
-	url := "http://" + vrouter.Server + ":" + strconv.Itoa(vrouter.Port) + page
+
+	var url = ""
+	if vrouter.UseSSL {
+		url = "https://" + vrouter.Server + ":" + strconv.Itoa(vrouter.Port) + page
+	} else {
+		url = "http://" + vrouter.Server + ":" + strconv.Itoa(vrouter.Port) + page
+	}
 	if len(containerUuid) > 0 {
 		url = url + "/" + vrouter.containerUuid
 	}
@@ -527,7 +597,77 @@ func (vrouter *VRouter) Log() {
 }
 
 func VRouterInit(stdinData []byte) (*VRouter, error) {
+
+	conf := parse_conf_file()
+
+	var use_ssl = "false"
+	var insecure_enable = "false"
+	var cert = string("/etc/contrail/ssl/certs/server.pem")
+	var key = string("/etc/contrail/ssl/private/server-privkey.pem")
+	var ca_cert = string("/etc/contrail/ssl/certs/ca-cert.pem")
+	var ok = true
+	if s := conf.sections["PORT-IPC"]; s != nil {
+		use_ssl, ok = s["port_ipc_use_ssl"]
+		if ok {
+			insecure_enable, ok = s["port_ipc_insecure_enable"]
+		}
+		if ok {
+			cert, ok = s["port_ipc_certfile"]
+		}
+		if ok {
+			key, ok = s["port_ipc_keyfile"]
+		}
+		if ok {
+			ca_cert, ok = s["port_ipc_cacert"]
+		}
+		if !ok {
+			msg := fmt.Sprintf("Configuration file parsing error.\n")
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+	} else {
+		use_ssl = "false"
+		insecure_enable = "false"
+	}
+
+	// Create a HTTPS client and supply the created CA pool and certificate
 	httpClient := new(http.Client)
+
+	if use_ssl == "true" {
+		// Read the key pair to create certificate
+		certificate, err:= tls.LoadX509KeyPair (cert, key)
+		if err!=nil {
+			msg := fmt.Sprintf("Unable to load certificate. Error : %v \nString %s\n",
+						err, stdinData)
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+
+		// Create a CA certificate pool and add cert.pem to it
+		ca_cert = string("ca_cert.pem")
+		caCertificate, err:= ioutil.ReadFile (ca_cert)
+		if err!=nil {
+			msg := fmt.Sprintf("Invalid file path. Error : %v \nString %s\n",
+						err, stdinData)
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+
+		caCertPool:= x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCertificate)
+		var insecure = false
+		if insecure_enable == "true" {
+			insecure = true
+		}
+		httpClient.Transport = &http.Transport{
+				TLSClientConfig:&tls.Config{
+					RootCAs: caCertPool,
+					Certificates: []tls.Certificate{certificate},
+					InsecureSkipVerify: insecure,
+				},
+			}
+	}
+
 	vrouter := VRouter{Server: VROUTER_AGENT_IP, Port: VROUTER_AGENT_PORT,
 		Dir: VROUTER_CONFIG_DIR, PollTimeout: VROUTER_POLL_TIMEOUT,
 		PollRetries: VROUTER_POLL_RETRIES, containerId: "", containerUuid: "",
