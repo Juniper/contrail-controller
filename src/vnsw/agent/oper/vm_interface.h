@@ -1209,6 +1209,8 @@ public:
     bool fabric_port() const { return fabric_port_; }
     bool need_linklocal_ip() const { return  need_linklocal_ip_; }
     bool drop_new_flows() const { return drop_new_flows_; }
+    void set_device_type(VmInterface::DeviceType type) {device_type_ = type;}
+    void set_vmi_type(VmInterface::VmiType type) {vmi_type_ = type;}
     VmInterface::DeviceType device_type() const {return device_type_;}
     VmInterface::VmiType vmi_type() const {return vmi_type_;}
     VmInterface::HbsIntfType hbs_intf_type() const {return hbs_intf_type_;}
