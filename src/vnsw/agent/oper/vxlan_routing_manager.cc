@@ -838,8 +838,10 @@ void VxlanRoutingManager::HandleDefaultRoute(const VrfEntry *vrf, bool bridge_vr
             vrf_mapper_.GetRoutingVrfUsingVn(vrf->vn());
         if (!routing_vrf || vrf->IsDeleted()) {
             DeleteDefaultRoute(vrf);
+            vrf->vn()->set_lr_vrf(NULL);
         } else {
             UpdateDefaultRoute(vrf, routing_vrf);
+            vrf->vn()->set_lr_vrf(routing_vrf);
         }
     } else if (bridge_vrf) {
         if (vrf->IsDeleted()) {

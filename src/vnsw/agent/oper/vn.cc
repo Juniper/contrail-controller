@@ -103,7 +103,8 @@ VnEntry::VnEntry(Agent *agent, boost::uuids::uuid id) :
     enable_rpf_(true), flood_unknown_unicast_(false),
     forwarding_mode_(Agent::L2_L3), mirror_destination_(false),
     underlay_forwarding_(false), vxlan_routing_vn_(false),
-    logical_router_uuid_(), cfg_igmp_enable_(false), vn_max_flows_(0) {
+    logical_router_uuid_(), cfg_igmp_enable_(false), vn_max_flows_(0),
+    lr_vrf_(NULL, this) {
 }
 
 VnEntry::~VnEntry() {
