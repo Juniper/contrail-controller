@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "50517a74_7ac5eeb1",
+        "filename": "src/vnsw/agent/vrouter/ksync/route_ksync.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 404,
+      "author": {
+        "id": 641
+      },
+      "writtenOn": "2019-12-02T08:57:33Z",
+      "side": 1,
+      "message": "Why is UT not added for this case?",
+      "revId": "a80e81f8e82ae4c2060d66ec18bd75acbc9a7dc0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
