@@ -137,6 +137,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
             delete entry;
             return "Invalid mirror destination address ";
         }
+        sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
         MirrorTable::AddMirrorEntry(entry->key.handle, entry->data.mirror_vrf,
                                     sip, agent_cfg_->agent()->mirror_port(),
                                     dest_ip, entry->data.udp_port,
