@@ -2377,6 +2377,12 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
             SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
     } else {
         sp->action_summary = (1 << TrafficAction::PASS);
+        if (sp->action & (1 << TrafficAction::HBS) ||
+            sp->out_action & (1 << TrafficAction::HBS) ||
+            sp->reverse_action & (1 << TrafficAction::HBS) ||
+            sp->reverse_out_action & (1 << TrafficAction::HBS)) {
+            sp->action_summary|=(1 << TrafficAction::HBS);
+        }
         if (!ShouldDrop(sp->action | sp->out_action)) {
             SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
         } else if (!ShouldDrop(sp->reverse_action | sp->reverse_out_action)) {
