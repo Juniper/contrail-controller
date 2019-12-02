@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7e3455cd_663fe52a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/ztp_dhcp_config/templates/dnsmasq.conf.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-02T21:39:20Z",
+      "side": 1,
+      "message": "in else we dont have subnet name.",
+      "revId": "9ff412a1f79682bf2f26dff03bb2bd9288ece888",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
