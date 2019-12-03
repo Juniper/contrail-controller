@@ -494,12 +494,12 @@ class AnsibleConf(AnsibleBase):
 
         peer_pr_uuid = peer.physical_router
         peer_pr = PhysicalRouterDM.get(peer_pr_uuid)
-        if peer_pr and "Route-Reflector" in peer_pr.routing_bridging_roles\
+        if external:
+            self.external_peers[router] = peer_data
+        elif peer_pr and "Route-Reflector" in peer_pr.routing_bridging_roles\
                 and "Route-Reflector" in \
                 self.physical_router.routing_bridging_roles:
             self.rr_peers[router] = peer_data
-        elif external:
-            self.external_peers[router] = peer_data
         else:
             self.bgp_peers[router] = peer_data
     # end add_peer
