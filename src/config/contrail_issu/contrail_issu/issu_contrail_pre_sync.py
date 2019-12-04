@@ -3,10 +3,11 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from issu_contrail_common import ICCassandraClient
+from __future__ import absolute_import
+from .issu_contrail_common import ICCassandraClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import logging
-import issu_contrail_config
+from . import issu_contrail_config
 
 
 def _issu_cassandra_pre_sync_main():

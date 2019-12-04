@@ -3,14 +3,16 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
+from __future__ import print_function
+from __future__ import absolute_import
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from issu_contrail_common import ICCassandraClient
+from .issu_contrail_common import ICCassandraClient
 import logging
-import issu_contrail_config
+from . import issu_contrail_config
 
 
 def _myprint(x, level):
-    print x
+    print(x)
     logging.info(x)
 
 def _issu_cassandra_post_sync_main():
