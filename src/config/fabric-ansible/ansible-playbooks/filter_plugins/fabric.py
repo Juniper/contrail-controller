@@ -2587,6 +2587,7 @@ class FilterModule(object):
             local_li = LogicalInterface(
                 name=li_name,
                 fq_name=li_fq_name,
+                display_name=li_name.replace('_', ':'),
                 parent_type='physical-interface',
                 logical_interface_type='l3'
             )
