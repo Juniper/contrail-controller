@@ -16,6 +16,24 @@
       "revId": "8c3668393b17a627be2e3788f736f32a12d600d4",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "23679740_18979db3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_bgp/templates/juniper_junos_overlay_bgp.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-12-04T17:14:39Z",
+      "side": 1,
+      "message": "I assume we are reading all the faimilies which are part of the bgp router object and adding them as part of the build_bgp_config.\n\nWhile creating the BGP Router we are adding only the 4 families (\"inet-vpn\",\"inet6-vpn\",\"route-target\",\"e-vpn\"). \n\nBut this family \"inter-labeled\" user selected/added from the contrail-command for the BGPRouter related to MX box.",
+      "parentUuid": "945e32dd_a3df3678",
+      "revId": "8c3668393b17a627be2e3788f736f32a12d600d4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
