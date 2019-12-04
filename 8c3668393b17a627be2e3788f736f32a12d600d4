@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "945e32dd_a3df3678",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_bgp/templates/juniper_junos_overlay_bgp.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-04T16:55:26Z",
+      "side": 1,
+      "message": "where in the abstract config generation code are we setting the family to \u0027inet-labeled\u0027?",
+      "revId": "8c3668393b17a627be2e3788f736f32a12d600d4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
