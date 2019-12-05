@@ -360,7 +360,7 @@
               for a PNF service.
             * The routing-instance is the default routing-instance of a
               virtual-network that has one or more policies that apply a
-              PNF service.
+              PNF service
         </xsd:documentation>
     </xsd:annotation>
 <!--#IFMAP-SEMANTICS-IDL
