@@ -3,6 +3,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import os
 import sys
 import errno
@@ -80,7 +84,7 @@ class ContrailConfigCmd(object):
     #end _parse_args
 
     def _delete_default_security_groups(self, objs, type):
-        for obj in objs.values():
+        for obj in list(objs.values()):
             if obj['type'] != type:
                 continue
 
@@ -95,7 +99,7 @@ class ContrailConfigCmd(object):
     #end _delete_default_security_groups
 
     def _create_objects(self, objs, type):
-        for obj in objs.values():
+        for obj in list(objs.values()):
             if obj['type'] != type:
                 continue
             if obj['created']:
@@ -103,7 +107,7 @@ class ContrailConfigCmd(object):
 
             #create object with these keys
             create_obj = {}
-            for key, val in obj['data'].items():
+            for key, val in list(obj['data'].items()):
                 if key not in ['uuid', 'fq_name', 'id_perms',
                                'parent_type', 'virtual_network_refs',
                                'network_ipam_refs', 'network_ipam_mgmt']:
@@ -130,7 +134,7 @@ class ContrailConfigCmd(object):
     #end _create_objects
 
     def _update_objects(self, objs, type):
-        for obj in objs.values():
+        for obj in list(objs.values()):
             if obj['type'] != type:
                 continue
 
@@ -195,8 +199,8 @@ class ContrailConfigCmd(object):
 
         #create hierarchy
         hierarchy = {}
-        for obj in objs.values():
-            if not 'parent_type' in obj['data'].keys():
+        for obj in list(objs.values()):
+            if not 'parent_type' in list(obj['data'].keys()):
                 if obj['type'] not in hierarchy:
                     hierarchy[obj['type']] = []
             elif not obj['data']['parent_type'] in hierarchy:
@@ -208,9 +212,9 @@ class ContrailConfigCmd(object):
 
         #find top level
         top_list = []
-        for key, val in hierarchy.items():
+        for key, val in list(hierarchy.items()):
             top_level = True
-            for values in hierarchy.values():
+            for values in list(hierarchy.values()):
                 if key in values:
                     top_level = False
                     break

@@ -4,10 +4,15 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 import sys
 import time
 import argparse
-import ConfigParser
+import configparser
 from vnc_api.vnc_api import *
 from cfgm_common.exceptions import *
 from vnc_admin_api import VncApiAdmin
@@ -94,7 +99,7 @@ class VrouterProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():
@@ -202,7 +207,7 @@ class VrouterProvisioner(object):
 # end class VrouterProvisioner
 
 
-class GetVrouter():
+class GetVrouter(object):
     def __init__(self, handle, name = ''):
         self.vrouter_name = name
         self.handle = handle
@@ -211,7 +216,7 @@ class GetVrouter():
         vrouter = None
         vrouter_list=self.handle.virtual_routers_list()
         for i in range(len(vrouter_list['virtual-routers'])):
-            if unicode(self.vrouter_name) == vrouter_list['virtual-routers'][i]['fq_name'][1]:
+            if str(self.vrouter_name) == vrouter_list['virtual-routers'][i]['fq_name'][1]:
                 self.uuid=vrouter_list['virtual-routers'][i]['uuid']
                 vrouter = self.handle.virtual_router_read(id = self.uuid)
         if not vrouter:
@@ -219,7 +224,7 @@ class GetVrouter():
         return vrouter
 # end class GetVrouter
 
-class GetDevice():
+class GetDevice(object):
     def __init__(self, handle, name = ''):
         self.physical_device_name = name
         self.handle = handle
@@ -227,7 +232,7 @@ class GetDevice():
         uuid=''
         phy_rt_list=self.handle.physical_routers_list()
         for i in range(len(phy_rt_list['physical-routers'])):
-            if unicode(self.physical_device_name) == phy_rt_list['physical-routers'][i]['fq_name'][1]: 
+            if str(self.physical_device_name) == phy_rt_list['physical-routers'][i]['fq_name'][1]: 
                 uuid=phy_rt_list['physical-routers'][i]['uuid']
         return uuid
 # end class GetDevice

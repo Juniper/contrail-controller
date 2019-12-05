@@ -3,6 +3,8 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import unicode_literals
+from builtins import str
+from builtins import range
 import logging
 from netaddr import IPNetwork, IPAddress
 from six import text_type

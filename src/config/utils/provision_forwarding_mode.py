@@ -4,9 +4,12 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import argparse
-import ConfigParser
+import configparser
 
 from vnc_api.vnc_api import *
 from vnc_admin_api import VncApiAdmin

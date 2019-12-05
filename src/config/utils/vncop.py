@@ -2,6 +2,7 @@ from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import object
 import argparse
 import uuid
 import os
@@ -24,7 +25,7 @@ def str_to_class(class_name):
     return reduce(getattr, class_name.split("."), sys.modules[__name__])
 
 
-class VncOp():
+class VncOp(object):
 
     def parse_args(self):
         # Eg. python vnc_op.py VirtualNetwork

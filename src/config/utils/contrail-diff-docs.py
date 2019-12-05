@@ -4,6 +4,7 @@
 #
 
 from __future__ import print_function
+from builtins import object
 import sys
 import json
 
@@ -58,13 +59,13 @@ class DocDiff(object):
             for mname in intersect_mnames \
             if old_mdict[mname] != new_mdict[mname] }
         content_modified_messages = [ mname for mname in \
-            modified_messages.keys() if \
+            list(modified_messages.keys()) if \
             modified_messages[mname][0]["fingerprint"] != \
             modified_messages[mname][1]["fingerprint"] ]
         severity_modified_messages =  { mname : \
             (modified_messages[mname][0]["severity"], \
              modified_messages[mname][1]["severity"]) for mname in \
-            modified_messages.keys() if \
+            list(modified_messages.keys()) if \
             modified_messages[mname][0]["severity"] != \
             modified_messages[mname][1]["severity"] }
         return added_messages, removed_messages, modified_messages, \

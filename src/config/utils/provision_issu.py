@@ -4,10 +4,13 @@
 #
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import time
 import argparse
-import ConfigParser
+import configparser
 
 from vnc_api.vnc_api import *
 from cfgm_common.exceptions import *
@@ -77,7 +80,7 @@ class ISSUContrailPostProvisioner(object):
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read(args.conf_file)
             defaults.update(dict(config.items("DEFAULTS")))
 
@@ -141,7 +144,7 @@ class ISSUContrailPostProvisioner(object):
     def add_nodes(self):
         gsc_obj = self._global_system_config_obj
 
-        for k,v in self._args.db_host_info.items():
+        for k,v in list(self._args.db_host_info.items()):
             database_node_obj = DatabaseNode(
                 v, gsc_obj,
                 database_node_ip_address=k)
@@ -159,7 +162,7 @@ class ISSUContrailPostProvisioner(object):
                 print("created")
                 self._vnc_lib.database_node_create(database_node_obj)
 
-        for k,v in self._args.config_host_info.items():
+        for k,v in list(self._args.config_host_info.items()):
             config_node_obj = ConfigNode(
                 v, gsc_obj,
                 config_node_ip_address=k)
@@ -177,7 +180,7 @@ class ISSUContrailPostProvisioner(object):
                 print("created config")
                 self._vnc_lib.config_node_create(config_node_obj)
 
-        for k,v in self._args.analytics_host_info.items():
+        for k,v in list(self._args.analytics_host_info.items()):
             analytics_node_obj = AnalyticsNode(
                 v, gsc_obj,
                 analytics_node_ip_address=k)
@@ -201,9 +204,9 @@ class ISSUContrailPostProvisioner(object):
     def del_nodes(self):
         # Delete old database node
         node_list = self._vnc_lib.database_nodes_list()
-        node_list_values = node_list.values()
+        node_list_values = list(node_list.values())
         db_name_list=[]
-        for k,v in self._args.db_host_info.items():
+        for k,v in list(self._args.db_host_info.items()):
             db_name_list.append(v)
         for node_list_value in node_list_values[0]:
             if node_list_value['fq_name'][1] in db_name_list:
@@ -214,9 +217,9 @@ class ISSUContrailPostProvisioner(object):
 
         # Delete old analytics node
         node_list = self._vnc_lib.analytics_nodes_list()
-        node_list_values = node_list.values()
+        node_list_values = list(node_list.values())
         analytics_name_list=[]
-        for k,v in self._args.analytics_host_info.items():
+        for k,v in list(self._args.analytics_host_info.items()):
             analytics_name_list.append(v)
         for node_list_value in node_list_values[0]:
             if node_list_value['fq_name'][1] in analytics_name_list:
@@ -227,9 +230,9 @@ class ISSUContrailPostProvisioner(object):
 
         # Delete old config node
         node_list = self._vnc_lib.config_nodes_list()
-        node_list_values = node_list.values()
+        node_list_values = list(node_list.values())
         config_name_list=[]
-        for k,v in self._args.config_host_info.items():
+        for k,v in list(self._args.config_host_info.items()):
             config_name_list.append(v)
         for node_list_value in node_list_values[0]:
             if node_list_value['fq_name'][1] in config_name_list:
@@ -240,9 +243,9 @@ class ISSUContrailPostProvisioner(object):
 
         # Delete old control node
         node_list = self._vnc_lib.bgp_routers_list()
-        node_list_values = node_list.values()
+        node_list_values = list(node_list.values())
         control_name_list=[]
-        for k,v in self._args.control_host_info.items():
+        for k,v in list(self._args.control_host_info.items()):
             control_name_list.append(v)
         for node_list_value in node_list_values[0]:
             router_info = self._vnc_lib.bgp_router_read(id=node_list_value['uuid'])
@@ -262,7 +265,7 @@ class ISSUContrailPostProvisioner(object):
 
     def delete_tsn_nodes(self):
         PRs = []
-        del_virtual_routers = self._args.del_compute_host_info.values()
+        del_virtual_routers = list(self._args.del_compute_host_info.values())
         PRs = self._vnc_lib.physical_routers_list()['physical-routers']
         # get associated tsn
         for PR in PRs:

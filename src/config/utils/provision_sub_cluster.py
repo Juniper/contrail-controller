@@ -19,10 +19,13 @@
 # --sub_cluster_name issu-vm4 --oper add --openstack_ip 10.87.64.55
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import sys
 import time
 import argparse
-import ConfigParser
+import configparser
 
 from vnc_api.vnc_api import *
 from cfgm_common.exceptions import *
@@ -97,7 +100,7 @@ class SubClusterProvisioner(object):
         }
 
         if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
+            config = configparser.SafeConfigParser()
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():

@@ -9,9 +9,11 @@ traffic between net1 and net2
 
 # See contrail/build/debug/config/api-server/doc/build/html/tutorial_with_library.html
 
+from future import standard_library
+standard_library.install_aliases()
 import argparse
 import os
-from urlparse import urlparse
+from urllib.parse import urlparse
 from vnc_api import vnc_api
 
 

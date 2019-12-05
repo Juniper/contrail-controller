@@ -4,6 +4,8 @@ from __future__ import print_function
 #
 # Create, read, update and delete an object
 #
+from builtins import str
+from builtins import object
 import argparse
 import uuid as __uuid
 import os
@@ -52,7 +54,7 @@ def vnc_read_obj(vnc, obj_type, fq_name):
         return None
 # end
 
-class VncOp():
+class VncOp(object):
 
     def parse_args(self):
         # Eg. python vnc_op.py VirtualNetwork

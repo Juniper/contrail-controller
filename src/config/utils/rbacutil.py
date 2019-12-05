@@ -4,6 +4,9 @@ from __future__ import print_function
 #
 # Util to manage RBAC group and rules (add, delete etc)",
 #
+from builtins import input
+from builtins import str
+from builtins import object
 import argparse
 import uuid as __uuid
 import os
@@ -75,7 +78,7 @@ def vnc_read_obj(vnc, obj_type, fq_name):
         return None
 # end
 
-class VncRbac():
+class VncRbac(object):
 
     def parse_args(self):
         # Eg. python vnc_op.py VirtualNetwork
@@ -226,7 +229,7 @@ if vnc_op.args.op == 'create':
     else:
        pobj = vnc.project_read(fq_name = fq_name[0:2])
 
-    ans = raw_input("Create %s, confirm (y/n): " % fq_name)
+    ans = input("Create %s, confirm (y/n): " % fq_name)
     if not ans or ans[0].lower() != 'y':
         sys.exit(0)
 
@@ -253,7 +256,7 @@ elif vnc_op.args.op == 'delete':
     rge = rg.get_api_access_list_entries()
     show_rbac_rules(rge)
 
-    ans = raw_input("Confirm (y/n): ")
+    ans = input("Confirm (y/n): ")
     if not ans or ans[0].lower() != 'y':
         sys.exit(0)
 
@@ -293,7 +296,7 @@ elif vnc_op.args.op == 'add-rule':
 
     show_rbac_rules(rge)
 
-    ans = raw_input("Confirm (y/n): ")
+    ans = input("Confirm (y/n): ")
     if not ans or ans[0].lower() != 'y':
         sys.exit(0)
 
@@ -334,7 +337,7 @@ elif vnc_op.args.op == 'del-rule':
         build_perms(rge.rbac_rule[match[0]-1], match[2])
     show_rbac_rules(rge)
 
-    ans = raw_input("Confirm (y/n): ")
+    ans = input("Confirm (y/n): ")
     if not ans or ans[0].lower() != 'y':
         sys.exit(0)
 

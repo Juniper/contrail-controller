@@ -2,6 +2,7 @@ from __future__ import print_function
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import object
 import argparse
 import uuid
 import os
@@ -10,7 +11,7 @@ from vnc_api.vnc_api import *
 import cfgm_common
 
 
-class MultiTenancy():
+class MultiTenancy(object):
 
     def parse_args(self):
         # Eg. python chmod.py VirtualNetwork

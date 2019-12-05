@@ -1,4 +1,6 @@
 from __future__ import print_function
+from builtins import chr
+from builtins import str
 import sys
 import re
 
@@ -15,7 +17,7 @@ if sys.maxunicode >= 0x10000:  # not narrow build
                                  (0xDFFFE, 0xDFFFF), (0xEFFFE, 0xEFFFF),
                                  (0xFFFFE, 0xFFFFF), (0x10FFFE, 0x10FFFF)])
 
-_illegal_ranges = ["%s-%s" % (unichr(low), unichr(high))
+_illegal_ranges = ["%s-%s" % (chr(low), chr(high))
                    for (low, high) in _illegal_unichrs]
 illegal_xml_chars_RE = re.compile(u'[%s]' % u''.join(_illegal_ranges))
 

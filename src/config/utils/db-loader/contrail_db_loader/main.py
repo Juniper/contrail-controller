@@ -3,6 +3,7 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import unicode_literals
+from builtins import object
 import argparse
 from collections import OrderedDict
 import logging
@@ -158,7 +159,7 @@ That will load %(sum)d resources into database."""
             amount_per_project,
         }
         dict['sum'] = 0
-        for resource in self._resource_map.values():
+        for resource in list(self._resource_map.values()):
             dict['sum'] += resource.total_amount
         logger.warning(msg, dict)
         if (not self._force and
@@ -167,7 +168,7 @@ That will load %(sum)d resources into database."""
 
     def create_resources(self):
         self._zk_client.connect()
-        for resource in self._resource_map.values():
+        for resource in list(self._resource_map.values()):
             logger.info("Loading '%s' resources into the database...",
                         resource.type)
             if resource.type == 'project':
@@ -266,7 +267,7 @@ def main():
     for opt in\
             kauth.base.get_plugin_class(params.os_auth_plugin).get_options():
         param_dict.pop('os_%s' % opt.dest)
-    param_dict = {k: v for k, v in param_dict.iteritems()
+    param_dict = {k: v for k, v in param_dict.items()
                   if not k.startswith('os_')}
 
     database_loader = LoadDataBase(**param_dict)
