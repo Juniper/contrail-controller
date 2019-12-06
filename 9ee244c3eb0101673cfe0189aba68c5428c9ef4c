@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "af788047_1b473f85",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 143,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2019-12-06T10:46:59Z",
+      "side": 1,
+      "message": "I was gonna do it in next pull request, but sure I can do it here.",
+      "parentUuid": "f74df5e5_debe8f80",
+      "revId": "9ee244c3eb0101673cfe0189aba68c5428c9ef4c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "c99b230f_2b997cd7",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_global_system_config.py",
         "patchSetId": 8
@@ -30,6 +48,24 @@
       "writtenOn": "2019-12-06T09:55:56Z",
       "side": 1,
       "message": "You should verify if for any VN user defined RT field, the error is raised or check from the raised error, you have the log error for all user defined RT filed.",
+      "revId": "9ee244c3eb0101673cfe0189aba68c5428c9ef4c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f8775391_b4dabe6f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_global_system_config.py",
+        "patchSetId": 8
+      },
+      "lineNbr": 188,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2019-12-06T10:46:59Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "c99b230f_2b997cd7",
       "revId": "9ee244c3eb0101673cfe0189aba68c5428c9ef4c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
