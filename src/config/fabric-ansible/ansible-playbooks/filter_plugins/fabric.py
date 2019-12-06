@@ -33,7 +33,8 @@ from vnc_api.gen.resource_client import (
     LogicalInterface,
     LogicalRouter,
     NetworkIpam,
-    VirtualNetwork
+    VirtualNetwork,
+    IntentMap
 )
 from vnc_api.gen.resource_xsd import (
     FabricNetworkTag,
@@ -90,6 +91,15 @@ def _compare_fq_names(this_fq_name, that_fq_name):
     return True
 # end compare_fq_names
 
+def _fabric_intent_map_name(fabric_name, intent_map):
+    """Fabric intent map name.
+
+    :param fabric_name: string
+    :param intent_map: string AR intent map name
+    :return: string
+    """
+    return '%s-%s' % (fabric_name, intent_map)
+# end _fabric_intent_map_name
 
 def _fabric_network_name(fabric_name, network_type):
     """Fabric network name.
@@ -656,6 +666,12 @@ class FilterModule(object):
         # leaf/spine devices
         self._add_default_logical_router(vnc_api)
 
+        #add intent-map object
+        self._add_intent_maps(
+            vnc_api,
+            fabric_obj
+        )
+
         return fabric_obj
     # end onboard_fabric
 
@@ -971,6 +987,47 @@ class FilterModule(object):
         return master_lr
 
     @staticmethod
+    def _add_intent_maps(vnc_api, fabric_obj):
+        """Add intent map objects.
+
+        create intent-map object for assisted-replicator intent-type and add it
+        to the fabric
+        :param vnc_api: <vnc_api.VncApi>
+        :param fabric_obj: <vnc_api.gen.resource_client.Fabric>
+        :return:
+        """
+
+        intent_map_name = _fabric_intent_map_name(
+            str(fabric_obj.name), 'assisted-replicator-intent-map')
+
+
+        intent_map_fq_name = ['default-global-system-config',
+                              intent_map_name]
+
+        _task_log('Creating Intent Map %s' % intent_map_fq_name)
+        intent_obj = IntentMap(
+            name=intent_map_name,
+            fq_name=intent_map_fq_name,
+            intent_map_intent_type='assisted-replicator'
+        )
+        try:
+            vnc_api.intent_map_create(intent_obj)
+        except RefsExistError as ex:
+            _task_log(
+                "Intent Map '%s' already exists or other conflict: %s"
+                % (intent_map_fq_name, str(ex))
+            )
+            vnc_api.intent_map_update(intent_obj)
+
+        fabric_obj.add_intent_map(intent_obj)
+        _task_log(
+            'assigning %s intent map to fabric %s'
+            % (intent_map_fq_name[-1], fabric_obj.name)
+        )
+        vnc_api.fabric_update(fabric_obj)
+        _task_done()
+
+    @staticmethod
     def _add_virtual_network(vnc_api, network_name):
         """Add virtual network.
 
@@ -1178,6 +1235,9 @@ class FilterModule(object):
             self._delete_fabric_network(
                 vnc_api, fabric_name, NetworkType.PNF_SERVICECHAIN_NETWORK
             )
+
+            #delete intent map object
+            self._delete_intent_maps(vnc_api, fabric_name)
 
             return {
                 'status': 'success',
@@ -1463,6 +1523,12 @@ class FilterModule(object):
             vnc_api.fabric_update(fabric_obj)
             _task_done()
 
+            # un-assign intent maps
+            fabric_obj.set_intent_map_list([])
+            _task_log('Unassigning intent maps from fabric')
+            vnc_api.fabric_update(fabric_obj)
+            _task_done()
+
             _task_log('Deleting fabric "%s"' % fabric_obj.fq_name[-1])
             vnc_api.fabric_delete(fq_name=fabric_obj.fq_name)
             _task_done()
@@ -1650,6 +1716,24 @@ class FilterModule(object):
                 'logical-router for device %s does not exist' % device_obj.name
             )
     # end _delete_logical_router
+
+    @staticmethod
+    def _delete_intent_maps(vnc_api, fabric_name):
+        """Delete intent map.
+
+        :param vnc_api: type=VncApi
+        """
+        intent_map_name = _fabric_intent_map_name(
+            fabric_name, 'assisted-replicator-intent-map')
+
+        intent_map_fq_name = ['default-global-system-config',
+                              intent_map_name]
+        try:
+            _task_log('Deleting intent map "%s"' % intent_map_name)
+            vnc_api.intent_map_delete(fq_name=intent_map_fq_name)
+            _task_done()
+        except NoIdError:
+            _task_done('Intent map "%s" not found' % intent_map_name)
 
     @staticmethod
     def _delete_fabric_network(vnc_api, fabric_name, network_type):
@@ -1883,6 +1967,20 @@ class FilterModule(object):
                 if "AR-Replicator" in device_roles.get(
                         'routing_bridging_roles'):
                     ar_flag = True
+                    # add PR to intent-map
+
+                    intent_map_name = _fabric_intent_map_name(
+                        fabric_fq_name[-1], 'assisted-replicator-intent-map')
+
+                    intent_map_fq_name = ['default-global-system-config',
+                                          intent_map_name]
+                    vnc_api.ref_update("physical_router",
+                                       device_roles.get(
+                                           'device_obj').get_uuid(),
+                                       "intent_map",
+                                       vnc_api.fq_name_to_id(
+                                           'intent_map',
+                                           intent_map_fq_name), None, 'ADD')
                 if device_roles.get('supported_roles'):
                     device_obj = device_roles.get('device_obj')
                     self._add_loopback_interface(vnc_api, device_obj,
