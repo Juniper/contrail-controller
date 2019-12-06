@@ -438,12 +438,12 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     // NOTE : Dont move updates below across PHASE-3
     /////////////////////////////////////////////////////////////////////////
 
-    // Del L3 Metadata after deleting L3 information
-    DeleteState(metadata_ip_state_.get());
-
     // Delete NextHop if inactive
     DeleteState(nexthop_state_.get());
     GetNextHopInfo();
+
+    // Del L3 Metadata after deleting L3 information
+    DeleteState(metadata_ip_state_.get());
 
     // Remove floating-ip entries marked for deletion
     CleanupFloatingIpList();
@@ -509,14 +509,12 @@ bool VmInterface::DeleteState(VmInterfaceState *state) {
         else
             ret = false;
     }
-
     if (state->l3_installed_) {
         if (state->DeleteL3(agent, this))
             state->l3_installed_ = false;
         else
             ret = false;
     }
-
     return ret;
 }
 
