@@ -65,7 +65,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         # if virtual_machine_refs is an empty list delete vrouter link
         if ('virtual_machine_refs' in obj_dict and not
-                obj_dict['virtual_machine_refs']):
+        obj_dict['virtual_machine_refs']):
             api_server.internal_request_ref_update(
                 'virtual-router',
                 vrouter_id,
@@ -164,7 +164,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         if (not port_security and address_pairs and
                 address_pairs.get('allowed_address_pair')):
-            msg = "Allowed address pairs are not allowed when port "\
+            msg = "Allowed address pairs are not allowed when port " \
                   "security is disabled"
             return False, (400, msg)
 
@@ -198,7 +198,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 return ok, result
 
             shc_type = result['service_health_check_properties'
-                              ]['health_check_type']
+            ]['health_check_type']
             if shc_type != 'link-local':
                 msg = ("Virtual machine interface(%s) of non service vm can "
                        "only refer link-local type service health check" %
@@ -376,7 +376,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
             primary_vmi_vlan_tag = primary_vmi.get(
                 'virtual_machine_interface_properties', {}).get(
-                    'sub_interface_vlan_tag')
+                'sub_interface_vlan_tag')
             if primary_vmi_vlan_tag:
                 msg = ("sub interface can't have another sub interface as "
                        "it's primary port")
@@ -395,9 +395,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
                 sub_vmi_vlan_tags = [((vmi.get(
                     'virtual_machine_interface_properties') or {}).get(
-                        'sub_interface_vlan_tag')) for vmi in sub_vmis]
+                    'sub_interface_vlan_tag')) for vmi in sub_vmis]
                 if vlan_tag in sub_vmi_vlan_tags:
-                    msg = "Two sub interfaces under same primary port "\
+                    msg = "Two sub interfaces under same primary port " \
                           "can't have same Vlan tag"
                     return (False, (400, msg))
 
@@ -436,8 +436,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 # If the segmentation_id in provider_properties is set, then
                 # a hw_veb VIF is requested.
                 if ('provider_properties' in vn_dict and
-                   vn_dict['provider_properties'] is not None and
-                   'segmentation_id' in vn_dict['provider_properties']):
+                        vn_dict['provider_properties'] is not None and
+                        'segmentation_id' in vn_dict['provider_properties']):
                     kvp_dict['vif_type'] = cls.portbindings['VIF_TYPE_HW_VEB']
                     vif_type = {
                         'key': 'vif_type',
@@ -464,10 +464,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                             cls.portbindings['VNIC_TYPE_VIRTIO_FORWARDER']):
                         vif_params = {
                             cls.portbindings['VHOST_USER_MODE']:
-                            cls.portbindings['VHOST_USER_MODE_SERVER'],
+                                cls.portbindings['VHOST_USER_MODE_SERVER'],
                             cls.portbindings['VHOST_USER_SOCKET']:
-                            cls._get_port_vhostuser_socket_name(
-                                obj_dict['uuid'])
+                                cls._get_port_vhostuser_socket_name(
+                                    obj_dict['uuid'])
                         }
                         vif_details = {
                             'key': 'vif_details',
@@ -499,9 +499,10 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     }
                     vif_params = {
                         cls.portbindings['VHOST_USER_MODE']:
-                        cls.portbindings['VHOST_USER_MODE_SERVER'],
+                            cls.portbindings['VHOST_USER_MODE_SERVER'],
                         cls.portbindings['VHOST_USER_SOCKET']:
-                        cls._get_port_vhostuser_socket_name(obj_dict['uuid']),
+                            cls._get_port_vhostuser_socket_name(
+                                obj_dict['uuid']),
                         cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
                     }
                     vif_details = {
@@ -705,7 +706,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                         vlan_id = tor_port_vlan_id
                         is_untagged_vlan = True
                         if (vlan_id != old_vlan and
-                           'virtual_machine_interface_refs' in read_result):
+                                'virtual_machine_interface_refs' in read_result):
                             return False, (400, "Cannot change VLAN ID")
                     else:
                         vlan_id = new_vlan
@@ -747,9 +748,9 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 cls._kvps_prop_update(obj_dict, kvps, prop_collection_updates,
                                       vif_type, vif_details, True)
             elif ((kvp_dict_port.get('vnic_type') ==
-                    cls.portbindings['VNIC_TYPE_NORMAL'] or
-                    kvp_dict_port.get('vnic_type') is None) and
-                    kvp_dict.get('host_id') != 'null'):
+                   cls.portbindings['VNIC_TYPE_NORMAL'] or
+                   kvp_dict_port.get('vnic_type') is None) and
+                  kvp_dict.get('host_id') != 'null'):
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn,
                                                     kvp_dict.get('host_id'))
                 if not ok:
@@ -963,12 +964,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             all_vn_ids.extend([ref['uuid'] for ref in all_vns])
 
         if len(set(tor_vlan_ids)) > 1:
-            msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
+            msg = 'There can be only one Native/Untagged VLAN ID per VPG ' \
                   'in a Enterprise style Fabric'
             return (False, (400, msg))
 
         if len(all_vn_ids) > len(set(all_vn_ids)):
-            msg = 'A Virtual Network can only be associated once per VPG '\
+            msg = 'A Virtual Network can only be associated once per VPG ' \
                   'in a Enterprise style Fabric'
             return (False, (400, msg))
 
@@ -1037,7 +1038,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             tor_port_vlan_id = kvp_dict.get('tor_port_vlan_id', 0)
             vlan_tag = (vmi_info.get(
                 'virtual_machine_interface_properties') or {}).get(
-                    'sub_interface_vlan_tag') or 0
+                'sub_interface_vlan_tag') or 0
 
             all_vns = vmi_info.get('virtual_network_refs')
             for ref in all_vns:
@@ -1120,7 +1121,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 tor_vlan_ids.append(tor_port_vlan_id)
             vlan_tag = (vmi_info.get(
                 'virtual_machine_interface_properties') or {}).get(
-                    'sub_interface_vlan_tag') or 0
+                'sub_interface_vlan_tag') or 0
 
             all_vns = vmi_info.get('virtual_network_refs')
             for ref in all_vns:
@@ -1130,7 +1131,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     all_vns_in_vpg_dict[ref['uuid']].append(tor_port_vlan_id)
 
         if len(set(tor_vlan_ids)) > 1:
-            msg = 'There can be only one Native/Untagged VLAN ID per VPG '\
+            msg = 'There can be only one Native/Untagged VLAN ID per VPG ' \
                   'in a Enterprise style Fabric'
             return (False, (400, msg))
 
@@ -1156,7 +1157,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         for link in phy_links:
             if link.get('fabric'):
                 if fabric_name is not None and fabric_name != link['fabric']:
-                    msg = 'Physical interfaces in the same vpg '\
+                    msg = 'Physical interfaces in the same vpg ' \
                           'should belong to the same fabric'
                     return (False, (400, msg))
                 fabric_name = link['fabric']
@@ -1182,7 +1183,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
             vpg_refs = phy_interface_dict.get('virtual_port_group_back_refs')
             if vpg_refs and vpg_name and vpg_refs[0]['to'][-1] != vpg_name:
-                msg = 'Physical interface %s already belong to the vpg %s' %\
+                msg = 'Physical interface %s already belong to the vpg %s' % \
                       (phy_interface_dict.get('name'), vpg_refs[0]['to'][-1])
                 return (False, (400, msg))
 
@@ -1213,6 +1214,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             def undo_vpg_id():
                 cls.vnc_zk_client.free_vpg_id(vpg_id, ':'.join(fabric_fq_name))
                 return True, ""
+
             get_context().push_undo(undo_vpg_id)
 
             vpg_name = "vpg-internal-" + str(vpg_id)
@@ -1237,6 +1239,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 cls.server.internal_request_delete('virtual-port-group',
                                                    vpg_uuid)
                 return True, ''
+
             get_context().push_undo(undo_vpg_create)
 
         # Check for fabric to get vpg
@@ -1332,6 +1335,28 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 attr=attr_obj.__dict__ if attr_obj else None,
                 relax_ref_for_delete=True)
 
+        # update intent-map with vn_id
+        # read intent map object
+        intent_map_name = fabric_name + '-assisted-replicator-intent-map'
+        intent_map_fq_name = ['default-global-system-config',
+                              intent_map_name]
+        try:
+            intent_map_uuid = db_conn.fq_name_to_uuid('intent_map',
+                                                      intent_map_fq_name)
+        except NoIdError:
+            msg = 'Intent Map for Assisted Replicator object %s not ' \
+                  'found for fabric %s' % (intent_map_fq_name[-1],
+                                           fabric_name)
+            return vpg_uuid, ret_dict
+
+        api_server.internal_request_ref_update(
+            'virtual-network',
+            vn_uuid,
+            'ADD',
+            'intent-map',
+            intent_map_uuid,
+            relax_ref_for_delete=True)
+
         return vpg_uuid, ret_dict
 
     @classmethod
@@ -1364,6 +1389,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
+        vn_uuid = obj_dict.get('virtual_network_refs')[0].get('uuid')
+        current_uuid = obj_dict.get('uuid')
+
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_properties' in obj_dict):
             vmi_props = obj_dict['virtual_machine_interface_properties']
@@ -1379,14 +1409,15 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             cls._check_vrouter_link(obj_dict, kvp_dict, delete_dict, db_conn)
 
         # Clean ae ids associated with VPG->PIs
-        for vpg_back_ref in obj_dict.get('virtual_port_group_back_refs',
-                                         []):
+        for vpg_back_ref in obj_dict.get('virtual_port_group_back_refs', []):
             fqname = vpg_back_ref['to']
+            fabric_name = fqname[1]
             vpg_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
             ok, vpg_dict = db_conn.dbe_read(
                 obj_type='virtual-port-group',
                 obj_id=vpg_uuid,
-                obj_fields=['physical_interface_refs'])
+                obj_fields=['physical_interface_refs',
+                            'virtual_machine_interface_refs'])
             if not ok:
                 return ok, vpg_dict
 
@@ -1400,6 +1431,42 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     dealloc_dict['vpg_name'] = fqname[2]
                     notify_dict['deallocated_ae_id'].append(dealloc_dict)
             obj_dict.update(notify_dict)
+
+            # remove intent-map and vn association
+            for vmi_ref in vpg_dict.get('virtual_machine_interface_refs') or \
+                    []:
+                if vmi_ref.get('uuid') == current_uuid:
+                    continue
+                ok, vmi_obj = cls.dbe_read(
+                    db_conn,
+                    'virtual_machine_interface',
+                    vmi_ref.get('uuid'),
+                    obj_fields=['virtual_network_refs'])
+                if not ok:
+                    return ok, vmi_obj
+
+                for vn_ref in vmi_obj.get('virtual_network_refs') or []:
+                    if vn_uuid == vn_ref.get('uuid'):
+                        break
+                    else:
+                        intent_map_name = fabric_name + \
+                            '-assisted-replicator-intent-map'
+                        intent_map_fq_name = ['default-global-system-config',
+                                              intent_map_name]
+                    try:
+                        intent_map_uuid = db_conn.fq_name_to_uuid(
+                            'intent_map', intent_map_fq_name)
+                    except NoIdError:
+                        msg = 'IntentMap for Assisted Replicator object %s ' \
+                              'not found' % intent_map_fq_name[-1]
+                        return True, "", None
+
+                    api_server.internal_request_ref_update(
+                        'virtual-network',
+                        vn_uuid,
+                        'DELETE',
+                        'intent-map',
+                        intent_map_uuid)
 
         return True, "", None
 
@@ -1425,7 +1492,6 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
             if (not vpg_dict.get('virtual_machine_interface_refs') and
                     vpg_dict.get('virtual_port_group_user_created') is False):
-
                 api_server.internal_request_delete('virtual_port_group',
                                                    vpg_uuid)
 
