@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6162804e_c237c12a",
+        "filename": "src/config/vnc_openstack/requirements.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-12-06T23:51:56Z",
+      "side": 1,
+      "message": "I see configparser is being used from six module. from six.moves import configparser\nSo six module should be included in the requirements.txt\nCould you include below one:\n\nsix",
+      "revId": "b05341d75c1c12a51edae9bd581f056b5c4d3d4b",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
