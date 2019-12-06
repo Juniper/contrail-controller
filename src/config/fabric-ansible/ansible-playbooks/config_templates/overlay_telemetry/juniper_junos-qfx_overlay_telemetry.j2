@@ -9,6 +9,7 @@
 {%         set tm_sflow_udp_port = tm_sflow_profile.get('collector_params', {}).get('udp_port') %}
 {%         set tm_sflow_agent_ip = tm_sflow_profile.get('agent_id') %}
 {%         set tm_sflow_sample_rt = tm_sflow_profile.get('sample_rate') %}
+{%         set tm_sflow_sample_dr = tm_sflow_profile.get('sample_direction') %}
 {%         set tm_sflow_poll_intvl = tm_sflow_profile.get('polling_interval') %}
 {%         set tm_sflow_enbld_intf_type = tm_sflow_profile.get('enabled_interface_type') %}
 {%         set tm_sflow_enbld_intf_params = tm_sflow_profile.get('enabled_interface_params', []) %}
@@ -35,7 +36,7 @@ set groups {{cfg_group}} protocols sflow collector {{tm_sflow_coll_ip}}
 set groups {{cfg_group}} protocols sflow agent-id {{tm_sflow_agent_ip}}
 {%         endif %}
 {%         if tm_sflow_sample_rt %}
-set groups {{cfg_group}} protocols sflow sample-rate ingress {{tm_sflow_sample_rt}}
+set groups {{cfg_group}} protocols sflow sample-rate {{tm_sflow_sample_dr) {{tm_sflow_sample_rt}}
 {%         endif %}
 {%         if tm_sflow_poll_intvl %}
 set groups {{cfg_group}} protocols sflow polling-interval {{tm_sflow_poll_intvl}}
