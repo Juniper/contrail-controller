@@ -45,7 +45,7 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
     ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, SflowProfileDM, \
     StormControlProfileDM, TagDM, TelemetryProfileDM, \
-    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
+    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM, IntentMapDM
 from .device_conf import DeviceConf
 from .dm_amqp import DMAmqpHandle
 from .dm_utils import PushConfigState
@@ -82,6 +82,7 @@ class DeviceManager(object):
             'virtual_port_group': [],
             'service_instance': [],
             'service_appliance': [],
+            'intent_map': [],
         },
         'global_system_config': {
             'self': ['physical_router', 'data_center_interconnect'],
@@ -221,7 +222,8 @@ class DeviceManager(object):
             'data_center_interconnect': ['physical_router'],
             'virtual_machine_interface': ['physical_router'],
             'floating_ip_pool': ['physical_router'],
-            'network_ipam': ['tag']
+            'network_ipam': ['tag'],
+            'intent_map': ['physical_router'],
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network', 'port_tuple'],
@@ -294,6 +296,10 @@ class DeviceManager(object):
             'self': ['physical_interface'],
             'tag': ['physical_interface'],
         },
+        'intent_map':{
+            'self': ['physical_router'],
+            'virtual_network': ['physical_router']
+        }
     }
 
     _instance = None
@@ -407,6 +413,7 @@ class DeviceManager(object):
         BgpRouterDM.locate_all()
         PhysicalInterfaceDM.locate_all()
         LogicalInterfaceDM.locate_all()
+        IntentMapDM.locate_all()
         PhysicalRouterDM.locate_all()
         LinkAggregationGroupDM.locate_all()
         VirtualPortGroupDM.locate_all()
