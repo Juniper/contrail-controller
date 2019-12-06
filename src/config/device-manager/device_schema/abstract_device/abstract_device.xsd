@@ -165,6 +165,7 @@
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="sample-rate" type="xsd:integer"/>
         <xsd:element name="polling-interval" type="xsd:integer"/>
+        <xsd:element name="sample-direction" type="xsd:string"/>
         <xsd:element name="agent-id" type="xsd:string"/>
         <xsd:element name="collector-params" type="dac:CollectorParams" maxOccurs="unbounded"/>
         <xsd:element name="adaptive-sample-rate" type="xsd:integer"/>
