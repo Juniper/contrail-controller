@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2019 Juniper Networks, Inc. All rights reserved.
 #
 
 
@@ -1339,6 +1339,28 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 uuid,
                 attr=attr_obj.__dict__ if attr_obj else None,
                 relax_ref_for_delete=True)
+
+        # update intent-map with vn_id
+        # read intent map object
+        intent_map_name = fabric_name + '-assisted-replicator-intent-map'
+        intent_map_fq_name = ['default-global-system-config',
+                              intent_map_name]
+        try:
+            intent_map_uuid = db_conn.fq_name_to_uuid('intent_map',
+                                                      intent_map_fq_name)
+        except NoIdError:
+            msg = 'Intent Map for Assisted Replicator object %s not ' \
+                  'found for fabric %s' % (intent_map_fq_name[-1],
+                                           fabric_name)
+            return vpg_uuid, ret_dict
+
+        api_server.internal_request_ref_update(
+            'virtual-network',
+            vn_uuid,
+            'ADD',
+            'intent-map',
+            intent_map_uuid,
+            relax_ref_for_delete=True)
 
         return vpg_uuid, ret_dict
 
