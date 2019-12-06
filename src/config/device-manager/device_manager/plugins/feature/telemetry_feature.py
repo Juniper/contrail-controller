@@ -107,6 +107,10 @@ class TelemetryFeature(FeatureBase):
             if scf.get('polling_interval'):
                 sflow_profile_obj.set_polling_interval(
                     scf.get('polling_interval'))
+            if scf.get('direction'):
+                sflow_profile_obj.set_sample_direction(
+                    scf.get('direction'))
+
         agent_id = sflow_params.get('agent_id')
         if agent_id:
             sflow_profile_obj.set_agent_id(agent_id)
