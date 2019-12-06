@@ -575,6 +575,7 @@ class PhysicalRouterDM(DBBaseDM):
         return False
     # end verify_allocated_asn
 
+    # allocate_asn should be called, allocate asn only from 'eBGP-ASN-pool'
     def allocate_asn(self):
         if not self.fabric or not self.underlay_managed \
            or not self.fabric_obj or not self.config_manager:
@@ -586,7 +587,7 @@ class PhysicalRouterDM(DBBaseDM):
         asn_ranges = []
         for namespace_uuid in self.fabric_obj.fabric_namespaces:
             namespace = FabricNamespaceDM.get(namespace_uuid)
-            if namespace is None:
+            if namespace is None or 'eBGP-ASN-pool' not in namespace.name:
                 continue
             if namespace.as_numbers is not None:
                 asn_ranges.extend([(asn, asn) for asn in namespace.as_numbers])
