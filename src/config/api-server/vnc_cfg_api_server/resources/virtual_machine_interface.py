@@ -1332,6 +1332,28 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 attr=attr_obj.__dict__ if attr_obj else None,
                 relax_ref_for_delete=True)
 
+        # update intent-map with vn_id
+        # read intent map object
+        intent_map_name = fabric_name + '-assisted-replicator-intent-map'
+        intent_map_fq_name = ['default-global-system-config',
+                              intent_map_name]
+        try:
+            intent_map_uuid = db_conn.fq_name_to_uuid('intent_map',
+                                                      intent_map_fq_name)
+        except NoIdError:
+            msg = 'Intent Map for Assisted Replicator object %s not ' \
+                  'found for fabric %s' % (intent_map_fq_name[-1],
+                                           fabric_name)
+            return vpg_uuid, ret_dict
+
+        api_server.internal_request_ref_update(
+            'virtual-network',
+            vn_uuid,
+            'ADD',
+            'intent-map',
+            intent_map_uuid,
+            relax_ref_for_delete=True)
+
         return vpg_uuid, ret_dict
 
     @classmethod
@@ -1364,6 +1386,11 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
+
+        vn_uuid = obj_dict.get('virtual_network_refs')[0].get('uuid')
+        current_uuid = obj_dict.get('uuid')
+
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_properties' in obj_dict):
             vmi_props = obj_dict['virtual_machine_interface_properties']
@@ -1382,11 +1409,13 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         for vpg_back_ref in obj_dict.get('virtual_port_group_back_refs',
                                          []):
             fqname = vpg_back_ref['to']
+            fabric_name = fqname[1]
             vpg_uuid = db_conn.fq_name_to_uuid('virtual_port_group', fqname)
             ok, vpg_dict = db_conn.dbe_read(
                 obj_type='virtual-port-group',
                 obj_id=vpg_uuid,
-                obj_fields=['physical_interface_refs'])
+                obj_fields=['physical_interface_refs',
+                            'virtual_machine_interface_refs'])
             if not ok:
                 return ok, vpg_dict
 
@@ -1400,6 +1429,42 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     dealloc_dict['vpg_name'] = fqname[2]
                     notify_dict['deallocated_ae_id'].append(dealloc_dict)
             obj_dict.update(notify_dict)
+
+            # remove intent-map and vn association
+            for vmi_ref in vpg_dict.get('virtual_machine_interface_refs') or\
+                           []:
+                if vmi_ref.get('uuid') == current_uuid:
+                    continue
+                ok, vmi_obj = cls.dbe_read(
+                    db_conn,
+                    'virtual_machine_interface',
+                    vmi_ref.get('uuid'),
+                    obj_fields=['virtual_network_refs'])
+                if not ok:
+                    return ok, vmi_obj
+
+                for vn_ref in vmi_obj.get('virtual_network_refs') or []:
+                    if vn_uuid == vn_ref.get('uuid'):
+                        break
+                    else:
+                        intent_map_name = fabric_name + \
+                                          '-assisted-replicator-intent-map'
+                        intent_map_fq_name = ['default-global-system-config',
+                                              intent_map_name]
+                    try:
+                        intent_map_uuid = db_conn.fq_name_to_uuid('intent_map',
+                                                          intent_map_fq_name)
+                    except NoIdError:
+                        msg = 'Intent Map for Assisted Replicator object %s not ' \
+                              'found' % intent_map_fq_name[-1]
+                        return True, "", None
+
+                    api_server.internal_request_ref_update(
+                        'virtual-network',
+                        vn_uuid,
+                        'DELETE',
+                        'intent-map',
+                        intent_map_uuid)
 
         return True, "", None
 
