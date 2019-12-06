@@ -35,6 +35,15 @@ class EncapsulationProvision(object):
         global_vrouter_fq_name = ['default-global-system-config',
                                   'default-global-vrouter-config']
         if self._args.oper == "add":
+            #check encap is already provisioned
+            global_vrouter_config = self._vnc_lib.global_vrouter_config_read(fq_name=global_vrouter_fq_name)
+            encap_obj = global_vrouter_config.get_encapsulation_priorities()
+            print 'encap obj', encap_obj
+            print encap_obj.__dict__
+            if encap_obj:
+                encap_order =  getattr(encap_obj, 'encapsulation')
+                print 'encap_order', encap_order
+
             encap_obj = EncapsulationPrioritiesType(
                     encapsulation=self._args.encap_priority.split(","))
             conf_obj = GlobalVrouterConfig(encapsulation_priorities=encap_obj,
