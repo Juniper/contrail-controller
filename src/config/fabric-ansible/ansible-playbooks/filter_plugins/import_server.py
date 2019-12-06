@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from builtins import map
-from builtins import str
+#from builtins import str
 from past.builtins import basestring
 from builtins import object
 import logging
