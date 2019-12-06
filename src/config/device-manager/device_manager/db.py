@@ -289,6 +289,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.plugins = None
         self.nc_handler_gl = None
         self.telemetry_profile = None
+        self.intent_maps = set()
         self.update(obj_dict)
 
         self.set_conf_sent_state(False)
@@ -436,6 +437,9 @@ class PhysicalRouterDM(DBBaseDM):
                     brownfield_global_asn_list[-1])
         else:
             self.get_overlay_ibgp_asn()
+
+        self.update_multiple_refs('intent_map', obj)
+
         self.reinit_device_plugin()
         self.allocate_asn()
     # end update
@@ -1749,6 +1753,43 @@ class NetworkIpamDM(DBBaseDM):
 # end NetworkIpamDM
 
 
+class IntentMapDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'intent_map'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.physical_routers = set()
+        self.virtual_networks = set()
+        self.fabrics = set()
+        self.intent_type = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.update_multiple_refs('physical_router', obj)
+        self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('fabric', obj)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
+        self.intent_type = obj.get('intent_map_intent_type')
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('physical_router', {})
+        obj.update_multiple_refs('virtual_network', {})
+        obj.update_multiple_refs('fabric', {})
+        del cls._dict[uuid]
+    # end delete
+
+
 class VirtualNetworkDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_network'
@@ -1768,6 +1809,7 @@ class VirtualNetworkDM(DBBaseDM):
         self.route_targets = None
         self.has_ipv6_subnet = False
         self.ipv6_ll_vn_id = None
+        self.intent_maps = set()
         self.update(obj_dict)
     # end __init__
 
@@ -1884,6 +1926,7 @@ class VirtualNetworkDM(DBBaseDM):
             route_targets = route_target_list.get('route_target')
             if route_targets:
                 self.route_targets = set(route_targets)
+        self.update_multiple_refs('intent_map', obj)
     # end update
 
     def get_prefixes(self, pr_uuid=None):
