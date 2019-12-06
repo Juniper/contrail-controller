@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0375eb97_05c76954",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 153,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-12-06T15:15:39Z",
+      "side": 1,
+      "message": "please remove that debug line",
+      "revId": "3c9818b48cbf62b8b1318644095af54912a57d57",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
