@@ -44,9 +44,18 @@ class EncapsulationProvision(object):
                 result = self._vnc_lib.global_vrouter_config_create(conf_obj)
                 print('Created.UUID is %s' % result)
             except RefsExistError:
-                print("Already created! Updating the object.")
-                result = self._vnc_lib.global_vrouter_config_update(conf_obj)
-                print('Updated.%s' % result)
+                # Displaying current config for debug purpose
+                vrouter_conf_obj = self._vnc_lib.global_vrouter_config_read(
+                    fq_name=global_vrouter_fq_name)
+                encap_obj = global_vrouter_config.get_encapsulation_priorities()
+                try:
+                    if encap_obj:
+                        print ("Debug: Current Global Vrouter Config",
+                               vrouter_conf_obj.__dict__)
+                        print ("Debug: Current Encap Config", encap_obj.__dict__)
+                except Exception:
+                    pass
+                print("Already created! Skip creating the object.")
             return
         elif self._args.oper != "add":
             encap_obj = EncapsulationPrioritiesType(encapsulation=[])
