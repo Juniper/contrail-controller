@@ -1332,6 +1332,26 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 attr=attr_obj.__dict__ if attr_obj else None,
                 relax_ref_for_delete=True)
 
+        # update intent-map with vn_id
+        # read intent map object
+        intent_map_fq_name = ['default-global-system-config',
+                              'assisted-replicator-intent-map']
+        try:
+            intent_map_uuid = db_conn.fq_name_to_uuid('intent_map',
+                                                      intent_map_fq_name)
+        except NoIdError:
+            msg = 'Intent Map for Assisted Replicator object %s not ' \
+                  'found' % intent_map_fq_name[-1]
+            return vpg_uuid, ret_dict
+
+        api_server.internal_request_ref_update(
+            'virtual-network',
+            vn_uuid,
+            'ADD',
+            'intent-map',
+            intent_map_uuid,
+            relax_ref_for_delete=True)
+
         return vpg_uuid, ret_dict
 
     @classmethod
@@ -1364,6 +1384,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        api_server = db_conn.get_api_server()
         if ('virtual_machine_interface_refs' in obj_dict and
                 'virtual_machine_interface_properties' in obj_dict):
             vmi_props = obj_dict['virtual_machine_interface_properties']
@@ -1400,6 +1421,27 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                     dealloc_dict['vpg_name'] = fqname[2]
                     notify_dict['deallocated_ae_id'].append(dealloc_dict)
             obj_dict.update(notify_dict)
+
+        # remove intent-map and vn association
+        if obj_dict.get('virtual_port_group_back_refs'):
+            vn_uuid = obj_dict['virtual_network_refs'][0].get('uuid')
+
+            intent_map_fq_name = ['default-global-system-config',
+                                  'assisted-replicator-intent-map']
+            try:
+                intent_map_uuid = db_conn.fq_name_to_uuid('intent_map',
+                                                          intent_map_fq_name)
+            except NoIdError:
+                msg = 'Intent Map for Assisted Replicator object %s not ' \
+                      'found' % intent_map_fq_name[-1]
+                return True, "", None
+
+            api_server.internal_request_ref_update(
+                'virtual-network',
+                vn_uuid,
+                'DELETE',
+                'intent-map',
+                intent_map_uuid)
 
         return True, "", None
 
