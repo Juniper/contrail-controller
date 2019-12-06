@@ -14,7 +14,8 @@ class NetworkPolicyMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None, network_policy_db=None):
         super(NetworkPolicyMonitor, self).__init__(args, logger, q,
-            NetworkPolicyKM, resource_name='networkpolicies', beta=True)
+            NetworkPolicyKM, resource_name='networkpolicies', beta=False,
+            api_group="apis/networking.k8s.io", api_version="v1")
         self.init_monitor()
         self.logger.info("NetworkPolicyMonitor init done.");
 
