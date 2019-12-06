@@ -5,3 +5,46 @@ set groups {{cfg_group}} protocols evpn assisted-replication replicator
 set groups {{cfg_group}} protocols evpn assisted-replication replicator inet {{replicator_ip}}
 set groups {{cfg_group}} protocols evpn assisted-replication replicator vxlan-encapsulation-source-ip ingress-replication-ip
 {%    endif %}
+set groups {{cfg_group}} protocols evpn encapsulation vxlan
+set groups {{cfg_group}} protocols evpn extended-vni-list all
+set groups {{cfg_group}} switch-options vtep-source-interface lo0.0
+
+{% for bgp_elem in device_abstract_config.get('features').get('overlay-bgp').get('bgp', []) %}
+{%     set families = bgp_elem.get('families', []) %}
+{%     for fam in families %}
+{%         if fam == 'evpn' %}
+{%             set route_distinguisher = bgp_elem.get('ip_address') %}
+{%             set as_number = bgp_elem.get('autonomous_system') %}
+{%             if (as_number|int) <= 65535 %}
+{%                 set esi_rt = (as_number|string) + ':7999999' %}
+{%             else %}
+{%                 set esi_rt = (as_number|string) + 'L:7999' %}
+{%             endif %}
+set groups {{cfg_group}} switch-options route-distinguisher {{route_distinguisher}}:7999
+set groups {{cfg_group}} switch-options vrf-target target:{{esi_rt}}
+set groups {{cfg_group}} policy-options community community-esi-in members target:{{esi_rt}}
+set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in from community community-esi-in
+set groups {{cfg_group}} policy-options policy-statement import-evpn term esi-in then accept
+set groups {{cfg_group}} policy-options policy-statement import-evpn term default-term then reject
+set groups {{cfg_group}} switch-options vrf-import import-evpn
+{%         endif %}
+{%     endfor %}
+{% endfor %}
+
+{%    for ri in device_abstract_config.get('features').get('assisted-replicator').get('routing_instances', []) %}
+{%         set name = ri.get('name') %}
+{%         set vxlan_id = ri.get('vxlan_id', '') %}
+{%         for export_target in ri.get('export_targets', []) %}
+set groups {{cfg_group}} protocols evpn vni-options vni {{vxlan_id}} vrf-target {{export_target}}
+{%         endfor %}
+{%    endfor %}
+
+
+{%    for vlan in device_abstract_config.get('features').get('assisted-replicator').get('vlans', []) %}
+{%        set vlan_name = vlan.get('name') %}
+{%        set ns = namespace(tagged_vlan_id='', untagged_vlan_id='') %}
+{%        set vni = vlan.get('vxlan_id') %}
+set groups {{cfg_group}} vlans {{vlan_name}} description "{{vlan.get('description')}}"
+set groups {{cfg_group}} vlans {{vlan_name}} vxlan vni {{vni}}
+set groups {{cfg_group}} vlans {{vlan_name}} vlan-id none
+{%    endfor %}
