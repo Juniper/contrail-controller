@@ -107,3 +107,4 @@ It provides following event functionality for KSync Objects
     - UNREGISTER  : to delete given KSync Object in context of KSync Task
     - DELETE      : to trigger delete for all teh KSync Entries present in
                     the given KSync Object
+
