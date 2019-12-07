@@ -320,6 +320,7 @@
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="uuid" type="xsd:string"/>
        <xsd:element name="is-tagged" type="xsd:boolean"/>
+       <xsd:element name="is-virtual-router" type="xsd:boolean"/>
        <xsd:element name="vlan-tag" type="xsd:string"/>
        <xsd:element name="unit" type="xsd:integer"/>
        <xsd:element name="firewall-filters" type="xsd:string" maxOccurs="unbounded"/>
