@@ -115,6 +115,8 @@ class AnsibleRoleCommon(AnsibleConf):
             intf_unit = self.set_default_li(li_map,
                                             'irb.' + str(network_id),
                                             network_id)
+            if vn.has_ipv6_subnet is True:
+                intf_unit.set_is_virtual_router(True)
             intf_unit.set_comment(DMUtils.vn_irb_comment(vn, False, is_l2_l3))
             for (irb_ip, gateway) in gateways:
                 if len(gateway) and gateway != '0.0.0.0':

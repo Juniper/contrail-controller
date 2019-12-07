@@ -143,6 +143,7 @@ class DMUtils(object):
     @staticmethod
     def get_network_gateways(ipam_refs=[]):
         gateways = {}
+        has_ipv6_prefix = False
         for ipam_ref in ipam_refs or []:
             for subnet in ipam_ref['attr'].get('ipam_subnets', []):
                 prefix = '0.0.0.0'
@@ -150,10 +151,12 @@ class DMUtils(object):
                 if 'subnet' in subnet:
                     prefix = subnet['subnet']['ip_prefix']
                     prefix_len = subnet['subnet']['ip_prefix_len']
+                if has_ipv6_prefix is False and IPNetwork(prefix).version == 6:
+                    has_ipv6_prefix = True
                 gateways[prefix + '/' + str(prefix_len)] = \
                     {"default_gateway": subnet.get('default_gateway', ''),
                      "subnet_uuid": subnet.get('subnet_uuid')}
-        return gateways
+        return (gateways, has_ipv6_prefix)
     # end get_network_gateways
 
     @staticmethod
@@ -283,6 +286,13 @@ class DMUtils(object):
         return [prefix for prefix in prefixes or []
                 if IPNetwork(prefix).version == 4]
     # end get_ipv4_prefixes
+
+    @staticmethod
+    def is_ipv6_ll_subnet(ipv6_address):
+        if IPNetwork(ipv6_address).version == 6:
+            if ipv6_address.split('::', 1)[0] == 'fe80':
+                return True
+        return False
 
     @staticmethod
     def has_ipv6_prefixes(prefixes=[]):

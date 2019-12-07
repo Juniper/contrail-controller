@@ -6,10 +6,23 @@ from builtins import object
 from builtins import str
 import json
 import os
+import uuid
 
 from cfgm_common.utils import CamelCase, detailed_traceback, str_to_class
-from vnc_api.exceptions import NoIdError
+from vnc_api.exceptions import NoIdError, RefsExistError
 from vnc_api.gen import resource_client
+from vnc_api.gen.resource_client import (
+    NetworkIpam,
+    VirtualNetwork
+)
+from vnc_api.gen.resource_xsd import (
+    IpamSubnets,
+    IpamSubnetType,
+    SubnetListType,
+    SubnetType,
+    VirtualNetworkType,
+    VnSubnetsType
+)
 
 
 class FabricManager(object):
@@ -42,6 +55,48 @@ class FabricManager(object):
         if not cls._instance:
             FabricManager(args, logger, vnc_api)
     # end _initialize
+
+    # _create_ipv6_ll_ipam_virtual_network
+    # Internal function to create internal virtual network and network ipam
+    # for IPV6 link local address.
+    def _create_ipv6_ll_ipam_and_vn(self, vnc_api, network_name):
+        nw_fq_name = ['default-domain', 'default-project', network_name]
+        ipam_fq_name = ['default-domain', 'default-project', 'ipv6_link_local']
+        subnets = VnSubnetsType([(IpamSubnetType(subnet=SubnetType('fe80::',
+                                                                   64),
+                                                 default_gateway='fe80::1',
+                                                 addr_from_start=True,
+                                                 subnet_uuid=str(uuid.uuid1())
+                                                 )
+                                  )]
+                                )
+        ipam = NetworkIpam(
+            name='ipv6_link_local',
+            fq_name=ipam_fq_name,
+            parent_type='project',
+            ipam_subnet_method='user-defined-subnet')
+        try:
+            self._vnc_api.network_ipam_create(ipam)
+        except RefsExistError as ex:
+            error_msg = 'network IPAM \'ipv6_link_local\' already \
+                        exists or other conflict: {}' \
+                .format(str(ex))
+            self._logger.error(error_msg)
+            self._vnc_api.network_ipam_update(ipam)
+
+        network = VirtualNetwork(
+            name=network_name,
+            fq_name=nw_fq_name,
+            parent_type='project',
+            address_allocation_mode="user-defined-subnet-only")
+        try:
+            network.add_network_ipam(ipam, subnets)
+            vnc_api.virtual_network_create(network)
+        except Exception as ex:
+            self._logger.error("virtual network '%s' already exists or "
+                               "other conflict: %s" % (network_name, str(ex)))
+            vnc_api.virtual_network_update(network)
+    # end _create_ipv6_ll_ipam_and_vn
 
     # Load init data for job playbooks like JobTemplates, Tags, etc
     def _load_init_data(self):
@@ -91,15 +146,15 @@ class FabricManager(object):
                     # create/update the object
                     fq_name = instance_obj.get_fq_name()
                     try:
-                        uuid = self._vnc_api.fq_name_to_id(
+                        uuid_id = self._vnc_api.fq_name_to_id(
                             object_type, fq_name)
                         if object_type == "tag":
                             continue
-                        instance_obj.set_uuid(uuid)
+                        instance_obj.set_uuid(uuid_id)
                         # Update config json inside role-config object
                         if object_type == 'role-config':
                             role_config_obj = self._vnc_api.\
-                                role_config_read(id=uuid)
+                                role_config_read(id=uuid_id)
                             cur_config_json = json.loads(
                                 role_config_obj.get_role_config_config())
                             def_config_json = json.loads(
@@ -108,10 +163,12 @@ class FabricManager(object):
                             instance_obj.set_role_config_config(
                                 json.dumps(def_config_json)
                             )
+
                         if object_type != 'telemetry-profile' and \
                                 object_type != 'sflow-profile':
                             self._vnc_api._object_update(object_type,
                                                          instance_obj)
+
                     except NoIdError:
                         self._vnc_api._object_create(object_type, instance_obj)
 
@@ -131,6 +188,12 @@ class FabricManager(object):
             err_msg = 'error while loading init data: %s\n' % str(e)
             err_msg += detailed_traceback()
             self._logger.error(err_msg)
+
+        # create VN and IPAM for IPV6 link-local addresses
+        ipv6_link_local_nw = '_internal_vn_ipv6_link_local'
+        self._create_ipv6_ll_ipam_and_vn(self._vnc_api,
+                                         ipv6_link_local_nw
+                                         )
 
         # - fetch list of all the physical routers
         # - check physical and overlay role associated with each PR
