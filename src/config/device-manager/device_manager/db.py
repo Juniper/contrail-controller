@@ -807,6 +807,9 @@ class PhysicalRouterDM(DBBaseDM):
             vn = VirtualNetworkDM.get(vn_uuid)
             ip = ip_map[vn_subnet]
             if vn and vn.gateways.get(subnet_prefix) is None:
+                if DMUtils.is_ipv6_ll_subnet(ip_map[vn_subnet]) is True\
+                   and vn.ipv6_ll_vn_id is not None:
+                    vn_uuid = vn.ipv6_ll_vn_id
                 ret = self.free_ip(vn_uuid, ip_map[vn_subnet])
                 if ret == False:
                     self._logger.error("Unable to free ip for vn/subnet/pr "
@@ -833,7 +836,11 @@ class PhysicalRouterDM(DBBaseDM):
             if use_gateway_ip:
                 ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
             else:
+                if DMUtils.is_ipv6_ll_subnet(
+                        sub) is True and vn.ipv6_ll_vn_id is not None:
+                    vn_uuid = vn.ipv6_ll_vn_id
                 ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
+
             if ip_addr is None:
                 self._logger.error("Unable to allocate ip for vn/subnet/pr "
                                    "(%s/%s/%s)" % (vn_uuid, subnet_prefix,
@@ -1755,6 +1762,8 @@ class VirtualNetworkDM(DBBaseDM):
         self.floating_ip_pools = set()
         self.instance_ip_map = {}
         self.route_targets = None
+        self.has_ipv6_subnet = False
+        self.ipv6_ll_vn_id = None
         self.update(obj_dict)
     # end __init__
 
@@ -1789,6 +1798,36 @@ class VirtualNetworkDM(DBBaseDM):
                 lr_obj.virtual_network = self.uuid
     # end set_logical_router
 
+    def set_ipv6_ll_data(self, ipam_refs=[]):
+        db_data = {"vn_uuid": self.uuid}
+        self._object_db.add_ipv6_ll_subnet(self.name, db_data)
+    # end _set_ipv6_ll_data
+
+    def read_ipv6_object(self):
+        nw_fq_name = ['default-domain', 'default-project',
+                      '_internal_vn_ipv6_link_local']
+        try:
+            net_obj = self._manager._vnc_lib.virtual_network_read(
+                fq_name=nw_fq_name)
+        except Exception as e:
+            self._logger.error("virtual network '%s' does not exist %s"
+                               % (nw_fq_name[-1], str(e)))
+            return None, None
+        gateways = {}
+        for ipam_ref in net_obj.get_network_ipam_refs() or []:
+            subnets = ipam_ref['attr'].ipam_subnets
+            prefix = '0.0.0.0'
+            prefix_len = 0
+            for subnet in subnets or []:
+                prefix = subnet.subnet.ip_prefix
+                prefix_len = subnet.subnet.ip_prefix_len
+
+            gateways[prefix + '/' + str(prefix_len)] = \
+                {"default_gateway": subnet.default_gateway,
+                 "subnet_uuid": subnet.subnet_uuid
+                 }
+        return gateways, net_obj.get_uuid()
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
@@ -1809,8 +1848,29 @@ class VirtualNetworkDM(DBBaseDM):
         self.virtual_machine_interfaces = set(
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
-        self.gateways = DMUtils.get_network_gateways(obj.get(
-            'network_ipam_refs', []))
+        (self.gateways, self.has_ipv6_subnet) = \
+            DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
+
+        # special case for ipv6 internal link local VN
+        # we need to store vn and subnet info into db to fetch later.
+        if self.name == '_internal_vn_ipv6_link_local':
+            self.set_ipv6_ll_data(obj.get('network_ipam_refs', []))
+        elif self.has_ipv6_subnet is True:
+            vn_data = self._object_db.get_ipv6_ll_subnet(
+                '_internal_vn_ipv6_link_local')
+            if vn_data is not None:
+                vn = VirtualNetworkDM.get(vn_data['vn_uuid'])
+                if vn is not None:
+                    self.ipv6_ll_vn_id = vn_data['vn_uuid']
+                    self.gateways.update(vn.gateways)
+                else:
+                    gateway, vn_id = self.read_ipv6_object()
+            else:
+                gateway, vn_id = self.read_ipv6_object()
+            if gateway is not None and vn_id is not None:
+                self.gateways.update(gateway)
+                self.ipv6_ll_vn_id = vn_id
+
         self.route_targets = None
         route_target_list = obj.get('route_target_list')
         if route_target_list:
@@ -3136,6 +3196,7 @@ class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     _PR_ASN_CF = 'dm_pr_asn_table'
+    _NI_IPV6_LL_CF = 'dm_ni_ipv6_ll_table'
     # PNF table
     _PNF_RESOURCE_CF = 'dm_pnf_resource_table'
 
@@ -3171,6 +3232,7 @@ class DMCassandraDB(VncObjectDBClient):
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
                              self._PR_ASN_CF: {},
+                             self._NI_IPV6_LL_CF: {},
                              self._PNF_RESOURCE_CF: {}}}
 
         cass_server_list = self._args.cassandra_server_list
@@ -3189,9 +3251,10 @@ class DMCassandraDB(VncObjectDBClient):
         self.pr_vn_ip_map = {}
         self.pr_asn_map = {}
         self.asn_pr_map = {}
+        self.ni_ipv6_ll_map = {}
         self.init_pr_map()
         self.init_pr_asn_map()
-
+        self.init_ipv6_ll_map()
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
         self.pnf_network_allocator = IndexAllocator(
@@ -3329,6 +3392,16 @@ class DMCassandraDB(VncObjectDBClient):
                     self.asn_pr_map[asn] = pr_uuid
     # end init_pr_asn_map
 
+    def init_ipv6_ll_map(self):
+        cf = self.get_cf(self._NI_IPV6_LL_CF)
+        ipv6_subnet_entries = dict(cf.get_range())
+        for key in list(ipv6_subnet_entries.keys()):
+            ipv6_subnet_entry = ipv6_subnet_entries[key]
+            if key not in self.ni_ipv6_ll_map.keys():
+                self.ni_ipv6_ll_map[key] = ipv6_subnet_entry
+
+    # end init_ipv6_ll_map
+
     def get_ip(self, key, ip_used_for):
         return self.get_one_col(self._PR_VN_IP_CF, key,
                                 DMUtils.get_ip_cs_column_name(ip_used_for))
@@ -3352,6 +3425,28 @@ class DMCassandraDB(VncObjectDBClient):
         self.pr_asn_map[pr_uuid] = asn
         self.asn_pr_map[asn] = pr_uuid
     # end add_asn
+
+    def get_ipv6_ll_subnet(self, key):
+        if self.ni_ipv6_ll_map.get(key, None) is None:
+            db_data = self.get(self._NI_IPV6_LL_CF, key)
+            self.ni_ipv6_ll_map[key] = db_data
+
+        return self.ni_ipv6_ll_map.get(key, None)
+
+    # end get_ipv6_ll_subnet
+
+    def add_ipv6_ll_subnet(self, key, subnet):
+        for column in subnet:
+            if self.get(self._NI_IPV6_LL_CF, key, column) is None:
+                self.add(self._NI_IPV6_LL_CF, key, subnet)
+                self.ni_ipv6_ll_map[key] = subnet
+    # end add_ipv6_ll_subnet
+
+    def delete_ipv6_ll_subnet(self, key, subnet):
+        self.delete(self._NI_IPV6_LL_CF, key, subnet)
+        if not self.ni_ipv6_ll_map[key]:
+            del self.ni_ipv6_ll_map[key]
+    # end delete_ipv6_ll_subnet
 
     def delete_ip(self, key, ip_used_for):
         self.delete(self._PR_VN_IP_CF, key,
