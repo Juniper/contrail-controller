@@ -750,7 +750,7 @@ TEST_F(IgmpTest, V2_TwoVns) {
 // - Check the route and nexthop when two VNs are
 //   configured. routes should have VRF Translate NH
 // - Check vxlan routing VRF for the routes.
-TEST_F(IgmpTest, DISABLED_V2_VxlanRoutingEnabled) {
+TEST_F(IgmpTest, V2_VxlanRoutingEnabled) {
 
     bool ret = false;
     boost::system::error_code ec;
@@ -764,7 +764,7 @@ TEST_F(IgmpTest, DISABLED_V2_VxlanRoutingEnabled) {
     Inet4MulticastRouteEntry *mc_route = NULL;
 
     const NextHop *nh;
-    const VrfNH *vrfnh;
+    const InterfaceNH *interface_nh;
     const CompositeNH *cnh;
     const ComponentNH *cnh1;
 
@@ -806,8 +806,8 @@ TEST_F(IgmpTest, DISABLED_V2_VxlanRoutingEnabled) {
     nh = LPMRouteToNextHop(vrf_name_1, uc_addr);
     EXPECT_EQ((nh != NULL), true);
 
-    vrfnh = dynamic_cast<const VrfNH *>(nh);
-    EXPECT_EQ((vrfnh != NULL), true);
+    interface_nh = dynamic_cast<const InterfaceNH *>(nh);
+    EXPECT_EQ((interface_nh != NULL), true);
 
     GetVnPortInfo(1, &port, NULL, NULL);
     uc_addr = Ip4Address::from_string(port[0].addr, ec);
