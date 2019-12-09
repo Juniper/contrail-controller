@@ -42,15 +42,15 @@ import pycassa
 import pycassa.connection
 from thrift.transport import TSSLSocket
 import ssl
-from . import utils
+from vnc_cfg_api_server import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
 from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 
 try:
-    from .vnc_db import VncServerCassandraClient
+    from vnc_cfg_api_server.vnc_db import VncServerCassandraClient
 except ImportError:
-    from vnc_cfg_ifmap import VncServerCassandraClient
+    from vnc_cfg_api_server.vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
 __version__ = "1.23"
