@@ -7,7 +7,7 @@
 import uuid
 
 import cfgm_common as common
-from cfgm_common.exceptions import NoIdError, VncError
+from cfgm_common.exceptions import NoIdError, ResourceExistsError, VncError
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.zkclient import IndexAllocator
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
@@ -251,29 +251,34 @@ class SchemaTransformerDB(VncObjectDBClient):
         for zk_node in self._zkclient.get_children(path):
             if 'type0' in zk_node or 'type1_2' in zk_node:
                 continue
+            node_path = '%s/%s' % (path, zk_node)
             # The return value of read_node will be an list
             # where 0th element is fq_name and 1st element is node stat for
             # the Zookeeper node
             znode = self._zkclient.read_node(
-                '%s/%s/%s' % (self._zk_path_pfx, path, zk_node),
+                node_path,
                 include_timestamp=True)
             # Delete all the zk nodes that are not sub-directories
-            if znode is not None and znode[1].numChildren == 0:
-                self._zkclient.delete_node('%s/%s/%s' % (self._zk_path_pfx,
-                                                         path, zk_node))
+            if znode and getattr(znode[1], 'numChildren', 0) == 0:
+                self._zkclient.delete_node(node_path)
 
-    def populate_route_target_directory(self, old_path, asn):
+    def populate_route_target_directory(self, path, asn):
         self.current_rt_allocator = self.get_zk_route_target_allocator(asn)
-        for zk_node in self._zkclient.get_children(old_path):
+        for zk_node in self._zkclient.get_children(path):
             if 'type0' in zk_node or 'type1_2' in zk_node:
                 continue
+            node_path = '%s/%s' % (path, zk_node)
             znode = self._zkclient.read_node(
-                '%s/%s/%s' % (self._zk_path_pfx, old_path, zk_node),
+                node_path,
                 include_timestamp=True)
             # For all the zk nodes that are not sub-directories,
             # create the node again in new path.
-            if znode and len(znode) == 2 and znode[1].numChildren == 0:
-                self.current_rt_allocator.reserve(int(zk_node), znode[0])
+            try:
+                if znode and len(znode) == 2 and znode[1].numChildren == 0:
+                    self.current_rt_allocator.reserve(int(zk_node), znode[0])
+            except (ResourceExistsError, AttributeError):
+                # couldn't be upgraded or test instance
+                continue
 
     def get_service_chain_ip(self, sc_name):
         return self.get(self._SC_IP_CF, sc_name)
