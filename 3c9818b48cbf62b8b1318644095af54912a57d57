@@ -16,6 +16,24 @@
       "revId": "3c9818b48cbf62b8b1318644095af54912a57d57",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2d7574e1_bff856fb",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/global_system_config.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 153,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2019-12-09T06:22:11Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0375eb97_05c76954",
+      "revId": "3c9818b48cbf62b8b1318644095af54912a57d57",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
