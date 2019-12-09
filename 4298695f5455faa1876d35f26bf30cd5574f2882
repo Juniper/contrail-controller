@@ -34,6 +34,24 @@
       "revId": "4298695f5455faa1876d35f26bf30cd5574f2882",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "752d10de_f6a5a0d5",
+        "filename": "ci_unittests.json",
+        "patchSetId": 9
+      },
+      "lineNbr": 131,
+      "author": {
+        "id": 643
+      },
+      "writtenOn": "2019-12-09T06:04:21Z",
+      "side": 1,
+      "message": "I created a agent dummy review and depends on ci_unittest.json file and its passed.\nhttps://review.opencontrail.org/c/Juniper/contrail-controller/+/55694",
+      "parentUuid": "55189166_5f4c2811",
+      "revId": "4298695f5455faa1876d35f26bf30cd5574f2882",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
