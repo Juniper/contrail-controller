@@ -20,8 +20,8 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     ASN_4_BYTES = 6553692
     FAKE_VN_LIST = [
         {
-            'fq_name': ['fake-name1'],
-            'uuid': 'fake_uuid1',
+            'fq_name': ['fake-vn-name1'],
+            'uuid': 'fake_vn_uuid1',
             'route_target_list': {
                 'route_target': [
                     'target:%d:%d' % (NEW_ASN,
@@ -42,8 +42,8 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
             }
         },
         {
-            'fq_name': ['fake-name2'],
-            'uuid': 'fake_uuid2',
+            'fq_name': ['fake-vn-name2'],
+            'uuid': 'fake_vn_uuid2',
             'route_target_list': {
                 'route_target': [
                     'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
@@ -51,8 +51,8 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
             },
         },
         {
-            'fq_name': ['fake-name3'],
-            'uuid': 'fake_uuid3',
+            'fq_name': ['fake-vn-name3'],
+            'uuid': 'fake_vn_uuid3',
             'import_route_target_list': {
                 'route_target': [
                     'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
@@ -60,11 +60,24 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
             },
         },
         {
-            'fq_name': ['fake-name4'],
-            'uuid': 'fake_uuid4',
+            'fq_name': ['fake-vn-name4'],
+            'uuid': 'fake_vn_uuid4',
             'export_route_target_list': {
                 'route_target': [
                     'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                ]
+            },
+        },
+    ]
+    FAKE_LR_LIST = [
+        {
+            'fq_name': ['fake-lr-name1'],
+            'uuid': 'fake_lr_uuid1',
+            'configured_route_target_list': {
+                'route_target': [
+                    'target:%s:%s' % (NEW_ASN, get_bgp_rtgt_min_id(NEW_ASN)),
+                    'target:%s:%s' % (NEW_ASN + 1,
+                                      get_bgp_rtgt_min_id(NEW_ASN)),
                 ]
             },
         },
@@ -81,6 +94,13 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
         super(TestGlobalSystemConfig, cls).tearDownClass(*args, **kwargs)
+
+    def tearDown(self, *args, **kwargs):
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.autonomous_system = self.DEFAULT_ASN
+        self.api.global_system_config_update(gsc)
+        self._api_server._global_asn = None
+        test_case.ApiServerTestCase.tearDown(self)
 
     @property
     def api(self):
@@ -186,7 +206,6 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
                                return_value=(True, self.FAKE_VN_LIST, None)):
             try:
                 self.api.global_system_config_update(gsc)
-                self.assertFail()
             except Exception as ext:
                 self.assertIsInstance(ext, BadRequest)
                 self.assertEqual(ext.status_code, 400)
@@ -194,22 +213,17 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
                 rt_count_in_fake_vn_list = 6
                 self.assertEqual(len(existing_rt), rt_count_in_fake_vn_list)
 
-    def test_can_update_global_asn_if_not_used_by_user(self):
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        gsc.autonomous_system = self.NEW_ASN - 1
-        gsc.enable_4byte_as = False
-
+        # TODO: remove duplicated code
         with mock.patch.object(self._api_server._db_conn, 'dbe_list',
-                               return_value=(True, self.FAKE_VN_LIST, None)):
-            self.api.global_system_config_update(gsc)
-
-        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
-        self.assertEqual(gsc.autonomous_system, self.NEW_ASN - 1)
-
-        # clean up
-        gsc.autonomous_system = self.DEFAULT_ASN
-        self.api.global_system_config_update(gsc)
-        self._api_server._global_asn = None
+                               return_value=(True, self.FAKE_LR_LIST, None)):
+            try:
+                self.api.global_system_config_update(gsc)
+            except Exception as ext:
+                self.assertIsInstance(ext, BadRequest)
+                self.assertEqual(ext.status_code, 400)
+                existing_rt = ext.content.split('\t')[1:]
+                rt_count_in_fake_vn_list = 1
+                self.assertEqual(len(existing_rt), rt_count_in_fake_vn_list)
 
     def test_update_asn_if_any_rt_uses_4_byte(self):
         """
@@ -250,5 +264,3 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
-        gsc.autonomous_system = self.DEFAULT_ASN
-        self.api.global_system_config_update(gsc)
