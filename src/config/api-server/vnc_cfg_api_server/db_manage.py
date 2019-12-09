@@ -42,23 +42,25 @@ import pycassa
 import pycassa.connection
 from thrift.transport import TSSLSocket
 import ssl
-from . import utils
+from vnc_cfg_api_server import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
 from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 
 try:
-    from .vnc_db import VncServerCassandraClient
+    from vnc_cfg_api_server.vnc_db import VncServerCassandraClient
 except ImportError:
-    from vnc_cfg_ifmap import VncServerCassandraClient
+    from vnc_cfg_api_server.vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.23"
+__version__ = "1.24"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.24:
+  - Fix import statement complatible for python2
 * 1.23:
   - Fix check RT backrefs to RI (CEM-9625)
 * 1.22:
