@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "48c4984d_02837a54",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1829,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-09T18:41:06Z",
+      "side": 1,
+      "message": "lets use the lib call vnc_lib.obj_to_dict(net_obj). And use the same DmUtils parser.",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6ff254b7_1c804500",
+        "filename": "src/config/device-manager/device_manager/dm_utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 154,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-09T18:41:06Z",
+      "side": 1,
+      "message": "same IPv6 validation change here as well.",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2322045b_18102da5",
+        "filename": "src/config/device-manager/device_manager/dm_utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 291,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-09T18:41:06Z",
+      "side": 1,
+      "message": "lets do the standard IPv6 validation. same as in \u0027has_ipv6_prefixes\u0027 function.",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cda0d09d_03573772",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-09T18:41:06Z",
+      "side": 1,
+      "message": "add it with NoIdError",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8526da3a_ba0074f7",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 150,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-09T18:41:06Z",
+      "side": 1,
+      "message": "change this to uuid_id",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a1fe9bfc_7eb92db9",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 195,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-09T18:41:06Z",
+      "side": 1,
+      "message": "make this a variable and pass it.",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
