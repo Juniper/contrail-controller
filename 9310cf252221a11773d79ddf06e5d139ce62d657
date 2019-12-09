@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3e5b48c3_d76177a3",
+        "filename": "src/config/vnc_openstack/vnc_openstack/__init__.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-12-09T14:18:29Z",
+      "side": 1,
+      "message": "you should use StringIO from isx",
+      "revId": "9310cf252221a11773d79ddf06e5d139ce62d657",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
