@@ -22,6 +22,15 @@ from vnc_cfg_api_server.resources._security_base import SecurityResourceBase
 
 
 class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
+<<<<<<< HEAD   (6c72d6 Dont create a VMI with zero mac.)
+=======
+    USER_DEFINED_RT_FIELDS = {
+        'virtual_network': ['route_target_list', 'import_route_target_list',
+                            'export_route_target_list'],
+        'logical_router': ['configured_route_target_list']
+    }
+
+>>>>>>> CHANGE (91823f Validation of RT in LR on GSC update)
     @classmethod
     def _get_global_system_config(cls, fields=None):
         return cls.locate(fq_name=['default-global-system-config'],
@@ -30,14 +39,14 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
     @classmethod
     def _check_valid_port_range(cls, port_start, port_end):
         if int(port_start) > int(port_end):
-            return (False, (400, 'Invalid Port range specified'))
+            return False, (400, 'Invalid Port range specified')
         return True, ''
 
     @classmethod
     def _check_bgpaas_ports(cls, obj_dict, db_conn):
         bgpaas_ports = obj_dict.get('bgpaas_parameters')
         if not bgpaas_ports:
-            return (True, '')
+            return True, ''
 
         ok, msg = cls._check_valid_port_range(bgpaas_ports['port_start'],
                                               bgpaas_ports['port_end'])
@@ -56,15 +65,15 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                                                 is_count=True)
 
         if not ok:
-            return (ok, bgpaas_list)
+            return ok, bgpaas_list
 
         if bgpaas_list:
             if (int(bgpaas_ports['port_start']) >
                     int(cur_bgpaas_ports['port_start']) or
                 int(bgpaas_ports['port_end']) <
                     int(cur_bgpaas_ports['port_end'])):
-                return (False, (400, 'BGP Port range cannot be shrunk'))
-        return (True, '')
+                return False, (400, 'BGP Port range cannot be shrunk')
+        return True, ''
 
     @classmethod
     def check_asn_range(cls, asn, enable_4byte_as_in_dict=None):
@@ -78,18 +87,16 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             enable_4byte_as = result.get('enable_4byte_as', False)
 
         if enable_4byte_as:
-            # 4 Byte AS is allowed. So the range should be
+            # 4 Bytes AS is allowed. So the range should be
             # between 1-0xffFFffFF
             if asn < 1 or asn > 0xFFFFFFFF:
                 return (False,
-                        ('ASN out of range, should be between '
-                         '1-0xFFFFFFFF'))
+                        'ASN out of range, should be between 1-0xFFFFFFFF')
         else:
-            # Only 2 Byte AS allowed. The range should be
+            # Only 2 Bytes AS allowed. The range should be
             # between 1-0xffFF
             if asn < 1 or asn > 0xFFFF:
-                return (False,
-                        ('ASN out of range, should be between 1-0xFFFF'))
+                return False, 'ASN out of range, should be between 1-0xFFFF'
         return True, ''
 
     @classmethod
@@ -108,7 +115,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if not ok:
             return ok, (400, result)
 
-        # If the ASN has changed from 2 byte to 4 byte, we need to make sure
+        # If the ASN has changed from 2 bytes to 4 bytes, we need to make sure
         # that there is enough space to reallocate the RT values in new
         # zookeeper space.
 
@@ -120,8 +127,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                               BGP_RTGT_ALLOC_PATH_TYPE0),
                     include_timestamp=True)
                 if znode_stat.numChildren > (1 << 15):
-                    return (False, (400,
-                                    'Not enough space for RTs in 4 byte ASN'))
+                    return False, (400,
+                                   'Not enough space for RTs in 4 bytes ASN')
             except TypeError:
                 # In case of a UT environment, we can expect
                 # /id/bgp/route-targets/type0 not to exist
@@ -149,12 +156,22 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                                                 vn['uuid'], rt))
         if not founded_vn_using_asn:
             return True, ''
+<<<<<<< HEAD   (6c72d6 Dont create a VMI with zero mac.)
         msg = ("Virtual networks are configured with a route target with this "
                "ASN %d and route target value in the same range as used by "
                "automatically allocated route targets:\n" % global_asn)
         for fq_name, uuid, rt in founded_vn_using_asn:
             msg += ("\t- %s (%s) have route target %s configured\n" %
                     (':'.join(fq_name), uuid, rt[7:]))
+=======
+        name = ' '.join(obj_name.split('_')).capitalize()
+        msg = ('%ss are configured with a route target with this '
+               'ASN %d and route target value in the same range as used by '
+               'automatically allocated route targets:\n' % (name, asn))
+        for fq_name, uuid, field, rt in found_obj_using_asn:
+            msg += ('\t- %s (%s) have route target %s configured in %s\n' %
+                    (fq_name, uuid, rt[7:], field))
+>>>>>>> CHANGE (91823f Validation of RT in LR on GSC update)
         return False, (400, msg)
 
     @classmethod
@@ -171,8 +188,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             try:
                 re.compile(udc['pattern'])
             except Exception as e:
-                msg = ("Regex error in user-defined-log-statistics at %s: %s "
-                       "(Error: %s)" % (udc['name'], udc['pattern'], str(e)))
+                msg = ('Regex error in user-defined-log-statistics at %s: %s '
+                       '(Error: %s)' % (udc['name'], udc['pattern'], str(e)))
                 return False, (400, msg)
         return True, ''
 
@@ -205,7 +222,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             try:
                 ipam_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq)
             except NoIdError as e:
-                return (False, str(e))
+                return False, str(e)
 
         api_server = cls.server
 
@@ -213,7 +230,6 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         if not ipam_uuid:
             ipam = NetworkIpam(ipam_fq[-1])
             ipam_dict = json.dumps(ipam, default=_obj_serializer_all)
-            ipam_obj = None
             try:
                 ok, ipam_obj = api_server.internal_request_create(
                     obj_type, json.loads(ipam_dict))
@@ -225,11 +241,11 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
 
         # build ipam subnets
         ipam_list = []
-        if subnet_list and subnet_list.get("subnet"):
-            sub_list = subnet_list.get("subnet")
+        if subnet_list and subnet_list.get('subnet'):
+            sub_list = subnet_list.get('subnet')
             for sub in sub_list or []:
                 ipam_sub = IpamSubnetType(subnet=SubnetType(
-                    sub.get("ip_prefix"), sub.get("ip_prefix_len")))
+                    sub.get('ip_prefix'), sub.get('ip_prefix_len')))
                 ipam_list.append(ipam_sub)
 
         # update ipam
@@ -256,7 +272,7 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             return False, result
         gsc = result
 
-        msg = ("Global System Config already exists with name %s (%s)" %
+        msg = ('Global System Config already exists with name %s (%s)' %
                (':'.join(gsc['fq_name']), gsc['uuid']))
         return False, (400, msg)
 
@@ -326,6 +342,5 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             cls.server.global_autonomous_system = read_result[
                 'autonomous_system']
         if 'enable_4byte_as' in read_result:
-            cls.server.enable_4byte_as = read_result[
-                'enable_4byte_as']
+            cls.server.enable_4byte_as = read_result['enable_4byte_as']
         return True, ''
