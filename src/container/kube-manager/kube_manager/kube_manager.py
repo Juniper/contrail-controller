@@ -221,12 +221,13 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
 
     args = kube_args.parse_args(args_str)
 
+    client_pfx = ''
+    zk_path_pfx = ''
     if args.cluster_id:
-        client_pfx = args.cluster_id + '-'
-        zk_path_pfx = args.cluster_id + '/'
-    else:
-        client_pfx = ''
-        zk_path_pfx = ''
+        client_pfx += args.cluster_id + '-'
+        zk_path_pfx += args.cluster_id + '/'
+    client_pfx += args.cluster_name + '-'
+    zk_path_pfx += args.cluster_name + '/'
 
     # randomize collector list
     args.random_collectors = args.collectors
@@ -246,8 +247,9 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
                 km_logger,
                 DBBaseKM,
                 REACTION_MAP,
-                'kube_manager',
-                rabbitmq_cfg
+                client_pfx+'kube_manager',
+                rabbitmq_cfg,
+                args.host_ip
             )
             vnc_amqp.establish()
             vnc_amqp.close()
@@ -262,7 +264,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
 
         km_logger.notice("Waiting to be elected as master...")
         _zookeeper_client.master_election(
-            zk_path_pfx + "/kube-manager",
+            zk_path_pfx + "kube-manager",
             os.getpid(),
             run_kube_manager,
             km_logger,

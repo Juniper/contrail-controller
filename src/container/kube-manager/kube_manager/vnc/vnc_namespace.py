@@ -581,6 +581,9 @@ class VncNamespace(VncCommon):
         so the vnc project can be cleaned up.
         """
         for project in ProjectKM.objects():
+            if project.owner != 'k8s' or \
+                project.cluster != vnc_kube_config.cluster_name():
+                continue
             k8s_namespace_uuid = project.get_k8s_namespace_uuid()
             # Proceed only if this project is tagged with a k8s namespace.
             if k8s_namespace_uuid and not\
