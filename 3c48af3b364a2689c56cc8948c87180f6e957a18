@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "95ddeb15_c13badbc",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1829,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2019-12-10T15:28:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "48c4984d_02837a54",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ff254b7_1c804500",
         "filename": "src/config/device-manager/device_manager/dm_utils.py",
         "patchSetId": 5
@@ -33,6 +51,24 @@
       "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "81f91621_f8ff0326",
+        "filename": "src/config/device-manager/device_manager/dm_utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 154,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2019-12-10T15:28:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6ff254b7_1c804500",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "1087b7c5_b99eeba6",
+        "filename": "src/config/device-manager/device_manager/dm_utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 291,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2019-12-10T15:28:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2322045b_18102da5",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "cda0d09d_03573772",
         "filename": "src/config/device-manager/device_manager/fabric_manager.py",
         "patchSetId": 5
@@ -67,6 +121,24 @@
       "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c6b0ec30_1c2cb139",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2019-12-10T15:28:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "cda0d09d_03573772",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -87,6 +159,24 @@
     },
     {
       "key": {
+        "uuid": "4f9c3d28_092b9e1b",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 150,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2019-12-10T15:28:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8526da3a_ba0074f7",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "a1fe9bfc_7eb92db9",
         "filename": "src/config/device-manager/device_manager/fabric_manager.py",
         "patchSetId": 5
@@ -101,6 +191,24 @@
       "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "50b97971_aedbc259",
+        "filename": "src/config/device-manager/device_manager/fabric_manager.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 195,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2019-12-10T15:28:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a1fe9bfc_7eb92db9",
+      "revId": "3c48af3b364a2689c56cc8948c87180f6e957a18",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
