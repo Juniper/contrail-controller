@@ -245,8 +245,6 @@
           "controller/src/ksync:test",
           "src/contrail-common/database/gendb:test",
           "src/contrail-analytics/contrail-collector:test",
-          "src/contrail-analytics/contrail-opserver:test",
-          "src/contrail-analytics/contrail-query-engine:test",
           "src/contrail-api-client/schema:test",
           "src/contrail-analytics/contrail-topology:test",
           "controller/src/vcenter-import:test"
