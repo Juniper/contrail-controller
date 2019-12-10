@@ -1232,6 +1232,8 @@ class ProjectKM(DBBaseKM):
         self.k8s_namespace_isolated = False
         self.k8s_namespace_uuid = None
         self.k8s_namespace_name = None
+        self.owner = None
+        self.cluster = None
         self.security_groups = set()
         obj_dict = self.update(obj_dict)
         self.set_children('virtual_network', obj_dict)
@@ -1257,6 +1259,10 @@ class ProjectKM(DBBaseKM):
                 self.k8s_namespace_uuid = kvp.get('value')
             if kvp.get('key') == 'name':
                 self.k8s_namespace_name = kvp.get('value')
+            if kvp.get('owner') == 'owner':
+                self.owner = kvp.get('value')
+            if kvp.get('cluster') == 'cluster':
+                self.cluster = kvp.get('value')
         return obj
 
     @classmethod
