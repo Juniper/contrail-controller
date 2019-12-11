@@ -1317,6 +1317,12 @@
             "default-global-system-config", "telemetry"
           ],
           "name": "telemetry"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "dc-gateway"
+          ],
+          "name": "dc-gateway"
         }
       ]
     },
@@ -2167,6 +2173,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dc-gateway-spine" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
     },
@@ -2227,6 +2239,12 @@
     {
       "from_type": "role-definition",
       "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-spine" ],
       "to_type": "overlay-role",
       "to_fq_name": [ "default-global-system-config", "dci-gateway" ]
     },
@@ -2253,6 +2271,12 @@
       "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
       "to_type": "feature",
       "to_fq_name": [ "default-global-system-config", "telemetry" ]
+    },
+    {
+      "from_type": "role-definition",
+      "from_fq_name": [ "default-global-system-config", "dci-gateway-leaf" ],
+      "to_type": "feature",
+      "to_fq_name": [ "default-global-system-config", "dc-gateway" ]
     },
     {
       "from_type": "role-definition",
