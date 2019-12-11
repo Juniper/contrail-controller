@@ -13,6 +13,7 @@ import copy
 from abstract_device_api.abstract_device_xsd import *
 from attrdict import AttrDict
 import db
+from dm_utils import JunosInterface
 from imports import import_feature_plugins
 
 
@@ -251,6 +252,28 @@ class FeatureBase(object):
             mode in vn.get_forwarding_mode()
     # end _is_valid_vn
 
+    @staticmethod
+    def _get_values_sorted_by_key(dict_obj):
+        return [dict_obj[key] for key in sorted(dict_obj.keys())]
+    # end get_values_sorted_by_key
+
+    @staticmethod
+    def _get_sorted_key_value_pairs(dict_obj):
+        return [(key, dict_obj[key]) for key in sorted(dict_obj.keys())]
+    # end get_sorted_key_value_pairs
+
+    def _any_rb_role_matches(self, sub_str):
+        if self._physical_router.routing_bridging_roles and sub_str:
+            return any(sub_str.lower() in
+                       r.lower() for r in
+                       self._physical_router.routing_bridging_roles)
+        return False
+    # end _any_rb_role_matches
+
+    def _is_gateway(self):
+        return self._any_rb_role_matches('gateway')
+    # end is_gateway
+
     def _get_connected_vns(self, mode):
         vns = set()
         for lr_uuid in self._physical_router.logical_routers or []:
@@ -268,6 +291,64 @@ class FeatureBase(object):
 
         return [vn for vn in list(vns) if self._is_valid_vn(vn, mode)]
     # end _get_connected_vns
+
+    def _get_vn_junointerface_map(self):
+        vn_list = []
+        # get all logical router connected networks
+        for lr_id in self._physical_router.logical_routers or []:
+            lr = db.LogicalRouterDM.get(lr_id)
+            if not lr:
+                continue
+            vn_list += lr.get_connected_networks(include_internal=True)
+
+        vn_dict = {}
+        for vn_id in vn_list:
+            vn_dict[vn_id] = []
+
+        for vn_id in self._physical_router.virtual_networks:
+            vn_dict[vn_id] = []
+            vn = db.VirtualNetworkDM.get(vn_id)
+            if vn and vn.router_external:
+                vn_list = vn.get_connected_private_networks()
+                for pvn in vn_list or []:
+                    vn_dict[pvn] = []
+
+        for vpg_uuid in self._physical_router.virtual_port_groups or []:
+            vpg_obj = db.VirtualPortGroupDM.get(vpg_uuid)
+            if not vpg_obj:
+                continue
+            vpg_interfaces = vpg_obj.physical_interfaces
+            for vmi_uuid in vpg_obj.virtual_machine_interfaces:
+                vmi_obj = db.VirtualMachineInterfaceDM.get(vmi_uuid)
+                if not vmi_obj:
+                    continue
+                vn_id = vmi_obj.virtual_network or None
+                if vn_id:
+                    vn = db.VirtualNetworkDM.get(vn_id)
+                    vlan_tag = vmi_obj.vlan_tag
+                    p_vtag = vmi_obj.port_vlan_tag
+                    for pi_uuid in vpg_interfaces:
+                        if pi_uuid in \
+                                self._physical_router.physical_interfaces:
+                            ae_id = vpg_obj.pi_ae_map.get(pi_uuid)
+                            if ae_id is not None and vlan_tag is not None:
+                                ae_name = "ae" + str(ae_id) + "." \
+                                          + str(vlan_tag)
+                                vn_dict.setdefault(vn_id, []).append(
+                                    JunosInterface(ae_name, 'l2', vlan_tag,
+                                                   port_vlan_tag=p_vtag))
+                                break
+                            else:
+                                pi_obj = db.PhysicalInterfaceDM.get(pi_uuid)
+                                if pi_obj:
+                                    li_name = pi_obj.name + "." + str(vlan_tag)
+                                    vn_dict.setdefault(vn_id, []).append(
+                                        JunosInterface(li_name, 'l2',
+                                                       vlan_tag,
+                                                       port_vlan_tag=p_vtag))
+                                    break
+        return vn_dict
+    # end
 
     def _get_vn_li_map(self, mode):
         vn_dict = OrderedDict()

@@ -18,6 +18,7 @@ import time
 import datetime
 from io import BytesIO as StringIO
 from .dm_utils import DMUtils
+from .dm_utils import JunosInterface
 from .device_conf import DeviceConf
 from .dm_utils import PushConfigState
 from .db import PhysicalInterfaceDM
@@ -587,24 +588,3 @@ class JuniperConf(DeviceConf):
     # end ensure_bgp_config
 
 # end JuniperConf
-
-class JunosInterface(object):
-
-    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None, li_uuid=None):
-        self.li_uuid = li_uuid
-        self.name = if_name
-        self.if_type = if_type
-        self.vlan_tag = if_vlan_tag
-        ifparts = if_name.split('.')
-        self.ifd_name = ifparts[0]
-        self.unit = ifparts[1]
-        self.ip = if_ip
-    # end __init__
-
-    def is_untagged(self):
-        if not self.vlan_tag:
-            return True
-        return False
-    # end is_untagged
-
-# end JunosInterface
