@@ -223,7 +223,7 @@ class AnsibleRoleCommon(AnsibleConf):
         if not is_l2:
             ri.set_routing_instance_type("vrf")
             if fip_map is None:
-                if not is_internal_vn:
+                if router_external or not is_internal_vn:
                     for interface in interfaces:
                         self.add_ref_to_list(ri.get_interfaces(), interface.name)
                     if prefixes:
