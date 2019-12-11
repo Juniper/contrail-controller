@@ -61,7 +61,8 @@ class FabricManager(object):
     # for IPV6 link local address.
     def _create_ipv6_ll_ipam_and_vn(self, vnc_api, network_name):
         nw_fq_name = ['default-domain', 'default-project', network_name]
-        ipam_fq_name = ['default-domain', 'default-project', 'ipv6_link_local']
+        ipam_fq_name = ['default-domain', 'default-project',
+                        '_internal_ipam_ipv6_link_local']
         subnets = VnSubnetsType([(IpamSubnetType(subnet=SubnetType('fe80::',
                                                                    64),
                                                  default_gateway='fe80::1',
@@ -71,7 +72,7 @@ class FabricManager(object):
                                   )]
                                 )
         ipam = NetworkIpam(
-            name='ipv6_link_local',
+            name='_internal_ipam_ipv6_link_local',
             fq_name=ipam_fq_name,
             parent_type='project',
             ipam_subnet_method='user-defined-subnet')
