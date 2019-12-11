@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ccb3203d_c9b9380b",
+        "filename": "src/config/device-manager/device_manager/plugins/ansible/ansible_role_common.py",
+        "patchSetId": 14
+      },
+      "lineNbr": 449,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-12-11T03:55:49Z",
+      "side": 0,
+      "message": "You need to remove more code related to security group from this file",
+      "range": {
+        "startLine": 449,
+        "startChar": 46,
+        "endLine": 449,
+        "endChar": 0
+      },
+      "revId": "53acc5534e9dcf7a1746ded5fbdfa89bdcb9ce54",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
