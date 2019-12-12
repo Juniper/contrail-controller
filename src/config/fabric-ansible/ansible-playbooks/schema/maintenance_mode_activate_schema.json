@@ -39,6 +39,11 @@
               "description": "Enable/disable abort upon health check failures",
               "default": true
             },
+            "validate_critical_roles": {
+              "type": "boolean",
+              "description": "Enable/disable critical role validation",
+              "default": true
+            },
             "Juniper": {
               "type": "object",
               "additionalProperties": false,
