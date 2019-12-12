@@ -29,12 +29,6 @@ class NetworkMonitor(KubeMonitor):
             return
         # assume that v1beta doesn't exist anymore
         if len(crd_info) == 0:
-            (crd_info) = self.get_resource(resource_type= \
-                    "customresourcedefinitions",
-                    resource_name= \
-                    "network-attachment-definitions.k8s.cni.cncf.io",
-                    api_group="apis/apiextensions.k8s.io", api_version="v1")
-        else:
             current_crds = []
             if 'items' in crd_info:
                 current_crds = [x['metadata']['name'].lower() \
