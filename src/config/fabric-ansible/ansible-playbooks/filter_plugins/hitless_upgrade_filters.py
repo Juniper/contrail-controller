@@ -34,6 +34,12 @@ IMAGE_UPGRADE_DURATION = 30  # minutes
 
 class FilterModule(object):
 
+    critical_routing_bridging_roles = {
+        "CRB-MCAST-Gateway",
+        "DC-Gateway",
+        "DCI-Gateway",
+    }
+
     @staticmethod
     def _validate_job_ctx(job_ctx):
         if not job_ctx.get('fabric_fqname'):
@@ -51,7 +57,8 @@ class FilterModule(object):
             'hitless_upgrade_plan': self.get_hitless_upgrade_plan,
             'hitless_next_batch': self.get_next_batch,
             'hitless_all_devices': self.get_all_devices,
-            'hitless_device_info': self.get_device_info
+            'hitless_device_info': self.get_device_info,
+            'hitless_validate': self.validate_critical_roles
         }
     # end filters
 
@@ -312,69 +319,185 @@ class FilterModule(object):
         return if_list
     # end _get_multihomed_interface_list
 
-    # Use the ordered list of role groups and the role device groups to
-    # generate sets of batches. Also prevent two or more devices from being
-    # included in the same batch if they share a multi-homed BMS
-    def _generate_batches(self):
-        batches = []
-        idx = 0
-        for role_group in ordered_role_groups:
-            # Batching is per-role-group
-            batch_load_list = []
-            for role in role_group:
-                # Only allow 1 spine at a time for now
-                batch_max = 1 if "spine" in role else self.batch_limit
-                device_list = self.role_device_groups.get(role, [])
-                for device_uuid in device_list:
-                    loaded = False
-                    batch_full = False
-                    device_name = self.device_table[device_uuid].get('name')
-                    # Try to add device into an existing batch
-                    for batch in batch_load_list:
-                        buddies = self._get_vpg_buddies(device_uuid)
-                        safe = True
-                        # If this device shares a multi-homed vpg interface
-                        # with another device in this batch, try the next batch
-                        for buddy in buddies:
-                            if buddy['uuid'] in batch['device_list']:
-                                safe = False
-                                break
-                        # If safe to do so, add this device to the batch
-                        if safe:
-                            batch['device_list'].append(device_uuid)
-                            batch['device_names'].append(device_name)
-                            loaded = True
-                            # if the batch is full, move it to the master list
-                            if len(batch['device_list']) >= batch_max:
-                                batch_full = True
-                            break
-                    # if not loaded into a batch, generate a new batch
-                    if not loaded:
-                        idx += 1
-                        batch = {
-                            'name': "Batch " + str(idx),
-                            'device_list': [device_uuid],
-                            'device_names': [device_name]
-                        }
-                        batch_load_list.append(batch)
-                        # if the batch is full, move it to the master list
-                        if len(batch['device_list']) >= batch_max:
-                            batch_full = True
-                    # if batch full, move from load list to master list
-                    if batch_full:
-                        batch_load_list.remove(batch)
-                        batches.append(batch)
-            # move remaining batches from the load list to the master list
-            for batch in batch_load_list:
-                batches.append(batch)
-        # Add batch index to device info
+    def _device_value_based_on_number_of_critical_roles(self, device_uuid):
+        rb_roles = self.device_table[device_uuid].get('rb_roles')
+        how_many_critical_roles = 0
+        for rb_role in rb_roles:
+            if rb_role in FilterModule.critical_routing_bridging_roles:
+                how_many_critical_roles += 1
+        return -how_many_critical_roles
+
+    # Creates a dict: name of critical routing bridging role -> number of
+    # occurences in all devices.
+    def _calculate_devices_with_critical_routing_bridging_roles(self):
+        self.critical_routing_bridging_roles_count = {}
+        for critical_routing_bridging_role in\
+                FilterModule.critical_routing_bridging_roles:
+            self.critical_routing_bridging_roles_count[
+                    critical_routing_bridging_role] = 0
+        for device_uuid, device_info in self.device_table.iteritems():
+            for routing_bridging_role in device_info.get('rb_roles'):
+                if routing_bridging_role in\
+                        FilterModule.critical_routing_bridging_roles:
+                    self.critical_routing_bridging_roles_count[
+                            routing_bridging_role] += 1
+
+    # Assumes that critical_routing_bridging_roles_count has been initialized.
+    def _calc_max_number_of_repr_of_critical_rb_roles_per_batch(self):
+        self.max_number_of_repr_of_critical_rb_roles_per_batch = {}
+        for role_name, number_of_occurences \
+                in self.critical_routing_bridging_roles_count.iteritems():
+            self.max_number_of_repr_of_critical_rb_roles_per_batch[role_name] \
+                    = number_of_occurences / 2 + number_of_occurences % 2
+
+    def _calculate_max_number_of_spines_updated_in_batch(self):
+        number_of_spines = 0
+        for device_uuid, device_info in self.device_table.iteritems():
+            if device_info.get('physical_role') == 'spine':
+                number_of_spines += 1
+        self.max_number_of_spines_updated_in_batch = \
+            number_of_spines / 2 + number_of_spines % 2
+
+    def _calc_number_of_repr_of_critical_rb_roles_in_batch(self, batch):
+        critical_routing_bridging_roles_count = {}
+        for critical_routing_bridging_role in\
+                FilterModule.critical_routing_bridging_roles:
+            critical_routing_bridging_roles_count[
+                    critical_routing_bridging_role] = 0
+        for device_uuid in batch['device_list']:
+            rb_roles = self.device_table[device_uuid].get('rb_roles')
+            for rb_role in rb_roles:
+                if rb_role in FilterModule.critical_routing_bridging_roles:
+                    critical_routing_bridging_roles_count[rb_role] += 1
+        return critical_routing_bridging_roles_count
+
+    # If correct batch extended with device_uuid is still correct in regards
+    # to vpg buddies, return True. Otherwise return False.
+    def _check_vpg_buddies_in_batch(self, device_uuid, batch):
+        # If this device shares a multi-homed vpg interface
+        # with another device in this batch, return False.
+        buddies = self._get_vpg_buddies(device_uuid)
+        for buddy in buddies:
+            if buddy['uuid'] in batch['device_list']:
+                return False
+        return True
+
+    # If correct batch extended with device_uuid is still correct in regards
+    # to number of spines in batch, return True. Otherwise return False.
+    def _check_number_of_spines_in_batch(self, device_uuid, batch):
+        device_info = self.device_table[device_uuid]
+        physical_role = device_info.get('physical_role')
+        if "spine" in physical_role:
+            spines_in_batch = 0
+            for device in batch['device_list']:
+                device_role = self.device_table[device].get('physical_role')
+                if "spine" in device_role:
+                    spines_in_batch += 1
+                    if (spines_in_batch + 1 >
+                            self.max_number_of_spines_updated_in_batch):
+                        return False
+        return True
+
+    # If correct batch extended with device_uuid is still correct in regards
+    # to number of critical roles, return True. Otherwise return False.
+    def _check_number_of_critical_rb_roles_in_batch(self, device_uuid, batch):
+        device_info = self.device_table[device_uuid]
+        rb_roles = device_info.get('rb_roles')
+        critical_rb_roles_in_device = list(
+                FilterModule.critical_routing_bridging_roles & set(rb_roles))
+        if critical_rb_roles_in_device:
+            critical_rb_roles_in_batch_count = self.\
+                    _calc_number_of_repr_of_critical_rb_roles_in_batch(batch)
+            for rb_role in critical_rb_roles_in_device:
+                if critical_rb_roles_in_batch_count[rb_role] + 1 > self.\
+                        max_number_of_repr_of_critical_rb_roles_per_batch[
+                        rb_role]:
+                    return False
+        return True
+
+    # It assumes that batch is correct and is not empty.
+    def _check_if_device_can_be_added_to_the_batch(self, device_uuid, batch):
+        return \
+            self._check_vpg_buddies_in_batch(device_uuid, batch) and \
+            self._check_number_of_spines_in_batch(device_uuid, batch) and \
+            self._check_number_of_critical_rb_roles_in_batch(
+                    device_uuid, batch)
+
+    def _add_batch_index_to_device_info(self, batches):
         for batch in batches:
             for device_uuid in batch['device_list']:
                 self.device_table[device_uuid]['batch_index'] = batches.index(
                     batch)
 
+    def _add_device_to_the_batch(self, device_uuid, batch_load_list, batches):
+        batch = {}
+        loaded = False
+        batch_full = False
+        device_name = self.device_table[device_uuid].get('name')
+        # Try to add device into an existing batch
+        for batch in batch_load_list:
+            safe = self._check_if_device_can_be_added_to_the_batch(
+                device_uuid, batch)
+            if safe:
+                batch['device_list'].append(device_uuid)
+                batch['device_names'].append(device_name)
+                loaded = True
+                # if the batch is full, move it to the master list
+                if len(batch['device_list']) >= self.batch_limit:
+                    batch_full = True
+                break
+        # if not loaded into a batch, generate a new batch
+        if not loaded:
+            idx = len(batch_load_list) + len(batches) + 1
+            batch = {
+                'name': "Batch " + str(idx),
+                'device_list': [device_uuid],
+                'device_names': [device_name]
+            }
+            batch_load_list.append(batch)
+            # if the batch is full, move it to the master list
+            if len(batch['device_list']) >= self.batch_limit:
+                batch_full = True
+        # if batch full, move from load list to master list
+        if batch_full:
+            batch_load_list.remove(batch)
+            batches.append(batch)
+
+    def _assign_devices_to_batches(self):
+        batches = []
+        for role_group in ordered_role_groups:
+            # Batching is per-role-group (constraint 1).
+            # TODO: Each role group contains just one role. So why do we need
+            # role groups?
+            batch_load_list = []
+            for role in role_group:
+                device_list = self.role_device_groups.get(role, [])
+                for device_uuid in device_list:
+                    self._add_device_to_the_batch(
+                            device_uuid, batch_load_list, batches)
+            # move remaining batches from the load list to the master list
+            for batch in batch_load_list:
+                batches.append(batch)
         return batches
-    # end _generate_batches
+
+    # Generate batches of devices that can be updated at once.
+    #
+    # Constraints:
+    # 1. Two devices with the different physical_router_role can not be in the
+    #    same batch.
+    # 2. More than half (half + 0.5 for odd number) of spines can not be in the
+    #    same batch.
+    # 3. For each routing_bridging_role in {"CRB-MCAST-Gateway",
+    #    "DC-Gateway", "DCI-Gateway"} no more than half (half + 0.5 for odd
+    #    number) of devices with that role can be in the same batch.
+    # 4. Two devices that share VPG can not be in the same batch.
+    def _generate_batches(self):
+        self._calculate_devices_with_critical_routing_bridging_roles()
+        self._calc_max_number_of_repr_of_critical_rb_roles_per_batch()
+        self._calculate_max_number_of_spines_updated_in_batch()
+        batches = self._assign_devices_to_batches()
+        self._add_batch_index_to_device_info(batches)
+        return batches
 
     def _spill_device_details(self, device_name, device_info):
         details = ""
@@ -651,6 +774,143 @@ class FilterModule(object):
         }
         return device_info
     # end _get_device_info
+
+    # Validate whether fabric will be hitless when the given list of
+    # devices go into maintenance mode
+    def validate_critical_roles(self, job_ctx, device_uuid_list):
+        try:
+            FilterLog.instance("HitlessUpgradeFilter")
+            self.job_input = FilterModule._validate_job_ctx(job_ctx)
+            self.fabric_uuid = self.job_input['fabric_uuid']
+            self.vncapi = JobVncApi.vnc_init(job_ctx)
+            self.job_ctx = job_ctx
+            self.ja = JobAnnotations(self.vncapi)
+            self.advanced_parameters = self._get_advanced_params()
+            self._cache_job_input()
+            self.device_uuid_list = device_uuid_list
+            results = self._validate_critical_roles()
+            return results
+        except Exception as ex:
+            errmsg = "Unexpected error validating: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end hitless_validate
+
+    # Get device info used for maintenance mode activate
+    def _validate_critical_roles(self):
+        error_msg = ''
+        critical_dev_list = []
+        mm_dev_list = []
+        dev_list = self.vncapi.physical_routers_list(
+            fields=['fabric_refs', 'physical_role_refs',
+                    'routing_bridging_roles', 'physical_router_managed_state'
+                    ]).get('physical-routers', [])
+        # Search through all devices in fabric and create a critical device
+        # list of devices which are active and performing critical roles
+        for dev in dev_list:
+            if dev['uuid'] in self.device_uuid_list:
+                mm_dev_list.append(dev)
+                continue
+            fabric_refs = dev.get('fabric_refs')
+            if not fabric_refs:
+                continue
+            fabric_uuid = fabric_refs[0]['uuid']
+            if fabric_uuid != self.fabric_uuid:
+                continue
+            managed_state = dev.get('physical_router_managed_state')
+            if managed_state and managed_state != 'active':
+                continue
+            physical_role_refs = dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == 'spine':
+                critical_dev_list.append(dev)
+                continue
+            routing_bridging_roles = dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if 'Gateway' in rb_role:
+                    critical_dev_list.append(dev)
+                    break
+
+        # Make sure critical roles are present in critical devices
+        missing_roles = set()
+        for mm_dev in mm_dev_list:
+            # check critical physical roles
+            physical_role_refs = mm_dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == 'spine':
+                found = self._find_critical_phy_role(
+                    physical_role, critical_dev_list)
+                if not found:
+                    missing_roles.add(physical_role)
+
+            # check critical routing-bridging roles
+            routing_bridging_roles = mm_dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if 'Gateway' in rb_role:
+                    found = self._find_critical_rb_role(
+                        rb_role, critical_dev_list)
+                    if not found:
+                        missing_roles.add(rb_role)
+        if missing_roles:
+            error_msg = 'Fabric will not be hitless because these '\
+                        'roles will no longer be deployed: '\
+                        '{}'.format(list(missing_roles))
+
+        if error_msg:
+            results = {
+                'error_msg': error_msg,
+                'status': "failure"
+            }
+        else:
+            results = {
+                'error_msg': "Fabric is hitless",
+                'status': "success"
+            }
+        return results
+    # end _hitless_validate
+
+    # Find a particular critical physical role in a list of devices
+    def _find_critical_phy_role(self, crit_phy_role, dev_list):
+        for dev in dev_list:
+            physical_role_refs = dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == crit_phy_role:
+                return True
+        return False
+    # end _find_critical_rb_role
+
+    # Find a particular critical routing-bridging role in a list of devices
+    def _find_critical_rb_role(self, crit_rb_role, dev_list):
+        for dev in dev_list:
+            routing_bridging_roles = dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if crit_rb_role == rb_role:
+                    return True
+        return False
+    # end _find_critical_rb_role
 
     # generate a single entry of device information
     def _generate_device_entry(self):
