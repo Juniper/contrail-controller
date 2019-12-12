@@ -51,7 +51,8 @@ class FilterModule(object):
             'hitless_upgrade_plan': self.get_hitless_upgrade_plan,
             'hitless_next_batch': self.get_next_batch,
             'hitless_all_devices': self.get_all_devices,
-            'hitless_device_info': self.get_device_info
+            'hitless_device_info': self.get_device_info,
+            'hitless_validate': self.validate_critical_roles
         }
     # end filters
 
@@ -651,6 +652,143 @@ class FilterModule(object):
         }
         return device_info
     # end _get_device_info
+
+    # Validate whether fabric will be hitless when the given list of
+    # devices go into maintenance mode
+    def validate_critical_roles(self, job_ctx, device_uuid_list):
+        try:
+            FilterLog.instance("HitlessUpgradeFilter")
+            self.job_input = FilterModule._validate_job_ctx(job_ctx)
+            self.fabric_uuid = self.job_input['fabric_uuid']
+            self.vncapi = JobVncApi.vnc_init(job_ctx)
+            self.job_ctx = job_ctx
+            self.ja = JobAnnotations(self.vncapi)
+            self.advanced_parameters = self._get_advanced_params()
+            self._cache_job_input()
+            self.device_uuid_list = device_uuid_list
+            results = self._validate_critical_roles()
+            return results
+        except Exception as ex:
+            errmsg = "Unexpected error validating: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+            }
+    # end hitless_validate
+
+    # Get device info used for maintenance mode activate
+    def _validate_critical_roles(self):
+        error_msg = ''
+        critical_dev_list = []
+        mm_dev_list = []
+        dev_list = self.vncapi.physical_routers_list(
+            fields=['fabric_refs', 'physical_role_refs',
+                    'routing_bridging_roles', 'physical_router_managed_state'
+                    ]).get('physical-routers', [])
+        # Search through all devices in fabric and create a critical device
+        # list of devices which are active and performing critical roles
+        for dev in dev_list:
+            if dev['uuid'] in self.device_uuid_list:
+                mm_dev_list.append(dev)
+                continue
+            fabric_refs = dev.get('fabric_refs')
+            if not fabric_refs:
+                continue
+            fabric_uuid = fabric_refs[0]['uuid']
+            if fabric_uuid != self.fabric_uuid:
+                continue
+            managed_state = dev.get('physical_router_managed_state')
+            if managed_state and managed_state != 'active':
+                continue
+            physical_role_refs = dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == 'spine':
+                critical_dev_list.append(dev)
+                continue
+            routing_bridging_roles = dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if 'Gateway' in rb_role:
+                    critical_dev_list.append(dev)
+                    continue
+
+        # Make sure critical roles are present in critical devices
+        missing_roles = set()
+        for mm_dev in mm_dev_list:
+            # check critical physical roles
+            physical_role_refs = mm_dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == 'spine':
+                found = self._find_critical_phy_role(
+                    physical_role, critical_dev_list)
+                if not found:
+                    missing_roles.add(physical_role)
+
+            # check critical routing-bridging roles
+            routing_bridging_roles = mm_dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if 'Gateway' in rb_role:
+                    found = self._find_critical_rb_role(
+                        rb_role, critical_dev_list)
+                    if not found:
+                        missing_roles.add(rb_role)
+        if missing_roles:
+            error_msg = 'Fabric will not be hitless because these '\
+                        'roles will no longer be deployed: '\
+                        '{}'.format(list(missing_roles))
+
+        if error_msg:
+            results = {
+                'error_msg': error_msg,
+                'status': "failure"
+            }
+        else:
+            results = {
+                'error_msg': "Fabric is hitless",
+                'status': "success"
+            }
+        return results
+    # end _hitless_validate
+
+    # Find a particular critical physical role in a list of devices
+    def _find_critical_phy_role(self, crit_phy_role, dev_list):
+        for dev in dev_list:
+            physical_role_refs = dev.get('physical_role_refs')
+            if not physical_role_refs:
+                continue
+            physical_role = physical_role_refs[0]['to'][-1]
+            if physical_role == crit_phy_role:
+                return True
+        return False
+    # end _find_critical_rb_role
+
+    # Find a particular critical routing-bridging role in a list of devices
+    def _find_critical_rb_role(self, crit_rb_role, dev_list):
+        for dev in dev_list:
+            routing_bridging_roles = dev.get('routing_bridging_roles')
+            if routing_bridging_roles:
+                rb_roles = routing_bridging_roles['rb_roles']
+            else:
+                rb_roles = []
+            for rb_role in rb_roles:
+                if crit_rb_role == rb_role:
+                    return True
+        return False
+    # end _find_critical_rb_role
 
     # generate a single entry of device information
     def _generate_device_entry(self):

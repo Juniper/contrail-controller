@@ -54,6 +54,21 @@
         advanced_params: "{{upgrade_plan.advanced_parameters}}"
 
     - block:
+        - name: Validate fabric will remain hitless after going into maintenance
+          set_fact:
+            validation_results: "{{job_ctx | hitless_validate([pr_uuid])}}"
+
+        - name: Check for errors
+          block:
+            - name: Perform the necessary error handling
+              include_tasks: error_handler.yml
+              vars:
+                op_err_message: "{{validation_results.error_msg}}"
+                jl_err_message: "Critical role validation failed: {{validation_results.error_msg}}"
+          when: validation_results.status == 'failure'
+      when: advanced_params.validate_critical_roles is defined and advanced_params.validate_critical_roles == true
+
+    - block:
         - name: Run health check only
           include_role:
             name: maintenance_mode_validation
