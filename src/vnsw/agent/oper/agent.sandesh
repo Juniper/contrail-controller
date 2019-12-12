@@ -729,6 +729,8 @@ struct PathSandeshData {
    25: optional list<i32> tag_list;
    /** path marked as inactive */
    26: bool inactive;
+   /** List of Destination vn for path */
+   27: list<string> evpn_dest_vn_list (link="VnListReq");
 }
 
 /**
