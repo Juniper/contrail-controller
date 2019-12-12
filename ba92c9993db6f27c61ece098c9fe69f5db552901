@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "f048c1bc_cbde4b8f",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 658,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-12T22:21:04Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2893a12c_ba4896f6",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3a44f236_12764bbe",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 6
@@ -53,6 +71,24 @@
     },
     {
       "key": {
+        "uuid": "7ef6a3a3_2261ce67",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1774,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-12T22:21:04Z",
+      "side": 1,
+      "message": "yes its used in abs config generation",
+      "parentUuid": "3a44f236_12764bbe",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "7a917118_1cebdddb",
         "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
         "patchSetId": 6
@@ -67,6 +103,24 @@
       "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dcd64bd5_4fee76a8",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 6
+      },
+      "lineNbr": 2279,
+      "author": {
+        "id": 512
+      },
+      "writtenOn": "2019-12-12T22:21:04Z",
+      "side": 1,
+      "message": "evpn policy-options donot get added for just AR. (which is set as part of overlay-evpn) that needs to be set too.",
+      "parentUuid": "7a917118_1cebdddb",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
