@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d96e6eed_58b77a38",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1348,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-12-12T20:04:20Z",
+      "side": 1,
+      "message": "UT for new code added ?",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2893a12c_ba4896f6",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 658,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-12-12T20:04:20Z",
+      "side": 1,
+      "message": "you need to call update_multiple_refs for intent_map object with {}",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3a44f236_12764bbe",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 1774,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-12-12T20:04:20Z",
+      "side": 1,
+      "message": "Do you need to update virtual network and fabric object too with intent map refs.",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7a917118_1cebdddb",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 6
+      },
+      "lineNbr": 2279,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-12-12T20:04:20Z",
+      "side": 1,
+      "message": "why is this change needed ?",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "19317a4f_0123bcc7",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 6
+      },
+      "lineNbr": 2297,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2019-12-12T20:04:20Z",
+      "side": 1,
+      "message": "Same why is this needed ?",
+      "revId": "ba92c9993db6f27c61ece098c9fe69f5db552901",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
