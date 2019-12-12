@@ -34,23 +34,23 @@ class NetworkMonitor(KubeMonitor):
                     resource_name= \
                     "network-attachment-definitions.k8s.cni.cncf.io",
                     api_group="apis/apiextensions.k8s.io", api_version="v1")
-        else:
-            current_crds = []
-            if 'items' in crd_info:
-                current_crds = [x['metadata']['name'].lower() \
-                                            for x in crd_info['items']]
-            self.logger.debug("%s - Retrieved following CRD list = %s"
-                  %(self.name, current_crds))
-            if 'network-attachment-definitions.k8s.cni.cncf.io' \
-                                                    not in current_crds:
-                # Create Networks CRD - networks.kubernetes.cni.cncf.io
-                self.logger.debug("%s - Creating Network CRD" %(self.name))
-                network_crd_body = self.create_network_crd_yaml()
-                self.post_resource(
-                    resource_type="customresourcedefinitions",
-                    resource_name='', api_group="apis/apiextensions.k8s.io",
-                    api_version="v1beta1", body_params=network_crd_body)
-                #TODO: Check if Netowrk CRD is created else return.
+            if len(crd_info) == 0:
+                current_crds = []
+                if 'items' in crd_info:
+                    current_crds = [x['metadata']['name'].lower() \
+                                                for x in crd_info['items']]
+                self.logger.debug("%s - Retrieved following CRD list = %s"
+                      %(self.name, current_crds))
+                if 'network-attachment-definitions.k8s.cni.cncf.io' \
+                                                        not in current_crds:
+                    # Create Networks CRD - networks.kubernetes.cni.cncf.io
+                    self.logger.debug("%s - Creating Network CRD" %(self.name))
+                    network_crd_body = self.create_network_crd_yaml()
+                    self.post_resource(
+                        resource_type="customresourcedefinitions",
+                        resource_name='', api_group="apis/apiextensions.k8s.io",
+                        api_version="v1beta1", body_params=network_crd_body)
+                    #TODO: Check if Netowrk CRD is created else return.
         self.init_monitor()
         self.logger.info("NetworkMonitor init done.");
 
