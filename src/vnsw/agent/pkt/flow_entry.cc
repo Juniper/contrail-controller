@@ -281,6 +281,10 @@ void FlowData::Reset() {
     source_vn_match = "";
     dest_vn_match = "";
     dest_vn_list.clear();
+    evpn_source_vn_list.clear();
+    evpn_source_vn_match = "";
+    evpn_dest_vn_match = "";
+    evpn_dest_vn_list.clear();
     source_sg_id_l.clear();
     dest_sg_id_l.clear();
     flow_source_vrf = VrfEntry::kInvalidIndex;
@@ -336,6 +340,14 @@ std::vector<std::string> FlowData::SourceVnList() const {
 
 std::vector<std::string> FlowData::DestinationVnList() const {
     return MakeList(dest_vn_list);
+}
+
+std::vector<std::string> FlowData::EvpnSourceVnList() const {
+    return MakeList(evpn_source_vn_list);
+}
+
+std::vector<std::string> FlowData::EvpnDestinationVnList() const {
+    return MakeList(evpn_dest_vn_list);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -830,6 +842,8 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
     short_flow_reason_ = SHORT_AUDIT_ENTRY;
     data_.source_vn_list = FlowHandler::UnknownVnList();
     data_.dest_vn_list = FlowHandler::UnknownVnList();
+    data_.evpn_source_vn_list = FlowHandler::UnknownVnList();
+    data_.evpn_dest_vn_list = FlowHandler::UnknownVnList();
     data_.source_sg_id_l = default_sg_list();
     data_.dest_sg_id_l = default_sg_list();
 }
@@ -1459,12 +1473,18 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
     if (path == NULL) {
         data_.source_vn_list = FlowHandler::UnknownVnList();
         data_.source_vn_match = FlowHandler::UnknownVn();
+        data_.evpn_source_vn_list = FlowHandler::UnknownVnList();
+        data_.evpn_source_vn_match = FlowHandler::UnknownVn();
         data_.source_sg_id_l = default_sg_list();
         data_.source_plen = 0;
     } else {
         data_.source_vn_list = path->dest_vn_list();
+        data_.evpn_source_vn_list = path->evpn_dest_vn_list();
+
         if (path->dest_vn_list().size())
             data_.source_vn_match = *path->dest_vn_list().begin();
+        if (path->evpn_dest_vn_list().size())
+            data_.evpn_source_vn_match = *path->evpn_dest_vn_list().begin();
         data_.source_sg_id_l = path->sg_list();
         data_.source_plen = rt->plen();
         data_.source_tag_id_l = path->tag_list();
@@ -1506,12 +1526,18 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
     if (path == NULL) {
         data_.dest_vn_list = FlowHandler::UnknownVnList();
         data_.dest_vn_match = FlowHandler::UnknownVn();
+        data_.evpn_dest_vn_list = FlowHandler::UnknownVnList();
+        data_.evpn_dest_vn_match = FlowHandler::UnknownVn();
         data_.dest_sg_id_l = default_sg_list();
         data_.dest_plen = 0;
     } else {
         data_.dest_vn_list = path->dest_vn_list();
+        data_.evpn_dest_vn_list = path->evpn_dest_vn_list();
+
         if (path->dest_vn_list().size())
             data_.dest_vn_match = *path->dest_vn_list().begin();
+        if (path->evpn_dest_vn_list().size())
+            data_.evpn_dest_vn_match = *path->evpn_dest_vn_list().begin();
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
         data_.dest_tag_id_l = path->tag_list();
@@ -3107,10 +3133,23 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_acl_action_l(acl_action_l);
 
     fe_sandesh_data.set_flow_handle(integerToString(flow_handle_));
-    fe_sandesh_data.set_source_vn(data_.source_vn_match);
-    fe_sandesh_data.set_dest_vn(data_.dest_vn_match);
-    fe_sandesh_data.set_source_vn_list(data_.SourceVnList());
-    fe_sandesh_data.set_dest_vn_list(data_.DestinationVnList());
+    if (!(data_.source_vn_match.empty()))
+        fe_sandesh_data.set_source_vn(data_.source_vn_match);
+    else
+        fe_sandesh_data.set_source_vn(data_.evpn_source_vn_match);
+    if(!(data_.dest_vn_match.empty()))
+       fe_sandesh_data.set_dest_vn(data_.dest_vn_match);
+    else
+       fe_sandesh_data.set_dest_vn(data_.evpn_dest_vn_match);
+    if (!(data_.SourceVnList().empty()))
+        fe_sandesh_data.set_source_vn_list(data_.SourceVnList());
+    else
+        fe_sandesh_data.set_source_vn_list(data_.EvpnSourceVnList());
+    if (!(data_.DestinationVnList().empty()))
+        fe_sandesh_data.set_dest_vn_list(data_.DestinationVnList());
+    else
+        fe_sandesh_data.set_dest_vn_list(data_.EvpnDestinationVnList());
+
     std::vector<uint32_t> v;
     SecurityGroupList::const_iterator it;
     for (it = data_.source_sg_id_l.begin();

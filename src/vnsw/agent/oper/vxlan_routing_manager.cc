@@ -698,7 +698,8 @@ bool VxlanRoutingManager::EvpnType5RouteNotify(DBTablePartBase *partition,
                                     p->tag_list(),
                                     nh_req,
                                     p->vxlan_id(),
-                                    p->dest_vn_list());
+                                    p->peer()->GetType() == Peer::BGP_PEER ?
+                                    p->dest_vn_list() : p->evpn_dest_vn_list());
     return true;
 }
 
