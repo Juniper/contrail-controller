@@ -36,6 +36,19 @@
         pr_vendor: "{{item.value.device_vendor|lower}}"
       with_dict: "{{playbook_input.job_device_json}}"
 
+    - name: Validate fabric will remain hitless after going into maintenance
+      set_fact:
+        validation_results: "{{job_ctx | hitless_validate([pr_uuid])}}"
+
+    - name: Check for errors
+      block:
+        - name: Perform the necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{validation_results.error_msg}}"
+            jl_err_message: "Hitless validation failed: {{validation_results.error_msg}}"
+      when: validation_results.status == 'failure'
+
     - name: Define upgrade plan
       set_fact:
         upgrade_plan: "{{job_ctx | hitless_device_info(pr_uuid)}}"
