@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b78d78b9_5e109da4",
+        "filename": "src/bgp/extended-community/types.h",
+        "patchSetId": 13
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 664
+      },
+      "writtenOn": "2019-12-12T15:33:49Z",
+      "side": 1,
+      "message": "hi\n\nwe changed back the type/subtype to be consistent with sg and tag\nhttps://www.iana.org/assignments/bgp-extended-communities/bgp-extended-communities.xhtml\n\nthis should be BgpExtendedCommunityExperimentalSubType 0x85",
+      "revId": "9e844fd638351996f50e0d702abdb2b25d1707fe",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
