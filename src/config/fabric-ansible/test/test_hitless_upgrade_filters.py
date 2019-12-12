@@ -33,6 +33,7 @@ from vnc_api.vnc_api import VncApi
 from vnc_api.vnc_api import (
     Fabric,
     PhysicalRouter,
+    PhysicalRole,
     PhysicalInterface,
     VirtualPortGroup,
     DeviceImage,
@@ -1454,6 +1455,17 @@ mock_device_info_result = {
     }
 }
 
+mock_validate_result = {
+    'error_msg': "Fabric is hitless",
+    'status': "success"
+}
+
+mock_validate_result_failure = {
+    'error_msg': "Fabric will not be hitless because these roles will no longer be deployed: [u'spine', u'CRB-Gateway']",
+    'status': "failure"
+}
+
+
 class TestHitlessUpgradeFilters(test_case.JobTestCase):
     fake_zk_client = FakeKazooClient()
     @classmethod
@@ -1478,6 +1490,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
 
     def init_test(self):
         self.mockFabric()
+        self.mockPhysicalRoles()
         for id, val in list(mock_device_image_db.items()):
             self.mockDeviceImage(id)
         for id, val in list(mock_physical_router_db.items()):
@@ -1527,6 +1540,15 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 buddy['password'] = '***'
         self.assertEqual(mock_device_info_result, device_info)
 
+    def test_validate_critical_roles(self):
+        hitless_filter = FilterModule()
+        result = hitless_filter.validate_critical_roles(mock_job_ctx,
+                                                        [DEV_UUID1])
+        self.assertEqual(mock_validate_result, result)
+        result = hitless_filter.validate_critical_roles(mock_job_ctx,
+                                                        [DEV_UUID1,DEV_UUID4])
+        self.assertEqual(mock_validate_result_failure, result)
+
     def mockFabric(self):
         try:
             fabric_obj = Fabric(name='fab01')
@@ -1541,10 +1563,22 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 KeyValuePair(key='hitless_upgrade_input', value=mock_job_template_input_schema)]))
 
             self._vnc_lib.fabric_create(fabric_obj)
+            self.fabric_obj = self._vnc_lib.fabric_read(id=FAB_UUID1)
         except RefsExistError:
             logger.info("Fabric {} already exists".format('fab01'))
         except Exception as ex:
             logger.error("ERROR creating fabric {}: {}".format('fab01', ex))
+
+    def mockPhysicalRoles(self):
+        try:
+            phy_role_leaf = PhysicalRole(name='leaf')
+            self._vnc_lib.physical_role_create(phy_role_leaf)
+            phy_role_spine = PhysicalRole(name='spine')
+            self._vnc_lib.physical_role_create(phy_role_spine)
+        except RefsExistError:
+            logger.info("Physical role already exists")
+        except Exception as ex:
+            logger.error("ERROR creating physical role: {}".format(ex))
 
     def mockJobTemplate(self, fqname):
         try:
@@ -1581,7 +1615,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 name = device['fq_name'][-1],
                 display_name = device["display_name"],
                 physical_router_role = device["physical_router_role"],
-                routing_bridging_roles = RoutingBridgingRolesType(rb_role=device['routing_bridging_roles']),
+                routing_bridging_roles = RoutingBridgingRolesType(rb_roles=device['routing_bridging_roles']),
                 physical_router_user_credentials = UserCredentials(username='root',
                                        password='c0ntrail123'),
                 fq_name = device["fq_name"],
@@ -1593,6 +1627,9 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 physical_router_os_version = device["physical_router_os_version"]
             )
             device_obj.uuid = id
+            device_obj.add_fabric(self.fabric_obj)
+            phy_role = self._vnc_lib.physical_role_read(fq_name=['default-global-system-config',device["physical_router_role"]])
+            device_obj.set_physical_role(phy_role)
             self._vnc_lib.physical_router_create(device_obj)
         except RefsExistError:
             logger.info("Physical router {} already exists".format(id))
