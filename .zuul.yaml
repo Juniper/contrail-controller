@@ -1,0 +1,7 @@
+- project:
+    name: Juniper/contrail-controller
+    check:
+      jobs:
+        - contrail-vnc-unittest-centos7-tntestr:
+            voting: False
+
