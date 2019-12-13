@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "602dcb31_c300fd33",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 1439,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-12-13T03:24:20Z",
+      "side": 1,
+      "message": "There could be other VMIs (VPGs) belonging to the same VN so we should remove the ref between intent and vn only if its the last VMI associated to the VN who has VPG refs.",
+      "revId": "f93b5f6d415d2a39ce87cafc3c43f94b9c29e0e9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d2306872_3b80fedc",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/assisted_replicator_feature.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-12-13T03:24:20Z",
+      "side": 1,
+      "message": "From reading the diffs i dont see where we differentiate between different fabrics. There could be a AR-Replicator per Fabric and we should only be pushing the VNs belonging to that fabric to the corresponding AR-Replicator PRouter else config push would fail.",
+      "revId": "f93b5f6d415d2a39ce87cafc3c43f94b9c29e0e9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "201fe622_54d34003",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/fabric.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 1170,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-12-13T03:24:20Z",
+      "side": 1,
+      "message": "In case of multiple fabrics, the intent map could be used by another fabric in which case the delete would crash.",
+      "revId": "f93b5f6d415d2a39ce87cafc3c43f94b9c29e0e9",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
