@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c56bf605_2ddb51d5",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2189,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2019-12-16T18:29:17Z",
+      "side": 1,
+      "message": "Believe if fip object doesnt have project_refs then we need to fetch the project the fip belongs to from either its parent or from perms2.",
+      "revId": "01c2614c4d85ad10af138937815587a727a66ab0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
