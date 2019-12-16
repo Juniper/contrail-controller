@@ -333,7 +333,7 @@ struct PmsiTunnelSpec : public BgpAttribute {
         BidirPimTree = 5,
         IngressReplication = 6,
         MldpMp2mpLsp = 7,
-        AssistedReplicationContrail = 252
+        AssistedReplicationContrail = 10
     };
 
     static const int kSize = -1;

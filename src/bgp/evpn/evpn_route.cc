@@ -1241,7 +1241,8 @@ bool EvpnRoute::IsValid() const {
             return false;
         }
         if (tunnel_type == PmsiTunnelSpec::AssistedReplicationContrail &&
-            ar_type == PmsiTunnelSpec::ARLeaf) {
+            (ar_type == PmsiTunnelSpec::ARLeaf ||
+                 ar_type == PmsiTunnelSpec::ARReplicator) {
             return true;
         }
         return false;
