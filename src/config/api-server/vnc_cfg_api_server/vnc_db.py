@@ -1366,6 +1366,13 @@ class VncDbClient(object):
                         obj_dict['vxlan_routing'] = False
                         self._object_db.object_update('project',
                                                       obj_uuid, obj_dict)
+                elif obj_type == 'floating_ip':
+                    if not obj_dict.get('project_refs'):
+                        project_fq_name = obj_dict['fq_name'][:2]
+                        ref = {'to': project_fq_name, 'attr': None}
+                        if 'perms2' in obj_dict:
+                            ref['uuid'] = obj_dict['perms2']['owner']
+                        obj_dict['project_refs'] = [ref]
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
