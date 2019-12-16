@@ -114,6 +114,9 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     if (attr_->origin_vn_path() && rattr->origin_vn_path())
         KEY_COMPARE(attr_->max_as_path_count(), rattr->max_as_path_count());
 
+    // Prefer non service-chain routes over service-chain routes.
+    BOOL_COMPARE(GetSource() != ServiceChain, rhs.GetSource() != ServiceChain);
+
     // Prefer locally generated routes over bgp and xmpp routes.
     BOOL_COMPARE(peer_ == NULL, rhs.peer_ == NULL);
 
