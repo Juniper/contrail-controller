@@ -36,14 +36,32 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
         return True, fip_subnets
 
     @classmethod
+    def _get_project_refs(cls, project_fq_name, db_conn):
+        project_uuid = db_conn.fq_name_to_uuid('project', project_fq_name)
+        ok, res = cls.dbe_read(db_conn, 'project', project_uuid)
+        if not ok:
+            return False, res
+        return True, [{'to': project_fq_name,
+                       'uuid': project_uuid,
+                       'attr': None}]
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         if obj_dict['parent_type'] == 'instance-ip':
-            return True, ""
+            return True, ''
+
+        if len(obj_dict.get('project_refs', [])) == 0:
+            project_fq_name = obj_dict['fq_name'][:2]
+            ok, result = cls._get_project_refs(project_fq_name, db_conn)
+            if not ok:
+                return False, (400, 'Parent %s type project does not exist: %s'
+                               % (':'.join(project_fq_name), result))
+            obj_dict['project_refs'] = result
 
         vn_fq_name = obj_dict['fq_name'][:-2]
-        req_ip = obj_dict.get("floating_ip_address")
+        req_ip = obj_dict.get('floating_ip_address')
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
-            return (False, (409, 'IP address already in use'))
+            return False, (409, 'IP address already in use')
         try:
             ok, result = cls.addr_mgmt.get_ip_free_args(vn_fq_name)
             if not ok:
@@ -59,8 +77,8 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
             if ok:
                 fip_subnets = ret_val
             else:
-                return ok, (400, "Floating-ip-pool lookup failed with error: "
-                            "%s" % ret_val)
+                return ok, (400, 'Floating-ip-pool lookup failed with error: '
+                            '%s' % ret_val)
 
             if not fip_subnets:
                 # Subnet specification was not found on the floating-ip-pool.
@@ -97,29 +115,29 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
                         vn_fq_name, subnets_tried)
 
             def undo():
-                msg = ("AddrMgmt: free FIP %s for vn=%s on tenant=%s, on undo"
+                msg = ('AddrMgmt: free FIP %s for vn=%s on tenant=%s, on undo'
                        % (fip_addr, vn_fq_name, tenant_name))
                 db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
                 cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name,
                                           alloc_id=obj_dict['uuid'],
                                           vn_dict=result.get('vn_dict'),
                                           ipam_dicts=result.get('ipam_dicts'))
-                return True, ""
+                return True, ''
             get_context().push_undo(undo)
         except Exception as e:
-            return (False, (500, str(e)))
+            return False, (500, str(e))
 
         obj_dict['floating_ip_address'] = fip_addr
         msg = ('AddrMgmt: alloc %s FIP for vn=%s, tenant=%s, askip=%s' %
                (fip_addr, vn_fq_name, tenant_name, req_ip))
         db_conn.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
-        return True, ""
+        return True, ''
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         if obj_dict['parent_type'] == 'instance-ip':
-            return True, "", None
+            return True, '', None
         ok, ip_free_args = cls.addr_mgmt.get_ip_free_args(
             obj_dict['fq_name'][:-2])
         return ok, '', ip_free_args
@@ -127,7 +145,7 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         if obj_dict['parent_type'] == 'instance-ip':
-            return True, ""
+            return True, ''
 
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
@@ -139,7 +157,7 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
                                   vn_dict=kwargs.get('vn_dict'),
                                   ipam_dicts=kwargs.get('ipam_dicts'))
 
-        return True, ""
+        return True, ''
 
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
@@ -161,5 +179,3 @@ class FloatingIpServer(ResourceMixin, FloatingIp):
         vn_fq_name = obj_dict['fq_name'][:-2]
         return cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name,
                                             alloc_id=obj_dict['uuid'])
-
-        return True, ''
