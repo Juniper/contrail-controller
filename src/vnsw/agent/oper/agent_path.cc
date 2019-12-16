@@ -1660,6 +1660,13 @@ void AgentPath::GetDestinationVnList(std::vector<std::string> *vn_list) const {
     }
 }
 
+void AgentPath::GetEvpnDestinationVnList(std::vector<std::string> *vn_list) const {
+    for (VnListType::const_iterator vnit = evpn_dest_vn_list().begin();
+         vnit != evpn_dest_vn_list().end(); ++vnit) {
+        vn_list->push_back(*vnit);
+    }
+}
+
 void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     const NextHop *nh = nexthop();
     if (nh != NULL) {
@@ -1669,6 +1676,9 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     std::vector<std::string> vn_list;
     GetDestinationVnList(&vn_list);
     pdata.set_dest_vn_list(vn_list);
+    std::vector<std::string> evpn_vn_list;
+    GetEvpnDestinationVnList(&evpn_vn_list);
+    pdata.set_evpn_dest_vn_list(evpn_vn_list);
     pdata.set_unresolved(unresolved() ? "true" : "false");
 
     if (!gw_ip().is_unspecified()) {
@@ -2079,8 +2089,10 @@ bool EvpnRoutingData::AddChangePathExtended(Agent *agent,
         ret = true;
     }
 
-    if (path->dest_vn_list() != dest_vn_list_) {
-        path->set_dest_vn_list(dest_vn_list_);
+    // Setting evpn_dest_vn_list not to affect dest_vn_list which affects polcy
+    // lookup
+    if (path->evpn_dest_vn_list() != dest_vn_list_) {
+        path->set_evpn_dest_vn_list(dest_vn_list_);
         ret = true;
     }
 
