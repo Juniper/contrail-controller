@@ -477,7 +477,7 @@ class DBInterface(object):
             ))
 
         # (SATHISH) This is a temp fix for fixing lost update problem during
-        # Parallel creation of Security Group Rule 
+        # Parallel creation of Security Group Rule
         try:
             acquired_lock = scope_lock.acquire(timeout=_DEFAULT_ZK_LOCK_TIMEOUT)
 
@@ -524,7 +524,7 @@ class DBInterface(object):
         finally:
             scope_lock.release()
 
-    # end _security_group_rule_create 
+    # end _security_group_rule_create
 
     def _security_group_rule_find(self, sgr_id, project_uuid=None):
         # Get all security group for a project if project uuid is specified
@@ -2176,11 +2176,15 @@ class DBInterface(object):
 
         try:
             floating_net_id = memo_req['network_fqn'][tuple(fip_obj.get_fq_name()[:-2])]
-        except:
+        except (KeyError, TypeError):
             floating_net_id = self._vnc_lib.fq_name_to_id('virtual-network',
                                                  fip_obj.get_fq_name()[:-2])
 
-        tenant_id = fip_obj.get_project_refs()[0]['uuid'].replace('-', '')
+        project_refs = fip_obj.get_project_refs()
+        if project_refs is not None:
+            tenant_id = project_refs[0]['uuid'].replace('-', '')
+        else:
+            tenant_id = fip_obj.get_perms2().get_owner().replace('-', '')
 
         port_id = None
         router_id = None
@@ -3444,7 +3448,7 @@ class DBInterface(object):
     #end subnet_read
 
     def subnet_update(self, subnet_id, subnet_q):
-        net_id = self._subnet_get_vn_uuid(subnet_id) 
+        net_id = self._subnet_get_vn_uuid(subnet_id)
         return self._subnet_update(net_id, subnet_id,subnet_q)
 
 
@@ -4232,9 +4236,9 @@ class DBInterface(object):
                     'network_fqn':{}}
 
         fip_objs = self._vnc_lib.floating_ips_list(obj_uuids=fip_ids,
-                                               back_ref_id=backref_ids,
-                                               detail=True)
-        if fip_objs == []:
+                                                   back_ref_id=backref_ids,
+                                                   detail=True)
+        if not fip_objs:
             return []
         # prep memo for optimization
         fip_vn_fqn = set(tuple(fip_obj.fq_name[:-2]) for fip_obj in fip_objs)
@@ -4245,11 +4249,17 @@ class DBInterface(object):
             except NoIdError:
                 pass
 
-        fip_project_refs = list(set([fip_obj.get_project_refs()[0]['uuid']
-                       for fip_obj in fip_objs]))
+        fip_project_refs = []
+        for fip_obj in fip_objs:
+            ref = fip_obj.get_project_refs()
+            if ref:
+                fip_project_refs.append(ref[0]['uuid'])
+            else:
+                fip_project_refs.append(fip_obj.get_perms2().get_owner())
+
         lr_objs = self._logical_router_list(parent_id=fip_project_refs)
         for lr_obj in lr_objs:
-            tenant_id = lr_obj.parent_uuid.replace('-','')
+            tenant_id = lr_obj.parent_uuid.replace('-', '')
             try:
                 memo_req['routers'][tenant_id].append(lr_obj)
             except KeyError:
@@ -6064,7 +6074,7 @@ class DBInterface(object):
                 service.set_dst_ports(
                     self._get_port_type(firewall_rule['destination_port']))
             fr.set_service(service)
-            
+
         if 'action' in firewall_rule:
             fr.set_action_list(self._get_action(firewall_rule['action']))
 
