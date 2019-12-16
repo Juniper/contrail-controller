@@ -1553,10 +1553,10 @@ class VncDbClient(object):
                 # change in shared list? Construct temporary sets to compare
                 cur_shared_list = set(
                     item['tenant'] + ':' + str(item['tenant_access'])
-                    for item in cur_perms2.get('share', []))
+                    for item in cur_perms2.get('share') or [])
                 new_shared_list = set(
                     item['tenant'] + ':' + str(item['tenant_access'])
-                    for item in share_perms)
+                    for item in share_perms or [])
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
