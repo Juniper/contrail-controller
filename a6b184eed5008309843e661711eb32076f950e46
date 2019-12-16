@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5612fa14_dd3d288c",
+        "filename": "src/config/schema-transformer/schema_transformer/resources/_access_control_list.py",
+        "patchSetId": 11
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2019-12-16T10:10:34Z",
+      "side": 1,
+      "message": "I don\u0027t think it is the recommended way to do str compatibility between python 2 and 3. If some libraries require old string type, you should use the future native_string util type https://www.python-future.org/what_else.html#native-string-type but in most of the case you should use the str from python builtin std. You have to identify cases you need that native_str type.",
+      "revId": "a6b184eed5008309843e661711eb32076f950e46",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
