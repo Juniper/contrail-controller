@@ -34,6 +34,24 @@
       "revId": "01c2614c4d85ad10af138937815587a727a66ab0",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "adab5cdf_db1ed319",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2189,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2019-12-17T13:00:15Z",
+      "side": 1,
+      "message": "I decided to leave it as is here. Clients which have already created FIP without project_refs will benefit by seeing on the list that FIP don\u0027t belong to any project.\nThe real fix is to add missing project_refs on FIP create, when user didn\u0027t do it manually. You can see changes in the last patchset.",
+      "parentUuid": "2cf999f2_e6fc74e7",
+      "revId": "01c2614c4d85ad10af138937815587a727a66ab0",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
