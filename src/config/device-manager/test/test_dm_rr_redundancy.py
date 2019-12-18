@@ -5,10 +5,7 @@ from __future__ import absolute_import
 import gevent
 import mock
 from attrdict import AttrDict
-from cfgm_common.tests.test_common import retries
-from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 
 
@@ -25,7 +22,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         self.idle_patch.stop()
         super(TestAnsibleRRRedundancy, self).tearDown()
 
-    def _test_01_2_leaf_1_spine(self):
+    def test_01_2_leaf_1_spine(self):
 
         pr1, pr2, pr3 = self.create_rr_dependencies(
             'leaf', 'leaf', 'CRB-Access', 'ERB-UCAST-Gateway'

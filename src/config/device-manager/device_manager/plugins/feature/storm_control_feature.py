@@ -13,8 +13,9 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from feature_base import FeatureBase
+
+from .db import StormControlProfileDM, VirtualPortGroupDM
+from .feature_base import FeatureBase
 
 import gevent # noqa
 
@@ -64,7 +65,7 @@ class StormControlFeature(FeatureBase):
         pp_list = []
         pr = self._physical_router
         for vpg_uuid in pr.virtual_port_groups or []:
-            vpg_obj = db.VirtualPortGroupDM.get(vpg_uuid)
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
             if not vpg_obj:
                 continue
 
@@ -77,7 +78,7 @@ class StormControlFeature(FeatureBase):
 
         for pp in pp_list or []:
             sc_uuid = pp.storm_control_profile
-            scp = db.StormControlProfileDM.get(sc_uuid)
+            scp = StormControlProfileDM.get(sc_uuid)
             if scp:
                 self._build_storm_control_config(scp)
                 sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]
