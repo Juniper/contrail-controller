@@ -7,9 +7,10 @@
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+
+from .db import BgpRouterDM, GlobalSystemConfigDM, PhysicalRouterDM
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 
 class OverlayBgpFeature(FeatureBase):
@@ -121,7 +122,7 @@ class OverlayBgpFeature(FeatureBase):
     # end _add_peers
 
     def _build_bgp_config(self, feature_config):
-        bgp_router = db.BgpRouterDM.get(self._physical_router.bgp_router)
+        bgp_router = BgpRouterDM.get(self._physical_router.bgp_router)
         if not self._is_valid(bgp_router):
             return
 
@@ -132,11 +133,11 @@ class OverlayBgpFeature(FeatureBase):
         local_asn = self._get_asn(bgp_router)
 
         for peer_uuid, attr in list(bgp_router.bgp_routers.items()):
-            peer = db.BgpRouterDM.get(peer_uuid)
+            peer = BgpRouterDM.get(peer_uuid)
             if not self._is_valid(peer):
                 continue
             peer_pr_uuid = peer.physical_router
-            peer_pr = db.PhysicalRouterDM.get(peer_pr_uuid)
+            peer_pr = PhysicalRouterDM.get(peer_pr_uuid)
             peer_asn = self._get_asn(peer)
 
             if peer_pr and "Route-Reflector" in \
@@ -178,14 +179,14 @@ class OverlayBgpFeature(FeatureBase):
     # end _add_dynamic_tunnels
 
     def _build_dynamic_tunnels_config(self, feature_config):
-        bgp_router = db.BgpRouterDM.get(self._physical_router.bgp_router)
+        bgp_router = BgpRouterDM.get(self._physical_router.bgp_router)
         tunnel_ip = self._physical_router.dataplane_ip or \
             (bgp_router.params.get('address')
                 if self._is_valid(bgp_router) else None)
         if tunnel_ip and self._physical_router.is_valid_ip(tunnel_ip):
             self._add_dynamic_tunnels(
                 feature_config, tunnel_ip,
-                db.GlobalSystemConfigDM.ip_fabric_subnets)
+                GlobalSystemConfigDM.ip_fabric_subnets)
     # end _build_dynamic_tunnels_config
 
     def feature_config(self, **kwargs):
