@@ -8,7 +8,6 @@ webtest
 kazoo
 ncclient==0.6.3
 jsonpickle
-sandesh
 sandesh_common
 contrail-api-client
 contrail-api-server
@@ -17,5 +16,4 @@ xmltodict
 pyOpenSSL
 mock
 fabric-ansible
-pyhash==0.6.2
-configparser
+pycryptodome
