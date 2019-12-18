@@ -8,9 +8,10 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+
+from .db import *
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 import gevent # noqa
 

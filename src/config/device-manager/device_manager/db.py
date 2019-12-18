@@ -44,7 +44,6 @@ from .device_conf import DeviceConf
 from .dm_utils import DMIndexer
 from .dm_utils import DMUtils
 from .dm_utils import PushConfigState
-from .feature_base import FeatureBase
 
 
 class DBBaseDM(DBBase):
@@ -304,6 +303,7 @@ class PhysicalRouterDM(DBBaseDM):
     # end use_ansible_plugin
 
     def reinit_device_plugin(self):
+        from .feature_base import FeatureBase
         plugin_params = {
             "physical_router": self
         }
