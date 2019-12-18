@@ -5,7 +5,10 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import object
 import sys
-from io import BytesIO as StringIO
+if sys.version_info[0] < 3:
+    from io import BytesIO as StringIO
+else:
+    from io import StringIO as StringIO
 from lxml import etree
 from cfgm_common.tests.test_utils import stub
 

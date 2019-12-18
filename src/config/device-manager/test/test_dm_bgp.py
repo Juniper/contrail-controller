@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import sys
 import gevent
 import itertools
-from time import sleep
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from vnc_api.vnc_api import *
