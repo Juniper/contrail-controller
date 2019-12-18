@@ -7,14 +7,10 @@ from builtins import str
 from builtins import range
 import sys
 import gevent
-from testtools.matchers import Equals, Contains, Not
 from . import test_case
 import xmltodict
 import collections
-import itertools
-import copy
 from netaddr import IPNetwork
-from unittest import skip
 from vnc_api.vnc_api import *
 from .test_dm_utils import fake_netconf_connect
 

@@ -7,7 +7,7 @@ This file contains implementation of netconf interface for QFX physical router
 configuration manager
 """
 
-from qfx_conf import QfxConf
+from .qfx_conf import QfxConf
 from device_api.juniper_common_xsd import *
 
 class Qfx10kConf(QfxConf):

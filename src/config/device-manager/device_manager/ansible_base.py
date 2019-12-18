@@ -12,7 +12,7 @@ import abc
 from builtins import object
 from builtins import str
 
-from imports import import_ansible_plugins
+from .imports import import_ansible_plugins
 
 
 #
