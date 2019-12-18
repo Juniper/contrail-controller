@@ -12,14 +12,16 @@ from hashlib import md5
 import json
 import time
 
-from ansible_base import AnsibleBase
-from db import *
 from abstract_device_api.abstract_device_xsd import *
-from dm_utils import DMUtils
-from dm_utils import PushConfigState
-from job_handler import JobHandler
 
-from device_manager import DeviceManager
+from .ansible_base import AnsibleBase
+from .db import BgpRouterDM, GlobalVRouterConfigDM, GlobalSystemConfigDM, \
+    InstanceIpDM, LogicalInterfaceDM, NodeProfileDM, PhysicalInterfaceDM, \
+    PhysicalRouterDM, RoleConfigDM
+from .device_manager import DeviceManager
+from .dm_utils import DMUtils
+from .dm_utils import PushConfigState
+from .job_handler import JobHandler
 
 
 class AnsibleConf(AnsibleBase):

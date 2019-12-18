@@ -8,12 +8,20 @@ This file contains base implementation of both spines and leafs
 
 from builtins import str
 
-from db import *
-from dm_utils import DMUtils
-from ansible_conf import AnsibleConf
-from ansible_conf import JunosInterface
 from abstract_device_api.abstract_device_xsd import *
+import copy
 import gevent
+
+from .db import AccessControlListDM, DataCenterInterconnectDM, \
+    GlobalVRouterConfigDM, InstanceIpDM, LogicalInterfaceDM, \
+    LogicalRouterDM, NetworkIpamDM, PhysicalInterfaceDM, \
+    PhysicalRouterDM, PortDM, PortTupleDM, RoutingInstanceDM, \
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceInstanceDM, \
+    ServiceTemplateDM, TagDM, VirtualMachineInterfaceDM, \
+    VirtualNetworkDM, VirtualPortGroupDM
+from .dm_utils import DMUtils
+from .ansible_conf import AnsibleConf
+from .ansible_conf import JunosInterface
 
 
 class AnsibleRoleCommon(AnsibleConf):
@@ -34,7 +42,10 @@ class AnsibleRoleCommon(AnsibleConf):
 
     def _any_rb_role_matches(self, sub_str):
         if self.physical_router.routing_bridging_roles and sub_str:
-            return any(sub_str.lower() in r.lower() for r in self.physical_router.routing_bridging_roles)
+            rb_roles = [r.lower() for r in self.physical_router.routing_bridging_roles]
+            for rb_role in rb_roles:
+                if sub_str.lower() in rb_role:
+                    return True
         return False
     # end _any_rb_role_matches
 

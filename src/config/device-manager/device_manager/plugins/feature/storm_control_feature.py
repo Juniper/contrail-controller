@@ -13,8 +13,9 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from feature_base import FeatureBase
+
+from .db import StormControlProfileDM, VirtualPortGroupDM
+from .feature_base import FeatureBase
 
 import gevent # noqa
 
@@ -72,7 +73,7 @@ class StormControlFeature(FeatureBase):
 
         for pp in pp_list or []:
             sc_uuid = pp.storm_control_profile
-            scp = db.StormControlProfileDM.get(sc_uuid)
+            scp = StormControlProfileDM.get(sc_uuid)
             if scp:
                 self._build_storm_control_config(scp)
                 sc_name = scp.fq_name[-1] + "-" + scp.fq_name[-2]

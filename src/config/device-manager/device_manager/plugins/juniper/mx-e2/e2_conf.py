@@ -11,13 +11,19 @@ from __future__ import division
 from builtins import str
 from past.utils import old_div
 from ncclient import manager
+from ncclient.operations.errors import TimeoutExpiredError
 import datetime
+import time
 from lxml import etree
-from db import *
-from dm_utils import DMUtils
-from juniper_conf import JuniperConf
-from e2_services_info import L2cktErrors, L2vpnErrors
+
 from netaddr import IPNetwork
+
+from .db import BgpRouterDM, E2ServiceProviderDM, LogicalInterfaceDM, \
+    PhysicalRouterDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
+    VirtualMachineInterfaceDM, VirtualNetworkDM
+from .dm_utils import PushConfigState
+from .juniper_conf import JuniperConf
+from .e2_services_info import L2cktErrors, L2vpnErrors
 
 class MxE2Conf(JuniperConf):
     _products = ['mx', 'vmx', 'vrr']

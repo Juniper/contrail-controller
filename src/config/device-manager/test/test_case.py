@@ -7,7 +7,6 @@ sys.path.insert(0, '../../../../build/debug/config/device-manager/device_manager
 sys.path.insert(0, '../../../../build/debug/config/device-manager/device_api')
 
 from vnc_api.vnc_api import *
-import uuid
 from random import randint
 from ncclient import manager
 from flexmock import flexmock
@@ -17,7 +16,7 @@ from .test_dm_utils import FakeNetconfManager
 from .test_dm_utils import fake_netconf_connect
 from .test_dm_utils import fake_send_netconf
 from .test_dm_utils import fake_job_handler_push
-import device_manager
+from device_manager import mx_conf, qfx_5k, qfx_10k, overlay_conf, pnf_conf
 
 class DMTestCase(test_common.TestCase):
     GSC = 'default-global-system-config'
@@ -49,12 +48,12 @@ class DMTestCase(test_common.TestCase):
     def setUp(self, extra_config_knobs=None):
         super(DMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
         flexmock(manager, connect=fake_netconf_connect)
-        setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
-        setattr(device_manager.qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
-        setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
-        setattr(device_manager.overlay_conf.OverlayConf, 'device_send',
+        setattr(mx_conf.MxConf, 'device_send', fake_send_netconf)
+        setattr(qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
+        setattr(qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
+        setattr(overlay_conf.OverlayConf, 'device_send',
                 fake_job_handler_push)
-        setattr(device_manager.pnf_conf.PnfConf, 'device_send',
+        setattr(pnf_conf.PnfConf, 'device_send',
                 fake_job_handler_push)
         if hasattr(self, 'product'):
             FakeNetconfManager.set_model(self.product)
