@@ -13,11 +13,12 @@ from past.utils import old_div
 from ncclient import manager
 import datetime
 from lxml import etree
-from db import *
-from dm_utils import DMUtils
-from juniper_conf import JuniperConf
-from e2_services_info import L2cktErrors, L2vpnErrors
+
 from netaddr import IPNetwork
+
+from .db import *
+from .juniper_conf import JuniperConf
+from .e2_services_info import L2cktErrors, L2vpnErrors
 
 class MxE2Conf(JuniperConf):
     _products = ['mx', 'vmx', 'vrr']

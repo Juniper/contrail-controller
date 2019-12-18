@@ -402,12 +402,14 @@ def encrypt_password(pwd_key, dict_password):
     if key_padding_len == 0:
         key_padding_len = 1
     key = pwd_key.rjust(16 * key_padding_len)
-    cipher = AES.new(key, AES.MODE_ECB)
+    key_b = key.encode()
+    cipher = AES.new(key_b, AES.MODE_ECB)
 
     text_padding_len = (len(dict_password) + 16 - 1) // 16
     if text_padding_len == 0:
         text_padding_len = 1
     padded_text = dict_password.rjust(16 * text_padding_len)
-    password = base64.b64encode(cipher.encrypt(padded_text))
+    padded_text_b = padded_text.encode()
+    password = base64.b64encode(cipher.encrypt(padded_text_b))
     return password
 # end encrypt_password

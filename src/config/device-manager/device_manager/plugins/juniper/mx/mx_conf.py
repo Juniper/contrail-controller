@@ -8,11 +8,14 @@ configuration manager
 """
 
 from builtins import str
-from db import *
-from dm_utils import DMUtils
-from juniper_conf import JuniperConf
-from juniper_conf import JunosInterface
+
 from device_api.juniper_common_xsd import *
+
+from .db import *
+from .dm_utils import DMUtils
+from .juniper_conf import JuniperConf
+from .juniper_conf import JunosInterface
+
 
 class MxConf(JuniperConf):
     _products = ['mx', 'vmx']
