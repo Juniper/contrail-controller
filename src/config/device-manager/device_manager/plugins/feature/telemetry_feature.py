@@ -12,8 +12,10 @@ telemetry feature
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from feature_base import FeatureBase
+
+from .db import FlowNodeDM, PhysicalInterfaceDM, SflowProfileDM, \
+    TelemetryProfileDM
+from .feature_base import FeatureBase
 
 
 class TelemetryFeature(FeatureBase):
@@ -142,7 +144,7 @@ class TelemetryFeature(FeatureBase):
                 enbld_intf_params_obj)
 
         # all flow nodes will have same same load balancer IP
-        for node in list(db.FlowNodeDM.values()):
+        for node in list(FlowNodeDM.values()):
             collector_ip_addr = node.virtual_ip_addr
 
         if collector_ip_addr:
@@ -164,7 +166,7 @@ class TelemetryFeature(FeatureBase):
 
         pr = self._physical_router
         tp_uuid = pr.telemetry_profile
-        tp = db.TelemetryProfileDM.get(tp_uuid)
+        tp = TelemetryProfileDM.get(tp_uuid)
         sflow_profile_params = None
         sflow_profile_name = ''
         tp_name = ''
@@ -172,7 +174,7 @@ class TelemetryFeature(FeatureBase):
         if tp:
             tp_name = tp.fq_name[-1] + "-" + tp.fq_name[-2]
             sflow_uuid = tp.sflow_profile
-            sflow_profile = db.SflowProfileDM.get(sflow_uuid)
+            sflow_profile = SflowProfileDM.get(sflow_uuid)
             if sflow_profile:
                 sflow_profile_params = \
                     sflow_profile.sflow_params
@@ -180,7 +182,7 @@ class TelemetryFeature(FeatureBase):
                     "-" + sflow_profile.fq_name[-2]
 
         for interface_uuid in pr.physical_interfaces:
-            interface = db.PhysicalInterfaceDM.get(interface_uuid)
+            interface = PhysicalInterfaceDM.get(interface_uuid)
             self._build_telemetry_interface_config(interface, tp_name,
                                                    sflow_profile_name,
                                                    sflow_profile_params)
