@@ -18,7 +18,7 @@ from cfgm_common.exceptions import RefsExistError, NoIdError
 from vnc_api.vnc_api import (
     InstanceIp, FloatingIp, FloatingIpPool, VirtualMachine,
     VirtualMachineInterface, VirtualMachineInterfacePropertiesType,
-    SecurityGroup)
+    SecurityGroup, PermType2)
 from kube_manager.vnc.config_db import (
     DBBaseKM, VirtualNetworkKM, VirtualRouterKM, VirtualMachineKM,
     VirtualMachineInterfaceKM, InstanceIpKM, FloatingIpKM, LoadbalancerKM,
@@ -29,6 +29,7 @@ from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
 from kube_manager.vnc.label_cache import XLabelCache
 
++from cfgm_common import *
 from cfgm_common.utils import cgitb_hook
 
 
@@ -181,7 +182,7 @@ class VncPod(VncCommon):
         else:
             return self._args.ip_fabric_forwarding
 
-    def _create_iip(self, pod_name, pod_namespace, vn_obj, vmi):
+    def _create_iip(self, pod_name, pod_namespace, proj_uuid, vn_obj, vmi):
         # Instance-ip for pods are ALWAYS allocated from pod ipam on this
         # VN. Get the subnet uuid of the pod ipam on this VN, so we can request
         # an IP from it.
@@ -204,8 +205,11 @@ class VncPod(VncCommon):
         # Create instance-ip.
         iip_uuid = str(uuid.uuid1())
         iip_name = VncCommon.make_name(pod_name, iip_uuid)
+        perms2 = PermType2()
+        perms2.owner = proj_uuid
+        perms2.owner_access = PERMS_RWX
         iip_obj = InstanceIp(name=iip_name, subnet_uuid=pod_ipam_subnet_uuid,
-                             display_name=iip_name)
+                             display_name=iip_name, perms2=perms2)
         iip_obj.uuid = iip_uuid
         iip_obj.add_virtual_network(vn_obj)
 
@@ -249,9 +253,7 @@ class VncPod(VncCommon):
         return
 
     def _create_vmi(self, pod_name, pod_namespace, pod_id, vm_obj, vn_obj,
-                    parent_vmi, idx, network=None):
-        proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
-        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+                    proj_obj, parent_vmi, idx, network=None):
         if network and 'namespace' in network:
             network.pop('namespace')
 
@@ -288,10 +290,13 @@ class VncPod(VncCommon):
         VirtualMachineInterfaceKM.locate(vmi_uuid)
         return vmi_uuid
 
-    def _create_vm(self, pod_namespace, pod_id, pod_name, labels):
+    def _create_vm(self, pod_namespace, pod_id, pod_name, labels, proj_uuid):
         vm_name = VncCommon.make_name(pod_name, pod_id)
         display_name = VncCommon.make_display_name(pod_namespace, pod_name)
-        vm_obj = VirtualMachine(name=vm_name, display_name=display_name)
+        perms2 = PermType2()
+        perms2.owner = proj_uuid
+        perms2.owner_access = PERMS_RWX
+        vm_obj = VirtualMachine(name=vm_name, perms2=perms2, display_name=display_name)
         vm_obj.uuid = pod_id
         vm_obj.set_server_type("container")
 
@@ -405,11 +410,13 @@ class VncPod(VncCommon):
             self._kube.patch_resource("pods", pod_name, patch, \
                         pod_namespace, beta=False)
 
-    def vnc_pod_vmi_create(self, pod_id, pod_name, pod_namespace, pod_node,
-                            node_ip, vm_obj, vn_obj, vm_vmi, idx, network=None):
+    def vnc_pod_vmi_create(self, pod_id, pod_name, pod_namespace,
+                           pod_node, node_ip, vm_obj, vn_obj,
+                           proj_obj, vm_vmi, idx, network=None):
 
-        vmi_uuid = self._create_vmi(pod_name, pod_namespace, pod_id, vm_obj,
-                                    vn_obj, vm_vmi, idx, network=network)
+        vmi_uuid = self._create_vmi(pod_name, pod_namespace, pod_id,
+                                    vm_obj, vn_obj, proj_obj, vm_vmi,
+                                    idx, network=network)
         vmi = VirtualMachineInterfaceKM.get(vmi_uuid)
 
         if self._is_pod_nested() and vm_vmi:
@@ -472,7 +479,8 @@ class VncPod(VncCommon):
                                      'virtual-machine', vm_obj.uuid, None,
                                      'ADD')
 
-        iip_obj = self._create_iip(pod_name, pod_namespace, vn_obj, vmi)
+        iip_obj = self._create_iip(pod_name, pod_namespace,\
+                                   proj_obj.uuid, vn_obj, vmi)
         return vmi_uuid
 
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, node_ip,
@@ -500,12 +508,15 @@ class VncPod(VncCommon):
 
         # network_status: Dict of network name to vmi_uuid
         network_status = {}
-        vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        vm_obj = self._create_vm(pod_namespace, pod_id,\
+                         pod_name, labels, proj_obj.uuid)
         index = str(0) + "/" + str(total_interface_count)
         default_network = {'network':'default'}
         vmi_uuid = self.vnc_pod_vmi_create(pod_id, pod_name, pod_namespace,\
-                                pod_node, node_ip, vm_obj, vn_obj, vm_vmi,\
-                                index, default_network)
+                                pod_node, node_ip, vm_obj, vn_obj, proj_obj,\
+                                vm_vmi, index, default_network)
         network_status['cluster-wide-default'] = vmi_uuid
 
         for idx, network in enumerate(pod.networks, start=1):
@@ -516,8 +527,8 @@ class VncPod(VncCommon):
             vn_obj = self._get_user_defined_network(net_name, net_namespace)
             index = str(idx) + "/" + str(total_interface_count)
             vmi_uuid = self.vnc_pod_vmi_create(pod_id, pod_name, pod_namespace,\
-                                pod_node, node_ip, vm_obj, vn_obj, vm_vmi,\
-                                index, network)
+                                pod_node, node_ip, vm_obj, vn_obj, proj_obj,\
+                                vm_vmi, index, network)
             network_status[net_name] = vmi_uuid
 
         if not self._is_pod_nested():
