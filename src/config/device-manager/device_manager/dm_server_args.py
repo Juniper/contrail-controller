@@ -7,10 +7,10 @@ standard_library.install_aliases()  # noqa
 
 import argparse # noqa
 # from builtins import str
-import ConfigParser as configparser
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
+from six.moves.configparser import SafeConfigParser
 
 
 def default_options():
@@ -222,7 +222,7 @@ def parse_args(args_str):
 
     saved_conf_file = args.conf_file
     if args.conf_file:
-        config = configparser.SafeConfigParser()
+        config = SafeConfigParser()
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if ('SECURITY' in config.sections() and
