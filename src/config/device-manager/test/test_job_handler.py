@@ -3,7 +3,6 @@
 #
 import unittest
 import mock
-import cfgm_common
 from cfgm_common.exceptions import TimeOutError
 from attrdict import AttrDict
 from device_manager.job_handler import JobStatus

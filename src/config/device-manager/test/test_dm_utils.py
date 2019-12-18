@@ -5,7 +5,10 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import object
 import sys
-from io import BytesIO as StringIO
+if sys.version_info[0] < 3:
+    from io import BytesIO as StringIO
+else:
+    from io import StringIO as StringIO
 from lxml import etree
 from cfgm_common.tests.test_utils import stub
 
@@ -116,6 +119,7 @@ def fake_send_netconf(self, new_config, default_operation="merge", operation="re
 
 class FakeJobHandler(object):
     params = {}
+    dev_params = {}
 
     @classmethod
     def send(cls, plugin, job_template, job_input, is_delete, retry):
@@ -126,12 +130,16 @@ class FakeJobHandler(object):
             'is_delete': is_delete,
             'retry': retry
         }
+        dev_name = job_input.get('device_abstract_config', {}).get('system', {}).get('name')
+        if dev_name:
+            cls.dev_params[dev_name] = {
+                'plugin': plugin,
+                'job_template':  job_template,
+                'job_input':  job_input,
+                'is_delete': is_delete,
+                'retry': retry
+            }
     # end push
-
-    @classmethod
-    def get_job_template(cls):
-        return cls.params.get('job_template')
-    # end get_job_template
 
     @classmethod
     def get_job_input(cls):
@@ -139,8 +147,14 @@ class FakeJobHandler(object):
     # end get_job_input
 
     @classmethod
+    def get_dev_job_input(cls, dev_name):
+        return cls.dev_params.get(dev_name, {}).get('job_input')
+    # end get_job_input
+
+    @classmethod
     def reset(cls):
         cls.params = {}
+        cls.dev_params = {}
     # end reset
 # end FakeJobHandler
 
