@@ -347,7 +347,7 @@ class FilterModule(object):
             # Lines added to configuration with +
             if (elem.startswith('+')):
                 clean_elem = elem.strip('+{ ')
-		if (';' in clean_elem ) and ('apply-groups' not in clean_elem):
+                if (';' in clean_elem ) and ('apply-groups' not in clean_elem):
                     if group:
                         # first added comment have to be deleted before being added to correct group provide by user via value "group"
                         line_out[0] = "delete"
