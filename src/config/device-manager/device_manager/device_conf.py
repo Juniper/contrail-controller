@@ -10,7 +10,7 @@ from builtins import str
 from builtins import object
 import abc
 import sys
-from imports import import_plugins
+from .imports import import_plugins
 #
 # Base Class for all plugins. pluigns must implement all abstract methods
 #

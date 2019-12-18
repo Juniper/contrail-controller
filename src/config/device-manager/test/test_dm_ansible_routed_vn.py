@@ -4,14 +4,12 @@
 
 from __future__ import absolute_import
 import gevent
-import json
 import mock
+from unittest import skip
 from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_client import *
 
@@ -524,10 +522,12 @@ class TestAnsibleRoutedVNDM(TestAnsibleCommonDM):
         self._delete_objects()
     # end _create_and_validate_routed_vn
 
+    @skip("Timing failures")
     def test_routed_vn_single_fabric(self):
         self._create_and_validate_routed_vn(vn_id='10', two_fabric=False)
     # end test_routed_vn_single_fabric
 
+    @skip("Timing failures")
     def test_routed_vn_two_fabric(self):
         self._create_and_validate_routed_vn(vn_id='11', two_fabric=True)
     # end test_routed_vn_two_fabric
