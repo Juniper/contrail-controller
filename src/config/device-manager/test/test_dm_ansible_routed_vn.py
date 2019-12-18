@@ -6,6 +6,7 @@ from __future__ import absolute_import
 import gevent
 import json
 import mock
+from unittest import skip
 from attrdict import AttrDict
 from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries

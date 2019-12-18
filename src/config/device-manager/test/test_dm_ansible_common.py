@@ -7,7 +7,7 @@ from builtins import range
 import json
 import sys
 import uuid
-
+sys.path.append('../common/cfgm_common/tests/mocked_libs')
 from device_manager.device_manager import DeviceManager
 from .test_case import DMTestCase
 from cfgm_common.tests.test_common import retries
@@ -26,6 +26,12 @@ class TestAnsibleCommonDM(DMTestCase):
         super(TestAnsibleCommonDM, cls).setUpClass(
             dm_config_knobs=dm_config_knobs)
     # end setUpClass
+
+    def setUp(self, extra_config_knobs=None):
+        super(TestAnsibleCommonDM, self).setUp(extra_config_knobs=extra_config_knobs)
+
+    def tearDown(self):
+        super(TestAnsibleCommonDM, self).tearDown()
 
     @retries(5, hook=retry_exc_handler)
     def check_dm_ansible_config_push(self):
