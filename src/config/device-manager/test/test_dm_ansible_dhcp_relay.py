@@ -6,11 +6,7 @@ from __future__ import absolute_import
 import gevent
 import mock
 from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
-from cfgm_common.tests.test_common import retries
-from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_client import *
 
@@ -87,7 +83,7 @@ class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
 
         lr_uuid = self._vnc_lib.logical_router_create(lr)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abs = self.check_dm_ansible_config_push()
 
         dhcp_relay_abs = abs.get('device_abstract_config').get('features').get(

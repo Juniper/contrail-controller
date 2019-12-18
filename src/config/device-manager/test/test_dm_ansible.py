@@ -4,13 +4,8 @@
 
 from __future__ import absolute_import
 import gevent
-import json
 from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
-from cfgm_common.tests.test_common import retries
-from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 
 
@@ -106,7 +101,7 @@ class TestAnsibleDM(TestAnsibleCommonDM):
         lr_uuid = self._vnc_lib.logical_router_create(lr)
         lr = self._vnc_lib.logical_router_read(id=lr_uuid)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         ac = self.check_dm_ansible_config_push()
         fc = ac.get('device_abstract_config').get('features').get('l2-gateway')
 

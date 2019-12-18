@@ -12,8 +12,11 @@ import copy
 
 from abstract_device_api.abstract_device_xsd import *
 from attrdict import AttrDict
-import db
-from imports import import_feature_plugins
+
+from .db import BgpRouterDM, GlobalVRouterConfigDM, LogicalRouterDM, \
+    PhysicalInterfaceDM, RoutingInstanceDM, VirtualMachineInterfaceDM, \
+    VirtualNetworkDM, VirtualPortGroupDM
+from .imports import import_feature_plugins
 
 
 class abstractclassmethod(classmethod):
@@ -183,7 +186,7 @@ class FeatureBase(object):
 
     @classmethod
     def _is_evpn(cls, physical_router):
-        bgp_router = db.BgpRouterDM.get(physical_router.bgp_router)
+        bgp_router = BgpRouterDM.get(physical_router.bgp_router)
         if not bgp_router:
             return False
         return cls._is_family_configured(bgp_router.params, 'e-vpn')
@@ -198,7 +201,7 @@ class FeatureBase(object):
     @staticmethod
     def _get_primary_ri(vn_obj):
         for ri_id in vn_obj.routing_instances:
-            ri_obj = db.RoutingInstanceDM.get(ri_id)
+            ri_obj = RoutingInstanceDM.get(ri_id)
             if ri_obj is not None and ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
                 return ri_obj
         return None
@@ -206,7 +209,7 @@ class FeatureBase(object):
 
     @staticmethod
     def _get_encapsulation_priorities():
-        return db.GlobalVRouterConfigDM.global_encapsulation_priorities or \
+        return GlobalVRouterConfigDM.global_encapsulation_priorities or \
             ['MPLSoGRE']
     # end _get_encapsulation_priorities
 
@@ -235,7 +238,7 @@ class FeatureBase(object):
             export_targets = copy.copy(ri_obj.export_targets)
             import_targets = copy.copy(ri_obj.import_targets)
         for linked_ri_id in ri_obj.routing_instances:
-            linked_ri = db.RoutingInstanceDM.get(linked_ri_id)
+            linked_ri = RoutingInstanceDM.get(linked_ri_id)
             if linked_ri is None:
                 continue
             import_targets |= linked_ri.export_targets
@@ -244,7 +247,7 @@ class FeatureBase(object):
 
     @staticmethod
     def _is_valid_vn(vn_uuid, mode):
-        vn = db.VirtualNetworkDM.get(vn_uuid)
+        vn = VirtualNetworkDM.get(vn_uuid)
         return vn is not None and vn.vn_network_id is not None and \
             vn.get_vxlan_vni() is not None and \
             vn.get_forwarding_mode() is not None and \
@@ -254,7 +257,7 @@ class FeatureBase(object):
     def _get_connected_vns(self, mode):
         vns = set()
         for lr_uuid in self._physical_router.logical_routers or []:
-            lr = db.LogicalRouterDM.get(lr_uuid)
+            lr = LogicalRouterDM.get(lr_uuid)
             if not lr:
                 continue
             vns = vns.union(lr.get_connected_networks(
@@ -262,7 +265,7 @@ class FeatureBase(object):
                 pr_uuid=self._physical_router.uuid))
         for vn_uuid in self._physical_router.virtual_networks:
             vns.add(vn_uuid)
-            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+            vn_obj = VirtualNetworkDM.get(vn_uuid)
             if vn_obj and vn_obj.router_external:
                 pvn_list = vn_obj.get_connected_private_networks() or []
                 vns = vns.union(pvn_list)
@@ -273,17 +276,17 @@ class FeatureBase(object):
     def _get_vn_li_map(self, mode):
         vn_dict = OrderedDict()
         for vpg_uuid in self._physical_router.virtual_port_groups or []:
-            vpg_obj = db.VirtualPortGroupDM.get(vpg_uuid)
+            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
             if not vpg_obj:
                 continue
             vpg_interfaces = vpg_obj.physical_interfaces
             for vmi_uuid in vpg_obj.virtual_machine_interfaces:
-                vmi_obj = db.VirtualMachineInterfaceDM.get(vmi_uuid)
+                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
                 if not vmi_obj or not vmi_obj.virtual_network:
                     continue
                 if not self._is_valid_vn(vmi_obj.virtual_network, mode):
                     continue
-                vn_obj = db.VirtualNetworkDM.get(vmi_obj.virtual_network)
+                vn_obj = VirtualNetworkDM.get(vmi_obj.virtual_network)
                 vlan_tag = vmi_obj.vlan_tag
                 port_vlan_tag = vmi_obj.port_vlan_tag
                 for pi_uuid in vpg_interfaces:
@@ -294,7 +297,7 @@ class FeatureBase(object):
                     if ae_id is not None:
                         pi_name = 'ae' + str(ae_id)
                     else:
-                        pi_obj = db.PhysicalInterfaceDM.get(pi_uuid)
+                        pi_obj = PhysicalInterfaceDM.get(pi_uuid)
                         if not pi_obj:
                             continue
                         pi_name = pi_obj.name
