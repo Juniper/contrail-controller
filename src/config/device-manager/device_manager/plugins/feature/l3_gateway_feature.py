@@ -8,9 +8,10 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+
+from .db import VirtualNetworkDM
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 import gevent # noqa
 
@@ -89,7 +90,7 @@ class L3GatewayFeature(FeatureBase):
                 vns, use_gateway_ip)
 
         for vn_uuid in vns:
-            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+            vn_obj = VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
                 continue
