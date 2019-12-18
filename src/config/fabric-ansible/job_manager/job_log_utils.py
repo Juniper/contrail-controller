@@ -24,10 +24,10 @@ from past.utils import old_div
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.sandesh_base import SandeshConfig
-from sandesh.job.ttypes import JobLog
-from sandesh.job.ttypes import JobLogEntry
-from sandesh.job.ttypes import PRouterOnboardingLog
-from sandesh.job.ttypes import PRouterOnboardingLogEntry
+from .sandesh.job.ttypes import JobLog
+from .sandesh.job.ttypes import JobLogEntry
+from .sandesh.job.ttypes import PRouterOnboardingLog
+from .sandesh.job.ttypes import PRouterOnboardingLogEntry
 
 
 from job_manager.job_exception import JobException
