@@ -8,10 +8,10 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-from attrdict import AttrDict
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+
+from .db import LogicalRouterDM, VirtualNetworkDM
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 import gevent # noqa
 
@@ -42,7 +42,7 @@ class L2GatewayFeature(FeatureBase):
             vn.set_logical_router(vn.fq_name[-1])
         lr_uuid = vn.logical_router
         if lr_uuid:
-            lr = db.LogicalRouterDM.get(lr_uuid)
+            lr = LogicalRouterDM.get(lr_uuid)
             if lr:
                 if lr.is_master == True:
                     is_master_vn = True
@@ -147,7 +147,7 @@ class L2GatewayFeature(FeatureBase):
 
         vn_dict = self._get_connected_vn_li_map()
         for vn_uuid, interfaces in list(vn_dict.items()):
-            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+            vn_obj = VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
                 continue

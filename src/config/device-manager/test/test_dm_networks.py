@@ -3,9 +3,6 @@
 #
 from __future__ import absolute_import
 from builtins import str
-import sys
-import gevent
-from time import sleep
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
@@ -48,6 +45,8 @@ class TestNetworkDM(TestCommonDM):
         ris = self.get_routing_instances(config, ri_name)
         if not ris:
             self.assertTrue(check)
+            return
+
         ri = ris[0]
         intfs = ri.get_interface() or []
         found = False
