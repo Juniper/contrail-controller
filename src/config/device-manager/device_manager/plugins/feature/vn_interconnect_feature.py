@@ -8,12 +8,11 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+import gevent
 from netaddr import IPAddress, IPNetwork
 
-import gevent # noqa
+from .db import LogicalRouterDM, VirtualNetworkDM
+from .feature_base import FeatureBase
 
 
 class VnInterconnectFeature(FeatureBase):
@@ -36,7 +35,7 @@ class VnInterconnectFeature(FeatureBase):
     def _is_dhcp_server_in_same_network(self, dhcp_server_list, vn_list):
         for vn in vn_list:
             for dhcp_ip in dhcp_server_list:
-                vn_obj = db.VirtualNetworkDM.get(vn)
+                vn_obj = VirtualNetworkDM.get(vn)
                 ip_prefixes = vn_obj.get_prefixes(self._physical_router.uuid)
                 for ip_prefix in ip_prefixes:
                     if IPAddress(dhcp_ip) in IPNetwork(ip_prefix):
@@ -49,7 +48,7 @@ class VnInterconnectFeature(FeatureBase):
         vn_map = {}
         dhcp_servers = {}
         for lr_id in self._physical_router.logical_routers or []:
-            lr = db.LogicalRouterDM.get(lr_id)
+            lr = LogicalRouterDM.get(lr_id)
             if not lr or not lr.virtual_network or \
                     not self._is_valid_vn(lr.virtual_network, 'l3'):
                 continue
@@ -120,7 +119,7 @@ class VnInterconnectFeature(FeatureBase):
                 virtual_network_is_internal=True, is_master=True)
 
         for connected_vn_uuid in vn_list:
-            connected_vn = db.VirtualNetworkDM.get(connected_vn_uuid)
+            connected_vn = VirtualNetworkDM.get(connected_vn_uuid)
             irb_name = 'irb.' + str(connected_vn.vn_network_id)
             self._add_ref_to_list(ri.get_routing_interfaces(), irb_name)
         return ri
@@ -132,12 +131,12 @@ class VnInterconnectFeature(FeatureBase):
         vn_map, dhcp_servers = self._get_interconnect_vn_map()
 
         for internal_vn, vn_list in list(vn_map.items()):
-            vn_obj = db.VirtualNetworkDM.get(internal_vn)
+            vn_obj = VirtualNetworkDM.get(internal_vn)
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
                 continue
 
-            lr_obj = db.LogicalRouterDM.get(vn_obj.logical_router)
+            lr_obj = LogicalRouterDM.get(vn_obj.logical_router)
             if lr_obj:
                 is_master_int_vn = lr_obj.is_master
 
