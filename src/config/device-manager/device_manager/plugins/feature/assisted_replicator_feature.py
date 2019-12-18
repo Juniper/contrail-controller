@@ -5,7 +5,8 @@
 """Assisted Replicator Feature Implementation."""
 
 from abstract_device_api.abstract_device_xsd import *
-from feature_base import FeatureBase
+
+from .feature_base import FeatureBase
 
 
 class AssistedReplicatorFeature(FeatureBase):
