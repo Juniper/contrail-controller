@@ -16,7 +16,7 @@ from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import TransportError
 import time
 import datetime
-from io import BytesIO as StringIO
+from io import StringIO as StringIO
 from .dm_utils import DMUtils
 from .device_conf import DeviceConf
 from .dm_utils import PushConfigState

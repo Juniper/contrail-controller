@@ -8,12 +8,11 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+import gevent
 from netaddr import IPAddress, IPNetwork
 
-import gevent # noqa
+from .db import *
+from .feature_base import FeatureBase
 
 
 class VnInterconnectFeature(FeatureBase):
