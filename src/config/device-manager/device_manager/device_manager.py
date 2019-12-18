@@ -14,7 +14,6 @@ standard_library.install_aliases() # noqa
 
 from builtins import object # noqa
 from builtins import str
-import ConfigParser as configparser
 import hashlib
 import random
 import time
@@ -29,6 +28,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 # Import kazoo.client before monkey patching
 import requests
+from six.moves.configparser import NoOptionError, SafeConfigParser
 from vnc_api.vnc_api import VncApi
 
 from .ansible_base import AnsibleBase
@@ -538,7 +538,7 @@ class DeviceManager(object):
     # sighup handler for applying new configs
     def sighup_handler(self):
         if self._args.conf_file:
-            config = configparser.SafeConfigParser()
+            config = SafeConfigParser()
             config.read(self._args.conf_file)
             if 'DEFAULTS' in config.sections():
                 try:
@@ -553,6 +553,6 @@ class DeviceManager(object):
                                 collectors, len(collectors))
                         # Reconnect to achieve loadbalance irrespective of list
                         self.logger.sandesh_reconfig_collectors(config)
-                except configparser.NoOptionError:
+                except NoOptionError:
                     pass
     # end sighup_handler

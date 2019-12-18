@@ -4,14 +4,11 @@
 
 from __future__ import absolute_import
 import gevent
-import json
 import mock
 from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_client import *
 

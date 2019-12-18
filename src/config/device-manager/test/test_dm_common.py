@@ -2,10 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 from __future__ import absolute_import
-import sys
-import gevent
-from time import sleep
-from testtools.matchers import Equals, Contains, Not
 from . import test_case
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *
@@ -45,7 +41,8 @@ class TestCommonDM(test_case.DMTestCase):
 
     def get_routing_instances(self, config, ri_name=''):
         ri_list  = config.get_routing_instances()
-        ri_list = ri_list.get_instance() or []
+        if ri_list:
+            ri_list = ri_list.get_instance() or []
         ris = []
         for ri in ri_list or []:
             if not ri_name or ri.get_name() == ri_name:

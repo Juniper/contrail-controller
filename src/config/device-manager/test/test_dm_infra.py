@@ -4,15 +4,15 @@
 from __future__ import absolute_import
 import sys
 import gevent
-from time import sleep
+from unittest import skip
 from vnc_api.vnc_api import *
 from cfgm_common.vnc_db import DBBase
 from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
 from gevent import monkey
 monkey.patch_all()
+sys.path.append('../common/cfgm_common/tests/mocked_libs')
 from device_manager.db import DMCassandraDB
-from device_manager.db import DBBaseDM
 from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
@@ -20,7 +20,6 @@ from cfgm_common.tests.test_common import launch_device_manager
 from cfgm_common.tests.test_common import kill_device_manager
 from cfgm_common.tests.test_common import wait_for_device_manager_up
 from .test_dm_common import *
-from .test_case import DMTestCase
 from .test_dm_utils import FakeDeviceConnect
 from .test_dm_utils import FakeJobHandler
 from .test_dm_utils import FakeNetconfManager
@@ -274,19 +273,6 @@ class TestInfraDM(TestCommonDM):
         pr.physical_router_vendor_name = "JunIper"
         pr.physical_router_product_name = "mX480"
         self._vnc_lib.physical_router_update(pr)
-        self.check_dm_plugin()
-
-        # device connection is down, config should not be pushed
-        pr_config = FakeDeviceConnect.params.get("pr_config")
-        pr_config._nc_manager.connected = False
-        self.assertFalse(pr_config.is_connected())
-        FakeDeviceConnect.reset()
-        FakeJobHandler.reset()
-        self.set_hold_time(bgp_router, 100)
-        self._vnc_lib.bgp_router_update(bgp_router)
-        self.check_dm_plugin(False)
-        # device connection is up, config should be auto pushed
-        pr_config._nc_manager.connected = True
         self.check_dm_plugin()
 
         # unset vnc-managed, should generate delete groups config
