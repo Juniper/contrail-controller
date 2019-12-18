@@ -51,7 +51,7 @@ class TestJobManager(test_case.JobTestCase):
         # create job template
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yml',
                                      vendor='Juniper',
-                                     device_family='MX')
+                                     device_family='MX', sequence_no=0)
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info])
         job_template = JobTemplate(job_template_type='workflow',
                                    job_template_multi_device_job=False,
@@ -78,11 +78,11 @@ class TestJobManager(test_case.JobTestCase):
         # create job template
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yml',
                                      vendor='Juniper',
-                                     device_family='MX')
+                                     device_family='MX', sequence_no=0)
         play_info1 = PlaybookInfoType(
             playbook_uri='job_manager_test_multiple.yml',
             vendor='Juniper',
-            device_family='QFX')
+            device_family='QFX', sequence_no=1)
         playbooks_list = PlaybookInfoListType(playbook_info=[play_info,
                                                              play_info1])
         job_template = JobTemplate(job_template_type='workflow',
@@ -108,10 +108,10 @@ class TestJobManager(test_case.JobTestCase):
     # to test the case when only device vendor is passed in job_template_input
     def test_execute_job_with_vendor_only(self):
         play_info = PlaybookInfoType(playbook_uri='job_manager_test.yaml',
-                                     vendor='Juniper')
+                                     vendor='Juniper', sequence_no=0)
         play_info1 = PlaybookInfoType(
             playbook_uri='job_manager_test_multiple.yml',
-            vendor='Juniper')
+            vendor='Juniper', sequence_no=1)
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info, play_info1])
@@ -138,10 +138,10 @@ class TestJobManager(test_case.JobTestCase):
     def test_execute_job_multiple_device_families(self):
         play_info_mx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='MX')
+            vendor='Juniper', device_family='MX', sequence_no=0)
         play_info_qfx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='QFX')
+            vendor='Juniper', device_family='QFX', sequence_no=1)
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_qfx, play_info_mx])
@@ -173,13 +173,13 @@ class TestJobManager(test_case.JobTestCase):
     def test_execute_job_multiple_device_families_multiple_playbooks(self):
         play_info_mx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='MX')
+            vendor='Juniper', device_family='MX', sequence_no=0)
         play_info_qfx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='QFX')
+            vendor='Juniper', device_family='QFX', sequence_no=1)
         play_info_2 = PlaybookInfoType(
             playbook_uri='job_manager_test2.yaml',
-            vendor='Juniper')
+            vendor='Juniper', sequence_no=2)
 
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_qfx, play_info_mx, play_info_2])
@@ -210,13 +210,13 @@ class TestJobManager(test_case.JobTestCase):
     def test_execute_job_multiple_vendors_multiple_playbooks(self):
         play_info_juniper_mx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='MX')
+            vendor='Juniper', device_family='MX', sequence_no=0)
         play_info_juniper_qfx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='QFX')
+            vendor='Juniper', device_family='QFX', sequence_no=1)
         play_info_arista_df = PlaybookInfoType(
             playbook_uri='job_manager_test2.yaml',
-            vendor='Arista', device_family='df')
+            vendor='Arista', device_family='df', sequence_no=2)
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_arista_df,
                            play_info_juniper_qfx,
@@ -246,9 +246,9 @@ class TestJobManager(test_case.JobTestCase):
     def test_execute_job_no_vendor(self):
         play_info_juniper_qfx = PlaybookInfoType(
             playbook_uri='job_manager_test.yaml',
-            vendor='Juniper', device_family='QFX')
+            vendor='Juniper', device_family='QFX', sequence_no=0)
         play_info_vendor_agnostic = PlaybookInfoType(
-            playbook_uri='job_manager_test2.yaml')
+            playbook_uri='job_manager_test2.yaml', sequence_no=1)
         playbooks_list = PlaybookInfoListType(
             playbook_info=[play_info_juniper_qfx,
                            play_info_vendor_agnostic])
