@@ -5,6 +5,7 @@
 from __future__ import absolute_import
 
 from builtins import str
+from cfgm_common import *
 from vnc_api.vnc_api import *
 from kube_manager.vnc.config_db import *
 import uuid
@@ -105,7 +106,10 @@ class ServiceLbManager(VncCommon):
         iip_uuid = str(uuid.uuid4())
         iip_name = VncCommon.make_name(service_name, iip_uuid)
         iip_display_name = VncCommon.make_display_name(service_ns, service_name)
-        iip_obj = InstanceIp(name=iip_name, display_name=iip_display_name)
+        perms2 = PermType2()
+        perms2.owner = proj_obj.uuid
+        perms2.owner_access = PERMS_RWX
+        iip_obj = InstanceIp(name=iip_name, perms2=perms2, display_name=iip_display_name)
         iip_obj.uuid = iip_uuid
         iip_obj.set_virtual_network(vn_obj)
         if subnet_uuid:

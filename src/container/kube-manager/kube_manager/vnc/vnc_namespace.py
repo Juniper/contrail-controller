@@ -11,12 +11,13 @@ from __future__ import absolute_import
 from builtins import str
 import uuid
 
+from cfgm_common import *
 from vnc_api.vnc_api import (
     AddressType, IpamSubnets, IdPermsType, IpamSubnetType, NetworkIpam,
     NoIdError, PolicyEntriesType, PolicyRuleType, PortType, Project,
     RefsExistError, SecurityGroup, SubnetType, VirtualNetwork,
     VirtualNetworkType, VnSubnetsType, NetworkPolicy, ActionListType,
-    VirtualNetworkPolicyType, SequenceType)
+    VirtualNetworkPolicyType, SequenceType, ShareType)
 from kube_manager.vnc.config_db import (
     NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM, DBBaseKM)
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM
@@ -69,6 +70,18 @@ class VncNamespace(VncCommon):
     def _get_namespace_service_vn_name(self, ns_name):
         return vnc_kube_config.cluster_name() + \
                 '-' +  ns_name + "-service-network"
+
+    def _get_pod_network_fq_name(self, ns_name):
+        vn_fq_name = [vnc_kube_config.cluster_domain(),
+                      vnc_kube_config.cluster_default_project_name(),
+                      self._get_namespace_pod_vn_name(ns_name)]
+        return vn_fq_name
+
+    def _get_service_network_fq_name(self, ns_name):
+        vn_fq_name = [vnc_kube_config.cluster_domain(),
+                      vnc_kube_config.cluster_default_project_name(),
+                      self._get_namespace_service_vn_name(ns_name)]
+        return vn_fq_name
 
     def _get_ip_fabric_forwarding(self, ns_name):
         ns = self._get_namespace(ns_name)
@@ -167,6 +180,31 @@ class VncNamespace(VncCommon):
                 key, self._label_cache.ns_label_cache, label, ns_uuid)
         if labels:
             project.ns_labels[ns_uuid] = labels
+
+    def _update_default_virtual_network_perms2(self, ns_name, proj_uuid, oper='add'):
+        vn_fq_name = self._get_pod_network_fq_name('default')
+        pod_vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+        vn_fq_name = self._get_service_network_fq_name('default')
+        service_vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+        for vn_obj in [pod_vn_obj, service_vn_obj]:
+            perms2 = vn_obj.perms2
+            share = perms2.share
+            tenant_found = False
+            for item in share:
+                if item.tenant == proj_uuid:
+                    tenant_found = True
+                    break
+            if oper == 'add':
+                if tenant_found == True:
+                    continue
+                else:
+                    share_item = ShareType(tenant=proj_uuid, tenant_access=PERMS_R)
+                    share.append(share_item)
+            else:
+                share.remove(item)
+            perms2.share = share
+            vn_obj.perms2 = perms2
+            self._vnc_lib.virtual_network_update(vn_obj)
 
     def _create_isolated_ns_virtual_network(self, ns_name, vn_name,
             vn_type, proj_obj, ipam_obj=None, provider=None,
@@ -451,7 +489,6 @@ class VncNamespace(VncCommon):
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         project = ProjectKM.locate(proj_obj.uuid)
 
-
         # Validate the presence of annotated virtual network.
         ann_vn_fq_name = self._get_annotated_virtual_network(name)
         if ann_vn_fq_name:
@@ -493,6 +530,8 @@ class VncNamespace(VncCommon):
                     name, service_vn.get_fq_name())
             self._create_attach_policy(name, proj_obj,
                     self._ip_fabric_vn_obj, pod_vn, service_vn)
+        else:
+            self._update_default_virtual_network_perms2(name, proj_obj.uuid)
 
         try:
             self._update_security_groups(name, proj_obj)
@@ -538,6 +577,8 @@ class VncNamespace(VncCommon):
                     name, vn_name=vn_name, proj_fq_name=proj_fq_name)
                 # Clear service network info from namespace entry.
                 self._set_namespace_service_virtual_network(name, None)
+            else:
+                self._update_default_virtual_network_perms2(name, project_uuid, oper='del')
 
             # delete security groups
             security_groups = project.get_security_groups()
