@@ -7,12 +7,6 @@ pyaml
 python-keystoneclient
 python-novaclient
 webtest
-sandesh
-sandesh_common
-contrail-api-client
 contrail-api-server
-timeout-decorator
-subprocess32
-pycrypto
 python-swiftclient
 ansible
