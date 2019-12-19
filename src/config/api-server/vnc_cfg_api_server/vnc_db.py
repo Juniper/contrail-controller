@@ -35,8 +35,6 @@ import copy
 from cfgm_common import jsonutils as json
 import uuid
 import datetime
-from pycassa.system_manager import *
-from pycassa.util import *
 
 import os
 

@@ -12,9 +12,14 @@ from past.builtins import basestring
 from builtins import object
 from future.utils import native_str
 import sys
-import ConfigParser
 import gevent.monkey
 gevent.monkey.patch_all()
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),
+                "./mocked_libs")))
+from pycassa import CassandraCFs
+
+import ConfigParser
 
 import logging
 import tempfile
@@ -33,6 +38,7 @@ import kombu
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import vnc_cgitb
+from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.utils import cgitb_hook
 
 from .test_utils import *
@@ -537,6 +543,13 @@ def patch_imports(imports):
 
 #end patch_import
 
+
+def fake_wrapper(self, func, *args, **kwargs):
+    def wrapper(*wargs, **wkwargs):
+        return func(*wargs, **wkwargs)
+    return wrapper
+
+
 cov_handle = None
 class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     _HTTP_HEADERS =  {
@@ -548,12 +561,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     mocks = [
         (novaclient.client, 'Client', FakeNovaClient.initialize),
-
-        (pycassa.system_manager.Connection, '__init__',stub),
-        (pycassa.system_manager.SystemManager, '__new__',FakeSystemManager),
-        (pycassa.ConnectionPool, '__new__',FakeConnectionPool),
-        (pycassa.ColumnFamily, '__new__',FakeCF),
-        (pycassa.util, 'convert_uuid_to_time',Fake_uuid_to_time),
 
         (kazoo.client.KazooClient, '__new__',FakeKazooClient),
         (kazoo.recipe.counter.Counter, '__init__',fake_zk_counter_init),
@@ -740,6 +747,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         gevent.pywsgi.WSGIServer.handler_class = FakeWSGIHandler
 
         cls.orig_mocked_values = setup_mocks(cls.mocks + (extra_mocks or []))
+        # For performance reasons, don't log cassandra requests
+        VncCassandraClient._handle_exceptions = fake_wrapper
 
         cls._cluster_id = cls.__name__
         cls._server_info = create_api_server_instance(
