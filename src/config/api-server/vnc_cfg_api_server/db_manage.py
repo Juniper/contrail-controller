@@ -40,6 +40,9 @@ except ImportError:
 from cfgm_common.utils import cgitb_hook
 import pycassa
 import pycassa.connection
+from pycassa.cassandra.ttypes import ConsistencyLevel
+from pycassa.connection import default_socket_factory
+
 from thrift.transport import TSSLSocket
 import ssl
 from . import utils
@@ -53,12 +56,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.23"
+__version__ = "1.24"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.24:
+  - Fix pycassa import to support new UT framework
 * 1.23:
   - Fix check RT backrefs to RI (CEM-9625)
 * 1.22:
@@ -412,7 +417,6 @@ class DatabaseManager(object):
         self._cassandra_servers = self._api_args.cassandra_server_list
         self._db_info = VncServerCassandraClient.get_db_info() + \
             schema_transformer.db.SchemaTransformerDB.get_db_info()
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         self._cf_dict = {}
         self.creds = None
         if (self._api_args.cassandra_user is not None and
@@ -421,7 +425,7 @@ class DatabaseManager(object):
                 'username': self._api_args.cassandra_user,
                 'password': self._api_args.cassandra_password,
             }
-        socket_factory = pycassa.connection.default_socket_factory
+        socket_factory = default_socket_factory
         if ('cassandra_use_ssl' in self._api_args and
             self._api_args.cassandra_use_ssl):
             socket_factory = self._make_ssl_socket_factory(
@@ -440,7 +444,7 @@ class DatabaseManager(object):
             for cf_name in cf_name_list:
                 self._cf_dict[cf_name] = pycassa.ColumnFamily(
                     pool, cf_name,
-                    read_consistency_level=rd_consistency,
+                    read_consistency_level=ConsistencyLevel.QUORUM,
                     buffer_size=self._args.buffer_size)
 
         # Get the system global autonomous system

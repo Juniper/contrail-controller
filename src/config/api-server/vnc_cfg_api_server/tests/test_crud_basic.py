@@ -26,7 +26,6 @@ import json
 import copy
 from lxml import etree
 import inspect
-import pycassa
 import requests
 import bottle
 import stevedore
@@ -41,7 +40,6 @@ from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
 from cfgm_common import vnc_cgitb
-from cfgm_common import db_json_exim
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import rest
 from functools import reduce
@@ -3163,6 +3161,7 @@ class TestPropertyWithList(test_case.ApiServerTestCase):
             id=vmi_obj.uuid)
         rd_ff_proto = rd_vmi_obj.virtual_machine_interface_fat_flow_protocols
         self.assertIsNone(rd_ff_proto)
+        import pycassa
         with ExpectedException(pycassa.NotFoundException) as e:
             cols = uuid_cf.get(vmi_obj.uuid,
                     column_start='propl:virtual_machine_interface_fat_flow_protocols:',
@@ -3615,6 +3614,7 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
             id=vmi_obj.uuid)
         rd_bindings = rd_vmi_obj.virtual_machine_interface_bindings
         self.assertIsNone(rd_bindings)
+        import pycassa
         with ExpectedException(pycassa.NotFoundException) as e:
             cols = uuid_cf.get(vmi_obj.uuid,
                     column_start='propm:virtual_machine_interface_bindings:',
@@ -3707,6 +3707,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
 
     @contextlib.contextmanager
     def audit_mocks(self):
+        import pycassa
         def fake_ks_prop(*args, **kwargs):
             return {'strategy_options': {'replication_factor': 1}}
 
@@ -3714,10 +3715,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             [('schema_transformer.db',
               flexmock(db=flexmock(
                   SchemaTransformerDB=flexmock(get_db_info=lambda: [('to_bgp_keyspace', ['route_target_table'])]))))]):
-            with test_common.flexmocks([
-                (pycassa.SystemManager, 'get_keyspace_properties',
-                 fake_ks_prop)]):
-                yield
+            yield
     # end audit_mocks
 
     def _create_vn_subnet_ipam_iip(self, name):
@@ -4762,14 +4760,17 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def test_db_exim_args(self):
+        from cfgm_common import db_json_exim
         with ExpectedException(db_json_exim.InvalidArguments,
             'Both --import-from and --export-to cannot be specified'):
             db_json_exim.DatabaseExim("--import-from foo --export-to bar")
     # end test_db_exim_args
 
     def test_db_export(self):
+        from pycassa.system_manager import SystemManager
+        from cfgm_common import db_json_exim
         with tempfile.NamedTemporaryFile() as export_dump:
-            patch_ks = test_common.FakeSystemManager.patch_keyspace
+            patch_ks = SystemManager.patch_keyspace
             with patch_ks(self.to_bgp_ks, {}), \
                  patch_ks(self.svc_mon_ks, {}), \
                  patch_ks(self.dev_mgr_ks, {}):
@@ -4790,6 +4791,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
     # end test_db_export
 
     def test_db_export_with_omit_keyspaces(self):
+        from cfgm_common import db_json_exim
         with tempfile.NamedTemporaryFile() as export_dump:
             vn_obj = self._create_test_object()
 
@@ -4813,8 +4815,10 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
     # end test_db_export_with_omit_keyspaces
 
     def test_db_export_and_import(self):
+        from pycassa.system_manager import SystemManager
+        from cfgm_common import db_json_exim
         with tempfile.NamedTemporaryFile() as dump_f:
-            patch_ks = test_common.FakeSystemManager.patch_keyspace
+            patch_ks = SystemManager.patch_keyspace
             with patch_ks(self.to_bgp_ks, {}), \
                  patch_ks(self.svc_mon_ks, {}), \
                  patch_ks(self.dev_mgr_ks, {}):
