@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "43caf3cc_206f77b4",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2019-12-19T18:11:25Z",
+      "side": 1,
+      "message": "Can you make the following change? py3 Device_manager UTs could not run because it loaded in this file and failed to import ConfigParser\n\n-import ConfigParser\n+from six.moves.configparser import ConfigParser",
+      "revId": "d3e43a242dd42eb6083d42a476abc1c65709b20a",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
