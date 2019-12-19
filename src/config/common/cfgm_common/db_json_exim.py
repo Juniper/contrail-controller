@@ -27,8 +27,9 @@ import json
 import cgitb
 import gevent
 
-import pycassa
-import pycassa.connection
+from pycassa.connection import default_socket_factory
+from pycassa import ConnectionPool
+from pycassa import ColumnFamily
 from pycassa.system_manager import SystemManager
 import kazoo.client
 import kazoo.handlers.gevent
@@ -206,7 +207,7 @@ class DatabaseExim(object):
                 full_ks_name = ks_name
             cassandra_contents[ks_name] = {}
 
-            socket_factory = pycassa.connection.default_socket_factory
+            socket_factory = default_socket_factory
             if ('cassandra_use_ssl' in self._api_args and
                 self._api_args.cassandra_use_ssl):
                 socket_factory = self._make_ssl_socket_factory(
@@ -217,7 +218,7 @@ class DatabaseExim(object):
                 self._api_args.cassandra_password):
                 creds = {'username': self._api_args.cassandra_user,
                          'password': self._api_args.cassandra_password}
-            pool = pycassa.ConnectionPool(
+            pool = ConnectionPool(
                 full_ks_name, self._api_args.cassandra_server_list,
                 pool_timeout=120, max_retries=-1, timeout=5,
                 socket_factory=socket_factory, credentials=creds)
@@ -225,8 +226,8 @@ class DatabaseExim(object):
                 credentials=creds, socket_factory=socket_factory)
             for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
                 cassandra_contents[ks_name][cf_name] = {}
-                cf = pycassa.ColumnFamily(pool, cf_name,
-                                          buffer_size=self._args.buffer_size)
+                cf = ColumnFamily(pool, cf_name,
+                                  buffer_size=self._args.buffer_size)
                 for r,c in cf.get_range(column_count=10000000, include_timestamp=True):
                     cassandra_contents[ks_name][cf_name][r] = c
 

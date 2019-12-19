@@ -16,6 +16,8 @@ from pycassa import ColumnFamily
 from pycassa.batch import Mutator
 from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
 from pycassa.pool import AllServersUnavailable, MaximumRetryException
+from pycassa.cassandra.ttypes import ConsistencyLevel
+from pycassa.cassandra.ttypes import InvalidRequestException
 import gevent
 from pprint import pformat
 
@@ -621,7 +623,7 @@ class VncCassandraClient(object):
         if self._reset_config and keyspace_name in self.existing_keyspaces:
             try:
                 self.sys_mgr.drop_keyspace(keyspace_name)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
+            except InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger(str(e), level=SandeshLevel.SYS_NOTICE)
 
@@ -629,7 +631,7 @@ class VncCassandraClient(object):
             try:
                 self.sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
                         {'replication_factor': str(self._num_dbnodes)})
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
+            except InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
@@ -643,7 +645,7 @@ class VncCassandraClient(object):
                     gc_grace_seconds=gc_grace_sec,
                     default_validation_class='UTF8Type',
                     **create_cf_kwargs)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
+            except InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
                 self.sys_mgr.alter_column_family(keyspace_name, cf_name,
@@ -678,16 +680,13 @@ class VncCassandraClient(object):
                 max_retries=15, timeout=5, credentials=self._credential,
                 socket_factory=socket_factory)
 
-            rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-            wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-
             for cf_name in cf_dict:
                 cf_kwargs = cf_dict[cf_name].get('cf_args', {})
                 self._cf_dict[cf_name] = ColumnFamily(
                     pool,
                     cf_name,
-                    read_consistency_level=rd_consistency,
-                    write_consistency_level=wr_consistency,
+                    read_consistency_level=ConsistencyLevel.QUORUM,
+                    write_consistency_level=ConsistencyLevel.QUORUM,
                     dict_class=dict,
                     **cf_kwargs)
 

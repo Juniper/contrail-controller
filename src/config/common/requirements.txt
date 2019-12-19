@@ -7,7 +7,7 @@ gevent
 greenlet
 kazoo
 # kombu # comment due to a dependency issue with RPM packaging https://bugzilla.redhat.com/show_bug.cgi?id=1357660
-pycassa>=1.7.2
+# pycassa>=1.7.2  # Don't install pycassa to run UT in python 3 env
 requests>=2.20.0
 sandesh
 simplejson
