@@ -8,3 +8,4 @@ requests >= 2.20.0
 sandesh==0.1dev
 sandesh-common
 six==1.14.0
+xmltodict
