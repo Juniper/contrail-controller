@@ -26,7 +26,6 @@ import abc
 import six
 import uuid
 
-from cfgm_common import analytics_client
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from .config_db import *
