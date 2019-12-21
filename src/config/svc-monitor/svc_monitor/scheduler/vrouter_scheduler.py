@@ -26,6 +26,7 @@ import random
 import six
 
 from cfgm_common import analytics_client
+from cfgm_common.introspect_client import IntrospectClient
 from cfgm_common import svc_info
 from sandesh_common.vns import constants
 from vnc_api.vnc_api import NoIdError
@@ -114,6 +115,23 @@ class VRouterScheduler(object):
             response_dict[values['name']] = values['value']
         return response_dict
 
+    def get_vrouter_mode(self, ic):
+        mode_uve = ic.Snh_SandeshUVECacheReq("VrouterAgent")
+        data = mode_uve['__UveVrouterAgent_list']['UveVrouterAgent']['data']
+        return data['VrouterAgent']['mode']['#text']
+
+    def get_node_status(self, ic):
+        uve = ic.get_NodeStatusUVEList()
+        uve_data = uve.NodeStatusUVE[0].NodeStatus[0].ProcessStatus
+        status = []
+        for proc in uve_data:
+            proc_data = {}
+            proc_data['instance_id'] = proc.instance_id
+            proc_data['module_id'] = proc.module_id
+            proc_data['state'] = proc.state
+            status.append(proc_data)
+        return status
+
     def vrouters_running(self):
         # get az host list
         az_vrs = self._get_az_vrouter_list()
@@ -135,8 +153,23 @@ class VRouterScheduler(object):
                 continue
 
             if vr.name not in vrouters_mode or vr.name not in agents_status:
-                vr.set_agent_state(False)
-                continue
+                warn_msg = "analytics has no info about vrouter %s" % vr.name
+                self._logger.warning(warn_msg)
+                try:
+                    vr_vnc = self._vnc_lib.virtual_router_read(vr.fq_name)
+                    ic = IntrospectClient(vr_vnc.virtual_router_ip_address,
+                                          8085)
+                    mode = self.get_vrouter_mode(ic)
+                    vrouters_mode[vr.name] = {'VrouterAgent': {'mode': mode}}
+                    proc_status = {'process_status': self.get_node_status(ic)}
+                    agents_status[vr.name] = {'NodeStatus': proc_status}
+                except Exception as e:
+                    error_msg = "Failed to get vrouter mode or status from" + \
+                                " its introspect: %s" % vr.name
+                    self._logger.error(error_msg)
+                    self._logger.error(str(e))
+                    vr.set_agent_state(False)
+                    continue
 
             try:
                 vr_mode = vrouters_mode[vr.name]['VrouterAgent']

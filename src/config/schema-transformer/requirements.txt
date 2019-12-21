@@ -4,3 +4,4 @@ contrail-config-common
 jsonpickle
 future
 six
+xmltodict

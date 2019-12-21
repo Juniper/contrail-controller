@@ -3,3 +3,4 @@ junitxml
 mock
 python-subunit
 testrepository
+xmltodict
