@@ -25,3 +25,4 @@
     message: "{{ device_push_message_job_log }}"
     device_name: "{{ device_name }}"
     status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+    result: "{{ dev_push_response }}"
