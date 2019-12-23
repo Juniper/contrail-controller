@@ -117,6 +117,7 @@ role_to_feature_mapping:
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
+    - overlay_networking
   CRB-Gateway@leaf:
     - basic
     - underlay_ip_clos
