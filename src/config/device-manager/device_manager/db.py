@@ -290,8 +290,8 @@ class PhysicalRouterDM(DBBaseDM):
         self.plugins = None
         self.nc_handler_gl = None
         self.telemetry_profile = None
+        self.device_family = None
         self.update(obj_dict)
-
         self.set_conf_sent_state(False)
         self.config_repush_interval = PushConfigState.get_repush_interval()
         self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
@@ -782,10 +782,10 @@ class PhysicalRouterDM(DBBaseDM):
                     continue
                 for subnet_prefix in list(vn.gateways.keys()):
                     new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
-
-        self.evaluate_vn_ip_map(new_vn_ip_set, self.vn_ip_map[ip_used_for],
-                                ip_used_for,
-                                use_gateway_ip=self.is_erb_only())
+            use_gateway_ip = self.is_erb_only() and self.device_family != \
+                             'junos'
+            self.evaluate_vn_ip_map(new_vn_ip_set, self.vn_ip_map[
+                ip_used_for], ip_used_for, use_gateway_ip=use_gateway_ip)
     # end evaluate_vn_irb_ip_map
 
     def evaluate_vn_ip_map(self, vn_set, ip_map, ip_used_for,
