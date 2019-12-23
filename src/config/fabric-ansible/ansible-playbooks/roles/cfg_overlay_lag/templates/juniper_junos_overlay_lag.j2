@@ -1,0 +1,16 @@
+{%     for ifd in device_abstract_config.get('physical_interfaces', []) %}
+{%         if ifd.get('interface_type') == 'lag' and  ifd.get('link_aggregation_group')!= None %}
+set groups {{cfg_group}} chassis aggregated-devices ethernet device-count 128
+{%             for inter in ifd.link_aggregation_group.get('link_members') %}
+set groups {{cfg_group}} interfaces {{inter}} description "{{ifd.link_aggregation_group.get('description')}}"
+set groups {{cfg_group}} interfaces {{inter}} gigether-options 802.3ad {{ifd.name}}
+{%                 if ifd.link_aggregation_group.get('lacp_enabled') == True %}
+set groups {{cfg_group}} interfaces {{ifd.name}} description "{{ifd.link_aggregation_group.get('description')}}"
+set groups {{cfg_group}} interfaces {{ifd.name}} aggregated-ether-options lacp active
+set groups {{cfg_group}} interfaces {{ifd.name}} aggregated-ether-options lacp periodic fast
+{%                 else %}
+delete interfaces {{ifd.name}} aggregated-ether-options lacp
+{%                 endif %}
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
