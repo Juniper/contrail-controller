@@ -1,0 +1,29 @@
+{%     set sys_config = device_abstract_config.get('system', None) %}
+{%     set is_ucast_gateway = sys_config.get('is_ucast_gateway_only', false) %}
+{%     for phy_int in device_abstract_config.features.get('l3-gateway').get('physical_interfaces', []) %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
+{%         for li in phy_int.get('logical_interfaces', []) %}
+{%             set name = li.get('name') %}
+{%             set unit = li.get('unit') %}
+{%             for ip_addr in li.get('ip_addresses', []) %}
+{%                 set address = ip_addr.get('address') %}
+{%                 set family = ip_addr.get('family') %}
+set groups {{cfg_group}} protocols igmp interface {{name}}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}}
+{%                 if is_ucast_gateway == true %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} mac 00:00:5e:01:00:01
+{%                 endif %}
+{%             endfor %}
+{%         endfor %}
+{%     endfor %}
+{#     for vlan in device_abstract_config.features.get('l3-gateway').get('vlans', []) %}
+{%         set vlan_name = vlan.get('name') %}
+{%         set vni = vlan.get('vxlan_id') %}
+set groups {{cfg_group}} bridge-domains {{vlan_name}} description "{{vlan.get('description')}}"
+{%         for intf in vlan.get('interfaces', []) %}
+{%             set int_name = intf.get('name') %}
+set groups {{cfg_group}} bridge-domains {{vlan_name}} routing-interface {{int_name}}
+{%         endfor %}
+set groups {{cfg_group}} bridge-domains {{vlan_name}} vlan-id none
+set groups {{cfg_group}} bridge-domains {{vlan_name}} vxlan vni {{vni}}
+{%     endfor #}
