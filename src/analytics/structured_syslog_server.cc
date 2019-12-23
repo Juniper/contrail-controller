@@ -94,6 +94,12 @@ bool filter_msg(SyslogParser::syslog_m_t &v) {
     ((reason == "session close") || reason == "app detected")) {
     return false;
   }
+  if (tag == "SNMP_TRAP_LINK_UP" || tag == "SNMP_TRAP_LINK_DOWN") {
+    if (SyslogParser::GetMapVals(v, "role", "UNKNOWN") == "HUB" && 
+      SyslogParser::GetMapVals(v,"interface-name", "UNKNOWN").compare(0, 2, "st") != 0) {
+      return false;
+    }
+  }
   return true;
 }
 
