@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "c447ca95_72e81188",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1371,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-12-24T00:29:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f5bd7129_126a6fd0",
+      "revId": "9edb4257b7294b8fe6d3d49b8b99e0a10ed48d19",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6e438701_87e7a3c7",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 1
@@ -42,6 +60,30 @@
     },
     {
       "key": {
+        "uuid": "9df77316_02d6cc68",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 1538,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-12-24T00:29:31Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6e438701_87e7a3c7",
+      "range": {
+        "startLine": 1538,
+        "startChar": 45,
+        "endLine": 1538,
+        "endChar": 72
+      },
+      "revId": "9edb4257b7294b8fe6d3d49b8b99e0a10ed48d19",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "78829911_a8b11fba",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
         "patchSetId": 1
@@ -53,6 +95,24 @@
       "writtenOn": "2019-12-17T14:10:10Z",
       "side": 1,
       "message": "You should fix it also here",
+      "revId": "9edb4257b7294b8fe6d3d49b8b99e0a10ed48d19",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5abe2cc8_60eba9dd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2006,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2019-12-24T00:29:31Z",
+      "side": 1,
+      "message": "Isnt this a default config?",
+      "parentUuid": "78829911_a8b11fba",
       "revId": "9edb4257b7294b8fe6d3d49b8b99e0a10ed48d19",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
