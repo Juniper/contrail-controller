@@ -1368,7 +1368,7 @@ class VncDbClient(object):
                         perms2.get('global_access', 0) == 0):
                     perms2['global_access'] = PERMS_RWX
                     update_obj = True
-                if obj_type == 'domain' and len(perms2.get('share', [])) == 0:
+                if obj_type == 'domain' and len(perms2.get('share') or []) == 0:
                     update_obj = True
                     perms2 = self.enable_domain_sharing(obj_uuid, perms2)
                 if update_obj:
@@ -1535,7 +1535,7 @@ class VncDbClient(object):
                     return (ok, result)
 
                 share_perms = new_perms2.get('share',
-                                             cur_perms2.get('share', []))
+                                             cur_perms2.get('share') or [])
                 global_access = new_perms2.get('global_access',
                                                cur_perms2.get('global_access',
                                                               0))
@@ -1553,10 +1553,10 @@ class VncDbClient(object):
                 # change in shared list? Construct temporary sets to compare
                 cur_shared_list = set(
                     item['tenant'] + ':' + str(item['tenant_access'])
-                    for item in cur_perms2.get('share', []))
+                    for item in cur_perms2.get('share') or [])
                 new_shared_list = set(
                     item['tenant'] + ':' + str(item['tenant_access'])
-                    for item in share_perms)
+                    for item in share_perms or [])
                 if cur_shared_list == new_shared_list:
                     return (ok, result)
 
