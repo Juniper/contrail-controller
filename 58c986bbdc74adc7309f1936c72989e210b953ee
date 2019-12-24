@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "07fdc642_68d7295c",
+        "filename": "src/vnsw/agent/services/test/metadata_test.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 705,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2019-12-24T09:03:09Z",
+      "side": 1,
+      "message": "Not too sure what exactly you are trying to do here or what is different in this file compared to init_file earlier since I am not very familiar with this test infra. Maybe somone else can look into it.",
+      "range": {
+        "startLine": 705,
+        "startChar": 22,
+        "endLine": 705,
+        "endChar": 49
+      },
+      "revId": "58c986bbdc74adc7309f1936c72989e210b953ee",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
