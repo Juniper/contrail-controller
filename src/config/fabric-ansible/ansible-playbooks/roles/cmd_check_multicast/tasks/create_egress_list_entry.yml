@@ -1,0 +1,33 @@
+---
+
+- name: "Fetch downstream interface name(s) from multicast_statistics"
+  set_fact:
+    downstream_interface_list: >-
+      {{ l2ng_multicast_route['l2ng-downstream-interface-names']
+      ['interface-name'] }}
+
+- name: >-
+    Give downstream_interface_list consistent structure
+    (Junos returns single element or list with multiple elements)
+  set_fact:
+    downstream_interface_list: "{{ [downstream_interface_list] }}"
+  when: downstream_interface_list | type_debug != 'list'
+
+- name: Remove 'evpn-core-nh' from downstream_interface_list (if exists)
+  set_fact:
+    downstream_interface_list: >-
+      {{ downstream_interface_list | difference(['evpn-core-nh']) }}
+
+- name: "Create new entry for egress list (device: {{ inspected_device_name }})"
+  set_fact:
+    new_entry:
+      device_name: "{{ inspected_device_name }}"
+      source_address: "{{ l2ng_multicast_route['multicast-source-address'] }}"
+      downstream_interface: "{{ downstream_interface_list }}"
+      kbps: "{{ l2ng_multicast_route['forwarding-rate-kilobytes'] }}"
+      pps: "{{ l2ng_multicast_route['forwarding-rate-packets'] }}"
+
+- name: "Add new entry to egress_list"
+  set_fact:
+    egress_list: "{{ egress_list + [new_entry] }}"
+  when: new_entry.downstream_interface | length > 0

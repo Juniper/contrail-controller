@@ -1,0 +1,46 @@
+---
+- name: "Set temporary directory name: var/tmp/{{ job_ctx.job_execution_id }}"
+  set_fact:
+    tmp_dir_name: "var/tmp/{{ job_ctx.job_execution_id }}"
+
+- name: "Create temporary directory for common results for the fabric"
+  file:
+    path: "{{ tmp_dir_name }}"
+    state: "directory"
+    mode: "0755"
+  register: directory_creation_output
+
+- name: Include 'check_multicast.yml' if necessary and handle errors'
+  block:
+    - name: "Include check_multicast.yml if this is first device playbook executed for this job"
+      include_tasks: check_multicast.yml
+      when: directory_creation_output.changed == true
+  rescue:
+    - name: "Write error message to the temporary file: {{ tmp_dir_name }}/tmp-results.txt"
+      copy:
+        content: "FAIL"
+        dest: "{{ tmp_dir_name }}/tmp-results.txt"
+
+    - name: "Give the temporary file its final name: {{ tmp_dir_name }}/results.txt"
+      command: "mv {{ tmp_dir_name }}/tmp-results.txt {{ tmp_dir_name }}/results.txt"
+
+- name: "Wait for the file with results common for the whole job execution"
+  wait_for:
+    path: "{{ tmp_dir_name }}/results.txt"
+    state: present
+    timeout: 600
+
+- name: "Read the results from the common file"
+  set_fact:
+    command_resp: "{{ item }}"
+  with_file:
+    - "{{ tmp_dir_name }}/results.txt"
+
+- name: "Fail when results contain 'FAIL' error massage"
+  fail:
+    msg: Playbook gathering multicast statistics reported failure.
+  when: command_resp == "FAIL"
+
+- name: "Print the result"
+  debug:
+    var: command_resp
