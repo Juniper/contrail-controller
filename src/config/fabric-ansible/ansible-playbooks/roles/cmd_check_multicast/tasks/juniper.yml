@@ -1,0 +1,31 @@
+---
+- name: "Set temporary directory name: {{ command_dir }}/tmp-{{ job_ctx.job_execution_id }}"
+  set_fact:
+    tmp_dir_name: "{{ command_dir }}/tmp-{{ job_ctx.job_execution_id }}"
+
+- name: "Create temporary directory for common results for the fabric"
+  file:
+    path: "{{ tmp_dir_name }}"
+    state: "directory"
+    mode: "0755"
+  register: directory_creation_output
+
+- name: "Include check_multicast.yml if this is first device playbook executed for this job"
+  include_tasks: check_multicast.yml
+  when: directory_creation_output.changed == true
+
+- name: "Wait for the file with results common for the whole job execution"
+  wait_for:
+    path: "{{ tmp_dir_name }}/results.txt"
+    state: present
+    timeout: 20
+
+- name: "Read the results from the common file"
+  set_fact:
+    command_resp: "{{ item }}"
+  with_file:
+    - "{{ tmp_dir_name }}/results.txt"
+
+- name: "Print the result"
+  debug:
+    var: command_resp
