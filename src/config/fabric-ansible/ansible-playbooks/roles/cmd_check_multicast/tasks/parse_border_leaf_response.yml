@@ -1,0 +1,11 @@
+---
+
+- name: "Fetch multicast statistics from the results"
+  set_fact:
+    routing_instance_name: "{{ border_leaf_results.routing_instance }}"
+    multicast_statistics: "{{ border_leaf_results.results[1].parsed_output }}"
+
+- name: "Update ingress_list"
+  set_fact:
+    ingress_list: "{{ ingress_list + [{'device_name': physical_router_response.obj.display_name, 'source_address': multicast_statistics['multicast-route-information']['route-family']['multicast-route.multicast-source-address']}] }}"
+  when: multicast_statistics['multicast-route-information'] is defined and multicast_statistics['multicast-route-information']['multicast-route-no-group-prefix'] is not defined
