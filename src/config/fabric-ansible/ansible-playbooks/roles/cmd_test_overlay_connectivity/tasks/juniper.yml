@@ -1,0 +1,111 @@
+---
+
+# This GDO is a wrapper for 'ping overlay'.
+#
+# TODO: Extend this GDO to include 'traceroute overlay'.
+#       Currently traceroute does not provide valid output through
+#       netconf for any output format.
+#
+# Example output:
+# =========================================================
+# Ping overlay output:
+#
+# 1/5 - ping-overlay: Overlay segment present at RVTEP; probe: -; rtt: 1 ms
+# 2/5 - ping-overlay: Overlay segment present at RVTEP; probe: -; rtt: 1 ms
+# 3/5 - ping-overlay: Overlay segment present at RVTEP; probe: -; rtt: 4 ms
+# 4/5 - ping-overlay: Overlay segment present at RVTEP; probe: -; rtt: 1 ms
+# 5/5 - ping-overlay: Overlay segment present at RVTEP; probe: -; rtt: 3 ms
+# =========================================================
+
+- name: "Fetch input parameters"
+  set_fact:
+    source_ip: "{{input_params.get('source_ip', '') | trim}}"
+    destination_ip: "{{input_params.get('destination_ip', '') | trim}}"
+    vni: "{{input_params.get('vni', '')}}"
+    count: "{{input_params.get('count', '')}}"
+
+- name: "Print source ip"
+  debug:
+    var: source_ip
+
+- name: "Print destination ip"
+  debug:
+    var: destination_ip
+
+- name: "Print vni"
+  debug:
+    var: vni
+
+- name: "Print packet count"
+  debug:
+    var: count
+
+- import_role:
+    name: Juniper.junos
+
+- name: "Execute 'ping overlay' on {{ device_management_ip }}..."
+  juniper_junos_command:
+    format: xml
+    provider:
+      host: "{{ device_management_ip }}"
+      username: "{{ device_username }}"
+      password: "{{device_password }}"
+      port: 22
+      timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+    commands:
+      - >-
+        ping overlay tunnel-type vxlan vni {{ vni }}
+        tunnel-src {{ source_ip }} tunnel-dst {{ destination_ip }}
+      #- >-
+      #  traceroute overlay tunnel-type vxlan vni {{ vni }}
+      #  tunnel-src {{ source_ip }} tunnel-dst {{ destination_ip }}
+      #  count {{ count }} hash-protocol 17
+  register: complete_resp
+
+- name: "Print complete_resp"
+  debug:
+    var: complete_resp
+
+- name: "Fetch results from response"
+  set_fact:
+    ping_response: "{{ complete_resp.parsed_output }}"
+    # ping_response: "{{ complete_resp.results[0].parsed_output }}"
+    # traceroute_response: "{{ complete_resp.results[1].parsed_output }}"
+
+- name: "Check if ping traceroute succeeded"
+  set_fact:
+    ping_succeeded: >-
+      {{ 'probe-result' in ping_response['ping-overlay-results'] }}
+
+- name: "Print ping_succeeded"
+  debug:
+    var: ping_succeeded
+
+- name: "Generate failure report if ping failed."
+  set_fact:
+    ping_output: >-
+      {{ ping_response['ping-overlay-results']['ping-overlay-failure'] }}
+  when: not ping_succeeded
+
+- name: "Fetch actual packet count for ping"
+  set_fact:
+    ping_packet_count: "{{ ping_response['ping-overlay-results']['count'] }}"
+  when: ping_succeeded
+
+- name: "Generate ping output if ping succeeded."
+  set_fact:
+    ping_output: >
+      {{ ping_output | default("Ping overlay output:\n\n") +
+      item['probe-index'] + "/" + ping_packet_count +
+      " - ping-overlay: " + ('-' if item['ping-overlay-success'] == '' else item['ping-overlay-success']) +
+      "; probe: " + ('-' if item['probe-success'] == '' else item['probe-success']) +
+      "; rtt: " + item['rtt'] + " ms" }}
+  with_items: "{{ ping_response['ping-overlay-results']['probe-result'] }}"
+  when: ping_succeeded
+
+- name: "Print ping_output ({{ device_management_ip }})"
+  debug:
+    var: ping_output
+
+- set_fact:
+    command_resp: "{{ ping_output | replace('\n', '\\r\\n') }}"
