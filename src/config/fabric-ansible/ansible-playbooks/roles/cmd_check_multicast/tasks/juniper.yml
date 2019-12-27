@@ -1,0 +1,82 @@
+---
+
+# Task of this GDO is to gather multicast statistics for the traffic incoming
+# from the outside of the fabric and going to devices attached to server leaves
+# (for source address and multicast group provided as parameters).
+#
+#
+# Example output:
+# -------------------------------------------------------------------
+#         Ingress
+#
+# Device: cswj-0dc4-0016, interface: irb.3022, source: 30.2.1.19, rate: 2462 kbps / 10006 pps
+# Device: cswj-0dc4-0015, interface: irb.3022, source: 30.2.1.19, rate: 2500 kbps / 10001 pps
+#
+#
+#         Egress
+#
+# Leaf: cswj-0dc4-0012, interfaces: ae6.0, source: *, rate: 2960 kbps / 10000 pps
+# Leaf: cswj-0dc4-0011, interfaces: ae4.0, source: *, rate: 2958 kbps / 9995 pps
+# -------------------------------------------------------------------
+#
+#
+# User can select one or more devices in the fabric, but it
+# doesn't matter, because the operation is actually executed once
+# for the whole fabric (precisely: a role is going to be executed for each
+# selected device, but only one execution is going to gather the statistics).
+# All parallel executions (for multiple devices) consume the same single
+# result. Synchronization is achieved through a common file with a name
+# unique for a job execution.
+#
+#
+# FAQ:
+#
+# Q: This approach is not exactly aligned with the idea of GDO. This is
+#    not a GDO, but rather a fabric operation. Why are you doing it as a GDO?
+# A: Organizational reasons...
+
+- name: "Set temporary directory name: var/tmp/{{ job_ctx.job_execution_id }}"
+  set_fact:
+    tmp_dir_name: "var/tmp/{{ job_ctx.job_execution_id }}"
+
+- name: "Create temporary directory for common results for the fabric"
+  file:
+    path: "{{ tmp_dir_name }}"
+    state: "directory"
+    mode: "0755"
+  register: directory_creation_output
+
+- name: Include 'check_multicast.yml' if necessary and handle errors'
+  block:
+    - name: "Include check_multicast.yml if this is first device playbook executed for this job"
+      include_tasks: check_multicast.yml
+      when: directory_creation_output.changed == true
+  rescue:
+    - name: "Write error message to the temporary file: {{ tmp_dir_name }}/tmp-results.txt"
+      copy:
+        content: "FAIL"
+        dest: "{{ tmp_dir_name }}/tmp-results.txt"
+
+    - name: "Give the temporary file its final name: {{ tmp_dir_name }}/results.txt"
+      command: "mv {{ tmp_dir_name }}/tmp-results.txt {{ tmp_dir_name }}/results.txt"
+
+- name: "Wait for the file with results common for the whole job execution"
+  wait_for:
+    path: "{{ tmp_dir_name }}/results.txt"
+    state: present
+    timeout: 600
+
+- name: "Read the results from the common file"
+  set_fact:
+    command_resp: "{{ item }}"
+  with_file:
+    - "{{ tmp_dir_name }}/results.txt"
+
+- name: "Fail when results contain 'FAIL' error massage"
+  fail:
+    msg: Playbook gathering multicast statistics reported failure.
+  when: command_resp == "FAIL"
+
+- name: "Print the result"
+  debug:
+    var: command_resp
