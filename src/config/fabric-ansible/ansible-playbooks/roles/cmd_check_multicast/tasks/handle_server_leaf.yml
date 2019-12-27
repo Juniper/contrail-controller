@@ -1,0 +1,51 @@
+---
+
+- name: >-
+    Execute 'show multicast snooping route extensive {{ group }}
+    on {{ inspected_device_name }}'
+  juniper_junos_command:
+    commands:
+      - "show multicast snooping route extensive group {{ group }}"
+    display: xml
+    provider:
+      host: "{{ physical_router_response.obj.physical_router_management_ip }}"
+      username: "{{ inspected_device_user }}"
+      password: "{{ inspected_device_password }}"
+      port: 22
+      timeout: "{{ JUNOS_COMMAND_TIMEOUT|int }}"
+  register: server_leaf_query_response
+
+- name: Print server_leaf_query_response
+  debug:
+    var: server_leaf_query_response
+
+- name: >-
+    Fetch multicast statistics from the results
+    for the device {{ inspected_device_name }}
+  set_fact:
+    multicast_statistics: >-
+      {{ server_leaf_query_response.parsed_output }}
+
+- name: "Fetch l2ng-multicast-route from multicast_statistics"
+  set_fact:
+    l2ng_multicast_routes: >-
+      {{ multicast_statistics['multicast-route-information']['route-family']
+      ['l2ng-multicast-route'] }}
+  when: multicast_statistics['multicast-route-information'] is defined
+
+- name: >-
+    Give l2ng_multicast_routes consistent structure
+    (Junos returns single element or list with multiple elements)
+  set_fact:
+    l2ng_multicast_routes: "{{ [l2ng_multicast_routes] }}"
+  when: >-
+    l2ng_multicast_routes is defined
+    and l2ng_multicast_routes | type_debug != 'list'
+
+- name: >-
+    Prepare entries for egress list (device: {{ inspected_device_name }})
+  include_tasks: create_egress_list_entry.yml
+  with_items: "{{ l2ng_multicast_routes }}"
+  loop_control:
+    loop_var: l2ng_multicast_route
+  when: l2ng_multicast_routes is defined

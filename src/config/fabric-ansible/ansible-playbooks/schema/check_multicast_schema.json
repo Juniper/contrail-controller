@@ -1,0 +1,89 @@
+{
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "warning_banner": {
+          "$id": "/properties/warning_banner",
+          "title": "This GDO gathers multicast statistics from the whole fabric and it might take a few minutes to complete.",
+          "type": "object",
+          "properties": {
+            "warning_banner_2": {
+              "$id": "/properties/warning_banner_2",
+              "title": "It is assumed that:",
+              "type": "object",
+              "properties": {
+                "warning_banner_3": {
+                  "$id": "/properties/warning_banner_3",
+                  "title": "(1) the traffic is coming from outside of the fabric (through device(s) with CRB-MCAST-Gateway role);",
+                  "type": "object",
+                  "properties": {
+                    "warning_banner_4": {
+                      "$id": "/properties/warning_banner_4",
+                      "title": "(2) the traffic is going to devices attached to server leaves (physical_router_role == 'leaf');",
+                      "type": "object",
+                      "properties": {
+                        "warning_banner_5": {
+                          "$id": "/properties/warning_banner_5",
+                          "title": "(3) PIM is enabled in the fabric.",
+                          "type": "object",
+                          "properties": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+      },
+      "source": {
+         "$id": "/properties/source",
+         "title": "Source",
+         "type": "string",
+         "default": ""
+      },
+      "group": {
+        "$id": "/properties/group",
+        "title": "Group",
+        "type": "string",
+        "default": ""
+      }
+    },
+    "required": ["source", "group"]
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Check multicast output",
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Array holding the specific output details in case of success. Each object of the array would be command_output and device name pair.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "device_name": {
+              "type": "string",
+              "title": "Device Name",
+              "description": "name of the device for which results are displayed"
+            },
+            "command_output": {
+              "type": "object",
+              "title": "Each playbook's command_output for this specific command.",
+              "description": "Results of the show interfaces command executed on the device. The jinja template matching this command, vendor and family would give output of the below format. This command_output translates to device_op_results in the PR uve",
+              "properties": {
+                "config_output": {
+                  "type": "string",
+                  "title": "Device Configuration",
+                  "description": "Display Device Configuration output"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

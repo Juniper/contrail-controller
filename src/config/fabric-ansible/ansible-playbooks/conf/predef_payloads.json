@@ -556,6 +556,32 @@
           "job_template_output_ui_schema": ""
         },
         {
+            "fq_name": [
+               "default-global-system-config",
+               "check_multicast_template"
+             ],
+             "name": "check_multicast_template",
+             "display_name": "Check incoming multicast traffic",
+             "job_template_description": "Check multicast",
+             "parent_type": "global-system-config",
+             "job_template_type": "device_operation",
+             "job_template_concurrency_level": "device",
+             "job_template_playbooks": {
+               "playbook_info": [
+                 {
+                   "device_family": "",
+                   "multi_device_playbook": true,
+                   "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/operational_command.yml",
+                   "vendor": "Juniper"
+                 }
+               ]
+             },
+             "job_template_output_schema": "",
+             "job_template_input_schema": "",
+             "job_template_input_ui_schema": "",
+             "job_template_output_ui_schema": ""
+        },
+        {
           "fq_name": [
             "default-global-system-config",
             "existing_fabric_onboard_template"
