@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6777230c_2cf88776",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_access/juniper_junos-qfx_overlay_evpn_access_enterprise.j2",
+        "patchSetId": 4
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-12-28T07:03:23Z",
+      "side": 1,
+      "message": "l2-gateway need to read from features knob.",
+      "revId": "202efc4de342222238d26d21c57d9dabebb06435",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4782c8c9_1f890a90",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_access/juniper_junos-qfx_overlay_evpn_access_enterprise.j2",
+        "patchSetId": 4
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2019-12-28T07:03:23Z",
+      "side": 1,
+      "message": "l2-gateway need to read from features knob.",
+      "revId": "202efc4de342222238d26d21c57d9dabebb06435",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
