@@ -417,7 +417,7 @@ class VncService(VncCommon):
 
     def _update_service_external_ip(self, service_namespace, service_name, external_ips):
         merge_patch = {'spec': {'externalIPs': [', '.join(external_ips)]}}
-        self.kube.patch_resource(resource_type="services", resource_name=service_name,
+        self.kube.patch_resource(resource_type="service", resource_name=service_name,
                            namespace=service_namespace, merge_patch=merge_patch)
         self.logger.notice("Service (%s, %s) updated with EXTERNAL-IP (%s)"
                                % (service_namespace, service_name, external_ips));

@@ -14,7 +14,7 @@ class IngressMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
         super(IngressMonitor, self).__init__(args,
-            logger, q, IngressKM, resource_name='ingresses', beta=True)
+            logger, q, IngressKM, resource_type='ingress')
         self.init_monitor()
         self.logger.info("IngressMonitor init done.");
 

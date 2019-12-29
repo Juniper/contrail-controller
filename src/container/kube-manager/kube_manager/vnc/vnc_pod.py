@@ -402,8 +402,7 @@ class VncPod(VncCommon):
                     json.dumps(net_status_dict_list, sort_keys=True,
                                 indent=4, separators=(',', ': '))}}}
         if self._kube is not None:
-            self._kube.patch_resource("pods", pod_name, patch, \
-                        pod_namespace, beta=False)
+            self._kube.patch_resource("pod", pod_name, patch, pod_namespace)
 
     def vnc_pod_vmi_create(self, pod_id, pod_name, pod_namespace, pod_node,
                             node_ip, vm_obj, vn_obj, vm_vmi, idx, network=None):

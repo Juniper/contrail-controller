@@ -68,7 +68,7 @@ class VncEndpoints(VncCommon):
         Return None if loadbalancer for the given service does not exist.
         """
         service_info = self._kube.get_resource(
-            'services', service_name, service_namespace)
+            'service', service_name, service_namespace)
         if service_info is None or 'metadata' not in service_info:
             return None
 

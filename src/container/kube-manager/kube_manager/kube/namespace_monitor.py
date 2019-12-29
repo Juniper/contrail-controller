@@ -14,7 +14,7 @@ class NamespaceMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
         super(NamespaceMonitor, self).__init__(args, logger, q, NamespaceKM,
-            resource_name='namespaces')
+            resource_type='namespace')
         self.init_monitor()
         self.logger.info("NamespaceMonitor init done.");
 

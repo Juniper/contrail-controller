@@ -14,7 +14,7 @@ class PodMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
         super(PodMonitor, self).__init__(args, logger, q, PodKM,
-            resource_name='pods')
+            resource_type='pod')
         self.init_monitor()
         self.logger.info("PodMonitor init done.");
 

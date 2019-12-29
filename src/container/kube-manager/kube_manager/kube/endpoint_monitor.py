@@ -13,7 +13,7 @@ class EndPointMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
         super(EndPointMonitor, self).__init__(args, logger, q,
-            resource_name='endpoints')
+            resource_type='endpoints')
         self.init_monitor()
         self.logger.info("EndPointyMonitor init done.");
 

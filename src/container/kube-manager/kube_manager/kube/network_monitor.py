@@ -11,47 +11,45 @@ from .kube_monitor import KubeMonitor
 from kube_manager.common.kube_config_db import NetworkKM
 
 class NetworkMonitor(KubeMonitor):
-
     def __init__(self, args=None, logger=None, q=None):
+        self.resource_type = 'networkattachmentdefinition'
+        self.crd_resource_type = 'customresourcedefinition'
         super(NetworkMonitor, self).__init__(args, logger, q,
-            NetworkKM, resource_name='network-attachment-definitions',
+            NetworkKM, resource_type=self.resource_type,
             api_group='apis/k8s.cni.cncf.io', api_version='v1')
 
         # Check if Network CustomResourceDefinition is already created,
         # If not create it internally
         (crd_info) = self.get_resource(resource_type= \
-                "customresourcedefinitions", resource_name= \
-                "network-attachment-definitions.k8s.cni.cncf.io",
-                api_group="apis/apiextensions.k8s.io", api_version="v1beta1")
+                self.crd_resource_type, resource_name= \
+                "network-attachment-definitions.k8s.cni.cncf.io")
         if crd_info is None:
             self.logger.error("%s - Could not get CRD list.  CRD INFO = %s"
                   %(self.name, crd_info))
             return
-        # assume that v1beta doesn't exist anymore
-        if len(crd_info) == 0:
-            current_crds = []
-            if 'items' in crd_info:
-                current_crds = [x['metadata']['name'].lower() \
-                                            for x in crd_info['items']]
-            self.logger.debug("%s - Retrieved following CRD list = %s"
-                  %(self.name, current_crds))
-            if 'network-attachment-definitions.k8s.cni.cncf.io' \
-                                                    not in current_crds:
+        else:
+            self.logger.debug("%s - Retrieved following CRD info = %s"
+                  %(self.name, crd_info))
+            if not crd_info or \
+                not 'metadata' in crd_info or \
+                'network-attachment-definitions.k8s.cni.cncf.io' \
+                    not in crd_info['metadata']['name']:
                 # Create Networks CRD - networks.kubernetes.cni.cncf.io
                 self.logger.debug("%s - Creating Network CRD" %(self.name))
                 network_crd_body = self.create_network_crd_yaml()
-                self.post_resource(
-                    resource_type="customresourcedefinitions",
-                    resource_name='', api_group="apis/apiextensions.k8s.io",
-                    api_version="v1beta1", body_params=network_crd_body)
+                self.post_resource(resource_type=self.crd_resource_type,
+                    resource_name='', body_params=network_crd_body)
                 #TODO: Check if Netowrk CRD is created else return.
         self.init_monitor()
         self.logger.info("NetworkMonitor init done.");
 
     def create_network_crd_yaml(self):
+        api_group = self.k8s_api_resources[self.crd_resource_type]['group']
+        api_version = self.k8s_api_resources[self.crd_resource_type]['version']
+        kind = self.k8s_api_resources[self.crd_resource_type]['kind']
         network_crd_dict = dict(
-            apiVersion = 'apiextensions.k8s.io/v1beta1',
-            kind = 'CustomResourceDefinition',
+            apiVersion = api_group + '/' + api_version,
+            kind = kind,
             metadata = dict(
                 name = 'network-attachment-definitions.k8s.cni.cncf.io'
             ),

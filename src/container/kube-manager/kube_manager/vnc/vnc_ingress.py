@@ -240,8 +240,8 @@ class VncIngress(VncCommon):
         vip_dict['ip'] = lb_obj._loadbalancer_properties.vip_address
         vip_dict_list.append(vip_dict)
         patch = {'status': {'loadBalancer': {'ingress': vip_dict_list}}}
-        self._kube.patch_resource("ingresses", name, patch,
-                ns_name, beta=True, sub_resource_name='status')
+        self._kube.patch_resource("ingress", name, patch,
+                ns_name, sub_resource_name='status')
 
     def _find_ingress(self, ingress_cache, ns_name, service_name):
         if not ns_name or not service_name:
@@ -507,7 +507,7 @@ class VncIngress(VncCommon):
         return backend_list
 
     def _create_member(self, ns_name, backend_member, pool):
-        resource_type = "services"
+        resource_type = "service"
         service_name = backend_member['serviceName']
         service_port = backend_member['servicePort']
         service_info = self._kube.get_resource(resource_type,
@@ -546,7 +546,7 @@ class VncIngress(VncCommon):
         return member
 
     def _update_member(self, ns_name, backend_member, pool):
-        resource_type = "services"
+        resource_type = "service"
         member_id = backend_member['member_id']
         new_service_name = backend_member['serviceName']
         new_service_port = backend_member['servicePort']

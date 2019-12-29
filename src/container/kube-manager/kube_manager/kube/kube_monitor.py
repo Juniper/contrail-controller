@@ -13,12 +13,47 @@ from six import StringIO
 
 from cfgm_common.utils import cgitb_hook
 
-
 class KubeMonitor(object):
 
+    k8s_api_resources = {
+        'pod'           : {'kind': 'Pod',
+                           'version': 'v1',
+                           'k8s_url_resource': 'pods',
+                           'group': ''},
+        'service'       : {'kind': 'Service',
+                           'version': 'v1',
+                           'k8s_url_resource': 'services',
+                           'group': 'v1'},
+        'ingress'       : {'kind': 'Ingress',
+                           'version': 'v1beta1',
+                           'k8s_url_resource': 'ingresses',
+                           'group': 'extensions'},
+        'endpoints'     : {'kind': 'Endpoints',
+                           'version': 'v1',
+                           'k8s_url_resource': 'endpoints',
+                           'group': ''},
+        'namespace'     : {'kind': 'Namespace',
+                           'version': 'v1',
+                           'k8s_url_resource': 'namespaces',
+                           'group': ''},
+        'networkpolicy' : {'kind': 'NetworkPolicy',
+                           'version': 'v1beta1',
+                           'k8s_url_resource': 'networkpolicies',
+                           'group': 'extensions'},
+        'customresourcedefinition' :
+                          {'kind': 'CustomResourceDefinition',
+                           'version': 'v1beta',
+                           'k8s_url_resource': 'customresourcedefinitions',
+                           'group': 'apiextensions.k8s.io'},
+        'networkattachmentdefinition' :
+                          {'kind': 'NetworkAttachmentDefinition',
+                           'version': 'v1',
+                           'k8s_url_resource': 'network-attachment-definitions',
+                           'group': 'k8s.cni.cncf.io'}
+    }
+
     def __init__(self, args=None, logger=None, q=None, db=None,
-                 resource_name='KubeMonitor', beta=False, api_group=None,
-                 api_version=None):
+                 resource_type='KubeMonitor',api_group=None, api_version=None):
         self.name = type(self).__name__
         self.args = args
         self.logger = logger
@@ -32,10 +67,6 @@ class KubeMonitor(object):
         # Per-monitor stream handle to api server.
         self.kube_api_resp = None
         self.kube_api_stream_handle = None
-
-        # Resource name corresponding to this monitor.
-        self.resource_name = resource_name
-        self.resource_beta = beta
 
         # Use Kube DB if kube object caching is enabled in config.
         if args.kube_object_cache == 'True':
@@ -55,10 +86,39 @@ class KubeMonitor(object):
             protocol = "http"
             self.kubernetes_api_server_port = self.args.kubernetes_api_port
 
-        # URL to the api server.
+        if not self._is_kube_api_server_alive():
+            msg = "kube_api_service is not available"
+            self.logger.error("%s - %s" % (self.name, msg))
+            raise Exception(msg)
+
         self.url = "%s://%s:%s" % (protocol,
                                    self.kubernetes_api_server,
                                    self.kubernetes_api_server_port)
+
+        if (resource_type == 'KubeMonitor'):
+            self.base_url = self.url + "/openapi/v2"
+            resp = requests.get(self.base_url,
+                       headers=self.headers, verify=self.verify)
+            if resp.status_code == 200:
+                json_data = resp.json()['definitions']
+                for key in json_data.keys():
+                    if 'x-kubernetes-group-version-kind' in json_data[key]:
+                        k8s_resource = \
+                            json_data[key]['x-kubernetes-group-version-kind'][0]
+                        kind_lower = k8s_resource['kind'].lower()
+                        if kind_lower in self.k8s_api_resources.keys():
+                            self.k8s_api_resources[kind_lower]['version'] = \
+                                k8s_resource['version']
+                            self.k8s_api_resources[kind_lower]['kind'] = \
+                                k8s_resource['kind']
+                            self.k8s_api_resources[kind_lower]['group'] = \
+                                k8s_resource['group']
+            resp.close()
+
+        # Resource Info corresponding to this monitor.
+        self.resource_type = resource_type
+        api_group, api_version, self.k8s_url_resource = \
+            self._get_k8s_api_resource(resource_type, api_group, api_version)
 
         # Get the base kubernetes url to use for this resource.
         # Each resouce can be independently configured to use difference
@@ -66,13 +126,8 @@ class KubeMonitor(object):
         # version and api group it is interested in. The base_url is constructed
         # with the input from the derived class and does not change for the
         # course of the process.
-        self.base_url = self._get_base_url(self.url, beta, api_group,
-                                           api_version)
-
-        if not self._is_kube_api_server_alive():
-            msg = "kube_api_service is not available"
-            self.logger.error("%s - %s" % (self.name, msg))
-            raise Exception(msg)
+        # URL to the api server.
+        self.base_url = self._get_base_url(self.url, api_group, api_version)
 
         self.logger.info("%s - KubeMonitor init done." % self.name)
 
@@ -97,20 +152,29 @@ class KubeMonitor(object):
             # Return result of connection attempt to kubernetes api server.
             return result == 0
 
-    @classmethod
-    def _get_base_url(cls, url, beta, api_group, api_version):
-        ''' Construct a base url. '''
-        if beta:
-            # URL to v1-beta1 components to api server.
-            version = api_version if api_version else "v1beta1"
-            url = "/".join([url, "apis/extensions", version])
+    def _get_k8s_api_resource(self, resource_type, api_group, api_version):
+        if resource_type in self.k8s_api_resources:
+            api_version = \
+                self.k8s_api_resources[resource_type]['version']
+            if self.k8s_api_resources[resource_type]['group'] != '':
+                api_group = \
+                    'apis/'+self.k8s_api_resources[resource_type]['group']
+            else:
+                api_group = ''
+            k8s_url_resource = \
+                self.k8s_api_resources[resource_type]['k8s_url_resource']
         else:
-            """ Get the base URL for the resource. """
-            version = api_version if api_version else "v1"
-            group = api_group if api_group else "api"
+            k8s_url_resource = resource_type
+        return api_group, api_version, k8s_url_resource
 
-            # URL to the v1-components in api server.
-            url = "/".join([url, group, version])
+    @classmethod
+    def _get_base_url(cls, url, api_group, api_version):
+        ''' Construct a base url. '''
+        version = api_version if api_version else "v1"
+        group = api_group if api_group else "api"
+
+        # URL to the v1-components in api server.
+        url = "/".join([url, group, version])
 
         return url
 
@@ -119,7 +183,7 @@ class KubeMonitor(object):
         This method return the URL for the component represented by this
         monitor instance.
         """
-        return "%s/%s" % (self.base_url, self.resource_name)
+        return "%s/%s" % (self.base_url, self.k8s_url_resource)
 
     @staticmethod
     def get_entry_url(base_url, entry):
@@ -201,18 +265,19 @@ class KubeMonitor(object):
             self.logger.error("%s - %s" % (self.name, e))
 
     def get_resource(self, resource_type, resource_name,
-                     namespace=None, beta=False, api_group=None,
-                     api_version=None):
+                     namespace=None, api_group=None, api_version=None):
         json_data = {}
-        base_url = self._get_base_url(self.url, beta, api_group, api_version)
+        api_group, api_version, k8s_url_resource = \
+            self._get_k8s_api_resource(resource_type, api_group, api_version)
 
-        if resource_type == "namespaces":
-            url = "%s/%s" % (base_url, resource_type)
-        elif resource_type == "customresourcedefinitions":
-            url = "%s/%s/%s" % (base_url, resource_type, resource_name)
+        base_url = self._get_base_url(self.url, api_group, api_version)
+        if resource_type == "namespace":
+            url = "%s/%s" % (base_url, k8s_url_resource)
+        elif resource_type == "customresourcedefinition":
+            url = "%s/%s/%s" % (base_url, k8s_url_resource, resource_name)
         else:
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
-                                              resource_type, resource_name)
+                                              k8s_url_resource, resource_name)
 
         try:
             resp = requests.get(url, stream=True,
@@ -227,15 +292,17 @@ class KubeMonitor(object):
 
     def patch_resource(
             self, resource_type, resource_name,
-            merge_patch, namespace=None, beta=False, sub_resource_name=None,
+            merge_patch, namespace=None, sub_resource_name=None,
             api_group=None, api_version=None):
-        base_url = self._get_base_url(self.url, beta, api_group, api_version)
+        api_group, api_version, k8s_url_resource = \
+            self._get_k8s_api_resource(resource_type, api_group, api_version)
 
-        if resource_type == "namespaces":
-            url = "%s/%s" % (base_url, resource_type)
+        base_url = self._get_base_url(self.url, api_group, api_version)
+        if resource_type == "namespace":
+            url = "%s/%s" % (base_url, k8s_url_resource)
         else:
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
-                                              resource_type, resource_name)
+                                              k8s_url_resource, resource_name)
             if sub_resource_name:
                 url = "%s/%s" %(url, sub_resource_name)
 
@@ -256,17 +323,18 @@ class KubeMonitor(object):
 
         return resp.iter_lines(chunk_size=10, delimiter='\n')
 
-    def post_resource(
-            self, resource_type, resource_name,
-            body_params, namespace=None, beta=False, sub_resource_name=None,
+    def post_resource(self, resource_type, resource_name,
+            body_params, namespace=None, sub_resource_name=None,
             api_group=None, api_version=None):
-        base_url = self._get_base_url(self.url, beta, api_group, api_version)
+        api_group, api_version, k8s_url_resource = \
+            self._get_k8s_api_resource(resource_type, api_group, api_version)
 
-        if resource_type in ("namespaces", "customresourcedefinitions"):
-            url = "%s/%s" % (base_url, resource_type)
+        base_url = self._get_base_url(self.url, api_group, api_version)
+        if resource_type in ("namespace", "customresourcedefinition"):
+            url = "%s/%s" % (base_url, k8s_url_resource)
         else:
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
-                                              resource_type, resource_name)
+                                              k8s_url_resource, resource_name)
             if sub_resource_name:
                 url = "%s/%s" %(url, sub_resource_name)
 
