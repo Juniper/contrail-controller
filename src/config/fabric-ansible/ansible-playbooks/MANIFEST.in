@@ -8,6 +8,7 @@ graft library
 graft module_utils
 graft test
 graft filter_plugins
+graft lookup_plugins
 graft templates
 graft common
 graft config_templates
