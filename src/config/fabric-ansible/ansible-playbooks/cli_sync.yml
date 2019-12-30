@@ -1,0 +1,32 @@
+- name: Cli Configuration Sync
+
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
+    - set_fact:
+        job_ctx: "{{job_ctx|combine({'total_task_count':2, 'task_weightage_array':[15, 85] })}}"
+
+  roles:
+    - Juniper.junos
+    - cli_sync
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Device CLI sync with Contrail config successful",
+              "results":
+                  {
+                    "msg": "Device CLI sync with Contrail config successful"
+                  }
+          }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1
