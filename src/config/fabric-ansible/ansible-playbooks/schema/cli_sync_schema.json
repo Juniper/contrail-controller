@@ -1,0 +1,81 @@
+{
+  "input_schema": {
+    "title": "CLI sync input",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "fabric_uuid": {
+        "type": "string",
+        "description": "Fabric UUID"
+      },
+      "devices_cli": {
+        "type": "array",
+        "items": {
+          "title": "Devices CLI Items",
+          "type": "object",
+          "description": "Dictionaries of device details",
+          "additionalProperties": false,
+          "required": [
+            "device_uuid",
+            "cli_objects"
+          ],
+          "properties": {
+            "device_uuid": {
+              "type": "string",
+              "title": "UUIDs of the device"
+            },
+            "cli_objects": {
+              "type": "array",
+              "title": "cli objects for that device",
+              "items": {
+                "type": "object",
+                "required": [
+                  "time",
+                  "status"
+                ],
+                "properties": {
+                  "time": {
+                    "type": "string",
+                    "title": "Timestamp of the cli change"
+                  },
+                  "status": {
+                    "type": "string",
+                    "title": "Accept or Reject the commit"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Generic Job Output",
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "Success",
+          "Failure",
+          "Timeout"
+        ],
+        "description": "Result status of the job"
+      },
+      "message": {
+        "type": "string",
+        "description": "Should capture a summarized error message in case of Failures."
+      },
+      "results": {
+        "type": "object",
+        "description": "JSON object holding the job specific output details"
+      }
+    },
+    "required": [
+      "status"
+    ]
+  }
+}
