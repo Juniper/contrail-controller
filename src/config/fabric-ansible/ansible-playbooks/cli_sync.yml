@@ -1,0 +1,27 @@
+- name: Cli sync
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
+
+  roles:
+    - Juniper.junos
+    - cli_sync
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "message": "Device CLI sync with Contrail config successful",
+              "results":
+                  {
+                    "msg": "Device CLI sync with Contrail config successful"
+                  }
+          }
+
+    - name: Print the output.
+      debug:
+        var: output
+        verbosity: 1

@@ -1,4 +1,8 @@
 ---
+    - name: Check commits before push
+      include_role:
+        name: rollback_compare
+      ignore_errors: False
 
     - name: Pushing config ... please wait
       block:
