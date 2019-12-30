@@ -52,6 +52,7 @@ local_sources = [
     'maintenance_mode_activate.yml',
     'maintenance_mode_deactivate.yml',
     'container_cleanup.yml',
+    'cli_sync.yml',
     'ansible.cfg',
     'postscript.yml',
     'ztp.yml',
