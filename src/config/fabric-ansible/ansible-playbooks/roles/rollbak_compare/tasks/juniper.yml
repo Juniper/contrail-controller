@@ -1,0 +1,139 @@
+- block:
+    - import_role:
+        name: Juniper.junos    
+
+    - name: Execute commands on a Juniper Device to get Commits
+      juniper_junos_command:
+        commands:
+          - show system commit
+        format: xml
+        dest: "./manual_config/{{ device_mgmt_ip }}/show_system_commits.xml"
+        provider:
+          host: "{{device_mgmt_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: device_commits
+      ignore_errors: false      
+
+- name: Getting all commits in array
+  ignore_errors: false      
+  set_fact:
+    seq_list: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/show_system_commits.xml xpath=.//commit-history/sequence-number')| replace('\n','') | split(',') }}"
+    usr_list: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/show_system_commits.xml xpath=.//commit-history/user')| replace('\n','') | split(',') }}"
+    client_list: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/show_system_commits.xml xpath=.//commit-history/client')| replace('\n','') |split(',') }}"
+    time_list: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/show_system_commits.xml xpath=.//commit-history/date-time')| replace('\n','')|  replace(' ','_') | split(',') }}"
+    commit_list: []
+
+- name: Print list
+  debug:
+    msg: "{{ seq_list }}"
+
+- name: Setting commits with above lists
+  ignore_errors: false      
+  set_fact:
+    commits:
+      - "{{ seq_list|list }}"
+      - "{{ usr_list|list }}"
+      - "{{ client_list|list }}"
+      - "{{ time_list|list }}"
+ 
+- name: Combine seq,user and client and append them into commit list
+  ignore_errors: false      
+  set_fact:
+    commit_list: "{{ commit_list  + [{'seq':item.0,'usr':item.1,'client':item.2,'date-time':item.3} ] }}"
+  loop: "{{ commits[0]|zip(*commits[1:])|list }}" 
+
+- name: Print list
+  debug:
+    msg: "{{ commit_list }}"
+
+# For greenfield two scenarios:
+#     1. Before Fabric provisioning: {{ device_username }} and {{ junoscript }}
+#     2. After Fabric provisioning: {{ device_username }} and {{ netconf }}
+# For Brownfield: {{ user }} and {{ Cli }} and assumed {{ device_username }} and netconf or {{ device_username }} and junoscript will not be found, so in this case no rollback compare.
+# Anything not {{ device_username }} and other than netconf/junoscript committed will be scrutinized, i.e. considered as NOT Contrail committed and is user committed 
+#For instance as below:
+#0   2019-12-13 01:01:46 UTC by charles via cli
+#    third commit by Charles
+#1   2019-12-13 00:59:19 UTC by bhakti via cli
+#2   2019-12-13 00:56:55 UTC by pbok via cli
+#3   2019-12-12 23:59:58 UTC by root via netconf
+#    Applied by Ansible
+#4   2019-12-12 23:59:29 UTC by root via netconf
+#    Applied by Ansible
+#
+#Note: Here root is contrail user and the last commit by root via netconf i.e. 3 will be compared with rollback commit 2, 2 with 1 and 1 with 0.
+- block:
+    - name: Check if contrail committed using junoscript, i.e. Greenfield before Fabric provisioning
+      ignore_errors: true
+      set_fact:
+        jscript_commit: "{{ commit_list| selectattr('usr','equalto',device_username) | selectattr('client', 'equalto', 'junoscript') | map(attribute = 'seq') | list | first }}"
+
+    - name: Check if contrail committed using netconf, i.e. Greenfield after Fabric provisioning
+      ignore_errors: true
+      set_fact:
+        netconf_commit: "{{ commit_list| selectattr('usr','equalto',device_username) | selectattr('client', 'equalto', 'netconf') | map(attribute = 'seq') | list | first }}"
+
+    - name: Check if netconf commit then set contrail commit variable
+      ignore_errors: false
+      when: netconf_commit is defined and jscript_commit is not defined
+      set_fact:
+        contrail_commit: "{{ netconf_commit }}"
+
+    - name: Check if jscript commit then set contrail commit variable
+      ignore_errors: false
+      when: netconf_commit is not defined and jscript_commit is defined
+      set_fact:
+        contrail_commit: "{{ jscript_commit }}"
+
+    - name: Check if netconf_commit or jscript_commit is recent
+      ignore_errors: false
+      when: netconf_commit is defined and jscript_commit is defined
+      set_fact:
+        contrail_commit: "{% if netconf_commit|int < jscript_commit|int  %}{{ netconf_commit }}{% else %}{{ jscript_commit }}{% endif %}"
+
+    - name: Check if manual commit, i.e. brownfield
+      ignore_errors: false
+      when: netconf_commit is not defined and jscript_commit is not defined
+      set_fact:
+        contrail_commit: "{{ 0 }}"
+
+    - name: Print contrail_commit
+      debug:
+        msg: "{{ contrail_commit }}"
+
+    - name: Check if contrail commit is latest, i.e. 0
+      ignore_errors: false
+      set_fact:
+        latest_cont_commit: "{% if contrail_commit|int == 0 %}true{% else %}false{% endif %}"
+      when: contrail_commit is defined
+ 
+    - name: Display message if contrail_commit is latest 
+      ignore_errors: false
+      debug:
+        msg: "Contrail Commit is latest or there were no contrail commits before for brownfield site. Hence no further processing will be carried out."
+      when: contrail_commit is defined and latest_cont_commit == true
+    
+- block:
+
+    - import_role:
+        name: Juniper.junos
+
+    - name: Execute commands on a Juniper Device to compare rollbacks and save diff
+      juniper_junos_command:
+        commands:
+          - show system rollback {{ item|int -1 }} compare {{ item }}
+        dest: "./manual_config/{{ device_mgmt_ip }}/{{commit_list[item|int - 1]['usr']}}_{{commit_list[item|int - 1]['date-time']}}.diff"
+        provider:
+          host: "{{device_mgmt_ip}}"
+          username: "{{device_username}}"
+          password: "{{device_password}}"
+          port: 22
+          timeout: "{{JUNOS_COMMAND_TIMEOUT|int}}"
+      register: device_commits
+      ignore_errors: false
+      loop: "{{ range(contrail_commit|int,0,-1)|list }}"
+  when: (latest_cont_commit == false) and (contrail_commit is defined)
+
