@@ -1,4 +1,9 @@
 ---
+    - name: Check commits before push
+      include_role:
+        name: rollback_compare
+      ignore_errors: True
+      static: no
 
     - name: Pushing config ... please wait
       block:
@@ -8,7 +13,7 @@
         - juniper_junos_config:
             load: "set"
             src: "{{source_file}}"
-            comment: "Applied by Ansible"
+            comment: "Contrail execution ID: {{ job_ctx.job_execution_id }}"
             ignore_warning: "True"
             format: "set"
             provider:
@@ -27,6 +32,14 @@
                {% else -%}
                   Junos config push response for device '{{ device_name }}' \n{{ junos_response.msg }} \nDiff: "No config change, nothing to deploy"
                {%- endif %}
+        - set_fact:
+           dev_push_response:
+             config_diffs: "{{ junos_response.diff.prepared }}"
+          when: junos_response.diff is defined
+        - set_fact:
+           dev_push_response:
+             config_diffs: "{{ 'No config change, nothing to deploy' }}"
+          when: junos_response.diff is not defined
       rescue:
         - include_tasks: error_handler.yml
           vars:
@@ -38,4 +51,3 @@
               }
             jl_err_message: "Unable to push config on the device, Junos config push task failed with following error:\n{{junos_response.msg}}"
             prouter_name: "{{ device_name }}"
-

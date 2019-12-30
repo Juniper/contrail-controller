@@ -52,6 +52,29 @@
         {
           "fq_name": [
             "default-global-system-config",
+            "cli_sync_template"
+          ],
+          "name": "cli_sync_template",
+          "display_name": "Sync cli config with Contrail",
+          "parent_type": "global-system-config",
+          "job_template_concurrency_level": "fabric",
+          "job_template_type": "workflow",
+          "job_template_playbooks": {
+            "playbook_info": [
+              {
+                "playbook_uri": "./opt/contrail/fabric_ansible_playbooks/cli_sync.yml",
+                "multi_device_playbook": false,
+                "vendor": "Juniper",
+                "device_family": ""
+              }
+            ]
+          },
+          "job_template_output_schema": "",
+          "job_template_input_schema": ""
+        },
+        {
+          "fq_name": [
+            "default-global-system-config",
             "hitless_upgrade_strategy_template"
           ],
           "name": "hitless_upgrade_strategy_template",

@@ -111,6 +111,9 @@ class FilterModule(object):
                                         new_serial_number)
             device_obj = self.vncapi.physical_router_read(id=device_uuid)
             device_name = device_obj.name
+            device_cli_obj_name = device_name + "_" + "cli_config"
+            cli_obj_fq_name = ['default-global-system-config', device_name, device_cli_obj_name]
+            cli_obj = self.vncapi.cli_config_read(fq_name=cli_obj_fq_name)
             underlay_managed = \
                 device_obj.get_physical_router_underlay_managed()
 
@@ -129,9 +132,10 @@ class FilterModule(object):
             # supplemental config
             device_supp_cfg = \
                 device_obj.get_physical_router_supplemental_config()
+            accepted_cli_config = cli_obj.get_accepted_cli_config()
             self._supplemental_config_append(device_name,
                                              new_serial_number,
-                                             device_supp_cfg)
+                                             device_supp_cfg, accepted_cli_config)
             temp = {}
             temp['device_management_ip'] = \
                 device_obj.get_physical_router_management_ip()
@@ -185,7 +189,7 @@ class FilterModule(object):
 
     # Recreate supplemental config using only the RMA devices
     def _supplemental_config_append(self, device_name, serial_number,
-                                    device_supp_cfg):
+                                    device_supp_cfg, acc):
         dev2ztp_entry = {
             'hostname': device_name,
             'serial_number': serial_number
@@ -195,7 +199,7 @@ class FilterModule(object):
             cfg_name = device_name + '_cfg'
             supp_cfg_entry = {
                 'name': cfg_name,
-                'cfg': device_supp_cfg
+                'cfg': device_supp_cfg + acc
             }
             self.supplemental_config.append(supp_cfg_entry)
 
