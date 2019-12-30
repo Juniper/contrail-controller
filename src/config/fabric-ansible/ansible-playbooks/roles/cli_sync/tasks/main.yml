@@ -1,0 +1,71 @@
+# Assuming the diff is already in the db, process the commits
+
+- name: Call the vnc filter plugin to process the input and generate config
+  set_fact:
+    data_dict: "{{job_ctx |cli_sync(prouter_name, pr_uuid, devices_cli, pr_host)}}"
+
+- name: Update job log with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 1
+    jl_message: "User input processed. Appropriate config to be pushed down has been generated."
+
+- name: Print the filter response
+  debug: var=data_dict verbosity=1
+
+- name: Set the final config file name
+  set_fact:
+    source_file: "./manual_config/{{pr_host}}/final_config.conf"
+
+- name: Set variables for commit config push
+  set_fact:
+    device_name: "{{pr_name}}"
+    device_mgmt_ip: "{{pr_host}}"
+    device_username: "{{pr_user}}"
+    device_password: "{{pr_password}}"
+    device_vendor: "{{pr_vendor}}"
+
+- name: Push config down
+  include_role:
+    name: commit_fabric_config
+
+- name: Update job logs with status
+  job_objectlog:
+    job_ctx: "{{ job_ctx }}"
+    message: The cli commits have been synced wih the device configuration.
+    device_name: "{{ pr_name }}"
+    status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+
+- name: Set facts from filter output
+  set_fact:
+    cli_fq_name: "{{data_dict.cli_fq_name}}"
+    pr_commit_processed_list: "{{data_dict.pr_commit_item}}"
+    pr_commit_list: "{{data_dict.pr_commit_diff_list}}"
+
+- name: Update the cli object for that device
+  set_fact:
+    cli_update_status: "{{job_ctx| cli_diff_list_update(cli_fq_name,
+    pr_commit_list, pr_commit_processed_list)}}"
+
+- name: Update the pr obj commit status
+  vnc_db_mod:
+    job_ctx: "{{ job_ctx }}"
+    object_type: "physical_router"
+    object_op: "update"
+    object_dict: |
+      {
+        "uuid": "{{pr_uuid}}",
+        "physical_router_cli_commit_state": "in_sync"
+
+      }
+  register: prouter_obj
+  when: cli_update_status
+
+- name: Update job logs with percentage
+  include_tasks: percentage_update.yml
+  vars:
+    current_index: 2
+    jl_message: "CLI config has been processed and re-committed on the device"
+
+- name: Delete the final config file
+  shell: rm -rf ./manual_config/{{ pr_host }}/*.conf
