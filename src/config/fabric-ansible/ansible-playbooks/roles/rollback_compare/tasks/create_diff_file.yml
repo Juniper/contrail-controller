@@ -1,0 +1,12 @@
+---
+
+- name: Parse XML to diff file for {{commit_list[item|int -1]}}
+  set_fact:
+    diff_file_data: "{{ lookup('xmlfile', 'file=./manual_config/{{ device_mgmt_ip }}/{{commit_list[item|int -1][\"usr\"]}}_{{commit_list[item|int -1][\"date-time\"]}}.xml xpath=./configuration-information/configuration-output/text()') | replace('; +','; \n+') | replace('} +','} \n+') | replace('{ +','{ \n+') | replace('; -','; \n-') | replace('} -','} \n-') | replace('{ -','{ \n-') | replace('} [','}\n[') | replace('] ',']\n') | replace('} ','}\n') | replace(']; [','];\n[') }}"
+  ignore_errors: false
+
+- name: Copy diff output in diff file
+  ignore_errors: false
+  copy:
+    content: "{{ diff_file_data }}"
+    dest: "./manual_config/{{ device_mgmt_ip }}/{{commit_list[item|int -1][\"usr\"]}}_{{commit_list[item|int -1][\"date-time\"]}}.diff"
