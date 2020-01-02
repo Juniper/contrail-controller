@@ -25,6 +25,7 @@
 #include <services/metadata_proxy.h>
 #include "pkt/test/test_pkt_util.h"
 
+#define DEFAULT_VNSW_METADATA_CONFIG_FILE "controller/src/vnsw/agent/test/vnswa_metadata_cfg.ini"
 #define MAX_WAIT_COUNT 5000
 #define BUF_SIZE 8192
 #define vm1_ip "10.1.1.3"
@@ -117,7 +118,6 @@ public:
                      done_(0), itf_count_(0), data_size_(0) {
         rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&MetadataTest::ItfUpdate, this, _2));
-        Agent::GetInstance()->set_router_id(Ip4Address::from_string("127.0.0.1"));
         Agent::GetInstance()->set_compute_node_ip(Ip4Address::from_string("127.0.0.1"));
     }
 
@@ -702,7 +702,8 @@ void RouterIdDepInit(Agent *agent) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, true, true, false);
+    client = TestInit(DEFAULT_VNSW_METADATA_CONFIG_FILE, ksync_init, true,
+                        true, false);
     usleep(100000);
     client->WaitForIdle();
 

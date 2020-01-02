@@ -260,7 +260,9 @@ RESTServer::RESTServer(Agent *agent)
 }
 
 void RESTServer::InitDone() {
-    http_server_->Initialize(ContrailPorts::PortIpcVrouterAgentPort());
+    boost::system::error_code ec;
+    http_server_->Initialize(ContrailPorts::PortIpcVrouterAgentPort(),
+        IpAddress(Ip4Address::from_string(("127.0.0.1"), ec)));
 }
 
 void RESTServer::HandleRequest(HttpSession* session,
