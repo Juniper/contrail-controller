@@ -7,6 +7,7 @@ from cfgm_common import CANNOT_MODIFY_MSG
 from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import RoutingInstance
+from vnc_api.vnc_api import ServiceChainInfo
 from vnc_api.vnc_api import VirtualNetwork
 
 from vnc_cfg_api_server.tests import test_case
@@ -122,4 +123,43 @@ class TestRoutingInstance(test_case.ApiServerTestCase):
         ri.set_display_name('new-name-%s' % self.id())
         self.api.routing_instance_update(ri)
 
+        self.api.routing_instance_delete(id=ri.uuid)
+
+    def test_routing_instance_service_chain_info(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self.api.virtual_network_create(vn)
+
+        ri_name = 'ri-%s' % self.id()
+        ri_fq_name = ':'.join(vn.fq_name + [ri_name])
+
+        sci = ServiceChainInfo(
+            service_chain_id=ri_fq_name,
+            prefix=['20.0.0.0/24'],
+            routing_instance=ri_name,
+            service_chain_address='0.255.255.250',
+            service_instance='default-domain:default-project:test_service')
+
+        sciv6 = ServiceChainInfo(
+            service_chain_id=ri_fq_name,
+            prefix=['1000::/16'],
+            routing_instance=ri_name,
+            service_chain_address='::0.255.255.252',
+            service_instance='default-domain:default-project:test_service_v6')
+
+        ri = RoutingInstance(name=ri_name,
+                             parent_obj=vn,
+                             service_chain_information=sci,
+                             ipv6_service_chain_information=sciv6,
+                             evpn_service_chain_information=sci,
+                             evpn_ipv6_service_chain_information=sciv6,
+                             sc_head=False,
+                             routing_instance_is_default=False)
+
+        ri.uuid = self.api.routing_instance_create(ri)
+        ri_fq_name = vn.fq_name + [ri.name]
+        ri = self.api.routing_instance_read(ri_fq_name)
+        ri.set_display_name('new RI name')
+        self.api.routing_instance_update(ri)
         self.api.routing_instance_delete(id=ri.uuid)
