@@ -48,7 +48,7 @@ class FakeSystemManager(object):
             return {'strategy_options': {'replication_factor': '1'}}
 
         def get_keyspace_column_families(self, keyspace):
-            return self._keyspaces[keyspace]
+            return self._keyspaces.get(keyspace, {})
 
         def create_column_family(self, keyspace, name, *args, **kwargs):
             self._keyspaces[keyspace][name] = {}
