@@ -83,7 +83,7 @@ except:
 
 # contrail services in redhat system uses sysv, though systemd is default.
 init_sys_used = init
-if distribution in ['redhat']:
+if 'redhat' in platform.platform():
     init_sys_used = 'sysv'
 
 class EtreeToDict(object):
