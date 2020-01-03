@@ -136,8 +136,8 @@ class DatabaseExim(object):
         non_empty_errors = []
         for ks in list(self.import_data['cassandra'].keys()):
             for cf in list(self.import_data['cassandra'][ks].keys()):
-                if len(list(self._cassandra.get_cf(cf).get_range(
-                    column_count=0))) > 0:
+                if len(list(self._cassandra._cassandra_driver.
+                        get_cf(cf).get_range(column_count=0))) > 0:
                     non_empty_errors.append(
                         'Keyspace %s CF %s already has entries.' %(ks, cf))
 
@@ -161,7 +161,7 @@ class DatabaseExim(object):
         # seed cassandra
         for ks_name in list(self.import_data['cassandra'].keys()):
             for cf_name in list(self.import_data['cassandra'][ks_name].keys()):
-                cf = self._cassandra.get_cf(cf_name)
+                cf = self._cassandra._cassandra_driver.get_cf(cf_name)
                 for row,cols in list(self.import_data['cassandra'][ks_name][cf_name].items()):
                     for col_name, col_val_ts in list(cols.items()):
                         cf.insert(row, {col_name: col_val_ts[0]})
