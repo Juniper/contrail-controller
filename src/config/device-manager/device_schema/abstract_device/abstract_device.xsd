@@ -106,6 +106,7 @@
        <xsd:element name="ip-address" type="xsd:string"/>
        <xsd:element name="hold-time" type="xsd:integer"/>
        <xsd:element name="authentication-key" type="xsd:string"/>
+       <xsd:element name="authentication-method" type="xsd:string"/>
        <xsd:element name="families" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="peers" type="dac:Bgp" maxOccurs="unbounded"/>
     </xsd:all>
@@ -201,11 +202,20 @@
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="Bfd">
+    <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
+       <xsd:element name="rx-tx-interval" type="xsd:integer"/>
+       <xsd:element name="detection-time-multiplier" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="RoutingInstanceProtocols">
     <xsd:all>
         <xsd:element name="evpn" type="dac:Evpn" maxOccurs="unbounded"/>
         <xsd:element name="bgp" type="dac:Bgp" maxOccurs="unbounded"/>
         <xsd:element name="pim" type="dac:Pim" maxOccurs="unbounded"/>
+        <xsd:element name="bfd" type="dac:Bfd" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -220,6 +230,7 @@
        <xsd:element name="virtual-network-is-internal" type="xsd:boolean"/>
        <xsd:element name="vxlan-id" type="xsd:integer"/>
        <xsd:element name="routing-instance-type" type="xsd:string"/>
+       <xsd:element name="is-master" type="xsd:boolean"/>
        <xsd:element name="is-public-network" type="xsd:boolean"/>
        <xsd:element name="import-targets" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="export-targets" type="xsd:string" maxOccurs="unbounded"/>
@@ -233,7 +244,7 @@
        <xsd:element name="egress-interfaces" type="dac:Reference" maxOccurs="unbounded"/>
        <xsd:element name="nat-rules" type="dac:NatRules"/>
        <xsd:element name="floating-ip-list" type="dac:FloatingIpList" maxOccurs="unbounded"/>
-       <xsd:element name="virtual-network-is-shared" type="xsd:boolean"/>
+       <xsd:element name="virtual-network-is-routed" type="xsd:boolean"/>
        <xsd:element name="protocols" type="dac:RoutingInstanceProtocols" maxOccurs="unbounded"/>
        <xsd:element name="forwarding-options" type="dac:ForwardingOptions"/>
        <xsd:element name="rib-group" type="xsd:string"/>
