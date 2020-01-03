@@ -3269,7 +3269,7 @@ class DMCassandraDB(VncObjectDBClient):
             zkclient, self._zk_path_pfx + self._PNF_NETWORK_ALLOC_PATH,
             self._PNF_MAX_NETWORK_ID)
 
-        self.pnf_cf = self.get_cf(self._PNF_RESOURCE_CF)
+        self.pnf_cf = self._cassandra_driver.get_cf(self._PNF_RESOURCE_CF)
         self.pnf_resources_map = dict(
             self.pnf_cf.get_range(column_count=0, filter_empty=True))
     # end
@@ -3376,7 +3376,7 @@ class DMCassandraDB(VncObjectDBClient):
     # end
 
     def init_pr_map(self):
-        cf = self.get_cf(self._PR_VN_IP_CF)
+        cf = self._cassandra_driver.get_cf(self._PR_VN_IP_CF)
         pr_entries = dict(cf.get_range(column_count=1000000))
         for key in list(pr_entries.keys()):
             key_data = key.split(':', 1)
@@ -3388,7 +3388,7 @@ class DMCassandraDB(VncObjectDBClient):
     # end
 
     def init_pr_asn_map(self):
-        cf = self.get_cf(self._PR_ASN_CF)
+        cf = self._cassandra_driver.get_cf(self._PR_ASN_CF)
         pr_entries = dict(cf.get_range())
         for pr_uuid in list(pr_entries.keys()):
             pr_entry = pr_entries[pr_uuid] or {}
@@ -3401,7 +3401,7 @@ class DMCassandraDB(VncObjectDBClient):
     # end init_pr_asn_map
 
     def init_ipv6_ll_map(self):
-        cf = self.get_cf(self._NI_IPV6_LL_CF)
+        cf = self._cassandra_driver.get_cf(self._NI_IPV6_LL_CF)
         ipv6_subnet_entries = dict(cf.get_range())
         for key in list(ipv6_subnet_entries.keys()):
             ipv6_subnet_entry = ipv6_subnet_entries[key]
@@ -3411,8 +3411,10 @@ class DMCassandraDB(VncObjectDBClient):
     # end init_ipv6_ll_map
 
     def get_ip(self, key, ip_used_for):
-        return self.get_one_col(self._PR_VN_IP_CF, key,
-                                DMUtils.get_ip_cs_column_name(ip_used_for))
+        return self._cassandra_driver.get_one_col(
+            self._PR_VN_IP_CF,
+            key,
+            DMUtils.get_ip_cs_column_name(ip_used_for))
     # end
 
     def get_asn_for_pr(self, pr_uuid):
@@ -3436,7 +3438,7 @@ class DMCassandraDB(VncObjectDBClient):
 
     def get_ipv6_ll_subnet(self, key):
         if self.ni_ipv6_ll_map.get(key, None) is None:
-            db_data = self.get(self._NI_IPV6_LL_CF, key)
+            db_data = self._cassandra_driver.get(self._NI_IPV6_LL_CF, key)
             self.ni_ipv6_ll_map[key] = db_data
 
         return self.ni_ipv6_ll_map.get(key, None)
@@ -3445,7 +3447,8 @@ class DMCassandraDB(VncObjectDBClient):
 
     def add_ipv6_ll_subnet(self, key, subnet):
         for column in subnet:
-            if self.get(self._NI_IPV6_LL_CF, key, column) is None:
+            if (self._cassandra_driver.get(self._NI_IPV6_LL_CF, key, column)
+                    is None):
                 self.add(self._NI_IPV6_LL_CF, key, subnet)
                 self.ni_ipv6_ll_map[key] = subnet
     # end add_ipv6_ll_subnet

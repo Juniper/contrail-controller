@@ -177,15 +177,17 @@ class VncServerCassandraClient(VncCassandraClient):
         if bch is None:
             send = True
             bch = self._obj_uuid_cf.batch()
-        bch.insert(ref_uuid, {'relaxbackref:%s' % (obj_uuid):
-                               json.dumps(None)})
+        self._cassandra_driver.insert(ref_uuid, {'relaxbackref:%s' % (obj_uuid):
+                                      json.dumps(None)},
+                                      batch=bch)
         if send:
             bch.send()
     # end _relax_ref_for_delete
 
     def get_relaxed_refs(self, obj_uuid):
-        relaxed_cols = self.get(self._OBJ_UUID_CF_NAME, obj_uuid,
-                                start='relaxbackref:', finish='relaxbackref;')
+        relaxed_cols = self._cassandra_driver.get(
+            self._OBJ_UUID_CF_NAME, obj_uuid,
+            start='relaxbackref:', finish='relaxbackref;')
         if not relaxed_cols:
             return []
 
@@ -201,19 +203,23 @@ class VncServerCassandraClient(VncCassandraClient):
     # end is_latest
 
     def uuid_to_obj_dict(self, id):
-        obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)
+        obj_cols = self._cassandra_driver.get(self._OBJ_UUID_CF_NAME, id)
         if not obj_cols:
             raise NoIdError(id)
         return obj_cols
     # end uuid_to_obj_dict
 
     def uuid_to_obj_perms(self, id):
-        return self.get_one_col(self._OBJ_UUID_CF_NAME, id, 'prop:id_perms')
+        return self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+                                                  id,
+                                                  'prop:id_perms')
     # end uuid_to_obj_perms
 
     # fetch perms2 for an object
     def uuid_to_obj_perms2(self, id):
-        return self.get_one_col(self._OBJ_UUID_CF_NAME, id, 'prop:perms2')
+        return self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+                                                  id,
+                                                  'prop:perms2')
     # end uuid_to_obj_perms2
 
     def useragent_kv_store(self, key, value):
@@ -224,16 +230,17 @@ class VncServerCassandraClient(VncCassandraClient):
     def useragent_kv_retrieve(self, key):
         if key:
             if isinstance(key, list):
-                rows = self.multiget(self._USERAGENT_KV_CF_NAME, key)
+                rows = self._cassandra_driver.multiget(self._USERAGENT_KV_CF_NAME, key)
                 return [rows[row].get('value') for row in rows]
             else:
-                row = self.get(self._USERAGENT_KV_CF_NAME, key)
+                row = self._cassandra_driver.get(self._USERAGENT_KV_CF_NAME, key)
                 if not row:
                     raise NoUserAgentKey
                 return row.get('value')
         else:  # no key specified, return entire contents
             kv_list = []
-            for ua_key, ua_cols in self.get_range(self._USERAGENT_KV_CF_NAME):
+            for ua_key, ua_cols in self._cassandra_driver.get_range(
+                    self._USERAGENT_KV_CF_NAME):
                 kv_list.append({'key': ua_key, 'value': ua_cols.get('value')})
             return kv_list
     # end useragent_kv_retrieve
