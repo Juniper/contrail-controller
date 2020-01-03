@@ -3020,10 +3020,15 @@ class VirtualPortGroupDM(DBBaseDM):
                     {pi.get('uuid'): pi.get('attr').get('ae_num')})
 
     def get_esi(self):
-        hash_obj = pyhash.city_64()
-        unpacked = struct.unpack(
-            '>8B', struct.pack('>Q', hash_obj(native_str(self.uuid))))
-        self.esi = '00:%s:00' % (':'.join('%02x' % i for i in unpacked))
+        esi = self._object_db.get_esi_for_vpg(self.uuid)
+        if esi:
+            self.esi = esi
+        else:
+            hash_obj = pyhash.city_64()
+            unpacked = struct.unpack(
+                '>8B', struct.pack('>Q', hash_obj(native_str(self.uuid))))
+            self.esi = '00:%s:00' % (':'.join('%02x' % i for i in unpacked))
+            self._object_db.add_esi(self.uuid, self.esi)
 
     def build_lag_pr_map(self):
         for pi in self.physical_interfaces or []:
@@ -3099,6 +3104,8 @@ class VirtualPortGroupDM(DBBaseDM):
     # end get_attached_port_profiles
 
     def delete_obj(self):
+        self._object_db.delete_vpg(self.uuid)
+
         for pi in self.physical_interfaces or []:
             pi_obj = PhysicalInterfaceDM.get(pi)
             pr_obj = PhysicalRouterDM.get(pi_obj.get_pr_uuid())
@@ -3204,6 +3211,7 @@ class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
     _PR_VN_IP_CF = 'dm_pr_vn_ip_table'
     _PR_ASN_CF = 'dm_pr_asn_table'
+    _VPG_ESI_CF = 'dm_vpg_esi_table'
     _NI_IPV6_LL_CF = 'dm_ni_ipv6_ll_table'
     # PNF table
     _PNF_RESOURCE_CF = 'dm_pnf_resource_table'
@@ -3240,6 +3248,7 @@ class DMCassandraDB(VncObjectDBClient):
         keyspaces = {
             self._KEYSPACE: {self._PR_VN_IP_CF: {},
                              self._PR_ASN_CF: {},
+                             self._VPG_ESI_CF: {},
                              self._NI_IPV6_LL_CF: {},
                              self._PNF_RESOURCE_CF: {}}}
 
@@ -3258,10 +3267,12 @@ class DMCassandraDB(VncObjectDBClient):
 
         self.pr_vn_ip_map = {}
         self.pr_asn_map = {}
+        self.vpg_esi_map = {}
         self.asn_pr_map = {}
         self.ni_ipv6_ll_map = {}
         self.init_pr_map()
         self.init_pr_asn_map()
+        self.init_vpg_esi_map()
         self.init_ipv6_ll_map()
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
@@ -3400,6 +3411,19 @@ class DMCassandraDB(VncObjectDBClient):
                     self.asn_pr_map[asn] = pr_uuid
     # end init_pr_asn_map
 
+    def init_vpg_esi_map(self):
+        cf = self.get_cf(self._VPG_ESI_CF)
+        vpg_entries = dict(cf.get_range())
+        for vpg_uuid in list(vpg_entries.keys()):
+            vpg_entry = vpg_entries[vpg_uuid] or {}
+            esi = int(vpg_entry.get('esi'))
+            if esi:
+                if vpg_uuid not in self.vpg_esi_map:
+                    self.vpg_esi_map[vpg_uuid] = esi
+                if esi not in self.esi_vpg_map:
+                    self.esi_vpg_map[esi] = vpg_uuid
+    # end init_vpg_esi_map
+
     def init_ipv6_ll_map(self):
         cf = self.get_cf(self._NI_IPV6_LL_CF)
         ipv6_subnet_entries = dict(cf.get_range())
@@ -3433,6 +3457,20 @@ class DMCassandraDB(VncObjectDBClient):
         self.pr_asn_map[pr_uuid] = asn
         self.asn_pr_map[asn] = pr_uuid
     # end add_asn
+
+    def get_esi_for_vpg(self, vpg_uuid):
+        return self.vpg_esi_map.get(vpg_uuid)
+    # end get_esi_for_vpg
+
+    def get_vpg_for_esi(self, esi):
+        return self.esi_vpg_map.get(esi)
+    # end get_vpg_for_esi
+
+    def add_esi(self, vpg_uuid, esi):
+        self.add(self._VPG_ESI_CF, vpg_uuid, {'esi': str(esi)})
+        self.vpg_esi_map[vpg_uuid] = esi
+        self.esi_vpg_map[esi] = vpg_uuid
+    # end add_esi
 
     def get_ipv6_ll_subnet(self, key):
         if self.ni_ipv6_ll_map.get(key, None) is None:
@@ -3494,6 +3532,16 @@ class DMCassandraDB(VncObjectDBClient):
             if not ret:
                 self._logger.error("Unable to free asn from db for pr %s" %
                                    pr_uuid)
+    # end
+
+    def delete_vpg(self, vpg_uuid):
+        esi = self.vpg_esi_map.pop(vpg_uuid, None)
+        if esi is not None:
+            self.esi_vpg_map.pop(esi, None)
+            ret = self.delete(self._VPG_ESI_CF, vpg_uuid)
+            if not ret:
+                self._logger.error("Unable to free esi from db for vpg %s" %
+                                   vpg_uuid)
     # end
 
     def delete_dci(self, dci_uuid):
