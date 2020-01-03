@@ -1,0 +1,208 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0b851738_896c0826",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/conf/predef_payloads.json",
+        "patchSetId": 3
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Seems like multi_device_playbook should be \u0027true\u0027 otherwise the playbook won\u0027t run simultaneously on multiple devices. Search for \u0027multi_device_playbook\u0027 in job_mgr.py.",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "769174d2_0ce535fd",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "All of this is not gonna pass pep8 since it\u0027s not in alphabetical order. Suggest running pep8 on the file",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dcb6e525_ac7de63a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "This seems a little too hard-coded. See what is done in fabric_config_filters.py with PLAYBOOK_BASE and self.conf_dir",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ef12c4bb_01afb2df",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Put this under try statement",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fe9bc750_9d2b9ad1",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "This technically doesn\u0027t have to be under try/except statement since create_cli_obj has an outer try/except",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "165f425b_cf224d2f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Change exception message",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c5231d3d_20d75385",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 206,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Should be wrapped in try/except",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "64d867d7_88911fa7",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 219,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Same comment as above regarding the prefix for this path. Define the base portion of the path in one place.",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c359f8b6_dd36a2be",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 269,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Define __cli_contrail_group__ as a constant somewhere at top of file. In case we decide to change it someday, it will be easy to find.",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6170b260_668b38db",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cli_sync/tasks/main.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 10,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Maybe add a job log message here. Plus add percentages, as discussed",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "111d35d0_c078d109",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/rollbak_compare/tasks/juniper.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "Why are there ignore_errors sprinkled all over? Also, can you get rid of those annoying pink blobs?",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "61ead806_7cdc0a9a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/rollbak_compare/tasks/juniper.yml",
+        "patchSetId": 3
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-03T19:51:03Z",
+      "side": 1,
+      "message": "ooh, this is fun. I\u0027m gonna have to consult my Ansible manual for this one!",
+      "revId": "3976c52a5ba8abca934dced7f7688f8347675bc1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
