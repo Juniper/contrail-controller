@@ -11,47 +11,23 @@ from builtins import range
 from builtins import object
 import copy
 
-import pycassa
-from pycassa import ColumnFamily
-from pycassa.batch import Mutator
-from pycassa.system_manager import SystemManager, SIMPLE_STRATEGY
-from pycassa.pool import AllServersUnavailable, MaximumRetryException
 import gevent
 from pprint import pformat
 
 from vnc_api import vnc_api
-from .exceptions import NoIdError, DatabaseUnavailableError, VncError
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from .exceptions import NoIdError, VncError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants as vns_constants
-import time
 from cfgm_common import jsonutils as json
 from . import utils
 import datetime
 from operator import itemgetter
-import itertools
-import sys
-from collections import Mapping, OrderedDict
-from thrift.transport import TSSLSocket
-import ssl
-
-
-def merge_dict(orig_dict, new_dict):
-    for key, value in list(new_dict.items()):
-        if key not in orig_dict:
-            orig_dict[key] = new_dict[key]
-        elif isinstance(value, Mapping):
-            orig_dict[key] = merge_dict(orig_dict.get(key, {}), value)
-        elif isinstance(value, list):
-            orig_dict[key] = orig_dict[key].append(value)
-        else:
-            orig_dict[key] = new_dict[key]
-    return orig_dict
+from collections import OrderedDict
+from cfgm_common.cassandra_driver_thrift import CassandraDriverThrift
 
 
 class VncCassandraClient(object):
+
     # Name to ID mapping keyspace + tables
     _UUID_KEYSPACE_NAME = vns_constants.API_SERVER_KEYSPACE_NAME
 
@@ -81,16 +57,6 @@ class VncCassandraClient(object):
             _OBJ_SHARED_CF_NAME: {}
         }
     }
-
-    _MAX_COL = 10000000
-
-    @classmethod
-    def get_db_info(cls):
-        db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
-                                              cls._OBJ_FQ_NAME_CF_NAME,
-                                              cls._OBJ_SHARED_CF_NAME])]
-        return db_info
-    # end get_db_info
 
     @staticmethod
     def _is_metadata(column_name):
@@ -124,48 +90,61 @@ class VncCassandraClient(object):
     def _is_children(column_name):
         return column_name[:9] == 'children:'
 
+    def add(self, cf_name, key, value):
+        try:
+            self._cassandra_driver.get_cf(cf_name).insert(key, value)
+            return True
+        except:
+            return False
+
+    def delete(self, cf_name, key, columns=None):
+        try:
+            self._cassandra_driver.get_cf(cf_name).remove(key, columns=columns)
+            return True
+        except:
+            return False
+
+    def _get_resource_class(self, obj_type):
+        if hasattr(self, '_db_client_mgr'):
+            return self._db_client_mgr.get_resource_class(obj_type)
+
+        cls_name = '%s' % (utils.CamelCase(obj_type))
+        return getattr(vnc_api, cls_name)
+    # end _get_resource_class
+
+    @classmethod
+    def get_db_info(cls):
+        db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
+                                              cls._OBJ_FQ_NAME_CF_NAME,
+                                              cls._OBJ_SHARED_CF_NAME])]
+        return db_info
+    # end get_db_info
+
     def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
                  logger, generate_url=None, reset_config=False,
                  credential=None, walk=True, obj_cache_entries=0,
                  obj_cache_exclude_types=None, debug_obj_cache_types=None,
                  log_response_time=None, ssl_enabled=False, ca_certs=None,
                  pool_size=0):
-        self._reset_config = reset_config
-        if db_prefix:
-            self._db_prefix = '%s_' % (db_prefix)
-        else:
-            self._db_prefix = ''
 
-        self._server_list = server_list
-        if (pool_size == 0):
-            self._pool_size = 2*(len(self._server_list))
-        else:
-            self._pool_size = pool_size
+        # TODO: Instantiate this driver based on if it's python2.7 (Thrift)
+        #       python 3 (CQL)
+        self._cassandra_driver = CassandraDriverThrift(
+                 server_list, db_prefix, rw_keyspaces, ro_keyspaces,
+                 logger, generate_url, reset_config,
+                 credential, walk, obj_cache_entries,
+                 obj_cache_exclude_types, debug_obj_cache_types,
+                 log_response_time, ssl_enabled, ca_certs,
+                 pool_size)
 
-        self._num_dbnodes = len(self._server_list)
-        self._conn_state = ConnectionStatus.INIT
-        self._logger = logger
-        self._credential = credential
-        self.log_response_time = log_response_time
-        self._ssl_enabled = ssl_enabled
-        self._ca_certs = ca_certs
-
-        # if no generate_url is specified, use a dummy function that always
-        # returns an empty string
-        self._generate_url = generate_url or (lambda x, y: '')
-        self._cf_dict = {}
-        self._ro_keyspaces = ro_keyspaces or {}
-        self._rw_keyspaces = rw_keyspaces or {}
-        if ((self._UUID_KEYSPACE_NAME not in self._ro_keyspaces) and
-            (self._UUID_KEYSPACE_NAME not in self._rw_keyspaces)):
-            self._ro_keyspaces.update(self._UUID_KEYSPACE)
-        self._cassandra_init(server_list)
+        self._logger = self._cassandra_driver._logger
         self._cache_uuid_to_fq_name = {}
-        self._obj_uuid_cf = self._cf_dict[self._OBJ_UUID_CF_NAME]
-        self._obj_fq_name_cf = self._cf_dict[self._OBJ_FQ_NAME_CF_NAME]
-        if (((self._OBJ_SHARED_CF_NAME in self._ro_keyspaces.get(self._UUID_KEYSPACE_NAME, {}))) or
-             (self._OBJ_SHARED_CF_NAME in self._rw_keyspaces.get(self._UUID_KEYSPACE_NAME, {}))):
-            self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
+        self._obj_uuid_cf = (self._cassandra_driver.
+                                _cf_dict[self._OBJ_UUID_CF_NAME])
+        self._obj_fq_name_cf = (self._cassandra_driver.
+                                _cf_dict[self._OBJ_FQ_NAME_CF_NAME])
+        self._obj_shared_cf = (self._cassandra_driver.
+                                _cf_dict[self._OBJ_SHARED_CF_NAME])
 
         self._obj_cache_mgr = ObjectCacheManager(
             logger,
@@ -180,180 +159,50 @@ class VncCassandraClient(object):
         # generator functions which can't be wrapped around handle_exceptions()
         # at the time of cassandra init, hence need to wrap these functions that
         # uses it to catch cassandra connection failures.
-        self.object_update = self._handle_exceptions(self.object_update)
-        self.object_list = self._handle_exceptions(self.object_list)
-        self.object_read = self._handle_exceptions(self.object_read)
-        self.object_raw_read = self._handle_exceptions(self.object_raw_read)
-        self.object_delete = self._handle_exceptions(self.object_delete)
-        self.get_one_col = self._handle_exceptions(self.get_one_col)
-        self.get_range = self._handle_exceptions(self.get_range)
-        self.prop_collection_read = self._handle_exceptions(self.prop_collection_read)
-        self.uuid_to_fq_name = self._handle_exceptions(self.uuid_to_fq_name)
-        self.uuid_to_obj_type = self._handle_exceptions(self.uuid_to_obj_type)
-        self.fq_name_to_uuid = self._handle_exceptions(self.fq_name_to_uuid)
-        self.get_shared = self._handle_exceptions(self.get_shared)
-        self.walk = self._handle_exceptions(self.walk)
+        self.object_update = self._cassandra_driver._handle_exceptions(
+            self.object_update)
+        self.object_list = self._cassandra_driver._handle_exceptions(
+            self.object_list)
+        self.object_read = self._cassandra_driver._handle_exceptions(
+            self.object_read)
+        self.object_raw_read = self._cassandra_driver._handle_exceptions(
+            self.object_raw_read)
+        self.object_delete = self._cassandra_driver._handle_exceptions(
+            self.object_delete)
+        self.prop_collection_read = self._cassandra_driver._handle_exceptions(
+            self.prop_collection_read)
+        self.uuid_to_fq_name = self._cassandra_driver._handle_exceptions(
+            self.uuid_to_fq_name)
+        self.uuid_to_obj_type = self._cassandra_driver._handle_exceptions(
+            self.uuid_to_obj_type)
+        self.fq_name_to_uuid = self._cassandra_driver._handle_exceptions(
+            self.fq_name_to_uuid)
+        self.get_shared = self._cassandra_driver._handle_exceptions(
+            self.get_shared)
+        self.walk = self._cassandra_driver._handle_exceptions(self.walk)
 
         if walk:
             self.walk()
+
     # end __init__
 
-    def get_cf(self, cf_name):
-        return self._cf_dict.get(cf_name)
-
-    def add(self, cf_name, key, value):
-        try:
-            self.get_cf(cf_name).insert(key, value)
-            return True
-        except:
-            return False
-
-    def get(self, cf_name, key, columns=None, start='', finish=''):
-        result = self.multiget(cf_name,
-                               [key],
-                               columns=columns,
-                               start=start,
-                               finish=finish)
-        return result.get(key)
-
-    def multiget(self, cf_name, keys, columns=None, start='', finish='',
-                 timestamp=False, num_columns=None):
-        _thrift_limit_size = 10000
-        results = {}
-        cf = self.get_cf(cf_name)
-
-        # if requested, read lesser than default
-        if num_columns and num_columns < self._MAX_COL:
-            column_count = num_columns
-        else:
-            column_count = self._MAX_COL
-
-        if not columns or start or finish:
-            try:
-                results = cf.multiget(keys,
-                                      column_start=start,
-                                      column_finish=finish,
-                                      include_timestamp=timestamp,
-                                      column_count=column_count)
-            except OverflowError:
-                for key in keys:
-                    rows = dict(cf.xget(key,
-                                        column_start=start,
-                                        column_finish=finish,
-                                        include_timestamp=timestamp))
-                    if rows:
-                        results[key] = rows
-
-            empty_keys = [key for key, value in list(results.items()) if not value]
-            if empty_keys:
-                msg = ("Multiget for %d keys returned with an empty value "
-                       "CF (%s): Empty Keys (%s), columns (%s), start (%s), "
-                       "finish (%s). Retrying with xget" % (len(keys), cf_name,
-                           empty_keys, columns, start, finish))
-                self._logger(msg, level=SandeshLevel.SYS_DEBUG)
-                # CEM-8595; some rows are None. fall back to xget
-                for key in empty_keys:
-                    rows = dict(cf.xget(key,
-                                        column_start=start,
-                                        column_finish=finish,
-                                        include_timestamp=timestamp))
-                    if rows:
-                        results[key] = rows
-
-        if columns:
-            max_key_range, _ = divmod(_thrift_limit_size, len(columns))
-            if max_key_range > 1:
-                for key_chunk in [keys[x:x+max_key_range] for x in
-                                  range(0, len(keys), max_key_range)]:
-                    rows = cf.multiget(key_chunk,
-                                       columns=columns,
-                                       include_timestamp=timestamp,
-                                       column_count=column_count)
-                    merge_dict(results, rows)
-            elif max_key_range == 0:
-                for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
-                                     range(0, len(columns), _thrift_limit_size - 1)]:
-                    rows = cf.multiget(keys,
-                                       columns=column_chunk,
-                                       include_timestamp=timestamp,
-                                       column_count=column_count)
-                    merge_dict(results, rows)
-            elif max_key_range == 1:
-                for key in keys:
-                    try:
-                        cols = cf.get(key,
-                                      columns=column_chunk,
-                                      include_timestamp=timestamp,
-                                      column_count=column_count)
-                    except pycassa.NotFoundException:
-                        continue
-                    results.setdefault(key, {}).update(cols)
-
-        empty_row_keys = []
-        for key in results:
-            # https://bugs.launchpad.net/juniperopenstack/+bug/1712905
-            # Probably due to concurrency access to the DB when a resource is
-            # deleting, pycassa could return key without value, ignore it
-            if results[key] is None:
-                msg = ("Multiget result contains a key (%s) with an empty "
-                       "value. %s: number of keys (%d), columns (%s), start (%s), "
-                       "finish (%s)" % (key, cf_name, len(keys), columns, start,
-                                        finish))
-                self._logger(msg, level=SandeshLevel.SYS_WARN)
-                empty_row_keys.append(key)
-                continue
-            for col, val in list(results[key].items()):
-                try:
-                    if timestamp:
-                        results[key][col] = (json.loads(val[0]), val[1])
-                    else:
-                        results[key][col] = json.loads(val)
-                except (ValueError, TypeError) as e:
-                    msg = ("Cannot json load the value of cf: %s, key:%s "
-                           "(error: %s). Use it as is: %s" %
-                           (cf_name, key, str(e),
-                            val if not timestamp else val[0]))
-                    self._logger(msg, level=SandeshLevel.SYS_INFO)
-                    results[key][col] = val
-
-        for row_key in empty_row_keys:
-            del results[row_key]
-        return results
-
-    def delete(self, cf_name, key, columns=None):
-        try:
-            self.get_cf(cf_name).remove(key, columns=columns)
-            return True
-        except:
-            return False
-    #end
-
-    def get_range(self, cf_name):
-        try:
-            return self.get_cf(cf_name).get_range(column_count=100000)
-        except:
-            return None
-    #end
-
-    def get_one_col(self, cf_name, key, column):
-        col = self.multiget(cf_name, [key], columns=[column])
-        if key not in col:
-            raise NoIdError(key)
-        elif len(col[key]) > 1:
-            raise VncError('Multi match %s for %s' % (column, key))
-        return col[key][column]
-
     def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
-        bch.insert(obj_uuid, {'prop:%s' % (prop_name): json.dumps(prop_val)})
+        self._cassandra_driver.insert(
+            obj_uuid,
+            {'prop:%s' % (prop_name): json.dumps(prop_val)},
+            batch=bch)
     # end _create_prop
 
     def _update_prop(self, bch, obj_uuid, prop_name, new_props):
         if new_props[prop_name] is None:
-            bch.remove(obj_uuid, columns=['prop:' + prop_name])
+            self._cassandra_driver.remove(obj_uuid,
+                                          columns=['prop:' + prop_name],
+                                          batch=bch)
         else:
-            bch.insert(
+            self._cassandra_driver.insert(
                 obj_uuid,
-                {'prop:' + prop_name: json.dumps(new_props[prop_name])})
+                {'prop:' + prop_name: json.dumps(new_props[prop_name])},
+                batch=bch)
 
         # prop has been accounted for, remove so only new ones remain
         del new_props[prop_name]
@@ -361,39 +210,45 @@ class VncCassandraClient(object):
 
     def _add_to_prop_list(self, bch, obj_uuid, prop_name,
                           prop_elem_value, prop_elem_position):
-        bch.insert(obj_uuid,
+        self._cassandra_driver.insert(obj_uuid,
                    {'propl:%s:%s' % (prop_name, prop_elem_position):
-                    json.dumps(prop_elem_value)})
+                    json.dumps(prop_elem_value)},
+                   batch=bch)
     # end _add_to_prop_list
 
     def _delete_from_prop_list(self, bch, obj_uuid, prop_name,
                                prop_elem_position):
-        bch.remove(obj_uuid,
-                   columns=['propl:%s:%s' % (prop_name, prop_elem_position)])
+        self._cassandra_driver.remove(
+                   obj_uuid,
+                   columns=['propl:%s:%s' % (prop_name, prop_elem_position)],
+                   batch=bch)
     # end _delete_from_prop_list
 
     def _set_in_prop_map(self, bch, obj_uuid, prop_name,
                          prop_elem_value, prop_elem_position):
-        bch.insert(obj_uuid,
+        self._cassandra_driver.insert(obj_uuid,
                    {'propm:%s:%s' % (prop_name, prop_elem_position):
-                    json.dumps(prop_elem_value)})
+                    json.dumps(prop_elem_value)},
+                   batch=bch)
     # end _set_in_prop_map
 
     def _delete_from_prop_map(self, bch, obj_uuid, prop_name,
                               prop_elem_position):
-        bch.remove(obj_uuid,
-                   columns=['propm:%s:%s' % (prop_name, prop_elem_position)])
+        self._cassandra_driver.remove(
+                   obj_uuid,
+                   columns=['propm:%s:%s' % (prop_name, prop_elem_position)],
+                   batch=bch)
     # end _delete_from_prop_map
 
     def _create_child(self, bch, parent_type, parent_uuid,
                       child_type, child_uuid):
         child_col = {'children:%s:%s' %
                      (child_type, child_uuid): json.dumps(None)}
-        bch.insert(parent_uuid, child_col)
+        self._cassandra_driver.insert(parent_uuid, child_col, batch=bch)
 
         parent_col = {'parent:%s:%s' %
                       (parent_type, parent_uuid): json.dumps(None)}
-        bch.insert(child_uuid, parent_col)
+        self._cassandra_driver.insert(child_uuid, parent_col, batch=bch)
 
         # update latest_col_ts on parent object
         if parent_type not in self._obj_cache_exclude_types:
@@ -402,8 +257,10 @@ class VncCassandraClient(object):
 
     def _delete_child(self, bch, parent_type, parent_uuid,
                       child_type, child_uuid):
-        bch.remove(parent_uuid, columns=[
-                   'children:%s:%s' % (child_type, child_uuid)])
+        self._cassandra_driver.remove(
+                    parent_uuid,
+                    columns=['children:%s:%s' % (child_type, child_uuid)],
+                    batch=bch)
 
         # update latest_col_ts on parent object
         if parent_type not in self._obj_cache_exclude_types:
@@ -413,17 +270,22 @@ class VncCassandraClient(object):
     def _create_ref(self, bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
                     ref_data):
         symmetric_ref_updates = []
-        bch.insert(obj_uuid, {'ref:%s:%s' %
-                              (ref_obj_type, ref_uuid): json.dumps(ref_data)})
+        self._cassandra_driver.insert(
+             obj_uuid, {'ref:%s:%s' %
+             (ref_obj_type, ref_uuid): json.dumps(ref_data)},
+             batch=bch)
         if obj_type == ref_obj_type:
-            bch.insert(ref_uuid, {'ref:%s:%s' %
-                                  (obj_type, obj_uuid): json.dumps(ref_data)})
+            self._cassandra_driver.insert(
+                ref_uuid, {'ref:%s:%s' %
+                (obj_type, obj_uuid): json.dumps(ref_data)},
+                batch=bch)
             self.update_last_modified(bch, obj_type, ref_uuid)
             symmetric_ref_updates = [ref_uuid]
         else:
-            bch.insert(ref_uuid, {'backref:%s:%s' %
-                                  (obj_type, obj_uuid): json.dumps(ref_data)})
-
+            self._cassandra_driver.insert(
+                ref_uuid, {'backref:%s:%s' %
+                (obj_type, obj_uuid): json.dumps(ref_data)},
+                batch=bch)
         # update latest_col_ts on referred object
         if ref_obj_type not in self._obj_cache_exclude_types:
             if ref_obj_type == obj_type:
@@ -444,11 +306,15 @@ class VncCassandraClient(object):
         symmetric_ref_updates = []
         if old_ref_uuid not in new_ref_infos[ref_obj_type]:
             # remove old ref
-            bch.remove(obj_uuid, columns=[
-                       'ref:%s:%s' % (ref_obj_type, old_ref_uuid)])
+            self._cassandra_driver.remove(
+                    obj_uuid,
+                    columns=['ref:%s:%s' % (ref_obj_type, old_ref_uuid)],
+                    batch=bch)
             if obj_type == ref_obj_type:
-                bch.remove(old_ref_uuid, columns=[
-                           'ref:%s:%s' % (obj_type, obj_uuid)])
+                self._cassandra_driver.remove(
+                        old_ref_uuid,
+                        columns=['ref:%s:%s' % (obj_type, obj_uuid)],
+                        batch=bch)
                 try:
                     self.update_last_modified(bch, obj_type, old_ref_uuid)
                     symmetric_ref_updates = [old_ref_uuid]
@@ -458,21 +324,32 @@ class VncCassandraClient(object):
                     # if cache doesn't have, keyerror is caught and continued
                     pass
             else:
-                bch.remove(old_ref_uuid, columns=[
-                           'backref:%s:%s' % (obj_type, obj_uuid)])
+                self._cassandra_driver.remove(
+                        old_ref_uuid,
+                        columns=['backref:%s:%s' % (obj_type, obj_uuid)],
+                        batch=bch)
         else:
             # retain old ref with new ref attr
             new_ref_data = new_ref_infos[ref_obj_type][old_ref_uuid]
-            bch.insert(obj_uuid, {'ref:%s:%s' % (ref_obj_type, old_ref_uuid):
-                                  json.dumps(new_ref_data)})
+            self._cassandra_driver.insert(
+                   obj_uuid,
+                   {'ref:%s:%s' % (ref_obj_type, old_ref_uuid):
+                   json.dumps(new_ref_data)},
+                   batch=bch)
             if obj_type == ref_obj_type:
-                bch.insert(old_ref_uuid, {'ref:%s:%s' % (obj_type, obj_uuid):
-                                          json.dumps(new_ref_data)})
+                self._cassandra_driver.insert(
+                    old_ref_uuid,
+                    {'ref:%s:%s' % (obj_type, obj_uuid):
+                    json.dumps(new_ref_data)},
+                    batch=bch)
                 self.update_last_modified(bch, obj_type, old_ref_uuid)
                 symmetric_ref_updates = [old_ref_uuid]
             else:
-                bch.insert(old_ref_uuid, {'backref:%s:%s' %
-                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
+                self._cassandra_driver.insert(
+                    old_ref_uuid,
+                    {'backref:%s:%s' % (obj_type, obj_uuid):
+                    json.dumps(new_ref_data)},
+                    batch=bch)
             # uuid has been accounted for, remove so only new ones remain
             del new_ref_infos[ref_obj_type][old_ref_uuid]
 
@@ -493,10 +370,14 @@ class VncCassandraClient(object):
         if bch is None:
             send = True
             bch = self._obj_uuid_cf.batch()
-        bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_obj_type, ref_uuid)])
+        self._cassandra_driver.remove(
+                obj_uuid,
+                columns=['ref:%s:%s' % (ref_obj_type, ref_uuid)],
+                batch=bch)
         if obj_type == ref_obj_type:
-            bch.remove(ref_uuid, columns=[
-                       'ref:%s:%s' % (obj_type, obj_uuid)])
+            self._cassandra_driver.remove(ref_uuid, columns=[
+                                          'ref:%s:%s' % (obj_type, obj_uuid)],
+                                          batch=bch)
             try:
                 self.update_last_modified(bch, obj_type, ref_uuid)
                 symmetric_ref_updates = [ref_uuid]
@@ -506,8 +387,10 @@ class VncCassandraClient(object):
                 # if cache doesn't have, keyerror is caught and continued
                 pass
         else:
-            bch.remove(ref_uuid, columns=[
-                       'backref:%s:%s' % (obj_type, obj_uuid)])
+            self._cassandra_driver.remove(
+                    ref_uuid,
+                    columns=['backref:%s:%s' % (obj_type, obj_uuid)],
+                    batch=bch)
 
         # update latest_col_ts on referred object
         if ref_obj_type not in self._obj_cache_exclude_types:
@@ -522,190 +405,6 @@ class VncCassandraClient(object):
             bch.send()
         return symmetric_ref_updates
     # end _delete_ref
-
-    def _update_sandesh_status(self, status, msg=''):
-        ConnectionState.update(conn_type=ConnType.DATABASE,
-                               name='Cassandra', status=status, message=msg,
-                               server_addrs=self._server_list)
-
-    def _handle_exceptions(self, func, oper=None):
-        def wrapper(*args, **kwargs):
-            if (sys._getframe(1).f_code.co_name != 'multiget' and
-                    func.__name__ in ['get', 'multiget']):
-                msg = ("It is not recommended to use 'get' or 'multiget' "
-                       "pycassa methods. It's better to use 'xget' or "
-                       "'get_range' methods due to thrift limitations")
-                self._logger(msg, level=SandeshLevel.SYS_WARN)
-            try:
-                if self._conn_state != ConnectionStatus.UP:
-                    # will set conn_state to UP if successful
-                    self._cassandra_init_conn_pools()
-
-                self.start_time = datetime.datetime.now()
-                return func(*args, **kwargs)
-            except (AllServersUnavailable, MaximumRetryException) as e:
-                if self._conn_state != ConnectionStatus.DOWN:
-                    self._update_sandesh_status(ConnectionStatus.DOWN)
-                    msg = 'Cassandra connection down. Exception in %s' % (
-                        str(func))
-                    self._logger(msg, level=SandeshLevel.SYS_ERR)
-
-                self._conn_state = ConnectionStatus.DOWN
-                raise DatabaseUnavailableError(
-                    'Error, %s: %s' % (str(e), utils.detailed_traceback()))
-
-            finally:
-                if ((self.log_response_time) and (oper)):
-                    self.end_time = datetime.datetime.now()
-                    self.log_response_time(self.end_time - self.start_time, oper)
-        return wrapper
-    # end _handle_exceptions
-
-    # Helper routines for cassandra
-    def _cassandra_init(self, server_list):
-        # Ensure keyspace and schema/CFs exist
-
-        self._update_sandesh_status(ConnectionStatus.INIT)
-
-        ColumnFamily.get = self._handle_exceptions(ColumnFamily.get, "GET")
-        ColumnFamily.multiget = self._handle_exceptions(ColumnFamily.multiget, "MULTIGET")
-        ColumnFamily.xget = self._handle_exceptions(ColumnFamily.xget, "XGET")
-        ColumnFamily.get_range = self._handle_exceptions(ColumnFamily.get_range, "GET_RANGE")
-        ColumnFamily.insert = self._handle_exceptions(ColumnFamily.insert, "INSERT")
-        ColumnFamily.remove = self._handle_exceptions(ColumnFamily.remove, "REMOVE")
-        Mutator.send = self._handle_exceptions(Mutator.send, "SEND")
-
-        self.sys_mgr = self._cassandra_system_manager()
-        self.existing_keyspaces = self.sys_mgr.list_keyspaces()
-        for ks, cf_dict in list(self._rw_keyspaces.items()):
-            keyspace = '%s%s' % (self._db_prefix, ks)
-            self._cassandra_ensure_keyspace(keyspace, cf_dict)
-
-        for ks, _ in list(self._ro_keyspaces.items()):
-            keyspace = '%s%s' % (self._db_prefix, ks)
-            self._cassandra_wait_for_keyspace(keyspace)
-
-        self._cassandra_init_conn_pools()
-    # end _cassandra_init
-
-    def _cassandra_system_manager(self):
-        # Retry till cassandra is up
-        server_idx = 0
-        connected = False
-        socket_factory = self._make_socket_factory()
-        while not connected:
-            try:
-                cass_server = self._server_list[server_idx]
-                sys_mgr = SystemManager(cass_server,
-                                        credentials=self._credential,
-                                        socket_factory=socket_factory)
-                connected = True
-            except Exception:
-                # TODO do only for
-                # thrift.transport.TTransport.TTransportException
-                server_idx = (server_idx + 1) % self._num_dbnodes
-                time.sleep(3)
-        return sys_mgr
-    # end _cassandra_system_manager
-
-    def _cassandra_wait_for_keyspace(self, keyspace):
-        # Wait for it to be created by another process
-        while keyspace not in self.existing_keyspaces:
-            gevent.sleep(1)
-            self._logger("Waiting for keyspace %s to be created" % keyspace,
-                         level=SandeshLevel.SYS_NOTICE)
-            self.existing_keyspaces = self.sys_mgr.list_keyspaces()
-    # end _cassandra_wait_for_keyspace
-
-    def _cassandra_ensure_keyspace(self, keyspace_name, cf_dict):
-        if self._reset_config and keyspace_name in self.existing_keyspaces:
-            try:
-                self.sys_mgr.drop_keyspace(keyspace_name)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                self._logger(str(e), level=SandeshLevel.SYS_NOTICE)
-
-        if (self._reset_config or keyspace_name not in self.existing_keyspaces):
-            try:
-                self.sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                        {'replication_factor': str(self._num_dbnodes)})
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
-
-        gc_grace_sec = vns_constants.CASSANDRA_DEFAULT_GC_GRACE_SECONDS
-
-        for cf_name in cf_dict:
-            create_cf_kwargs = cf_dict[cf_name].get('create_cf_args', {})
-            try:
-                self.sys_mgr.create_column_family(
-                    keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
-                    default_validation_class='UTF8Type',
-                    **create_cf_kwargs)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                self._logger("Info! " + str(e), level=SandeshLevel.SYS_INFO)
-                self.sys_mgr.alter_column_family(keyspace_name, cf_name,
-                    gc_grace_seconds=gc_grace_sec,
-                    default_validation_class='UTF8Type',
-                    **create_cf_kwargs)
-    # end _cassandra_ensure_keyspace
-
-    def _make_ssl_socket_factory(self, ca_certs, validate=True):
-        # copy method from pycassa library because no other method
-        # to override ssl version
-        def ssl_socket_factory(host, port):
-            TSSLSocket.TSSLSocket.SSL_VERSION = ssl.PROTOCOL_TLSv1_2
-            return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
-        return ssl_socket_factory
-
-    def _make_socket_factory(self):
-        socket_factory = pycassa.connection.default_socket_factory
-        if self._ssl_enabled:
-            socket_factory = self._make_ssl_socket_factory(
-                self._ca_certs, validate=False)
-        return socket_factory
-
-    def _cassandra_init_conn_pools(self):
-        socket_factory = self._make_socket_factory()
-        for ks, cf_dict in itertools.chain(list(self._rw_keyspaces.items()),
-                                           list(self._ro_keyspaces.items())):
-            keyspace = '%s%s' % (self._db_prefix, ks)
-            pool = pycassa.ConnectionPool(
-                keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
-                prefill=True, pool_size=self._pool_size, pool_timeout=120,
-                max_retries=15, timeout=5, credentials=self._credential,
-                socket_factory=socket_factory)
-
-            rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-            wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-
-            for cf_name in cf_dict:
-                cf_kwargs = cf_dict[cf_name].get('cf_args', {})
-                self._cf_dict[cf_name] = ColumnFamily(
-                    pool,
-                    cf_name,
-                    read_consistency_level=rd_consistency,
-                    write_consistency_level=wr_consistency,
-                    dict_class=dict,
-                    **cf_kwargs)
-
-        ConnectionState.update(conn_type = ConnType.DATABASE,
-            name = 'Cassandra', status = ConnectionStatus.UP, message = '',
-            server_addrs = self._server_list)
-        self._conn_state = ConnectionStatus.UP
-        msg = 'Cassandra connection ESTABLISHED'
-        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
-    # end _cassandra_init_conn_pools
-
-    def _get_resource_class(self, obj_type):
-        if hasattr(self, '_db_client_mgr'):
-            return self._db_client_mgr.get_resource_class(obj_type)
-
-        cls_name = '%s' % (utils.CamelCase(obj_type))
-        return getattr(vnc_api, cls_name)
-    # end _get_resource_class
 
     def _get_xsd_class(self, xsd_type):
         return getattr(vnc_api, xsd_type)
@@ -809,7 +508,7 @@ class VncCassandraClient(object):
                                        ref_data)
                 symmetric_ref_updates.extend(ret)
 
-        bch.insert(obj_id, obj_cols)
+        self._cassandra_driver.insert(obj_id, obj_cols, batch=bch)
         if not uuid_batch:
             bch.send()
 
@@ -829,8 +528,9 @@ class VncCassandraClient(object):
         obj_class = self._get_resource_class(obj_type)
         hit_obj_dicts, miss_uuids = self._obj_cache_mgr.read(
             obj_class, obj_uuids, prop_names, False)
-        miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, miss_uuids,
-                                      ['prop:' + x for x in prop_names])
+        miss_obj_rows = self._cassandra_driver.multiget(
+            self._OBJ_UUID_CF_NAME, miss_uuids,
+            ['prop:' + x for x in prop_names])
 
         miss_obj_dicts = []
         for obj_uuid, columns in list(miss_obj_rows.items()):
@@ -883,8 +583,9 @@ class VncCassandraClient(object):
                     field_names,
                     include_backrefs_children,
                 )
-            miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME, miss_uuids,
-                                          timestamp=True)
+            miss_obj_rows = self._cassandra_driver.multiget(
+                self._OBJ_UUID_CF_NAME, miss_uuids,
+                timestamp=True)
         else:
             # ignore reading backref + children columns
             include_backrefs_children = False
@@ -898,7 +599,8 @@ class VncCassandraClient(object):
                     field_names,
                     include_backrefs_children,
                 )
-            miss_obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+            miss_obj_rows = self._cassandra_driver.multiget(
+                                          self._OBJ_UUID_CF_NAME,
                                           miss_uuids,
                                           start='d',
                                           timestamp=True)
@@ -957,9 +659,10 @@ class VncCassandraClient(object):
 
     def update_last_modified(self, bch, obj_type, obj_uuid, id_perms=None):
         if id_perms is None:
-            id_perms = self.get_one_col(self._OBJ_UUID_CF_NAME,
-                                        obj_uuid,
-                                        'prop:id_perms')
+            id_perms = self._cassandra_driver.get_one_col(
+                                       self._OBJ_UUID_CF_NAME,
+                                       obj_uuid,
+                                       'prop:id_perms')
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
         if obj_type not in self._obj_cache_exclude_types:
@@ -968,11 +671,16 @@ class VncCassandraClient(object):
 
     def update_latest_col_ts(self, bch, obj_uuid):
         try:
-            self.get_one_col(self._OBJ_UUID_CF_NAME, obj_uuid, 'type')
+            self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+                                               obj_uuid,
+                                               'type')
         except NoIdError:
             return
 
-        bch.insert(obj_uuid, {'META:latest_col_ts': json.dumps(None)})
+        self._cassandra_driver.insert(obj_uuid,
+                                      {'META:latest_col_ts':
+                                       json.dumps(None)},
+                                      batch=bch)
     # end update_latest_col_ts
 
     def object_update(self, obj_type, obj_uuid, new_obj_dict, uuid_batch=None):
@@ -1129,9 +837,9 @@ class VncCassandraClient(object):
                        filter_key in obj_class.prop_fields]
             if not columns:
                 return coll_infos
-            rows = self.multiget(self._OBJ_UUID_CF_NAME,
-                                 list(coll_infos.keys()),
-                                 columns=columns)
+            rows = self._cassandra_driver.multiget(self._OBJ_UUID_CF_NAME,
+                                                   list(coll_infos.keys()),
+                                                   columns=columns)
             for obj_uuid, properties in list(rows.items()):
                 # give chance for zk heartbeat/ping
                 gevent.sleep(0)
@@ -1150,7 +858,7 @@ class VncCassandraClient(object):
                             except ValueError:
                                 continue
                             if (list(filter_dict.items()) <=
-                                    list(prop_value.items())):
+                                    list(prop_value.viewitems())):
                                 break
                         else:
                             full_match = False
@@ -1189,7 +897,8 @@ class VncCassandraClient(object):
                 start = 'children:%s:' % (obj_type)
                 num_columns = None
 
-            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+            obj_rows = self._cassandra_driver.multiget(
+                                     self._OBJ_UUID_CF_NAME,
                                      parent_uuids,
                                      start=start,
                                      finish='children:%s;' % (obj_type),
@@ -1208,7 +917,7 @@ class VncCassandraClient(object):
                     if obj_uuids and child_uuid not in obj_uuids:
                         continue
                     if back_ref_uuids:
-                        child_cols = self.get(
+                        child_cols = self._cassandra_driver.get(
                             self._OBJ_UUID_CF_NAME,
                             child_uuid,
                             start='ref:',
@@ -1244,7 +953,8 @@ class VncCassandraClient(object):
                 start = 'backref:%s:' % (obj_type)
                 num_columns = None
 
-            obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
+            obj_rows = self._cassandra_driver.multiget(
+                                     self._OBJ_UUID_CF_NAME,
                                      back_ref_uuids,
                                      start=start,
                                      finish='backref:%s;' % (obj_type),
@@ -1359,8 +1069,9 @@ class VncCassandraClient(object):
     def object_delete(self, obj_type, obj_uuid):
         obj_class = self._get_resource_class(obj_type)
         obj_uuid_cf = self._obj_uuid_cf
-        fq_name = self.get_one_col(self._OBJ_UUID_CF_NAME,
-                                   obj_uuid, 'fq_name')
+        fq_name = self._cassandra_driver.get_one_col(self._OBJ_UUID_CF_NAME,
+                                                     obj_uuid,
+                                                     'fq_name')
         bch = obj_uuid_cf.batch()
 
         # unlink from parent
@@ -1393,7 +1104,7 @@ class VncCassandraClient(object):
             (_, backref_uuid) = col_name.split(':')
             self._delete_ref(bch, None, backref_uuid, obj_type, obj_uuid)
 
-        bch.remove(obj_uuid)
+        self._cassandra_driver.remove(obj_uuid, batch=bch)
         try:
             bch.send()
         finally:
@@ -1402,7 +1113,8 @@ class VncCassandraClient(object):
         # Update fqname table
         fq_name_str = ':'.join(fq_name)
         fq_name_col = utils.encode_string(fq_name_str) + ':' + obj_uuid
-        self._obj_fq_name_cf.remove(obj_type, columns = [fq_name_col])
+        self._obj_fq_name_cf.remove(obj_type,
+                                    columns = [fq_name_col])
 
         # Purge map naming cache
         self.cache_uuid_to_fq_name_del(obj_uuid)
@@ -1415,8 +1127,10 @@ class VncCassandraClient(object):
 
         result = {}
         # always read-in id-perms for upper-layers to do rbac/visibility
-        result['id_perms'] = self.get_one_col(self._OBJ_UUID_CF_NAME,
-                                              obj_uuid, 'prop:id_perms')
+        result['id_perms'] = self._cassandra_driver.get_one_col(
+                                            self._OBJ_UUID_CF_NAME,
+                                            obj_uuid,
+                                            'prop:id_perms')
 
         # read in prop-list or prop-map fields
         for field in obj_fields:
@@ -1458,8 +1172,8 @@ class VncCassandraClient(object):
         try:
             return copy.copy(self._cache_uuid_to_fq_name[id][0])
         except KeyError:
-            obj = self.get(self._OBJ_UUID_CF_NAME, id,
-                           columns=['fq_name', 'type'])
+            obj = self._cassandra_driver.get(self._OBJ_UUID_CF_NAME, id,
+                                             columns=['fq_name', 'type'])
             if not obj:
                 raise NoIdError(id)
             if 'type' not in obj or 'fq_name' not in obj:
@@ -1474,7 +1188,7 @@ class VncCassandraClient(object):
         try:
             return self._cache_uuid_to_fq_name[id][1]
         except KeyError:
-            obj = self.get(self._OBJ_UUID_CF_NAME, id,
+            obj = self._cassandra_driver.get(self._OBJ_UUID_CF_NAME, id,
                            columns=['fq_name', 'type'])
             if not obj:
                 raise NoIdError(id)
@@ -1489,7 +1203,7 @@ class VncCassandraClient(object):
     def fq_name_to_uuid(self, obj_type, fq_name):
         fq_name_str = utils.encode_string(':'.join(fq_name))
 
-        col_infos = self.get(self._OBJ_FQ_NAME_CF_NAME,
+        col_infos = self._cassandra_driver.get(self._OBJ_FQ_NAME_CF_NAME,
                              obj_type,
                              start=fq_name_str + ':',
                              finish=fq_name_str + ';')
@@ -1508,7 +1222,7 @@ class VncCassandraClient(object):
         result = []
         column = '%s:%s' % (share_type, share_id)
 
-        col_infos = self.get(self._OBJ_SHARED_CF_NAME,
+        col_infos = self._cassandra_driver.get(self._OBJ_SHARED_CF_NAME,
                              obj_type,
                              start=column + ':',
                              finish=column + ';')
@@ -1527,12 +1241,14 @@ class VncCassandraClient(object):
     # rwx indicate type of access (sharing) allowed
     def set_shared(self, obj_type, obj_id, share_id = '', share_type = 'global', rwx = 7):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
-        self._obj_shared_cf.insert(obj_type, {col_name : json.dumps(rwx)})
+        self._cassandra_driver._obj_shared_cf.insert(obj_type,
+                                                     {col_name:json.dumps(rwx)})
 
     # delete share of 'obj_id' object with <share_type:share_id>
     def del_shared(self, obj_type, obj_id, share_id = '', share_type = 'global'):
         col_name = '%s:%s:%s' % (share_type, share_id, obj_id)
-        self._obj_shared_cf.remove(obj_type, columns=[col_name])
+        self._cassandra_driver._obj_shared_cf.remove(obj_type,
+                                                     columns=[col_name])
 
     def _render_obj_from_db(self, obj_class, obj_rows, field_names=None,
                             include_backrefs_children=False):
@@ -1899,7 +1615,7 @@ class ObjectCacheManager(object):
             if len(self._cache) >= self.max_entries:
                 # get first element (least recently used)
                 # without getting full copy of dict keys
-                key = next(iter(list(self._cache.keys())))
+                key = next(iter(list(self._cache.iterkeys())))
                 self.evict(obj_type, [key])
 
             self._cache[obj_uuid] = cached_obj
@@ -1943,7 +1659,7 @@ class ObjectCacheManager(object):
             stale_check_col_name = 'prop:id_perms'
             stale_check_ts_attr = 'id_perms_ts'
 
-        hit_rows_in_db = self._db_client.multiget(
+        hit_rows_in_db = self._db_client._cassandra_driver.multiget(
             self._db_client._OBJ_UUID_CF_NAME, hit_uuids,
             columns=[stale_check_col_name], timestamp=True)
 
@@ -1975,8 +1691,10 @@ class ObjectCacheManager(object):
                 obj_dicts.append(cached_obj.get_filtered_copy())
 
             if obj_class.object_type in self._debug_obj_cache_types:
-                obj_rows = self._db_client.multiget(
-                    self._db_client._OBJ_UUID_CF_NAME, [hit_uuid], timestamp=True)
+                obj_rows = self._db_client._cassandra_driver.multiget(
+                    self._db_client._OBJ_UUID_CF_NAME,
+                    [hit_uuid],
+                    timestamp=True)
                 rendered_objs = self._db_client._render_obj_from_db(
                     obj_class, obj_rows, req_fields, include_backrefs_children)
                 db_obj_dict = rendered_objs[hit_uuid]['obj_dict']
