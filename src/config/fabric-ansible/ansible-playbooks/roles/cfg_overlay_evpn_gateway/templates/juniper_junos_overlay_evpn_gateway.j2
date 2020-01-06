@@ -1,0 +1,58 @@
+{%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
+{%         if phy_int.get('interface_type') == 'irb' %}
+set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
+{%             for li in phy_int.get('logical_interfaces', []) %}
+{%                 set unit = li.get('unit') %}
+{%                 for ip_addr in li.get('ip_addresses', []) %}
+{%                     set address = ip_addr.get('address') %}
+{%                     set family = ip_addr.get('family', 'inet') %}
+{%                     set gw = ip_addr.get('gateway', '') %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} preferred
+{%                     if family == 'inet' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
+{%                     elif family == 'inet6' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:00:5e:01:00:01
+{%                     endif %}
+{%                     if gw != '' %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
+{%                     endif %}
+{%                 endfor %}
+set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
+set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
+{%             endfor %}
+{%         endif %}
+{%     endfor %}
+{%     for ri in device_abstract_config.get('routing_instances', []) %}
+{%         if 'nat' in ri.get('name', '') %}
+{%             continue %}
+{%         endif %}
+{%         set ri_vn_mode = ri.get('virtual_network_mode', '') %}
+{%         if ('l3' == ri_vn_mode) and ('l3' in ri.name)  %}
+{%             set contrail_l3_ri = ri.name %}
+{%             set vn_id  = ri.get('virtual_network_id') | int %}
+{%             set vn_id_num_l3  = vn_id + 30000 %}
+{%             for bgp_elem in device_abstract_config.get('bgp', []) %}
+{%                 set families = bgp_elem.get('families', []) %}
+{%                 for fam in families %}
+{%                     if fam == 'evpn' %}
+{%                         set route_distinguisher = bgp_elem.get('ip_address') %}
+{%                         set as_number = bgp_elem.get('autonomous_system') %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type vrf
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} route-distinguisher {{route_distinguisher}}:{{vn_id_num_l3}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target target:{{as_number | asnfilter}}:{{vn_id_num_l3}}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export
+{%                     endif %}
+{%                 endfor %}
+{%             endfor %}
+{%             for lo_int in ri.get('loopback_interfaces', []) %}
+{%                 set int_name = lo_int.get('name', '') %}
+{%                 set unit_num = int_name.split('.')[-1] %}
+set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 127.0.0.1/32
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{int_name}}
+{%             endfor %}
+{%             for irb_int in ri.get('routing_interfaces', []) %}
+{%                 set irb_name = irb_int.get('name') %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{irb_name}}
+{%             endfor %}
+{%         endif %}
+{%      endfor %}
