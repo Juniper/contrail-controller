@@ -14,8 +14,9 @@ from builtins import object
 from past.builtins import basestring
 
 import sys
-reload(sys)
-sys.setdefaultencoding('UTF8')
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('UTF8')
 import gevent
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)

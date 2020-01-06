@@ -67,8 +67,9 @@ from .resources.virtual_network import VirtualNetworkST
 from .st_amqp import STAmqpHandle
 
 monkey.patch_all()
-reload(sys)
-sys.setdefaultencoding('UTF8')
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('UTF8')
 # connection to api-server
 _vnc_lib = None
 # zookeeper client connection
