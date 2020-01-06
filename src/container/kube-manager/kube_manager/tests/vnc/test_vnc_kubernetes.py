@@ -32,6 +32,7 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.cluster_pod_network = None
         self.args.cluster_service_network = None
         self.args.cluster_name = "cluster"
+        self.args.cluster_id = ""
         self.args.pod_subnets = ['10.10.0.0/16']
         self.args.ip_fabric_subnets = ['20.20.0.0/16']
         self.args.service_subnets = ['192.168.0.0/24']

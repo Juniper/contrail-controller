@@ -112,8 +112,10 @@ class VncKubernetes(VncCommon):
 
         # init rabbit connection
         rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
-        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', rabbitmq_cfg, self.args.host_ip)
+        self.rabbit = VncAmqpHandle(self.logger._sandesh,
+                self.logger, DBBaseKM, REACTION_MAP,
+                self.args.cluster_id+'-'+self.args.cluster_name+'-'+'kube_manager',
+                rabbitmq_cfg, self.args.host_ip)
         self.rabbit.establish()
         self.rabbit._db_resync_done.set()
 
