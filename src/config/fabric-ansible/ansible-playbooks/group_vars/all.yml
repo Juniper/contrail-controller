@@ -289,6 +289,10 @@ feature_based_plugin_roles:
   AR-Replicator@spine:
     - overlay_assisted_replicator
     - overlay_telemetry
+  Route-Reflector@spine:
+    - overlay_telemetry
+  Route-Reflector@leaf:
+    - overlay_telemetry
 
 feature_apply_order:
   - basic
