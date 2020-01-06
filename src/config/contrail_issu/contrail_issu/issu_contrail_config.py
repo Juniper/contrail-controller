@@ -5,8 +5,9 @@
 
 from __future__ import print_function
 import sys
-reload(sys)
-sys.setdefaultencoding('UTF8')
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
 import argparse

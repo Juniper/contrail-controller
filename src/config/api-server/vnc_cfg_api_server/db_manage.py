@@ -1,8 +1,9 @@
 from __future__ import print_function
 from __future__ import absolute_import
 import sys
-reload(sys)
-sys.setdefaultencoding('UTF8')
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('UTF8')
 import copy
 import os
 import re

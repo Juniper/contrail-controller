@@ -18,8 +18,9 @@ from __future__ import unicode_literals
 from builtins import str
 from builtins import object
 import sys
-reload(sys)
-sys.setdefaultencoding('UTF8')
+if sys.version_info[0] < 3:
+    reload(sys)
+    sys.setdefaultencoding('UTF8')
 import logging
 import argparse
 import gzip
