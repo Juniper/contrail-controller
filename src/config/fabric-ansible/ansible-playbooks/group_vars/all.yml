@@ -150,7 +150,6 @@ role_to_feature_mapping:
     - overlay_evpn
     - overlay_evpn_gateway
     - overlay_evpn_type5
-    - overlay_networking
   CRB-MCAST-Gateway@spine:
     - basic
     - underlay_ip_clos
