@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9cc75c64_a3d4caad",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 23
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-06T14:10:00Z",
+      "side": 1,
+      "message": "You cannot remove the set default encoding call. In fact in python 3 we don\u0027t need it as by default default encoding is set to UTF-8, furthermore \u0027setdefaultencoding\u0027 method does not exists anymore in sys module. You should just do that encoding trick in python 2. Or after reloaded sys module verify if the method exists before using it.",
+      "revId": "056656a53a50358c325029dacdea0ce5e7990bf4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
