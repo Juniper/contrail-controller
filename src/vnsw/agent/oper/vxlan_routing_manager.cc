@@ -633,8 +633,10 @@ bool VxlanRoutingManager::InetRouteNotify(DBTablePartBase *partition,
                                           DBEntryBase *e) {
     const InetUnicastRouteEntry *inet_rt =
         dynamic_cast<const InetUnicastRouteEntry*>(e);
-    const AgentPath *local_vm_port_path = inet_rt->FindLocalVmPortPath();
+    if (inet_rt->vrf()->vn() == NULL)
+        return true;
 
+    const AgentPath *local_vm_port_path = inet_rt->FindLocalVmPortPath();
     //Further leaking to type 5 evpn table should be only done for local vmi.
     if (!local_vm_port_path) {
         return true;
@@ -805,8 +807,10 @@ bool VxlanRoutingManager::EvpnRouteNotify(DBTablePartBase *partition,
 
     //In typer 5 mac is always zero
     if (evpn_rt->IsType5()) {
+        // Allow EVPN type5 route for service-chain vrf. vrf()->vn() might
+        // not be applicable for service-chain vrf.
         return EvpnType5RouteNotify(partition, e);
-    } else {
+    } else if (evpn_rt->vrf()->vn()) {
         return EvpnType2RouteNotify(partition, e);
     }
 
@@ -815,10 +819,6 @@ bool VxlanRoutingManager::EvpnRouteNotify(DBTablePartBase *partition,
 
 bool VxlanRoutingManager::RouteNotify(DBTablePartBase *partition,
                                       DBEntryBase *e) {
-    const AgentRoute *rt = dynamic_cast<const AgentRoute *>(e);
-    if (rt->vrf()->vn() == NULL)
-        return true;
-
     const InetUnicastRouteEntry *inet_rt =
         dynamic_cast<const InetUnicastRouteEntry*>(e);
     if (inet_rt) {

@@ -816,6 +816,50 @@ VrfEntry *VrfTable::FindVrfFromName(const string &name) {
     return static_cast<VrfEntry *>(it->second);
 }
 
+VrfEntry *VrfTable::FindPrimaryVrfFromName(const string &name) {
+    VrfNameTree::const_iterator it;
+    VrfEntry *primary_vrf = NULL;
+
+    it = name_tree_.find(name);
+    if (it == name_tree_.end()) {
+        return NULL;
+    }
+    VrfEntry *vrf = static_cast<VrfEntry *>(it->second);
+    IFMapNode *node = vrf->ifmap_node();
+    boost::uuids::uuid vn_uuid = boost::uuids::nil_uuid();
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+            iter != node->end(graph); ++iter) {
+        IFMapNode *adj_node =
+            static_cast<IFMapNode *>(iter.operator->());
+
+        if (iter->IsDeleted() ||
+            (adj_node->table() != agent()->cfg()->cfg_vn_table())) {
+            continue;
+        }
+
+        VirtualNetwork *cfg =
+            static_cast <VirtualNetwork *> (adj_node->GetObject());
+        if (cfg == NULL) {
+            continue;
+        }
+
+        if (IsVRFServiceChainingInstance(adj_node->name(), node->name())) {
+            autogen::IdPermsType id_perms = cfg->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       vn_uuid);
+            VnEntry *vn = agent()->vn_table()->Find(vn_uuid);
+            if (vn) {
+                primary_vrf = vn->GetVrf();
+            }
+            break;
+        }
+    }
+    return primary_vrf;
+}
+
 VrfEntry *VrfTable::FindVrfFromId(size_t index) {
     VrfEntry *vrf = index_table_.At(index);
     if (vrf && vrf->IsDeleted() == false) {

@@ -323,6 +323,7 @@ public:
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);
     VrfEntry *FindVrfFromIdIncludingDeletedVrf(size_t index);
+    VrfEntry *FindPrimaryVrfFromName(const string &name);
     void FreeVrfId(size_t index);
 
     virtual bool CanNotify(IFMapNode *dbe);
