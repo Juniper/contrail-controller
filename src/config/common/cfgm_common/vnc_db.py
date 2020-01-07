@@ -446,4 +446,53 @@ class DBBase(object):
     def skip_evaluate(self, from_type):
         return False
     #end skip_evaluate
+
+
+    @classmethod
+    def register(cls, feature_id, type, cb, params):
+        cls._cbs.setdefault(self.feature_id, dict())
+        feature_type_cb = cls._cbs[self.feature_id]
+        if not feature_type_cb.get(type):
+           feature_type_cb[type] = {'cb': cb, 'params': params}
+        return
+    #end register
+
+    @classmethod
+    def run_cb(cls, obj):
+        feature_flag_id = obj['fq_name'][-1]
+        feature_cbs = cls._cbs.get(feature_flag_id)
+        if not feature_cbs:
+           return
+        for item in feature_cbs.items():
+           (cb, params) = item
+           cb(*params)
+    #end run_cb
+
+    @classmethod
+    def flag_enabled(cls, type):
+        return cls._fflags.get(type, False)
+    #end flag_enabled
+
+    @classmethod
+    def update_flag(cls, obj):
+        if obj[obj_type] != 'feature_flag':
+           return
+        feature_flag_id = obj['fq_name'][-1]
+        fflag  = cls._fflags.get(feature_flag_id)
+        update = True
+        if fflag and (fflag['enable_feature'] != obj['enable_feature']):
+           update = False
+        if update:
+           cls._fflags[feature_flag_id] = 
+                  {'enable_feature': obj['enable_feature'],
+                   'feature_release': obj['feature_release']}           
+        return update
+    #end update_flag
+
+    @classmethod
+    def delete_flag(cls, obj):
+        feature_flag_id = obj['fq_name'][-1]
+        cls._fflags[feature_flag_id] = None
+        cls._cbs[feature_flag_id] = None
+
 # end class DBBase

@@ -80,6 +80,39 @@ class DBBaseDM(DBBase):
 # end DBBaseDM
 
 
+class FeatureFlagDM(DBBaseDM):
+    _dict = {}
+    _fflags = {}
+    _cbs = {}
+    obj_type = 'feature_flag'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.enable_feature = obj['enable_feature']
+        self.feature_release = obj['feature_release']
+        if cls.update_flag(obj):
+           cls.run_cb(obj)
+    # end update
+
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        fflag_id = obj['fq_name'][-1]
+        cls._fflags[fflag_id] = None
+        cls._cbs[fflag_id] = None
+  
+
 class BgpRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'bgp_router'
