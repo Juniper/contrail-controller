@@ -1480,6 +1480,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
+        self.set_internal_vn_routed_vn_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
         self.build_firewall_config()
@@ -1504,4 +1505,14 @@ class AnsibleRoleCommon(AnsibleConf):
                      else 32)
     # end get_route_for_cidr
 
+    def set_internal_vn_routed_vn_config(self):
+        if self.internal_vn_ris:
+            for int_ri in self.internal_vn_ris:
+                lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(int_ri.name)
+                lr = LogicalRouterDM.get(lr_uuid)
+                if not lr:
+                    continue
+                vn_list = lr.get_connected_networks(include_internal=False)
+                self.physical_router.set_routing_vn_proto_in_ri(int_ri, vn_list)
+    # end set_internal_vn_routed_vn_config
 # end AnsibleRoleCommon

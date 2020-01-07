@@ -45,7 +45,8 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
     ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, SflowProfileDM, \
     StormControlProfileDM, TagDM, TelemetryProfileDM, \
-    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
+    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM, \
+    InterfaceRouteTableDM
 from .device_conf import DeviceConf
 from .dm_amqp import DMAmqpHandle
 from .dm_utils import PushConfigState
@@ -437,6 +438,7 @@ class DeviceManager(object):
         NetworkDeviceConfigDM.locate_all()
         E2ServiceProviderDM.locate_all()
         PeeringPolicyDM.locate_all()
+        InterfaceRouteTableDM.locate_all()
 
         pr_obj_list = PhysicalRouterDM.list_obj()
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])

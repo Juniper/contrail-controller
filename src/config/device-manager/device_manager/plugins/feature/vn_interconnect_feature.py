@@ -130,6 +130,8 @@ class VnInterconnectFeature(FeatureBase):
                 rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
 
+            self._physical_router.set_routing_vn_proto_in_ri(ri, vn_list)
+
             feature_config.add_routing_instances(ri)
 
         for pi, li_map in list(self.pi_map.values()):
