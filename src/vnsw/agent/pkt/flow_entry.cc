@@ -2039,11 +2039,11 @@ void FlowEntry::SetHbsInfofromAction() {
         return;
     }
 
-    const Interface *src_intf =
-        dynamic_cast<const Interface *>(intf_entry());
+    const VmInterface *src_intf =
+        dynamic_cast<const VmInterface *>(intf_entry());
     FlowEntry *rev_flow = reverse_flow_entry();
-    const Interface *dst_intf =
-        dynamic_cast<const Interface *>(rev_flow->intf_entry());
+    const VmInterface *dst_intf =
+        dynamic_cast<const VmInterface *>(rev_flow->intf_entry());
 
     if ( src_intf == NULL || dst_intf == NULL ) {
         reset_flags(HbfFlow);
@@ -2053,7 +2053,22 @@ void FlowEntry::SetHbsInfofromAction() {
 
     //Enable HBF flow flag
     set_flags(HbfFlow);
-
+    /* Handle Service Chain Traffic*/
+    /* Case 1: Reset the HBS Action if flow source is service interface */
+    if (!src_intf->service_intf_type().empty()) {
+        reset_flags(HbfFlow);
+        SetHbsInterface(HBS_INTERFACE_INVALID);
+        return;
+    }
+    /* Case 2: Set appropriate interface left/right based on service interface type */
+    if (!dst_intf->service_intf_type().empty()) {
+        if (dst_intf->service_intf_type() == "left") {
+            SetHbsInterface(HBS_INTERFACE_LEFT);
+        } else if (dst_intf->service_intf_type() == "right") {
+            SetHbsInterface(HBS_INTERFACE_RIGHT);
+        }
+        return;
+    }
     //Set the left/right hbs interface for flow
     if (is_flags_set(LocalFlow)) {
         // VM <--> VM on same compute
@@ -3050,6 +3065,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) const {
     info.set_source_port(key_.src_port);
     info.set_destination_port(key_.dst_port);
     info.set_protocol(key_.protocol);
+    info.set_hbs_intf_dir(hbs_intf_);
     info.set_nh_id(key_.nh);
     info.set_vrf(data_.vrf);
     info.set_source_vn_list(data_.SourceVnList());
