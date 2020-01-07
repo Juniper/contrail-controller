@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "6be7bfd7_2bfa7ca1",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 1222,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-01-07T20:02:53Z",
+      "side": 1,
+      "message": "EVPN service chaining is service chaining between LR\u0027s. So the \"primary-vrf\" is the the routing vrf.",
+      "parentUuid": "bb3af5f0_34e74960",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "4cdd5804_654b52a6",
         "filename": "src/vnsw/agent/oper/vrf.cc",
         "patchSetId": 2
@@ -53,6 +71,24 @@
     },
     {
       "key": {
+        "uuid": "06f090d2_6146ade1",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 819,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-01-07T20:02:53Z",
+      "side": 1,
+      "message": "Will address this. Currently working on it.",
+      "parentUuid": "4cdd5804_654b52a6",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "ce01d6e4_615a823a",
         "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
         "patchSetId": 2
@@ -64,6 +100,24 @@
       "writtenOn": "2020-01-07T16:23:25Z",
       "side": 1,
       "message": "Is service-chain vrf identified with evpn_rt-\u003evrf()-\u003evn() being NULL? If yes, could you add comment indicating that?",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "83824050_a0120f16",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 813,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-01-07T20:02:53Z",
+      "side": 1,
+      "message": "I already added the comment \"vrf()-\u003evn() might not be applicable for service-chain vrf.\"",
+      "parentUuid": "ce01d6e4_615a823a",
       "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
