@@ -3,6 +3,7 @@ from __future__ import absolute_import
 #
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
+from builtins import str
 import os
 import sys
 import socket

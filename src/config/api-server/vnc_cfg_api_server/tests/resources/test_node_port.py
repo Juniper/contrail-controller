@@ -1,6 +1,8 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+
+from builtins import str
 import logging
 import pprint
 
