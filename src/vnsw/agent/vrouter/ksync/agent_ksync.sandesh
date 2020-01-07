@@ -63,6 +63,7 @@ struct KSyncRouteInfo {
     6: optional u32 label;
     7: string mac;
     8: string type;
+    9: u32 replace_plen;
 }
 
 /**

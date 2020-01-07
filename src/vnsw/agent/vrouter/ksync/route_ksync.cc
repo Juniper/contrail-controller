@@ -687,6 +687,7 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop,
                                     char *buf, int buf_len) {
     uint8_t replace_plen = CopyReplacementData(nexthop, new_rt);
     KSyncRouteInfo info;
+    info.set_replace_plen(replace_plen);
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(Route, GetObject(), info);
 
