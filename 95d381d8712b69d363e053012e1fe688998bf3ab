@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f731b38a_ea9129b5",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 1211,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-01-07T16:23:25Z",
+      "side": 1,
+      "message": "Could you add a UT case to cover the changes?",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bb3af5f0_34e74960",
+        "filename": "src/vnsw/agent/controller/controller_peer.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 1222,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-01-07T16:23:25Z",
+      "side": 1,
+      "message": "Isn\u0027t \"routing vrf\" the name we use to refer to LR VRF? In fact,  I think we call primary vrf as bridging vrf?",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4cdd5804_654b52a6",
+        "filename": "src/vnsw/agent/oper/vrf.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 819,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-01-07T16:23:25Z",
+      "side": 1,
+      "message": "Store the primary vrf entry in the VrfEntry object itself at the point when VrfEntry is created on reception of VRF config? Instead of calling this function for every route add?",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ce01d6e4_615a823a",
+        "filename": "src/vnsw/agent/oper/vxlan_routing_manager.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 813,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-01-07T16:23:25Z",
+      "side": 1,
+      "message": "Is service-chain vrf identified with evpn_rt-\u003evrf()-\u003evn() being NULL? If yes, could you add comment indicating that?",
+      "revId": "95d381d8712b69d363e053012e1fe688998bf3ab",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
