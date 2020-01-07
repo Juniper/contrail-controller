@@ -59,7 +59,11 @@ KSyncObject::KSyncObject(const std::string &name) : need_index_(false), index_ta
                          stale_entry_cleanup_timer_(NULL),
                          stale_entry_cleanup_intvl_(0),
                          stale_entries_per_intvl_(0) {
-    KSyncTraceBuf = SandeshTraceBufferCreate(name, 1000);
+    if ((strcmp(name.data(), "KSync Route"))==0) {
+        KSyncTraceBuf = SandeshTraceBufferCreate(name, 500000);
+    } else {
+        KSyncTraceBuf = SandeshTraceBufferCreate(name, 1000);
+    }
 }
 
 KSyncObject::KSyncObject(const std::string &name, int max_index) :
