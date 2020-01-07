@@ -198,6 +198,94 @@ TEST_F(HbsFlowTest, basic_11) {
     client->WaitForIdle();
 }
 
+//Enable Host based services. Verify HBS Flag in the forward and reverse flow
+//between VM and service VM
+
+TEST_F(HbsFlowTest, basic_12) {
+    std::vector<std::string> match;
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", "<>", "true");
+    client->WaitForIdle();
+
+    //Verfiy VM Ports are active
+    EXPECT_TRUE(VmPortActive(1));
+    EXPECT_TRUE(VmPortActive(2));
+    VmInterface *intf1 = static_cast<VmInterface *>(VmPortGet(1));
+    VmInterface *intf2 = static_cast<VmInterface *>(VmPortGet(2));
+
+    //Mark the second interface as "left" service interface
+    intf2->set_service_intf_type("left");
+    //Define ICMP flow between VM and service interface
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
+                        intf1->id()),
+            {
+                new VerifyVn("vn1", "vn1"),
+            }
+        }
+    };
+
+    //Create the ICMP flow
+    CreateFlow(flow, 1);
+
+    //Verify the L flag in forward flow
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(fe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_LEFT);
+    //Verify HBS flag not set in reverse flow
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_FALSE(rfe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(rfe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_INVALID);
+    //Disable HBS policy and check if the flow is reevaluated and HBS info
+    //is reset in flow
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", "<>", "false");
+    client->WaitForIdle();
+
+    //Verify if HBS flags are reset
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(fe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_INVALID);
+    EXPECT_FALSE(rfe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(rfe->GetHbsInterface(), FlowEntry::HBS_INTERFACE_INVALID);
+    client->WaitForIdle();
+
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", "<>", "true");
+    client->WaitForIdle();
+    intf2->set_service_intf_type("right");
+    //Define ICMP flow between VM and service interfaces
+    TestFlow flow1[] = {
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
+                        intf1->id()),
+            {
+                new VerifyVn("vn1", "vn1"),
+            }
+        }
+    };
+
+    //Create the ICMP flow
+    CreateFlow(flow1, 1);
+
+    //Verify the R flag in forward flow
+    fe = flow1[0].pkt_.FlowFetch();
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(fe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_RIGHT);
+    //Verify HBS flag not set in reverse flow
+    rfe = fe->reverse_flow_entry();
+    EXPECT_FALSE(rfe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(rfe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_INVALID);
+    //Disable HBS policy and check if the flow is reevaluated and HBS info
+    //is reset in flow
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", "<>", "false");
+    client->WaitForIdle();
+
+    //Verify if HBS flags are reset
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(fe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_INVALID);
+    EXPECT_FALSE(rfe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(rfe->GetHbsInterface(), FlowEntry::HBS_INTERFACE_INVALID);
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

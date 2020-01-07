@@ -297,6 +297,7 @@ struct FlowInfo {
    46: string short_flow_reason;
    47: u32 rpf_nh;
    48: u32 src_ip_nh;
+   49: u32 hbs_intf_dir;
 }
 
 /**
