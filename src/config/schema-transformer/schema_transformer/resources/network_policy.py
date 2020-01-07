@@ -48,8 +48,7 @@ class NetworkPolicyST(ResourceBaseST):
     # end __init__
 
     def skip_evaluate(self, from_type):
-        if from_type == 'virtual_network' and \
-                self.has_subnet_only_rules == True:
+        if from_type == 'virtual_network' and self.has_subnet_only_rules:
             return True
         return False
     # end skip_evaluate

@@ -4,6 +4,7 @@
 
 from __future__ import print_function
 
+from builtins import str
 import uuid
 
 from cfgm_common.exceptions import BadRequest
@@ -427,7 +428,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # above code original vn
         # evaluate gets picked up due to the next line
         gevent.sleep(3)
-        if vn1.vn_evaluate_hit == False:
+        if not vn1.vn_evaluate_hit:
             self.assertTrue(False, 'Error: Did not execute evaluate of vn1')
         VirtualNetworkST.evaluate = orignal_vn_eval
 

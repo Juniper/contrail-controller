@@ -4,6 +4,7 @@
 
 from __future__ import print_function
 
+from builtins import range
 from unittest import skip
 
 from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
@@ -704,10 +705,10 @@ class TestBgp(STTestCase, VerifyBgp):
         self.assertEqual(GlobalSystemConfigST.get_ibgp_auto_mesh(),
                          True, "ibgp_auto_mesh_toggle_test")
 
-        for router in BgpRouterST._dict.values():
+        for router in list(BgpRouterST._dict.values()):
             router.update()
 
-        for router in BgpRouterST._dict.values():
+        for router in list(BgpRouterST._dict.values()):
             router.update_peering()
 
         # router1 and router2 should not be connected, both of them should be
