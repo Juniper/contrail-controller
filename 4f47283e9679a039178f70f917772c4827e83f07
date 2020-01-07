@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2c92d501_2cfa8491",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 467,
+      "author": {
+        "id": 787
+      },
+      "writtenOn": "2020-01-07T22:48:50Z",
+      "side": 1,
+      "message": "nit: no need for parentheses? cb, params \u003d item",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "20afb536_a2dfab5f",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 477,
+      "author": {
+        "id": 787
+      },
+      "writtenOn": "2020-01-07T22:48:50Z",
+      "side": 1,
+      "message": "update_flag returns true or false. What is the meaning of the value returned? From the code, it looks like False is returned if the flag changed value? and True otherwise?\n\nshould this call run_cb?",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8c135c48_22cc56e3",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 478,
+      "author": {
+        "id": 787
+      },
+      "writtenOn": "2020-01-07T22:48:50Z",
+      "side": 1,
+      "message": "is obj_type correct here? obj.obj_type maybe? \u0027obj_type\u0027?",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
