@@ -8,29 +8,30 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common import jsonutils as json
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
+from future.utils import with_metaclass
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 from vnc_api.gen.resource_xsd import QuotaType
 
-
 from vnc_cfg_api_server.vnc_quota import QuotaHelper
 
 
-class ResourceMixin(object):
+class ResourceMixinMeta(type):
+    @property
+    def db_conn(cls):
+        return cls.server.get_db_connection()
+
+    @property
+    def addr_mgmt(cls):
+        return cls.server._addr_mgmt
+
+    @property
+    def vnc_zk_client(cls):
+        return cls.db_conn._zk_db
+
+
+class ResourceMixin(object, with_metaclass(ResourceMixinMeta)):
     server = None
-
-    class __metaclass__(type):
-        @property
-        def db_conn(cls):
-            return cls.server.get_db_connection()
-
-        @property
-        def addr_mgmt(cls):
-            return cls.server._addr_mgmt
-
-        @property
-        def vnc_zk_client(cls):
-            return cls.db_conn._zk_db
 
     @classmethod
     def get_project_id_for_resource(cls, obj_dict, obj_type, db_conn):

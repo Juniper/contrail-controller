@@ -7,14 +7,38 @@ This file contains implementation of database model for contrail config daemons
 """
 from __future__ import absolute_import
 from __future__ import unicode_literals
-from past.builtins import basestring
 from builtins import object
-from .exceptions import NoIdError
+from future.utils import with_metaclass
+from past.builtins import basestring
 from vnc_api.gen.resource_client import *
+
+from .exceptions import NoIdError
 from .utils import obj_type_to_vnc_class, compare_refs
 
 
-class DBBase(object):
+class DBBaseMeta(type):
+    def __iter__(cls):
+        for i in cls._dict:
+            yield i
+
+    def keys(cls):
+        for i in list(cls._dict.keys()):
+            yield i
+
+    def values(cls):
+        for i in list(cls._dict.values()):
+            yield i
+
+    def items(cls):
+        for i in list(cls._dict.items()):
+            yield i
+
+    def __contains__(cls, item):
+        # check for 'item in cls'
+        return item in cls._dict
+
+
+class DBBase(object, with_metaclass(DBBaseMeta)):
     # This is the base class for all DB objects. All derived objects must
     # have a class member called _dict of dictionary type.
     # The init method of this class must be callled before using any functions
@@ -40,34 +64,6 @@ class DBBase(object):
         cls._object_db = None
         cls._manager = None
     # end clear
-
-    class __metaclass__(type):
-
-        def __iter__(cls):
-            for i in cls._dict:
-                yield i
-        # end __iter__
-
-        def keys(cls):
-            for i in list(cls._dict.keys()):
-                yield i
-        # end keys
-
-        def values(cls):
-            for i in list(cls._dict.values()):
-                yield i
-        # end values
-
-        def items(cls):
-            for i in list(cls._dict.items()):
-                yield i
-        # end items
-
-        def __contains__(cls, item):
-            # check for 'item in cls'
-            return item in cls._dict
-        # end __contains__
-    # end __metaclass__
 
     @classmethod
     def get(cls, key):
