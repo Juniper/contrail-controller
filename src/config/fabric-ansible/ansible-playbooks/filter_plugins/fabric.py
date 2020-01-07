@@ -505,6 +505,9 @@ class FilterModule(object):
         # different serial number
         self._validate_device_to_ztp(vnc_api, fabric_info)
 
+        # Validate the inputs.
+        self._validate_fabric_input(fabric_info)
+
         # Create fabric object and install in database
         fabric_obj = self._create_fabric(vnc_api, fabric_info)
 
@@ -650,6 +653,21 @@ class FilterModule(object):
 
         return fabric_obj
     # end onboard_fabric
+
+    @staticmethod
+    def _validate_fabric_input(fabric_info):
+        if fabric_info.get('fabric_asn_pool'):
+            for asn_range in fabric_info.get('fabric_asn_pool'):
+                asn_min = asn_range.get('asn_min')
+                asn_max = asn_range.get('asn_max')
+                if asn_min > asn_max:
+                    raise ValueError(
+                        'asn_min {} is greater than asn_max {} '.
+                        format(asn_min, asn_max))
+                elif asn_min == asn_max:
+                    raise ValueError(
+                        "asn_min={} and asn_max={} are same.".
+                        format(asn_min, asn_max))
 
     @staticmethod
     def _validate_device_to_ztp(vnc_api, fabric_info):
