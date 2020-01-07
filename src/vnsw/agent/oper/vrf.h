@@ -73,6 +73,7 @@ struct VrfData : public AgentOperDBData {
 
     uint32_t flags_;
     boost::uuids::uuid vn_uuid_;
+    boost::uuids::uuid si_vn_ref_uuid_;
     uint32_t isid_;
     std::string bmac_vrf_name_;
     uint32_t mac_aging_time_;
@@ -98,6 +99,7 @@ public:
     const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
     VnEntry *vn() const { return vn_.get(); }
+    VnEntry *si_vn_ref() const { return si_vn_ref_.get(); }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VrfEntry>::GetRefCount();
@@ -232,6 +234,8 @@ private:
     uint32_t id_;
     uint32_t flags_;
     VnEntryRef vn_;
+    // service-instance primary VN reference
+    VnEntryRef si_vn_ref_;
     NextHopRef nh_;
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;

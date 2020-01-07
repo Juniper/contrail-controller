@@ -32,6 +32,7 @@
 #include "vr_types.h"
 #include "net/bgp_af.h"
 #include <controller/controller_export.h>
+#include "oper/vxlan_routing_manager.h"
 
 using namespace boost::assign;
 
@@ -246,6 +247,57 @@ protected:
         return (nh1 == nh2);
     }
 
+    void ValidateBridge(const std::string &bridge_vrf,
+            const std::string &routing_vrf,
+            const Ip4Address &addr,
+            uint8_t plen,
+            bool participate) {
+        InetUnicastRouteEntry *rt =
+            RouteGet(bridge_vrf, addr, plen);
+        if (participate) {
+            EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() ==
+                    Peer::EVPN_ROUTING_PEER);
+            const VrfNH *nh = dynamic_cast<const VrfNH *>
+                (rt->GetActiveNextHop());
+            EXPECT_TRUE(nh->GetVrf()->GetName() == routing_vrf);
+        } else {
+            if (rt == NULL)
+                return;
+
+            EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() !=
+                    Peer::EVPN_ROUTING_PEER);
+            const VrfNH *nh = dynamic_cast<const VrfNH *>
+                (rt->GetActiveNextHop());
+            EXPECT_TRUE(nh == NULL);
+        }
+    }
+
+    void ValidateRouting(const std::string &routing_vrf,
+            const Ip4Address &addr,
+            uint8_t plen,
+            const std::string &dest_name,
+            bool present) {
+        InetUnicastRouteEntry *rt =
+            RouteGet(routing_vrf, addr, plen);
+        if (present) {
+            EXPECT_TRUE(rt != NULL);
+            const InterfaceNH *intf_nh =
+                dynamic_cast<const InterfaceNH *>(rt->GetActiveNextHop());
+            if (intf_nh) {
+                EXPECT_TRUE(intf_nh->GetInterface()->name() == dest_name);
+                EXPECT_TRUE(intf_nh->IsVxlanRouting());
+            }
+            const TunnelNH *tunnel_nh =
+                dynamic_cast<const TunnelNH *>(rt->GetActiveNextHop());
+            if (tunnel_nh) {
+                EXPECT_TRUE(tunnel_nh->GetDip()->to_string() == dest_name);
+                EXPECT_TRUE(tunnel_nh->rewrite_dmac().IsZero() == false);
+            }
+        } else {
+            EXPECT_TRUE(rt == NULL);
+        }
+    }
+
     std::string vrf_name_;
     std::string eth_name_;
     Ip4Address  default_dest_ip_;
@@ -282,6 +334,73 @@ public:
     TestRtState() : DBState(), dummy_(0) { };
     int dummy_;
 };
+
+void DelRoutingVrf(int lr_id) {
+    std::stringstream name;
+    std::stringstream name_ss;
+    std::stringstream vrf_name_ss;
+    name << "l3evpn_" << lr_id;
+    name_ss << "domain" << ":" << name.str();
+    vrf_name_ss << name_ss.str() << ":" << name.str();
+
+    DelLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "logical-router",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    DelLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "virtual-network",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    DelLink("virtual-network",
+            name_ss.str().c_str(),
+            "routing-instance",
+            vrf_name_ss.str().c_str());
+    DelVrf(vrf_name_ss.str().c_str());
+    DelVn(name_ss.str().c_str());
+    DelNode("logical-router", name_ss.str().c_str());
+    DelNode("logical-router-virtual-network",
+            name_ss.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet(vrf_name_ss.str().c_str()) == NULL);
+}
+
+#define L3_VRF_OFFSET 100
+void AddRoutingVrf(int lr_id) {
+    std::stringstream name;
+    std::stringstream name_ss;
+    std::stringstream vrf_name_ss;
+
+    name << "l3evpn_" << lr_id;
+    name_ss << "domain" << ":" << name.str();
+    vrf_name_ss << name_ss.str() << ":" << name.str();
+    AddVrf(vrf_name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
+    AddVn(name_ss.str().c_str(), (L3_VRF_OFFSET + lr_id));
+    AddNode("logical-router", name_ss.str().c_str(), lr_id);
+    std::stringstream node_str;
+    node_str << "<logical-router-virtual-network-type>"
+        << "InternalVirtualNetwork"
+        << "</logical-router-virtual-network-type>";
+    AddLinkNode("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            node_str.str().c_str());
+    AddLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "logical-router",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    AddLink("logical-router-virtual-network",
+            name_ss.str().c_str(),
+            "virtual-network",
+            name_ss.str().c_str(),
+            "logical-router-virtual-network");
+    AddLink("virtual-network",
+            name_ss.str().c_str(),
+            "routing-instance",
+            vrf_name_ss.str().c_str());
+    client->WaitForIdle();
+}
 
 // Validate that routes db-tables have 1 partition only
 TEST_F(RouteTest, PartitionCount_1) {
@@ -2818,6 +2937,160 @@ TEST_F(RouteTest, fip_evpn_route_local) {
     DeleteVmportFIpEnv(input, 1, true);
     client->WaitForIdle();
 }
+
+// Adding EVPN Type5 route to service-instance vrf for the Local port VM
+TEST_F(RouteTest, si_evpn_type5_route_add_local) {
+    using boost::uuids::nil_uuid;
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+    IpamInfo ipam_info_1[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    struct PortInfo input2[] = {
+        {"vnet2", 20, "2.2.2.20", "00:00:02:02:02:20", 2, 20},
+    };
+    IpamInfo ipam_info_2[] = {
+        {"2.2.2.0", 24, "2.2.2.200", true},
+    };
+
+    // Brdige vrf
+    AddIPAM("vn1", ipam_info_1, 1);
+    AddIPAM("vn2", ipam_info_2, 1);
+    CreateVmportEnv(input1, 1);
+    CreateVmportEnv(input2, 1);
+    AddLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    AddLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
+            "instance_ip_2", 2);
+
+    // creating routing vrf with name: domain:l3evpn_1:l3evpn_1
+    const char *routing_vrf_name = "domain:l3evpn_1:l3evpn_1";
+    const char *si_to_routing_vn_vrf_name = "domain:l3evpn_1:service_l3evpn_1";
+    AddRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
+
+    EXPECT_TRUE(VmInterfaceGet(1)->logical_router_uuid() == nil_uuid());
+    EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
+    EXPECT_TRUE(VmInterfaceGet(91)->logical_router_uuid() != nil_uuid());
+    ValidateRouting(routing_vrf_name, Ip4Address::from_string("1.1.1.10"), 32,
+            "vnet1", true);
+    ValidateRouting(routing_vrf_name, Ip4Address::from_string("2.2.2.20"), 32,
+            "vnet2", false);
+    // check to see if the default route added to the bridge vrf inet
+    ValidateBridge("vrf1", routing_vrf_name,
+            Ip4Address::from_string("0.0.0.0"), 0, true);
+
+    // check to see if the local port route added to the bridge vrf inet
+    ValidateBridge("vrf1", routing_vrf_name,
+            Ip4Address::from_string("1.1.1.10"), 32, true);
+
+    // since vn2 is ot included in the LR,
+    // check to see no route add by peer:EVPN_ROUTING_PEER
+    ValidateBridge("vrf2", routing_vrf_name,
+            Ip4Address::from_string("2.2.2.20"), 32, false);
+
+    // checking routing vrf have valid VXLAN ID
+    VrfEntry *routing_vrf= VrfGet(routing_vrf_name);
+    EXPECT_TRUE(routing_vrf->vxlan_id() != VxLanTable::kInvalidvxlan_id);
+
+    // Adding service-instance vrf having reference to the Internal VN of
+    // the logical router
+    AddVrf(si_to_routing_vn_vrf_name, 201);
+    AddLink("virtual-network",
+            "domain:l3evpn_1",
+            "routing-instance",
+            si_to_routing_vn_vrf_name);
+    client->WaitForIdle();
+    VrfEntry *si_vrf= VrfGet(si_to_routing_vn_vrf_name);
+    EXPECT_TRUE( si_vrf != NULL);
+    WAIT_FOR(1000, 1000, (si_vrf->si_vn_ref() != NULL));
+
+    //Creating CN type route for service-instance vrf and see if its added
+    //for the local port route
+    stringstream ss_node;
+    autogen::EnetItemType item;
+    SecurityGroupList sg;
+
+    /// get vxlan_id
+    InetUnicastRouteEntry *rt =
+        RouteGet(routing_vrf_name, Ip4Address::from_string("1.1.1.10"), 32);
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    item.entry.nlri.address="1.1.1.10/32";
+    item.entry.nlri.ethernet_tag = 0;
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = agent_->router_ip_ptr()->to_string();
+    nh.label = routing_vrf->vxlan_id();
+    item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
+
+    // EVPN type5 route from CN will have MAC 00:00:00:00:00:00
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_routing_vn_vrf_name,
+            "00:00:00:00:00:00",
+            Ip4Address::from_string("1.1.1.10"),
+            32, &item);
+    client->WaitForIdle();
+
+    // check if the route created in serivice-instance vrf
+    // with nh type vrf to routing vrf.
+    const VrfNH *si_nh = dynamic_cast<const VrfNH *>
+                         (LPMRouteToNextHop(si_to_routing_vn_vrf_name,
+                                     Ip4Address::from_string("1.1.1.10")));
+    WAIT_FOR(1000, 1000, (si_nh != NULL));
+    EXPECT_TRUE(si_nh->GetVrf() == routing_vrf);
+
+    // Adding non-local route.
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    item.entry.nlri.address="1.1.1.20/32";
+    item.entry.nlri.ethernet_tag = 0;
+    nh.af = Address::INET;
+    nh.address = agent_->router_ip_ptr()->to_string();
+    nh.label = routing_vrf->vxlan_id();
+    item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_routing_vn_vrf_name,
+            "00:00:00:00:00:00",
+            Ip4Address::from_string("1.1.1.20"),
+            32, &item);
+    client->WaitForIdle();
+
+    // check if the route is not created in serivice-instance vrf
+    si_nh = dynamic_cast<const VrfNH *>
+                         (LPMRouteToNextHop(si_to_routing_vn_vrf_name,
+                                     Ip4Address::from_string("1.1.1.20")));
+    client->WaitForIdle();
+    EXPECT_TRUE(si_nh == NULL);
+
+    // Clean up
+    DelLink("virtual-network",
+            "domain:l3evpn_1",
+            "routing-instance",
+            si_to_routing_vn_vrf_name);
+    DelVrf(si_to_routing_vn_vrf_name);
+    DelRoutingVrf(1);
+    DelIPAM("vn1");
+    DelIPAM("vn2");
+    DelNode("project", "admin");
+    DeleteVmportEnv(input1, 2, true);
+    DeleteVmportEnv(input2, 1, true);
+    DelLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    DelLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
+            "instance_ip_2", 2);
+    client->WaitForIdle(5);
+    EXPECT_TRUE(VrfGet("vrf1") == NULL);
+    EXPECT_TRUE(VrfGet("vrf2") == NULL);
+    EXPECT_TRUE(agent_->oper_db()->vxlan_routing_manager()->vrf_mapper().
+            IsEmpty());
+    EXPECT_TRUE(agent_->oper_db()->vxlan_routing_manager()->vrf_mapper().
+            IsEmpty());
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
