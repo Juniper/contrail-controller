@@ -1486,6 +1486,7 @@ public:
         return si_other_end_vmi_;
     }
     const std::string &service_intf_type() const { return service_intf_type_; }
+    void set_service_intf_type(std::string type) { service_intf_type_ = type; }
     VmInterface * PortTuplePairedInterface() const;
     void BuildFatFlowExcludeList(FatFlowExcludeList *list) const;
 
