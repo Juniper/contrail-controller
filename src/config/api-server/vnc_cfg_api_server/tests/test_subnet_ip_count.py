@@ -18,7 +18,6 @@ import re
 import json
 import copy
 import inspect
-import pycassa
 import requests
 
 from vnc_api.vnc_api import *

@@ -1,8 +1,12 @@
 from __future__ import absolute_import
 import mock
+import os
+import sys
 import unittest
-from mock import patch
 
+import cfgm_common.tests
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(cfgm_common.tests.__file__),
+                "./mocked_libs")))
 from svc_monitor import svc_monitor
 from pysandesh.sandesh_base import Sandesh
 from svc_monitor.logger import ServiceMonitorLogger

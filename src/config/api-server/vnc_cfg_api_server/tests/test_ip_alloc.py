@@ -20,7 +20,6 @@ import re
 import json
 import copy
 import inspect
-import pycassa
 import requests
 import bottle
 

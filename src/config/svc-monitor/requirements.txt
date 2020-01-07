@@ -1,5 +1,4 @@
 # kazoo <-- putting deps on zope.interface >= 3.8.0
-pycassa
 requests >= 2.20.0
 psutil>=0.6.0
 bottle

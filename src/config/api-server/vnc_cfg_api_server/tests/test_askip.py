@@ -17,7 +17,6 @@ import re
 import json
 import copy
 import inspect
-import pycassa
 import kombu
 import requests
 
