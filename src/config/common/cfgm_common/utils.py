@@ -28,7 +28,9 @@ from builtins import str
 from builtins import object
 import urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
+from future.utils import native_str
 import sys
+from six import string_types
 from six import StringIO
 from six.moves.configparser import NoOptionError
 
@@ -71,7 +73,7 @@ def encode_string(enc_str, encoding='utf-8'):
     try:
         enc_str.encode()
     except (UnicodeDecodeError, UnicodeEncodeError):
-        if type(enc_str) is str:
+        if isinstance(enc_str, string_types):
             enc_str = enc_str.encode(encoding)
         enc_str = urllib.parse.quote_plus(enc_str)
     except Exception:
@@ -90,8 +92,8 @@ def decode_string(dec_str, encoding='utf-8'):
     """
     ret_dec_str = dec_str
     try:
-        if type(ret_dec_str) is str:
-            ret_dec_str = str(ret_dec_str)
+        if isinstance(ret_enc_str, string_types):
+            ret_dec_str = native_str(ret_dec_str)
         ret_dec_str = urllib.parse.unquote_plus(ret_dec_str)
         return ret_dec_str.decode(encoding)
     except Exception:
@@ -121,7 +123,7 @@ class CacheContainer(object):
         return key in self.dictionary
 
     def __repr__(self):
-        return str(self.dictionary)
+        return native_str(self.dictionary)
 
 
 # <uuid> | "tenant-"<uuid> | "domain-"<uuid>
