@@ -357,9 +357,9 @@ class VncPod(VncCommon):
             if vm:
                 for vmi_id in list(vm.virtual_machine_interfaces):
                     vmi_obj_list.append(
-                       self._vnc_lib.virtual_machine_interface_read(id=vmi_id))
+                        self._vnc_lib.virtual_machine_interface_read(id=vmi_id))
         else:
-                vmi_obj_list.append(vmi_obj)
+            vmi_obj_list.append(vmi_obj)
 
         for vmi_obj in vmi_obj_list:
             self._vnc_lib.set_tags(vmi_obj, self._labels.get_labels_dict(pod_id))
