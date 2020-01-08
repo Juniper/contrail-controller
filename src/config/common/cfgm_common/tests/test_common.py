@@ -1122,3 +1122,111 @@ class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
         super(ErrorInterceptingLogger, self).__init__(*args, **kwargs)
         self._logger = ErrorInterceptingLogger.LoggerWrapper(
             self._logger)
+
+from pathlib2 import Path
+# from ..vnc_cassandra import merge_dict
+# from threading import Lock
+from collections import Mapping
+
+def merge_dict(orig_dict, new_dict):
+    for key, value in list(new_dict.items()):
+        if key not in orig_dict:
+            orig_dict[key] = new_dict[key]
+        elif isinstance(value, Mapping):
+            orig_dict[key] = merge_dict(orig_dict.get(key, {}), value)
+        elif isinstance(value, list):
+            # orig_dict[key] = orig_dict[key].append(value)
+            assert isinstance(orig_dict[key], list), "Incompatible dict values"
+            orig_dict[key] = list(set(orig_dict[key]) | set(value))
+        else:
+            orig_dict[key] = new_dict[key]
+    return orig_dict
+# end merge_dict
+
+def get_golden_json():
+    # tests run in ~/contrail/build/debug/config/{api-server,schema-transformer,etc}
+    test_root = Path(os.getcwd())
+
+    # NIT: this isn't really a _common_ test if it runs only for api-server
+    if test_root.name != 'api-server':
+        return
+
+    golden_file = test_root / Path('vnc_cfg_api_server/tests/db-dump.json')
+    golden_file = golden_file.resolve()
+    golden_file.parent.mkdir(parents=True, exist_ok=True)
+
+    return golden_file
+# end get_golden_json
+
+# mutex = Lock()
+def dump_db_contents(cluster_id):
+    from cfgm_common import db_json_exim
+
+    def extract_cass_zk(fp):
+        aggr_data = json.load(fp)
+        cass_data = aggr_data['cassandra']
+        pre_zk_data = aggr_data['zookeeper']
+        zk_data = json.loads(pre_zk_data)
+        return (cass_data, zk_data)
+
+    golden_file = get_golden_json()
+
+    # mutex.acquire()
+    # try:
+    # merge in new data instead of overwriting it
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        g_file = open(golden_file.as_posix(), "r")
+
+        db_json_exim.DatabaseExim(
+            '--export-to %s --cluster_id %s ' % (tmp_file.name, cluster_id)
+        ).db_export()
+
+        tmp_file.seek(0)
+        new_cass, new_zk = extract_cass_zk(tmp_file)
+        orig_cass, orig_zk = extract_cass_zk(g_file)
+
+        merged_cass = merge_dict(orig_cass, new_cass)
+        # merged_zk = list(set(orig_zk) | set(new_zk))
+
+        # O(m*n), sorry
+        merged_zk = []
+        for zk_entry in orig_zk:
+            try:
+                [optional_replacement] = list(filter(lambda x: x[0] == zk_entry[0], new_zk))
+                merged_zk.append(optional_replacement)
+            except ValueError:
+                merged_zk.append(zk_entry)
+
+        packed = {
+            'cassandra': merged_cass,
+            'zookeeper': json.dumps(merged_zk)
+        }
+
+        # overwrite
+        g_file.close()
+        g_file = open(golden_file.as_posix(), "w")
+        json.dump(packed, g_file)
+        g_file.close()
+    # finally:
+    #     g_file.close()
+    #     mutex.release()
+# end dump_db_contents
+
+def load_db_contents(cluster_id):
+    from cfgm_common import db_json_exim
+
+    golden_file = get_golden_json()
+    if not golden_file.exists():
+        return
+
+    # mutex.acquire()
+    # try:
+    db_json_exim.DatabaseExim(
+        '--import-from %s --cluster_id %s' % \
+        (golden_file.as_posix(), cluster_id)
+    ).db_import(merge=True)
+    # finally:
+    #     mutex.release()
+# end load_db_contents
+
+# test_common.py
