@@ -121,7 +121,7 @@ def delete_link_local_service_entry(vnc_lib, name, k8s_ns=None):
         # Skip matching entry and build a new list with remaining entries.
         if ('linklocal_service_name' in entry and
             entry['linklocal_service_name'] != link_local_name):
-                new_linklocal.append(vl)
+            new_linklocal.append(vl)
 
     obj[key_ll_svc_entry] = new_linklocal
     conf_obj=GlobalVrouterConfig(linklocal_services=obj)
