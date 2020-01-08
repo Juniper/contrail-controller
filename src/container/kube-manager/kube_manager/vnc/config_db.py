@@ -301,7 +301,7 @@ class LoadbalancerKM(DBBaseKM):
             self.firewall_rule_uuids.remove(fw_uuid)
 
     def get_firewall_rules(self):
-         return self.firewall_rule_uuids
+        return self.firewall_rule_uuids
 
     @classmethod
     def delete(cls, uuid):
