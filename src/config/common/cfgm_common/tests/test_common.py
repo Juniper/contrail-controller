@@ -543,7 +543,6 @@ def patch_imports(imports):
 
 #end patch_import
 
-
 def fake_wrapper(self, func, *args, **kwargs):
     def wrapper(*wargs, **wkwargs):
         return func(*wargs, **wkwargs)
