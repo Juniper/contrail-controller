@@ -202,16 +202,16 @@ class VncNetwork(VncCommon):
         if curr_ipam_refs:
             for ipam_ref in curr_ipam_refs:
                 if ipam_fq_name == ipam_ref['to']:
-                   if subnet:
-                       # Subnet is specified.
-                       # Validate that we are able to match subnect as well.
-                       if len(ipam_ref['attr'].ipam_subnets) and \
-                           subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
-                           return True
-                   else:
-                       # Subnet is not specified.
-                       # So ipam-fq-name match will suffice.
-                       return True
+                    if subnet:
+                        # Subnet is specified.
+                        # Validate that we are able to match subnect as well.
+                        if len(ipam_ref['attr'].ipam_subnets) and \
+                            subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
+                            return True
+                    else:
+                        # Subnet is not specified.
+                        # So ipam-fq-name match will suffice.
+                        return True
         return False
 
     def _create_virtual_network(self, vn_name, proj_obj, ipam_obj, \
@@ -239,10 +239,10 @@ class VncNetwork(VncCommon):
         # For user-defined-subnets, use the provided subnets
         if ipam_update or \
            not self._is_ipam_exists(vn_obj, ipam_obj.get_fq_name()):
-           if subnets and type == 'user-defined-subnet-only':
-               vn_obj.add_network_ipam(ipam_obj, subnets)
-           else:
-               vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
+            if subnets and type == 'user-defined-subnet-only':
+                vn_obj.add_network_ipam(ipam_obj, subnets)
+            else:
+                vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l2_l3'))

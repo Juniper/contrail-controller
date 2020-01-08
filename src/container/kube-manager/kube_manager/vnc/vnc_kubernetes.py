@@ -360,16 +360,16 @@ class VncKubernetes(VncCommon):
         if curr_ipam_refs:
             for ipam_ref in curr_ipam_refs:
                 if ipam_fq_name == ipam_ref['to']:
-                   if subnet:
-                       # Subnet is specified.
-                       # Validate that we are able to match subnect as well.
-                       if len(ipam_ref['attr'].ipam_subnets) and \
-                           subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
-                           return True
-                   else:
-                       # Subnet is not specified.
-                       # So ipam-fq-name match will suffice.
-                       return True
+                    if subnet:
+                        # Subnet is specified.
+                        # Validate that we are able to match subnect as well.
+                        if len(ipam_ref['attr'].ipam_subnets) and \
+                            subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
+                            return True
+                    else:
+                        # Subnet is not specified.
+                        # So ipam-fq-name match will suffice.
+                        return True
         return False
 
     def _allocate_fabric_snat_port_translation_pools(self):
