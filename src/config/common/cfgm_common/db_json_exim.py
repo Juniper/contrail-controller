@@ -34,6 +34,7 @@ from pycassa import ColumnFamily
 from pycassa.system_manager import SystemManager
 import kazoo.client
 import kazoo.handlers.gevent
+import kazoo.exceptions
 from thrift.transport import TSSLSocket
 import ssl
 
@@ -119,7 +120,7 @@ class DatabaseExim(object):
         pass
     # end _parse_args
 
-    def db_import(self):
+    def db_import(self, overwrite=False):
         if self._args.import_from.endswith('.gz'):
             try:
                 f = gzip.open(self._args.import_from, 'rb')
@@ -134,28 +135,32 @@ class DatabaseExim(object):
             for ks,cf in list(self.import_data['cassandra'].items()))
         self.init_cassandra(ks_cf_info)
 
-        # refuse import if db already has data
-        non_empty_errors = []
-        for ks in list(self.import_data['cassandra'].keys()):
-            for cf in list(self.import_data['cassandra'][ks].keys()):
-                if len(list(self._cassandra.get_cf(cf).get_range(
-                    column_count=0))) > 0:
-                    non_empty_errors.append(
-                        'Keyspace %s CF %s already has entries.' %(ks, cf))
+        # conditionally refuse import if db already has data
+        if not overwrite:
+            non_empty_errors = []
+            for ks in list(self.import_data['cassandra'].keys()):
+                for cf in list(self.import_data['cassandra'][ks].keys()):
+                    if len(list(self._cassandra.get_cf(cf).get_range(
+                        column_count=0))) > 0:
+                        non_empty_errors.append(
+                            'Keyspace %s CF %s already has entries.' %(ks, cf))
 
-        if non_empty_errors:
-            raise CassandraNotEmptyError('\n'.join(non_empty_errors))
+            if non_empty_errors:
+                raise CassandraNotEmptyError('\n'.join(non_empty_errors))
 
-        non_empty_errors = []
-        existing_zk_dirs = set(
-            self._zookeeper.get_children(self._api_args.cluster_id+'/'))
-        import_zk_dirs = set([p_v_ts[0].split('/')[1]
-            for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
+            non_empty_errors = []
+            existing_zk_dirs = set(
+                self._zookeeper.get_children(self._api_args.cluster_id+'/'))
+            import_zk_dirs = set([p_v_ts[0].split('/')[1]
+                for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
 
-        for non_empty in ((existing_zk_dirs & import_zk_dirs) -
-                          set(['zookeeper'])):
-            non_empty_errors.append(
-                'Zookeeper has entries at /%s.' %(non_empty))
+            for non_empty in ((existing_zk_dirs & import_zk_dirs) -
+                              set(['zookeeper'])):
+                non_empty_errors.append(
+                    'Zookeeper has entries at /%s.' %(non_empty))
+
+            if non_empty_errors:
+                raise ZookeeperNotEmptyError('\n'.join(non_empty_errors))
 
         if non_empty_errors:
             raise ZookeeperNotEmptyError('\n'.join(non_empty_errors))
@@ -184,7 +189,10 @@ class DatabaseExim(object):
             if path.split('/')[1] in zk_ignore_list:
                 continue
             value = path_value_ts[1][0]
-            self._zookeeper.create(path, str(value), makepath=True)
+            try:
+                self._zookeeper.get(path)
+            except kazoo.exceptions.NoNodeError:
+                self._zookeeper.create(path, str(value), makepath=True)
     # end db_import
 
     def _make_ssl_socket_factory(self, ca_certs, validate=True):
