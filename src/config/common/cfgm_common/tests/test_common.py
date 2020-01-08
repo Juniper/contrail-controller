@@ -37,8 +37,7 @@ from vnc_api.vnc_api import *
 import kombu
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
-from cfgm_common import db_json_exim
-from cfgm_common import vnc_cgitb
+from cfgm_common import db_json_exim, vnc_cgitb
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.utils import cgitb_hook
 
@@ -1150,3 +1149,6 @@ class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
         super(ErrorInterceptingLogger, self).__init__(*args, **kwargs)
         self._logger = ErrorInterceptingLogger.LoggerWrapper(
             self._logger)
+# end class ErrorInterceptingLogger
+
+# test_common.py
