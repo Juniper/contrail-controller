@@ -809,6 +809,7 @@ bool PktHandler::ValidateIpPacket(PktInfo *pkt_info) {
 int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                              PktType::Type &pkt_type, uint8_t *pkt) {
     int len = 0;
+    bool pkt_ok;
 
     // get to the actual packet header
     len += ParseEthernetHeader(pkt_info, (pkt + len));
@@ -846,8 +847,11 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     }
 
     // If it is a packet from TOR that we serve, dont parse any further
-    if (IsManagedTORPacket(intf, pkt_info, pkt_type, (pkt + len))) {
+    if (IsManagedTORPacket(intf, pkt_info, pkt_type, (pkt + len), &pkt_ok)) {
         return len;
+    } else if (!pkt_ok) {
+        // invalid pkt received from tor
+        return -1;
     }
 
     if (IsDiagPacket(pkt_info) &&
@@ -1024,7 +1028,8 @@ bool PktHandler::IsToRDevice(uint32_t vrf_id, const IpAddress &ip) {
 // by a TOR services node. Check if the source mac is the mac address of a
 // VM interface available in the node.
 bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
-                                    PktType::Type &pkt_type, uint8_t *pkt) {
+                                    PktType::Type &pkt_type, uint8_t *pkt, bool *pkt_ok) {
+    *pkt_ok = true;
     if (intf->type() != Interface::PHYSICAL) {
         return false;
     }
@@ -1080,6 +1085,11 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
 
     // IP Packets
     ParseIpPacket(pkt_info, pkt_type, pkt);
+
+    if (!ValidateIpPacket(pkt_info)) {
+        *pkt_ok = false;
+        return false;
+    }
     return true;
 }
 
