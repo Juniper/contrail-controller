@@ -37,7 +37,7 @@ from vnc_api.vnc_api import *
 import kombu
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
-from cfgm_common import vnc_cgitb
+from cfgm_common import db_json_exim, vnc_cgitb
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.utils import cgitb_hook
 
@@ -1056,6 +1056,34 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
     #end _security_group_rule_append
 
+    @classmethod
+    def _get_golden_json(cls):
+        test_root = os.path.normpath(os.getcwd())
+        dirpath = os.path.join(test_root, 'vnc_cfg_api_server', 'tests')
+        dirpath = os.path.abspath(dirpath)
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath)
+        return os.path.join(dirpath, 'db-dump.json')
+    # end get_golden_json
+
+    @classmethod
+    def dump_db_contents(cls):
+        dump_path = cls._get_golden_json()
+        db_json_exim.DatabaseExim(
+            '--export-to %s --cluster_id %s ' % (dump_path, cls._cluster_id)
+        ).db_export()
+    # end dump_db_contents
+
+    @classmethod
+    def load_db_contents(cls):
+        dump_path = cls._get_golden_json()
+        if not os.path.exists(dump_path):
+            return
+        db_json_exim.DatabaseExim(
+            '--import-from %s --cluster_id %s' % (dump_path, cls._cluster_id)
+        ).db_import(overwrite=True)
+    # end load_db_contents
+
 # end TestCase
 
 
@@ -1122,3 +1150,6 @@ class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
         super(ErrorInterceptingLogger, self).__init__(*args, **kwargs)
         self._logger = ErrorInterceptingLogger.LoggerWrapper(
             self._logger)
+# end class ErrorInterceptingLogger
+
+# test_common.py
