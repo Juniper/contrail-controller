@@ -2,6 +2,91 @@
   "comments": [
     {
       "key": {
+        "uuid": "10fdb51c_39557587",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 7,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "Commit message is not clear and accurate.",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c13f230d_785c15ea",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 450,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "Extra blank line ?",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "01e81c02_df0623cc",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 452,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "Can you please add documentation to all APIs ? thanks",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f49e8319_b7d9541e",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 453,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "Is this self coming from the parent class ? as this method is a class method with no self object ?",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "033cffc0_9e38c79a",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 457,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "Unnecessary return",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "2c92d501_2cfa8491",
         "filename": "src/config/common/cfgm_common/vnc_db.py",
         "patchSetId": 1
@@ -13,6 +98,23 @@
       "writtenOn": "2020-01-07T22:48:50Z",
       "side": 1,
       "message": "nit: no need for parentheses? cb, params \u003d item",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d8336089_94953111",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 468,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "what happens of cb raises exception ? It should be caught and clearly logged.",
       "revId": "4f47283e9679a039178f70f917772c4827e83f07",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
@@ -47,6 +149,57 @@
       "writtenOn": "2020-01-07T22:48:50Z",
       "side": 1,
       "message": "is obj_type correct here? obj.obj_type maybe? \u0027obj_type\u0027?",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7406e77d_482371fd",
+        "filename": "src/config/common/cfgm_common/vnc_db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 488,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "Please remove trailing spaces",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2766fdd8_1a265dfe",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "what if this read fails .. This is DB read right ?",
+      "revId": "4f47283e9679a039178f70f917772c4827e83f07",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e42e6b6b_e905a031",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2020-01-08T19:24:53Z",
+      "side": 1,
+      "message": "May be I am not reading this right.. where is cls coming from. Usually it is used in classmethods, isn\u0027t it ?",
       "revId": "4f47283e9679a039178f70f917772c4827e83f07",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
