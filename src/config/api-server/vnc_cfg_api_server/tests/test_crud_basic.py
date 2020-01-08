@@ -4864,6 +4864,69 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
                     self.assertEqual(len(zk_node), 1)
                 self.assertEqual(zk_node[0][1][0], vn_obj.uuid)
     # end test_db_export_and_import
+
+    def test_mock_data_merge(self):
+        from pycassa.system_manager import SystemManager
+        from cfgm_common import db_json_exim
+        from collections import defaultdict
+
+        # setup phase
+        def infinite_dict():
+            'Acts like a JS object'
+            return defaultdict(infinite_dict)
+        mock_dump = infinite_dict()
+
+        mock_vn_id = 'default-domain:default-project:non-existent:' + \
+            'beefbeef-beef-beef-beef-beefbeefbeef'
+        mock_dump['cassandra']['config_db_uuid']['obj_fq_name_table']\
+            ['virtual_network'][mock_vn_id] = ['null', 21.37]
+        mock_dump['cassandra']['config_db_uuid']['obj_uuid_table']
+        mock_dump['cassandra']['config_db_uuid']['obj_shared_table']
+        mock_dump['zookeeper']
+
+        with tempfile.NamedTemporaryFile(delete=False) as dump_file_in:
+            json.dump(mock_dump, dump_file_in)
+            dump_in = dump_file_in.name
+
+        patch_ks = SystemManager.patch_keyspace
+        with patch_ks(self.to_bgp_ks, {}), \
+             patch_ks(self.svc_mon_ks, {}), \
+             patch_ks(self.dev_mgr_ks, {}):
+
+            # export current state for future reference
+            with tempfile.NamedTemporaryFile(delete=False) as dump_file_pre:
+                dump_pre = dump_file_pre.name
+                db_json_exim.DatabaseExim(
+                    '--export-to %s --cluster_id %s ' % \
+                    (dump_pre, self._cluster_id)
+                ).db_export()
+
+            # import JSON
+            db_json_exim.DatabaseExim(
+                    '--import-from %s --cluster_id %s' % \
+                    (dump_in, self._cluster_id)
+                ).db_import(merge=True)
+
+            # test if merge was successful (check for new object)
+            col_fam = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            vn_out = col_fam.get('virtual_network', [mock_vn_id])
+            self.assertDictEqual(vn_out, {mock_vn_id: u'null'})
+
+            # export JSON
+            with tempfile.NamedTemporaryFile(delete=False) as dump_file_after:
+                dump_after = dump_file_after.name
+                db_json_exim.DatabaseExim(
+                    '--export-to %s --cluster_id %s ' % \
+                    (dump_after, self._cluster_id)
+                ).db_export()
+
+        # test if file grew in size
+        stat_after = os.stat(dump_after)
+        stat_pre = os.stat(dump_pre)
+        self.assertGreater(stat_after.st_size, stat_pre.st_size)
+
+    # end test_mock_data_overwrite
+
 # end class TestDbJsonExim
 
 class TestPagination(test_case.ApiServerTestCase):
