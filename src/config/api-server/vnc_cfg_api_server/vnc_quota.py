@@ -79,16 +79,13 @@ class QuotaHelper(object):
     def verify_quota_and_create_resource(cls, db_conn, obj_dict, obj_type, obj_id,
                                          quota_limit, quota_counter):
         ok, result = cls.verify_quota(obj_type, quota_limit, quota_counter)
-        if ok:
-            (ok, result) = db_conn.dbe_create(obj_type, obj_id,
-                                                    obj_dict)
-	    if not ok:
-                # revert back quota count
-                quota_counter -= 1
-	        return ok, result
-        else:
-            return ok, result
-        return (True, result)
+        if not ok:
+            return False, result
+        ok, result = db_conn.dbe_create(obj_type, obj_id, obj_dict)
+        if not ok:  # revert back quota count
+            quota_counter -= 1
+            return False, result
+        return True, result
 
     @classmethod
     def get_security_group_rule_count(cls, db_conn, proj_uuid):
