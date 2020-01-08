@@ -383,10 +383,10 @@ class VncIngress(VncCommon):
                     pool_obj_kvp = pool_obj.annotations.key_value_pair
                     kvps_len = len(pool_obj_kvp)
                     for count in range(0, kvps_len):
-                         kvp = {}
-                         kvp['key'] = pool_obj_kvp[count].key
-                         kvp['value'] = pool_obj_kvp[count].value
-                         kvps.append(kvp)
+                        kvp = {}
+                        kvp['key'] = pool_obj_kvp[count].key
+                        kvp['value'] = pool_obj_kvp[count].value
+                        kvps.append(kvp)
                     annotations['key_value_pair'] = kvps
                 else:
                     annotations = pool.annotations
@@ -411,10 +411,10 @@ class VncIngress(VncCommon):
                     member_obj_kvp = member_obj.annotations.key_value_pair
                     kvps_len = len(member_obj_kvp)
                     for count in range(0, kvps_len):
-                         kvp = {}
-                         kvp['key'] = member_obj_kvp[count].key
-                         kvp['value'] = member_obj_kvp[count].value
-                         kvps.append(kvp)
+                        kvp = {}
+                        kvp['key'] = member_obj_kvp[count].key
+                        kvp['value'] = member_obj_kvp[count].value
+                        kvps.append(kvp)
                     annotations['key_value_pair'] = kvps
                 else:
                     annotations = member.annotations

@@ -153,8 +153,8 @@ class KMTestCase(test_common.TestCase):
         ]
         vnc_cgitb.enable(format='text')
 
-        with tempfile.NamedTemporaryFile() as conf,\
-            tempfile.NamedTemporaryFile() as logconf:
+        with tempfile.NamedTemporaryFile(mode='w+') as conf,\
+            tempfile.NamedTemporaryFile(mode='w+') as logconf:
             cfg_parser = test_common.generate_conf_file_contents(kube_config)
             cfg_parser.write(conf)
             conf.flush()
