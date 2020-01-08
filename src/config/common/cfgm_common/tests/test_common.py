@@ -52,6 +52,7 @@ import novaclient.client
 import gevent.pywsgi
 import uuid
 from pysandesh import sandesh_logger
+from pathlib2 import Path
 
 def lineno():
     """Returns the current line number in our program."""
@@ -1122,3 +1123,43 @@ class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
         super(ErrorInterceptingLogger, self).__init__(*args, **kwargs)
         self._logger = ErrorInterceptingLogger.LoggerWrapper(
             self._logger)
+
+def get_golden_json():
+    # tests run in ~/contrail/build/debug/config/{api-server,schema-transformer,etc}
+    test_root = Path(os.getcwd())
+
+    # NIT: this isn't really a _common_ test if it runs only for api-server
+    if test_root.name != 'api-server':
+        return
+
+    golden_file = test_root / Path('vnc_cfg_api_server/tests/db-dump.json')
+    golden_file = golden_file.resolve()
+    golden_file.parent.mkdir(parents=True, exist_ok=True)
+
+    return golden_file
+# end get_golden_json
+
+def dump_db_contents(cluster_id):
+    from cfgm_common import db_json_exim
+
+    dump_path = get_golden_json()
+    db_json_exim.DatabaseExim(
+        '--export-to %s --cluster_id %s ' % \
+        (dump_path.as_posix(), cluster_id)
+    ).db_export()
+# end dump_db_contents
+
+def load_db_contents(cluster_id):
+    from cfgm_common import db_json_exim
+
+    dump_path = get_golden_json()
+    if not dump_path.exists():
+        return
+
+    db_json_exim.DatabaseExim(
+        '--import-from %s --cluster_id %s' % \
+        (dump_path.as_posix(), cluster_id)
+    ).db_import(merge=True)
+# end load_db_contents
+
+# test_common.py
