@@ -279,7 +279,7 @@ class VncNetworkPolicyTest(KMTestCase):
                         }
                     },
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ]
+                    ]
                 }
             ],
             'podSelector': {'matchLabels': {'tier': 'web'}},
@@ -313,13 +313,13 @@ class VncNetworkPolicyTest(KMTestCase):
                         }
                     },
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': 5978,
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [
@@ -368,13 +368,13 @@ class VncNetworkPolicyTest(KMTestCase):
                         }
                     },
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': "5978",
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [
@@ -426,7 +426,7 @@ class VncNetworkPolicyTest(KMTestCase):
                         }
                     },
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': '3978',
@@ -436,7 +436,7 @@ class VncNetworkPolicyTest(KMTestCase):
                           'port': '4978',
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [
@@ -833,9 +833,9 @@ class VncNetworkPolicyTest(KMTestCase):
             fw_policy = FirewallPolicyKM.locate(fw_policy_ref['uuid'])
             if fw_policy.owner and\
                fw_policy.cluster_name == self.cluster_name():
-               self.assertTrue(fw_policy.uuid == VncSecurityPolicy.ingress_svc_fw_policy_uuid)
-               ingress_fw_policy_idx = index
-               break
+                self.assertTrue(fw_policy.uuid == VncSecurityPolicy.ingress_svc_fw_policy_uuid)
+                ingress_fw_policy_idx = index
+                break
 
         last_user_policy_index = None
         loop_start_index = ingress_fw_policy_idx+1
@@ -858,17 +858,17 @@ class VncNetworkPolicyTest(KMTestCase):
             fw_policy = FirewallPolicyKM.locate(fw_policy_ref['uuid'])
             if fw_policy.cluster_name and\
                fw_policy.cluster_name == self.cluster_name():
-               self.assertTrue(fw_policy.uuid == VncSecurityPolicy.deny_all_fw_policy_uuid)
-               deny_all_policy_index = loop_start_index + index
-               break
+                self.assertTrue(fw_policy.uuid == VncSecurityPolicy.deny_all_fw_policy_uuid)
+                deny_all_policy_index = loop_start_index + index
+                break
 
         loop_start_index = deny_all_policy_index + 1
         for fw_policy_ref in fw_policy_refs[loop_start_index:]:
             fw_policy = FirewallPolicyKM.locate(fw_policy_ref['uuid'])
             if fw_policy.cluster_name and\
                fw_policy.cluster_name == self.cluster_name():
-               self.assertTrue(fw_policy.uuid == VncSecurityPolicy.allow_all_fw_policy_uuid)
-               break
+                self.assertTrue(fw_policy.uuid == VncSecurityPolicy.allow_all_fw_policy_uuid)
+                break
 
         for i in test_range:
             self._delete_network_policy(unittest.TestCase.id(self), np_uuid_dict[i])
@@ -947,13 +947,13 @@ class VncNetworkPolicyTest(KMTestCase):
                             }
                         },
                     'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': 5978,
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [
@@ -998,13 +998,13 @@ class VncNetworkPolicyTest(KMTestCase):
                         'matchLabels': {}
                         },
                     'podSelector': {'matchLabels': {}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': 5978,
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [
@@ -1053,13 +1053,13 @@ class VncNetworkPolicyTest(KMTestCase):
                         }
                     },
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': 5978,
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [
@@ -1113,13 +1113,13 @@ class VncNetworkPolicyTest(KMTestCase):
                         }
                     },
                     {'podSelector': {'matchLabels': {'tier': 'app'}}}
-                  ],
+                    ],
                   'ports': [
                       {
                           'port': 5978,
                           'protocol': 'TCP'
                       }
-                  ]
+                    ]
                 }
             ],
             'egress': [

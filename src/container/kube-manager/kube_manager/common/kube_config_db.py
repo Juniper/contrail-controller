@@ -579,7 +579,7 @@ class NetworkPolicyKM(KubeDBBase):
                                 cidr = ipblock.get('cidr', None)
                                 except_cidr_list = []
                                 for except_cidr in ipblock.get('except', []):
-                                   except_cidr_list.append(except_cidr)
+                                    except_cidr_list.append(except_cidr)
                                 np_ip_block = introspect.NetworkPolicyIpBlock(
                                     cidr=cidr, except_cidr = except_cidr_list)
 
@@ -593,11 +593,11 @@ class NetworkPolicyKM(KubeDBBase):
                     if ingress.get('ports'):
                         for port in ingress.get('ports'):
 
-                           np_port = introspect.NetworkPolicyPort(
-                               port=port.get('port').__str__(),
-                                   protocol=port.get('protocol'))
+                            np_port = introspect.NetworkPolicyPort(
+                                port=port.get('port').__str__(),
+                                    protocol=port.get('protocol'))
 
-                           np_port_list.append(np_port)
+                            np_port_list.append(np_port)
 
                     np_ingress_list.append(\
                         introspect.NetworkPolicyIngressPolicy(\
@@ -617,7 +617,7 @@ class NetworkPolicyKM(KubeDBBase):
                                 cidr = ipblock.get('cidr', None)
                                 except_cidr_list = []
                                 for except_cidr in ipblock.get('except', []):
-                                   except_cidr_list.append(except_cidr)
+                                    except_cidr_list.append(except_cidr)
                                 np_ip_block = introspect.NetworkPolicyIpBlock(
                                     cidr=cidr, except_cidr = except_cidr_list)
 
@@ -628,10 +628,10 @@ class NetworkPolicyKM(KubeDBBase):
                     np_port_list = []
                     if egress.get('ports'):
                         for port in egress.get('ports'):
-                           np_port = introspect.NetworkPolicyPort(
-                               port=port.get('port').__str__(),
-                                   protocol=port.get('protocol'))
-                           np_port_list.append(np_port)
+                            np_port = introspect.NetworkPolicyPort(
+                                port=port.get('port').__str__(),
+                                    protocol=port.get('protocol'))
+                            np_port_list.append(np_port)
 
                     np_egress_list.append(\
                         introspect.NetworkPolicyEgressPolicy(\

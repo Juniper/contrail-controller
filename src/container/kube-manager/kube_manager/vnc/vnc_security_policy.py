@@ -136,11 +136,11 @@ class FWRule(object):
         selector_labels_dict =\
                     dict(nps_selector.get('matchLabels', {}))
         if selector_labels_dict:
-           if namespace:
-               selector_labels_dict.update(
-                        XLabelCache.get_namespace_label(namespace))
-           tags = VncSecurityPolicy.get_tags_fn(
-                               selector_labels_dict, True)
+            if namespace:
+                selector_labels_dict.update(
+                         XLabelCache.get_namespace_label(namespace))
+            tags = VncSecurityPolicy.get_tags_fn(
+                                selector_labels_dict, True)
         return tags
 
     @classmethod
@@ -930,7 +930,7 @@ class VncSecurityPolicy(VncCommon):
             # Track the sequence number of the first K8s object after "tail".
             if k8s_obj and post_tail_obj:
                 if not post_tail_k8s_obj_sequence or\
-                  cls.lhs_before_rhs(fw_policy['attr'].get_sequence(),
+                    cls.lhs_before_rhs(fw_policy['attr'].get_sequence(),
                                      post_tail_k8s_obj_sequence):
                     post_tail_k8s_obj_sequence = fw_policy['attr'].get_sequence()
 
@@ -938,7 +938,7 @@ class VncSecurityPolicy(VncCommon):
             if not last_entry_sequence or\
                cls.lhs_before_rhs(last_entry_sequence,
                                   fw_policy['attr'].get_sequence()):
-                   last_entry_sequence = fw_policy['attr'].get_sequence()
+                last_entry_sequence = fw_policy['attr'].get_sequence()
 
         # Validate that sequence number of FWpolicy being added is as requested.
         if validate_curr_seq_num:
@@ -1183,7 +1183,7 @@ class VncSecurityPolicy(VncCommon):
                     break
 
                 vnc_kube_config.logger().error(
-                 "%s - Ingress FW Policy [%s] not the first policy on APS [%s]"\
+                    "%s - Ingress FW Policy [%s] not the first policy on APS [%s]"\
                      %(cls.name, cls.ingress_svc_fw_policy_uuid, aps.name))
                 return False
 
@@ -1266,7 +1266,7 @@ class VncSecurityPolicy(VncCommon):
             try:
                 fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
             except NoIdError:
-                 raise
+                raise
             aps_obj.del_firewall_policy(fw_policy_obj)
             removed_firewall_policies.append(fw_policy_uuid)
 
@@ -1320,7 +1320,7 @@ class VncSecurityPolicy(VncCommon):
             try:
                 fw_policy_obj = cls.vnc_lib.firewall_policy_read(id=fw_policy_uuid)
             except NoIdError:
-                 raise
+                raise
             aps_obj.add_firewall_policy(fw_policy_obj, sequence)
             sequence = cls.construct_sequence_number(
                     float(sequence.get_sequence()) + float('1.0'))

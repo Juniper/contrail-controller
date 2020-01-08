@@ -82,10 +82,10 @@ class QuotaHelper(object):
         if ok:
             (ok, result) = db_conn.dbe_create(obj_type, obj_id,
                                                     obj_dict)
-	    if not ok:
+            if not ok:
                 # revert back quota count
                 quota_counter -= 1
-	        return ok, result
+                return ok, result
         else:
             return ok, result
         return (True, result)
