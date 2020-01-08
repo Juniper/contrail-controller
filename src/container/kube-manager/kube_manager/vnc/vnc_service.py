@@ -133,7 +133,7 @@ class VncService(VncCommon):
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
-	    self.logger.notice("FIP Pool %s not found. "
+            self.logger.notice("FIP Pool %s not found. "
                                 "Floating IP will not be available "
                                 "until FIP pool is configured."
                                 % (specified_fip_pool_fq_name_str));
@@ -155,7 +155,7 @@ class VncService(VncCommon):
             self.logger.notice("Public FIP Pool not found. "
                                 "Floating IP will not be available "
                                 "until FIP pool is configured.");
-	    return None
+            return None
 
         self._fip_pool_obj = fip_pool_obj
         return fip_pool_obj
@@ -342,10 +342,10 @@ class VncService(VncCommon):
                 for ipam_subnet in ipam_subnets:
                     subnet_dict = ipam_subnet.__dict__.get('subnet', {})
                     if 'ip_prefix' in subnet_dict.__dict__:
-                       ip_subnet_str = subnet_dict.__dict__.get('ip_prefix','')+'/' \
-                                       +str(subnet_dict.__dict__.get('ip_prefix_len'))
-                       if IPAddress(external_ip) in IPNetwork(ip_subnet_str):
-                           return True
+                        ip_subnet_str = subnet_dict.__dict__.get('ip_prefix','')+'/' \
+                                        +str(subnet_dict.__dict__.get('ip_prefix_len'))
+                        if IPAddress(external_ip) in IPNetwork(ip_subnet_str):
+                            return True
             self.logger.error("external_ip not in fip_pool subnet")
             return False
 
