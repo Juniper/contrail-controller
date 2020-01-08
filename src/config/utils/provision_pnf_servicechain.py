@@ -385,18 +385,18 @@ class PnfScProvisioner(object):
         except NoIdError as e:
             print("Error! LR not found " + (e.message))
             sys.exit(-1)
-	# Add annotations of left-LR UUID and right-LR UUID
-	try:
-	    kvp_array = []
-	    kvp = KeyValuePair("left-lr", left_lr_obj.uuid)
-	    kvp_array.append(kvp)
-	    kvp = KeyValuePair("right-lr",right_lr_obj.uuid)
-	    kvp_array.append(kvp)
-	    kvps = KeyValuePairs()
-	    kvps.set_key_value_pair(kvp_array)
-	    pt_obj.set_annotations(kvps)
-	except AttributeError:
-	    print("Warning: Some attributes of PT missing " + pt_name)
+    # Add annotations of left-LR UUID and right-LR UUID
+    try:
+        kvp_array = []
+        kvp = KeyValuePair("left-lr", left_lr_obj.uuid)
+        kvp_array.append(kvp)
+        kvp = KeyValuePair("right-lr",right_lr_obj.uuid)
+        kvp_array.append(kvp)
+        kvps = KeyValuePairs()
+        kvps.set_key_value_pair(kvp_array)
+        pt_obj.set_annotations(kvps)
+    except AttributeError:
+        print("Warning: Some attributes of PT missing " + pt_name)
         self._vnc_lib.port_tuple_create(pt_obj)
         print("Port Tuple Updated " + (pt_obj.uuid))
     # end add_port_tuple
@@ -414,7 +414,7 @@ class PnfScProvisioner(object):
         # end del_port_tuple
 
     def add_pnf(self):
-	self.add_service_appliance_set()
+        self.add_service_appliance_set()
         self.add_service_template()
         self.add_service_appliance()
         self.add_service_instance()

@@ -6427,7 +6427,7 @@ class DBInterface(object):
             trunk.del_virtual_machine_interface(trunk_port)
             self._vnc_lib.virtual_port_group_update(trunk)
 
-	return trunk
+    return trunk
 
     @catch_convert_exception
     def _trunk_vnc_to_neutron(self, trunk_obj, fields=None):
@@ -6456,11 +6456,11 @@ class DBInterface(object):
             'admin_state_up': trunk_obj.get_id_perms().get_enable(),
             'project_id': trunk_obj.get_perms2().get_owner().replace('-', ''),
             'tenant_id': trunk_obj.get_perms2().get_owner().replace('-', ''),
-	    'created_at': trunk_obj.get_id_perms().get_created(),
-	    'updated_at': trunk_obj.get_id_perms().get_last_modified(),
-	    'port_id': port_id,
-	    'sub_ports': sub_ports,
-	    'status': self._port_get_interface_status(port_obj),
+            'created_at': trunk_obj.get_id_perms().get_created(),
+            'updated_at': trunk_obj.get_id_perms().get_last_modified(),
+            'port_id': port_id,
+            'sub_ports': sub_ports,
+            'status': self._port_get_interface_status(port_obj),
             'name': trunk_obj.display_name
             }
 
