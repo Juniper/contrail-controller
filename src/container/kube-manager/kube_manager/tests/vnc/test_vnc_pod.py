@@ -545,10 +545,10 @@ class VncPodLabelsTest(VncPodTest):
             # TBD: validate tags are available on the VM.
 
     def _validate_label_cache(self, uuid, labels):
-            obj_labels = XLabelCache.get_labels(uuid)
-            for key, value in labels.items():
-                label_key = XLabelCache.get_key(key, value)
-                self.assertIn(label_key, obj_labels)
+        obj_labels = XLabelCache.get_labels(uuid)
+        for key, value in labels.items():
+            label_key = XLabelCache.get_key(key, value)
+            self.assertIn(label_key, obj_labels)
 
     def _add_update_pod(self, action, labels={}, uuid=None):
         self._create_namespace(self.ns_name, None)
