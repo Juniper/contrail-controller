@@ -1,0 +1,250 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0cbbb537_75f17fee",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "This will cause concurrency issue on the PR annotations and risk to loose updated annotation from other requests. You should use \u0027internal_request_prop_collection\u0027 to set/delete key with its value to the annotation map.",
+      "range": {
+        "startLine": 112,
+        "startChar": 16,
+        "endLine": 114,
+        "endChar": 49
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3cf25d22_05d392ce",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "useless, you can access it directly from the class:\n\n cls.db_conn",
+      "range": {
+        "startLine": 119,
+        "startChar": 48,
+        "endLine": 119,
+        "endChar": 55
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "48ece9c1_4a9d059c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "useless, you can access it directly from the class:\n\n cls.server",
+      "range": {
+        "startLine": 119,
+        "startChar": 36,
+        "endLine": 119,
+        "endChar": 46
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ec5e1b47_22c9d425",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "same as above",
+      "range": {
+        "startLine": 139,
+        "startChar": 48,
+        "endLine": 139,
+        "endChar": 55
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a2661819_5565e8f2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "That method is used somewhere? I was not able to find it",
+      "range": {
+        "startLine": 139,
+        "startChar": 8,
+        "endLine": 139,
+        "endChar": 30
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "944f0866_67e3df41",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "same as above",
+      "range": {
+        "startLine": 139,
+        "startChar": 36,
+        "endLine": 139,
+        "endChar": 46
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "14ee1ce1_2bf50ef2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_router.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "You don\u0027t need to create the jo transaction when the BR is created?",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "01ed4f62_a409828e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "you read again LR from DB, you already read it in _make_sure_lrs_belongs_to_different_fabrics",
+      "range": {
+        "startLine": 87,
+        "startChar": 12,
+        "endLine": 89,
+        "endChar": 52
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2a741fdd_29d6ce95",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "Did you copy that method from VMI resource class? It will be better to factorize it a utils/common file instead of duplicating the code",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aadd747b_58839e2a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 180,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "delete that line",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d9f2b0e7_ceeae3aa",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 185,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "limit the read to required fields",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c2b44e89_5d2ad42d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/service_appliance.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T15:56:05Z",
+      "side": 1,
+      "message": "You use display name here?",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
