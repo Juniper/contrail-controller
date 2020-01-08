@@ -2,5 +2,8 @@ requests >= 2.20.0
 bitstring
 netaddr>=0.7.5
 contrail-config-common
+contrail-api-client
 future
 six
+sandesh==0.1dev
+sandesh_common
