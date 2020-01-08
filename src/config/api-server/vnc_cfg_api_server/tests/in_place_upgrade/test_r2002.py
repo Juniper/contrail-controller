@@ -2,6 +2,7 @@
 # Copyright (c) 2020 Juniper Networks, Inc. All rights reserved.
 #
 import logging
+from unittest import skip
 
 from vnc_api.vnc_api import AutonomousSystemsType
 from vnc_api.vnc_api import DeviceChassis
@@ -16,31 +17,22 @@ from vnc_api.vnc_api import JobTemplate
 from vnc_api.vnc_api import PhysicalRouter
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import RoutingBridgingRolesType
+from vnc_api.vnc_api import RoutingInstance
+from vnc_api.vnc_api import ServiceChainInfo
 from vnc_api.vnc_api import SflowParameters, SflowProfile
 from vnc_api.vnc_api import StatsCollectionFrequency
 from vnc_api.vnc_api import StormControlParameters, StormControlProfile
 from vnc_api.vnc_api import TelemetryProfile
+from vnc_api.vnc_api import VirtualNetwork
 
-from vnc_cfg_api_server.tests import test_case
+from vnc_cfg_api_server.tests.in_place_upgrade import test_case
 
 logger = logging.getLogger(__name__)
 
 
-class TestFabricObjects(test_case.ApiServerTestCase):
-    @classmethod
-    def setUpClass(cls, *args, **kwargs):
-        cls.console_handler = logging.StreamHandler()
-        cls.console_handler.setLevel(logging.DEBUG)
-        logger.addHandler(cls.console_handler)
-        super(TestFabricObjects, cls).setUpClass(*args, **kwargs)
-
-    @classmethod
-    def tearDownClass(cls, *args, **kwargs):
-        logger.removeHandler(cls.console_handler)
-        super(TestFabricObjects, cls).tearDownClass(*args, **kwargs)
-
+class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
     def setUp(self):
-        super(TestFabricObjects, self).setUp()
+        super(TestInPlaceUpgradeR2002, self).setUp()
         gsc_fq_name = GlobalSystemConfig().fq_name
         self.gsc = self.api.global_system_config_read(gsc_fq_name)
 
@@ -48,6 +40,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
     def api(self):
         return self._vnc_lib
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_job_template_basic_crud(self):
         jt = JobTemplate(parent_obj=self.gsc)
         uuid = self.api.job_template_create(jt)
@@ -71,6 +64,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
                      'job_completion_weightage']:
             self.assertEqual(getattr(ei1, attr), getattr(ei2, attr))
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_fabric_basic_crud(self):
         f = Fabric(name='f-%s' % self.id(), parent_obj=self.gsc)
         f.set_fabric_os_version('junos')
@@ -85,6 +79,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
         for attr in ['fabric_os_version', 'fabric_enterprise_style']:
             self.assertEqual(getattr(f, attr), getattr(f_updated, attr))
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_device_chassis_basic_crud(self):
         dc = DeviceChassis(name='dc-%s' % self.id())
         dc.set_device_chassis_type('fake_chassis_type')
@@ -97,6 +92,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
         self.assertEqual(dc.device_chassis_type,
                          dc_updated.device_chassis_type)
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_device_functional_group(self):
         project = Project('project-%s' % self.id())
         self.api.project_create(project)
@@ -126,6 +122,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
             .get_rb_roles()
         self.assertListEqual(rb1, rb2)
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_hardware_inventory_basic_crud(self):
         pr = PhysicalRouter(name='pr-%s' % self.id(), parent_obj=self.gsc)
         uuid = self.api.physical_router_create(pr)
@@ -145,6 +142,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
         self.assertEqual(hi.hardware_inventory_inventory_info,
                          hi_updated.hardware_inventory_inventory_info)
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_physical_router_basic_crud(self):
         pr = PhysicalRouter(name='pr-%s' % self.id(), parent_obj=self.gsc)
         pr.set_physical_router_encryption_type('none')
@@ -174,6 +172,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
         # self.assertEqual(pr.physical_router_supplemental_config,
         #                  pr_updated.physical_router_supplemental_config)
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_telemetry_profile_basic_crud(self):
         project = Project('project-%s' % self.id())
         self.api.project_create(project)
@@ -191,6 +190,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
         self.assertFalse(tp_updated.telemetry_profile_is_default)
         self.assertEqual(tp.display_name, tp_updated.display_name)
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_storm_control_profile_basic_crud(self):
         project = Project('project-%s' % self.id())
         self.api.project_create(project)
@@ -236,6 +236,7 @@ class TestFabricObjects(test_case.ApiServerTestCase):
             self.assertEqual(getattr(scp_param1, attr),
                              getattr(scp_param2, attr))
 
+    @skip("Needs to catch/verify already exists exception on create res")
     def test_sflow_profile_basic_crud(self):
         project = Project('project-%s' % self.id())
         self.api.project_create(project)
@@ -282,3 +283,51 @@ class TestFabricObjects(test_case.ApiServerTestCase):
         iface_params = sfp_params.enabled_interface_params[0]
         self.assertEqual(stats_collection_freq,
                          iface_params.stats_collection_frequency)
+
+    @skip("Needs to catch/verify already exists exception on create res")
+    def test_routing_instance_service_chain_info(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self.api.virtual_network_create(vn)
+
+        ri_name = 'ri-%s' % self.id()
+        ri_fq_name = ':'.join(vn.fq_name + [ri_name])
+
+        sci = ServiceChainInfo(
+            service_chain_id=ri_fq_name,
+            prefix=['20.0.0.0/24'],
+            routing_instance=ri_name,
+            service_chain_address='0.255.255.250',
+            service_instance='default-domain:default-project:test_service',
+            sc_head=True)
+
+        sciv6 = ServiceChainInfo(
+            service_chain_id=ri_fq_name,
+            prefix=['1000::/16'],
+            routing_instance=ri_name,
+            service_chain_address='::0.255.255.252',
+            service_instance='default-domain:default-project:test_service_v6',
+            sc_head=False)
+
+        ri = RoutingInstance(name=ri_name,
+                             parent_obj=vn,
+                             service_chain_information=sci,
+                             ipv6_service_chain_information=sciv6,
+                             evpn_service_chain_information=sci,
+                             evpn_ipv6_service_chain_information=sciv6,
+                             routing_instance_is_default=False)
+
+        uuid = self.api.routing_instance_create(ri)
+        ri.set_uuid(uuid)
+        ri_fq_name = vn.fq_name + [ri.name]
+        ri = self.api.routing_instance_read(ri_fq_name)
+        ri.set_display_name('new RI name')
+        self.api.routing_instance_update(ri)
+
+        updated_ri = self.api.routing_instance_read(id=ri.uuid)
+        for attr in ['service_chain_information',
+                     'ipv6_service_chain_information',
+                     'evpn_service_chain_information',
+                     'evpn_ipv6_service_chain_information']:
+            self.assertEqual(getattr(ri, attr), getattr(updated_ri, attr))

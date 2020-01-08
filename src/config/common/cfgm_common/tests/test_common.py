@@ -37,6 +37,7 @@ from vnc_api.vnc_api import *
 import kombu
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
+from cfgm_common import db_json_exim
 from cfgm_common import vnc_cgitb
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.utils import cgitb_hook
@@ -740,7 +741,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     @classmethod
     def setUpClass(cls, extra_mocks=None, extra_config_knobs=None,
-                   db='cassandra'):
+                   db='cassandra', in_place_upgrade_path=None):
+        cls._cluster_id = cls.__name__
+        cls._in_place_upgrade_path = in_place_upgrade_path
         super(TestCase, cls).setUpClass()
 
         cfgm_common.zkclient.LOG_DIR = './'
@@ -750,7 +753,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         # For performance reasons, don't log cassandra requests
         VncCassandraClient._handle_exceptions = fake_wrapper
 
-        cls._cluster_id = cls.__name__
+        # Load DB if JSON DBs dump file is provided
+        cls._load_db_contents()
+
         cls._server_info = create_api_server_instance(
             cls._cluster_id, cls._config_knobs + (extra_config_knobs or []),
             db=db)
@@ -770,9 +775,11 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     @classmethod
     def tearDownClass(cls):
+        # Dump DBs into a JSON file if a path was provided
+        cls._dump_db_contents()
+
         destroy_api_server_instance(cls._server_info)
         teardown_mocks(cls.orig_mocked_values)
-    # end tearDownClass
 
     def setUp(self, extra_mocks=None, extra_config_knobs=None):
         self._logger.info("Running %s" %(self.id()))
@@ -1056,7 +1063,28 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
     #end _security_group_rule_append
 
-# end TestCase
+    @classmethod
+    def _dump_db_contents(cls):
+        if not cls._in_place_upgrade_path:
+            return
+
+        if not os.path.exists(os.path.dirname(cls._in_place_upgrade_path)):
+            os.makedirs(os.path.dirname(cls._in_place_upgrade_path))
+        db_json_exim.DatabaseExim(
+            '--export-to %s --cluster_id %s' % (cls._in_place_upgrade_path,
+                                                cls._cluster_id)
+        ).db_export()
+
+    @classmethod
+    def _load_db_contents(cls):
+        if (not cls._in_place_upgrade_path or
+                not os.path.exists(cls._in_place_upgrade_path)):
+            return
+
+        db_json_exim.DatabaseExim(
+            '--import-from %s --cluster_id %s' % (cls._in_place_upgrade_path,
+                                                  cls._cluster_id)
+        ).db_import()
 
 
 class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
