@@ -4,6 +4,16 @@ from cfgm_common.tests import test_common
 
 
 class ApiServerTestCase(test_common.TestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        super(ApiServerTestCase, cls).setUpClass(*args, **kwargs)
+        cls.load_db_contents()
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        cls.dump_db_contents()
+        super(ApiServerTestCase, cls).tearDownClass(*args, **kwargs)
+
     def setUp(self):
         super(ApiServerTestCase, self).setUp()
         self.ignore_err_in_log = False
