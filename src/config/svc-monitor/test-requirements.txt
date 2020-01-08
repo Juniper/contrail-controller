@@ -5,8 +5,8 @@ testrepository
 mock
 bitarray
 kombu==4.0.2
-gevent==1.1.2
-sandesh
+gevent<1.3.0
+sandesh==0.1dev
 sandesh-common
 contrail-api-client
 contrail-api-server
