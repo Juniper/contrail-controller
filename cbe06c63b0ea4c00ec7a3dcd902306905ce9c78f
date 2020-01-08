@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "eb1369dc_f77be4e2",
+        "filename": "src/config/common/cfgm_common/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T06:46:01Z",
+      "side": 1,
+      "message": "Why are you using native_str here?",
+      "revId": "cbe06c63b0ea4c00ec7a3dcd902306905ce9c78f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "56285098_4ade9459",
+        "filename": "src/config/common/cfgm_common/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 126,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-08T06:46:01Z",
+      "side": 1,
+      "message": "and here?",
+      "revId": "cbe06c63b0ea4c00ec7a3dcd902306905ce9c78f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
