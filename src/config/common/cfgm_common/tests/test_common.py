@@ -543,6 +543,21 @@ def patch_imports(imports):
 
 #end patch_import
 
+def dump_db_contents(cluster_id):
+    # TODO(rado,pablo)
+    from cfgm_common import db_json_exim
+
+    # tests run in ~/contrail/build/debug/config/api-server
+    file_name = "GOLDEN_%s.json" % cluster_id
+    dir_name = "vnc_cfg_api_server/test"
+    path_to_file = "%s/%s" % (dir_name, file_name)
+
+    db_json_exim.DatabaseExim(
+        '--export-to %s --cluster_id %s ' % \
+        (path_to_file, cluster_id)
+    ).db_export()
+
+# end dump_db_contents
 
 def fake_wrapper(self, func, *args, **kwargs):
     def wrapper(*wargs, **wkwargs):
@@ -771,6 +786,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     @classmethod
     def tearDownClass(cls):
         destroy_api_server_instance(cls._server_info)
+        dump_db_contents(cls._cluster_id)
         teardown_mocks(cls.orig_mocked_values)
     # end tearDownClass
 
