@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8b79dad9_48f9953b",
+        "filename": "src/config/svc-monitor/test-requirements.txt",
+        "patchSetId": 1
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-09T14:50:31Z",
+      "side": 1,
+      "message": "What did you need to pin that versions?",
+      "revId": "c3bf892a6472e51d465ee63cd482bedab88d6e23",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
