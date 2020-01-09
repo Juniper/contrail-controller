@@ -33,6 +33,7 @@ from vnc_api.vnc_api import VncApi
 from vnc_api.vnc_api import (
     Fabric,
     PhysicalRouter,
+    PhysicalRole,
     PhysicalInterface,
     VirtualPortGroup,
     DeviceImage,
@@ -186,9 +187,9 @@ mock_upgrade_plan = {
             "name": "device1",
             "physical_role": "spine",
             "rb_roles": [
-                "CRB-Gateway"
+                "DC-Gateway"
             ],
-            "role": "CRB-Gateway@spine",
+            "role": "DC-Gateway@spine",
             "uuid": DEV_UUID1,
             "batch_index": 2
         },
@@ -215,9 +216,9 @@ mock_upgrade_plan = {
             "name": "device4",
             "physical_role": "spine",
             "rb_roles": [
-                "CRB-Gateway"
+                "DC-Gateway"
             ],
-            "role": "CRB-Gateway@spine",
+            "role": "DC-Gateway@spine",
             "uuid": DEV_UUID4,
             "batch_index": 3
         },
@@ -430,7 +431,7 @@ mock_physical_router_db = {
     DEV_UUID1: {
         "display_name": "device_1",
         "physical_router_role": "spine",
-        "routing_bridging_roles": ["CRB-Gateway"],
+        "routing_bridging_roles": ["DC-Gateway"],
         "fq_name": [DGSC, "device_1"],
         "physical_router_vendor_name": "juniper",
         "physical_router_device_family": "qfx",
@@ -472,7 +473,7 @@ mock_physical_router_db = {
     DEV_UUID4: {
         "display_name": "device_4",
         "physical_router_role": "spine",
-        "routing_bridging_roles": ["CRB-Gateway"],
+        "routing_bridging_roles": ["DC-Gateway"],
         "fq_name": [DGSC, "device_4"],
         "physical_router_vendor_name": "juniper",
         "physical_router_device_family": "qfx",
@@ -837,7 +838,7 @@ mock_job_templates_list = {
 
 mock_upgrade_plan_result = {
     'status': 'success',
-    'results': "\n********** Summary *************\n\nTotal estimated duration is 2:00:00.\n\nNote that this time estimate may vary depending on network speeds and system capabilities.\nThe following batches of devices will be upgraded in the order listed:\n\nBatch 1:\n  device_2  17.1.1 --> 17.1.2  \n  device_5  17.1.1 --> 17.1.2  \n  device_7  17.1.1 --> 17.1.2  \n  device_8  17.1.1 --> 17.1.2  \n\nBatch 2:\n  device_3  17.1.1 --> 17.1.2  \n  device_6  17.1.1 --> 17.1.2  \n\nBatch 3:\n  device_1  17.1.1 --> 17.1.2  \n\nBatch 4:\n  device_4  17.1.1 --> 17.1.2  \n\n\n******** Details ************\n\nDetailed information for the devices to be upgraded is listed below:\n\n  - device_1\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e511\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.1\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: []\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 3\n    is hitless?      : True\n\n  - device_2\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e512\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.2\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e513']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_3\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e513\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.3\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e512']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_4\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e514\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.4\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: []\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 4\n    is hitless?      : True\n\n  - device_5\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e515\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.5\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e516']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_6\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e516\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.6\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e515']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_7\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e517\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.7\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_8\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e518\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.8\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n",
+    'results': "\n********** Summary *************\n\nTotal estimated duration is 2:00:00.\n\nNote that this time estimate may vary depending on network speeds and system capabilities.\nThe following batches of devices will be upgraded in the order listed:\n\nBatch 1:\n  device_2  17.1.1 --> 17.1.2  \n  device_5  17.1.1 --> 17.1.2  \n  device_7  17.1.1 --> 17.1.2  \n  device_8  17.1.1 --> 17.1.2  \n\nBatch 2:\n  device_3  17.1.1 --> 17.1.2  \n  device_6  17.1.1 --> 17.1.2  \n\nBatch 3:\n  device_1  17.1.1 --> 17.1.2  \n\nBatch 4:\n  device_4  17.1.1 --> 17.1.2  \n\n\n******** Details ************\n\nDetailed information for the devices to be upgraded is listed below:\n\n  - device_1\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e511\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.1\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: [u'DC-Gateway']\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 3\n    is hitless?      : True\n\n  - device_2\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e512\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.2\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e513']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_3\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e513\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.3\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e512']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_4\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e514\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.4\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: [u'DC-Gateway']\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 4\n    is hitless?      : True\n\n  - device_5\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e515\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.5\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e516']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_6\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e516\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.6\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e515']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_7\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e517\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.7\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_8\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e518\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.8\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n",
     'vpg_table': {
         'dfb0cd32-46ca-4996-b155-806878d4e521': {
             'name': 'vpg_1',
@@ -870,7 +871,7 @@ mock_upgrade_plan_result = {
             }
         }
     },
-    'report': "\n********** Summary *************\n\nTotal estimated duration is 2:00:00.\n\nNote that this time estimate may vary depending on network speeds and system capabilities.\nThe following batches of devices will be upgraded in the order listed:\n\nBatch 1:\n  device_2  17.1.1 --> 17.1.2  \n  device_5  17.1.1 --> 17.1.2  \n  device_7  17.1.1 --> 17.1.2  \n  device_8  17.1.1 --> 17.1.2  \n\nBatch 2:\n  device_3  17.1.1 --> 17.1.2  \n  device_6  17.1.1 --> 17.1.2  \n\nBatch 3:\n  device_1  17.1.1 --> 17.1.2  \n\nBatch 4:\n  device_4  17.1.1 --> 17.1.2  \n\n\n******** Details ************\n\nDetailed information for the devices to be upgraded is listed below:\n\n  - device_1\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e511\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.1\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: []\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 3\n    is hitless?      : True\n\n  - device_2\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e512\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.2\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e513']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_3\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e513\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.3\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e512']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_4\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e514\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.4\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: []\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 4\n    is hitless?      : True\n\n  - device_5\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e515\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.5\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e516']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_6\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e516\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.6\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e515']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_7\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e517\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.7\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_8\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e518\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.8\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: []\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n",
+    'report': "\n********** Summary *************\n\nTotal estimated duration is 2:00:00.\n\nNote that this time estimate may vary depending on network speeds and system capabilities.\nThe following batches of devices will be upgraded in the order listed:\n\nBatch 1:\n  device_2  17.1.1 --> 17.1.2  \n  device_5  17.1.1 --> 17.1.2  \n  device_7  17.1.1 --> 17.1.2  \n  device_8  17.1.1 --> 17.1.2  \n\nBatch 2:\n  device_3  17.1.1 --> 17.1.2  \n  device_6  17.1.1 --> 17.1.2  \n\nBatch 3:\n  device_1  17.1.1 --> 17.1.2  \n\nBatch 4:\n  device_4  17.1.1 --> 17.1.2  \n\n\n******** Details ************\n\nDetailed information for the devices to be upgraded is listed below:\n\n  - device_1\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e511\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.1\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: [u'DC-Gateway']\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 3\n    is hitless?      : True\n\n  - device_2\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e512\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.2\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e513']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_3\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e513\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.3\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e521']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e512']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_4\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e514\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.4\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : mx\n    physical role    : spine\n    routing bridging roles: [u'DC-Gateway']\n    role             : spine\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 4\n    is hitless?      : True\n\n  - device_5\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e515\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.5\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e516']\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_6\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e516\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.6\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : [u'dfb0cd32-46ca-4996-b155-806878d4e522']\n    vpg peers        : [u'dfb0cd32-46ca-4996-b155-806878d4e515']\n    batch            : Batch 2\n    is hitless?      : True\n\n  - device_7\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e517\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.7\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n\n  - device_8\n    uuid             : dfb0cd32-46ca-4996-b155-806878d4e518\n    vendor           : juniper\n    family           : qfx\n    product          : qfx-10000\n    serial number    : 12345\n    management ip    : 1.1.1.8\n    username         : root\n    password         : ** hidden **\n    new image version: 17.1.2\n    current image version: 17.1.1\n    image family     : qfx\n    physical role    : leaf\n    routing bridging roles: [u'CRB-Access']\n    role             : leaf\n    vpg list         : []\n    vpg peers        : []\n    batch            : Batch 1\n    is hitless?      : True\n",
     'role_device_groups': {
         'spine': ['dfb0cd32-46ca-4996-b155-806878d4e511',
                   'dfb0cd32-46ca-4996-b155-806878d4e514'],
@@ -913,7 +914,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_1',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e511',
-            'rb_roles': [],
+            'rb_roles': ['DC-Gateway'],
             'vpg_info': {
                 'buddies': [],
                 'vpg_list': []
@@ -942,7 +943,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_4',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e514',
-            'rb_roles': [],
+            'rb_roles': ['DC-Gateway'],
             'vpg_info': {
                 'buddies': [],
                 'vpg_list': []
@@ -971,7 +972,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_2',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e512',
-            'rb_roles': [],
+            'rb_roles': ['CRB-Access'],
             'vpg_info': {
                 'buddies': [{
                     'username': 'root',
@@ -1008,7 +1009,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_3',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e513',
-            'rb_roles': [],
+            'rb_roles': ['CRB-Access'],
             'vpg_info': {
                 'buddies': [{
                     'username': 'root',
@@ -1045,7 +1046,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_5',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e515',
-            'rb_roles': [],
+            'rb_roles': ['CRB-Access'],
             'vpg_info': {
                 'buddies': [{
                     'username': 'root',
@@ -1082,7 +1083,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_6',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e516',
-            'rb_roles': [],
+            'rb_roles': ['CRB-Access'],
             'vpg_info': {
                 'buddies': [{
                     'username': 'root',
@@ -1119,7 +1120,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_7',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e517',
-            'rb_roles': [],
+            'rb_roles': ['CRB-Access'],
             'vpg_info': {
                 'buddies': [],
                 'vpg_list': []
@@ -1148,7 +1149,7 @@ mock_upgrade_plan_result = {
             'image_version': '17.1.2',
             'name': 'device_8',
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e518',
-            'rb_roles': [],
+            'rb_roles': ['CRB-Access'],
             'vpg_info': {
                 'buddies': [],
                 'vpg_list': []
@@ -1448,11 +1449,22 @@ mock_device_info_result = {
             },
             'err_msgs': [],
             'physical_role': 'spine',
-            'rb_roles': [],
+            'rb_roles': ['DC-Gateway'],
             'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e511'
         }
     }
 }
+
+mock_validate_result = {
+    'error_msg': "Fabric is hitless",
+    'status': "success"
+}
+
+mock_validate_result_failure = {
+    'error_msg': "Fabric will not be hitless because these roles will no longer be deployed",
+    'status': "failure"
+}
+
 
 class TestHitlessUpgradeFilters(test_case.JobTestCase):
     fake_zk_client = FakeKazooClient()
@@ -1478,6 +1490,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
 
     def init_test(self):
         self.mockFabric()
+        self.mockPhysicalRoles()
         for id, val in list(mock_device_image_db.items()):
             self.mockDeviceImage(id)
         for id, val in list(mock_physical_router_db.items()):
@@ -1527,6 +1540,18 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 buddy['password'] = '***'
         self.assertEqual(mock_device_info_result, device_info)
 
+    def test_validate_critical_roles(self):
+        hitless_filter = FilterModule()
+        result = hitless_filter.validate_critical_roles(mock_job_ctx,
+                                                        [DEV_UUID1])
+        self.assertEqual(mock_validate_result, result)
+        result = hitless_filter.validate_critical_roles(mock_job_ctx,
+                                                        [DEV_UUID1,DEV_UUID4])
+        self.assertIn(mock_validate_result_failure['error_msg'],
+                      result['error_msg'])
+        self.assertIn('DC-Gateway', result['error_msg'])
+        self.assertIn('spine', result['error_msg'])
+
     def mockFabric(self):
         try:
             fabric_obj = Fabric(name='fab01')
@@ -1545,6 +1570,19 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
             logger.info("Fabric {} already exists".format('fab01'))
         except Exception as ex:
             logger.error("ERROR creating fabric {}: {}".format('fab01', ex))
+        finally:
+            self.fabric_obj = self._vnc_lib.fabric_read(id=FAB_UUID1)
+
+    def mockPhysicalRoles(self):
+        try:
+            phy_role_leaf = PhysicalRole(name='leaf')
+            self._vnc_lib.physical_role_create(phy_role_leaf)
+            phy_role_spine = PhysicalRole(name='spine')
+            self._vnc_lib.physical_role_create(phy_role_spine)
+        except RefsExistError:
+            logger.info("Physical role already exists")
+        except Exception as ex:
+            logger.error("ERROR creating physical role: {}".format(ex))
 
     def mockJobTemplate(self, fqname):
         try:
@@ -1581,7 +1619,7 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 name = device['fq_name'][-1],
                 display_name = device["display_name"],
                 physical_router_role = device["physical_router_role"],
-                routing_bridging_roles = RoutingBridgingRolesType(rb_role=device['routing_bridging_roles']),
+                routing_bridging_roles = RoutingBridgingRolesType(rb_roles=device['routing_bridging_roles']),
                 physical_router_user_credentials = UserCredentials(username='root',
                                        password='c0ntrail123'),
                 fq_name = device["fq_name"],
@@ -1593,6 +1631,9 @@ class TestHitlessUpgradeFilters(test_case.JobTestCase):
                 physical_router_os_version = device["physical_router_os_version"]
             )
             device_obj.uuid = id
+            device_obj.add_fabric(self.fabric_obj)
+            phy_role = self._vnc_lib.physical_role_read(fq_name=['default-global-system-config',device["physical_router_role"]])
+            device_obj.set_physical_role(phy_role)
             self._vnc_lib.physical_router_create(device_obj)
         except RefsExistError:
             logger.info("Physical router {} already exists".format(id))
