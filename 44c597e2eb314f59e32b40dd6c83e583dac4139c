@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "bf9fa9cf_26a050fd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Need time to work on this. Posting all the other comments first.",
+      "parentUuid": "0cbbb537_75f17fee",
+      "range": {
+        "startLine": 112,
+        "startChar": 16,
+        "endLine": 114,
+        "endChar": 49
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3cf25d22_05d392ce",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
         "patchSetId": 33
@@ -68,6 +92,54 @@
       "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e12450c1_405199ed",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "48ece9c1_4a9d059c",
+      "range": {
+        "startLine": 119,
+        "startChar": 36,
+        "endLine": 119,
+        "endChar": 46
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0a6c90b0_39a1d544",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "3cf25d22_05d392ce",
+      "range": {
+        "startLine": 119,
+        "startChar": 48,
+        "endLine": 119,
+        "endChar": 55
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -140,6 +212,78 @@
     },
     {
       "key": {
+        "uuid": "a59980b2_8bbbe8cd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "This function never got used, so removing",
+      "parentUuid": "a2661819_5565e8f2",
+      "range": {
+        "startLine": 139,
+        "startChar": 8,
+        "endLine": 139,
+        "endChar": 30
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "2f8ec4f3_b1d85500",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "944f0866_67e3df41",
+      "range": {
+        "startLine": 139,
+        "startChar": 36,
+        "endLine": 139,
+        "endChar": 46
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "e50a88b0_3b9f2e71",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/_transaction_base.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ec5e1b47_22c9d425",
+      "range": {
+        "startLine": 139,
+        "startChar": 48,
+        "endLine": 139,
+        "endChar": 55
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "14ee1ce1_2bf50ef2",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_router.py",
         "patchSetId": 33
@@ -154,6 +298,24 @@
       "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1a7caa66_2066f69e",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_router.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "BR object is created/deleted when the PR object is create/deleted, so there is no additional config push in these cases. Only the BR update is of interest.",
+      "parentUuid": "14ee1ce1_2bf50ef2",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -180,6 +342,30 @@
     },
     {
       "key": {
+        "uuid": "676e3a74_33334f1d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/data_center_interconnect.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "01ed4f62_a409828e",
+      "range": {
+        "startLine": 87,
+        "startChar": 12,
+        "endLine": 89,
+        "endChar": 52
+      },
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "2a741fdd_29d6ce95",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
         "patchSetId": 33
@@ -194,6 +380,24 @@
       "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "40ed3d3f_8d342a78",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "2a741fdd_29d6ce95",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -214,6 +418,24 @@
     },
     {
       "key": {
+        "uuid": "f428e212_1967a389",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 180,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "aadd747b_58839e2a",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d9f2b0e7_ceeae3aa",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
         "patchSetId": 33
@@ -231,6 +453,24 @@
     },
     {
       "key": {
+        "uuid": "512dfe01_f5e454ac",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/security_group.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 185,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "d9f2b0e7_ceeae3aa",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c2b44e89_5d2ad42d",
         "filename": "src/config/api-server/vnc_cfg_api_server/resources/service_appliance.py",
         "patchSetId": 33
@@ -245,6 +485,24 @@
       "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "775c663a_98819c92",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/service_appliance.py",
+        "patchSetId": 33
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-09T01:13:18Z",
+      "side": 1,
+      "message": "The SA display name is different from the name. The display_name lines up with what is shown in the UI, so I used display_name",
+      "parentUuid": "c2b44e89_5d2ad42d",
+      "revId": "44c597e2eb314f59e32b40dd6c83e583dac4139c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
