@@ -41,7 +41,7 @@ class L3GatewayFeature(FeatureBase):
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
             is_public_network=vn.router_external, routing_instance_type='vrf')
 
-        for prefix in vn.get_prefixes():
+        for prefix in vn.get_prefixes(self._physical_router.uuid):
             ri.add_prefixes(self._get_subnet_for_cidr(prefix))
 
         _, li_map = self._add_or_lookup_pi(self.pi_map, 'irb', 'irb')
