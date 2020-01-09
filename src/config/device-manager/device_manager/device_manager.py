@@ -37,7 +37,8 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, \
-    InstanceIpDM, LinkAggregationGroupDM, LogicalInterfaceDM, \
+    InstanceIpDM, InterfaceRouteTableDM, \
+    LinkAggregationGroupDM, LogicalInterfaceDM, \
     LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
     OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
     PhysicalRouterDM, PortDM, PortProfileDM, PortTupleDM, RoleConfigDM, \
@@ -45,8 +46,8 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
     ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, SflowProfileDM, \
     StormControlProfileDM, TagDM, TelemetryProfileDM, \
-    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM, \
-    InterfaceRouteTableDM
+    VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
+
 from .device_conf import DeviceConf
 from .dm_amqp import DMAmqpHandle
 from .dm_utils import PushConfigState
