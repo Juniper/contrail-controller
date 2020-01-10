@@ -20,6 +20,7 @@ import struct
 from time import gmtime, strftime
 import traceback
 
+from abstract_device_api.abstract_device_xsd import *
 from attrdict import AttrDict
 from cfgm_common import vnc_greenlets
 from cfgm_common.exceptions import ResourceExistsError
@@ -722,6 +723,11 @@ class PhysicalRouterDM(DBBaseDM):
     def reserve_ip(self, vn_uuid, subnet_uuid):
         try:
             vn = VirtualNetwork()
+            vn_obj = VirtualNetworkDM.get(vn_uuid)
+            if vn_obj and vn_obj.virtual_network_category == 'routed':
+                for route_param in vn_obj.routed_properties or []:
+                    if self.uuid == route_param.get('physical_router_uuid'):
+                        return route_param.get('routed_interface_ip_address')
             vn.set_uuid(vn_uuid)
             ip_addr = self._manager._vnc_lib.virtual_network_ip_alloc(
                 vn,
@@ -737,6 +743,9 @@ class PhysicalRouterDM(DBBaseDM):
     def free_ip(self, vn_uuid, ip_addr):
         try:
             vn = VirtualNetwork()
+            vn_obj = VirtualNetworkDM.get(vn_uuid)
+            if vn_obj.virtual_network_category == 'routed':
+                return True
             vn.set_uuid(vn_uuid)
             ip_addr = ip_addr.split('/')[0]
             self._manager._vnc_lib.virtual_network_ip_free(
@@ -836,6 +845,8 @@ class PhysicalRouterDM(DBBaseDM):
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
             if use_gateway_ip:
+                if vn.virtual_network_category == 'routed':
+                    continue
                 ip_addr = vn.gateways[subnet_prefix].get('default_gateway')
             else:
                 # check if ip has prefix Fe80 then use internal ipv6 link
@@ -1120,6 +1131,75 @@ class PhysicalRouterDM(DBBaseDM):
         pr_msg.send(sandesh=DBBaseDM._sandesh)
     # end uve_send
 
+    def _set_internal_vn_routed_bgp_info(self, ri, vn_obj, routed_param):
+        protocols = RoutingInstanceProtocols()
+        bfd_info = routed_param.get('bfd_params', None)
+        bgp_info = routed_param.get('bgp_params', None)
+        if not bgp_info:
+            return
+        bgp_name = vn_obj.name + '_bgp'
+        peer_bgp = Bgp(name=bgp_info.get('peer_ip_address'),
+                       autonomous_system=bgp_info.get(
+                           'peer_autonomous_system'),
+                       ip_address=bgp_info.get('peer_ip_address'))
+        key = ''
+        auth_key_data = bgp_info.get('auth_data', None)
+        if auth_key_data:
+            for key_data in auth_key_data.get('key_items', []):
+                key = key_data.get('key', '')
+                if key.lower().startswith(('$9$', '$1$', '$5$', '$6$')):
+                    key = '"%s"' % key
+
+        bgp = Bgp(name=bgp_name,
+                  type_="external",
+                  autonomous_system=bgp_info.get('local_autonomous_system'),
+                  authentication_key=key)
+
+        bgp.add_peers(peer_bgp)
+        bgp.set_comment('Routed VN BGP info')
+        if bfd_info:
+            bfd = Bfd(rx_tx_interval=bfd_info.get('time_interval'),
+                      detection_time_multiplier=bfd_info.get(
+                          'detection_time_multiplier'))
+            bgp.set_bfd(bfd)
+        protocols.add_bgp(bgp)
+        ri.add_protocols(protocols)
+    # end set_internal_vn_routed_bgp_info
+
+    def _set_routed_vn_static_route_info(self, ri, vn_obj, routed_param):
+        static_route = routed_param.get('static_route_params', None)
+        if static_route is None:
+            return
+        irt_uuid = static_route.get('interface_route_table_uuid', None)
+        ip_prefix = set()
+        for irt in irt_uuid or []:
+            irt_obj = InterfaceRouteTableDM.get(irt)
+            if irt_obj:
+                for prefix in irt_obj.prefix.keys():
+                    ip_prefix.add(prefix)
+        for ip in ip_prefix:
+            route = Route(prefix=ip,
+                          prefix_len=32,
+                          next_hop=static_route.get('next_hop_ip_address')[-1],
+                          comment='')
+            ri.add_static_routes(route)
+    # end set_routed_vn_static_route_info
+
+    def set_routing_vn_proto_in_ri(self, ri, vn_list):
+        for vn in vn_list or []:
+            vn_obj = VirtualNetworkDM.get(vn)
+            if vn_obj is None or vn_obj.virtual_network_category != 'routed':
+                continue
+            for route_param in vn_obj.routed_properties or []:
+                if self.uuid == route_param.get('physical_router_uuid'):
+                    if route_param.get('routing_protocol') == 'bgp':
+                        self._set_internal_vn_routed_bgp_info(ri, vn_obj,
+                                                              route_param)
+                    elif route_param.get('routing_protocol') \
+                            == 'static-routes':
+                        self._set_routed_vn_static_route_info(ri, vn_obj,
+                                                              route_param)
+    # end set_routing_vn_proto_in_ri
 # end PhysicalRouterDM
 
 
@@ -1549,6 +1629,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.floating_ip = None
         self.instance_ip = None
         self.logical_interfaces = set()
+        self.interface_route_tables = set()
         self.physical_interface = None
         self.vlan_tag = None
         self.service_interface_type = None
@@ -1600,6 +1681,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.update_multiple_refs('routing_instance', obj)
         self.update_multiple_refs('security_group', obj)
         self.update_multiple_refs('port_profile', obj)
+        self.update_multiple_refs('interface_route_table', obj)
         self.update_single_ref('port_tuple', obj)
         self.service_instance = None
         if self.port_tuple:
@@ -1629,6 +1711,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('logical_interface', {})
+        obj.update_multiple_refs('interface_route_table', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('floating_ip', {})
         obj.update_single_ref('instance_ip', {})
@@ -1656,6 +1739,7 @@ class LogicalRouterDM(DBBaseDM):
         self.dhcp_relay_servers = set()
         # internal virtual-network
         self.virtual_network = None
+        self.logical_router_is_default = None
         self.port_tuples = set()
         self.update(obj_dict)
     # end __init__
@@ -1680,19 +1764,33 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('port_tuple', obj)
         self.fq_name = obj['fq_name']
         self.name = self.fq_name[-1]
+        self.logical_router_is_default = obj.get('logical_router_is_default')
     # end update
 
     def get_internal_vn_name(self):
         return '__contrail_' + self.uuid + '_lr_internal_vn__'
     # end get_internal_vn_name
 
-    def get_connected_networks(self, include_internal=True):
+    def is_pruuid_in_routed_vn(self, pr_uuid, vn):
+        if pr_uuid:
+            for route_param in vn.routed_properties or []:
+                if pr_uuid == route_param.get('physical_router_uuid'):
+                    return True
+        return False
+
+    def get_connected_networks(self, include_internal=True, pr_uuid=None):
         vn_list = []
         if include_internal and self.virtual_network:
             vn_list.append(self.virtual_network)
         for vmi_uuid in self.virtual_machine_interfaces or []:
             vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
             if vmi and vmi.virtual_network:
+                vm_obj = VirtualNetworkDM.get(vmi.virtual_network)
+                if vm_obj:
+                    if vm_obj.virtual_network_category == 'routed':
+                        if self.is_pruuid_in_routed_vn(pr_uuid,
+                                                       vm_obj) == False:
+                            continue
                 vn_list.append(vmi.virtual_network)
         return vn_list
     # end get_connected_networks
@@ -1779,6 +1877,8 @@ class VirtualNetworkDM(DBBaseDM):
         self.route_targets = None
         self.has_ipv6_subnet = False
         self.ipv6_ll_vn_id = None
+        self.virtual_network_category = None
+        self.routed_properties = None
         self.update(obj_dict)
     # end __init__
 
@@ -1854,6 +1954,11 @@ class VirtualNetworkDM(DBBaseDM):
             DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
         return gateways, net_obj.get_uuid()
 
+    def get_routed_properties(self, obj):
+        vn_routed_props = obj.get('virtual_network_routed_properties', None)
+        if vn_routed_props:
+            self.routed_properties = vn_routed_props['routed_properties']
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
@@ -1876,7 +1981,13 @@ class VirtualNetworkDM(DBBaseDM):
                                       obj.get('routing_instances', [])])
         (self.gateways, self.has_ipv6_subnet) = \
             DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
-
+        self.virtual_network_category = obj.get('virtual_network_category')
+        if self.virtual_network_category == 'routed':
+            self.get_routed_properties(obj)
+            # hack need to be removed once API sever code is fixed.
+            # for routed VN DM should not get default gateway
+            for key in self.gateways.keys():
+                self.gateways[key]['default_gateway'] = ''
         # special case for ipv6 internal link local VN
         # Need to store vn and subnet info into db to fetch later.
         # For use defined VN with ipv6 subnet gateways field need to be
@@ -1916,14 +2027,15 @@ class VirtualNetworkDM(DBBaseDM):
             lr = LogicalRouterDM.get(self.logical_router)
         if not lr or not lr.logical_router_gateway_external:
             return set(self.gateways.keys())
-        vn_list = lr.get_connected_networks(include_internal=False)
+        vn_list = lr.get_connected_networks(include_internal=False,
+                                            pr_uuid=pr_uuid)
         prefix_set = set()
         if self.gateways and list(self.gateways.keys()):
             prefix_set = set(self.gateways.keys())
         for vn in vn_list:
             vn_obj = VirtualNetworkDM.get(vn)
             if vn_obj:
-                prefixes = vn_obj.get_prefixes()
+                prefixes = vn_obj.get_prefixes(pr_uuid)
                 if prefixes:
                     prefix_set = prefix_set.union(prefixes)
         return prefix_set
@@ -2576,7 +2688,7 @@ class DataCenterInterconnectDM(DBBaseDM):
         return set(pr_list)
     # end get_dci_peers
 
-    def get_connected_lr_internal_vns(self, exclude_lr=None):
+    def get_connected_lr_internal_vns(self, exclude_lr=None, pr_uuid=None):
         vn_list = []
         for lr_uuid in self.logical_routers or []:
             if exclude_lr == lr_uuid:
@@ -2586,7 +2698,7 @@ class DataCenterInterconnectDM(DBBaseDM):
                 vn = VirtualNetworkDM.get(lr.virtual_network)
                 if vn:
                     vn_list.append(vn)
-            client_vns = lr.get_connected_networks(False)
+            client_vns = lr.get_connected_networks(False, pr_uuid)
             for vn_id in client_vns or []:
                 vn = VirtualNetworkDM.get(vn_id)
                 if vn:
@@ -3221,6 +3333,73 @@ class PeeringPolicyDM(DBBaseDM):
         obj.update_multiple_refs('e2_service_provider', {})
         del cls._dict[uuid]
 # end class PeeringPolicyDM
+
+
+class RoutingPolicyDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'routing_policy'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.routing_policy_entries = {}
+        self.virtual_networks = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        if obj.get('virtual_network_back_refs') is not None:
+            self.update_multiple_refs('virtual_network', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        self.update_multiple_refs('virtual_network', {})
+        del cls._dict[uuid]
+    # end delete
+# end RoutingPolicyDM
+
+
+class InterfaceRouteTableDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'interface_route_table'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.prefix = {}
+        self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def get_route_prefix(self, routes):
+        route_list = routes.get('route', [])
+        for route in route_list or []:
+            self.prefix[route['prefix']] = route['community_attributes']
+            ['community_attribute'][-1]
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.get_route_prefix(obj.get('interface_route_table_routes', {}))
+        if obj.get('virtual_machine_interface_back_refs') is not None:
+            self.update_multiple_refs('virtual_machine_interface', obj)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        self.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end InterfaceRouteTableDM
 
 
 class DMCassandraDB(VncObjectDBClient):

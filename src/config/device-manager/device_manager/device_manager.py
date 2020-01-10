@@ -37,14 +37,15 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, \
-    InstanceIpDM, LinkAggregationGroupDM, LogicalInterfaceDM, \
+    InstanceIpDM, InterfaceRouteTableDM, \
+    LinkAggregationGroupDM, LogicalInterfaceDM, \
     LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
     OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
     PhysicalRouterDM, PortDM, PortProfileDM, PortTupleDM, RoleConfigDM, \
-    RoleDefinitionDM, RoutingInstanceDM, SecurityGroupDM, ServiceApplianceDM, \
-    ServiceApplianceSetDM, ServiceConnectionModuleDM, ServiceEndpointDM, \
-    ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM, SflowProfileDM, \
-    StormControlProfileDM, TagDM, TelemetryProfileDM, \
+    RoleDefinitionDM, RoutingInstanceDM, RoutingPolicyDM, SecurityGroupDM, \
+    ServiceApplianceDM, ServiceApplianceSetDM, ServiceConnectionModuleDM, \
+    ServiceEndpointDM, ServiceInstanceDM, ServiceObjectDM, ServiceTemplateDM \
+    SflowProfileDM, tormControlProfileDM, TagDM, TelemetryProfileDM, \
     VirtualMachineInterfaceDM, VirtualNetworkDM, VirtualPortGroupDM
 from .device_conf import DeviceConf
 from .dm_amqp import DMAmqpHandle
@@ -168,6 +169,7 @@ class DeviceManager(object):
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface', 'virtual_port_group'],
             'port_profile': ['virtual_port_group'],
+            'interface_route_table': ['logical_router'],
         },
         'security_group': {
             'self': [],
@@ -222,6 +224,7 @@ class DeviceManager(object):
             'virtual_machine_interface': ['physical_router'],
             'floating_ip_pool': ['physical_router'],
             'network_ipam': ['tag']
+            'routing_policy': ['virtual_machine_interface'],
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network', 'port_tuple'],
@@ -293,6 +296,12 @@ class DeviceManager(object):
         'port': {
             'self': ['physical_interface'],
             'tag': ['physical_interface'],
+        },
+        'interface_route_table': {
+            'self': ['virtual_machine_interface'],
+        },
+        'routing_policy': {
+            'self': ['virtual_network'],
         },
     }
 
@@ -437,6 +446,8 @@ class DeviceManager(object):
         NetworkDeviceConfigDM.locate_all()
         E2ServiceProviderDM.locate_all()
         PeeringPolicyDM.locate_all()
+        InterfaceRouteTableDM.locate_all()
+        RoutingPolicyDM.locate_all()
 
         pr_obj_list = PhysicalRouterDM.list_obj()
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
