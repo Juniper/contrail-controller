@@ -37,7 +37,7 @@ class VnInterconnectFeature(FeatureBase):
         for vn in vn_list:
             for dhcp_ip in dhcp_server_list:
                 vn_obj = db.VirtualNetworkDM.get(vn)
-                ip_prefixes = vn_obj.get_prefixes()
+                ip_prefixes = vn_obj.get_prefixes(self._physical_router.uuid)
                 for ip_prefix in ip_prefixes:
                     if IPAddress(dhcp_ip) in IPNetwork(ip_prefix):
                         return True
@@ -53,7 +53,9 @@ class VnInterconnectFeature(FeatureBase):
             if not lr or not lr.virtual_network or \
                     not self._is_valid_vn(lr.virtual_network, 'l3'):
                 continue
-            vn_list = lr.get_connected_networks(include_internal=False)
+            vn_list = lr.get_connected_networks(include_internal=False,
+                                                pr_uuid=self.
+                                                _physical_router.uuid)
             vn_map[lr.virtual_network] = [
                 vn for vn in vn_list if self._is_valid_vn(vn, 'l3')]
             if self._dhcp_server_exists(lr):
@@ -122,7 +124,6 @@ class VnInterconnectFeature(FeatureBase):
 
             ri = self._build_ri_config(vn_obj, ri_name, ri_obj, export_targets,
                                        import_targets, vn_list)
-
             if dhcp_servers.get(internal_vn):
                 in_network = self._is_dhcp_server_in_same_network(
                     dhcp_servers[internal_vn], vn_list)
@@ -132,6 +133,8 @@ class VnInterconnectFeature(FeatureBase):
                 ri.set_forwarding_options(fwd_options)
                 rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
+
+            self._physical_router.set_routing_vn_proto_in_ri(ri, vn_list)
 
             feature_config.add_routing_instances(ri)
 
