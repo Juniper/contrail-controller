@@ -37,7 +37,8 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, \
-    InstanceIpDM, LinkAggregationGroupDM, LogicalInterfaceDM, \
+    InstanceIpDM, InterfaceRouteTableDM, \
+    LinkAggregationGroupDM, LogicalInterfaceDM, \
     LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
     OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
     PhysicalRouterDM, PortDM, PortProfileDM, PortTupleDM, RoleConfigDM, \
@@ -168,6 +169,7 @@ class DeviceManager(object):
             'service_endpoint': ['physical_router'],
             'security_group': ['logical_interface', 'virtual_port_group'],
             'port_profile': ['virtual_port_group'],
+            'interface_route_table': ['virtual_network'],
         },
         'security_group': {
             'self': [],
@@ -293,6 +295,9 @@ class DeviceManager(object):
         'port': {
             'self': ['physical_interface'],
             'tag': ['physical_interface'],
+        },
+        'interface_route_table': {
+            'self': ['virtual_machine_interface'],
         },
     }
 
@@ -437,6 +442,7 @@ class DeviceManager(object):
         NetworkDeviceConfigDM.locate_all()
         E2ServiceProviderDM.locate_all()
         PeeringPolicyDM.locate_all()
+        InterfaceRouteTableDM.locate_all()
 
         pr_obj_list = PhysicalRouterDM.list_obj()
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
