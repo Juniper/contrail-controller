@@ -357,6 +357,11 @@ class DMUtils(object):
                (bgp_obj.name, bgp_obj.uuid)
 
     @staticmethod
+    def routing_policy_comment(rp_obj):
+        return "/* routing_policy: %s, UUID: %s */" % \
+               (rp_obj.name, rp_obj.uuid)
+
+    @staticmethod
     def dci_bgp_group_comment(bgp):
         return "/* overlay_bgp: DCI BGP Router: %s */" % (bgp.name)
 

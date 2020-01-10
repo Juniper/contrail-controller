@@ -44,10 +44,11 @@ class L3GatewayFeature(FeatureBase):
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
             is_public_network=vn.router_external, routing_instance_type='vrf')
 
-        for prefix in vn.get_prefixes():
+        for prefix in vn.get_prefixes(self._physical_router.uuid):
             ri.add_prefixes(self._get_subnet_for_cidr(prefix))
 
         _, li_map = self._add_or_lookup_pi(self.pi_map, 'irb', 'irb')
+        irb = None
         if irb_ips:
             irb = self._add_or_lookup_li(li_map, 'irb.' + str(network_id),
                                          network_id)
@@ -58,7 +59,8 @@ class L3GatewayFeature(FeatureBase):
         desc = "Virtual Network - %s" % vn.name
         vlan.set_description(desc)
         feature_config.add_vlans(vlan)
-        self._add_ref_to_list(vlan.get_interfaces(), irb.get_name())
+        if irb:
+            self._add_ref_to_list(vlan.get_interfaces(), irb.get_name())
 
         return ri
     # end _build_ri_config
