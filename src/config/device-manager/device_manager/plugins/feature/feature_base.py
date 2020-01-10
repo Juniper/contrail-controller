@@ -257,8 +257,9 @@ class FeatureBase(object):
             lr = db.LogicalRouterDM.get(lr_uuid)
             if not lr:
                 continue
-            vns = vns.union(lr.get_connected_networks(include_internal=False))
-
+            vns = vns.union(lr.get_connected_networks(
+                include_internal=False,
+                pr_uuid=self._physical_router.uuid))
         for vn_uuid in self._physical_router.virtual_networks:
             vns.add(vn_uuid)
             vn_obj = db.VirtualNetworkDM.get(vn_uuid)
