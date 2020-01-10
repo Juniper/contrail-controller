@@ -170,6 +170,15 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "contrail-vcenter-manager" : {
+        "source_directories" : [
+            "vcenter-manager"
+        ],
+        "scons_test_targets" : [
+            "vcenter-manager:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-libs" : {
         "source_directories" : [
             "src/contrail-common/base",
