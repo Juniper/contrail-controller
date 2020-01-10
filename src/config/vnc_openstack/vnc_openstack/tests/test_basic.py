@@ -1752,8 +1752,58 @@ class TestBasic(test_case.NeutronBackendTestCase):
                              extra_res_fields={'router:external':True})
         net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
         self.assertEqual(net_obj.perms2.global_access, PERMS_RX)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared':True})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_RWX)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared':False,
+                                               'router:external':False})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_NONE)
+
         self.delete_resource('network', proj_obj.uuid, net_q['id'])
     # end test_external_network_perms
+
+    def test_shared_network_perms(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                       'default-project'])
+        net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'shared':True})
+        self.create_resource('subnet', proj_obj.uuid, extra_res_fields={
+                'network_id': net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+        })
+
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_RWX)
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared':False})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_NONE)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared':True})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_RWX)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared':False,
+                                               'router:external':True})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_RX)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared':False,
+                                               'router:external':False})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_NONE)
+
+        self.delete_resource('network', proj_obj.uuid, net_q['id'])
+    # end test_shared_network_perms
 
     def test_external_network_fip_pool(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',

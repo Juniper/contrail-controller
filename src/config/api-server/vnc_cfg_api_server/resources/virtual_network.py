@@ -6,7 +6,7 @@ import uuid
 
 from cfgm_common import BGP_RTGT_MIN_ID
 from cfgm_common import LINK_LOCAL_VN_FQ_NAME
-from cfgm_common import PERMS_RWX
+from cfgm_common import PERMS_NONE, PERMS_RWX, PERMS_RX
 from cfgm_common.exceptions import HttpError
 from cfgm_common.exceptions import NoIdError
 from cfgm_common.exceptions import ResourceExistsError
@@ -497,11 +497,23 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
         except KeyError:
             global_access = None
         is_shared = obj_dict.get('is_shared')
-        if global_access is not None or is_shared is not None:
+        router_external = obj_dict.get('router_external')
+        if global_access is not None or is_shared is not None or \
+           router_external is not None:
             if global_access is not None and is_shared is not None:
-                if is_shared != (global_access != 0):
+                # NOTE(gzimin): Check router_external parameter too.
+                if is_shared != (global_access == 7) and \
+                   (router_external is None or not router_external):
                     msg = ("Inconsistent is_shared (%s) and global_access (%s)"
                            % (is_shared, global_access))
+                    return False, (400, msg)
+            if global_access is not None and router_external is not None:
+                # NOTE(gzimin): Check is_shared parameter too.
+                if router_external != (global_access == 5) and \
+                   (is_shared is None or not is_shared):
+                    msg = ("Inconsistent router_external (%s) and "
+                           "global_access (%s)"
+                           % (router_external, global_access))
                     return False, (400, msg)
             elif global_access is not None:
                 obj_dict['is_shared'] = (global_access != 0)
@@ -511,8 +523,12 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                 if not ok:
                     return ok, result
                 obj_dict['perms2'] = result['perms2']
-                obj_dict['perms2']['global_access'] = (PERMS_RWX if is_shared
-                                                       else 0)
+                if is_shared:
+                    obj_dict['perms2']['global_access'] = PERMS_RWX
+                elif router_external:
+                    obj_dict['perms2']['global_access'] = PERMS_RX
+                else:
+                    obj_dict['perms2']['global_access'] = PERMS_NONE
 
         (ok, error) = cls._check_route_targets(obj_dict)
         if not ok:
