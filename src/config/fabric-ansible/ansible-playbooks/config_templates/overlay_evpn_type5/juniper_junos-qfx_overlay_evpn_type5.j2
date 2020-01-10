@@ -34,6 +34,36 @@ set groups {{cfg_group}} routing-instances {{name}} vrf-export {{vrf_export}}
 {%             set irb_name = irb_int.get('name') %}
 set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
 {%         endfor %}
+{%         for route in ri.get('static_routes', []) %}
+{%             set cidr = route.get('prefix') %}
+{%             set next_hop = route.get('next_hop') %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{cidr}} next-hop {{next_hop}}
+{%         endfor %}
+{%         for protocols in ri.get('protocols', []) %}
+{%             for bgp in protocols.get('bgp', []) %}
+{%                 set bgp_name = bgp.get('name') %}
+{%                 set bgp_local_as = bgp.get('autonomous_system') %}
+{%                 set bgp_auth_key = bgp.get('authentication_key', '') %}
+{%                 if bgp_auth_key != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} authentication-key {{bgp_auth_key}}
+{%                 endif %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} type external
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} multipath
+{%                 for peer in bgp.get('peers', []) %}
+{%                     set peer_ip = peer.get('ip_address') %}
+{%                     set peer_as = peer.get('autonomous_system') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} neighbor {{peer_ip}} peer-as {{peer_as}}
+{%                 endfor %}
+{%                 set bfd = bgp.get('bfd', {}) %}
+{%                 if bfd|length > 0 %}
+{%                      set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                      set detection_time_multiplier = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} bfd-liveness-detection multiplier {{detection_time_multiplier}}
+{%                 endif %}
+{%             endfor %}
+{%         endfor %}
 {%         set sys_config = device_abstract_config.get('system') %}
 {%         set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%         if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
