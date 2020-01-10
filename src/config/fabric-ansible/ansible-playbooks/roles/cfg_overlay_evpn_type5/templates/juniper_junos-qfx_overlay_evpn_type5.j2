@@ -44,6 +44,50 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
 {%                 set irb_name = irb_int.get('name') %}
 set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
 {%             endfor %}
+{%             for route in ri.get('static_routes', []) %}
+{%                 set cidr = route.get('prefix') %}
+{%                 set next_hop = route.get('next_hop') %}
+set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{cidr}} next-hop {{next_hop}}
+{%             endfor %}
+{%             for protocols in ri.get('protocols', []) %}
+{%                 for bgp in protocols.get('bgp', []) %}
+{%                     set bgp_name = bgp.get('name') %}
+{%                     set bgp_local_as = bgp.get('autonomous_system') %}
+{%                     set bgp_auth_key = bgp.get('authentication_key', '') %}
+{%                     if bgp_auth_key != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} authentication-key {{bgp_auth_key}}
+{%                     endif %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp path-selection external-router-id
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} type external
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} multipath
+{%                     for peer in bgp.get('peers', []) %}
+{%                         set peer_ip = peer.get('ip_address') %}
+{%                         set peer_as = peer.get('autonomous_system') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} neighbor {{peer_ip}} peer-as {{peer_as}}
+{%                     endfor %}
+{%                     set bfd = bgp.get('bfd', {}) %}
+{%                     if bfd|length > 0 %}
+{%                         set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                         set detection_time_multiplier  = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} bfd-liveness-detection multiplier {{detection_time_multiplier}}
+{%                     endif %}
+{%                     set rp = bgp.get('routing_policies', {}) %}
+{%                     if rp|length > 0 %}
+{%                         for import_rp in rp.get('import_routing_policies', []) %}
+{%                             if import_rp != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} import {{import_rp}}
+{%                             endif %}
+{%                         endfor %}
+{%                         for export_rp in rp.get('export_routing_policies', []) %}
+{%                             if export_rp != '' %}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} export {{export_rp}}
+{%                             endif %}
+{%                         endfor %}
+{%                     endif %}{# /* bgp has routing policies */ #}
+{%                 endfor %}{# /* end of bgp for loop */ #}
+{%             endfor %}{# /* end of protocols for loop */ #}
 {%             set sys_config = device_abstract_config.get('system', None) %}
 {%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%             if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
@@ -61,3 +105,75 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 {%     if ns.public_network == true %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%     endif %}
+{%     for rp in device_abstract_config.get('routing_policies', []) %}
+{%         set rp_entery = rp.get('routing_policy_entries', {}) %}
+{%         if rp_entery|length > 0 %}
+{%             set rp_name = rp.get('name', '') %}
+{%             for term in rp_entery.get('terms', []) %}
+{%                 set tname = 'T' + loop.index|string %}
+{%                 set tcond = term.get('term_match_condition', {}) %}
+{%                 set taction = term.get('term_action_list', {}) %}
+{%                 if ((tcond|length > 0) or (taction|length > 0)) %}
+{%                     set protocol_list = [] %}
+{%                     set extcommunity_list = [] %}
+{%                     set prefix_list = [] %}
+{%                     if (tcond|length > 0) %}
+{%                         for protocol in tcond.get('protocol', []) %}
+{%                             set z = protocol_list.append(protocol) %}
+{%                         endfor %}
+{%                         for extcom in tcond.get('extcommunity_list', []) %}
+{%                             set z = extcommunity_list.append(extcom) %}
+{%                         endfor %}
+{%                         for prefix in tcond.get('prefix', []) %}
+{%                             set z = prefix_list.append(prefix) %}
+{%                         endfor %}
+{%                     endif %}
+{%                     for protocol in protocol_list %}
+{%                         if ((protocol == 'interface') or (protocol == 'interface-static')) %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol direct
+{%                         endif %}
+{%                         if (protocol == 'bgp') %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol bgp
+{%                         endif %}
+{%                         if (protocol == 'static') %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from protocol static
+{%                         endif %}
+{%                     endfor %}{# /* protocol */ #}
+{%                     for extcom in extcommunity_list %}
+{%                         set cname = rp_name + '-' + tname + '-C' + loop.index|string %}
+set groups {{cfg_group}} policy-options community {{cname}} members {{extcom}}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from community {{cname}}
+{%                     endfor %}{# /* extcommunity_list */ #}
+{%                     for prefix in prefix_list %}
+{%                         set ptype = prefix.get('prefix_type', '') %}
+{%                         set pvalue = prefix.get('prefix', '') %}
+{%                         if pvalue != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} from route-filter {{pvalue}} {{ptype}}
+{%                         endif %}
+{%                     endfor %}{# /* prefix */ #}
+{%                     if (taction|length > 0) %}
+{%                         set term_action = taction.get('action', '') %}
+{%                         set tupdate = taction.get('update', '') %}
+{%                         if tupdate != '' %}
+{%                             set localpref = tupdate.get('local_pref', '') %}
+{%                             set as_path = tupdate.get('as_path', '') %}
+{%                             if localpref != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then local-preference {{localpref}}
+{%                             endif %}
+{%                             if as_path != '' %}
+{%                                 set expand = as_path.get('expand', '') %}
+{%                                 if expand != '' %}
+{%                                     for asn in expand.get('asn_list', []) %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then as-path-prepend {{asn}}
+{%                                     endfor %}
+{%                                 endif %}
+{%                             endif %}{# /* as_path in update of term_action_list */ #}
+{%                         endif %}{# /* update in term_action_list */ #}
+{%                         if term_action != '' %}
+set groups {{cfg_group}} policy-options policy-statement {{rp_name}} term {{tname}} then {{term_action}}
+{%                         endif %}{# /* if term_action valid */ #}
+{%                     endif %}{# /* if term_action_list valid */ #}
+{%                 endif %}{# /* if term_match_condition and term_action_list valid */ #}
+{%             endfor %}{# /* for each terms */ #}
+{%         endif %}{# /* valid routing_policy_entries */ #}
+{%     endfor %}{# /* routing_policies */ #}
