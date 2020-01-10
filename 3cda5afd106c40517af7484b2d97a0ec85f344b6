@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "82c161f2_8062a73f",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 153,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-01-10T05:37:28Z",
+      "side": 0,
+      "message": "Why is this removed ? This is common for QFX/MX both. I did not understand this change?",
+      "revId": "3cda5afd106c40517af7484b2d97a0ec85f344b6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
