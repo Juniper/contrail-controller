@@ -16,6 +16,24 @@
       "revId": "3cda5afd106c40517af7484b2d97a0ec85f344b6",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "45688934_254f4613",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 2
+      },
+      "lineNbr": 153,
+      "author": {
+        "id": 575
+      },
+      "writtenOn": "2020-01-10T05:48:13Z",
+      "side": 0,
+      "message": "@Ankur Tandon as part of CRB-gateway overlay_networking is not needed for MX.  Is it being used for QFX? for which feature?",
+      "parentUuid": "82c161f2_8062a73f",
+      "revId": "3cda5afd106c40517af7484b2d97a0ec85f344b6",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
