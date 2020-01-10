@@ -94,7 +94,9 @@ class AnsibleRoleCommon(AnsibleConf):
                 lr = LogicalRouterDM.get(lr_uuid)
                 if not lr:
                     continue
-                vn_list = lr.get_connected_networks(include_internal=False)
+                vn_list = lr.get_connected_networks(include_internal=False,
+                                                    pr_uuid=
+                                                    self.physical_router.uuid)
                 for vn in vn_list:
                     vn_obj = VirtualNetworkDM.get(vn)
                     if vn_obj is None or vn_obj.vn_network_id is None:
@@ -112,10 +114,10 @@ class AnsibleRoleCommon(AnsibleConf):
         irb_intf, li_map = self.set_default_pi('irb', 'irb')
         self._logger.info("Vn=" + vn.name + ", IRB: " + str(gateways) + ", pr="
                           + self.physical_router.name)
-        if gateways is not None:
-            intf_unit = self.set_default_li(li_map,
-                                            'irb.' + str(network_id),
-                                            network_id)
+        intf_unit = self.set_default_li(li_map,
+                                        'irb.' + str(network_id),
+                                        network_id)
+        if gateways:
             if vn.has_ipv6_subnet is True:
                 intf_unit.set_is_virtual_router(True)
             intf_unit.set_comment(DMUtils.vn_irb_comment(vn, False, is_l2_l3))
@@ -196,7 +198,7 @@ class AnsibleRoleCommon(AnsibleConf):
         highest_encapsulation = encapsulation_priorities[0]
 
         ri = RoutingInstance(name=ri_name)
-
+        is_master_int_vn = False
         if vn:
             is_nat = True if fip_map else False
             ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat,
@@ -206,7 +208,9 @@ class AnsibleRoleCommon(AnsibleConf):
                     ri_name)
                 lr = LogicalRouterDM.get(lr_uuid)
                 if lr:
+                    is_master_int_vn = lr.is_master
                     ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
+                    ri.set_is_master(is_master_int_vn)
 
         self.ri_map[ri_name] = ri
 
@@ -244,7 +248,7 @@ class AnsibleRoleCommon(AnsibleConf):
             self.internal_vn_ris.append(ri)
 
 
-        if is_internal_vn or router_external:
+        if (is_internal_vn and not is_master_int_vn) or router_external:
             self.add_bogus_lo0(ri, network_id, vn)
 
         if self.is_gateway() and is_l2_l3 and not is_internal_vn:
@@ -610,7 +614,8 @@ class AnsibleRoleCommon(AnsibleConf):
             lr = LogicalRouterDM.get(lr_id)
             if not lr:
                 continue
-            vn_list += lr.get_connected_networks(include_internal=True)
+            vn_list += lr.get_connected_networks(include_internal=True,
+                                                 pr_uuid=pr.uuid)
 
         vn_dict = {}
         for vn_id in vn_list:
@@ -959,7 +964,7 @@ class AnsibleRoleCommon(AnsibleConf):
                                         vn_obj.get_forwarding_mode() == 'l2_l3'),
                                    'import_targets': import_set,
                                    'export_targets': export_set,
-                                   'prefixes': vn_obj.get_prefixes(),
+                                   'prefixes': vn_obj.get_prefixes(self.physical_router.uuid),
                                    'gateways': irb_ips,
                                    'router_external': vn_obj.router_external,
                                    'interfaces': interfaces,
@@ -987,28 +992,28 @@ class AnsibleRoleCommon(AnsibleConf):
                                                'l2_l3',
                                    'import_targets': import_set,
                                    'export_targets': export_set,
-                                   'prefixes': vn_obj.get_prefixes(),
+                                   'prefixes': vn_obj.get_prefixes(self.physical_router.uuid),
                                    'router_external': vn_obj.router_external,
                                    'interfaces': interfaces,
                                    'gateways': lo0_ips,
                                    'network_id': vn_obj.vn_network_id}
                         if is_internal_vn:
-                            ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                             lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(vrf_name_l3)
                             lr = LogicalRouterDM.get(lr_uuid)
-                            if lr:
+                            if lr and not lr.is_master:
+                                ri_conf['vni'] = vn_obj.get_vxlan_vni(is_internal_vn = is_internal_vn)
                                 ri_conf['router_external'] = lr.logical_router_gateway_external
-                            if lr.data_center_interconnect:
-                                ri_conf['connected_dci_network'] = lr.data_center_interconnect
-                                dci_uuid = lr.data_center_interconnect
-                                dci = DataCenterInterconnectDM.get(dci_uuid)
-                                lr_vn_list = dci.get_connected_lr_internal_vns(exclude_lr=lr.uuid) if dci else []
-                                for lr_vn in lr_vn_list:
-                                    exports, imports = lr_vn.get_route_targets()
-                                    if imports:
-                                        ri_conf['import_targets'] |= imports
-                                    if exports:
-                                        ri_conf['export_targets'] |= exports
+                                if lr.data_center_interconnect:
+                                    ri_conf['connected_dci_network'] = lr.data_center_interconnect
+                                    dci_uuid = lr.data_center_interconnect
+                                    dci = DataCenterInterconnectDM.get(dci_uuid)
+                                    lr_vn_list = dci.get_connected_lr_internal_vns(exclude_lr=lr.uuid, pr_uuid=self.physical_router.uuid) if dci else []
+                                    for lr_vn in lr_vn_list:
+                                        exports, imports = lr_vn.get_route_targets()
+                                        if imports:
+                                            ri_conf['import_targets'] |= imports
+                                        if exports:
+                                            ri_conf['export_targets'] |= exports
                         self.add_routing_instance(ri_conf)
                     break
 
@@ -1308,13 +1313,15 @@ class AnsibleRoleCommon(AnsibleConf):
                         left_vrf_info['vn_id'] = lr_obj.virtual_network
                         left_vrf_info[
                             'tenant_vn'] = lr_obj.get_connected_networks(
-                            include_internal=False)
+                            include_internal=False,
+                            pr_uuid=pr.uuid)
                     if pt_obj.right_lr == lr_uuid:
                         right_vrf_info[
                             'vn_id'] = lr_obj.virtual_network
                         right_vrf_info[
                             'tenant_vn'] = lr_obj.get_connected_networks(
-                            include_internal=False)
+                            include_internal=False,
+                            pr_uuid=pr.uuid)
 
                 st_obj = ServiceTemplateDM.get(si_obj.service_template)
                 sas_obj = ServiceApplianceSetDM.get(st_obj.service_appliance_set)
@@ -1484,6 +1491,7 @@ class AnsibleRoleCommon(AnsibleConf):
         self.build_bgp_config()
         self.build_ri_config()
         self.set_internal_vn_irb_config()
+        self.set_internal_vn_routed_vn_config()
         self.set_dci_vn_irb_config()
         self.init_evpn_config()
         self.build_firewall_config()
@@ -1508,4 +1516,18 @@ class AnsibleRoleCommon(AnsibleConf):
                      else 32)
     # end get_route_for_cidr
 
+    def set_internal_vn_routed_vn_config(self):
+        if self.internal_vn_ris:
+            for int_ri in self.internal_vn_ris:
+                lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
+                    int_ri.name)
+                lr = LogicalRouterDM.get(lr_uuid)
+                if not lr:
+                    continue
+                vn_list = lr.get_connected_networks(include_internal=False,
+                                                    pr_uuid=
+                                                    self.physical_router.uuid)
+                self.physical_router.set_routing_vn_proto_in_ri(
+                    int_ri, self.routing_policies, vn_list)
+    # end set_internal_vn_routed_vn_config
 # end AnsibleRoleCommon
