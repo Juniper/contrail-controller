@@ -37,7 +37,7 @@ class VnInterconnectFeature(FeatureBase):
         for vn in vn_list:
             for dhcp_ip in dhcp_server_list:
                 vn_obj = db.VirtualNetworkDM.get(vn)
-                ip_prefixes = vn_obj.get_prefixes()
+                ip_prefixes = vn_obj.get_prefixes(self._physical_router.uuid)
                 for ip_prefix in ip_prefixes:
                     if IPAddress(dhcp_ip) in IPNetwork(ip_prefix):
                         return True
@@ -53,7 +53,9 @@ class VnInterconnectFeature(FeatureBase):
             if not lr or not lr.virtual_network or \
                     not self._is_valid_vn(lr.virtual_network, 'l3'):
                 continue
-            vn_list = lr.get_connected_networks(include_internal=False)
+            vn_list = lr.get_connected_networks(include_internal=False,
+                                                pr_uuid=self.
+                                                _physical_router.uuid)
             vn_map[lr.virtual_network] = [
                 vn for vn in vn_list if self._is_valid_vn(vn, 'l3')]
             if self._dhcp_server_exists(lr):
@@ -77,24 +79,32 @@ class VnInterconnectFeature(FeatureBase):
     # end _build_dhcp_relay_config
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
-                         import_targets, vn_list):
+                         import_targets, vn_list, is_master_int_vn):
         gevent.idle()
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
-        ri = RoutingInstance(
-            name=ri_name, description=ri_name, virtual_network_mode='l3',
-            export_targets=export_targets, import_targets=import_targets,
-            virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
-            is_public_network=vn.router_external, routing_instance_type='vrf',
-            virtual_network_is_internal=True)
+        if not is_master_int_vn:
+            # create routing instance of type vrf
+            ri = RoutingInstance(
+                name=ri_name, description=ri_name, virtual_network_mode='l3',
+                export_targets=export_targets, import_targets=import_targets,
+                virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
+                is_public_network=vn.router_external, routing_instance_type='vrf',
+                virtual_network_is_internal=True)
 
-        _, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
-        lo0_unit = 1000 + int(network_id)
-        lo0_li = self._add_or_lookup_li(
-            li_map, 'lo0.' + str(lo0_unit), lo0_unit)
-        self._add_ip_address(lo0_li, '127.0.0.1')
-        self._add_ref_to_list(ri.get_loopback_interfaces(), lo0_li.get_name())
+            _, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
+            lo0_unit = 1000 + int(network_id)
+            lo0_li = self._add_or_lookup_li(
+                li_map, 'lo0.' + str(lo0_unit), lo0_unit)
+            self._add_ip_address(lo0_li, '127.0.0.1')
+            self._add_ref_to_list(ri.get_loopback_interfaces(), lo0_li.get_name())
+        else:
+            # create routing instance of type master, which represents inet.0
+            ri = RoutingInstance(
+                name=ri_name, description=ri_name, virtual_network_mode='l3',
+                is_public_network=vn.router_external, routing_instance_type='master',
+                virtual_network_is_internal=True, is_master=True)
 
         for connected_vn_uuid in vn_list:
             connected_vn = db.VirtualNetworkDM.get(connected_vn_uuid)
@@ -115,14 +125,17 @@ class VnInterconnectFeature(FeatureBase):
                 continue
 
             lr_obj = db.LogicalRouterDM.get(vn_obj.logical_router)
-            ri_name = "__contrail_%s_%s" % (lr_obj.name, vn_obj.logical_router)
+            if lr_obj:
+                ri_name = "__contrail_%s_%s" % (lr_obj.name,
+                                                vn_obj.logical_router)
+                is_master_int_vn = lr_obj.is_master
 
             export_targets, import_targets = self._get_export_import_targets(
                 vn_obj, ri_obj)
 
             ri = self._build_ri_config(vn_obj, ri_name, ri_obj, export_targets,
-                                       import_targets, vn_list)
-
+                                       import_targets, vn_list,
+                                       is_master_int_vn)
             if dhcp_servers.get(internal_vn):
                 in_network = self._is_dhcp_server_in_same_network(
                     dhcp_servers[internal_vn], vn_list)
@@ -132,6 +145,12 @@ class VnInterconnectFeature(FeatureBase):
                 ri.set_forwarding_options(fwd_options)
                 rib_group_name = 'external_vrf_' + internal_vn
                 ri.set_rib_group(rib_group_name)
+
+            routing_policies = []
+            self._physical_router.set_routing_vn_proto_in_ri(
+                ri, routing_policies, vn_list)
+            if len(routing_policies) > 0:
+                feature_config.set_routing_policies(routing_policies)
 
             feature_config.add_routing_instances(ri)
 
