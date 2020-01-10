@@ -11,9 +11,12 @@ from svc_monitor import config_db
 from svc_monitor import loadbalancer_agent
 from vnc_api.vnc_api import *
 import argparse
+import six
 
 class F5LBTest(unittest.TestCase):
     def setUp(self):
+        if six.PY3:
+            self.assertItemsEqual = self.assertCountEqual
         self.vnc_lib = mock.Mock()
         self.object_db = mock.Mock()
         self.logger = mock.Mock()
