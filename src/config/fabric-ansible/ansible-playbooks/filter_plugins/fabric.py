@@ -651,6 +651,11 @@ class FilterModule(object):
             fabric_info.get('node_profiles')
         )
 
+        # create default logical router to be used to attach routed
+        # virtual-networks which are part of master routing table on
+        # leaf/spine devices
+        self._add_default_logical_router(vnc_api)
+
         return fabric_obj
     # end onboard_fabric
 
@@ -932,6 +937,38 @@ class FilterModule(object):
         vnc_api.fabric_update(fabric_obj)
         _task_done()
     # end _add_node_profiles
+
+    @staticmethod
+    def _add_default_logical_router(vnc_api):
+        """Add default logical router
+
+        :param vnc_api: <vnc_api.VncApi>
+        :return: <vnc_api.gen.resource_client.LogicalRouter>
+        """
+        lr_fq_name = ['default-domain', 'admin', 'master-LR']
+
+        # read admin project, master LR belongs to admin project
+        admin_project = vnc_api.project_read(['default-domain', 'admin'])
+        _task_log("creating logical router network, parent %s"
+                  % (admin_project.get_uuid()))
+
+        master_lr = LogicalRouter(
+            name='master-LR',
+            fq_name=lr_fq_name,
+            logical_router_gateway_external=False,
+            logical_router_type='vxlan-routing',
+            parent_obj=admin_project)
+        try:
+            vnc_api.logical_router_create(master_lr)
+        except RefsExistError as ex:
+            _task_log(
+                "Logical router already exists or other conflict: %s"
+                % (str(ex)))
+            vnc_api.logical_router_update(master_lr)
+
+        master_lr = vnc_api.logical_router_read(fq_name=lr_fq_name)
+        _task_done()
+        return master_lr
 
     @staticmethod
     def _add_virtual_network(vnc_api, network_name):
@@ -1533,12 +1570,12 @@ class FilterModule(object):
             vnc_api.hardware_inventory_delete(id=hr_uuid)
             _task_done()
 
-        #Delete the cli-config obj if exists
+        # Delete the cli-config obj if exists
         for cli_config_item in list(device_obj.get_cli_configs() or []):
             cli_config_uuid = str(cli_config_item.get('uuid'))
             cli_config_fq_name = str(cli_config_item.get('fq_name'))
             _task_log(
-                "Deleting cli-config object %s" %(cli_config_fq_name))
+                "Deleting cli-config object %s" % (cli_config_fq_name))
             vnc_api.cli_config_delete(id=cli_config_uuid)
             _task_done()
 
@@ -1808,7 +1845,8 @@ class FilterModule(object):
             self._enable_ibgp_auto_mesh(vnc_api, False)
 
             # load supported roles from node profile assigned to the device
-            for device_obj, device_roles in list(device2roles_mappings.items()):
+            for device_obj, device_roles in \
+                    list(device2roles_mappings.items()):
                 node_profile_refs = device_obj.get_node_profile_refs()
                 if not node_profile_refs:
                     _task_warn_log(
@@ -1886,24 +1924,27 @@ class FilterModule(object):
         try:
             vnc_api = JobVncApi.vnc_init(job_ctx)
             if device_name and device_to_ztp:
-                device_map = dict((d.get('hostname', d.get('serial_number')), d)
-                                  for d in device_to_ztp)
+                device_map = dict((d.get('hostname', d.get('serial_number')),
+                                   d) for d in device_to_ztp)
                 existing_device_functional_group = \
                     vnc_api.device_functional_groups_list()
                 existing_device_functional_list = \
-                    existing_device_functional_group['device-functional-groups']
+                    existing_device_functional_group[
+                        'device-functional-groups']
                 if device_name in device_map:
-                    if device_map[device_name].get('device_functional_group') != None:
+                    if device_map[device_name].get(
+                            'device_functional_group') is not None:
                         given_dfg = device_map[device_name].get(
                             'device_functional_group')
                         final_dict = dict()
                         for item in existing_device_functional_list:
                             if item['fq_name'][2] == given_dfg:
                                 dfg_uuid = item['uuid']
-                                dfg_item = vnc_api.device_functional_group_read(
-                                    id=dfg_uuid)
+                                dfg_item = \
+                                    vnc_api.device_functional_group_read(
+                                        id=dfg_uuid)
                                 dfg_item_dict = vnc_api.obj_to_dict(dfg_item)
-                                #check rb_role compatibility
+                                # check rb_role compatibility
                                 self._check_rb_role_compatibity(vnc_api,
                                                                 prouter_uuid,
                                                                 dfg_item_dict)
@@ -1919,12 +1960,14 @@ class FilterModule(object):
                                     'device_functional_group_os_version')
                                 physical_role_refs = dfg_item_dict.get(
                                     'physical_role_refs')
-                                if physical_role_refs!= None:
-                                    final_dict['physical_role'] = physical_role_refs[0]['to'][-1]
+                                if physical_role_refs is not None:
+                                    final_dict['physical_role'] = \
+                                        physical_role_refs[0]['to'][-1]
                                 else:
-                                    final_dict['physical_role'] = physical_role_refs
-                                rb_roles_dict = dfg_item_dict.get\
-                                    ('device_functional_group_routing_bridging_roles')
+                                    final_dict['physical_role'] = \
+                                        physical_role_refs
+                                rb_roles_dict = dfg_item_dict.get(
+                                    'device_functional_group_routing_bridging_roles')
                                 if rb_roles_dict!= None:
                                     final_dict['rb_roles'] = rb_roles_dict.get('rb_roles')
                                 else:
