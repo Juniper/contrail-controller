@@ -3,81 +3,12 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-import os
-
 Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
-setup_sources = [
-    'setup.py',
-    'requirements.txt',
-    'run_tests.sh',
-    'test-requirements.txt',
-    '.testr.conf',
-    '.coveragerc',
-    'MANIFEST.in',
-]
-
-setup_sources_rules = []
-for file in setup_sources:
-    setup_sources_rules.append(
-        env.Install(Dir('.'), "#controller/src/container/cni/" + file))
-
-local_sources = [
-    './cni/__init__.py',
-    './cni/contrail_cni.py',
-    './cni/common/__init__.py',
-    './cni/common/cni.py',
-    './cni/common/interface.py',
-    './cni/common/macvlan.py',
-    './cni/common/veth.py',
-    './cni/contrail/__init__.py',
-    './cni/contrail/contrail_cni.py',
-    './cni/contrail/vrouter.py',
-    './cni/kube_cni/__init__.py',
-    './cni/kube_cni/contrail_kube_cni.py',
-    './cni/kube_cni/kube_params.py',
-    './cni/kube_cni/test/__init__.py',
-    './cni/mesos_cni/__init__.py',
-    './cni/mesos_cni/contrail_mesos_cni.py',
-    './cni/mesos_cni/test/__init__.py',
-    './cni/test/__init__.py',
-]
-
-local_sources_rules = []
-for file in local_sources:
-    target = "/".join(file.split('/')[:-1])
-    local_sources_rules.append(
-        env.Install(target, "#controller/src/container/cni/" + file))
-
-cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_depends = []
-sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(local_sources_rules)
-sdist_gen = env.Command('dist/cni-0.1dev.tar.gz', 'setup.py',
-                        cd_cmd + 'python setup.py sdist')
-
-env.Depends(sdist_gen, sdist_depends)
-env.Default(sdist_gen)
-
-if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, 'setup.py',
-                              cd_cmd + 'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
-    env.Alias('install', install_cmd)
-
-test_target = env.SetupPyTestSuite(sdist_gen)
-
-# This add'l alias is to allow retry of UT in CI
-env.Alias('controller/src/container/cni/cni:test', test_target)
-
 subdirs=[
-    'cni',
+    'kube_cni',
+    'mesos_cni',
 ]
 
 env.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
-
-# Local Variables:
-# mode: python
-# End:
