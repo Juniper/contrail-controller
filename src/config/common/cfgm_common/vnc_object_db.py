@@ -42,4 +42,4 @@ class VncObjectDBClient(object):
                 raise NotImplementedError(msg)
 
     def __getattr__(self, name):
-        return getattr(self._object_db, name)
+        return object.getattr(self._object_db, name)
