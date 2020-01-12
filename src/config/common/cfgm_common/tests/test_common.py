@@ -162,7 +162,7 @@ def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue,
     vnc_cgitb.enable(format='text')
 
     wait_for_kube_manager_down()
-    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+    with tempfile.NamedTemporaryFile(mode='w+') as conf, tempfile.NamedTemporaryFile(mode='w+') as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
         conf.flush()
@@ -182,7 +182,7 @@ def launch_mesos_manager(test_id, conf_sections, mesos_api_skip, event_queue):
     vnc_cgitb.enable(format='text')
 
     wait_for_mesos_manager_down()
-    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+    with tempfile.NamedTemporaryFile(mode='w+') as conf, tempfile.NamedTemporaryFile(mode='w+') as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
         conf.flush()
@@ -312,8 +312,8 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
     vnc_cgitb.enable(format='text')
 
-    with tempfile.NamedTemporaryFile() as conf, \
-         tempfile.NamedTemporaryFile() as logconf:
+    with tempfile.NamedTemporaryFile(mode='w+') as conf, \
+         tempfile.NamedTemporaryFile(mode='w+') as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
         conf.flush()
@@ -413,7 +413,7 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
 
     if conf_sections is not None:
-        with tempfile.NamedTemporaryFile() as conf:
+        with tempfile.NamedTemporaryFile(mode='w+') as conf:
             cfg_parser = generate_conf_file_contents(conf_sections)
             cfg_parser.write(conf)
             conf.flush()
