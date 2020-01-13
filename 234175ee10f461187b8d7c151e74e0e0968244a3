@@ -1,0 +1,73 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "de11ffe6_83f37087",
+        "filename": "src/config/common/cfgm_common/cassandra_driver_thrift.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-13T09:04:24Z",
+      "side": 1,
+      "message": "You should not duplicate that constant here. That need to be defined in only one place, in vnc_cassandra.py. Just set properly ro_keyspaces and rw_keyxspaces when the CassandraDriverThrift is instantiated",
+      "range": {
+        "startLine": 57,
+        "startChar": 4,
+        "endLine": 85,
+        "endChar": 5
+      },
+      "revId": "234175ee10f461187b8d7c151e74e0e0968244a3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d6ca0298_1ef477a5",
+        "filename": "src/config/common/cfgm_common/cassandra_driver_thrift.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 128,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-13T09:04:24Z",
+      "side": 1,
+      "message": "Should be done in vnc_cassandra to construct ro_keyspaces and rw_keyspaces parameters to instantiate CassandraDriverThrift",
+      "range": {
+        "startLine": 120,
+        "startChar": 8,
+        "endLine": 128,
+        "endChar": 73
+      },
+      "revId": "234175ee10f461187b8d7c151e74e0e0968244a3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "370fbc3b_37f1f5a5",
+        "filename": "src/config/common/cfgm_common/vnc_cassandra.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 162,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-13T09:04:24Z",
+      "side": 1,
+      "message": "We should factorize that wrapper. I think you should move it into the driver interface and surrounds all method of that interface with it.",
+      "range": {
+        "startLine": 162,
+        "startChar": 52,
+        "endLine": 162,
+        "endChar": 70
+      },
+      "revId": "234175ee10f461187b8d7c151e74e0e0968244a3",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
