@@ -19,6 +19,23 @@
     },
     {
       "key": {
+        "uuid": "78498195_bad906b9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_crud_basic.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-01-13T15:07:54Z",
+      "side": 1,
+      "message": "Need implement a method for loading golden db-dump.json.",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "18c5f5fa_0438ac43",
         "filename": "src/config/common/cfgm_common/tests/test_common.py",
         "patchSetId": 6
@@ -115,6 +132,23 @@
       "writtenOn": "2020-01-13T07:48:31Z",
       "side": 1,
       "message": "Shouldn\u0027t it be before \u0027destroy_api_server_instance\u0027?",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "15fc2c79_14cec4fc",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 789,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-01-13T15:07:54Z",
+      "side": 1,
+      "message": "No need to add invoke this method after every test cases. Write few unit test cases for this\nfeature and use the method only for them.",
       "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
