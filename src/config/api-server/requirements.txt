@@ -1,5 +1,6 @@
 contrail-config-common
 contrail-api-client
+keystonemiddleware>=5.0.0
 sandesh
 sandesh-common
 gevent
