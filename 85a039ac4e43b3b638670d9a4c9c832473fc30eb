@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c07e6631_6692b11d",
+        "filename": "src/config/fabric-ansible/requirements.txt",
+        "patchSetId": 10
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 752
+      },
+      "writtenOn": "2020-01-13T17:03:49Z",
+      "side": 1,
+      "message": "I see a build failure at this place. \nCan you please use like this sandesh\u003d\u003d0.1dev",
+      "revId": "85a039ac4e43b3b638670d9a4c9c832473fc30eb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
