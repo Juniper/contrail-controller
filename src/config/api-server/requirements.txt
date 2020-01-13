@@ -4,7 +4,7 @@ sandesh
 sandesh-common
 gevent
 netaddr
-python-keystoneclient
+python-keystoneclient>=5.0.0
 netifaces
 bottle
 stevedore
