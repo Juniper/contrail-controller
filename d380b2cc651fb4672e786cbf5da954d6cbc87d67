@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "52f952cc_1bf066d1",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 6
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "Please remove this line. It\u0027s unnecessary information.",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "18c5f5fa_0438ac43",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 547,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "Remove TODO. It\u0027s no longer needed.",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0b5aa686_8f01a3bb",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 548,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "Can we put it on the beginning of the file?",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1eb7d617_1a2aaeb6",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 550,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "Please remove unnecessary line.",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b0911672_a93711cb",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 551,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "The file_name has to be simple `db-dump.json`,",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d9b9e916_c828e74b",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 553,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "It doesn\u0027t work.\n  IOError: [Errno 2] No such file or directory: u\u0027vnc_cfg_api_server/test/GOLDEN_VncServiceTest.json\u0027\n\nWe should try:\n  filename \u003d path.join(path.abspath(__file__), \u0027..\u0027, \u0027..\u0027, \u0027api-server\u0027, \u0027vnc_cfg_api_server\u0027, \u0027test\u0027 \"db-dump.json\")",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4e784980_a34c397c",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 789,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-13T07:48:31Z",
+      "side": 1,
+      "message": "Shouldn\u0027t it be before \u0027destroy_api_server_instance\u0027?",
+      "revId": "d380b2cc651fb4672e786cbf5da954d6cbc87d67",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
