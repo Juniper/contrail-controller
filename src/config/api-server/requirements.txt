@@ -1,6 +1,6 @@
 contrail-config-common
 contrail-api-client
-sandesh
+sandesh==0.1dev
 sandesh-common
 gevent
 netaddr

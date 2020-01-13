@@ -11,6 +11,7 @@ from builtins import object
 import copy
 import types
 import uuid
+import six
 import sys
 import io
 import string
@@ -33,11 +34,11 @@ def todict(obj):
         obj_dict = {}
         for k in list(obj.keys()):
             obj_dict[k] = todict(obj[k])
-    elif hasattr(obj, "__iter__"):
+    elif hasattr(obj, "__iter__") and not isinstance(obj,six.string_types):
         obj_dict = [todict(v) for v in obj]
     elif hasattr(obj, "__dict__"):
         obj_dict = dict([(key, todict(value))
-                         for key, value in obj.__dict__.items()
+                         for key, value in list(obj.__dict__.items())
                          if not callable(value)])
     else:
         obj_dict = obj
@@ -119,7 +120,6 @@ class TestIp(unittest.TestCase):
         self.ip_1 = InstanceIp(str(uuid.uuid4()))
         self.vn_1.add_network_ipam(self.ipam_1, self.sn_1)
         self.ip_1.set_virtual_network(self.vn_1)
-
         obj_dict = todict(self.ip_1)
         self.vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         pass
