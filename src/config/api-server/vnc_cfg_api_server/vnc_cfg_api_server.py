@@ -257,7 +257,7 @@ class VncApiServer(object):
     JOB_ABORT_ROUTING_KEY = "job.abort"
 
     def __new__(cls, *args, **kwargs):
-        obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
+        obj = super(VncApiServer, cls).__new__(cls)
         obj.api_bottle = bottle.Bottle()
         obj.route('/', 'GET', obj.homepage_http_get)
         obj.api_bottle.error_handler = {
