@@ -11,11 +11,12 @@ _NEUTRON_FWAAS_TAG_TYPE = TagTypeIdToName[5]
 QUOTA_OVER_ERROR_CODE = 412
 NON_OBJECT_TYPES = ['security_group_rule']
 
+
 class QuotaHelper(object):
 
     default_quota = {
         'defaults': -1
-        }
+    }
 
     @classmethod
     def get_project_dict_for_quota(cls, proj_uuid, db_conn):
@@ -81,11 +82,11 @@ class QuotaHelper(object):
         ok, result = cls.verify_quota(obj_type, quota_limit, quota_counter)
         if ok:
             (ok, result) = db_conn.dbe_create(obj_type, obj_id,
-                                                    obj_dict)
-	    if not ok:
+                                              obj_dict)
+            if not ok:
                 # revert back quota count
                 quota_counter -= 1
-	        return ok, result
+                return ok, result
         else:
             return ok, result
         return (True, result)
@@ -94,7 +95,7 @@ class QuotaHelper(object):
     def get_security_group_rule_count(cls, db_conn, proj_uuid):
 
         (ok, res_list, _) = db_conn.dbe_list(
-                'security_group', parent_uuids=[proj_uuid], is_detail=True)
+            'security_group', parent_uuids=[proj_uuid], is_detail=True)
         if not ok:
             raise cfgm_common.exceptions.NoIdError
         quota_count = 0
@@ -109,16 +110,16 @@ class QuotaHelper(object):
     def get_floating_ip_pool_count(cls, db_conn, proj_uuid):
 
         (ok, vn_list, _) = db_conn.dbe_list(
-                'virtual_network', parent_uuids=[proj_uuid],
-                is_detail=False)
+            'virtual_network', parent_uuids=[proj_uuid],
+            is_detail=False)
         if not ok:
             raise cfgm_common.exceptions.NoIdError
 
         quota_count = 0
         for vn_dict in vn_list:
             (ok, fip_pool_list, _) = db_conn.dbe_list(
-                    'floating_ip_pool', parent_uuids=[vn_dict.get('uuid')],
-                    is_count=True)
+                'floating_ip_pool', parent_uuids=[vn_dict.get('uuid')],
+                is_count=True)
             if not ok:
                 raise cfgm_common.exceptions.NoIdError
             quota_count += fip_pool_list
@@ -135,8 +136,8 @@ class QuotaHelper(object):
         quota_count = 0
         for pool in lb_pools:
             (ok, lb_mem_list, _) = db_conn.dbe_list(
-                    'loadbalancer_member', parent_uuids=[pool.get('uuid')],
-                    is_count=True)
+                'loadbalancer_member', parent_uuids=[pool.get('uuid')],
+                is_count=True)
             if not ok:
                 raise cfgm_common.exceptions.NoIdError
             quota_count += lb_mem_list
@@ -164,27 +165,27 @@ class QuotaHelper(object):
     @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
-        if obj_type+'s' in Project.children_fields:
+        if obj_type + 's' in Project.children_fields:
             # Number of resources created under this project.
             # Resource is a child ref under project object
             (ok, quota_count) = db_conn.dbe_count_children(
-                'project', proj_uuid, obj_type+'s')
+                'project', proj_uuid, obj_type + 's')
             if not ok:
                 raise cfgm_common.exceptions.NoIdError
         elif obj_type == 'security_group_rule':
             quota_count = cls.get_security_group_rule_count(
-                    db_conn, proj_uuid)
+                db_conn, proj_uuid)
         elif obj_type == 'floating_ip_pool':
             quota_count = cls.get_floating_ip_pool_count(
-                                  db_conn, proj_uuid)
+                db_conn, proj_uuid)
         elif obj_type == 'loadbalancer_member':
             quota_count = cls.get_loadbalancer_member_count(
-                                  db_conn, proj_uuid)
+                db_conn, proj_uuid)
         elif obj_type == 'firewall_group':
             quota_count = cls.get_firewall_group_count(db_conn, proj_uuid)
         else:
             (ok, res_list, _) = db_conn.dbe_list(obj_type,
-                                              back_ref_uuids=[proj_uuid])
+                                                 back_ref_uuids=[proj_uuid])
             if not ok:
                 raise cfgm_common.exceptions.NoIdError
             quota_count = len(res_list)
@@ -203,14 +204,14 @@ class QuotaHelper(object):
                         db_conn._zk_db.delete_quota_counter(path)
                     quota_counter.pop(path, None)
                 else:
-                    #TODO(ethuleau): we need to check if quota limit was not
+                    # TODO(ethuleau): we need to check if quota limit was not
                     #                already exceeded
                     quota_counter[path].max_count = quota
             else:
                 # dbe_update_notification might have freed the counter,
                 # delete node if exists.
                 if ((quota == -1 or quota is None) and
-                                    db_conn._zk_db.quota_counter_exists(path)):
+                        db_conn._zk_db.quota_counter_exists(path)):
                     db_conn._zk_db.delete_quota_counter(path)
                 else:
                     new_quota_dict[obj_type] = quota
@@ -221,7 +222,7 @@ class QuotaHelper(object):
 
     @classmethod
     def _zk_quota_counter_update(
-        cls, path_prefix, project_dict, proj_id, db_conn, quota_counter):
+            cls, path_prefix, project_dict, proj_id, db_conn, quota_counter):
         if project_dict != None:
             cls.update_zk_counter_helper(path_prefix, project_dict, proj_id,
                                          db_conn, quota_counter)
@@ -238,9 +239,9 @@ class QuotaHelper(object):
 
         for (obj_type, quota) in quota_dict.items():
             path = path_prefix + "/" + obj_type
-            if  obj_type != 'defaults' and (quota != -1 and quota != None):
+            if obj_type != 'defaults' and (quota != -1 and quota != None):
                 resource_count = cls.get_resource_count(db_conn,
                                                         obj_type, proj_id)
                 quota_counter[path] = db_conn._zk_db.quota_counter(path,
-                                                         max_count=quota,
-                                                         default=resource_count)
+                                                                   max_count=quota,
+                                                                   default=resource_count)
