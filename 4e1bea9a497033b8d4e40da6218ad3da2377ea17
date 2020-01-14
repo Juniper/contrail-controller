@@ -48,6 +48,54 @@
     },
     {
       "key": {
+        "uuid": "01bbf74c_662201cf",
+        "filename": "src/config/common/cfgm_common/schema_change_detector.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-14T11:43:33Z",
+      "side": 1,
+      "message": "It is required to get list of changed files.",
+      "parentUuid": "68e1e285_c678734e",
+      "range": {
+        "startLine": 53,
+        "startChar": 23,
+        "endLine": 53,
+        "endChar": 27
+      },
+      "revId": "4e1bea9a497033b8d4e40da6218ad3da2377ea17",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "24f652fe_b46b415a",
+        "filename": "src/config/common/cfgm_common/schema_change_detector.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-14T11:43:33Z",
+      "side": 1,
+      "message": "Sure. I will delete it.",
+      "parentUuid": "42ea4999_2de28d92",
+      "range": {
+        "startLine": 53,
+        "startChar": 42,
+        "endLine": 53,
+        "endChar": 50
+      },
+      "revId": "4e1bea9a497033b8d4e40da6218ad3da2377ea17",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "898346b4_dd3e0978",
         "filename": "src/config/common/cfgm_common/schema_change_detector.py",
         "patchSetId": 2
@@ -59,6 +107,30 @@
       "writtenOn": "2020-01-14T11:04:32Z",
       "side": 1,
       "message": "I think that option requires at least git version 2.16, you should probably add a git version check in your code.",
+      "range": {
+        "startLine": 54,
+        "startChar": 14,
+        "endLine": 54,
+        "endChar": 30
+      },
+      "revId": "4e1bea9a497033b8d4e40da6218ad3da2377ea17",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "64e27cb5_3f7cd9cf",
+        "filename": "src/config/common/cfgm_common/schema_change_detector.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 54,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-14T11:43:33Z",
+      "side": 1,
+      "message": "Yes that is true. I was thinking about removing these checks.",
+      "parentUuid": "898346b4_dd3e0978",
       "range": {
         "startLine": 54,
         "startChar": 14,
@@ -94,6 +166,30 @@
     },
     {
       "key": {
+        "uuid": "3c862682_2a7cee2e",
+        "filename": "src/config/common/cfgm_common/schema_change_detector.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 55,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-14T11:43:33Z",
+      "side": 1,
+      "message": "We can ignore spaces but I think I will get rid of this line.",
+      "parentUuid": "50ce1c8f_eca0e508",
+      "range": {
+        "startLine": 54,
+        "startChar": 12,
+        "endLine": 55,
+        "endChar": 33
+      },
+      "revId": "4e1bea9a497033b8d4e40da6218ad3da2377ea17",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "572b196a_0c6abefb",
         "filename": "src/config/common/cfgm_common/schema_change_detector.py",
         "patchSetId": 2
@@ -105,6 +201,24 @@
       "writtenOn": "2020-01-14T11:04:32Z",
       "side": 1,
       "message": "Could be interesting to add a debug/verbose option to log git command executed by the script",
+      "revId": "4e1bea9a497033b8d4e40da6218ad3da2377ea17",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0220a65b_48841c2f",
+        "filename": "src/config/common/cfgm_common/schema_change_detector.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 138,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-01-14T11:43:33Z",
+      "side": 1,
+      "message": "Sure.",
+      "parentUuid": "572b196a_0c6abefb",
       "revId": "4e1bea9a497033b8d4e40da6218ad3da2377ea17",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
