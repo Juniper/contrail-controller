@@ -557,6 +557,8 @@ class AnsibleRoleCommon(AnsibleConf):
             vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
             if not vpg_obj:
                 continue
+            if not vpg_obj.virtual_machine_interfaces:
+                continue
             esi = vpg_obj.esi
             for pi_uuid in vpg_obj.physical_interfaces or []:
                 if pi_uuid not in pr.physical_interfaces:
