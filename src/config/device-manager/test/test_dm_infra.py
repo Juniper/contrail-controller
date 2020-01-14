@@ -130,10 +130,10 @@ class TestInfraDM(TestCommonDM):
         dm_cs.add(dm_cs._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name('lo0'): lo0_ip_addr})
         dm_cs.init_pr_map()
 
-        key_value = dm_cs.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('irb'))
+        key_value = dm_cs._cassandra_driver.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('irb'))
         if key_value != ip_addr:
             self.assertTrue(False)
-        key_value = dm_cs.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('lo0'))
+        key_value = dm_cs._cassandra_driver.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('lo0'))
         if key_value != lo0_ip_addr:
             self.assertTrue(False)
 
@@ -141,13 +141,13 @@ class TestInfraDM(TestCommonDM):
         dm_cs.delete(dm_cs._PR_VN_IP_CF, key, [DMUtils.get_ip_cs_column_name('lo0')])
 
         try:
-            key_value = dm_cs.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('lo0'))
+            key_value = dm_cs._cassandra_driver.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('lo0'))
             if key_value is not None:
                 self.assertTrue(False)
         except NoIdError:
             pass
 
-        key_value = dm_cs.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('irb'))
+        key_value = dm_cs._cassandra_driver.get_one_col(dm_cs._PR_VN_IP_CF, key, DMUtils.get_ip_cs_column_name('irb'))
         if key_value != ip_addr:
             self.assertTrue(False)
 

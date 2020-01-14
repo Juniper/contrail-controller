@@ -70,12 +70,14 @@ class SchemaTransformerDB(VncObjectDBClient):
             credential=cred, ssl_enabled=self._args.cassandra_use_ssl,
             ca_certs=self._args.cassandra_ca_certs)
 
-        SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
-        SchemaTransformerDB._sc_ip_cf = self._cf_dict[self._SC_IP_CF]
-        SchemaTransformerDB._service_chain_cf = self._cf_dict[
-            self._SERVICE_CHAIN_CF]
-        SchemaTransformerDB._service_chain_uuid_cf = self._cf_dict[
-            self._SERVICE_CHAIN_UUID_CF]
+        SchemaTransformerDB._rt_cf = self._cassandra_driver._cf_dict[
+            self._RT_CF]
+        SchemaTransformerDB._sc_ip_cf = self._cassandra_driver._cf_dict[
+            self._SC_IP_CF]
+        SchemaTransformerDB._service_chain_cf = self._cassandra_driver.\
+            _cf_dict[self._SERVICE_CHAIN_CF]
+        SchemaTransformerDB._service_chain_uuid_cf = self._cassandra_driver.\
+            _cf_dict[self._SERVICE_CHAIN_UUID_CF]
 
         # reset zookeeper config
         if self._args.reset_config:
@@ -160,8 +162,10 @@ class SchemaTransformerDB(VncObjectDBClient):
         vlan_ia = self._sc_vlan_allocator_dict[service_vm]
 
         try:
-            vlan = int(self.get_one_col(self._SERVICE_CHAIN_CF,
-                                        service_vm, service_chain))
+            vlan = int(self._cassandra_driver.get_one_col(
+                self._SERVICE_CHAIN_CF,
+                service_vm,
+                service_chain))
             db_sc = vlan_ia.read(vlan)
             if (db_sc is None) or (db_sc != service_chain):
                 alloc_new = True
@@ -183,8 +187,10 @@ class SchemaTransformerDB(VncObjectDBClient):
     def free_service_chain_vlan(self, service_vm, service_chain):
         try:
             vlan_ia = self._sc_vlan_allocator_dict[service_vm]
-            vlan = int(self.get_one_col(self._SERVICE_CHAIN_CF,
-                                        service_vm, service_chain))
+            vlan = int(self._cassandra_driver.get_one_col(
+                self._SERVICE_CHAIN_CF,
+                service_vm,
+                service_chain))
             self._service_chain_cf.remove(service_vm, [service_chain])
             vlan_ia.delete(vlan)
             if vlan_ia.empty():
@@ -198,7 +204,10 @@ class SchemaTransformerDB(VncObjectDBClient):
 
     def get_route_target(self, ri_fq_name):
         try:
-            return int(self.get_one_col(self._RT_CF, ri_fq_name, 'rtgt_num'))
+            return int(self._cassandra_driver.get_one_col(
+                self._RT_CF,
+                ri_fq_name,
+                'rtgt_num'))
         except (VncError, NoIdError):
             # TODO(ethuleau): VncError is raised if more than one row was
             #                 fetched from db with get_one_col method.
@@ -282,7 +291,7 @@ class SchemaTransformerDB(VncObjectDBClient):
                 continue
 
     def get_service_chain_ip(self, sc_name):
-        return self.get(self._SC_IP_CF, sc_name)
+        return self._cassandra_driver.get(self._SC_IP_CF, sc_name)
 
     def add_service_chain_ip(self, sc_name, ip_dict):
         self._sc_ip_cf.insert(sc_name, ip_dict)
@@ -291,7 +300,8 @@ class SchemaTransformerDB(VncObjectDBClient):
         self.delete(self._SC_IP_CF, sc_name)
 
     def list_service_chain_uuid(self):
-        return self.get_range(self._SERVICE_CHAIN_UUID_CF) or []
+        return (self._cassandra_driver.get_range(
+            self._SERVICE_CHAIN_UUID_CF) or [])
 
     def add_service_chain_uuid(self, name, value):
         self._service_chain_uuid_cf.insert(name, {'value': value})
