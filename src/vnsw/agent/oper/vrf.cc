@@ -613,6 +613,9 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     if (vrf->vn_) {
         vrf->set_routing_vrf(vrf->vn_->vxlan_routing_vn());
     }
+
+    vrf->si_vn_ref_.reset(agent()->vn_table()->Find(data->si_vn_ref_uuid_));
+
     vrf->isid_ = data->isid_;
     vrf->bmac_vrf_name_ = data->bmac_vrf_name_;
     vrf->learning_enabled_ = data->learning_enabled_;
@@ -648,6 +651,11 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
         resync_routes = true;
         vrf->vn_.reset(vn);
         ret = true;
+    }
+
+    VnEntry *si_vn_ref = agent()->vn_table()->Find(data->si_vn_ref_uuid_);
+    if (si_vn_ref != vrf->si_vn_ref_.get()) {
+        vrf->si_vn_ref_.reset(si_vn_ref);
     }
 
     if (data->ifmap_node() && vrf->ifmap_node() != data->ifmap_node()) {
@@ -1138,6 +1146,7 @@ static void BuildForwardingVrf(Agent *agent, IFMapNode *vn_node,
 
 static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     boost::uuids::uuid vn_uuid = boost::uuids::nil_uuid();
+    boost::uuids::uuid si_vn_uuid = boost::uuids::nil_uuid();
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
     bool learning_enabled = false;
@@ -1172,6 +1181,11 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
                        vn_uuid);
             aging_timeout = cfg->mac_aging_time();
             break;
+        } else {
+            autogen::IdPermsType id_perms = cfg->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       si_vn_uuid);
+            break;
         }
     }
 
@@ -1184,6 +1198,8 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     } else {
         vrf_data->forwarding_vrf_name_ = forwarding_vrf;
     }
+
+    vrf_data->si_vn_ref_uuid_ = si_vn_uuid;
 
     return vrf_data;
 }
