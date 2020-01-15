@@ -1476,8 +1476,6 @@ class AnsibleRoleCommon(AnsibleConf):
 
 
     def set_common_config(self):
-        if self.physical_router.underlay_managed:
-            self.build_underlay_bgp()
         if not self.ensure_bgp_config():
             return
         self.build_server_config()
