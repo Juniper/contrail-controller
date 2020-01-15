@@ -54,12 +54,12 @@ class UnderlayIpClosFeature(FeatureBase):
             return
 
         pi_map = OrderedDict()
+        pi_list = []
         for pi_obj, li_obj, iip_obj in self.\
                 _fetch_pi_li_iip(self._physical_router.physical_interfaces):
             if pi_obj and li_obj and iip_obj and iip_obj.instance_ip_address:
                 pi, li_map = self._add_or_lookup_pi(
                     pi_map, pi_obj.name, 'regular')
-
                 li = self._add_or_lookup_li(li_map, li_obj.name,
                                             int(li_obj.name.split('.')[-1]))
 
@@ -75,14 +75,14 @@ class UnderlayIpClosFeature(FeatureBase):
                 bgp = Bgp(name=bgp_name,
                           ip_address=iip_obj.instance_ip_address,
                           autonomous_system=underlay_asn,
-                          type_='external')
+                          type_='external',
+                          comment=self.feature_name())
                 peers = OrderedDict()
                 # Assumption: PIs are connected for IP-CLOS peering only
                 for peer_pi_obj, peer_li_obj, peer_iip_obj in\
                         self._fetch_pi_li_iip(pi_obj.physical_interfaces):
                     if peer_pi_obj and peer_li_obj and peer_iip_obj and\
                             peer_iip_obj.instance_ip_address:
-
                         peer_pr = db.PhysicalRouterDM.get(
                             peer_pi_obj.physical_router)
                         if peer_pr is None:
@@ -97,12 +97,20 @@ class UnderlayIpClosFeature(FeatureBase):
                             peer = Bgp(
                                 name=peer_pr.name,
                                 ip_address=peer_iip_obj.instance_ip_address,
-                                autonomous_system=peer_pr.allocated_asn)
+                                autonomous_system=peer_pr.allocated_asn,
+                                comment="peer with %s" % peer_pr.name)
                             peers[peer_pr.name] = peer
-
+                            # add physical interface only when peer is present
+                            pi_list.append(pi_obj.name)
                 if peers:
                     bgp.set_peers(list(peers.values()))
                     feature_config.add_bgp(bgp)
+
+        for pi_name in pi_list:
+            pi, li_map = pi_map.get(pi_name)
+            pi.set_logical_interfaces(list(li_map.values()))
+            feature_config.add_physical_interfaces(pi)
+
     # end _build_underlay_bgp
 
     def feature_config(self, **kwargs):
