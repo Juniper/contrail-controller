@@ -68,8 +68,13 @@ struct PortInfo input[] = {
     {"vnet3", 3, "2.1.1.1", "00:00:00:02:01:01", 2, 3},
 };
 
+static BgpPeer *bgp_peer;
+
 static void Setup() {
+    boost::system::error_code ec;
     client->Reset();
+    bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                             "xmpp channel");
     CreateVmportEnv(input, 3, 1);
     client->WaitForIdle();
 
@@ -84,6 +89,7 @@ static void Setup() {
 static void Teardown() {
     client->Reset();
     DeleteVmportEnv(input, 3, true, 1);
+    DeleteBgpPeer(bgp_peer);
     client->WaitForIdle();
 }
 
@@ -951,6 +957,66 @@ TEST_F(PktParseTest, InvalidIGMP_Vxlan_IP) {
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
                                                     pkt->GetBuffLen());
+    client->WaitForIdle();
+}
+
+TEST_F(PktParseTest, InvalidICMPv6_Vxlan_IP_Tor) {
+    struct PortInfo input[] = {
+        {"vrf1", 1, "1.1.1.3", "00:00:00:01:01:01", 1, 1},
+    };
+
+    // set tsn mode for this tc
+    agent_->set_tsn_enabled(true);
+    CreateVmportWithEcmp(input, 1);
+    client->WaitForIdle();
+
+    // create Tor composite NH
+    MulticastHandler *mc_handler =
+        static_cast<MulticastHandler *>(Agent::GetInstance()->
+                                        oper_db()->multicast());
+    TunnelOlist tor_olist;
+    tor_olist.push_back(OlistTunnelEntry(boost::uuids::nil_uuid(), 10,
+                                     IpAddress::from_string("192.168.1.1").to_v4(),
+                                     TunnelType::VxlanType()));
+    mc_handler->ModifyTorMembers(bgp_peer, "vrf1",
+                                 tor_olist, 10, 1);
+    client->WaitForIdle();
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1",
+                   MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                   Ip4Address(0));
+    CompositeNH *cnh =
+        dynamic_cast<CompositeNH *>(l2_rt->GetActivePath()->nexthop());
+    EXPECT_TRUE(cnh != NULL);
+
+    // form pkt and pass it
+    VrfEntry *vrf =
+        Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf1");
+    uint32_t vxlan_id = vrf->vxlan_id();
+
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    std::auto_ptr<PktGen> pkt(new PktGen());
+
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr:: TRAP_L3_PROTOCOLS, 0, 1);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("192.168.1.1", "192.168.1.2", IPPROTO_UDP);
+    pkt->AddUdpHdr(4789, 4789, 0);
+    pkt->AddVxlanHdr(vxlan_id);
+    pkt->AddEthHdr("00:02:02:02:02:02", "00:00:00:01:01:01", 0x800);
+    pkt->AddIpHdr("1.1.1.3", "1.1.1.2", IPPROTO_ICMPV6);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    agent_->set_tsn_enabled(false);
     client->WaitForIdle();
 }
 
