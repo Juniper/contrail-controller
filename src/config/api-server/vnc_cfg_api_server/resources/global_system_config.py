@@ -133,21 +133,22 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             return False, (500, 'Error in dbe_list: %s' % result)
         vn_list = result
 
-        founded_vn_using_asn = []
-        for vn in vn_list:
-            rt_dict = vn.get('route_target_list', {})
-            if not rt_dict:
-                continue
-            for rt in rt_dict.get('route_target', []):
-                ok, result, _ = cls.server.get_resource_class(
-                    'route_target').validate_route_target_range(rt, global_asn)
-                if not ok:
-                    return False, (400, result)
-                user_defined_rt = result
-                if not user_defined_rt:
-                    founded_vn_using_asn.append((':'.join(vn['fq_name']),
-                                                vn['uuid'], rt))
-        if not founded_vn_using_asn:
+        found_obj_using_asn = []
+        for obj in obj_list:
+            for field in fields:
+                _obj_field = obj.get(field) or {}
+                route_targets = _obj_field.get('route_target') or []
+                for rt in route_targets:
+                    ok, result, _ = cls.server.get_resource_class(
+                        'route_target').validate_route_target_range(rt, asn)
+                    if not ok:
+                        return False, (400, result)
+                    user_defined_rt = result
+                    if not user_defined_rt:
+                        found_obj_using_asn.append((':'.join(obj['fq_name']),
+                                                    obj['uuid'], field, rt))
+
+        if not found_obj_using_asn:
             return True, ''
         msg = ("Virtual networks are configured with a route target with this "
                "ASN %d and route target value in the same range as used by "
