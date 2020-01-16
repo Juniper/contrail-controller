@@ -150,7 +150,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
         found_obj_using_asn = []
         for obj in obj_list:
             for field in fields:
-                route_targets = obj.get(field, {}).get('route_target', [])
+                _obj_field = obj.get(field) or {}
+                route_targets = _obj_field.get('route_target') or []
                 for rt in route_targets:
                     ok, result, _ = cls.server.get_resource_class(
                         'route_target').validate_route_target_range(rt, asn)
