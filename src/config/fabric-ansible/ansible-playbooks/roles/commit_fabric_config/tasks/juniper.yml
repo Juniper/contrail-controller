@@ -1,4 +1,9 @@
 ---
+    - name: Check commits before push
+      include_role:
+        name: rollback_compare
+      ignore_errors: True
+      static: no
 
     - name: Pushing config ... please wait
       block:
@@ -8,7 +13,7 @@
         - juniper_junos_config:
             load: "set"
             src: "{{source_file}}"
-            comment: "Applied by Ansible"
+            comment: "Contrail execution ID: {{ job_ctx.job_execution_id }}"
             ignore_warning: "True"
             format: "set"
             provider:
