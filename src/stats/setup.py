@@ -1,26 +1,31 @@
-import re
-from setuptools import setup, find_packages
+"""
+Setup script for setuptools.
+
+Setup script for setuptolls to build python package of statistics client.
+"""
+
+from setuptools import find_packages, setup
+from re import compile
 
 
 def requirements(filename):
     with open(filename) as f:
         lines = f.read().splitlines()
-    c = re.compile(r'\s*#.*')
-    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
+    c = compile(r'\s*#.*')
+    return list(filter(bool, [c.sub('', y).strip() for y in lines]))
 
 
 setup(
     name="contrail_stats_client",
-    version="0.1dev0",
+    version="0.1dev",
     description="contrail statistics package.",
     packages=find_packages(),
-    zip_safe=False,
+    install_requires=requirements('requirements.txt'),
+    tests_require=requirements('test-requirements.txt'),
     author="OpenContrail",
     author_email="dev@lists.tungsten.io",
     license="Apache Software License",
     url="https://tungsten.io/",
-    install_requires=requirements('requirements.txt'),
-    tests_require=requirements('test-requirements.txt'),
     test_suite='stats.tests',
     entry_points={
       "console_scripts": [

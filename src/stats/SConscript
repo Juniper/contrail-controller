@@ -43,6 +43,7 @@ cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(source_rules)
 sdist_depends.extend(test_sources_rules)
+sdist_depends.extend(env.GetVncAPIPkg())
 sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
