@@ -1,12 +1,15 @@
 import logging
-import shelve
 from os import getenv
-import json
-from urllib2 import HTTPError, URLError, Request, urlopen
+from json import load, dump, dumps
+try:
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+except ImportError:
+    from urllib2 import HTTPError, URLError, Request, urlopen
 from traceback import format_exc
 from datetime import timedelta, datetime
 from argparse import ArgumentParser
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 from time import sleep
 
 from vnc_api.vnc_api import VncApi
@@ -111,7 +114,12 @@ class Scheduler(object):
         self._save_state_data()
 
     def _get_state_data(self):
-        return shelve.open(self.state)
+        try:
+            with open(self.state) as json_file:
+                state_data = load(json_file)
+        except ValueError:
+            return dict()
+        return state_data
 
     def _init_first_job(self):
         if (self.send_freq is not None):
@@ -121,10 +129,11 @@ class Scheduler(object):
         return sched_job_ts
 
     def _save_state_data(self):
-        state_data = shelve.open(self.state, writeback=True)
+        state_data = dict()
         state_data["sched_job_ts"] = self.sched_job_ts
         state_data["send_freq"] = self.send_freq
-        state_data.close()
+        with open(self.state, 'w') as state_file:
+            dump(state_data, state_file)
 
     def _get_updated_send_freq(self):
         send_freq = Scheduler.DEF_SEND_FREQ
@@ -196,7 +205,7 @@ class Postman(object):
             resp_code = urlopen(
                 url=Request(
                     url=self._stats_server,
-                    data=json.dumps(stats.__dict__),
+                    data=dumps(stats.__dict__).encode('utf-8'),
                     headers={'Content-Type': 'application/json'})).code
             def_err = {"success": False,
                        "message": "Uknown error. HTTP code: %s." % resp_code}

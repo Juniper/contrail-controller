@@ -46,7 +46,7 @@ class UpdatedSendFreqTest(StatsClientTest):
 class StatsSendTest(StatsClientTest):
 
     def test_stats_sending(self):
-        self.stats_server = "http://127.0.0.1:22"
+        self.stats_server = "http://127.0.0.1:22/"
         self.postman = Postman(
             stats_server=self.stats_server,
             vnc_client=self.vnc_client,
