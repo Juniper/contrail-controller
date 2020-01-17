@@ -1,23 +1,42 @@
-from mock import Mock
-from unittest import TestCase
-from datetime import timedelta
+"""Main module for testing of statistics service."""
 import logging
-from httpretty import httprettified, register_uri, POST, last_request
-from stats.main import Scheduler, Postman, Stats, init_logger
+from datetime import timedelta
+from os import remove
+from unittest import TestCase
+
+from httpretty import POST, httprettified, last_request, register_uri
+
+from mock import Mock
+
+from stats.main import Postman, Scheduler, init_logger
 
 
 class StatsClientTest(TestCase):
+    """The base class for statistics sending."""
+
     def setUp(self):
+        """Set up for all tests."""
         self.vnc_client = Mock()
 
 
 class UpdatedSendFreqTest(StatsClientTest):
+    """Tests to check config parsing to get right sending frequency setup."""
+
+    STATUS_FILE = "status.json"
+
     def setUp(self):
+        """Set up for testing send frequency configuration."""
         super(UpdatedSendFreqTest, self).setUp()
         self.vnc_client.tags_list.return_value = {"tags": []}
-        self.scheduler = Scheduler(self.vnc_client, state="test")
+        self.scheduler = Scheduler(self.vnc_client,
+                                   state=UpdatedSendFreqTest.STATUS_FILE)
+
+    def tearDown(self):
+        """Cleanup after sending frequency testing."""
+        remove(UpdatedSendFreqTest.STATUS_FILE)
 
     def test_get_updated_send_freq_monthly(self):
+        """Test sending frequency setting which is equal one month."""
         self.vnc_client.tags_list.return_value = {"tags": [
             {"fq_name": ["label=stats_monthly"]},
             {"fq_name": ["label=stats_weekly"]},
@@ -28,6 +47,7 @@ class UpdatedSendFreqTest(StatsClientTest):
         self.assertEqual(send_freq, timedelta(days=30))
 
     def test_get_updated_send_freq_daily(self):
+        """Test sending frequency setting which is equal one day."""
         self.vnc_client.tags_list.return_value = {"tags": [
             {"fq_name": ["label=stats_daily"]},
             {"fq_name": ["test"]}
@@ -36,6 +56,7 @@ class UpdatedSendFreqTest(StatsClientTest):
         self.assertEqual(send_freq, timedelta(days=1))
 
     def test_get_updated_send_freq_swithched_off(self):
+        """Test sending frequency setting if it is switched off."""
         self.vnc_client.tags_list.return_value = {"tags":
                                                   [{"fq_name": ["test"]}]}
         send_freq = self.scheduler._get_updated_send_freq()
@@ -44,9 +65,11 @@ class UpdatedSendFreqTest(StatsClientTest):
 
 @httprettified
 class StatsSendTest(StatsClientTest):
+    """The class to test sending statistics to server."""
 
     def test_stats_sending(self):
-        self.stats_server = "http://127.0.0.1:22"
+        """Test sending statistics to server."""
+        self.stats_server = "http://127.0.0.1:22/"
         self.postman = Postman(
             stats_server=self.stats_server,
             vnc_client=self.vnc_client,

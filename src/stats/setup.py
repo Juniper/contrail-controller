@@ -1,8 +1,16 @@
+"""
+Setup script for setuptools.
+
+Setup script for setuptolls to build python package of statistics client.
+"""
+
 import re
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 
 def requirements(filename):
+    """Parse requirements file."""
     with open(filename) as f:
         lines = f.read().splitlines()
     c = re.compile(r'\s*#.*')
