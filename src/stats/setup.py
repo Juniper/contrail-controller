@@ -1,17 +1,25 @@
+"""
+Setup script for setuptools.
+
+Setup script for setuptolls to build python package of statistics client.
+"""
+
 import re
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 
 def requirements(filename):
+    """Parse requirements file."""
     with open(filename) as f:
         lines = f.read().splitlines()
     c = re.compile(r'\s*#.*')
-    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
+    return list(filter(bool, [c.sub('', y).strip() for y in lines]))
 
 
 setup(
     name="contrail_stats_client",
-    version="0.1dev0",
+    version="0.1dev",
     description="contrail statistics package.",
     packages=find_packages(),
     zip_safe=False,

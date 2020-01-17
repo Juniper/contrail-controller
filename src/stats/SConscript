@@ -43,6 +43,7 @@ cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(source_rules)
 sdist_depends.extend(test_sources_rules)
+sdist_depends.extend(env.GetVncAPIPkg())
 sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
@@ -55,7 +56,10 @@ if 'install' in BUILD_TARGETS:
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
-test_target = env.SetupPyTestSuite(sdist_gen, use_tox=True)
+test_target = env.SetupPyTestSuite(
+    sdist_gen,
+    sdist_depends=[env.GetVncAPIPkg()],
+    use_tox=True)
 
 # This add'l alias is to allow retry of UT in CI
 env.Alias('controller/src/stats/stats:test', test_target)
