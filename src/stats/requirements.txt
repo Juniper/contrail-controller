@@ -1,1 +1,3 @@
+six
+requests
 contrail-api-client
