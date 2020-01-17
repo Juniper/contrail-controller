@@ -1,18 +1,24 @@
+"""The main module for statistics sending package."""
 import logging
-import shelve
-from os import getenv
-import json
-from urllib2 import HTTPError, URLError, Request, urlopen
-from traceback import format_exc
-from datetime import timedelta, datetime
 from argparse import ArgumentParser
-from ConfigParser import ConfigParser
+from datetime import datetime, timedelta
+from json import dump, dumps, load
+from os import getenv
+try:
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+except ImportError:
+    from urllib2 import HTTPError, URLError, Request, urlopen
 from time import sleep
+from traceback import format_exc
+
+from six.moves.configparser import ConfigParser
 
 from vnc_api.vnc_api import VncApi
 
 
 def parse_args():
+    """Parse command-line arguments to start stats service."""
     parser = ArgumentParser()
     parser.add_argument("--config-file", required=True)
     args = parser.parse_args()
@@ -20,6 +26,7 @@ def parse_args():
 
 
 def parse_config(args):
+    """Parse configuration file for stats service."""
     config = ConfigParser()
     config.read(args.config_file)
     log_file = config.get("DEFAULT", "log_file")
@@ -43,6 +50,7 @@ def parse_config(args):
 
 
 def init_logger(log_level, log_file):
+    """Initialise logger for stats service."""
     logger = logging.getLogger(name="stats_client")
     logger.setLevel(level=log_level)
     handler = logging.FileHandler(filename=log_file)
@@ -55,7 +63,10 @@ def init_logger(log_level, log_file):
 
 
 class Stats(object):
+    """Contrail Statistics class."""
+
     def __init__(self, client):
+        """Initialise Statistics objest."""
         self.tf_id = client.get_default_project_id()
         self.vmachines = len(client.virtual_machines_list().get(
             'virtual-machines'))
@@ -67,6 +78,7 @@ class Stats(object):
             'virtual-machine-interfaces'))
 
     def __str__(self):
+        """Represent statistics object as string for logging."""
         return str({"tf_id": self.tf_id,
                     "vr": self.vrouters,
                     "vm": self.vmachines,
@@ -75,9 +87,12 @@ class Stats(object):
 
 
 class Scheduler(object):
+    """Schedule job for statistics sending."""
+
     DEF_SEND_FREQ = None
 
     def __init__(self, vnc_client, state):
+        """Initialise Scheduler instance."""
         self.state = state
         self._vnc_client = vnc_client
         self._state_data = self._get_state_data()
@@ -91,10 +106,12 @@ class Scheduler(object):
 
     @property
     def sched_job_ts(self):
+        """Get scheduled job timestamp for statistics sending."""
         return self._sched_job_ts
 
     @sched_job_ts.setter
     def sched_job_ts(self, send_freq):
+        """Schedule new job for statistics sending."""
         if (send_freq is not None):
             self._sched_job_ts = datetime.now() + send_freq
         else:
@@ -103,15 +120,22 @@ class Scheduler(object):
 
     @property
     def send_freq(self):
+        """Get sending frequency."""
         return self._send_freq
 
     @send_freq.setter
     def send_freq(self, updated_send_freq):
+        """Set sending frequency."""
         self._send_freq = updated_send_freq
         self._save_state_data()
 
     def _get_state_data(self):
-        return shelve.open(self.state)
+        try:
+            with open(self.state) as json_file:
+                state_data = load(json_file)
+        except ValueError:
+            return dict()
+        return state_data
 
     def _init_first_job(self):
         if (self.send_freq is not None):
@@ -121,10 +145,11 @@ class Scheduler(object):
         return sched_job_ts
 
     def _save_state_data(self):
-        state_data = shelve.open(self.state, writeback=True)
+        state_data = dict()
         state_data["sched_job_ts"] = self.sched_job_ts
         state_data["send_freq"] = self.send_freq
-        state_data.close()
+        with open(self.state, 'w') as state_file:
+            dump(state_data, state_file)
 
     def _get_updated_send_freq(self):
         send_freq = Scheduler.DEF_SEND_FREQ
@@ -143,6 +168,7 @@ class Scheduler(object):
         return send_freq
 
     def is_job(self):
+        """Check if there is scheduled job which must be executed now."""
         # statistics will be sent if:
         # 1. frequency of sending was changed
         # and sending is not switched off.
@@ -170,14 +196,18 @@ class Scheduler(object):
 
 
 class Postman(object):
+    """Send statistics ang response from statistics server."""
+
     SLEEP_TIME = 3600
 
     def __init__(self, stats_server, vnc_client, logger):
+        """Initialise Postman instance for statistics sending job."""
         self._vnc_client = vnc_client
         self._stats_server = stats_server
         self.logger = logger
 
     def send_stats(self):
+        """Send statistics to server."""
         self.logger.info("Statistics sending started..")
         RESP = {
             201: {"success": True,
@@ -196,7 +226,7 @@ class Postman(object):
             resp_code = urlopen(
                 url=Request(
                     url=self._stats_server,
-                    data=json.dumps(stats.__dict__),
+                    data=dumps(stats.__dict__).encode('utf-8'),
                     headers={'Content-Type': 'application/json'})).code
             def_err = {"success": False,
                        "message": "Uknown error. HTTP code: %s." % resp_code}
@@ -209,7 +239,7 @@ class Postman(object):
             resp_code = e.reason[1]
             def_err = {"success": False,
                        "message": "Uknown error. URLError: %s." % resp_code}
-        except Exception as e:
+        except Exception:
             resp_code = "unknown"
             def_err = {
                 "success": False,
@@ -220,6 +250,7 @@ class Postman(object):
 
 
 def main():
+    """Do the main logic of statistics service."""
     config = parse_config(args=parse_args())
     logger = init_logger(log_level=config["log_level"],
                          log_file=config["log_file"])
