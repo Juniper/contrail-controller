@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f2c668e4_679db56b",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/virtual_machine_interface.py",
+        "patchSetId": 15
+      },
+      "lineNbr": 1394,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-17T17:39:08Z",
+      "side": 1,
+      "message": "This is failing in UTs because virtual_network_refs may not be present.\nFailure is in DM verify_dm_qfx_switch_options at the bottom.",
+      "revId": "6dc2a18301685ff0be220984cbc6acdf7bfa4240",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
