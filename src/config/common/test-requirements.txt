@@ -2,5 +2,6 @@ flexmock
 kombu # as we have to remove the dep in requirement, add it in the test-req for UT
 mock
 python-novaclient
+requests
 testtools
 webtest

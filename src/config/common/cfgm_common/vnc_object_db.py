@@ -5,11 +5,8 @@
 """
 This file contains implementation of object db
 """
-from __future__ import absolute_import
-from __future__ import unicode_literals
 
-from builtins import object
-from . import vnc_cassandra
+from cfgm_common import vnc_cassandra
 
 class VncObjectDBClient(object):
     def __init__(self, server_list=None, db_prefix=None, rw_keyspaces=None,
@@ -42,4 +39,7 @@ class VncObjectDBClient(object):
                 raise NotImplementedError(msg)
 
     def __getattr__(self, name):
+        if not self._object_db:
+            msg = ("Database backend was not initialized")
+            raise RuntimeError(msg)
         return getattr(self._object_db, name)
