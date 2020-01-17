@@ -26,6 +26,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common.exceptions import NoIdError, ResourceExhaustionError
 from cfgm_common.vnc_db import DBBase
 from gevent import monkey
+from six.moves import reload_module
 
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
@@ -64,7 +65,7 @@ from resources.virtual_network import VirtualNetworkST
 
 
 monkey.patch_all()
-reload(sys)
+reload_module(sys)
 sys.setdefaultencoding('UTF8')
 # connection to api-server
 _vnc_lib = None
