@@ -40,6 +40,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 import requests
 from six import string_types
+from six.moves import reload_module
 from six.moves.configparser import NoOptionError, SafeConfigParser
 from vnc_api.vnc_api import VncApi
 
@@ -73,9 +74,8 @@ from .resources.virtual_network import VirtualNetworkST
 from .st_amqp import STAmqpHandle
 
 monkey.patch_all()
-if sys.version_info[0] < 3:
-    reload(sys)
-    sys.setdefaultencoding('UTF8')
+reload_module(sys)
+sys.setdefaultencoding('UTF8')
 # connection to api-server
 _vnc_lib = None
 # zookeeper client connection
