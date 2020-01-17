@@ -1,8 +1,10 @@
-from mock import Mock
-from unittest import TestCase
-from datetime import timedelta
+"""Main module for testing of statistics service."""
 import logging
-from httpretty import httprettified, register_uri, POST, last_request
+from datetime import timedelta
+from unittest import TestCase
+
+from httpretty import POST, httprettified, last_request, register_uri
+from mock import Mock
 from stats.main import Scheduler, Postman, Stats, init_logger
 
 
@@ -46,7 +48,7 @@ class UpdatedSendFreqTest(StatsClientTest):
 class StatsSendTest(StatsClientTest):
 
     def test_stats_sending(self):
-        self.stats_server = "http://127.0.0.1:22"
+        self.stats_server = "http://127.0.0.1:22/"
         self.postman = Postman(
             stats_server=self.stats_server,
             vnc_client=self.vnc_client,
