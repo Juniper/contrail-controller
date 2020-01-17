@@ -2,13 +2,16 @@ import logging
 import shelve
 from os import getenv
 import json
-from urllib2 import HTTPError, URLError, Request, urlopen
+try:
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+except ImportError:
+    from urllib2 import HTTPError, URLError, Request, urlopen
 from traceback import format_exc
 from datetime import timedelta, datetime
 from argparse import ArgumentParser
-from ConfigParser import ConfigParser
+from six.moves.configparser import ConfigParser
 from time import sleep
-
 from vnc_api.vnc_api import VncApi
 
 
