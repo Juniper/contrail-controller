@@ -38,7 +38,9 @@
         job_ctx: "{{ job_ctx }}"
         prouter_fqname: "{{ prouter_fqname }}"
         onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
-      when: is_delete is undefined or is_delete == False
+      when:
+      - is_delete is undefined or is_delete == False
+      - job_ctx.job_transaction_descr == "Role Assignment"
 
     - set_fact:
         output: {
