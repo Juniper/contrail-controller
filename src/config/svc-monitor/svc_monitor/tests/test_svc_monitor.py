@@ -330,7 +330,8 @@ class SvcMonitorTest(unittest.TestCase):
         ServiceMonitorLogger.error = mock.MagicMock()
         ServiceMonitorLogger.uve_svc_instance = mock.MagicMock()
         VncObjectDBClient.__init__ = mock.MagicMock()
-        VncObjectDBClient._cf_dict = \
+        VncObjectDBClient._cassandra_driver = mock.MagicMock()
+        VncObjectDBClient._cassandra_driver._cf_dict = \
             {'service_instance_table':None, 'pool_table':None, \
             'loadbalancer_table': None, 'healthmonitor_table':None}
         VncKombuClient.__init__ = mock.MagicMock(return_value=None)
