@@ -49,10 +49,10 @@ class ServiceMonitorDB(VncObjectDBClient):
                                                ssl_enabled=args.cassandra_use_ssl,
                                                ca_certs=args.cassandra_ca_certs)
 
-        self._svc_si_cf = self._cassandra_driver._cf_dict[self._SVC_SI_CF]
-        self._pool_cf = self._cassandra_driver._cf_dict[self._POOL_CF]
-        self._lb_cf = self._cassandra_driver._cf_dict[self._LB_CF]
-        self._hm_cf = self._cassandra_driver._cf_dict[self._HM_CF]
+        self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
+        self._pool_cf = self._cf_dict[self._POOL_CF]
+        self._lb_cf = self._cf_dict[self._LB_CF]
+        self._hm_cf = self._cf_dict[self._HM_CF]
 
     # db CRUD
     def _db_get(self, table, key, column):
