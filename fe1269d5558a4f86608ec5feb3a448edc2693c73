@@ -1,0 +1,174 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b7102e14_de211248",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/db-dump.json",
+        "patchSetId": 27
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "I\u0027d suggest to rename it as schema-ut-reference-db-dump.json",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "030290b7_726fe4c9",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_crud_basic.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 4867,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "Is this required if overwrite logic at db_json_exim is no longer required.",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f8d3977_2d4313a0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_in_place_ut_configurator.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "I\u0027d suggest to send a variable PATH\u003d/absolute/path/to/schema-ut-reference-db-dump.json\nand \"def load_db_contents(PATH\u003dNone)\" can be defined so it\u0027ll silently ignore for other cases.\nThis way we provide importing a json functionality to all test-suites",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5e31561d_58759705",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_in_place_ut_configurator.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "I\u0027d suggest to send a variable PATH\u003d/absolute/path/to/schema-ut-cat-reference-db-dump-exported.json\nand \"def dump_db_contents(PATH\u003dNone)\" can be defined so it\u0027ll silently ignore for other cases.",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "15da1409_c19088d1",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 124,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "Remove if its not required as per suggestions provided in the test suite",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0fe7bcba_9542ab70",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1060,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "I\u0027d suggest not to assume a default path or name for db-dump.json. let that be sent from test-suites. so this function may not be really required.",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e9c79ba5_5f3a1d76",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1070,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "As per my suggestion in test-suite, \"dump_db_contents(cls, PATH\u003dNone)\" can be used. and this PATH can be directly be sent from test-suite",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "370b464a_2229ab11",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1071,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "may not be really required, or just it to make some validation of the path for read access.",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c3f19a17_3c14af5a",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1078,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "As per my suggestion in test-suite, \"load_db_contents(cls, PATH\u003dNone)\" can be used. and this PATH can be directly be sent from test-suite",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bbfb2fe2_30ee536b",
+        "filename": "src/config/common/cfgm_common/tests/test_common.py",
+        "patchSetId": 27
+      },
+      "lineNbr": 1079,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-01-18T10:11:12Z",
+      "side": 1,
+      "message": "may not be really required, or just it to make some validation of the path for create/write access.",
+      "revId": "fe1269d5558a4f86608ec5feb3a448edc2693c73",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
