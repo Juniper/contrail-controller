@@ -29,9 +29,6 @@ gevent.monkey.patch_all()
 
 
 class VerifyPolicy(VerifyCommon):
-    def __init__(self, vnc_lib):
-        self._vnc_lib = vnc_lib
-
     def get_ri_name(self, vn, ri_name=None):
         return vn.get_fq_name() + [ri_name or vn.name]
 
@@ -39,7 +36,7 @@ class VerifyPolicy(VerifyCommon):
     def check_vn_ri_state(self, fq_name):
         self._vnc_lib.routing_instance_read(fq_name)
 
-    @retries(5)
+    @retries(8, 2)
     def check_ri_ref_present(self, fq_name, to_fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         for ri_ref in ri.get_routing_instance_refs() or []:
@@ -143,7 +140,7 @@ class VerifyPolicy(VerifyCommon):
             self.assertEqual(ri_rt_refs[0]['to'][0], rt_id)
             self.assertEqual(ri_rt_refs[0]['attr'].import_export, exim)
 
-    @retries(5)
+    @retries(15)
     def check_route_target_in_routing_instance(self, ri_name, rt_list):
         ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
         ri_rt_refs = \

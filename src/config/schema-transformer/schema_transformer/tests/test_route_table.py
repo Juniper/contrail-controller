@@ -199,12 +199,12 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
             except Exception:
                 pass
 
-        @retries(5)
+        @retries(10)
         def _wait_to_delete_ip(vn_fq_name):
             vn = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
             ip_refs = vn.get_instance_ip_back_refs()
             if ip_refs:
-                raise
+                raise Exception('ip_refs still exists for %s' % vn.fq_name)
             return
         # end
 
