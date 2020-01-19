@@ -16,9 +16,6 @@ from .test_policy import VerifyPolicy
 
 
 class VerifyRouteTarget(VerifyPolicy):
-    def __init__(self, vnc_lib):
-        self._vnc_lib = vnc_lib
-
     @retries(5)
     def check_rt_is_deleted(self, name):
         try:
