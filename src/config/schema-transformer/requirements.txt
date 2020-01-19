@@ -3,4 +3,6 @@ netaddr>=0.7.5
 contrail-config-common
 jsonpickle
 future
-six
+six==1.14.0
+sandesh==0.1dev
+sandesh_common
