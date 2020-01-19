@@ -6,3 +6,4 @@ svc-monitor
 junitxml
 python-novaclient
 kombu==4.0.2
+pycrypto==2.6.1
