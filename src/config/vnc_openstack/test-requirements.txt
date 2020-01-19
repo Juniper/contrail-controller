@@ -21,7 +21,7 @@ testscenarios
 kazoo
 contrail-api-client
 contrail-api-server
-sandesh
+sandesh==0.1dev
 sandesh-common
 pyOpenSSL
 mock
