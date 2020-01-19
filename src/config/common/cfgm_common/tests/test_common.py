@@ -434,7 +434,7 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
 
 # end launch_device_manager
 
-@retries(5, hook=retry_exc_handler)
+@retries(10, hook=retry_exc_handler)
 def wait_for_schema_transformer_up():
     if not to_bgp.SchemaTransformer.get_instance():
         raise Exception("ST instance is not up")
