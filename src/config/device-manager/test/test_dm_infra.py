@@ -96,7 +96,7 @@ class TestInfraDM(TestCommonDM):
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
     # end test_dm_no_bgp_params
 
-    @retries(5, hook=retry_exc_handler)
+    @retries(10, delay=2, hook=retry_exc_handler)
     def check_if_config_is_not_pushed(self):
         self.assertIsNone(FakeDeviceConnect.params.get("config"))
 
