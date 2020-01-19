@@ -98,6 +98,7 @@ class TestBgpvpnWithVirtualNetwork(STTestCase, VerifyRouteTarget):
         self.check_rt_in_ri(self.get_ri_name(vn), rt_name)
         bgpvpn.set_route_target_list(RouteTargetList())
         self._vnc_lib.bgpvpn_update(bgpvpn)
+        sleep(1)
         self.check_rt_in_ri(self.get_ri_name(vn), rt_name, is_present=False)
         self.check_rt_is_deleted(rt_name)
 
@@ -107,12 +108,14 @@ class TestBgpvpnWithVirtualNetwork(STTestCase, VerifyRouteTarget):
         self.check_rt_in_ri(self.get_ri_name(vn), rt_name, exim='import')
         bgpvpn.set_import_route_target_list(RouteTargetList())
         self._vnc_lib.bgpvpn_update(bgpvpn)
+        sleep(1)
         self.check_rt_in_ri(self.get_ri_name(vn), rt_name, is_present=False)
         self.check_rt_is_deleted(rt_name)
 
         # Check set/unset export route target
         bgpvpn.set_export_route_target_list(RouteTargetList([rt_name]))
         self._vnc_lib.bgpvpn_update(bgpvpn)
+        sleep(1)
         self.check_rt_in_ri(self.get_ri_name(vn), rt_name, exim='export')
         bgpvpn.set_export_route_target_list(RouteTargetList())
         self._vnc_lib.bgpvpn_update(bgpvpn)

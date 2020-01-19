@@ -5,4 +5,5 @@ contrail-api-server
 svc-monitor
 python-novaclient==16.0.0
 kombu==4.0.2
+pycrypto==2.6.1
 junitxml==0.7
