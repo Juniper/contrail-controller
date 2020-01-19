@@ -41,7 +41,7 @@ class VerifyServicePolicy(VerifyPolicy):
     def __init__(self, vnc_lib):
         self._vnc_lib = vnc_lib
 
-    @retries(5)
+    @retries(8, 2)
     def wait_to_get_sc(self, left_vn=None, right_vn=None, si_name=None,
                        check_create=False):
         for sc in list(ServiceChain.values()):
@@ -373,7 +373,7 @@ class VerifyServicePolicy(VerifyPolicy):
                                 str(vmi_list))
         print('VMIs related to %s are deleted' % test_name)
 
-    @retries(5)
+    @retries(8, 2)
     def check_acl_match_subnets(self, fq_name, subnet1,
                                 subnet2, sc_ri_fq_name):
         acl_fq_name = fq_name + [fq_name[-1]]
@@ -387,7 +387,7 @@ class VerifyServicePolicy(VerifyPolicy):
                         'rules for %s; sc: %s' %
                         (fq_name, sc_ri_fq_name))
 
-    @retries(10)
+    @retries(15, 2)
     def get_si_vm_obj(self, si_obj):
         vm_ref = si_obj.get_virtual_machine_back_refs()
         vm_obj = self._vnc_lib.virtual_machine_read(id=vm_ref[0]['uuid'])
@@ -2454,7 +2454,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         rp_attr = RoutingPolicyType(sequence='1.0')
         vn1_obj.set_routing_policy(rp, rp_attr)
         self._vnc_lib.virtual_network_update(vn1_obj)
-        gevent.sleep(1)
+        gevent.sleep(4)
 
         primary_ri = self._vnc_lib.routing_instance_read(
             fq_name=self.get_ri_name(vn1_obj))
