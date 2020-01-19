@@ -39,7 +39,7 @@ class VerifyPolicy(VerifyCommon):
     def check_vn_ri_state(self, fq_name):
         self._vnc_lib.routing_instance_read(fq_name)
 
-    @retries(5)
+    @retries(8, 2)
     def check_ri_ref_present(self, fq_name, to_fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         for ri_ref in ri.get_routing_instance_refs() or []:

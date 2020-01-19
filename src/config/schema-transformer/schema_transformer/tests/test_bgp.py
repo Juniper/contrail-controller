@@ -61,7 +61,7 @@ class VerifyBgp(VerifyRouteTarget):
             raise Exception("Service Instance Refs found "
                             "while its not expected")
 
-    @retries(5)
+    @retries(8, 2)
     def check_4byteASN_ri_target(self, fq_name, rt_target=None):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -1022,7 +1022,7 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.global_system_config_update(gs)
 
         # check route targets
-        self.check_ri_target(self.get_ri_name(vn1_obj), ri_target)
+        self.check_4byteASN_ri_target(self.get_ri_name(vn1_obj), ri_target)
 
         # update ASN value
         gs = self._vnc_lib.global_system_config_read(
