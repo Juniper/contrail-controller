@@ -61,7 +61,7 @@ class VerifyBgp(VerifyRouteTarget):
             raise Exception("Service Instance Refs found "
                             "while its not expected")
 
-    @retries(5)
+    @retries(15)
     def check_4byteASN_ri_target(self, fq_name, rt_target=None):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
@@ -103,7 +103,7 @@ class VerifyBgp(VerifyRouteTarget):
             raise Exception('bgp params is None for %s' % fq_name)
         self.assertEqual(params.get_autonomous_system(), asn)
 
-    @retries(5)
+    @retries(15)
     def check_lr_target(self, fq_name, rt_target=None):
         router = self._vnc_lib.logical_router_read(fq_name)
         rt_refs = router.get_route_target_refs()
@@ -123,7 +123,7 @@ class VerifyBgp(VerifyRouteTarget):
         except NoIdError:
             print('lr deleted')
 
-    @retries(5)
+    @retries(10)
     def check_bgp_peering(self, router1, router2, length):
         r1 = self._vnc_lib.bgp_router_read(fq_name=router1.get_fq_name())
         ref_names = [ref['to'] for ref in r1.get_bgp_router_refs() or []]
@@ -309,6 +309,7 @@ class TestBgp(STTestCase, VerifyBgp):
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
         self._vnc_lib.logical_router_create(lr)
+        gevent.sleep(1)
         lr_target = self.check_lr_target(lr.get_fq_name())
         ri_name = self.get_ri_name(vn1_obj)
         self.check_route_target_in_routing_instance(
@@ -318,6 +319,7 @@ class TestBgp(STTestCase, VerifyBgp):
         rtgt_list.add_route_target('target:1:2')
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_update(lr)
+        gevent.sleep(1)
         self.check_route_target_in_routing_instance(
             ri_name,
             rtgt_list.get_route_target())
@@ -325,6 +327,7 @@ class TestBgp(STTestCase, VerifyBgp):
         rtgt_list.delete_route_target('target:1:1')
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_update(lr)
+        gevent.sleep(1)
         self.check_route_target_in_routing_instance(
             ri_name,
             rtgt_list.get_route_target())
@@ -362,6 +365,7 @@ class TestBgp(STTestCase, VerifyBgp):
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
         self._vnc_lib.logical_router_create(lr)
+        gevent.sleep(1)
         lr = self._vnc_lib.logical_router_read(id=lr.uuid)
         lr_target = self.check_lr_target(lr.get_fq_name())
         intvns = self.get_lr_internal_vn(lr.get_fq_name())
@@ -531,7 +535,7 @@ class TestBgp(STTestCase, VerifyBgp):
                          True, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 1 leafs
-        fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
+        fab1 = self._vnc_lib.fabric_create(Fabric('fab1-%s' % self.id()))
         fab1 = self._vnc_lib.fabric_read(id=fab1)
 
         bgp_router1_fab1, pr1_fab1 = self.create_router(
@@ -545,7 +549,7 @@ class TestBgp(STTestCase, VerifyBgp):
             product="qfx1000", ignore_bgp=True, role="leaf", fabric=fab1)
 
         # Fabric 2 has 1 RR, spine + 2 leafs
-        fab2 = self._vnc_lib.fabric_create(Fabric('fab2'))
+        fab2 = self._vnc_lib.fabric_create(Fabric('fab2-%s' % self.id()))
         fab2 = self._vnc_lib.fabric_read(id=fab2)
 
         bgp_router1_fab2, pr1_fab2 = self.create_router(
@@ -598,7 +602,7 @@ class TestBgp(STTestCase, VerifyBgp):
                          True, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 2 leafs, asn = 64000
-        fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
+        fab1 = self._vnc_lib.fabric_create(Fabric('fab1-%s' % self.id()))
         fab1 = self._vnc_lib.fabric_read(id=fab1)
 
         bgp_router1_fab1, pr1_fab1 = self.create_router(
@@ -617,7 +621,7 @@ class TestBgp(STTestCase, VerifyBgp):
             asn=64000)
 
         # Fabric 2 has 1 RR, spine + 2 leafs, asn = 64001
-        fab2 = self._vnc_lib.fabric_create(Fabric('fab2'))
+        fab2 = self._vnc_lib.fabric_create(Fabric('fab2-%s' % self.id()))
         fab2 = self._vnc_lib.fabric_read(id=fab2)
 
         bgp_router1_fab2, pr1_fab2 = self.create_router(
@@ -665,7 +669,7 @@ class TestBgp(STTestCase, VerifyBgp):
                          False, "ibgp_auto_mesh_toggle_test")
 
         # Fabric 1 has 1 RR,spine + 2 leafs
-        fab1 = self._vnc_lib.fabric_create(Fabric('fab1'))
+        fab1 = self._vnc_lib.fabric_create(Fabric('fab1-%s' % self.id()))
         fab1 = self._vnc_lib.fabric_read(id=fab1)
 
         bgp_router1_fab1, pr1_fab1 = self.create_router(
@@ -686,7 +690,7 @@ class TestBgp(STTestCase, VerifyBgp):
         gevent.sleep(1)
 
         # Fabric 2 has 1 RR, spine + 2 leafs
-        fab2 = self._vnc_lib.fabric_create(Fabric('fab2'))
+        fab2 = self._vnc_lib.fabric_create(Fabric('fab2-%s' % self.id()))
         fab2 = self._vnc_lib.fabric_read(id=fab2)
 
         bgp_router1_fab2, pr1_fab2 = self.create_router(
@@ -1022,7 +1026,7 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.global_system_config_update(gs)
 
         # check route targets
-        self.check_ri_target(self.get_ri_name(vn1_obj), ri_target)
+        self.check_4byteASN_ri_target(self.get_ri_name(vn1_obj), ri_target)
 
         # update ASN value
         gs = self._vnc_lib.global_system_config_read(
@@ -1188,6 +1192,7 @@ class TestBgp(STTestCase, VerifyBgp):
         bgpaas.del_virtual_machine_interface(port_obj1)
         bgpaas.del_virtual_machine_interface(port_obj2)
         self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        gevent.sleep(4)
         self._vnc_lib.bgp_as_a_service_delete(id=bgpaas.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj2.uuid)
