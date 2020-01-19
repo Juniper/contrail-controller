@@ -8,7 +8,7 @@ python-keystoneclient>=0.11.0
 keystonemiddleware!=4.19.0
 lxml>=2.3.3
 neutron_lib
-gevent==1.1.2
+gevent
 geventhttpclient==1.0a
 netaddr>=0.7.5
 bitarray>=0.8.0
@@ -21,7 +21,7 @@ testscenarios
 kazoo
 contrail-api-client
 contrail-api-server
-sandesh
+sandesh==0.1dev
 sandesh-common
 pyOpenSSL
 mock

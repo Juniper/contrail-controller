@@ -4,13 +4,13 @@ from builtins import range
 from past.builtins import basestring
 from builtins import object
 from datetime import datetime
-import sys
 import json
 import re
 import mock
 import uuid
 import unittest
 
+from keystonemiddleware import auth_token
 from testtools import ExpectedException
 import webtest.app
 
@@ -1324,7 +1324,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         net_q = self.create_resource('network', proj_id)
         subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
         return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'], 'port_security_enabled':False})
-    
+
     def test_create_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         with ExpectedException(webtest.app.AppError):
@@ -1338,9 +1338,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
     def test_allowed_address_with_extra_space(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         net_q = self.create_resource('network', proj_obj.uuid)
-        subnet_q = self.create_resource('subnet', proj_obj.uuid, 
-                                        extra_res_fields={'network_id': net_q['id'], 
-                                                          'cidr': '10.2.0.0/24', 
+        subnet_q = self.create_resource('subnet', proj_obj.uuid,
+                                        extra_res_fields={'network_id': net_q['id'],
+                                                          'cidr': '10.2.0.0/24',
                                                           'ip_version': 4})
         # adding extra space in IPv6 address is invalid. But for IPv4 address adding extra space is still valid.
         with ExpectedException(webtest.app.AppError):
@@ -3020,121 +3020,144 @@ class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
 
 class TestRBACPerms(test_case.VncOpenstackTestCase):
     domain_name = 'default-domain'
-    fqdn = [domain_name]
-    _api_session = requests.Session()
-    adapter = requests.adapters.HTTPAdapter()
-    _api_session.mount("http://", adapter)
+    project_name = 'default-project'
+    vn_name = 'test-network-rbac-perms'
+    fqpn = [domain_name, project_name]
 
     @classmethod
     def setUpClass(cls):
-        from keystonemiddleware import auth_token
         class FakeAuthProtocol(object):
             _test_cls = cls
+
             def __init__(self, app, *args, **kwargs):
                 self._app = app
-
             # end __init__
+
             def __call__(self, env, start_response):
-                #Count number of calls made
                 env['HTTP_X_PROJECT_ID'] = uuid.uuid4().hex
-                if env.get('HTTP_X_AUTH_TOKEN') == 'test123':
-                    env['HTTP_X_ROLE'] = 'test'
+                if env.get('HTTP_X_AUTH_TOKEN') == 'fake-user-auth-token':
+                    env['HTTP_X_ROLE'] = 'fake-test-user'
                 else:
                     env['HTTP_X_ROLE'] = 'cloud-admin'
                 return self._app(env, start_response)
             # end __call__
         # end class FakeAuthProtocol
 
-        extra_mocks = [(auth_token, 'AuthProtocol',
-                            FakeAuthProtocol)]
+        extra_mocks = [(auth_token, 'AuthProtocol', FakeAuthProtocol)]
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
             ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
             ('DEFAULTS', 'auth', 'keystone'),
         ]
-        super(TestRBACPerms, cls).setUpClass(extra_mocks=extra_mocks,
-            extra_config_knobs=extra_config_knobs)
+        super(TestRBACPerms, cls).setUpClass(
+            extra_mocks=extra_mocks, extra_config_knobs=extra_config_knobs)
 
-    def test_neutron_perms(self):
-        test_obj = self._create_test_object()
-        proj_obj = self._vnc_lib.project_read(
-            fq_name=['default-domain', 'default-project'])
-        context = {'operation': 'CREATE',
-                   'user_id': '',
-                   'is_admin': False,
-                   'roles': '',
-                   'tenant_id': proj_obj.uuid}
+    def _prepare_request_data(self):
+        self._create_test_object()
+        project = self._vnc_lib.project_read(fq_name=self.fqpn)
 
-        data = {'resource': {'name': 'test_network',
-                             'tenant_id': proj_obj.uuid}}
-        body = {'context': context, 'data': data}
-        uri = '/neutron/network'
-        url = "http://%s:%s%s" \
-              % (self._vnc_lib._web_host, self._vnc_lib._web_port, uri)
-        headers=self._vnc_lib._headers
-        headers['X_AUTH_TOKEN'] = 'test123'
-        header = json.dumps(headers)
-        body = json.dumps(body)
-        test_pass = False
-        val = TestRBACPerms._api_session.post(url, data=body, headers=headers, verify=False)
-        self.assertIn('NotAuthorized', val._content)
+        url = 'http://{}:{}/neutron/network'.format(self._vnc_lib._web_host,
+                                                    self._vnc_lib._web_port)
+        headers = self._vnc_lib._headers.copy()
+        body = {
+            'context': {
+                'operation': 'CREATE',
+                'user_id': '',
+                'is_admin': False,
+                'roles': '',
+                'tenant_id': project.uuid,
+            },
+            'data': {
+                'resource': {
+                    'name': self.vn_name,
+                    'tenant_id': project.uuid,
+                },
+            },
+        }
+        return url, headers, body
+
+    def test_neutron_perms_denied_for_not_authorized_user(self):
+        url, headers, body = self._prepare_request_data()
+        headers['X-Auth-Token'] = 'fake-user-auth-token'
+
+        resp = requests.post(url, json=body, headers=headers, verify=False)
+        resp_content = resp.json()
+
+        self.assertIn('NotAuthorized', resp_content['exception'])
+        self.assertIn("Permission Denied for None as ['fake-test-user']",
+                      resp_content['msg'])
+
+    def test_neutron_perms_granted_for_admin_user(self):
+        url, headers, body = self._prepare_request_data()
+
+        resp = requests.post(url, json=body, headers=headers, verify=False)
+        resp_content = resp.json()
+
+        self.assertTrue(resp.ok)
+        self.assertEqual('ACTIVE', resp_content['status'])
+
+        expected_vn_fqn = [self.domain_name, self.project_name, self.vn_name]
+        self.assertListEqual(expected_vn_fqn, resp_content['fq_name'])
 # end class TestRBACPerms
 
 class TestKeystoneCallCount(test_case.NeutronBackendTestCase):
-    test_obj_uuid = None
-    test_failures = []
-    expected_auth_token = ''
-    _api_session = requests.Session()
-    adapter = requests.adapters.HTTPAdapter()
-    _api_session.mount("http://", adapter)
+    auth_token = 'count-keystone-middleware-call-fake-token'
     _call_count = 0
+
     @classmethod
     def setUpClass(cls):
-        from keystonemiddleware import auth_token
         class FakeAuthProtocol(object):
             _test_cls = cls
+
             def __init__(self, app, *args, **kwargs):
                 self._app = app
-
             # end __init__
+
             def __call__(self, env, start_response):
-                #Count number of calls made
-                if env.get('HTTP_X_AUTH_TOKEN') == 'abc123':
-                    self._test_cls._call_count = self._test_cls._call_count + 1
+                # Count number of calls made
+                if env.get('HTTP_X_AUTH_TOKEN') == self._test_cls.auth_token:
+                    self._test_cls._call_count += 1
                 env['HTTP_X_ROLE'] = 'admin'
                 return self._app(env, start_response)
             # end __call__
         # end class FakeAuthProtocol
+
+        extra_mocks = [(auth_token, 'AuthProtocol', FakeAuthProtocol)]
+        extra_config_knobs = [
+            ('DEFAULTS', 'auth', 'keystone'),
+            ('DEFAULTS', 'aaa_mode', 'cloud-admin'),
+            ('KEYSTONE', 'admin_user', 'foo'),
+            ('KEYSTONE', 'admin_password', 'bar'),
+            ('KEYSTONE', 'admin_tenant_name', 'baz'),
+        ]
         super(TestKeystoneCallCount, cls).setUpClass(
-            extra_config_knobs=[
-                ('DEFAULTS', 'auth', 'keystone'),
-                ('DEFAULTS', 'aaa_mode', 'cloud-admin'),
-                ('KEYSTONE', 'admin_user', 'foo'),
-                ('KEYSTONE', 'admin_password', 'bar'),
-                ('KEYSTONE', 'admin_tenant_name', 'baz'),],
-            extra_mocks=[
-                (auth_token, 'AuthProtocol', FakeAuthProtocol),
-                ])
+            extra_mocks=extra_mocks, extra_config_knobs=extra_config_knobs)
     # end setupClass
 
     def test_keystone_call_count(self):
         test_obj = self._create_test_object()
-        context = {'operation': 'READ',
-                   'user_id': '',
-                   'roles': ''}
-        data = {'fields': None,
-                'id': test_obj.uuid}
-        body = {'context': context, 'data': data}
-        uri = '/neutron/network'
-        url = "http://%s:%s%s" \
-              % (self._vnc_lib._web_host, self._vnc_lib._web_port, uri)
-        headers=self._vnc_lib._headers
-        headers['X_AUTH_TOKEN'] = 'abc123'
-        header = json.dumps(headers)
-        body = json.dumps(body)
-        # currently OP_GET goes through LocalVncApi.
-        TestKeystoneCallCount._api_session.post(url, data=body, headers=headers, verify=False)
-        self.assertEqual(TestKeystoneCallCount._call_count, 1)
+
+        url = 'http://{}:{}/neutron/network'.format(self._vnc_lib._web_host,
+                                                    self._vnc_lib._web_port)
+        headers = self._vnc_lib._headers.copy()
+        headers['X-Auth-Token'] = self.auth_token
+        body = {
+            'context': {
+                'operation': 'READ',
+                'user_id': '',
+                'roles': '',
+            },
+            'data': {
+                'fields': None,
+                'id': test_obj.uuid,
+            },
+        }
+
+        # Currently, OP_GET goes through LocalVncApi.
+        requests.post(url, json=body, headers=headers, verify=False)
+        expected_call_count = 1
+        self.assertEqual(expected_call_count,
+                         TestKeystoneCallCount._call_count)
     # end test_keystone_call_count
 # end class TestKeystoneCallCount
