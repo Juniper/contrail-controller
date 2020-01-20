@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d6aa0fd6_625feb77",
+        "filename": "src/config/common/requirements.txt",
+        "patchSetId": 14
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-20T11:00:56Z",
+      "side": 1,
+      "message": "Why do we need that restriction? Can you explain it in a quick comment here please?",
+      "revId": "b227ee3dd5ce565166ba8475317b7bf4c445d7fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
