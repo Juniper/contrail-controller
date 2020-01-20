@@ -16,6 +16,24 @@
       "revId": "f9919b7e2821678809b83707d2850c4818804942",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f20b0b42_820bd449",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 260,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-20T11:28:03Z",
+      "side": 0,
+      "message": "Ok I got it, VncApiServer inherits from Object.",
+      "parentUuid": "b0d9c4b3_6196425c",
+      "revId": "f9919b7e2821678809b83707d2850c4818804942",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
