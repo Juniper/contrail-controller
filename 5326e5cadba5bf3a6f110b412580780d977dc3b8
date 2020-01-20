@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1820aa8a_554d3e84",
+        "filename": "src/config/api-server/test-requirements.txt",
+        "patchSetId": 3
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-20T11:24:23Z",
+      "side": 1,
+      "message": "It is already in the requirements.txt file, you don\u0027t need to add it here",
+      "revId": "5326e5cadba5bf3a6f110b412580780d977dc3b8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
