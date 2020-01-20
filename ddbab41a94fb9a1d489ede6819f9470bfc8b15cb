@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "04c2ffaf_58f81a77",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/underlay_ip_clos/juniper_junos-qfx_underlay_ip_clos.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-01-20T09:20:16Z",
+      "side": 1,
+      "message": "is it undelay_ip_clos or physical_interfaces?",
+      "revId": "ddbab41a94fb9a1d489ede6819f9470bfc8b15cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "56ec8d0d_5e48f0a5",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/underlay_ip_clos/juniper_junos-qfx_underlay_ip_clos.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-01-20T09:20:16Z",
+      "side": 1,
+      "message": "We don\u0027t need this check any more, as we are reading from the underlay-ip-clos only.",
+      "revId": "ddbab41a94fb9a1d489ede6819f9470bfc8b15cb",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
