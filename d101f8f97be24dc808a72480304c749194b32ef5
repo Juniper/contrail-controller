@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "64f30a0a_3574f044",
+        "filename": "src/config/common/requirements.txt",
+        "patchSetId": 9
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-20T07:54:07Z",
+      "side": 0,
+      "message": "Why are you removing that requirement? pysandesh lib is used in cfgm_common.",
+      "revId": "d101f8f97be24dc808a72480304c749194b32ef5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
