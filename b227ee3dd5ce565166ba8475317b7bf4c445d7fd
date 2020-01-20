@@ -16,6 +16,24 @@
       "revId": "b227ee3dd5ce565166ba8475317b7bf4c445d7fd",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6f68724d_903368c0",
+        "filename": "src/config/common/requirements.txt",
+        "patchSetId": 14
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-01-20T18:10:43Z",
+      "side": 1,
+      "message": "This is not needed .  I have removed it",
+      "parentUuid": "d6aa0fd6_625feb77",
+      "revId": "b227ee3dd5ce565166ba8475317b7bf4c445d7fd",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
