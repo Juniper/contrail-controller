@@ -634,13 +634,40 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                     return NULL;
             }
 
-            // Check if there is a loop in cluster_list
             if (server()->cluster_id()) {
+                // Check if there is a loop in cluster_list
                 if (attr->cluster_list() && attr->cluster_list()->cluster_list()
                         .ClusterListLoop(server()->cluster_id())) {
                     return NULL;
                 }
+
+                RibPeerSet route_peerset;
+                // route reflector should not reflect the route back to the peer
+                // from which it received that route
+                // This is done by checking peer_router_id of all the feasible
+                // paths of this route
+                for (Route::PathList::iterator it= route->GetPathList().begin();
+                        it != route->GetPathList().end(); it++) {
+                    BgpPath *ipath = static_cast<BgpPath *>(it.operator->());
+                    if (ipath->IsFeasible() && ipath->GetPeer()) {
+                        IPeer *ipeer = const_cast<IPeer *>(ipath->GetPeer());
+                        BgpPeer *bgp_peer = dynamic_cast<BgpPeer *>(ipeer);
+                        if (bgp_peer)
+                            route_peerset.set(bgp_peer->GetIndex());
+                    }
+                }
+                RibOut::PeerIterator iter(ribout, new_peerset);
+                while (iter.HasNext()) {
+                    int current_index = iter.index();
+                    IPeerUpdate *peer = iter.Next();
+                    BgpPeer *bgp_peer = dynamic_cast<BgpPeer *>(peer);
+                    if (bgp_peer && route_peerset.test(bgp_peer->GetIndex()))
+                        new_peerset.reset(current_index);
+                }
+                if (new_peerset.empty())
+                    return NULL;
             }
+
             clone = new BgpAttr(*attr);
 
             // Retain LocalPref value if set, else set default to 100.
@@ -658,8 +685,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             // is not present
             if (server()->cluster_id()) {
                 if (clone->originator_id().is_unspecified()) {
-                    clone->set_originator_id(Ip4Address(
+                    if (peer && (peer->bgp_identifier() != 0)) {
+                        clone->set_originator_id(Ip4Address(
+                                peer->bgp_identifier()));
+                    } else {
+                        clone->set_originator_id(Ip4Address(
                                 server()->bgp_identifier()));
+                    }
                 }
                 if (attr->cluster_list()) {
                     const ClusterListSpec &cluster =

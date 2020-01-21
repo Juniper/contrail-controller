@@ -368,6 +368,7 @@ TEST_P(BgpUpdateRxParamTest1, ClusterListLoop) {
     BgpAttrNextHop *nexthop = new BgpAttrNextHop(0xabcdef01);
     update.path_attributes.push_back(nexthop);
     uint32_t cluster_id = local_identifier_.to_ulong();
+    server_.set_cluster_id(cluster_id);
     ClusterListSpec *cluster_list_spec = new ClusterListSpec;
     cluster_list_spec->cluster_list.push_back(100);
     cluster_list_spec->cluster_list.push_back(
