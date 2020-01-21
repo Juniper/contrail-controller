@@ -1,6 +1,13 @@
+import re
+import logging
+
 from builtins import range
 from vnc_api import vnc_api
+from vnc_api.vnc_api import GlobalSystemConfig
 from cfgm_common.tests import test_common
+
+
+logger = logging.getLogger(__name__)
 
 
 class ApiServerTestCase(test_common.TestCase):
@@ -59,3 +66,65 @@ class ApiServerTestCase(test_common.TestCase):
     def assert_vnc_db_has_ident(self, test_obj):
         self.assertTill(self.vnc_db_has_ident, obj=test_obj)
 # end class ApiServerTestCase
+
+
+class InPlaceConfigTestCase(ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(InPlaceConfigTestCase, cls).setUpClass(*args, **kwargs)
+        cls.load_db_contents()
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        cls.dump_db_contents()
+        super(InPlaceConfigTestCase, cls).tearDownClass()
+
+    def setUp(self):
+        super(InPlaceConfigTestCase, self).setUp()
+        gsc_fq_name = GlobalSystemConfig().fq_name
+        self.gsc = self.api.global_system_config_read(gsc_fq_name)
+
+    @property
+    def api(self):
+        return self._vnc_lib
+
+    @staticmethod
+    def set_properties(obj, prop_map):
+        """Set values to object using properties map.
+
+        For every property which allow for 'Create' operation,
+        set a value from prop_map.
+
+        :param obj: schema resource
+        :param prop_map: dict
+        :return: schema resource
+        """
+        prop_not_found = []
+        for prop, info in obj.prop_field_types.items():
+            if 'C' in info['operations']:
+                if prop not in prop_map:
+                    prop_not_found.append(prop)
+                    continue
+
+                set_method = getattr(obj, 'set_%s' % prop)
+                set_method(prop_map[prop])
+        if len(prop_not_found) > 0:
+            raise Exception(
+                'Properties nod defined in prop_map: '
+                '{} for object: {}'.format(', '.join(prop_not_found),
+                                           obj.__class__.__name__))
+        return obj
+
+    def assertSchemaObjCreated(self, obj):
+        """Create schema object and assert that uuid has been assigned.
+
+        :param obj: schema resource
+        """
+        # Create and verify that uuid exists
+        uuid = self.api.job_template_create(obj)
+        self.assertIsNotNone(uuid)
+# end class InPlaceConfigTestCase

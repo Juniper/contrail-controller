@@ -32,3 +32,39 @@ class InPlaceUpgradeTestCase(TestCase):
     @property
     def api(self):
         return self._vnc_lib
+
+    @staticmethod
+    def set_properties(obj, prop_map):
+        """Set values to object using properties map.
+
+        For every property which allow for 'Create' operation,
+        set a value from prop_map.
+
+        :param obj: schema resource
+        :param prop_map: dict
+        :return: schema resource
+        """
+        prop_not_found = []
+        for prop, info in obj.prop_field_types.items():
+            if 'C' in info['operations']:
+                if prop not in prop_map:
+                    prop_not_found.append(prop)
+                    continue
+
+                set_method = getattr(obj, 'set_%s' % prop)
+                set_method(prop_map[prop])
+        if len(prop_not_found) > 0:
+            raise Exception(
+                'Properties nod defined in prop_map: '
+                '{} for object: {}'.format(', '.join(prop_not_found),
+                                           obj.__class__.__name__))
+        return obj
+
+    def assertSchemaObjCreated(self, obj):
+        """Create schema object and assert that uuid has been assigned.
+
+        :param obj: schema resource
+        """
+        # Create and verify that uuid exists
+        uuid = self.api.job_template_create(obj)
+        self.assertIsNotNone(uuid)

@@ -15,6 +15,7 @@ from vnc_api.vnc_api import GlobalSystemConfig
 from vnc_api.vnc_api import HardwareInventory
 from vnc_api.vnc_api import JobTemplate
 from vnc_api.vnc_api import PhysicalRouter
+from vnc_api.vnc_api import PlaybookInfoListType, PlaybookInfoType
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import RoutingBridgingRolesType
 from vnc_api.vnc_api import RoutingInstance
@@ -40,44 +41,51 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
     def api(self):
         return self._vnc_lib
 
-    @skip("Needs to catch/verify already exists exception on create res")
-    def test_job_template_basic_crud(self):
-        jt = JobTemplate(parent_obj=self.gsc)
-        uuid = self.api.job_template_create(jt)
-        self.assertIsNotNone(uuid)
-        jt.set_uuid(uuid)
-
+    def test_job_template_create(self):
         exe_info_list = ExecutableInfoListType()
         exe_info_list.set_executable_info([
             ExecutableInfoType(executable_path='/tmp/fake',
                                executable_args='a b c',
                                job_completion_weightage=10)])
-        jt.set_job_template_executables(exe_info_list)
-        self.api.job_template_update(jt)
 
-        updated_jt = self.api.job_template_read(id=jt.uuid)
+        playbook_info_list = PlaybookInfoListType()
+        playbook_info_list.set_playbook_info([
+            PlaybookInfoType(playbook_uri='/tmp/fake/uri/playbook.yaml',
+                             multi_device_playbook=False,
+                             job_completion_weightage=5)])
+        prop_map = {
+            'name': 'jt-%s' % self.id(),
+            'display_name': 'job template test',
+            'parent_obj': self.gsc,
+            'job_template_executables': exe_info_list,
+            'job_template_output_schema': None,
+            'job_template_output_ui_schema': None,
+            'job_template_concurrency_level': 'fabric',
+            'job_template_description': 'test template',
+            'job_template_type': 'workflow',
+            'job_template_input_ui_schema': None,
+            'job_template_synchronous_job': False,
+            'job_template_input_schema': None,
+            'job_template_playbooks': playbook_info_list,
+            'annotations': None,
+        }
 
-        ei1 = jt.job_template_executables.executable_info[0]
-        ei2 = updated_jt.job_template_executables.executable_info[0]
-        for attr in ['executable_path',
-                     'executable_args',
-                     'job_completion_weightage']:
-            self.assertEqual(getattr(ei1, attr), getattr(ei2, attr))
+        obj = self.set_properties(JobTemplate(), prop_map)
+        self.assertSchemaObjCreated(obj)
 
-    @skip("Needs to catch/verify already exists exception on create res")
-    def test_fabric_basic_crud(self):
-        f = Fabric(name='f-%s' % self.id(), parent_obj=self.gsc)
-        f.set_fabric_os_version('junos')
-        f.set_fabric_enterprise_style(False)
-        uuid = self.api.fabric_create(f)
-        f.set_uuid(uuid)
+    def test_fabric_create(self):
+        prop_map = {
+            'name': 'f-%s' % self.id(),
+            'display_name': 'fabric test',
+            'fabric_ztp': True,
+            'fabric_os_version': 'junos',
+            'fabric_credentials': None,
+            'fabric_enterprise_style': False,
+            'annotations': None,
+        }
 
-        f.set_fabric_os_version('prioprietary')
-        self.api.fabric_update(f)
-        f_updated = self.api.fabric_read(id=f.uuid)
-
-        for attr in ['fabric_os_version', 'fabric_enterprise_style']:
-            self.assertEqual(getattr(f, attr), getattr(f_updated, attr))
+        obj = self.set_properties(Fabric(), prop_map)
+        self.assertSchemaObjCreated(obj)
 
     @skip("Needs to catch/verify already exists exception on create res")
     def test_device_chassis_basic_crud(self):
