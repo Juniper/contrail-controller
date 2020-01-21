@@ -97,14 +97,17 @@ protected:
         evm_.reset(new EventManager());
         a_.reset(new BgpServerTest(evm_.get(), "A"));
         b_.reset(new BgpServerTest(evm_.get(), "B"));
+        c_.reset(new BgpServerTest(evm_.get(), "C"));
         thread_.reset(new ServerThread(evm_.get()));
         a_session_manager_ =
             static_cast<BgpSessionManagerCustom *>(a_->session_manager());
         b_session_manager_ =
             static_cast<BgpSessionManagerCustom *>(b_->session_manager());
+        c_session_manager_ =
+            static_cast<BgpSessionManagerCustom *>(c_->session_manager());
 
         if (GetParam()) {
-            bgp_server_ip_a_ = bgp_server_ip_b_ = "127.0.0.1";
+            bgp_server_ip_a_ = bgp_server_ip_b_ = bgp_server_ip_c_ ="127.0.0.1";
             a_session_manager_->Initialize(0);
             BGP_DEBUG_UT("Created server at port: " <<
                 a_session_manager_->GetPort());
@@ -112,6 +115,10 @@ protected:
             b_session_manager_->Initialize(0);
             BGP_DEBUG_UT("Created server at port: " <<
                 b_session_manager_->GetPort());
+
+            c_session_manager_->Initialize(0);
+            BGP_DEBUG_UT("Created server at port: " <<
+                c_session_manager_->GetPort());
         } else {
             bgp_server_ip_a_ = "127.0.0.22";
             error_code ec;
@@ -127,6 +134,14 @@ protected:
             b_session_manager_->Initialize(0, bgp_ip_b);
             BGP_DEBUG_UT("Created server at ip:port: " <<
                 bgp_server_ip_b_ << ":" << b_session_manager_->GetPort());
+
+            bgp_server_ip_c_ = "127.0.0.44";
+            c_session_manager_ =
+                static_cast<BgpSessionManagerCustom *>(c_->session_manager());
+            IpAddress bgp_ip_c = address::from_string(bgp_server_ip_c_, ec);
+            c_session_manager_->Initialize(0, bgp_ip_c);
+            BGP_DEBUG_UT("Created server at ip:port: " <<
+                bgp_server_ip_c_ << ":" << c_session_manager_->GetPort());
         }
 
         thread_->Start();
@@ -136,6 +151,7 @@ protected:
         task_util::WaitForIdle();
         a_->Shutdown();
         b_->Shutdown();
+        c_->Shutdown();
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
 
@@ -196,7 +212,10 @@ protected:
                 uint16_t hold_time1 = StateMachine::kHoldTime,
                 uint16_t hold_time2 = StateMachine::kHoldTime,
                 uint16_t nbr_hold_time1 = 0,
-                uint16_t nbr_hold_time2 = 0, uint32_t cluster_id = 0);
+                uint16_t nbr_hold_time2 = 0, uint32_t cluster_id = 0,
+                unsigned short port_c = 0,
+                string bgp_identifier3 = "192.168.0.12",
+                string peer_address3 = "127.0.0.1");
     void SetupPeers(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
                 as_t as_num1, as_t as_num2,
@@ -247,7 +266,8 @@ protected:
                 bool delete_config = false);
     void VerifyPeers(int peer_count, size_t verify_keepalives_count = 0,
            as_t local_as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
-           as_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
+           as_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+           bool verify_c = false);
     string GetConfigStr(int peer_count,
                         unsigned short port_a, unsigned short port_b,
                         bool admin_down1, bool admin_down2,
@@ -263,7 +283,9 @@ protected:
                         bool delete_config,
                         vector<ConfigUTAuthKeyItem> auth_keys =
                                 vector<ConfigUTAuthKeyItem>(),
-                        uint32_t cluster_id = 0, bool enable_4byte = false);
+                        uint32_t cluster_id = 0, bool enable_4byte = false,
+                        unsigned short port_c = 0, string bgp_identifier3 = "",
+                        string peer_address3 = "");
     void GRTestCommon(bool hard_reset, size_t expected_stale_count,
                       size_t expected_llgr_stale_count);
 
@@ -271,8 +293,10 @@ protected:
     auto_ptr<ServerThread> thread_;
     auto_ptr<BgpServerTest> a_;
     auto_ptr<BgpServerTest> b_;
+    auto_ptr<BgpServerTest> c_;
     BgpSessionManagerCustom *a_session_manager_;
     BgpSessionManagerCustom *b_session_manager_;
+    BgpSessionManagerCustom *c_session_manager_;
     tbb::atomic<long> a_asn_update_notification_cnt_;
     tbb::atomic<long> b_asn_update_notification_cnt_;
     as_t a_old_as_;
@@ -284,6 +308,7 @@ protected:
     string llgr_time_;
     std::string bgp_server_ip_a_;
     std::string bgp_server_ip_b_;
+    std::string bgp_server_ip_c_;
 };
 
 
@@ -354,7 +379,8 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         uint16_t nbr_hold_time1, uint16_t nbr_hold_time2,
         bool delete_config,
         vector<ConfigUTAuthKeyItem> auth_keys, uint32_t cluster_id,
-        bool enable_4byte_as) {
+        bool enable_4byte_as, unsigned short port_c, string bgp_identifier3,
+        string peer_address3) {
     ostringstream config;
 
     if (families1.empty()) families1.push_back("inet");
@@ -434,6 +460,26 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         config << "</address-families>";
         config << "</session>";
     }
+    if (port_c != 0) {
+      for (int i = 0; i < peer_count; i++) {
+        config << "<session to='C'>";
+        config << "<admin-down>";
+        config << std::boolalpha << nbr_admin_down1 << std::noboolalpha;
+        config << "</admin-down>";
+        config << "<passive>";
+        config << std::boolalpha << nbr_passive1 << std::noboolalpha;
+        config << "</passive>";
+        if (nbr_hold_time1)
+            config << "<hold-time>" << nbr_hold_time1 << "</hold-time>";
+        config << "<address-families>";
+        for (vector<string>::const_iterator it = families2.begin();
+             it != families2.end(); ++it) {
+                config << "<family>" << *it << "</family>";
+        }
+        config << "</address-families>";
+        config << "</session>";
+      }
+    }
     config << "</bgp-router>";
 
     config << "<bgp-router name=\'B\'>"
@@ -490,6 +536,62 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         config << "</session>";
     }
     config << "</bgp-router>";
+    if (port_c != 0) {
+        config << "<bgp-router name=\'C\'>"
+            "<admin-down>" <<
+                std::boolalpha << admin_down2 << std::noboolalpha <<
+            "</admin-down>"
+            "<autonomous-system>" << as_num2 << "</autonomous-system>"
+            "<local-autonomous-system>" << local_as_num2
+                                    << "</local-autonomous-system>"
+            "<identifier>" << bgp_identifier3 << "</identifier>"
+            "<address>" << peer_address3 << "</address>"
+            "<hold-time>" << hold_time2 << "</hold-time>"
+            "<port>" << port_c << "</port>";
+        config << "<address-families>";
+        for (vector<string>::const_iterator it = families2.begin();
+             it != families2.end(); ++it) {
+                config << "<family>" << *it << "</family>";
+        }
+        config << "</address-families>";
+
+        if (!auth_keys.empty()) {
+            config << "<auth-data>";
+            config << "<key-type>MD5</key-type>";
+            config << "<key-items>";
+        }
+        for (vector<ConfigUTAuthKeyItem>::const_iterator it =
+                auth_keys.begin(); it != auth_keys.end(); ++it) {
+            ConfigUTAuthKeyItem item = *it;
+            config << "<key-id>" << item.key_id << "</key-id>";
+            config << "<key>" << item.key << "</key>";
+            //config << "<start-time>" << "2001-11-12 18:31:01" << "</start-time>";
+        }
+        if (!auth_keys.empty()) {
+            config << "</key-items>";
+            config << "</auth-data>";
+        }
+
+        for (int i = 0; i < peer_count; i++) {
+            config << "<session to='A'>";
+            config << "<admin-down>";
+            config << std::boolalpha << nbr_admin_down2 << std::noboolalpha;
+            config << "</admin-down>";
+            config << "<passive>";
+            config << std::boolalpha << nbr_passive2 << std::noboolalpha;
+            config << "</passive>";
+            if (nbr_hold_time2)
+                config << "<hold-time>" << nbr_hold_time2 << "</hold-time>";
+            config << "<address-families>";
+            for (vector<string>::const_iterator it = families1.begin();
+                 it != families1.end(); ++it) {
+                    config << "<family>" << *it << "</family>";
+            }
+            config << "</address-families>";
+            config << "</session>";
+        }
+        config << "</bgp-router>";
+    }
     config << (!delete_config ? "</config>" : "</delete>");
 
     return config.str();
@@ -593,7 +695,8 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         string bgp_identifier1, string bgp_identifier2,
         vector<string> families1, vector<string> families2,
         uint16_t hold_time1, uint16_t hold_time2,
-        uint16_t nbr_hold_time1, uint16_t nbr_hold_time2, uint32_t cluster_id) {
+        uint16_t nbr_hold_time1, uint16_t nbr_hold_time2, uint32_t cluster_id,
+        unsigned short port_c, string bgp_identifier3, string peer_address3) {
     string config = GetConfigStr(peer_count, port_a, port_b,
                                  false, false, false, false, false, false,
                                  as_num1, as_num2,
@@ -604,11 +707,16 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  hold_time1, hold_time2,
                                  nbr_hold_time1, nbr_hold_time2,
                                  false, vector<ConfigUTAuthKeyItem>(),
-                                 cluster_id);
+                                 cluster_id, false, port_c, bgp_identifier3,
+                                 peer_address3);
     a_->Configure(config);
     task_util::WaitForIdle();
     b_->Configure(config);
     task_util::WaitForIdle();
+    if (port_c != 0) {
+        c_->Configure(config);
+        task_util::WaitForIdle();
+    }
 }
 
 void BgpServerUnitTest::SetupPeers(int peer_count,
@@ -681,7 +789,8 @@ void BgpServerUnitTest::SetupPeersWrongAsnConfig(int peer_count,
 }
 
 void BgpServerUnitTest::VerifyPeers(int peer_count,
-    size_t verify_keepalives_count, as_t local_as_num1, as_t local_as_num2) {
+    size_t verify_keepalives_count, as_t local_as_num1, as_t local_as_num2,
+    bool verify_c) {
     BgpProto::BgpPeerType peer_type =
         (local_as_num1 == local_as_num2) ? BgpProto::IBGP : BgpProto::EBGP;
     const int peers = peer_count;
@@ -705,6 +814,18 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
         TASK_UTIL_EXPECT_EQ(local_as_num2, peer_b->local_as());
         TASK_UTIL_EXPECT_EQ(peer_type, peer_b->PeerType());
         BGP_WAIT_FOR_PEER_STATE(peer_b, StateMachine::ESTABLISHED);
+
+        if (verify_c) {
+            uuid = BgpConfigParser::session_uuid("A", "C", j + 1);
+            TASK_UTIL_EXPECT_NE(static_cast<BgpPeer *>(NULL),
+                c_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
+            BgpPeer *peer_c = c_->FindPeerByUuid(
+                                   BgpConfigManager::kMasterInstance, uuid);
+            ASSERT_TRUE(peer_c != NULL);
+            TASK_UTIL_EXPECT_EQ(local_as_num2, peer_c->local_as());
+            TASK_UTIL_EXPECT_EQ(peer_type, peer_c->PeerType());
+            BGP_WAIT_FOR_PEER_STATE(peer_c, StateMachine::ESTABLISHED);
+        }
 
         if (verify_keepalives_count) {
 
@@ -3983,8 +4104,10 @@ TEST_P(BgpServerUnitTest, ClusterIdChange) {
                bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11", families_a, families_b,
                StateMachine::kHoldTime, StateMachine::kHoldTime,
-               0, 0, cluster_id);
-    VerifyPeers(peer_count);
+               0, 0, cluster_id, c_->session_manager()->GetPort(),
+               "192.168.0.12", bgp_server_ip_c_);
+    VerifyPeers(peer_count, 0, BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem, true);
 
     // Find the inet.0 table in A and B.
     DB *db_a = a_.get()->database();
@@ -3993,6 +4116,9 @@ TEST_P(BgpServerUnitTest, ClusterIdChange) {
     DB *db_b = b_.get()->database();
     InetTable *table_b = static_cast<InetTable *>(db_b->FindTable("inet.0"));
     assert(table_b);
+    DB *db_c = c_.get()->database();
+    InetTable *table_c = static_cast<InetTable *>(db_c->FindTable("inet.0"));
+    assert(table_c);
 
     BgpAttrSpec attr_spec;
 
@@ -4007,19 +4133,26 @@ TEST_P(BgpServerUnitTest, ClusterIdChange) {
     string uuid = BgpConfigParser::session_uuid("A", "B", 1);
     BgpPeerTest *peer_a = static_cast<BgpPeerTest *>(
         a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
-    const InetTable::RequestKey key1(prefix1, peer_a);
+    uuid = BgpConfigParser::session_uuid("A", "C", 1);
+    BgpPeerTest *peer_ac = static_cast<BgpPeerTest *>(
+        a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
+    uuid = BgpConfigParser::session_uuid("B", "A", 1);
+    BgpPeerTest *peer_b = static_cast<BgpPeerTest *>(
+        a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
+    const InetTable::RequestKey key1(prefix1, peer_ac);
 
     DBRequest req;
 
-    // Add prefix1 to A and make sure it does not show up at B.
+    // Add prefix1 to A and make sure it does not show up at B and C.
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new InetTable::RequestKey(prefix1, peer_a));
+    req.key.reset(new InetTable::RequestKey(prefix1, peer_ac));
     req.data.reset(new InetTable::RequestData(attr_ptr, 0, 0));
     table_a->Enqueue(&req);
     task_util::WaitForIdle();
 
     BGP_VERIFY_ROUTE_PRESENCE(table_a, &key1);
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key1);
+    BGP_VERIFY_ROUTE_ABSENCE(table_c, &key1);
 
     cluster_id = 1000;
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
@@ -4029,16 +4162,20 @@ TEST_P(BgpServerUnitTest, ClusterIdChange) {
                bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11", families_a, families_b,
                StateMachine::kHoldTime, StateMachine::kHoldTime,
-               0, 0, cluster_id);
+               0, 0, cluster_id, c_->session_manager()->GetPort(),
+               "192.168.0.12", bgp_server_ip_c_);
     VerifyPeers(peer_count);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new InetTable::RequestKey(prefix1, peer_a));
+    req.key.reset(new InetTable::RequestKey(prefix1, peer_ac));
     req.data.reset(new InetTable::RequestData(attr_ptr, 0, 0));
     table_a->Enqueue(&req);
     task_util::WaitForIdle();
 
+    // Route should show at B only because route was added with C as peer so
+    // reflector will not reflect it back to C
     BGP_VERIFY_ROUTE_PRESENCE(table_a, &key1);
     BGP_VERIFY_ROUTE_PRESENCE(table_b, &key1);
+    BGP_VERIFY_ROUTE_ABSENCE(table_c, &key1);
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpServerUnitTest, ::testing::Bool());

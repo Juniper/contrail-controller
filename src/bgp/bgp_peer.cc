@@ -1527,6 +1527,9 @@ void BgpPeer::SendOpen(TcpSession *session) {
         family_to_cap_map) {
         if (!LookupFamily(val.first))
             continue;
+        // Do not advertise rtarget family from route reflector
+        if (server()->cluster_id() && val.first == Address::RTARGET)
+            continue;
         BgpProto::OpenMessage::Capability *cap =
             new BgpProto::OpenMessage::Capability(
                 BgpProto::OpenMessage::Capability::MpExtension, val.second, 4);
@@ -1837,8 +1840,9 @@ uint32_t BgpPeer::GetPathFlags(Address::Family family,
     }
 
     // Check for ClusterList loop in case we are an RR.
-    if (cluster_id_ && attr->cluster_list() &&
-        attr->cluster_list()->cluster_list().ClusterListLoop(cluster_id_)) {
+    if (server_->cluster_id() && attr->cluster_list() &&
+        attr->cluster_list()->cluster_list().ClusterListLoop(
+                                             server_->cluster_id())) {
         flags |= BgpPath::ClusterListLooped;
     }
 
