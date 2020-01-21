@@ -1416,6 +1416,12 @@
             "default-global-system-config", "ar-replicator"
           ],
           "name": "ar-replicator"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "route-reflector"
+          ],
+          "name": "route-reflector"
         }
       ]
     },
@@ -1511,6 +1517,18 @@
             "default-global-system-config", "ar-replicator-spine"
           ],
           "name": "ar-replicator-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "rr-spine"
+          ],
+          "name": "rr-spine"
+        },
+        {
+          "fq_name": [
+            "default-global-system-config", "rr-leaf"
+          ],
+          "name": "rr-leaf"
         }
       ]
     },
