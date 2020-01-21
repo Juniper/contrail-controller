@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cd585b07_6b4d6347",
+        "filename": "src/config/schema-transformer/requirements.txt",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-21T11:25:32Z",
+      "side": 1,
+      "message": "Is that necessary? If yes, please add a comment in the file to explain why",
+      "revId": "4205799f05e2baed0896336f5957bb1401df52ba",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
