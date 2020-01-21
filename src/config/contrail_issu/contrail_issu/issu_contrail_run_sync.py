@@ -17,9 +17,9 @@ from . import issu_contrail_config
 
 
 class ICAmqpInfo():
-    def __init__(self, amqp_ip, amqp_port,
-                 amqp_user, amqp_pwd, amqp_vhost,
-                 amqp_ha, amqp_q):
+    def __init__(self, amqp_ip, amqp_port, amqp_user, amqp_pwd, amqp_vhost,
+                 amqp_ha, amqp_q, amqp_use_ssl, amqp_ssl_version,
+                 amqp_ssl_ca_certs, amqp_ssl_keyfile, amqp_ssl_certfile):
         self.amqp_ip = amqp_ip
         self.amqp_port = amqp_port
         self.amqp_user = amqp_user
@@ -27,21 +27,38 @@ class ICAmqpInfo():
         self.amqp_vhost = amqp_vhost
         self.amqp_ha = amqp_ha
         self.amqp_q = amqp_q
+        self.amqp_use_ssl = amqp_use_ssl
+        self.amqp_ssl_version = amqp_ssl_version
+        self.amqp_ssl_ca_certs = amqp_ssl_ca_certs
+        self.amqp_ssl_keyfile = amqp_ssl_keyfile
+        self.amqp_ssl_certfile = amqp_ssl_certfile
+
+    def __str__(self):
+        return (
+            "ip = %s, port = %s, amqp_user = %s, amqp_pwd = %s, \
+            amqp_vhost = %s, amqp_ha = %s, amqp_q = %s, amqp_use_ssl = %s, \
+            amqp_ssl_version = %s, amqp_ssl_ca_certs = %s, \
+            amqp_ssl_keyfile = %s, amqp_ssl_certfile = %s" %
+            (str(self.amqp_ip), str(self.amqp_port), str(self.amqp_user),
+             str(self.amqp_pwd), str(self.amqp_vhost), str(self.amqp_ha),
+             str(self.amqp_q), str(self.amqp_use_ssl),
+             str(self.amqp_ssl_version), str(self.amqp_ssl_ca_certs),
+             str(self.amqp_ssl_keyfile), str(self.amqp_ssl_certfile))
+            )
 
 
 class ICKombuClient(VncKombuClient):
     def __init__(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password,
                  rabbit_vhost, rabbit_ha_mode, q_name, subscribe_cb, logger,
-                 cassandra_inst, keyspace, new_api_info):
+                 cassandra_inst, keyspace, new_api_info, **ssl_options):
 
         self._cassandra_inst = cassandra_inst
         self._keyspace = keyspace
         self._new_api_info = new_api_info
         self.logger = logger
-        super(ICKombuClient, self).__init__(rabbit_ip, rabbit_port,
-                                            rabbit_user, rabbit_password,
-                                            rabbit_vhost, rabbit_ha_mode,
-                                            q_name, subscribe_cb, logger)
+        super(ICKombuClient, self).__init__(
+            rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
+            rabbit_ha_mode, q_name, subscribe_cb, logger, **ssl_options)
 
     def _reinit_control(self):
         vendor_domain = os.getenv('VENDOR_DOMAIN', 'net.juniper.contrail')
@@ -107,7 +124,7 @@ class ICRMQMain():
 
     def amqp_callback_handler(self, msg):
         # Log it for debugging.
-        self.logger(msg,  level=SandeshLevel.SYS_INFO)
+        self.logger(msg, level=SandeshLevel.SYS_INFO)
 
     def issu_amqp_callback_handler(self, msg):
         self.logger(msg,  level=SandeshLevel.SYS_INFO)
@@ -137,29 +154,68 @@ class ICRMQMain():
         # Prepare it for Issu
 
         # Establish a amqp connection with newerversion
+        self.logger(
+            "Initiating amqp connection with new server...",
+            level=SandeshLevel.SYS_DEBUG)
+        self.logger(
+            "Connection settings: %s" % (str(self.new_rabbit)),
+            level=SandeshLevel.SYS_DEBUG)
         self.amqp_new_version_handle = VncKombuClient(
-            self.new_rabbit.amqp_ip, self.new_rabbit.amqp_port,
-            self.new_rabbit.amqp_user, self.new_rabbit.amqp_pwd,
-            self.new_rabbit.amqp_vhost, self.new_rabbit.amqp_ha,
-            self.new_rabbit.amqp_q, self.amqp_callback_handler, self.logger)
-
+            self.new_rabbit.amqp_ip,
+            self.new_rabbit.amqp_port,
+            self.new_rabbit.amqp_user,
+            self.new_rabbit.amqp_pwd,
+            self.new_rabbit.amqp_vhost,
+            self.new_rabbit.amqp_ha,
+            self.new_rabbit.amqp_q,
+            self.amqp_callback_handler,
+            self.logger,
+            rabbit_use_ssl=self.new_rabbit.amqp_use_ssl,
+            kombu_ssl_version=self.new_rabbit.amqp_ssl_version,
+            kombu_ssl_keyfile=self.new_rabbit.amqp_ssl_keyfile,
+            kombu_ssl_certfile=self.new_rabbit.amqp_ssl_certfile,
+            kombu_ssl_ca_certs=self.new_rabbit.amqp_ssl_ca_certs
+            )
+        self.logger("amqp connection initiated successfully with new server",
+                    level=SandeshLevel.SYS_DEBUG)
         # Create a amqp connection with oldversion, passing all the information
+        self.logger(
+            "Initiating amqp connection with old server...",
+            level=SandeshLevel.SYS_DEBUG)
+        self.logger(
+            "Connection settings: %s" % (str(self.old_rabbit)),
+            level=SandeshLevel.SYS_DEBUG)
         self.amqp_old_version_handle = ICKombuClient(
-            self.old_rabbit.amqp_ip, self.old_rabbit.amqp_port,
-            self.old_rabbit.amqp_user, self.old_rabbit.amqp_pwd,
-            self.old_rabbit.amqp_vhost, self.old_rabbit.amqp_ha,
-            self.old_rabbit.amqp_q, self.issu_amqp_callback_handler,
-            self.logger, self.issu_cass_config_db_uuid_handle,
-            self.keyspace_info, self.new_api_info)
+            self.old_rabbit.amqp_ip,
+            self.old_rabbit.amqp_port,
+            self.old_rabbit.amqp_user,
+            self.old_rabbit.amqp_pwd,
+            self.old_rabbit.amqp_vhost,
+            self.old_rabbit.amqp_ha,
+            self.old_rabbit.amqp_q,
+            self.issu_amqp_callback_handler,
+            self.logger,
+            self.issu_cass_config_db_uuid_handle,
+            self.keyspace_info,
+            self.new_api_info,
+            rabbit_use_ssl=self.old_rabbit.amqp_use_ssl,
+            kombu_ssl_version=self.old_rabbit.amqp_ssl_version,
+            kombu_ssl_keyfile=self.old_rabbit.amqp_ssl_keyfile,
+            kombu_ssl_certfile=self.old_rabbit.amqp_ssl_certfile,
+            kombu_ssl_ca_certs=self.old_rabbit.amqp_ssl_ca_certs
+            )
+        self.logger("amqp connection initiated successfully with old server",
+                    level=SandeshLevel.SYS_DEBUG)
     # end
 # end issu_main
 
 
 def _issu_rmq_main():
     # Create Instance of cassandra info
-    logging.basicConfig(level=logging.INFO,
-                        filename='/var/log/contrail/issu_contrail_run_sync.log',
-                        format='%(asctime)s %(message)s')
+    logging.basicConfig(
+        level=logging.INFO,
+        filename='/var/log/contrail/issu_contrail_run_sync.log',
+        format='%(asctime)s %(message)s')
     args, remaining_args = issu_contrail_config.parse_args()
     new_cassandra_info = ICCassandraInfo(
         args.new_cassandra_address_list,
@@ -190,7 +246,12 @@ def _issu_rmq_main():
         args.new_rabbit_password,
         args.new_rabbit_vhost,
         args.new_rabbit_ha_mode,
-        args.new_rabbit_q_name)
+        args.new_rabbit_q_name,
+        args.new_rabbit_use_ssl,
+        args.new_rabbit_ssl_version,
+        args.new_rabbit_ssl_ca_certs,
+        args.new_rabbit_ssl_keyfile,
+        args.new_rabbit_ssl_certfile)
 
     old_amqp_info = ICAmqpInfo(args.old_rabbit_address_list,
                                args.old_rabbit_port,
@@ -198,7 +259,12 @@ def _issu_rmq_main():
                                args.old_rabbit_password,
                                args.old_rabbit_vhost,
                                args.old_rabbit_ha_mode,
-                               args.old_rabbit_q_name)
+                               args.old_rabbit_q_name,
+                               args.old_rabbit_use_ssl,
+                               args.old_rabbit_ssl_version,
+                               args.old_rabbit_ssl_ca_certs,
+                               args.old_rabbit_ssl_keyfile,
+                               args.old_rabbit_ssl_certfile)
 
     issu_rmq = ICRMQMain(
         old_cassandra_info, new_cassandra_info, old_amqp_info, new_amqp_info,
