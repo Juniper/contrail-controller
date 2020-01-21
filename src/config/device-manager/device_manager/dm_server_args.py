@@ -189,7 +189,7 @@ def add_parser_arguments(parser):
 
 def parse_args(args_str):
     """
-    Example.
+    Please see the example below.
 
     python dm_server.py
     --rabbit_server localhost
