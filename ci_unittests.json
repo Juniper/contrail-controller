@@ -179,6 +179,15 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "contrail-vcenter-fabric-manager" : {
+        "source_directories" : [
+            "vcenter-fabric-manager"
+        ],
+        "scons_test_targets" : [
+            "vcenter-fabric-manager:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-libs" : {
         "source_directories" : [
             "src/contrail-common/base",
