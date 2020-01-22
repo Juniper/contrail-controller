@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0dfec623_7f1694eb",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 263,
+      "author": {
+        "id": 921
+      },
+      "writtenOn": "2020-01-22T22:56:46Z",
+      "side": 1,
+      "message": "Python file object has a writeline method.\nYou could call instead \n\n\u003e outfile.writeline(line)\n\nAlso, note the trailing space.",
+      "revId": "a9fd457604f1a5c33494881f8ef1f6be8766c2ea",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7b38d0ef_8811b987",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 336,
+      "author": {
+        "id": 921
+      },
+      "writtenOn": "2020-01-22T22:56:46Z",
+      "side": 1,
+      "message": "you could simplify the block of lines 333-335 with just one line:\n\n\u003e  restricted_group \u003d \u0027__contrail_\u0027 in str(root_elem)\n\nAlso, worth checking if the __contrail_ can appear anywhere, or, if it will be a string prefix as the `in` operator will not stop until it reaches the end of the object and can be quite inefficient, a startswith() call would be a better option if it is a prefix.",
+      "revId": "a9fd457604f1a5c33494881f8ef1f6be8766c2ea",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5976abc1_1c9a31df",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 442,
+      "author": {
+        "id": 921
+      },
+      "writtenOn": "2020-01-22T22:56:46Z",
+      "side": 1,
+      "message": "you could simplify the block of lines 439-442 with just one line:\n\n restricted_group \u003d \u0027__contrail_\u0027 in str(root_elem)\n\nAlso, worth checking if the __contrail_ can appear anywhere, or, if it will be a string prefix as the `in` operator will not stop until it reaches the end of the object and can be quite inefficient, a startswith() call would be a better option if it is a prefix.",
+      "revId": "a9fd457604f1a5c33494881f8ef1f6be8766c2ea",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
