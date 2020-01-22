@@ -2966,11 +2966,11 @@ class VncApiServer(object):
 
         if operation == 'ADD':
             if ref_obj_type+'_refs' not in obj_dict:
-                obj_dict[ref_obj_type+'_refs'] = []
-            existing_ref = [ref for ref in obj_dict[ref_obj_type+'_refs']
-                            if ref['uuid'] == ref_uuid]
-            if existing_ref:
-                ref['attr'] = attr
+                obj_dict[ref_obj_type + '_refs'] = []
+            for ref in obj_dict.get(ref_obj_type + '_refs', []):
+                if ref['uuid'] == ref_uuid:
+                    ref['attr'] = attr
+                    break
             else:
                 obj_dict[ref_obj_type+'_refs'].append(
                     {'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
