@@ -121,6 +121,8 @@ class FilterModule(object):
             # Open file to read contents
             file_handler = open(file_item, "r")
             config_changes = file_handler.read()
+            if config_changes == "[]":
+                continue
             cli_commit_dict = {
                 "username": username,
                 "time": date + " " + timestamp,
@@ -168,14 +170,16 @@ class FilterModule(object):
                                 pr_commit_processed_list.append(pr_commit_item)
                                 action_to_be_performed = cli_item.get('status')
                                 if action_to_be_performed == "accept":
-                                    partial_accepted_config = \
+                                    partial_accepted_config += \
                                         self._accept_routine(pr_commit_item, device_mgmt_ip)
                                 else:
                                     self._reject_routine(pr_commit_item, device_mgmt_ip)
 
             # Process file one last time for any delete commands for accept
             # case
-            if action_to_be_performed == "accept":
+            file_path = PLAYBOOK_BASE + "/manual_config" "/" + \
+                        device_mgmt_ip + "/approve_config.conf"
+            if action_to_be_performed == "accept" and os.path.exists(file_path):
                 complete_accepted_config = self._process_file_for_delete_commands(
                     partial_accepted_config, device_mgmt_ip)
                 original_acc_config = pr_cli_obj_raw.get_accepted_cli_config()
@@ -254,6 +258,9 @@ class FilterModule(object):
                     with open(full_filename) as infile:
                         for line in infile:
                             outfile.write(line)
+                else:
+                    line = 'set groups __contrail_basic__'
+                    outfile.write(line + "\n")                            
 
     def _process_file_for_delete_commands(self, partial_acc_config,
                                           device_mgmt_ip):
@@ -322,11 +329,16 @@ class FilterModule(object):
                 root_elem = root_elem.split(" ")
                 line_out = ['set']
                 line_out.extend(root_elem)
+                # ignore changes in Contrail managed groups, not __cli_contrail_group__
+                if '__contrail_' in str(root_elem):
+                    restricted_group = True
+                else:
+                    restricted_group = False
 
             # Lines active or inactive
             # Not possible to move configuration to a new group as diff doe
             # snot return fil
-            if (elem.startswith('!')):
+            if (elem.startswith('!')) and (not restricted_group):
                 clean_elem = elem.strip('! { ... }')
                 if ("inactive" in clean_elem):
                     clean_elem = clean_elem.replace("inactive: ", "")
@@ -345,9 +357,9 @@ class FilterModule(object):
                         device_mgmt_ip, accept_config)
 
             # Lines added to configuration with +
-            if (elem.startswith('+')):
+            if (elem.startswith('+')) and (not restricted_group):
                 clean_elem = elem.strip('+{ ')
-		if (';' in clean_elem ) and ('apply-groups' not in clean_elem):
+                if (';' in clean_elem ) and ('apply-groups' not in clean_elem):
                     if group:
                         # first added comment have to be deleted before being added to correct group provide by user via value "group"
                         line_out[0] = "delete"
@@ -384,7 +396,7 @@ class FilterModule(object):
                     line_out.append(clean_elem)
 
             # Lines added to configuration with -
-            if (elem.startswith('-')):
+            if (elem.startswith('-')) and (not restricted_group):
                 clean_elem = elem.strip('-{ ')
                 line_out = list(line_out)
                 line_out[0] = "delete"
@@ -423,9 +435,14 @@ class FilterModule(object):
                 root_elem = root_elem.strip(']')
                 line_out = ['delete']
                 line_out.append(root_elem)
+                # ignore changes in Contrail managed groups, not __cli_contrail_group__
+                if '__contrail_' in str(root_elem):
+                    restricted_group = True
+                else:
+                    restricted_group = False
 
             # Lines added to configuration with +
-            if (elem.startswith('!')):
+            if (elem.startswith('!')) and (not restricted_group):
                 clean_elem = elem.strip('! { ... }')
                 if ("inactive" in clean_elem):
                     clean_elem = clean_elem.replace("inactive: ", "")
@@ -439,7 +456,7 @@ class FilterModule(object):
                     self.final_set_command_reject_case(linactive, clean_elem, device_mgmt_ip)
 
             # Lines added to configuration with +
-            if (elem.startswith('+')):
+            if (elem.startswith('+')) and (not restricted_group):
                 clean_elem = elem.strip('+{ ')
                 line_out[0] = "delete"
                 if ';' in clean_elem:
@@ -460,7 +477,7 @@ class FilterModule(object):
                     line_out.append(clean_elem)
 
             # Lines added to configuration with -
-            if (elem.startswith('-')):
+            if (elem.startswith('-')) and (not restricted_group):
                 clean_elem = elem.strip('-{ ')
                 root_elem = ''
                 line_out = list(line_out)
@@ -474,3 +491,4 @@ class FilterModule(object):
 
                     # end _reject_config
                     # end cli filter
+
