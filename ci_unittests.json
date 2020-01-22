@@ -170,6 +170,27 @@
         ],
         "misc_test_targets" : [ ]
     },
+<<<<<<< HEAD   (e65990 Adding R2002 branch to CI)
+=======
+    "contrail-vcenter-manager" : {
+        "source_directories" : [
+            "vcenter-manager"
+        ],
+        "scons_test_targets" : [
+            "vcenter-manager:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+    "contrail-vcenter-fabric-manager" : {
+        "source_directories" : [
+            "vcenter-fabric-manager"
+        ],
+        "scons_test_targets" : [
+            "vcenter-fabric-manager:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
+>>>>>>> CHANGE (d9d2e3 Add vCenter Fabric Manager project to ci_unittests)
     "contrail-libs" : {
         "source_directories" : [
             "src/contrail-common/base",
