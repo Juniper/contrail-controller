@@ -4060,6 +4060,21 @@ class TestDBAudit(test_case.ApiServerTestCase):
         pass # move to schema transformer test
     # test_checker_security_group_0_missing
 
+    def test_checker_route_targets_id_with_vn_rt_list_set_to_none(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.virtual_network_create(vn)
+        vn.set_route_target_list(None)
+        self._vnc_lib.virtual_network_update(vn)
+
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            args = db_manage._parse_args(
+                'check --cluster_id %s' % self._cluster_id)
+            db_checker = db_manage.DatabaseChecker(*args)
+            db_checker.audit_route_targets_id()
+
     def test_cleaner(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
