@@ -312,7 +312,8 @@ private:
     bool IsValidInterface(uint32_t ifindex, Interface **interface);
     bool IsToRDevice(uint32_t vrf_id, const IpAddress &ip);
     bool IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
-                            PktType::Type &pkt_type, uint8_t *pkt);
+                            PktType::Type &pkt_type, uint8_t *pkt,
+                            bool *pkt_ok);
     bool IsFlowPacket(const AgentHdr &agent_hdr);
     bool IsDiagPacket(PktInfo *pkt_info);
     bool ValidateIpPacket(PktInfo *pkt_info);
