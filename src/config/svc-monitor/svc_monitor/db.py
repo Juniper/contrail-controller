@@ -66,7 +66,11 @@ class ServiceMonitorDB(VncObjectDBClient):
                              (inspect.stack()[1][3], key))
             return None
 
-        return entry
+        try:
+            return json.loads(entry)
+        except (ValueError, TypeError) as e:
+            return entry
+
 
     def _db_insert(self, table, key, entry):
         try:
