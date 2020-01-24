@@ -624,6 +624,17 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         MacAddress dmac;
         const TunnelNH *tun_nh = static_cast<TunnelNH *>(e);
         const NextHop *active_nh = tun_nh->GetRt()->GetActiveNextHop();
+        // active nexthop can be NULL as when arp rt is delete marked and
+        //  is enqueued for notify.
+        if (active_nh == NULL) {
+            if (interface_ != NULL) {
+                interface_ = NULL;
+                dmac_.Zero();
+                ret = true;
+            }
+            break;
+        }
+
         if (active_nh->GetType() == NextHop::ARP) {
             const ArpNH *arp_nh = static_cast<const ArpNH *>(active_nh);
             InterfaceKSyncObject *interface_object =
