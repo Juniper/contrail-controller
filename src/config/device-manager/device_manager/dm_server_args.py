@@ -72,6 +72,7 @@ def default_options():
         'dnsmasq_conf_dir': None,
         'tftp_dir': None,
         'dhcp_leases_file': None,
+        'dnsmasq_in_container': True,
         'ztp_timeout': 600,
         'rabbit_health_check_interval': 0,
         'job_manager_db_conn_retry_timeout': '10',
@@ -171,6 +172,8 @@ def add_parser_arguments(parser):
                         help="Path of the dnsmasq config directory")
     parser.add_argument("--tftp_dir",
                         help="Path of the tftp directory")
+    parser.add_argument("--dnsmasq_in_container",
+                        help="The dnsmasq is run a sparate docker container")
     parser.add_argument("--dhcp_leases_file",
                         help="Path of the dhcp leases file")
     parser.add_argument("--ztp_timeout",
