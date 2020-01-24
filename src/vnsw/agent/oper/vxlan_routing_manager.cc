@@ -805,8 +805,8 @@ bool VxlanRoutingManager::EvpnRouteNotify(DBTablePartBase *partition,
     if (evpn_rt->is_multicast())
         return true;
 
-    //In typer 5 mac is always zero
-    if (evpn_rt->IsType5()) {
+    //In typer 5 mac is always zero, should not be mac for local port
+    if ((evpn_rt->IsType5()) && (evpn_rt->FindPath(agent_->local_vm_port_peer()) == NULL)) {
         // Allow EVPN type5 route for service-chain vrf. vrf()->vn() might
         // not be applicable for service-chain vrf.
         return EvpnType5RouteNotify(partition, e);
