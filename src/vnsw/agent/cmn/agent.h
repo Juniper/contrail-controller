@@ -1011,6 +1011,7 @@ public:
     const Peer *local_vm_export_peer() const {
         return local_vm_export_peer_.get();
     }
+    const Peer *local_vm_port_peer() const {return local_vm_port_peer_.get();}
 
     // Agent Modules
     AgentConfig *cfg() const;
@@ -1516,6 +1517,7 @@ private:
     std::auto_ptr<Peer> mac_learning_peer_;
     std::auto_ptr<Peer> fabric_rt_export_peer_;
     std::auto_ptr<Peer> local_vm_export_peer_;
+    std::auto_ptr<Peer> local_vm_port_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 
