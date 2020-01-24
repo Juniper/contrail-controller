@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9f62dd87_718b851f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_as_a_service.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-24T15:01:22Z",
+      "side": 1,
+      "message": "nice",
+      "range": {
+        "startLine": 13,
+        "startChar": 63,
+        "endLine": 13,
+        "endChar": 67
+      },
+      "revId": "e530ba595df6781828d70928b93b79c5a63a8f42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "73865ab8_49383c75",
+        "filename": "src/config/api-server/vnc_cfg_api_server/resources/bgp_common.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-24T15:01:22Z",
+      "side": 1,
+      "message": "I prefer you prefix the file with underscore and use base keyword in place of common like for policy and security:\n\n _bgp_base.py",
+      "revId": "e530ba595df6781828d70928b93b79c5a63a8f42",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
