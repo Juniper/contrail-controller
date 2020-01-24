@@ -699,6 +699,8 @@ void Agent::InitPeers() {
     local_vm_export_peer_.reset(new Peer(Peer::LOCAL_VM_PEER,
                                          LOCAL_VM_EXPORT_PEER,
                                          true));
+    local_vm_port_peer_.reset(new Peer(Peer::LOCAL_VM_PORT_PEER, LOCAL_VM_PORT_PEER_NAME,
+                                  true));
 }
 
 void Agent::ReconfigSignalHandler(boost::system::error_code ec, int signum) {
@@ -758,7 +760,7 @@ Agent::Agent() :
     ecmp_peer_(NULL), vgw_peer_(NULL), evpn_routing_peer_(NULL),
     evpn_peer_(NULL), multicast_peer_(NULL),
     multicast_tor_peer_(NULL), multicast_tree_builder_peer_(NULL),
-    mac_vm_binding_peer_(NULL), ifmap_parser_(NULL),
+    mac_vm_binding_peer_(NULL), local_vm_port_peer_(NULL), ifmap_parser_(NULL),
     router_id_configured_(false), mirror_src_udp_port_(0),
     lifetime_manager_(NULL), ksync_sync_mode_(false), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), vhost_interface_(NULL),
