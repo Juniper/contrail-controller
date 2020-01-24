@@ -1,3 +1,4 @@
+from collections import namedtuple
 from collections import OrderedDict
 import contextlib
 import copy
@@ -7,6 +8,8 @@ import time
 
 import six
 
+
+ColumnFamilyDef = namedtuple('ColumnFamilyDef', 'keyspace')
 
 class FakeUtils(object):
     @staticmethod
@@ -192,6 +195,7 @@ class FakeColumnFamily(object):
         self._pool = args[1]
         self._name = args[2]
         self._ks_cf_name = '%s_%s' % (self._pool.keyspace, self._name)
+        self._cfdef = ColumnFamilyDef(self._pool.keyspace)
         try:
             self._rows = self._all_cf_rows[self._ks_cf_name]
         except KeyError:
