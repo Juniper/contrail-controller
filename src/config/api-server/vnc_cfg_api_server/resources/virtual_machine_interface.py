@@ -828,21 +828,23 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
 
         if (obj_dict.get('deallocated_ae_id') and
                 len(obj_dict.get('deallocated_ae_id'))):
-            dealloc_dict = obj_dict.get('deallocated_ae_id')[0]
-            ae_id = dealloc_dict.get('ae_id')
-            vpg_name = dealloc_dict.get('vpg_name')
-            prouter_name = dealloc_dict.get('prouter_name')
-            cls.vnc_zk_client.free_ae_id(
-                prouter_name, ae_id,
-                vpg_name, notify=notify)
+            dealloc_dict_list = obj_dict.get('deallocated_ae_id')
+            for dealloc_dict in dealloc_dict_list:
+                ae_id = dealloc_dict.get('ae_id')
+                vpg_name = dealloc_dict.get('vpg_name')
+                prouter_name = dealloc_dict.get('prouter_name')
+                cls.vnc_zk_client.free_ae_id(
+                    prouter_name, ae_id,
+                    vpg_name, notify=notify)
 
         if (obj_dict.get('allocated_ae_id') and
                 len(obj_dict.get('allocated_ae_id'))):
-            alloc_dict = obj_dict.get('allocated_ae_id')[0]
-            ae_id = alloc_dict.get('ae_id')
-            vpg_name = alloc_dict.get('vpg_name')
-            prouter_name = alloc_dict.get('prouter_name')
-            cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id)
+            alloc_dict_list = obj_dict.get('allocated_ae_id')
+            for alloc_dict in alloc_dict_list:
+                ae_id = alloc_dict.get('ae_id')
+                vpg_name = alloc_dict.get('vpg_name')
+                prouter_name = alloc_dict.get('prouter_name')
+                cls.vnc_zk_client.alloc_ae_id(prouter_name, vpg_name, ae_id)
 
     # Allocate ae_id:
     # 1. Get the ae_id from the old PI ref which is already assoc with PR
