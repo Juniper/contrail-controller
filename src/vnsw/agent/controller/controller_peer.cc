@@ -1275,7 +1275,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         rt_table->AddType5Route(bgp_peer_id(),
                                 vrf_name,
                                 ip_addr,
-                                label, data);
+                                item->entry.nlri.ethernet_tag,
+                                data);
 
         return;
     }
