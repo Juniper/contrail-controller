@@ -202,11 +202,17 @@ class VirtualNetworkServer(ResourceMixin, VirtualNetwork):
                                                  {})
             export_targets = result_obj_dict.get('export_route_target_list',
                                                  {})
-            import_targets_set = set(import_targets.get('route_target', []))
-            export_targets_set = set(export_targets.get('route_target', []))
-            targets_in_both_import_and_export = \
-                import_targets_set.intersection(export_targets_set)
-            if ((import_export_targets.get('route_target') or []) or
+            targets_in_both_import_and_export = None
+            if import_targets and export_targets:
+                import_targets_set = set(import_targets.get('route_target',
+                                                            []))
+                export_targets_set = set(export_targets.get('route_target',
+                                                            []))
+                targets_in_both_import_and_export = \
+                    import_targets_set.intersection(export_targets_set)
+
+            if ((import_export_targets and
+                    import_export_targets.get('route_target') or []) or
                     targets_in_both_import_and_export):
                 msg = "Multi policy service chains are not supported, "
                 msg += "with both import export external route targets"
