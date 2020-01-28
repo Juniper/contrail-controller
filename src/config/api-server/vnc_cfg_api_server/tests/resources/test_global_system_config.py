@@ -285,3 +285,20 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
+
+    def test_rado(self):
+        #TODO(rado)
+        """
+        jira-bug: CEM-11154
+
+        1. Set global ASN to 64512
+        2. Manually add 2 RTs:
+            - target:64512:121212
+            - target:64512:2222
+        3. Change global ASN to 64513
+        4. Expected behaviour is to both RTs remain unchanged
+        """
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+
+
+        pass
