@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "42818887_3009d3ed",
+        "filename": "src/config/device-manager/device_manager/dm_server_args.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 482
+      },
+      "writtenOn": "2020-01-28T10:58:22Z",
+      "side": 1,
+      "message": "Rename to dnsmasq_in_docker",
+      "revId": "1c590077eb83d49a900a9a1ce2a27acca4fe549c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
