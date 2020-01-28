@@ -9,7 +9,7 @@ standard_library.install_aliases()
 from builtins import object
 import sys
 import argparse
-import configparser
+from six.moves import configparser
 from time import sleep
 
 from cfgm_common.exceptions import RefsExistError

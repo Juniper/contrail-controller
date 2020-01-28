@@ -10,7 +10,7 @@ from builtins import object
 import sys
 import time
 import argparse
-import configparser
+from six.moves import configparser
 
 from vnc_api.vnc_api import *
 from cfgm_common.exceptions import *
