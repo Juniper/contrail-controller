@@ -285,3 +285,40 @@ class TestGlobalSystemConfig(test_case.ApiServerTestCase):
 
         # cleanup
         self.api.virtual_network_delete(id=vn.uuid)
+
+    def test_rts_global_asn_change(self):
+        """Jira-bug: CEM-11154.
+
+        1. Set global ASN to 64512
+        2. Manually add 2 RTs:
+            - target:64512:121212
+            - target:64512:2222
+        3. Change global ASN to 64513
+        4. Expected behaviour is to both RTs remain unchanged
+        """
+
+        # 1.
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.autonomous_system = 64512
+        self.api.global_system_config_update(gsc)
+
+        # 2.
+        rtns = []
+        for rt_id in [121212, 2222]:
+            vn = VirtualNetwork('%s-vn%d' % (self.id(), rt_id))
+            rt_name = 'target:%d:%d' % (64512, rt_id)
+            rtl = RouteTargetList([rt_name])
+            vn.set_route_target_list(rtl)
+            self.api.virtual_network_create(vn)
+            rtns.append(rt_name)
+
+        # 3.
+        gsc = self.api.global_system_config_read(GlobalSystemConfig().fq_name)
+        gsc.autonomous_system = 64513
+        self.api.global_system_config_update(gsc)
+
+        # 4.
+        for rtn in rtns:
+            [rt] = RouteTargetList(route_target=[rtn]).route_target
+            [_, asn, _] = rt.split(":")
+            self.assertEqual(asn, "64512")
