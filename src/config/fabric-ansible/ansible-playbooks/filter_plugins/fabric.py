@@ -1533,6 +1533,15 @@ class FilterModule(object):
             vnc_api.hardware_inventory_delete(id=hr_uuid)
             _task_done()
 
+        #Delete the cli-config obj if exists
+        for cli_config_item in list(device_obj.get_cli_configs() or []):
+            cli_config_uuid = str(cli_config_item.get('uuid'))
+            cli_config_fq_name = str(cli_config_item.get('fq_name'))
+            _task_log(
+                "Deleting cli-config object %s" %(cli_config_fq_name))
+            vnc_api.cli_config_delete(id=cli_config_uuid)
+            _task_done()
+
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
