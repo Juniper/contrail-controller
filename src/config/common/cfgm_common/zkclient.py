@@ -284,10 +284,17 @@ class IndexAllocator(object):
             return self.alloc(value, pools)
     # end alloc
 
-    def reserve(self, idx, value=None):
+    def reserve(self, idx, value=None, pools=None):
         # Reserves the requested index if available
         if not self._start_idx <= idx < self._start_idx + self._size:
             return None
+
+        if pools:
+            for pool in pools:
+                if pool['start'] <= idx <= pool['end']:
+                    break
+            else:
+                return
 
         try:
             # Create a node at path and return its integer value
@@ -302,7 +309,7 @@ class IndexAllocator(object):
                 # idempotent reserve
                 return idx
             msg = 'For index %s reserve conflicts with existing value %s.' \
-                  %(idx, existing_value)
+                  % (idx, existing_value)
             self._zookeeper_client.syslog(msg, level='notice')
             raise
     # end reserve
@@ -317,7 +324,7 @@ class IndexAllocator(object):
 
     def read(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        id_val = self._zookeeper_client.read_node(self._path+id_str)
+        id_val = self._zookeeper_client.read_node(self._path + id_str)
         if id_val is not None:
             bit_idx = self._get_bit_from_zk_index(idx)
             if bit_idx >= 0:
@@ -328,6 +335,20 @@ class IndexAllocator(object):
     def empty(self):
         return not self._in_use.any()
     # end empty
+
+    def get_last_allocated_id(self):
+        if self.empty():
+            return
+
+        if self._reverse:
+            return self._get_zk_index_from_bit(self._in_use.index(1))
+
+        # TODO: since 1.2.0, bitarray have rindex in util module
+        temp = self._in_use.copy()
+        temp.reverse()
+        idx = (self._in_use.length() - 1) - temp.index(1)
+
+        return self._get_zk_index_from_bit(idx)
 
     @classmethod
     def delete_all(cls, zookeeper_client, path):
