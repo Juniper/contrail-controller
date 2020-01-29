@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3389a89a_339a2565",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 332,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-01-29T08:09:36Z",
+      "side": 1,
+      "message": "Are those tabs? If so, this will not pass Python3",
+      "revId": "abf45f68232d9214c94e9db8359b797d7a13fa3c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
