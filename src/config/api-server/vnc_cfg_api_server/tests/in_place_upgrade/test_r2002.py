@@ -5,6 +5,8 @@ import logging
 
 from vnc_api.exceptions import RefsExistError
 from vnc_api.vnc_api import (
+    AllowedAddressPair,
+    AllowedAddressPairs,
     AutonomousSystemsType,
     DefaultProtocolType,
     DeviceChassis,
@@ -16,12 +18,16 @@ from vnc_api.vnc_api import (
     Fabric,
     GlobalSystemConfig,
     HardwareInventory,
+    IdPermsType,
     JobTemplate,
     JunosServicePorts,
+    LogicalRouter,
+    MacAddressesType,
     PhysicalRouter,
     PlaybookInfoListType, PlaybookInfoType,
     Project,
     ProtocolBgpType, ProtocolOspfType,
+    RouteTargetList,
     RoutingBridgingRolesType,
     RoutingInstance,
     ServiceChainInfo,
@@ -30,9 +36,14 @@ from vnc_api.vnc_api import (
     StaticRouteEntriesType, StaticRouteType,
     StatsCollectionFrequency,
     StormControlParameters, StormControlProfile,
+    SubnetType,
     TelemetryProfile, TelemetryResourceInfo, TelemetryStateInfo,
     UserCredentials,
+    VirtualMachine,
+    VirtualMachineInterface,
+    VirtualMachineInterfacePropertiesType,
     VirtualNetwork,
+    VirtualNetworkType,
 )
 
 from vnc_cfg_api_server.tests.in_place_upgrade import test_case
@@ -328,3 +339,82 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
 
         obj = self.set_properties(RoutingInstance(), prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
+
+    def test_virtual_network_create(self):
+        project = self._project_fetch_or_create(self.id())
+        vn_name = 'vn-{}'.format(self.id())
+        rtl = RouteTargetList(route_target=['target:3:1'])
+        vn = VirtualNetwork(name=vn_name,
+                            display_name=vn_name,
+                            fq_name=['vm' + vn_name],
+                            parent_obj=project,
+                            is_shared=True,
+                            router_external=True,
+                            virtual_network_category="routed",
+                            port_security_enabled=True,
+                            route_target_list=rtl,
+                            virtual_network_properties=VirtualNetworkType(
+                                forwarding_mode='l3'),
+                            address_allocation_mode='flat-subnet-only',
+                            mac_learning_enabled=True,
+                            pbb_evpn_enable=True,
+                            pbb_etree_enable=True,
+                            igmp_enable=True,
+                            id_perms=IdPermsType(enable=True))
+        self.api.virtual_network_create(vn)
+
+    def test_virtual_machine_create(self):
+        project = self._project_fetch_or_create(self.id())
+        vm_name = 'vm-{}'.format(self.id())
+        vm = VirtualMachine(name=vm_name,
+                            parent_obj=project,
+                            display_name='vm' + vm_name,
+                            fq_name=['vm' + vm_name],
+                            server_type='baremetal-server',
+                            id_perms=IdPermsType(enable=True))
+        self.api.virtual_machine_create(vm)
+
+    def test_virtual_machine_interface_create(self):
+        project = self._project_fetch_or_create(self.id())
+        vn_obj = self.create_virtual_network('vn-{}'.format(self.id()),
+                                             '10.0.0.0/24')
+
+        # create virtual machine interface
+        mac = MacAddressesType(mac_address=['00:01:00:00:0f:3c'])
+        addr_pair = AllowedAddressPairs(
+            allowed_address_pair=[
+                AllowedAddressPair(ip=SubnetType('1.1.1.0', 24),
+                                   mac='02:ce:1b:d7:a6:e7')])
+        vmi_prop = VirtualMachineInterfacePropertiesType(
+            sub_interface_vlan_tag=128)
+        vmi_name = 'vmi-{}'.format(self.id())
+        vmi = VirtualMachineInterface(
+            name=vmi_name,
+            parent_type='project',
+            fq_name=['vmi', vmi_name],
+            parent_obj=project,
+            ecmp_hashing_include_fields=None,
+            port_security_enabled=True,
+            virtual_machine_interface_mac_addresses=mac,
+            virtual_machine_interface_allowed_address_pairs=addr_pair,
+            virtual_machine_interface_device_owner="Test device owner",
+            virtual_machine_interface_disable_policy=False,
+            virtual_machine_interface_properties=vmi_prop,
+            vlan_tag_based_bridge_domain=True,
+            igmp_enable=True)
+        vmi.add_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+    def test_logical_router_create(self):
+        project = self._project_fetch_or_create(self.id())
+        lr_name = 'lr-{}'.format(self.id())
+        lr = LogicalRouter(name=lr_name,
+                           parent_obj=project,
+                           display_name=lr_name,
+                           fq_name=['lr' + lr_name],
+                           id_perms=IdPermsType(enable=True),
+                           logical_router_gateway_external=False,
+                           logical_router_type='vxlan-routing',
+                           vxlan_network_identifier='1111',
+                           configured_route_target_list=None)
+        self.api.logical_router_create(lr)
