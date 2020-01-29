@@ -76,6 +76,7 @@ class SubClusterProvisioner(object):
                                         --api_server_use_ssl False
                                         --sub_cluster_asn 1-65535
                                         --oper <add | del>
+                                        [--sub_cluster_id 1-4294967295]
         '''
 
         # Source any specified config/ini file
@@ -139,6 +140,11 @@ class SubClusterProvisioner(object):
             "--openstack_ip", help="Openstack IP for authentication")
         parser.add_argument(
             "--sub_cluster_asn", help="Sub cluster's ASN")
+        parser.add_argument(
+            "--sub_cluster_id",
+            help=("Sub cluster's ID between 1-4294967295 depending of the "
+                  "size of the global ASN. If not provided, an ID is "
+                  "automatically allocated"))
         self._args = parser.parse_args(remaining_argv)
 
     # end _parse_args
@@ -146,7 +152,8 @@ class SubClusterProvisioner(object):
     def add_sub_cluster(self):
         sub_cluster_obj = SubCluster(
             self._args.sub_cluster_name,
-            sub_cluster_asn=self._args.sub_cluster_asn)
+            sub_cluster_asn=self._args.sub_cluster_asn,
+            sub_cluster_id=self._args.sub_cluster_id)
         sub_cluster_exists = True
         try:
             sub_cluster_obj = self._vnc_lib.sub_cluster_read(
