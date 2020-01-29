@@ -174,6 +174,8 @@ class DeviceJobManager(object):
             # requeue the message if the max threshold is reached, to be picked
             # by another job manager or wait until the current job mgr is free
             message.reject(requeue=True)
+            gevent.idle()
+            return
 
         update_uve_on_failure = False
         device_list = None
