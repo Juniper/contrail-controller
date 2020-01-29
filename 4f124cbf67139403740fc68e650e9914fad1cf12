@@ -16,6 +16,24 @@
       "revId": "4f124cbf67139403740fc68e650e9914fad1cf12",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dcab0026_8374ac77",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/group_vars/all.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-01-29T01:37:22Z",
+      "side": 0,
+      "message": "This overlay networking template used only for the MX family. We don\u0027t need this anymore for this role as it is taken care by other templates, similar to QFX.",
+      "parentUuid": "919e29d3_95201954",
+      "revId": "4f124cbf67139403740fc68e650e9914fad1cf12",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
