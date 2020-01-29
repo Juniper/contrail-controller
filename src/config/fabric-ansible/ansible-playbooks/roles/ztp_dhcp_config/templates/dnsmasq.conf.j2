@@ -25,7 +25,7 @@ dhcp-range={{ first_ip }},{{ last_ip }},{{ netmask }},{{ broadcast }},12h
 {%     endfor %}
 {%     if subnet.default_gateway is defined %}
 {%       if subnet.intf_name is defined %}
-dhcp-option=tag:{{ subnet.intf_name }}option:router,{{ subnet.default_gateway }}
+dhcp-option=tag:{{ subnet.intf_name }},option:router,{{ subnet.default_gateway }}
 {%       else %}
 dhcp-option=option:router,{{ subnet.default_gateway }}
 {%       endif %}
