@@ -9,9 +9,11 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 from attrdict import AttrDict
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+import gevent
+
+from .db import VirtualNetworkDM
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 
 class L2GatewayFeature(FeatureBase):
@@ -29,6 +31,7 @@ class L2GatewayFeature(FeatureBase):
 
     def _build_ri_config(self, vn, ri_name, ri_obj, interfaces, export_targets,
                          import_targets, feature_config):
+        gevent.idle()
         encapsulation_priorities = self._get_encapsulation_priorities()
         highest_encapsulation = encapsulation_priorities[0]
         network_id = vn.vn_network_id
@@ -133,7 +136,7 @@ class L2GatewayFeature(FeatureBase):
 
         vn_dict = self._get_connected_vn_li_map()
         for vn_uuid, interfaces in list(vn_dict.items()):
-            vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+            vn_obj = VirtualNetworkDM.get(vn_uuid)
             ri_obj = self._get_primary_ri(vn_obj)
             if ri_obj is None:
                 continue
