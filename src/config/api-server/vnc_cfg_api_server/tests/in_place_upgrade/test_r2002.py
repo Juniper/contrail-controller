@@ -5,6 +5,8 @@ import logging
 
 from vnc_api.exceptions import RefsExistError
 from vnc_api.vnc_api import (
+    AllowedAddressPair,
+    AllowedAddressPairs,
     AutonomousSystemsType,
     DefaultProtocolType,
     DeviceChassis,
@@ -14,14 +16,20 @@ from vnc_api.vnc_api import (
     EnabledInterfaceParams,
     ExecutableInfoListType, ExecutableInfoType,
     Fabric,
+    FatFlowProtocols,
     GlobalSystemConfig,
     HardwareInventory,
+    IdPermsType,
+    IpAddressesType,
     JobTemplate,
     JunosServicePorts,
+    LogicalRouter,
+    MacAddressesType, MACLimitControlType, MACMoveLimitControlType,
     PhysicalRouter,
     PlaybookInfoListType, PlaybookInfoType,
     Project,
-    ProtocolBgpType, ProtocolOspfType,
+    ProtocolBgpType, ProtocolOspfType, ProtocolType,
+    RouteTargetList,
     RoutingBridgingRolesType,
     RoutingInstance,
     ServiceChainInfo,
@@ -30,9 +38,15 @@ from vnc_api.vnc_api import (
     StaticRouteEntriesType, StaticRouteType,
     StatsCollectionFrequency,
     StormControlParameters, StormControlProfile,
+    SubnetType,
     TelemetryProfile, TelemetryResourceInfo, TelemetryStateInfo,
     UserCredentials,
+    VirtualMachine,
+    VirtualMachineInterface,
+    VirtualMachineInterfacePropertiesType,
     VirtualNetwork,
+    VirtualNetworkRoutedPropertiesType,
+    VirtualNetworkType
 )
 
 from vnc_cfg_api_server.tests.in_place_upgrade import test_case
@@ -327,4 +341,93 @@ class TestInPlaceUpgradeR2002(test_case.InPlaceUpgradeTestCase):
                     'static_route_entries': static_route_entries}
 
         obj = self.set_properties(RoutingInstance(), prop_map)
+        self.assertSchemaObjCreateOrUpdate(obj)
+
+    def test_virtual_network_create(self):
+        project = self._project_fetch_or_create(self.id())
+        vn_name = 'vn-{}'.format(self.id())
+        rtl = RouteTargetList(route_target=['target:3:1'])
+        prop_map = {"name": vn_name,
+                    "display_name": vn_name,
+                    "fq_name": ['vm' + vn_name],
+                    "parent_obj": project,
+                    "is_shared": True,
+                    "router_external": True,
+                    "virtual_network_category": "routed",
+                    "port_security_enabled": True,
+                    "route_target_list": rtl,
+                    "virtual_network_properties": VirtualNetworkType(
+                        forwarding_mode='l3'),
+                    "address_allocation_mode": 'flat-subnet-only',
+                    "mac_learning_enabled": True,
+                    "pbb_evpn_enable": True,
+                    "pbb_etree_enable": True,
+                    "igmp_enable": True,
+                    "id_perms": IdPermsType(enable=True),
+                    'annotations': {},
+                    "mac_aging_time": 400,
+                    "fabric_snat": True,
+                    "virtual_network_routed_properties":
+                        VirtualNetworkRoutedPropertiesType(),
+                    "ecmp_hashing_include_fields": False,
+                    "provider_properties": None,
+                    "flood_unknown_unicast": True,
+                    "layer2_control_word": True,
+                    "mac_move_control":
+                        MACMoveLimitControlType(
+                            mac_move_limit=1024,
+                            mac_move_limit_action='log',
+                            mac_move_time_window=60),
+                    "export_route_target_list": rtl,
+                    "mac_limit_control":
+                        MACLimitControlType(mac_limit=1024,
+                                            mac_limit_action='log'),
+                    "virtual_network_fat_flow_protocols":
+                        FatFlowProtocols([
+                            ProtocolType(protocol='p1', port=1),
+                            ProtocolType(protocol='p2', port=2)]),
+                    "virtual_network_network_id": None,
+                    "import_route_target_list": rtl,
+                    "external_ipam": True,
+                    "multi_policy_service_chains_enabled": False
+                    }
+
+        obj = self.set_properties(VirtualNetwork(), prop_map)
+        self.assertSchemaObjCreateOrUpdate(obj)
+
+    def test_virtual_machine_create(self):
+        project = self._project_fetch_or_create(self.id())
+        vm_name = 'vm-{}'.format(self.id())
+        prop_map = {
+            "name": vm_name,
+            "parent_obj": project,
+            "display_name": 'vm' + vm_name,
+            "fq_name": ['vm' + vm_name],
+            "server_type": 'baremetal-server',
+            "id_perms": IdPermsType(enable=True),
+            'annotations': {}
+        }
+
+        obj = self.set_properties(VirtualMachine(), prop_map)
+        self.assertSchemaObjCreateOrUpdate(obj)
+
+    def test_logical_router_create(self):
+        project = self._project_fetch_or_create(self.id())
+        lr_name = 'lr-{}'.format(self.id())
+        ip = IpAddressesType(["1.1.1.1"])
+        prop_map = {
+            "name": lr_name,
+            "parent_obj": project,
+            "display_name": lr_name,
+            "fq_name": ['lr' + lr_name],
+            "id_perms": IdPermsType(enable=True),
+            "logical_router_gateway_external": False,
+            "logical_router_type": 'vxlan-routing',
+            "vxlan_network_identifier": '1111',
+            "configured_route_target_list": None,
+            "logical_router_dhcp_relay_server": ip,
+            'annotations': {}
+        }
+
+        obj = self.set_properties(LogicalRouter(), prop_map)
         self.assertSchemaObjCreateOrUpdate(obj)
