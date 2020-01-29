@@ -28,7 +28,9 @@ from .context import get_request
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from cfgm_common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.exceptions import ResourceOutOfRangeError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
@@ -36,6 +38,8 @@ from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
+from cfgm_common import SUB_CLUSTER_ID_ALLOC_PATH_2_BYTES
+from cfgm_common import SUB_CLUSTER_ID_ALLOC_PATH_4_BYTES
 from . import utils
 
 import copy
@@ -444,6 +448,9 @@ class VncZkClient(object):
     _AE_ID_ALLOC_PATH = "/id/aggregated-ethernet/%s/"
     _AE_MAX_ID = (1 << 7) - 1
 
+    _SUB_CLUSTER_MAX_ID_2_BYTES = 1 << 16
+    _SUB_CLUSTER_MAX_ID_4_BYTES = 1 << 32
+
     def __init__(self, instance_id, zk_server_ip, host_ip, reset_config, db_prefix,
                  sandesh_hdl, log_response_time=None):
         self._db_prefix = db_prefix
@@ -526,7 +533,16 @@ class VncZkClient(object):
                 self._tag_value_id_alloc_path % type_name,
                 self._TAG_VALUE_MAX_ID,
             ) for type_name in list(constants.TagTypeNameToId.keys())}
-    # end __init__
+
+        # Initialize the sub-cluster ID allocators
+        self._sub_cluster_id_allocator_2_bytes = IndexAllocator(
+            self._zk_client,
+            zk_path_pfx + SUB_CLUSTER_ID_ALLOC_PATH_2_BYTES,
+            self._SUB_CLUSTER_MAX_ID_2_BYTES)
+        self._sub_cluster_id_allocator_4_bytes = IndexAllocator(
+            self._zk_client,
+            zk_path_pfx + SUB_CLUSTER_ID_ALLOC_PATH_4_BYTES,
+            self._SUB_CLUSTER_MAX_ID_4_BYTES)
 
     def master_election(self, path, func, *args):
         self._zk_client.master_election(
@@ -739,7 +755,7 @@ class VncZkClient(object):
 
     def free_vpg_id(self, id, fq_name_str, notify=False):
         if id is not None and id - self._VPG_MIN_ID < self._VPG_MAX_ID:
-            # If fq_name associated to the allocated ID does not correpond to
+            # If fq_name associated to the allocated ID does not correspond to
             # freed resource fq_name, keep zookeeper lock
             allocated_fq_name_str = self.get_vpg_from_id(id)
             if (allocated_fq_name_str is not None and
@@ -775,7 +791,7 @@ class VncZkClient(object):
 
     def free_sg_id(self, id, fq_name_str, notify=False):
         if id is not None and id > SGID_MIN_ALLOC and id < self._SG_MAX_ID:
-            # If fq_name associated to the allocated ID does not correpond to
+            # If fq_name associated to the allocated ID does not correspond to
             # freed resource fq_name, keep zookeeper lock
             allocated_fq_name_str = self.get_sg_from_id(id)
             if (allocated_fq_name_str is not None and
@@ -913,8 +929,46 @@ class VncZkClient(object):
             else:
                 ae_id_allocator.delete(id)
 
-# end VncZkClient
+    def get_sub_cluster_allocator(self, asn):
+        if asn > 0xFFFF:
+            return self._sub_cluster_id_allocator_2_bytes
+        else:
+            return self._sub_cluster_id_allocator_4_bytes
 
+    def get_sub_cluster_from_id(self, asn, sub_cluster_id):
+        allocator = self.get_sub_cluster_allocator(asn)
+        return allocator.read(sub_cluster_id)
+
+    def alloc_sub_cluster_id(self, asn, fq_name_str, sub_cluster_id=None):
+        allocator = self.get_sub_cluster_allocator(asn)
+        if sub_cluster_id:
+            allocated_id = allocator.reserve(sub_cluster_id, fq_name_str)
+            # reserve returns none if requested ID is out of the allocation
+            # range
+            if not allocated_id:
+                raise ResourceOutOfRangeError(
+                    sub_cluster_id,
+                    allocator._start_idx,
+                    allocator._start_idx + allocator._size - 1)
+            return allocated_id
+        else:
+            return allocator.alloc(fq_name_str)
+
+    def free_sub_cluster_id(self, asn, sub_cluster_id, fq_name_str,
+                            notify=False):
+        allocator = self.get_sub_cluster_allocator(asn)
+        # If fq_name associated to the allocated ID does not correspond to
+        # freed resource fq_name, keep zookeeper lock
+        allocated_fq_name_str = self.get_sub_cluster_from_id(
+            asn, sub_cluster_id)
+        if allocated_fq_name_str and allocated_fq_name_str != fq_name_str:
+            return
+        if notify:
+            # If notify, the ZK allocation already removed, just remove
+            # lock in memory
+            allocator.reset_in_use(sub_cluster_id)
+        else:
+            allocator.delete(sub_cluster_id)
 
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, db_srv_list, rabbit_servers, rabbit_port,

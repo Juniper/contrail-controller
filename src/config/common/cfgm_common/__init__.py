@@ -32,6 +32,11 @@ BGP_RTGT_ALLOC_PATH_TYPE0 = "/id/bgp/route-targets/type0/"
 # Route Target location in Zookeeper for a Type1 and Type2 Route Targets
 # Type1/2 route targets will have 4 Byte IP/ASN and 2 Byte target values
 BGP_RTGT_ALLOC_PATH_TYPE1_2 = "/id/bgp/route-targets/type1_2/"
+# Sub-luster ID location in Zookeeper depending of bytes available. If global
+# ASN us 2 bytes, we have $ bytes available to allocate but if global ASN uses
+# 4 bytes, only 2 bytes remains
+SUB_CLUSTER_ID_ALLOC_PATH_2_BYTES = "/id/sub-clusters/id/2-bytes/"
+SUB_CLUSTER_ID_ALLOC_PATH_4_BYTES = "/id/sub-clusters/id/4-bytes/"
 
 PERMS_NONE = 0
 PERMS_X = 1

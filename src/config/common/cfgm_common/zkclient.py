@@ -329,6 +329,20 @@ class IndexAllocator(object):
         return not self._in_use.any()
     # end empty
 
+    def get_last_allocated_id(self):
+        if self.empty():
+            return
+
+        if self._reverse:
+            return self._get_zk_index_from_bit(self._in_use.index(1))
+
+        # TODO: since 1.2.0, bitarray have rindex util method
+        temp = self._in_use.copy()
+        temp.reverse()
+        idx = (self._in_use.length() - 1) - temp.index(1)
+
+        return self._get_zk_index_from_bit(idx)
+
     @classmethod
     def delete_all(cls, zookeeper_client, path):
         try:
