@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d920a9a5_ced21e33",
+        "filename": "src/config/device-manager/device_manager/dm_server_args.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 176,
+      "author": {
+        "id": 495
+      },
+      "writtenOn": "2020-01-29T12:32:37Z",
+      "side": 1,
+      "message": "Could you reverse the logic and use flag `..not_in_docker` or sth like that. Then you can use store_action\u003dtrue.",
+      "range": {
+        "startLine": 175,
+        "startChar": 3,
+        "endLine": 176,
+        "endChar": 77
+      },
+      "revId": "537388eceb15b0f133c54ce5215a0dcafae5d55d",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
