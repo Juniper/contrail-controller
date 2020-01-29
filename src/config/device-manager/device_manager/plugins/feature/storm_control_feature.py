@@ -11,6 +11,7 @@ storm control feature
 
 from builtins import str
 from collections import OrderedDict
+import gevent
 
 from abstract_device_api.abstract_device_xsd import *
 import db
@@ -39,6 +40,7 @@ class StormControlFeature(FeatureBase):
     # end _add_to_sc_map
 
     def _build_storm_control_interface_config(self, interfaces):
+        gevent.idle()
         interface_map = OrderedDict()
         for interface in interfaces:
             interface_map.setdefault(interface.pi_name, []).append(interface)
