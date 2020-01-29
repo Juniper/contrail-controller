@@ -115,8 +115,8 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
             return ok, (400, result)
 
         # If the ASN has changed from 2 bytes to 4 bytes, we need to make sure
-        # that there is enough space to reallocate the RT values in new
-        # zookeeper space.
+        # that there is enough space to reallocate the RT and sub-cluster
+        # values in new zookeeper space.
 
         if ((global_asn > 0xFFFF) and
                 (cls.server.global_autonomous_system <= 0xFFFF)):
@@ -132,6 +132,11 @@ class GlobalSystemConfigServer(ResourceMixin, GlobalSystemConfig):
                 # In case of a UT environment, we can expect
                 # /id/bgp/route-targets/type0 not to exist
                 pass
+
+            ok, result = cls.server.get_resource_class(
+                'sub_cluster').validate_decrease_id_to_two_bytes()
+            if not ok:
+                return False, result
 
         for obj_name, fields in cls.USER_DEFINED_RT_FIELDS.items():
             ok, result = cls._rt_validate_fields(obj_name, fields,
