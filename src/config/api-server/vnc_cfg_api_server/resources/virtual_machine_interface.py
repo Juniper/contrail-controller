@@ -272,9 +272,12 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 return False, result
             vrs = result
             for vr in vrs:
-                if (vr['fq_name'][-1].partition('.')[0] ==
-                        host_id.partition('.')[0]):
-                    vrouter = vr
+                fullname = vr['fq_name'][-1].split('.')
+                for hname in fullname:
+                    if host_id.partition('.')[0] == hname:
+                        vrouter = vr
+                        break
+                if vr == vrouter:
                     break
             if not vrouter:
                 return True, result
