@@ -63,12 +63,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.24"
+__version__ = "1.25"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.25:
+  - Fix route target validation code when VN RT list is set to none
 * 1.24:
   - Fix pycassa import to support new UT framework
 * 1.23:
@@ -647,7 +649,8 @@ class DatabaseManager(object):
                     cols = uuid_table.get(uuid, columns=[list_name])
                 except pycassa.NotFoundException:
                     continue
-                for rt in json.loads(cols[list_name]).get('route_target', []):
+                rts_col = json.loads(cols[list_name]) or {}
+                for rt in rts_col.get('route_target', []):
                     try:
                         asn, id = _parse_rt(rt)
                     except ValueError:
