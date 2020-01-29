@@ -52,7 +52,7 @@ class IndexAllocator(object):
 
         self._zookeeper_client = zookeeper_client
         self._path = path
-        self._in_use = bitarray('0')
+        self._in_use = bitarray(native_str('0'))
         self._reverse = reverse
         for idx in self._zookeeper_client.get_children(path):
             idx_int = self._get_bit_from_zk_index(int(idx))
