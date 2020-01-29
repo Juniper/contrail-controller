@@ -9,9 +9,12 @@ from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
 from attrdict import AttrDict
+
 import db
 from dm_utils import DMUtils
 from feature_base import FeatureBase
+
+import gevent
 
 
 class L2GatewayFeature(FeatureBase):
@@ -29,6 +32,7 @@ class L2GatewayFeature(FeatureBase):
 
     def _build_ri_config(self, vn, ri_name, ri_obj, interfaces, export_targets,
                          import_targets, feature_config):
+        gevent.idle()
         encapsulation_priorities = self._get_encapsulation_priorities()
         highest_encapsulation = encapsulation_priorities[0]
         network_id = vn.vn_network_id

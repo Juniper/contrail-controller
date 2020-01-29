@@ -3,9 +3,8 @@
 #
 from __future__ import absolute_import
 import gevent
-import json
+import mock
 from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_ansible_common import TestAnsibleCommonDM
@@ -15,14 +14,25 @@ from vnc_api.vnc_api import *
 
 class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
 
-    def test_01_2_leaf_1_spine(self):
-
+    def setUp(self, extra_config_knobs=None):
+        super(TestAnsibleRRRedundancy, self).setUp(extra_config_knobs=extra_config_knobs)
         self.create_feature_objects_and_params()
+        self.idle_patch = mock.patch('gevent.idle')
+        self.idle_mock = self.idle_patch.start()
+
+    def tearDown(self):
+        self.delete_objects()
+        self.idle_patch.stop()
+        super(TestAnsibleRRRedundancy, self).tearDown()
+
+    def _test_01_2_leaf_1_spine(self):
+
+        #self.create_feature_objects_and_params()
         pr1, pr2, pr3 = self.create_rr_dependencies(
             'leaf', 'leaf', 'CRB-Access', 'ERB-UCAST-Gateway'
         )
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         self.check_dm_ansible_config_push()
 
         # update each PR separately to get the abstract config
@@ -31,7 +41,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr1.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr1)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -54,7 +64,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -81,7 +91,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -102,24 +112,24 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects()
+        #self.delete_objects()
 
     def test_02_1_leaf_2_spine_old_way(self):
 
-        self.create_feature_objects_and_params()
+        #self.create_feature_objects_and_params()
         pr1, pr2, pr3 = self.create_rr_dependencies(
             'leaf', 'spine', 'CRB-Access', 'Route-Reflector'
         )
         # update each PR separately to get the abstract config
         # corresponding to that PR
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         self.check_dm_ansible_config_push()
 
         pr1.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr1)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -141,7 +151,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -167,7 +177,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -191,16 +201,16 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects()
+        #self.delete_objects()
 
     def test_03_1_leaf_2_spine_new_way(self):
 
-        self.create_feature_objects_and_params()
+        #self.create_feature_objects_and_params()
         pr1, pr2, pr3 = self.create_rr_dependencies(
             'leaf', 'spine', 'ERB-UCAST-Gateway', 'Route-Reflector'
         )
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         self.check_dm_ansible_config_push()
 
         # update each PR separately to get the abstract config
@@ -209,7 +219,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr1.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr1)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -235,7 +245,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -260,7 +270,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -284,16 +294,16 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects()
+        #self.delete_objects()
 
     def test_04_leaf_rr(self):
 
-        self.create_feature_objects_and_params()
+        #self.create_feature_objects_and_params()
         pr1, pr2, pr3 = self.create_rr_dependencies(
             'leaf', 'leaf', 'ERB-UCAST-Gateway', 'Route-Reflector'
         )
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         self.check_dm_ansible_config_push()
 
         # update each PR separately to get the abstract config
@@ -302,7 +312,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr1.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr1)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -328,7 +338,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -353,7 +363,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -377,16 +387,16 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects()
+        #self.delete_objects()
 
     def test_05_1_leaf_2_spine_revert(self):
 
-        self.create_feature_objects_and_params()
+        #self.create_feature_objects_and_params()
         pr1, pr2, pr3 = self.create_rr_dependencies(
             'leaf', 'spine', 'CRB-Access', 'Route-Reflector'
         )
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         self.check_dm_ansible_config_push()
 
         # update each PR separately to get the abstract config
@@ -395,7 +405,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr1.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr1)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -417,7 +427,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -442,7 +452,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -471,13 +481,13 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_routing_bridging_roles(RoutingBridgingRolesType(rb_roles=['CRB-Access']))
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         self.check_dm_ansible_config_push()
 
         pr1.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr1)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -499,7 +509,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr2.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr2)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -521,7 +531,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
         pr3.set_physical_router_product_name('juniper-qfx5110-32q')
         self._vnc_lib.physical_router_update(pr3)
 
-        gevent.sleep(1)
+        gevent.sleep(3)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
 
@@ -542,7 +552,7 @@ class TestAnsibleRRRedundancy(TestAnsibleCommonDM):
 
         # delete workflow
 
-        self.delete_objects()
+        #self.delete_objects()
 
 
 
