@@ -8,10 +8,12 @@ from builtins import str
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+import gevent
 from netaddr import IPAddress, IPNetwork
+
+from .db import *
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 
 class VnInterconnectFeature(FeatureBase):
@@ -76,6 +78,7 @@ class VnInterconnectFeature(FeatureBase):
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
                          import_targets, vn_list):
+        gevent.idle()
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
