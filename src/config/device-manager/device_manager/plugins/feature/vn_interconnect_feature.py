@@ -13,6 +13,8 @@ from dm_utils import DMUtils
 from feature_base import FeatureBase
 from netaddr import IPAddress, IPNetwork
 
+import gevent # noqa
+
 
 class VnInterconnectFeature(FeatureBase):
 
@@ -76,6 +78,7 @@ class VnInterconnectFeature(FeatureBase):
 
     def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
                          import_targets, vn_list):
+        gevent.idle()
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
