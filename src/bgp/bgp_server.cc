@@ -102,6 +102,12 @@ public:
                 new_config->gr_bgp_helper());
             clear_peers = true;
         }
+        if (server_->global_config()->evpn_type1_rtarget_number() !=
+                new_config->evpn_type1_rtarget_number()) {
+            server_->global_config()->set_evpn_type1_rtarget_number(
+                new_config->evpn_type1_rtarget_number());
+            clear_peers = true;
+        }
         if (server_->global_config()->enable_4byte_as() !=
                 new_config->enable_4byte_as()) {
             server_->global_config()->set_enable_4byte_as(
@@ -692,6 +698,14 @@ bool BgpServer::enable_4byte_as() const {
 
 void BgpServer::set_enable_4byte_as(bool flag) {
     global_config()->set_enable_4byte_as(flag);
+}
+
+uint32_t BgpServer::evpn_type1_rtarget_number() const {
+    return global_config()->evpn_type1_rtarget_number();
+}
+
+void BgpServer::set_evpn_type1_rtarget_number(uint32_t index) {
+    global_config()->set_evpn_type1_rtarget_number(index);
 }
 
 bool BgpServer::IsGRHelperModeEnabled() const {

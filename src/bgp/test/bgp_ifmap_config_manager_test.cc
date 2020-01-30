@@ -68,6 +68,7 @@ protected:
               server_(&evm_), parser_(&db_) {
         config_manager_ =
                 static_cast<BgpIfmapConfigManager *>(server_.config_manager());
+        server_.set_autonomous_system(64512);
     }
 
     virtual void SetUp() {
@@ -1126,9 +1127,30 @@ TEST_F(BgpIfmapConfigManagerTest, InstanceTargetExport1) {
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:100:1") != ilist.end());
     TASK_UTIL_EXPECT_TRUE(ilist.find("target:64512:7999999") != ilist.end());
 
+    string config_update = "\
+<config>\
+    <global-system-config>\
+    <evpn-type1-rtarget-number>100</evpn-type1-rtarget-number>\
+    </global-system-config>\
+</config>\
+";
+    EXPECT_TRUE(parser_.Parse(config_update));
+    task_util::WaitForIdle();
+
+    // Default esi rtarget should removed and new rtarget with index 100
+    // should be added now
+    const BgpInstanceConfig::RouteTargetList ilist2 = red->import_list();
+    TASK_UTIL_EXPECT_TRUE(ilist2.find("target:64512:7999999") == ilist2.end());
+    TASK_UTIL_EXPECT_TRUE(ilist2.find("target:64512:100") != ilist2.end());
+
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::replace_all(config_update, "<config>", "<delete>");
+    boost::replace_all(config_update, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(config_update));
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, config_manager_->config()->instances().size());

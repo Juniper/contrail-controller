@@ -1144,14 +1144,33 @@ void BgpIfmapInstanceConfig::ProcessIdentifierUpdate(uint32_t new_id,
     data_.set_import_list(import_list);
 }
 
-void BgpIfmapInstanceConfig::ProcessASUpdate(uint32_t new_as, uint32_t old_as) {
+void BgpIfmapInstanceConfig::ProcessEvpnRtargetUpdate(
+          BgpIfmapConfigManager *manager, uint32_t new_id, uint32_t old_id) {
     BgpInstanceConfig::RouteTargetList import_list = data_.import_list();
+    uint32_t as = manager->server()->local_autonomous_system();
+    if (as == 0)
+        as = manager->server()->autonomous_system();
+    if (old_id > 0) {
+        string old_es_rtarget = "target:" + GetESRouteTarget(old_id, as);
+        import_list.erase(old_es_rtarget);
+    }
+    if (new_id > 0) {
+        string new_es_rtarget = "target:" + GetESRouteTarget(new_id, as);
+        import_list.insert(new_es_rtarget);
+    }
+    data_.set_import_list(import_list);
+}
+
+void BgpIfmapInstanceConfig::ProcessASUpdate(BgpIfmapConfigManager *manager,
+                                             uint32_t new_as, uint32_t old_as) {
+    BgpInstanceConfig::RouteTargetList import_list = data_.import_list();
+    uint32_t index = manager->server()->evpn_type1_rtarget_number();
     if (old_as > 0) {
-        string old_es_rtarget = "target:" + GetESRouteTarget(old_as);
+        string old_es_rtarget = "target:" + GetESRouteTarget(index, old_as);
         import_list.erase(old_es_rtarget);
     }
     if (new_as > 0) {
-        string new_es_rtarget = "target:" + GetESRouteTarget(new_as);
+        string new_es_rtarget = "target:" + GetESRouteTarget(index, new_as);
         import_list.insert(new_es_rtarget);
     }
     data_.set_import_list(import_list);
@@ -1163,14 +1182,14 @@ string BgpIfmapInstanceConfig::GetVitFromId(uint32_t identifier) const {
     return Ip4Address(identifier).to_string() + ":" + integerToString(index());
 }
 
-string BgpIfmapInstanceConfig::GetESRouteTarget(uint32_t as) const {
+string BgpIfmapInstanceConfig::GetESRouteTarget(uint32_t index,
+                                                uint32_t as) const {
     if (as == 0)
         return "";
-    if (as > 0xffFF)
-        return integerToString(as) + ":" +
-            integerToString(EVPN_ES_IMPORT_ROUTE_TARGET_AS4);
-    return integerToString(as) + ":" +
-        integerToString(EVPN_ES_IMPORT_ROUTE_TARGET_AS2);
+    // Change the default index if as is 4 byte
+    if (index == EVPN_ES_IMPORT_ROUTE_TARGET_AS2 && as > AS2_MAX)
+        index = EVPN_ES_IMPORT_ROUTE_TARGET_AS4;
+    return integerToString(as) + ":" + integerToString(index);
 }
 
 // Populate vrf import route-target (used for MVPN) and ES route target in
@@ -1195,8 +1214,10 @@ void BgpIfmapInstanceConfig::InsertVitAndESRTargetInImportList(
     }
     if (bgp_identifier > 0)
         import_list.insert("target:" + GetVitFromId(ntohl(bgp_identifier)));
-    if (as > 0)
-        import_list.insert("target:" + GetESRouteTarget(as));
+    if (as > 0) {
+        uint32_t index = mgr->server()->evpn_type1_rtarget_number();
+        import_list.insert("target:" + GetESRouteTarget(index, as));
+    }
 }
 
 //
@@ -1433,7 +1454,7 @@ void BgpIfmapConfigData::ProcessIdentifierAndASUpdate(
         if (new_id != old_id)
             ifmap_config->ProcessIdentifierUpdate(new_id, old_id);
         if (new_as != old_as)
-            ifmap_config->ProcessASUpdate(new_as, old_as);
+            ifmap_config->ProcessASUpdate(manager, new_as, old_as);
         manager->UpdateInstanceConfig(ifmap_config,
                                       BgpConfigManager::CFG_CHANGE);
     }
@@ -2062,6 +2083,12 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    uint32_t new_rtarget_index = system->evpn_type1_rtarget_number();
+    if (data_.evpn_type1_rtarget_number() != new_rtarget_index) {
+        data_.set_evpn_type1_rtarget_number(new_rtarget_index);
+        changed |= true;
+    }
+
     if (data_.always_compare_med() != system->bgp_always_compare_med()) {
         data_.set_always_compare_med(system->bgp_always_compare_med());
         changed |= true;
@@ -2503,6 +2530,18 @@ void BgpIfmapConfigManager::ProcessGlobalSystemConfig(
         config = static_cast<autogen::GlobalSystemConfig *>(delta.obj.get());
     }
 
+    uint32_t old_id = config_->global_config()->config()->
+                                                evpn_type1_rtarget_number();
+    uint32_t new_id = config->evpn_type1_rtarget_number();
+    if (old_id != new_id) {
+        for (unsigned int i = 0; i < config_->instances().size(); i++) {
+            BgpIfmapInstanceConfig * ifmap_config = config_->instances().At(i);
+            if (!ifmap_config)
+                continue;
+            if (new_id != old_id)
+                ifmap_config->ProcessEvpnRtargetUpdate(this, new_id, old_id);
+        }
+    }
     if (config_->global_config()->Update(this, config))
         Notify(config_->global_config()->config(), BgpConfigManager::CFG_ADD);
 }

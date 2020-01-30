@@ -301,6 +301,8 @@ public:
     void set_mvpn_ipv4_enable(bool flag) { mvpn_ipv4_enable_ = flag; }
     bool enable_4byte_as() const;
     void set_enable_4byte_as(bool flag);
+    uint32_t evpn_type1_rtarget_number() const;
+    void set_evpn_type1_rtarget_number(uint32_t index);
     bool ignore_aspath() const { return ignore_aspath_; }
     void set_ignore_aspath(bool flag) { ignore_aspath_ = flag; }
 

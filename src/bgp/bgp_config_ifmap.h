@@ -249,11 +249,14 @@ public:
     void set_index(int index) { index_ = index; };
     int index() const { return index_; }
     std::string GetVitFromId(uint32_t identifier) const;
-    std::string GetESRouteTarget(uint32_t as) const;
+    std::string GetESRouteTarget(uint32_t index, uint32_t as) const;
     void InsertVitAndESRTargetInImportList(BgpIfmapConfigManager *manager,
             BgpInstanceConfig::RouteTargetList& import_list);
     void ProcessIdentifierUpdate(uint32_t new_id, uint32_t old_id);
-    void ProcessASUpdate(uint32_t new_as, uint32_t old_as);
+    void ProcessASUpdate(BgpIfmapConfigManager *manager,
+                         uint32_t new_as, uint32_t old_as);
+    void ProcessEvpnRtargetUpdate(BgpIfmapConfigManager *manager,
+                                  uint32_t new_id, uint32_t old_id);
 
 private:
     friend class BgpConfigManagerTest;

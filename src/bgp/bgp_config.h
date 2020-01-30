@@ -602,6 +602,7 @@ public:
             end_of_rib_timeout_(kEndOfRibTime), gr_enable_(false),
             gr_bgp_helper_(false), gr_xmpp_helper_(false),
             enable_4byte_as_(false),
+            evpn_type1_rtarget_number_(7999999),
             bgpaas_port_start_(0),
             bgpaas_port_end_(0),
             always_compare_med_(false),
@@ -625,6 +626,12 @@ public:
     void set_gr_enable(bool enable) { gr_enable_ = enable; }
     bool enable_4byte_as() const { return enable_4byte_as_; }
     void set_enable_4byte_as(bool as_4byte) { enable_4byte_as_ = as_4byte; }
+    uint32_t evpn_type1_rtarget_number() const {
+        return evpn_type1_rtarget_number_;
+    }
+    void set_evpn_type1_rtarget_number(uint32_t esi_rt) {
+        evpn_type1_rtarget_number_ = esi_rt;
+    }
     bool always_compare_med() const { return always_compare_med_; }
     void set_always_compare_med(bool always_compare_med) {
         always_compare_med_ = always_compare_med;
@@ -653,6 +660,7 @@ private:
     bool gr_bgp_helper_;
     bool gr_xmpp_helper_;
     bool enable_4byte_as_;
+    uint32_t evpn_type1_rtarget_number_;
     uint16_t bgpaas_port_start_;
     uint16_t bgpaas_port_end_;
     bool always_compare_med_;

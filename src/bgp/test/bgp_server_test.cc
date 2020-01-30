@@ -220,7 +220,7 @@ protected:
                 unsigned short port_b, bool verify_keepalives,
                 as_t as_num1, as_t as_num2,
                 as_t local_as_num1, as_t local_as_num2,
-                bool enable_4byte_as = false);
+                bool enable_4byte_as = false, uint32_t esi_rtarget = 0);
     void SetupPeersWrongAsnConfig(int peer_count, unsigned short port_a,
                 unsigned short port_b, bool verify_keepalives,
                 as_t as_num1, as_t as_num2);
@@ -285,7 +285,7 @@ protected:
                                 vector<ConfigUTAuthKeyItem>(),
                         uint32_t cluster_id = 0, bool enable_4byte = false,
                         unsigned short port_c = 0, string bgp_identifier3 = "",
-                        string peer_address3 = "");
+                        string peer_address3 = "", uint32_t esi_rtarget = 0);
     void GRTestCommon(bool hard_reset, size_t expected_stale_count,
                       size_t expected_llgr_stale_count);
 
@@ -380,7 +380,7 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         bool delete_config,
         vector<ConfigUTAuthKeyItem> auth_keys, uint32_t cluster_id,
         bool enable_4byte_as, unsigned short port_c, string bgp_identifier3,
-        string peer_address3) {
+        string peer_address3, uint32_t esi_rtarget) {
     ostringstream config;
 
     if (families1.empty()) families1.push_back("inet");
@@ -402,7 +402,9 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
     } else {
         config << "<global-system-config>\
             <enable-4byte-as>" << (enable_4byte_as ? "true" : "false")\
-            << "</enable-4byte-as></global-system-config>";
+            << "</enable-4byte-as>" << \
+            "<evpn-type1-rtarget-number>" << esi_rtarget \
+            << "</evpn-type1-rtarget-number></global-system-config>";
     }
 
     config << "<bgp-router name=\'A\'>"
@@ -722,7 +724,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
 void BgpServerUnitTest::SetupPeers(int peer_count,
         unsigned short port_a, unsigned short port_b, bool verify_keepalives,
         as_t as_num1, as_t as_num2, as_t local_as_num1, as_t local_as_num2,
-        bool enable_4byte_as) {
+        bool enable_4byte_as, uint32_t esi_rtarget) {
     string config = GetConfigStr(peer_count, port_a, port_b,
                                  false, false, false, false, false, false,
                                  as_num1, as_num2,
@@ -733,7 +735,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  StateMachine::kHoldTime,
                                  StateMachine::kHoldTime,
                                  0, 0, false, vector<ConfigUTAuthKeyItem>(),
-                                 0, enable_4byte_as);
+                                 0, enable_4byte_as, esi_rtarget);
     a_->Configure(config);
     task_util::WaitForIdle();
     b_->Configure(config);
@@ -891,6 +893,68 @@ TEST_P(BgpServerUnitTest, VerifyAs4SupportCapability) {
     // Enable 4 byte asn so that AS4Support capability is sent
     SetupPeersWrongAsnConfig(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false, 70000, 80000);
+}
+
+TEST_P(BgpServerUnitTest, ChangeEsiRtarget) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    // No config for evpn_type1_rtarget_number
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem);
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    assert(a_->evpn_type1_rtarget_number() == 0);
+    assert(b_->evpn_type1_rtarget_number() == 0);
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Set evpn_type1_rtarget_number to 123 and verify
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem, false, 123);
+    VerifyPeers(peer_count, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    assert(a_->evpn_type1_rtarget_number() == 123);
+    assert(b_->evpn_type1_rtarget_number() == 123);
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
 }
 
 TEST_P(BgpServerUnitTest, ChangeEnable4ByteAsn) {
