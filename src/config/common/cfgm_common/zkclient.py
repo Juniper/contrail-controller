@@ -374,7 +374,7 @@ class ZookeeperCounter(Counter):
 
 class ZookeeperClient(object):
 
-    def __init__(self, module, server_list, host_ip, logging_fn=None, zk_timeout=400,
+    def __init__(self, module, server_list, host_ip, logging_fn=None, zk_timeout=40,
                  log_response_time=None):
         self.host_ip = host_ip
         # logging
