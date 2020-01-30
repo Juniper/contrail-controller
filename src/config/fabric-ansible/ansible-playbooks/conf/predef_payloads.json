@@ -532,7 +532,7 @@
             "show_config_template"
           ],
           "name": "show_config_template",
-          "display_name": " Show current or rollabck configuration",
+          "display_name": " Show current or rollback configuration",
           "job_template_description": "This command is used to display current or previous configuration",
           "parent_type": "global-system-config",
           "job_template_type": "device_operation",
