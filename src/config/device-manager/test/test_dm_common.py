@@ -5,10 +5,30 @@ from __future__ import absolute_import
 from . import test_case
 from vnc_api.vnc_api import *
 from device_api.juniper_common_xsd import *
+from cfgm_common.tests.test_common import retries
 
 #
 # All Generaric utlity method shoud go here
 #
+class VerifyCommonDM(object):
+    def __init__(self):
+        pass
+
+    @retries(5)
+    def wait_to_get_object(self, obj_class, obj_name, obj_dict=None):
+        if not obj_dict:
+           obj_dict = obj_class._dict
+        if obj_name not in obj_dict:
+            raise Exception('%s not found' % obj_name)
+
+    @retries(5)
+    def wait_to_delete_object(self, obj_class, obj_name, obj_dict=None):
+        if not obj_dict:
+           obj_dict = obj_class._dict
+        if obj_name in obj_dict:
+            raise Exception('%s still found' % obj_name)
+
+
 class TestCommonDM(test_case.DMTestCase):
 
     def set_obj_param(self, obj, param, value):
