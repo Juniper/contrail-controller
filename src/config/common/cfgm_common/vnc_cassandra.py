@@ -90,6 +90,13 @@ class VncCassandraClient(object):
     def _is_children(column_name):
         return column_name[:9] == 'children:'
 
+    def get_range(self, cf_name):
+        try:
+            return self._cassandra_driver.get_cf(cf_name).get_range(
+                         column_count=100000)
+        except:
+            return None
+
     def add(self, cf_name, key, value):
         try:
             self._cassandra_driver.get_cf(cf_name).insert(key, value)
@@ -179,6 +186,8 @@ class VncCassandraClient(object):
             self.fq_name_to_uuid)
         self.get_shared = self._cassandra_driver._handle_exceptions(
             self.get_shared)
+        self.get_range = self._cassandra_driver._handle_exceptions(
+            self.get_range)
         self.walk = self._cassandra_driver._handle_exceptions(self.walk)
 
         if walk:

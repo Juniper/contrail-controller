@@ -128,7 +128,6 @@ class CassandraDriverThrift(CassandraDriver):
             self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
 
         self.get_one_col = self._handle_exceptions(self.get_one_col)
-        self.get_range = self._handle_exceptions(self.get_range)
     # end __init__
 
     # Helper routines for cassandra
@@ -310,13 +309,6 @@ class CassandraDriverThrift(CassandraDriver):
 
     def get_cf(self, cf_name):
         return self._cf_dict.get(cf_name)
-
-    def get_range(self, cf_name):
-        try:
-            return self.get_cf(cf_name).get_range(
-                         column_count=100000)
-        except:
-            return None
 
     def get_one_col(self, cf_name, key, column):
         col = self.multiget(cf_name, [key], columns=[column])
