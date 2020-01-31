@@ -25,10 +25,12 @@ from abstract_device_api import abstract_device_xsd as AbstractDevXsd
 from attrdict import AttrDict
 from cfgm_common import vnc_greenlets
 from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.uve.feature_flags.ttypes import *
 from cfgm_common.uve.physical_router.ttypes import *
 from cfgm_common.uve.physical_router_config.ttypes import *
 from cfgm_common.uve.service_status.ttypes import *
 from cfgm_common.vnc_db import DBBase
+from cfgm_common.vnc_db import FeatureFlagBase
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from cfgm_common.zkclient import IndexAllocator
 from future.utils import native_str
@@ -79,6 +81,72 @@ class DBBaseDM(DBBase):
             return None
     # end _get_single_ref
 # end DBBaseDM
+
+
+class FeatureFlagDM(DBBaseDM, FeatureFlagBase):
+    _dict = {}
+    obj_type = 'feature_flag'
+    _ff_dict = {'release_version': '_default_',
+                'feature_flags': {},
+                'callbacks': {}}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.name = None
+        self.feature_flag = {}
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        old_fflag = self.feature_flag
+        self.name = obj['fq_name'][-1]
+        new_fflag = {'feature_id': obj.get('feature_id'),
+                     'enable_feature': obj.get('enable_feature', False),
+                     'feature_release': obj.get('feature_release'),
+                     'feature_flag_version': obj.get('feature_flag_version'),
+                     'feature_name': obj['fq_name'][-1],
+                     'display_name': obj.get('display_name')}
+        if old_fflag and \
+            (old_fflag.get('feature_flag_version') !=
+             new_fflag.get('feature_flag_version')):
+            self._logger.error('Cannot change version of %s from %s to %s' %
+                               (obj['fq_name'],
+                                old_fflag.get('feature_flag_version'),
+                                new_fflag.get('feature_flag_version')))
+        # if feature flag content are changed, update and generate uve
+        if self.is_feature_flag_changed(old_fflag, new_fflag):
+            self.feature_flag = new_fflag
+            self.feature_flag_update(self.feature_flag['feature_id'],
+                                     self.feature_flag['feature_flag_version'],
+                                     old_fflag, new_fflag, execute_cbs=True)
+            self.uve_send()
+    # end update
+
+    def uve_send(self):
+        fflag = self.feature_flag
+        if not fflag:
+            return
+        fflag_trace = UveFeatureFlagConfig(
+            name=fflag.get('feature_name'),
+            feature_id=fflag.get('feature_id'),
+            feature_flag_version=fflag.get('feature_flag_version'),
+            enable_feature=fflag.get('enable_feature'),
+            feature_description=fflag.get('feature_description'),
+            feature_release=fflag.get('feature_release'),
+            display_name=fflag.get('display_name'))
+        fflag_msg = UveFeatureFlagConfigTrace(
+            data=fflag_trace,
+            sandesh=DBBaseDM._sandesh)
+        fflag_msg.send(sandesh=DBBaseDM._sandesh)
+    # end uve_send
+
+    def delete_obj(self):
+        cls.delete_feature_flag(self.feature_flag.get('feature_id'))
+    # end delete_obj
+
+# end FeatureFlagDM
 
 
 class BgpRouterDM(DBBaseDM):
