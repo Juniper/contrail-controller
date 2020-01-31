@@ -37,6 +37,7 @@ pkg = [
     env.SandeshGenPy('#controller/src/config/uve/config_req.sandesh', 'cfgm_common/uve/', False),
     env.SandeshGenPy('#controller/src/config/uve/physical_router_config.sandesh', 'cfgm_common/uve/', False),
     env.SandeshGenPy('#controller/src/config/uve/service_status.sandesh', 'cfgm_common/uve/', False),
+    env.SandeshGenPy('#controller/src/config/uve/feature_flags.sandesh', 'cfgm_common/uve/', False),
 ]
 
 # A set of scripts used by other python tests - they are expected in #build
