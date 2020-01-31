@@ -250,7 +250,7 @@ class VncServerCassandraClient(VncCassandraClient):
             raise NoUserAgentKey
     # end useragent_kv_delete
 
-# end class VncCassandraClient
+# end class VncServerCassandraClient
 
 
 class VncServerKombuClient(VncKombuClient):
@@ -416,7 +416,7 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_delete_notification
-# end class VncKombuClient
+# end class VncServerKombuClient
 
 
 class VncZkClient(object):
