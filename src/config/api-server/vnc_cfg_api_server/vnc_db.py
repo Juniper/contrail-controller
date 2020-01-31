@@ -239,8 +239,7 @@ class VncServerCassandraClient(VncCassandraClient):
                 return row.get('value')
         else:  # no key specified, return entire contents
             kv_list = []
-            for ua_key, ua_cols in self._cassandra_driver.get_range(
-                    self._USERAGENT_KV_CF_NAME):
+            for ua_key, ua_cols in self.get_range(self._USERAGENT_KV_CF_NAME):
                 kv_list.append({'key': ua_key, 'value': ua_cols.get('value')})
             return kv_list
     # end useragent_kv_retrieve

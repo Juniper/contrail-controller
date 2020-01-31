@@ -300,8 +300,7 @@ class SchemaTransformerDB(VncObjectDBClient):
         self.delete(self._SC_IP_CF, sc_name)
 
     def list_service_chain_uuid(self):
-        return (self._cassandra_driver.get_range(
-            self._SERVICE_CHAIN_UUID_CF) or [])
+        return (self.get_range(self._SERVICE_CHAIN_UUID_CF) or [])
 
     def add_service_chain_uuid(self, name, value):
         self._service_chain_uuid_cf.insert(name, {'value': value})
