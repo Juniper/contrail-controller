@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "27b489e8_47039c68",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/resources/test_virtual_machine_interface.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 222,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-31T22:07:17Z",
+      "side": 1,
+      "message": "Be careful this unittest assert does not exists in python 3 but was replaced by \u0027self.assertCountEqual\u0027\n\n if six.PY3:\n     self.assertItemsEqual \u003d self.assertCountEqual",
+      "revId": "eaefed29228d67cd65f2f757bea06f8808828fa8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
