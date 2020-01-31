@@ -443,3 +443,100 @@ class DBBase(object, with_metaclass(DBBaseMeta)):
         return False
     #end skip_evaluate
 # end class DBBase
+
+
+class FeatureFlagBase(object):
+    @classmethod
+    def set_version(cls, version):
+        cls._ff_dict['release_version'] = version
+
+    @classmethod
+    def is_feature_enabled(cls, feature_id, version=None):
+        # if feature is not present, return false
+        # otherwise, return enable_feature
+        if not version:
+            version = cls._ff_dict['release_version']
+        version_fflags = cls._ff_dict['feature_flags'].get(version, {})
+        fflag = version_fflags.get(feature_id, {})
+        enabled = fflag.get('enable_feature', False)
+        return enabled
+    # end is_feature_enabled
+
+    #Register per object type for a given feature
+    @classmethod
+    def register_callback(cls, feature_id, obj_type, cb, params):
+        if not feature_id:
+           return False
+
+        # If object type is not specified, make default object type
+        # as feature id name
+        if not obj_type:
+           obj_type = feature_id
+
+        # parameters for callback should be arg list or kwargs
+        if not (isinstance(params, list) or isinstance(params, dict)):
+           return False
+        cbs = cls._ff_dict['callbacks']
+        feature_cbs = cbs.setdefault(feature_id, {})
+
+        # Register callback for object type one time only
+        if feature_cbs.get(obj_type):
+           return False
+        # store callbacks in _ff_dict
+        feature_cbs[obj_type] = (cb, params)
+        return True
+    # end register_cb
+
+
+    @classmethod
+    def _execute_callbacks(cls, feature_id):
+        feature_cbs = cls._ff_dict['callbacks'].get(feature_id)
+        if not feature_cbs:
+           return
+        # run callbacks one by one
+        for obj_type, cb_tuple in feature_cbs.items():
+            if not cb_tuple:
+               continue
+            cb, params = cb_tuple
+            if isinstance(params, list):
+               cb(*params)
+            elif isinstance(params, dict):
+               cb(**params)
+            else:
+               cb(params)
+        return
+    # end _execute_callbacks
+
+
+    @classmethod
+    def feature_flag_update(cls, feature_id, version, old_fflag, new_fflag, execute_cbs=True):
+        # run callbacks, only if the enable_feature is changed.
+        # otherwise, simply update feature flags without invoking callbacks
+        # Caller also has an option to pass execute_cbs, if don't want to run callbacks
+        # during the flag update
+        update = False
+        if old_fflag and \
+           (old_fflag.get('feature_version_id') != new_fflag.get('feature_version_id')):
+              return update
+        cls._ff_dict['feature_flags'].setdefault(version, {})
+        cls._ff_dict['feature_flags'][version][feature_id] = new_fflag
+        if old_fflag.get('enable_feature') != new_fflag.get('enable_feature'):
+           if execute_cbs: cls._execute_callbacks(feature_id)
+           update = True
+        return update
+    # end feature_flag_update
+
+
+    @classmethod
+    def is_feature_flag_changed(cls, old_fflag, new_fflag):
+        return cmp(old_fflag, new_fflag) != 0
+    # end if_feature_flag_changed
+
+    @classmethod
+    def delete_feature_flag(cls, feature_id, version):
+        # remove feature id from flags and callbacks
+        cls._ff_dict['feature_flags'][version].pop(feature_id)
+        cls._ff_dict['callbacks'].pop(feature_id)
+    # end delete_feature_flag
+
+#end FeatureFlagBase
