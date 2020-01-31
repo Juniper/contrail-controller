@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ec823c6e_c354dc63",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 2187,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-31T11:00:24Z",
+      "side": 1,
+      "message": "Due to historical reasons, the \u0027perms2.owner\u0027 field could not be set to an UUID, you should check if that is the case (you can use util method \u0027is_uuid_like\u0027). If not put \u0027tenant_id\u0027 to none",
+      "revId": "d0989469b45b262639575fa585bc9a6d06ab8da8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "835bbf3f_4ad721da",
+        "filename": "src/config/vnc_openstack/vnc_openstack/neutron_plugin_db.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 2219,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-01-31T11:00:24Z",
+      "side": 1,
+      "message": "Skip that part if we were not able to identify the project owner:\n\n if tenant_id and port_obj:",
+      "range": {
+        "startLine": 2219,
+        "startChar": 8,
+        "endLine": 2219,
+        "endChar": 20
+      },
+      "revId": "d0989469b45b262639575fa585bc9a6d06ab8da8",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
