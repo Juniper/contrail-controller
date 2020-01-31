@@ -4,6 +4,8 @@
 import logging
 
 from cfgm_common.exceptions import BadRequest
+import six
+from vnc_api.gen.resource_xsd import MacAddressesType
 from vnc_api.vnc_api import AllowedAddressPair
 from vnc_api.vnc_api import AllowedAddressPairs
 from vnc_api.vnc_api import Project
@@ -14,12 +16,16 @@ from vnc_api.vnc_api import VirtualNetwork
 
 from vnc_cfg_api_server.tests import test_case
 
-
 logger = logging.getLogger(__name__)
 VMIPT = VirtualMachineInterfacePropertiesType
 
 
 class TestVirtualMachineInterface(test_case.ApiServerTestCase):
+    def setUp(self):
+        super(TestVirtualMachineInterface, self).setUp()
+        if six.PY3:
+            self.assertItemsEqual = self.assertCountEqual
+
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
@@ -188,3 +194,44 @@ class TestVirtualMachineInterface(test_case.ApiServerTestCase):
 
         vmi2.set_port_security_enabled(False)
         self._vnc_lib.virtual_machine_interface_update(vmi2)
+
+    def test_mac_address_always_allocated(self):
+        project = Project(name='p-{}'.format(self.id()))
+        p_uuid = self.api.project_create(project)
+        project.set_uuid(p_uuid)
+
+        vn = VirtualNetwork(name='vn-{}'.format(self.id()), parent_obj=project)
+        vn_uuid = self.api.virtual_network_create(vn)
+        vn.set_uuid(vn_uuid)
+
+        mac_addr_test_cases = [
+            ['02:ce:1b:d7:a6:e7'],
+            ['02-ce-1b-d7-a6-e8'],
+            ['02:ce:1b:d7:a6:e9', '02-ce-1b-d7-a6-f1', '02:ce:1b:d7:a6:f2'],
+            [],
+            None,
+        ]
+
+        for i, macs_test_case in enumerate(mac_addr_test_cases):
+            vmi = VirtualMachineInterface(name='vmi{}-{}'.format(i, self.id()),
+                                          parent_obj=project)
+            vmi.set_virtual_network(vn)
+            vmi.set_virtual_machine_interface_mac_addresses(
+                MacAddressesType(macs_test_case))
+
+            vmi_uuid = self.api.virtual_machine_interface_create(vmi)
+            vmi = self.api.virtual_machine_interface_read(id=vmi_uuid)
+
+            vmi_macs = vmi.get_virtual_machine_interface_mac_addresses()\
+                .get_mac_address()
+            if macs_test_case:
+                # check if vmi_macs len is the same as input len
+                self.assertItemsEqual(vmi_macs, [mac.replace('-', ':')
+                                                 for mac in macs_test_case])
+            else:
+                # if input was empty or None, check if vmi_macs has been alloc
+                self.assertEqual(len(vmi_macs), 1)
+
+            for m in vmi_macs:
+                # check if any of mac is not zero
+                self.assertNotEqual(m, '00:00:00:00:00:00')
