@@ -13,11 +13,6 @@ class CassandraDriver(object):
         pass
 
     @abc.abstractmethod
-    def get_range(self, keyspace_name, cf_name):
-        """List all column family rows"""
-        pass
-
-    @abc.abstractmethod
     def multiget(self, keyspace_name, cf_name, keys, columns=None, start='',
                  finish='', timestamp=False, num_columns=None):
         """List multiple rows on a column family"""
