@@ -34,7 +34,8 @@ from vnc_api.vnc_api import VncApi
 from .ansible_base import AnsibleBase
 from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     DBBaseDM, DMCassandraDB, E2ServiceProviderDM, FabricDM, \
-    FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
+    FabricNamespaceDM, FeatureConfigDM, FeatureDM, \
+    FeatureFlagDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, \
     InstanceIpDM, InterfaceRouteTableDM, \
@@ -303,6 +304,9 @@ class DeviceManager(object):
         'routing_policy': {
             'self': ['virtual_network'],
         },
+        'feature_flag': {
+            'self': [],
+        },
     }
 
     _instance = None
@@ -397,6 +401,7 @@ class DeviceManager(object):
         DBBaseDM._sandesh = self.logger._sandesh
 
         GlobalSystemConfigDM.locate_all()
+        FeatureFlagDM.locate_all()
         FlowNodeDM.locate_all()
         FeatureDM.locate_all()
         PhysicalRoleDM.locate_all()
