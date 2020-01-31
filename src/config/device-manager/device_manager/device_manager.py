@@ -36,7 +36,7 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     DBBaseDM, DMCassandraDB, E2ServiceProviderDM, FabricDM, \
     FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
-    GlobalVRouterConfigDM, \
+    GlobalVRouterConfigDM, FeatureFlagDM, \
     InstanceIpDM, LinkAggregationGroupDM, LogicalInterfaceDM, \
     LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
     OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
@@ -294,6 +294,9 @@ class DeviceManager(object):
             'self': ['physical_interface'],
             'tag': ['physical_interface'],
         },
+        'feature_flag': {
+            'self': [],
+        },
     }
 
     _instance = None
@@ -388,6 +391,7 @@ class DeviceManager(object):
         DBBaseDM._sandesh = self.logger._sandesh
 
         GlobalSystemConfigDM.locate_all()
+        FeatureFlagDM.locate_all()
         FlowNodeDM.locate_all()
         FeatureDM.locate_all()
         PhysicalRoleDM.locate_all()

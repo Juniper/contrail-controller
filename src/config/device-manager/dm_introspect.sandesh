@@ -172,3 +172,21 @@ response sandesh PortTupleListResp {
 request sandesh PortTupleList {
     1: string name_or_uuid;
 }
+
+struct FeatureFlag {
+    1: string             name;
+    2: string             feature_id;
+    3: string             feature_flag_version;
+    4: bool               enable_feature;
+    5: string             feature_description;
+    6: string             feature_release;
+    7: optional string    display_name;
+}
+
+response sandesh FeatureFlagListResp {
+    1: list<FeatureFlag> feature_flags;
+}
+
+request sandesh FeatureFlagList {
+    1: string name_or_uuid;
+}
