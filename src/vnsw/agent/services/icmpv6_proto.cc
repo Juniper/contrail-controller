@@ -373,9 +373,6 @@ bool Icmpv6PathPreferenceState::SendNeighborSolicit(WaitForTrafficIntfMap
 
     WaitForTrafficIntfMap::iterator it = wait_for_traffic_map.begin();
     for (;it != wait_for_traffic_map.end(); it++) {
-        if (it->second >= kMaxRetry) {
-            continue;
-        }
 
         VmInterface *vm_intf = static_cast<VmInterface *>(
              vrf_state_->agent()->interface_table()->FindInterface(it->first));
@@ -392,6 +389,14 @@ bool Icmpv6PathPreferenceState::SendNeighborSolicit(WaitForTrafficIntfMap
             src_addr = svc_ip_.to_v6();
         handler.SendNeighborSolicit(src_addr, vm_ip_.to_v6(), vm_intf, vrf_id_);
         vrf_state_->icmp_proto()->IncrementStatsNeighborSolicit(vm_intf);
+
+        // reduce the frequency of NS requests after some tries
+        if (it->second >= kMaxRetry) {
+            // change frequency only if not in gateway mode with remote VMIs
+            if (vm_intf->vmi_type() != VmInterface::REMOTE_VM)
+                ns_req_timer_->Reschedule(kTimeout * 5);
+        }
+
         ret = true;
     }
     return ret;
@@ -490,17 +495,13 @@ void Icmpv6PathPreferenceState::SendNeighborSolicitForAllIntf
             }
 
             uint32_t intf_id = intf->id();
-            bool wait_for_traffic = path->path_preference().wait_for_traffic();
-            //Build new list of interfaces in active state
-            if (wait_for_traffic == true) {
-                WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
-                    wait_for_traffic_map.find(intf_id);
-                if (wait_for_traffic_it == wait_for_traffic_map.end()) {
-                    new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
-                } else {
-                    new_wait_for_traffic_map.insert(std::make_pair(intf_id,
-                        wait_for_traffic_it->second));
-                }
+            WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
+                wait_for_traffic_map.find(intf_id);
+            if (wait_for_traffic_it == wait_for_traffic_map.end()) {
+                new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
+            } else {
+                new_wait_for_traffic_map.insert(std::make_pair(intf_id,
+                    wait_for_traffic_it->second));
             }
         }
     }
