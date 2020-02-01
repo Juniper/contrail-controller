@@ -144,7 +144,7 @@ TEST_F(Icmp6PathPreferenceTest, Test3) {
                            MacAddress::ZeroMac());
     client->WaitForIdle();
 
-    EXPECT_FALSE(CheckIpMap(vrf_id, intf_id, ip));
+    EXPECT_TRUE(CheckIpMap(vrf_id, intf_id, ip));
     EXPECT_TRUE(CheckEvpnMap(vrf_id, intf_id, ip));
     EXPECT_TRUE(GetEvpnMapRetryCount(vrf_id, intf_id, ip) >= 1);
 }
