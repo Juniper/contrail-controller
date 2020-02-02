@@ -32,7 +32,7 @@ def start_zoo(cport):
     if not os.path.exists(zookeeper_bdir):
         output,_ = call_command_("mkdir " + zookeeper_bdir)
     zookeeper_download = 'wget -O ' + zookeeper_bdir + zookeeper_dl + \
-        ' https://github.com/Juniper/contrail-third-party-cache/blob/master/zookeeper' + \
+        ' https://github.com/tungstenfabric/tf-third-party-cache/blob/master/zookeeper' + \
         zookeeper_dl + '?raw=true'
 
     if not os.path.exists(zookeeper_bdir + zookeeper_dl):
