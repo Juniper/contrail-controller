@@ -3065,11 +3065,30 @@ TEST_F(RouteTest, si_evpn_type5_route_add_local) {
     client->WaitForIdle();
     EXPECT_TRUE(si_nh == NULL);
 
+    // simulate route delete request from control and see if the route is
+    // cleared in the service chain vrf
+    EvpnAgentRouteTable *rt_table = static_cast<EvpnAgentRouteTable *>
+            (agent_->vrf_table()->GetEvpnRouteTable(si_to_routing_vn_vrf_name));
+    rt_table->DeleteReq(bgp_peer_->GetAgentXmppChannel()->bgp_peer_id(),
+        si_to_routing_vn_vrf_name,
+        MacAddress::FromString("00:00:00:00:00:00"),
+        Ip4Address::from_string("1.1.1.10"),
+        32, 0,
+        new ControllerVmRoute(bgp_peer_->GetAgentXmppChannel()->bgp_peer_id()));
+    client->WaitForIdle();
+    si_nh = dynamic_cast<const VrfNH *>
+                         (LPMRouteToNextHop(si_to_routing_vn_vrf_name,
+                                     Ip4Address::from_string("1.1.1.10")));
+    EXPECT_TRUE(si_nh == NULL);
+
     // Clean up
     DelLink("virtual-network",
             "domain:l3evpn_1",
             "routing-instance",
             si_to_routing_vn_vrf_name);
+    si_vrf= VrfGet(si_to_routing_vn_vrf_name);
+    EXPECT_TRUE( si_vrf != NULL);
+    WAIT_FOR(1000, 1000, (si_vrf->si_vn_ref() == NULL));
     DelVrf(si_to_routing_vn_vrf_name);
     DelRoutingVrf(1);
     DelIPAM("vn1");
