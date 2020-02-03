@@ -24,6 +24,9 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v6-mac 00:
 set groups {{cfg_group}} interfaces irb unit {{unit}} family {{family}} address {{address}} virtual-gateway-address {{gw}}
 {%                     endif %}
 {%                 endfor %}
+{%                 if li.is_virtual_router == True %}
+set groups {{cfg_group}} protocols router-advertisement interface irb.{{unit}} virtual-router-only
+{%                 endif %}
 set groups {{cfg_group}} interfaces irb unit {{unit}} proxy-macip-advertisement
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-data
 {%             endfor %}
