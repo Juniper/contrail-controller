@@ -1682,6 +1682,11 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     BuildAttributes(agent_, node, cfg, data);
 
+    // Ignore the config if mac is zero as update will come for same
+    if (data->vm_mac_ == MacAddress::ZeroMac().ToString()) {
+        return false;
+    }
+
     // Graph walk to get interface configuration
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     IFMapNode *vn_node = NULL;
