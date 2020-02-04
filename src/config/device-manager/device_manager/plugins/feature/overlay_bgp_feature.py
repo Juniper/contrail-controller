@@ -33,6 +33,17 @@ class OverlayBgpFeature(FeatureBase):
                 bgp.params.get('autonomous_system'))
     # end _get_asn
 
+    def _add_peer_families(self, config, params):
+        if not params.get('family_attributes'):
+            return
+        family = params['family_attributes'][0].get('address_family')
+        if not family:
+            return
+        if family in ['e-vpn', 'e_vpn']:
+            family = 'evpn'
+        config.add_families(family)
+    # end _add_peer_families
+
     def _add_families(self, config, params):
         if not params.get('address_families'):
             return
@@ -95,7 +106,7 @@ class OverlayBgpFeature(FeatureBase):
             if not session_attr.get('bgp_router'):
                 continue
 
-            self._add_families(config, session_attr)
+            self._add_peer_families(config, session_attr)
             self._add_auth_config(config, session_attr)
             break
     # end _update_config_from_session

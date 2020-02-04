@@ -70,6 +70,15 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export {{pol_mpl
 {%                 set peer_addr = peer.get('ip_address') %}
 {%                 set peer_as = peer.get('autonomous_system') %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer_addr}} peer-as {{peer_as}}
+{%                 set peer_fam = peer.get('families', []) %}
+{%                 for fam in peer_fam %}
+{%                     if fam == 'route-target' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer_addr}} family {{fam}}
+{%                     endif %}
+{%                     if fam == 'evpn' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer_addr}} family {{fam}} signaling
+{%                     endif %}
+{%                 endfor %}
 {%             endfor %}
 {%         endif %}
 {%     endfor %}
