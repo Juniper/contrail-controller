@@ -432,6 +432,17 @@ class AnsibleConf(AnsibleBase):
         return False
     # end is_family_configured
 
+    def add_peer_families(self, parent, params):
+        if not params.get('family_attributes'):
+            return
+        family = params['family_attributes'][0].get('address_family')
+        if not family:
+            return
+        if family in ['e-vpn', 'e_vpn']:
+            family = 'evpn'
+        parent.add_families(family)
+    # end add_peer_families
+
     def add_families(self, parent, params):
         if params.get('address_families') is None:
             return
@@ -521,7 +532,7 @@ class AnsibleConf(AnsibleBase):
                     # For not, only consider the attribute if bgp-router is
                     # not specified
                     if session_attr.get('bgp_router') is None:
-                        self.add_families(nbr, session_attr)
+                        self.add_peer_families(nbr, session_attr)
                         self.add_bgp_auth_config(nbr, session_attr)
                         break
             peer_as = params.get('local_autonomous_system') or params.get(
