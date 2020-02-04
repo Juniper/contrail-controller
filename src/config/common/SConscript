@@ -86,6 +86,9 @@ env.Depends(sdist_gen, sdist_depends)
 env.Alias('controller/config/common:sdist', sdist_gen)
 env.Default(sdist_gen)
 
+def SymLink(target, source, env):
+    os.symlink(os.path.abspath(str(source[0])), os.path.abspath(str(target[0])))
+
 # We can't use SetupPyTestSuite because it adds ourselves to dependencies
 env.SetupPyTestSuiteWithDeps(
     sdist_gen,
@@ -101,4 +104,11 @@ if 'install' in BUILD_TARGETS:
                               env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_gen)
     env.Alias('install', install_cmd)
-
+    # Install in python3 path
+    setup_link_cmd = env.Command("setup3.py", "setup.py", SymLink)
+    env.Depends(setup_link_cmd, sdist_depends)
+    py3_install_cmd = env.Command(None, 'setup3.py',
+                                  cd_cmd + 'python3 setup3.py install %s' %
+                                  env['PYTHON_INSTALL_OPT'])
+    env.Depends(py3_install_cmd, sdist_depends)
+    env.Alias('install', py3_install_cmd)
