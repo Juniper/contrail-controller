@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "51037422_963251bb",
+        "filename": "src/config/schema-transformer/schema_transformer/to_bgp.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 792,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-02-04T17:25:09Z",
+      "side": 1,
+      "message": "Typo?",
+      "revId": "5c1d07490daadcfd65136294eb979b4f4a2d6022",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
