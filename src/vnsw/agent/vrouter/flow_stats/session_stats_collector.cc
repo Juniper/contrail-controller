@@ -18,6 +18,10 @@
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/flow_stats/flow_stats_types.h>
 
+// setting work queue max size as 4M
+#define DEFAULT_SSC_REQUEST_QUEUE_SIZE 4*1024*1024
+#define MAX_SSC_REQUEST_QUEUE_ITERATIONS 256
+
 SandeshTraceBufferPtr SessionStatsTraceBuf(SandeshTraceBufferCreate(
     "SessionStats", 4000));
 
@@ -36,22 +40,25 @@ SessionStatsCollector::SessionStatsCollector(boost::asio::io_service &io,
         session_ep_iteration_key_(), session_agg_iteration_key_(),
         session_iteration_key_(),
         request_queue_(agent_uve_->agent()->task_scheduler()->
-                       GetTaskId(kTaskSessionStatsCollector),
+                       GetTaskId(kTaskSessionStatsCollectorEvent),
                        instance_id,
                        boost::bind(&SessionStatsCollector::RequestHandler,
-                                   this, _1)),
+                                   this, _1),
+                       DEFAULT_SSC_REQUEST_QUEUE_SIZE,
+                       MAX_SSC_REQUEST_QUEUE_ITERATIONS ),
         session_msg_list_(agent_uve_->agent()->params()->max_endpoints_per_session_msg(),
                           SessionEndpoint()),
         session_msg_index_(0), instance_id_(instance_id),
         flow_stats_manager_(aging_module), parent_(obj), session_task_(NULL),
         current_time_(GetCurrentTime()), session_task_starts_(0) {
-        request_queue_.set_name("Session stats collector");
+        request_queue_.set_name("Session stats collector event queue");
         request_queue_.set_measure_busy_time
             (agent_uve_->agent()->MeasureQueueDelay());
         request_queue_.SetEntryCallback
             (boost::bind(&SessionStatsCollector::RequestHandlerEntry, this));
         request_queue_.SetExitCallback
             (boost::bind(&SessionStatsCollector::RequestHandlerExit, this, _1));
+        request_queue_.SetBounded(true);
         InitDone();
 }
 
@@ -1457,6 +1464,19 @@ void SessionStatsCollector::FillSessionFlowInfo
     }
 }
 
+bool SessionStatsCollector::CheckAndDeleteSessionStatsFlow(
+    SessionPreAggInfo::SessionMap::iterator session_map_iter) {
+    FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
+    FlowEntry *rfe = session_map_iter->second.rev_flow.flow.get();
+    FLOW_LOCK(fe, rfe, FlowEvent::FLOW_MESSAGE);
+    if (fe->deleted()) {
+        DeleteSession(fe, session_map_iter->first.uuid,
+                          GetCurrentTime(), NULL);
+        return true;
+    }
+    return false;
+}
+
 bool SessionStatsCollector::SessionStatsChangedLocked
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
      SessionStatsParams *params) const {
@@ -1786,11 +1806,14 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             SessionStatsParams params;
             if (!session_map_iter->second.deleted &&
                 !session_map_iter->second.evicted) {
-                bool changed = SessionStatsChangedLocked(session_map_iter,
+                bool delete_marked = CheckAndDeleteSessionStatsFlow(session_map_iter);
+                if (!delete_marked) {
+                    bool changed = SessionStatsChangedLocked(session_map_iter,
                                                     &params);
-                if (!changed && session_map_iter->second.exported_atleast_once) {
-                    ++session_map_iter;
-                    continue;
+                    if (!changed && session_map_iter->second.exported_atleast_once) {
+                        ++session_map_iter;
+                        continue;
+                    }
                 }
             }
 

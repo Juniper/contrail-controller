@@ -374,6 +374,8 @@ private:
     void SloNotify(DBTablePartBase *partition, DBEntryBase *e);
     void UpdateSloStateRules(SecurityLoggingObject *slo,
                              SessionSloState *state);
+    bool CheckAndDeleteSessionStatsFlow(
+        SessionPreAggInfo::SessionMap::iterator session_map_iter);
 
     AgentUveBase *agent_uve_;
     int task_id_;
