@@ -2,9 +2,11 @@
   hosts: localhost
   gather_facts: no
   connection: local
-
   vars:
     filename: ""
+  pre_tasks:
+    - name: Include global variables
+      include_vars: group_vars/all.yml
 
   roles:
     - Juniper.junos
