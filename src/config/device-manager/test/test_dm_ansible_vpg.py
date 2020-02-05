@@ -398,6 +398,100 @@ class TestAnsibleVpgDM(TestAnsibleCommonDM):
         self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
         self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
 
+    def test_lag_sg_feature_based_config_push(self):
+        #create objects
+        self.set_encapsulation_priorities(['VXLAN', 'MPLSoGRE', 'MPLSoUDP'])
+        self.create_features(['overlay-bgp', 'l2-gateway'])
+        self.create_physical_roles(['leaf'])
+        self.create_overlay_roles(['crb-access'])
+        self.create_role_definitions([
+            AttrDict({
+                'name': 'crb-access@leaf',
+                'physical_role': 'leaf',
+                'overlay_role': 'crb-access',
+                'features': ['overlay-bgp', 'l2-gateway'],
+                'feature_configs': {}
+            })
+        ])
+
+        jt = self.create_job_template('job-template-1')
+        fabric = self.create_fabric('test-fabric',
+            fabric_enterprise_style=True)
+        np, rc = self.create_node_profile('node-profile-1',
+            device_family='junos-qfx',
+            role_mappings=[
+                AttrDict(
+                    {'physical_role': 'leaf',
+                    'rb_roles': ['crb-access']}
+                )],
+            job_template=jt)
+
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1',
+            product='qfx5110', family='junos-qfx',
+            role='leaf', rb_roles=['crb-access'],
+            physical_role=self.physical_roles['leaf'],
+            overlay_role=self.overlay_roles['crb-access'], fabric=fabric,
+            node_profile=np)
+        pr.set_physical_router_loopback_ip('10.10.0.1')
+        self._vnc_lib.physical_router_update(pr)
+
+        vxlan_id = 3
+        vn_obj = self.create_vn(str(vxlan_id), '3.3.3.0')
+        sg_obj = self.create_sg('SG1')
+        port_vlan_tag = 1234
+        vlan_tag = 0
+        vmi, vm, pi_list = self.attach_vmi(str(vxlan_id), ['xe-0/0/1',
+                                                           'xe-0/0/2'], [pr,
+                                                                         pr], vn_obj, sg_obj, fabric, None, port_vlan_tag)
+
+        gevent.sleep(1)
+        abstract_config = self.check_dm_ansible_config_push()
+
+        phy_intf = self.get_phy_interfaces(abstract_config.get(
+            'device_abstract_config').get('features').get('l2-gateway'),
+                                           name='ae0')
+
+        log_intf = self.get_logical_interface(phy_intf, name='ae0.'+str(vlan_tag))
+        self.assertEqual(log_intf.get('vlan_tag'), str(port_vlan_tag))
+        self.assertEqual(log_intf.get('unit'), str(vlan_tag))
+        self.assertFalse(log_intf.get('is_tagged'))
+
+        name = str(vxlan_id+2000)
+        vlan = self.get_vlans(abstract_config.get(
+            'device_abstract_config').get('features').get('l2-gateway'),
+                              name='bd-'+name)
+        self.assertEqual(vlan.get('interfaces')[0].get('name'), 'ae0.'+str(vlan_tag))
+        self.assertEqual(vlan.get('vxlan_id'), vxlan_id+2000)
+
+        fw = self.get_firewalls(abstract_config.get('device_abstract_config'))
+        if not fw:
+            self.assertTrue(False)
+
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vmi.get_fq_name())
+        self._vnc_lib.virtual_machine_delete(fq_name=vm.get_fq_name())
+
+        for idx in range(len(pi_list)):
+            self._vnc_lib.physical_interface_delete(fq_name=pi_list[idx].get_fq_name())
+
+        self.delete_routers(None, pr)
+        self.wait_for_routers_delete(None, pr.get_fq_name())
+
+        self._vnc_lib.bgp_router_delete(fq_name=bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn_obj.get_fq_name())
+        self._vnc_lib.security_group_delete(fq_name=sg_obj.get_fq_name())
+
+        self._vnc_lib.role_config_delete(fq_name=rc.get_fq_name())
+        self._vnc_lib.node_profile_delete(fq_name=np.get_fq_name())
+        self._vnc_lib.fabric_delete(fq_name=fabric.get_fq_name())
+        self._vnc_lib.job_template_delete(fq_name=jt.get_fq_name())
+
+        self.delete_role_definitions()
+        self.delete_overlay_roles()
+        self.delete_physical_roles()
+        self.delete_features()
+        self.wait_for_features_delete()
+        
     def test_tagged_and_untagged_vpg_enterprise_style(self):
         self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])
         self.create_features(['overlay-bgp', 'l2-gateway'])
