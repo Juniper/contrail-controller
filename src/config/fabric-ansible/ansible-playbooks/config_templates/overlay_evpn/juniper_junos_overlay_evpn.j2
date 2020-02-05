@@ -45,6 +45,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term defaul
 {%             for ri in device_abstract_config.features.get('l2-gateway').get('routing_instances', []) %}
 {%                 set ri_name = ri.get('name', '')[:127] %}
 {%                 set vxlan_id = ri.get('vxlan_id', '') %}
+{%                 set vn_id  = ri.get('virtual_network_id') %}
 {%                 set vrf_import = ri_name+'-import' %}
 {%                 set vrf_export = ri_name+'-export' %}
 set groups {{cfg_group}} routing-instances {{ri_name}} protocols evpn encapsulation vxlan
@@ -52,7 +53,7 @@ set groups {{cfg_group}} routing-instances {{ri_name}} instance-type virtual-swi
 set groups {{cfg_group}} routing-instances {{ri_name}} protocols evpn extended-vni-list all
 set groups {{cfg_group}} routing-instances {{ri_name}} protocols evpn default-gateway do-not-advertise
 set groups {{cfg_group}} routing-instances {{ri_name}} vtep-source-interface lo0.0
-set groups {{cfg_group}} routing-instances {{ri_name}} route-distinguisher {{route_distinguisher}}:{{vxlan_id}}
+set groups {{cfg_group}} routing-instances {{ri_name}} route-distinguisher {{route_distinguisher}}:{{vn_id}}
 set groups {{cfg_group}} routing-instances {{ri_name}} vrf-target target:{{esi_rt}}
 set groups {{cfg_group}} routing-instances {{ri_name}} vrf-import {{vrf_import}}
 set groups {{cfg_group}} routing-instances {{ri_name}} vrf-export {{vrf_export}}
