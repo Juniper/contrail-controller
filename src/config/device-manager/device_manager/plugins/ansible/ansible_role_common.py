@@ -7,12 +7,13 @@ This file contains base implementation of both spines and leafs
 """
 
 from builtins import str
+
 from db import *
 from dm_utils import DMUtils
 from ansible_conf import AnsibleConf
 from ansible_conf import JunosInterface
 from abstract_device_api.abstract_device_xsd import *
-import abc
+import gevent
 
 
 class AnsibleRoleCommon(AnsibleConf):
@@ -174,6 +175,7 @@ class AnsibleRoleCommon(AnsibleConf):
     # end add_inet_filter_term
 
     def add_routing_instance(self, ri_conf):
+        gevent.idle()
         ri_name = ri_conf.get("ri_name")
         vn = ri_conf.get("vn")
         is_l2 = ri_conf.get("is_l2", False)
