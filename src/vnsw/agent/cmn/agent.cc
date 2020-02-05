@@ -193,6 +193,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::StatsCollector",
         kTaskFlowStatsCollector,
         kTaskSessionStatsCollector,
+        kTaskSessionStatsCollectorEvent,
         "sandesh::RecvQueue",
         "Agent::Uve",
         "Agent::KSync",
@@ -322,12 +323,19 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(flow_stats_exclude_list) / sizeof(char *));
 
     const char *session_stats_exclude_list[] = {
+        kTaskSessionStatsCollectorEvent,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
     SetTaskPolicyOne(kTaskSessionStatsCollector, session_stats_exclude_list,
                      sizeof(session_stats_exclude_list) / sizeof(char *));
 
+    const char *session_stats_event_exclude_list[] = {
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne(kTaskSessionStatsCollectorEvent, session_stats_exclude_list,
+                     sizeof(session_stats_event_exclude_list) / sizeof(char *));
     const char *metadata_exclude_list[] = {
         "xmpp::StateMachine",
         "http::RequestHandlerTask"
