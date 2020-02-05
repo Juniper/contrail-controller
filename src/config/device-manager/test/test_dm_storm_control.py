@@ -4,7 +4,7 @@
 from __future__ import absolute_import
 from builtins import str
 import gevent
-import json
+import mock
 from attrdict import AttrDict
 from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
@@ -15,6 +15,15 @@ from vnc_api.vnc_api import *
 
 
 class TestAnsibleStormControlDM(TestAnsibleCommonDM):
+
+    def setUp(self, extra_config_knobs=None):
+        super(TestAnsibleStormControlDM, self).setUp(extra_config_knobs=extra_config_knobs)
+        self.idle_patch = mock.patch('gevent.idle')
+        self.idle_mock = self.idle_patch.start()
+
+    def tearDown(self):
+        self.idle_patch.stop()
+        super(TestAnsibleStormControlDM, self).tearDown()
 
     def test_01_storm_control_profile_update(self):
         # create objects

@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 import gevent
-import json
+import mock
 from attrdict import AttrDict
 from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
@@ -16,6 +16,15 @@ from vnc_api.gen.resource_client import *
 
 
 class TestAnsibleDhcpRelayDM(TestAnsibleCommonDM):
+
+    def setUp(self, extra_config_knobs=None):
+        super(TestAnsibleDhcpRelayDM, self).setUp(extra_config_knobs=extra_config_knobs)
+        self.idle_patch = mock.patch('gevent.idle')
+        self.idle_mock = self.idle_patch.start()
+
+    def tearDown(self):
+        self.idle_patch.stop()
+        super(TestAnsibleDhcpRelayDM, self).tearDown()
 
     def test_dhcp_relay_config_push_one_vn_in_network(self):
         self.set_encapsulation_priorities(['VXLAN', 'MPLSoUDP'])

@@ -165,15 +165,21 @@ class DeviceJobManager(object):
     # end get_job_template_id
 
     def handle_execute_job_request(self, body, message):
-        job_input_params = None
+        job_input_params = body
+        job_execution_id = job_input_params.get('job_execution_id')
         # check if the max job processing threshold is reached
         if not self.is_max_job_threshold_reached():
-            job_input_params = body
             message.ack()
+            self._logger.info("SENT JOB REQUEST: {}".format(
+                job_execution_id))
         else:
             # requeue the message if the max threshold is reached, to be picked
             # by another job manager or wait until the current job mgr is free
             message.reject(requeue=True)
+            self._logger.info("REQUEUE JOB REQUEST: {}".format(
+                job_execution_id))
+            gevent.sleep(1)
+            return
 
         update_uve_on_failure = False
         device_list = None
@@ -182,7 +188,6 @@ class DeviceJobManager(object):
             device_list = extra_params.get('device_list')
 
         is_delete = job_input_params.get('input').get('is_delete')
-        job_execution_id = job_input_params.get('job_execution_id')
         job_template_fq_name = job_input_params.get('job_template_fq_name')
         job_template_id = job_input_params.get('job_template_id')
 
@@ -509,7 +514,7 @@ class DeviceJobManager(object):
             self._logger.info("Job : %s finished. Current number of job_mgr "
                               "processes running now %s " %
                               (signal_var, self._job_mgr_statistics[
-                                  'number_processess_running']))
+                                  'running_job_count']))
 
         except OSError as process_error:
             self._logger.error("Could not retrieve the child process id. "
@@ -531,7 +536,7 @@ class DeviceJobManager(object):
             self._release_fabric_job_lock(signal_var.get('fabric_fq_name'))
         self._cleanup_job_lock(signal_var.get('fabric_fq_name'))
 
-        self._job_mgr_statistics['number_processess_running'] = len(
+        self._job_mgr_statistics['running_job_count'] = len(
             self._job_mgr_running_instances)
     # end _clean_up_job_data
 
