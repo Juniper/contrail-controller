@@ -72,8 +72,8 @@ class L2GatewayFeature(FeatureBase):
             vpg_map[interface.pi_name] = interface.vpg_name
 
         for pi_name, interface_list in list(interface_map.items()):
-            untagged = [int(i.port_vlan_tag) for i in interface_list
-                        if int(i.vlan_tag) == 0]
+            untagged = set([int(i.port_vlan_tag) for i in interface_list if
+                            int(i.vlan_tag) == 0])
             if len(untagged) > 1:
                 self._logger.error(
                     "Only one untagged interface is allowed on a PI %s" %
