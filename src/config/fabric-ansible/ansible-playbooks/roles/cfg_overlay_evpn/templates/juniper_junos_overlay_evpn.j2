@@ -54,7 +54,7 @@ set groups {{cfg_group}} policy-options policy-statement import-evpn term defaul
 {%                         set l2_vrf_import = ri.name+'-import' %}
 {%                         set l2_vrf_export = ri.name+'-export' %}
 {%                         set bridge_domain_name = 'bd-'+(ri.vxlan_id|string) %}
-{%                         set irb_interface = 'irb.'+(ri.vxlan_id|string)  %}
+{%                         set irb_interface = 'irb.'+(ri.virtual_network_id|string)  %}
 {%                         set vn_id  = ri.get('vxlan_id') %}
 {%                         set ri_type  = ri.get('routing_instance_type')  %}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vtep-source-interface lo0.0
