@@ -412,6 +412,11 @@ class CassandraDriverThrift(CassandraDriver):
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
                 empty_row_keys.append(key)
                 continue
+
+            # only CF of config_db_uuid keyspace JSON encode its column values
+            if not cf._cfdef.keyspace.endswith(self._UUID_KEYSPACE_NAME):
+                continue
+
             for col, val in list(results[key].items()):
                 try:
                     if timestamp:
