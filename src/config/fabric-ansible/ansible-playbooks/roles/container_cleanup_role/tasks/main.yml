@@ -32,10 +32,10 @@
 
 - name: Delete the image object from the database
   vnc_db_mod:
-    job_ctx: "{{ job_ctx }}"
+    job_ctx: "{{job_ctx}}"
     object_type: "device_image"
     object_op: "delete"
-    object_dict: {"fq_name": ["{{image_fq_name}}"]}
+    object_dict: {"fq_name": "{{image_fq_name}}"}
   register: image_uuid
 
 # handle error/exception from swift and set output
@@ -49,6 +49,3 @@
         "msg": "Unable to clean swift container."
       }
     jl_err_message: "Unable to clean swift container. {{swift_results.error_msg}}"
-
-
-
