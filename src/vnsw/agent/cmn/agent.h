@@ -323,6 +323,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskFlowLogging "Agent::FlowLogging"
 #define kTaskFlowStatsCollector "Flow::StatsCollector"
 #define kTaskSessionStatsCollector "Flow::SessionStatsCollector"
+#define kTaskSessionStatsCollectorEvent "Flow::SessionStatsCollectorEvent"
 #define kTaskFlowStatsUpdate "Agent::FlowStatsUpdate"
 
 #define kTaskHealthCheck "Agent::HealthCheck"
