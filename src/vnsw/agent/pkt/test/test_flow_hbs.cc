@@ -284,6 +284,33 @@ TEST_F(HbsFlowTest, basic_12) {
     EXPECT_FALSE(rfe->is_flags_set(FlowEntry::HbfFlow));
     EXPECT_EQ(rfe->GetHbsInterface(), FlowEntry::HBS_INTERFACE_INVALID);
     client->WaitForIdle();
+
+    AddFirewall("MatchAllTag", 1, match, src, 3, dst, 3, "pass", "<>", "true");
+    client->WaitForIdle();
+    intf2->set_service_intf_type("right");
+    intf1->set_service_intf_type("left");
+    //Define ICMP flow between two service interfaces
+    TestFlow flow2[] = {
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf1",
+                        intf1->id()),
+            {
+                new VerifyVn("vn1", "vn1"),
+            }
+        }
+    };
+
+    //Create the ICMP flow
+    CreateFlow(flow2, 1);
+
+    //Verify the HBS flag not in forward flow
+    fe = flow2[0].pkt_.FlowFetch();
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(fe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_INVALID);
+    //Verify HBS flag not set in reverse flow
+    rfe = fe->reverse_flow_entry();
+    EXPECT_FALSE(rfe->is_flags_set(FlowEntry::HbfFlow));
+    EXPECT_EQ(rfe->GetHbsInterface() , FlowEntry::HBS_INTERFACE_INVALID);
 }
 
 int main(int argc, char **argv) {
