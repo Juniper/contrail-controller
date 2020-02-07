@@ -2053,33 +2053,47 @@ void FlowEntry::SetHbsInfofromAction() {
 
     //Enable HBF flow flag
     set_flags(HbfFlow);
-    /* Handle Service Chain Traffic*/
-    /* Case 1: Reset the HBS Action if flow source is service interface */
-    if (!src_intf->service_intf_type().empty()) {
-        reset_flags(HbfFlow);
-        SetHbsInterface(HBS_INTERFACE_INVALID);
-        return;
-    }
-    /* Case 2: Set appropriate interface left/right based on service interface type */
-    if (!dst_intf->service_intf_type().empty()) {
-        if (dst_intf->service_intf_type() == "left") {
-            SetHbsInterface(HBS_INTERFACE_LEFT);
-        } else if (dst_intf->service_intf_type() == "right") {
-            SetHbsInterface(HBS_INTERFACE_RIGHT);
-        }
-        return;
-    }
-    //Set the left/right hbs interface for flow
     if (is_flags_set(LocalFlow)) {
+        /* Handle Service Chain Traffic for local flow VM <--> SI*/
+        /* Case 1: Reset the HBS Action if flow source is service interface */
+        if (!src_intf->service_intf_type().empty()) {
+            reset_flags(HbfFlow);
+            SetHbsInterface(HBS_INTERFACE_INVALID);
+            return;
+        }
+        /* Case 2: Set appropriate interface left/right based on service interface type */
+        if (!dst_intf->service_intf_type().empty()) {
+            if (dst_intf->service_intf_type() == "left") {
+                SetHbsInterface(HBS_INTERFACE_LEFT);
+            } else if (dst_intf->service_intf_type() == "right") {
+                SetHbsInterface(HBS_INTERFACE_RIGHT);
+            }
+            return;
+        }
         // VM <--> VM on same compute
         (src_intf->id() < dst_intf->id()) ?
             SetHbsInterface(HBS_INTERFACE_LEFT):
             SetHbsInterface(HBS_INTERFACE_RIGHT);
     } else {
-        // VM <--> VM on different compute
-        (is_flags_set(IngressDir)) ?
-            SetHbsInterface(HBS_INTERFACE_LEFT):
-            SetHbsInterface(HBS_INTERFACE_RIGHT);
+        /* Handle Service chain traffic entering the compute */
+        if ((!src_intf->service_intf_type().empty() ||
+             !dst_intf->service_intf_type().empty())) {
+            if (is_flags_set(IngressDir) == 0) {
+                if (dst_intf->service_intf_type() == "left") {
+                    SetHbsInterface(HBS_INTERFACE_LEFT);
+                } else if (dst_intf->service_intf_type() == "right") {
+                    SetHbsInterface(HBS_INTERFACE_RIGHT);
+                }
+            } else {
+                reset_flags(HbfFlow);
+                SetHbsInterface(HBS_INTERFACE_INVALID);
+            }
+        } else {
+            // VM <--> VM on different compute
+            (is_flags_set(IngressDir)) ?
+                SetHbsInterface(HBS_INTERFACE_LEFT):
+                SetHbsInterface(HBS_INTERFACE_RIGHT);
+        }
     }
 }
 
