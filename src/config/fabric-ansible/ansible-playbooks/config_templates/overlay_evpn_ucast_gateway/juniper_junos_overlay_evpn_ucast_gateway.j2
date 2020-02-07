@@ -15,6 +15,9 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-dat
 set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-v4-mac 00:00:5e:01:00:01
 {%                 endif %}
 {%             endfor %}
+{%             if li.is_virtual_router == True %}
+set groups {{cfg_group}} protocols router-advertisement interface irb.{{unit}} virtual-router-only
+{%             endif %}
 {%         endfor %}
 {%     endfor %}
 {#     for vlan in device_abstract_config.features.get('l3-gateway').get('vlans', []) %}
