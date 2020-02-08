@@ -190,6 +190,9 @@ class FilterModule(object):
     # Recreate supplemental config using only the RMA devices
     def _supplemental_config_append(self, device_name, serial_number,
                                     device_supp_cfg, acc):
+
+        if not acc:
+            acc = ""
         dev2ztp_entry = {
             'hostname': device_name,
             'serial_number': serial_number
