@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<test_suite name="vmi-sub-interface">
+<test name="test1" verbose="0">
+    <virtual-network uuid="1" name="vn1"/>
+    <virtual-machine uuid="1" name="vm1"/>
+    <vrf uuid="1" name="vrf1" />
+    <vmi-vrf uuid="1" name="tap1-vm1" />
+
+    <virtual-machine-interface nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+
+    <validate name="validate-1">
+        <virtual-network name="vn1" uuid="1" present="1" />
+        <virtual-machine-interface name="tap1" uuid="1" present="1" active="1"
+         device-type="VM-Tap" vmi-type="vm"/>
+        <virtual-machine name="vm1" uuid="1" present="1"/>
+    </validate>
+
+    <virtual-machine-interface
+     uuid="2" name="tap2" mac="00:00:00:00:00:00" vn-name="vn1" vn-uuid="1"
+     vrf="vrf1" ip="2.1.1.1" vlan-tag="200"
+    />
+
+    <link name="vmi-to-vmi" uuid="1"
+     left="virtual-machine-interface" left-name="tap2"
+     right="virtual-machine-interface" right-name="tap1"/>
+
+</test>
+</test_suite>
