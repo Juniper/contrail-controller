@@ -304,6 +304,10 @@ class FeatureBase(object):
                                  unit=unit, vlan_tag=vlan_tag,
                                  port_vlan_tag=port_vlan_tag,
                                  vpg_name=vpg_name))
+                    # In VPG we will have either regular interface or ae. if
+                    #  multiple vpg_interfaces means it's LAG or MH, so one
+                    # is sufficient.
+                    break
         return vn_dict
     # end _get_vn_li_map
 
