@@ -1921,6 +1921,12 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         return false;
     }
 
+    if (data->vm_mac_ == MacAddress::ZeroMac().ToString()) {
+        req.key.reset(key);
+        req.data.reset(data);
+        return false;
+    }
+
     req.key.reset(key);
     req.data.reset(data);
 

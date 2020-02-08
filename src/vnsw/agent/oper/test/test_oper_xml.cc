@@ -120,6 +120,49 @@ TEST_F(TestVrf, vm_sub_if_oper_state) {
     }
 }
 
+// Check that virtual-machine-sub-interface with zero
+// mac should not be add routes in evpn and bridge table
+TEST_F(TestVrf, vm_sub_if_zero_mac) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/vmi-sub-if-zeromac-add.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+
+    VmInterface *vm_interface = static_cast<VmInterface *>(VmPortGet(1));
+    VmInterface *vm_sub_interface = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vm_interface != NULL);
+    EXPECT_TRUE(vm_interface->IsActive());
+    EXPECT_TRUE(vm_sub_interface->parent() != NULL);
+    EXPECT_FALSE(vm_sub_interface->IsActive());
+    BridgeRouteEntry *l2_rt_non_zero_mac = L2RouteGet("vrf1", vm_interface->vm_mac());
+    EvpnRouteEntry *evpn_rt_non_zero_mac = EvpnRouteGet("vrf1", vm_interface->vm_mac(),  Ip4Address::from_string("0.0.0.0"),
+                                           vm_interface->ethernet_tag());
+    EXPECT_TRUE(l2_rt_non_zero_mac != NULL);
+    EXPECT_TRUE(evpn_rt_non_zero_mac != NULL);
+    BridgeRouteEntry *l2_rt_zero_mac = L2RouteGet("vrf1", vm_sub_interface->vm_mac());
+    EvpnRouteEntry *evpn_rt_zero_mac = EvpnRouteGet("vrf1", vm_sub_interface->vm_mac(),  Ip4Address::from_string("0.0.0.0"),
+                                           vm_sub_interface->ethernet_tag());
+    EXPECT_TRUE(l2_rt_zero_mac == NULL);
+    EXPECT_TRUE(evpn_rt_zero_mac == NULL);
+
+    AgentUtXmlTest test1("controller/src/vnsw/agent/oper/test/vmi-sub-if-del.xml");
+    AgentUtXmlOperInit(&test1);
+    if (test1.Load() == true) {
+        test1.ReadXml();
+
+        string str;
+        test1.ToString(&str);
+        cout << str << endl;
+        test1.Run();
+    }
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
