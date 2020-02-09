@@ -3,13 +3,12 @@
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
 
-from __future__ import print_function
 import sys
 if sys.version_info[0] < 3:
     reload(sys)
     sys.setdefaultencoding('UTF8')
 import requests
-import ConfigParser
+from six.moves import configparser
 import argparse
 import logging
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -130,7 +129,7 @@ def parse_args(args_str=None):
             help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
     if args.conf_file:
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
 
@@ -272,13 +271,18 @@ def parse_args(args_str=None):
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     if args.conf_file:
         args_obj.config_sections = config
-    if type(args_obj.old_cassandra_address_list) is str:
+    if isinstance(args_obj.old_cassandra_address_list, basestring):
         args_obj.old_cassandra_address_list=\
             args_obj.old_cassandra_address_list.split()
-
-    if type(args_obj.new_cassandra_address_list) is str:
+    if isinstance(args_obj.new_cassandra_address_list, basestring):
         args_obj.new_cassandra_address_list=\
             args_obj.new_cassandra_address_list.split()
+    args_obj.old_rabbit_use_ssl = (str(args_obj.old_rabbit_use_ssl).lower() == 'true')
+    args_obj.new_rabbit_use_ssl = (str(args_obj.new_rabbit_use_ssl).lower() == 'true')
+    args_obj.old_rabbit_ha_mode = (str(args_obj.old_rabbit_ha_mode).lower() == 'true')
+    args_obj.new_rabbit_ha_mode = (str(args_obj.new_rabbit_ha_mode).lower() == 'true')
+    args_obj.old_cassandra_use_ssl = (str(args_obj.old_cassandra_use_ssl).lower() == 'true')
+    args_obj.new_cassandra_use_ssl = (str(args_obj.new_cassandra_use_ssl).lower() == 'true')
 
     return args_obj, remaining_argv
 

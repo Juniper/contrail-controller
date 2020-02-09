@@ -3,14 +3,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from __future__ import print_function
-from future import standard_library
-standard_library.install_aliases()
-from builtins import object
 import sys
 import time
 import argparse
-import configparser
+from six.moves import configparser
 
 from cfgm_common.exceptions import *
 from provision_bgp import BgpProvisioner
@@ -123,22 +119,22 @@ class ISSUContrailPreProvisioner(object):
         if args.conf_file:
             args_obj.config_section = config
 
-        if type(args_obj.db_host_info) is str:
+        if isinstance(args_obj.db_host_info, basestring):
             json_string=args_obj.db_host_info.replace("'", "\"")
             args_obj.db_host_info=\
                 json.loads(json_string)
 
-        if type(args_obj.config_host_info) is str:
+        if isinstance(args_obj.config_host_info, basestring):
             json_string=args_obj.config_host_info.replace("'", "\"")
             args_obj.config_host_info=\
                 json.loads(json_string)
 
-        if type(args_obj.analytics_host_info) is str:
+        if isinstance(args_obj.analytics_host_info, basestring):
             json_string=args_obj.analytics_host_info.replace("'", "\"")
             args_obj.analytics_host_info=\
                 json.loads(json_string)
 
-        if type(args_obj.control_host_info) is str:
+        if isinstance(args_obj.control_host_info, basestring):
             json_string=args_obj.control_host_info.replace("'", "\"")
             args_obj.control_host_info=\
                 json.loads(json_string)
