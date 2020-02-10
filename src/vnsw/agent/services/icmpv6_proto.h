@@ -166,6 +166,9 @@ public:
     static const uint32_t kMaxRetry = 30 * 5; //retries upto 5 minutes,
                                               //30 tries/per minutes
     static const uint32_t kTimeout = 2000;
+
+    static const uint32_t kTimeoutMultiplier = 5;
+
     typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
     typedef std::set<uint32_t> NDTransmittedIntfMap;
 
