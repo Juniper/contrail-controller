@@ -116,6 +116,7 @@ class L2GatewayFeature(FeatureBase):
                 unit.set_is_tagged(is_tagged)
                 unit.set_vlan_tag(vlan_tag)
                 if vlan:
+                    vlan.set_vlan_id(int(vlan_tag))
                     self._add_ref_to_list(vlan.get_interfaces(),
                                           interface.li_name)
     # end _build_l2_evpn_interface_config
