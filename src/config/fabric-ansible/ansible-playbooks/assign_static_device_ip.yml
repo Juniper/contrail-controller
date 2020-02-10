@@ -36,6 +36,11 @@
     - import_role:
         name: rma_validate
       when: playbook_input.input.dynamic_mgmt_ip_tbl is defined
+
+    - import_role:
+        name: read_re_information
+      when: "prouter_family == 'junos'"
+
     - import_role:
         name: read_interfaces_info
     - name: Update job log with percentage
