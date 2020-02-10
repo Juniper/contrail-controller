@@ -74,9 +74,11 @@ class JobVncApi(object):
             raise ValueError("No password to decrypt")
 
         key = pwd_key[-32:].rjust(16)
-        cipher = AES.new(key, AES.MODE_ECB)
+        key_b = key.encode()
+        cipher = AES.new(key_b, AES.MODE_ECB)
 
-        password = cipher.decrypt(base64.b64decode(encrypted_password))
+        encrypted_password_b = encrypted_password.encode()
+        password = cipher.decrypt(base64.b64decode(encrypted_password_b))
         return password.strip()
 
 

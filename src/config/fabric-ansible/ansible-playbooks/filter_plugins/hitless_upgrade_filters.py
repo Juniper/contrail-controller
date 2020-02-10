@@ -335,7 +335,7 @@ class FilterModule(object):
                 FilterModule.critical_routing_bridging_roles:
             self.critical_routing_bridging_roles_count[
                     critical_routing_bridging_role] = 0
-        for device_uuid, device_info in self.device_table.iteritems():
+        for device_uuid, device_info in list(self.device_table.items()):
             for routing_bridging_role in device_info.get('rb_roles'):
                 if routing_bridging_role in\
                         FilterModule.critical_routing_bridging_roles:
@@ -346,13 +346,13 @@ class FilterModule(object):
     def _calc_max_number_of_repr_of_critical_rb_roles_per_batch(self):
         self.max_number_of_repr_of_critical_rb_roles_per_batch = {}
         for role_name, number_of_occurences \
-                in self.critical_routing_bridging_roles_count.iteritems():
+                in list(self.critical_routing_bridging_roles_count.items()):
             self.max_number_of_repr_of_critical_rb_roles_per_batch[role_name] \
                     = number_of_occurences / 2 + number_of_occurences % 2
 
     def _calculate_max_number_of_spines_updated_in_batch(self):
         number_of_spines = 0
-        for device_uuid, device_info in self.device_table.iteritems():
+        for device_uuid, device_info in list(self.device_table.items()):
             if device_info.get('physical_role') == 'spine':
                 number_of_spines += 1
         self.max_number_of_spines_updated_in_batch = \

@@ -9,7 +9,7 @@ import argparse
 from builtins import map
 from builtins import object
 from builtins import range
-import ConfigParser as configparser
+from six.moves.configparser import SafeConfigParser
 from decimal import Decimal, getcontext
 import json
 import random
@@ -24,10 +24,10 @@ from past.utils import old_div
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.sandesh_base import SandeshConfig
-from sandesh.job.ttypes import JobLog
-from sandesh.job.ttypes import JobLogEntry
-from sandesh.job.ttypes import PRouterOnboardingLog
-from sandesh.job.ttypes import PRouterOnboardingLogEntry
+from .sandesh.job.ttypes import JobLog
+from .sandesh.job.ttypes import JobLogEntry
+from .sandesh.job.ttypes import PRouterOnboardingLog
+from .sandesh.job.ttypes import PRouterOnboardingLogEntry
 
 
 from job_manager.job_exception import JobException
@@ -115,7 +115,7 @@ class JobLogUtils(object):
         sandeshopts = SandeshConfig.get_default_options()
 
         if config_args.get("fabric_ansible_conf_file"):
-            config = configparser.SafeConfigParser()
+            config = SafeConfigParser()
             config.read(config_args['fabric_ansible_conf_file'])
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
