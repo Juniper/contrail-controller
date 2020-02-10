@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "870babc8_511ff9e9",
+        "filename": "src/vnsw/agent/services/icmpv6_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 393,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2020-02-10T08:54:35Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "a38f1ebb_80ff8532",
+      "revId": "2cf156c9bff40ecf33d32fddbc984cc52b3fa6a1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "c3f9d0dc_f3270808",
         "filename": "src/vnsw/agent/services/icmpv6_proto.cc",
         "patchSetId": 1
@@ -33,6 +51,24 @@
       "revId": "2cf156c9bff40ecf33d32fddbc984cc52b3fa6a1",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "afb96f3b_2f6d8c0a",
+        "filename": "src/vnsw/agent/services/icmpv6_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 397,
+      "author": {
+        "id": 77
+      },
+      "writtenOn": "2020-02-10T08:54:35Z",
+      "side": 1,
+      "message": "For a Icmpv6VrfState object has a map icmpv6_path_preference_map_ containing Icmpv6PathPreferenceState pointer and ipv6/128 , so it does not affect the behavior of other interfaces .",
+      "parentUuid": "c3f9d0dc_f3270808",
+      "revId": "2cf156c9bff40ecf33d32fddbc984cc52b3fa6a1",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
