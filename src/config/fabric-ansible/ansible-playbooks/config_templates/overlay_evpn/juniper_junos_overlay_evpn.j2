@@ -61,11 +61,11 @@ set groups {{cfg_group}} routing-instances {{ri_name}} vrf-export {{vrf_export}}
 {%                 for vlan in device_abstract_config.features.get('l2-gateway').get('vlans', []) %}
 {%                     set vlan_vxlan_id = vlan.get('vxlan_id','') %}
 {%                     set vlan_name = vlan.get('name','') %}
+{%                     set vlan_id = vlan.get('vlan_id','') %}
 {%                     if vxlan_id|int() == vlan_vxlan_id|int() %}
 {%                        set l2_ifs = vlan.get('interfaces', []) %}
 {%                        if l2_ifs | length > 0 %}
 {%                           set _ = dict_var.update({'l2_interfaces_present': True}) %}
-{%                           set vlan_id = l2_ifs[0].get('name').split('.')[1] %}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} vlan-id {{vlan_id}}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} description "{{vlan.description}}"
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} protocols igmp-snooping proxy
