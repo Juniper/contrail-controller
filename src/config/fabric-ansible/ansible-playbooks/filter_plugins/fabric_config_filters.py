@@ -25,14 +25,17 @@ import yaml
 PLAYBOOK_BASE = 'opt/contrail/fabric_ansible_playbooks'
 
 sys.path.append(PLAYBOOK_BASE + "/module_utils")
-from filter_utils import FilterLog, _task_error_log # noqa
+from filter_utils import FilterLog, _task_error_log, set_job_transaction # noqa
+
+from job_manager.job_utils import JobVncApi
 
 
 class FilterModule(object):
 
     def filters(self):
         return {
-            'render_fabric_config': self.render_fabric_config
+            'render_fabric_config': self.render_fabric_config,
+            'cleanup_fabric_config': self.cleanup_fabric_config
         }
 
     # Load the role-to-feature mappings from all.yml
@@ -266,6 +269,46 @@ class FilterModule(object):
             self._initialize(job_ctx)
             self._get_feature_list()
             return self._render_config()
+        except Exception as ex:
+            errmsg = "Unexpected error: %s\n%s" % (
+                str(ex), traceback.format_exc()
+            )
+            _task_error_log(errmsg)
+            return {
+                'status': 'failure',
+                'error_msg': errmsg,
+                'onboard_log': FilterLog.instance().dump()
+            }
+
+    def _cleanup_fabric_config(self, vnc_api, device_fq_name):
+        device_obj = vnc_api.physical_router_read(
+            fq_name=device_fq_name, fields=['display_name']
+        )
+
+        # Clear transaction info for this device
+        job_transaction_info = {
+            'transaction_id': '',
+            'transaction_descr': ''
+        }
+        set_job_transaction(device_obj, vnc_api, job_transaction_info)
+
+        # Lookup appformix ip address and return
+        insight_fq_name = ['default-global-system-config', 'contrail.local']
+        insight_node_obj = vnc_api.contrail_insight_node_read(
+            fq_name=insight_fq_name)
+        result = {
+            'appformix_ip':
+                insight_node_obj.get_contrail_insight_node_ip_address(),
+            'appformix_port':
+                insight_node_obj.get_contrail_insight_node_port(),
+        }
+        return result
+
+    def cleanup_fabric_config(self, job_ctx, device_fq_name):
+        try:
+            FilterLog.instance("FabricConfigFilter")
+            vnc_api = JobVncApi.vnc_init(job_ctx)
+            return self._cleanup_fabric_config(vnc_api, device_fq_name)
         except Exception as ex:
             errmsg = "Unexpected error: %s\n%s" % (
                 str(ex), traceback.format_exc()
