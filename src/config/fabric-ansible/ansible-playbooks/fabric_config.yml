@@ -29,16 +29,33 @@
     - commit_fabric_config
 
   tasks:
-    - name: Set prouter fqname
-      set_fact:
-        prouter_fqname: ['default-global-system-config', '{{ device_name }}' ]
+    - block:
+        - name: Set prouter fqname
+          set_fact:
+            prouter_fqname: ['default-global-system-config', '{{ device_name }}' ]
 
-    - name: PR objectlog update to set onboarding state
-      prouter_objectlog:
-        job_ctx: "{{ job_ctx }}"
-        prouter_fqname: "{{ prouter_fqname }}"
-        onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
-      when: is_delete is undefined or is_delete == False
+        - name: PR objectlog update to set onboarding state
+          prouter_objectlog:
+            job_ctx: "{{ job_ctx }}"
+            prouter_fqname: "{{ prouter_fqname }}"
+            onboarding_state: "{{ DEVICE_STATE.UNDERLAY_CONFIGURED }}"
+
+        - name: Clean up and get appformix ip
+          set_fact:
+            result: "{{ job_ctx | cleanup_fabric_config(prouter_fqname) }}"
+
+        - name: Sending notification to appformix-network-device-adapter
+          uri:
+            url: http://{{result.appformix_ip}}:{{result.appformix_port}}/appformix/network_device_adapter/v2.0/network_device_retry_discovery?ManagementIp={{device_mgmt_ip}}
+            method: POST
+            body_format: json
+            body: {}
+            status_code: 200
+          register: notif_result
+          ignore_errors: True
+      when:
+      - is_delete is undefined or is_delete == False
+      - job_ctx.job_transaction_descr == "Role Assignment"
 
     - set_fact:
         output: {
