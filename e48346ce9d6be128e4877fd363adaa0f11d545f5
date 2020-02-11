@@ -1,0 +1,303 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a6efbc8c_1d99ca40",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 118,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Ask a question on slack.",
+      "range": {
+        "startLine": 118,
+        "startChar": 57,
+        "endLine": 118,
+        "endChar": 76
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f9f123d9_823c403c",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Redundant comment, and a little bit misleading. This if-statement checks if property exists, not if it is a property.",
+      "range": {
+        "startLine": 137,
+        "startChar": 22,
+        "endLine": 137,
+        "endChar": 43
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "aad4c563_cac34970",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Only line 159 should be in try/except block. The loop should be outside.",
+      "range": {
+        "startLine": 158,
+        "startChar": 8,
+        "endLine": 165,
+        "endChar": 0
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bc18d29d_b00cf04a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 178,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Please provide --no-color flag.",
+      "range": {
+        "startLine": 173,
+        "startChar": 8,
+        "endLine": 178,
+        "endChar": 23
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3a23b69a_b2b25b96",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 181,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "IMO it is redundant and too complex. Simple diff is good enough to me.",
+      "range": {
+        "startLine": 181,
+        "startChar": 0,
+        "endLine": 181,
+        "endChar": 47
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "86265d25_40598d54",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 207,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "These lines probably should go before \u0027try\u0027. Avoid extensive try/except blocks.",
+      "range": {
+        "startLine": 195,
+        "startChar": 8,
+        "endLine": 207,
+        "endChar": 54
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "465bf6be_9b3c9513",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 232,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "What are the meaning of letters: r,w,e,d,o ?\nIt\u0027s not obvious and may be to hard to maintain in the future.",
+      "range": {
+        "startLine": 222,
+        "startChar": 12,
+        "endLine": 232,
+        "endChar": 42
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e69b4457_f2a16869",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 241,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "What does it mean?",
+      "range": {
+        "startLine": 241,
+        "startChar": 47,
+        "endLine": 241,
+        "endChar": 53
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "277b8dc0_ec8a95d8",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Please. You have slack for this.",
+      "range": {
+        "startLine": 273,
+        "startChar": 8,
+        "endLine": 276,
+        "endChar": 36
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3af9a9d4_995981e3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Rename `data` to `old_data` and remove the comment.",
+      "range": {
+        "startLine": 278,
+        "startChar": 8,
+        "endLine": 278,
+        "endChar": 44
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "330ff2f7_96b8cf63",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 279,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Maybe the function should be renamed to \u0027apply_data_to_new_schema\u0027 which will make the comment redundant.",
+      "range": {
+        "startLine": 279,
+        "startChar": 8,
+        "endLine": 279,
+        "endChar": 72
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cbafdd54_f4a66b87",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 315,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Redundant line. This is default behavior.",
+      "range": {
+        "startLine": 315,
+        "startChar": 2,
+        "endLine": 315,
+        "endChar": 15
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4e8eb64a_9459f27d",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 333,
+      "author": {
+        "id": 578
+      },
+      "writtenOn": "2020-02-11T12:26:31Z",
+      "side": 1,
+      "message": "Write a proper test which will be run in CI.",
+      "range": {
+        "startLine": 318,
+        "startChar": 0,
+        "endLine": 333,
+        "endChar": 25
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
