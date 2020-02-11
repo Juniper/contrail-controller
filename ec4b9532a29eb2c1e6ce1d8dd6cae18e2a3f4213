@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b01d58e1_0ab2706a",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/read_re_information/filter_plugins/read_re_info_filters.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-02-11T20:12:52Z",
+      "side": 1,
+      "message": "This is ok, but in the future this could be simplified as\nre_resp \u003d device_response.get(\u0027route-engine-information\u0027, {})\nre_details \u003d device_resp.get(\u0027route-engine\u0027)",
+      "revId": "ec4b9532a29eb2c1e6ce1d8dd6cae18e2a3f4213",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
