@@ -12,7 +12,7 @@
             format: "{{ format }}"
             config_mode: private
             provider:
-              host: "{{ prouter_dynamic_ip }}"
+              host: "{{ host }}"
               username: "{{ username }}"
               password: "{{ password }}"
               port: 22
