@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a2066ae1_3c8a7ab2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1374,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-02-12T14:46:34Z",
+      "side": 1,
+      "message": "be careful, perms2 is not necessary a project UUID, it could be a string like \u0027cloud-admin\u0027. Btw you don\u0027t necessary need to provide the UUID ref if you provide its FQ name, FQ name is enough.\nhttps://github.com/Juniper/contrail-controller/blob/master/src/config/common/cfgm_common/vnc_cassandra.py#L714-L718",
+      "revId": "71394da510cbbce6fbf3083384e1266fe7b902b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9f6295ae_ea377375",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_db.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 1375,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-02-12T14:46:34Z",
+      "side": 1,
+      "message": "you have to call the DB resource update method to enforce that new ref\n\n self._object_db.object_update(\u0027project\u0027, obj_uuid, obj_dict)",
+      "revId": "71394da510cbbce6fbf3083384e1266fe7b902b4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
