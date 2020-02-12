@@ -1,74 +1,93 @@
-from __future__ import print_function
 from __future__ import absolute_import
-from future import standard_library
-standard_library.install_aliases()
+from __future__ import print_function
+
+import argparse
 from builtins import filter
-from builtins import str
-from past.builtins import basestring
 from builtins import object
-import sys
-if sys.version_info[0] < 3:
-    reload(sys)
-    sys.setdefaultencoding('UTF8')
+from builtins import str
 import copy
-import os
-import re
-import inspect
-import itertools
 from functools import wraps
+import inspect
+from io import StringIO
+import itertools
 import logging
-from cfgm_common import jsonutils as json
+import os
+from pathlib import Path
+import re
+import ssl
+import sys
+
+import cfgm_common
 try:
     from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE0
     from cfgm_common import BGP_RTGT_ALLOC_PATH_TYPE1_2
-except ImportError as err:
+except ImportError:
     # must be older release, assigning old path
-    print("WARN: Ignoring ImportError (%s)" % err)
     BGP_RTGT_ALLOC_PATH_TYPE0 = '/id/bgp/route-targets'
     BGP_RTGT_ALLOC_PATH_TYPE1_2 = '/id/bgp/route-targets'
 try:
     from cfgm_common import get_bgp_rtgt_min_id
-except ImportError as err:
+except ImportError:
     # must be older release, assigning default min ID
-    print("WARN: Ignoring ImportError (%s)" % err)
-    get_bgp_rtgt_min_id = lambda _get_bgp_rtgt_min_id: 8000000
-from netaddr import IPAddress, IPNetwork
-from netaddr.core import AddrFormatError
-import argparse
-from io import StringIO
-
-import kazoo.client
-import kazoo.exceptions
-import cfgm_common
+    def get_bgp_rtgt_min_id(asn):
+        return 8000000
+from cfgm_common import jsonutils as json
+from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
 try:
     from cfgm_common import vnc_cgitb
 except ImportError:
     import cgitb as vnc_cgitb
 from cfgm_common.utils import cgitb_hook
-import pycassa
-import pycassa.connection
-from pycassa.cassandra.ttypes import ConsistencyLevel
-from pycassa.connection import default_socket_factory
-
-from thrift.transport import TSSLSocket
-import ssl
-from vnc_cfg_api_server import utils
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.zkclient import ZookeeperClient
-from cfgm_common.svc_info import _VN_SNAT_PREFIX_NAME
+from future import standard_library
+standard_library.install_aliases()  # noqa
+import kazoo.client
+import kazoo.exceptions
+from netaddr import IPAddress, IPNetwork
+from netaddr.core import AddrFormatError
+from past.builtins import basestring
+import pycassa
+from pycassa.cassandra.ttypes import ConsistencyLevel
+import pycassa.connection
+from pycassa.connection import default_socket_factory
+import schema_transformer.db
+from thrift.transport import TSSLSocket
 
+
+if sys.version_info[0] < 3:
+    reload(sys)  # noqa
+    sys.setdefaultencoding('UTF8')
+
+if __name__ == '__main__' and __package__ is None:
+    file = Path(__file__).resolve()
+    parent, top = file.parent, file.parents[3]
+
+    sys.path.append(str(top))
+    try:
+        sys.path.remove(str(parent))
+    except ValueError:  # Already removed
+        pass
+
+    import vnc_cfg_api_server  # noqa
+    __package__ = 'vnc_cfg_api_server'  # noqa
+
+
+from . import utils  # noqa
 try:
-    from vnc_cfg_api_server.vnc_db import VncServerCassandraClient
+    from .vnc_db import VncServerCassandraClient
 except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
-import schema_transformer.db
 
-__version__ = "1.25"
+
+__version__ = "1.26"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.26:
+  - Fix import statement compatibility for python 2 and reorganise them
 * 1.25:
   - Fix route target validation code when VN RT list is set to none
 * 1.24:
@@ -150,8 +169,7 @@ try:
 except AttributeError:
     VN_ID_MIN_ALLOC = 1
 SG_ID_MIN_ALLOC = cfgm_common.SGID_MIN_ALLOC
-def _get_rt_id_min_alloc(asn):
-    return get_bgp_rtgt_min_id(asn)
+
 
 def _parse_rt(rt):
     if isinstance(rt, basestring):
@@ -417,7 +435,7 @@ class DatabaseManager(object):
         stdout.setFormatter(logformat)
         self._logger.addHandler(stdout)
         logfile = logging.handlers.RotatingFileHandler(
-                  self._args.log_file, maxBytes=10000000, backupCount=5)
+            self._args.log_file, maxBytes=10000000, backupCount=5)
         logfile.setFormatter(logformat)
         self._logger.addHandler(logfile)
         cluster_id = self._api_args.cluster_id
@@ -565,7 +583,7 @@ class DatabaseManager(object):
             res_fq_name_str = self._zk_client.get(rt_zk_path)[0]
             id = int(id)
             zk_set.add((id, res_fq_name_str))
-            if id < _get_rt_id_min_alloc(self.global_asn):
+            if id < get_bgp_rtgt_min_id(self.global_asn):
                 # ZK contain RT ID lock only for system RT
                 errmsg = 'Wrong Route Target range in zookeeper %d' % id
                 ret_errors.append(ZkRTRangeError(errmsg))
@@ -579,7 +597,7 @@ class DatabaseManager(object):
         num_bad_rts = 0
         for res_fq_name_str, cols in rt_table.get_range(columns=['rtgt_num']):
             id = int(cols['rtgt_num'])
-            if id < _get_rt_id_min_alloc(self.global_asn):
+            if id < get_bgp_rtgt_min_id(self.global_asn):
                 # Should never append
                 msg = ("Route Target ID %d allocated for %s by the schema "
                        "transformer is not contained in the system range" %
@@ -602,7 +620,7 @@ class DatabaseManager(object):
             except ValueError:
                 malformed_set.add((fq_name_str, uuid))
             if (asn != self.global_asn or
-                    id < _get_rt_id_min_alloc(self.global_asn)):
+                    id < get_bgp_rtgt_min_id(self.global_asn)):
                 user_rts += 1
                 continue  # Ignore user defined RT
             try:
@@ -663,7 +681,7 @@ class DatabaseManager(object):
                             (fq_name_str, uuid, list_name), set()).add(rt)
 
                     if (asn != self.global_asn or
-                            id < _get_rt_id_min_alloc(self.global_asn)):
+                            id < get_bgp_rtgt_min_id(self.global_asn)):
                         num_user_rts += 1
                         continue  # all good
                     num_bad_rts += 1
@@ -1209,7 +1227,7 @@ class DatabaseManager(object):
             except ValueError:
                 continue
             if (asn != self.global_asn or
-                    id < _get_rt_id_min_alloc(self.global_asn)):
+                    id < get_bgp_rtgt_min_id(self.global_asn)):
                 continue  # Ignore user defined RT
             try:
                 cols = uuid_table.xget(uuid, column_start='backref:',
