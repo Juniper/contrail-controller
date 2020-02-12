@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "16e8b100_8adb0554",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/read_re_information/filter_plugins/read_re_info_filters.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 17,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-02-12T00:03:54Z",
+      "side": 1,
+      "message": "Did you want re_details to default to {} or None?",
+      "revId": "55a5b32a9759993c0e26b6464e799428bc60d164",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
