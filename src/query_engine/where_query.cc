@@ -1097,6 +1097,7 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
         static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
         /1000);
         where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
+        return;
     }
 
     SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
