@@ -583,19 +583,22 @@ void BgpXmppMessage::ProcessExtCommunity(const ExtCommunity *ext_community) {
         return;
 
     as_t as_number =  table_->server()->autonomous_system();
+    bool sg_asn_match = true;
     for (ExtCommunity::ExtCommunityList::const_iterator iter =
         ext_community->communities().begin();
         iter != ext_community->communities().end(); ++iter) {
         if (ExtCommunity::is_security_group(*iter)) {
             SecurityGroup sg(*iter);
-            if (sg.as_number() != as_number && !sg.IsGlobal())
+            if (as_number <= AS2_MAX)
+                if (sg.as_number() != as_number)
+                    continue;
+            if (!sg.IsGlobal())
                 continue;
             security_group_list_.push_back(sg.security_group_id());
         } else if (ExtCommunity::is_security_group4(*iter)) {
             SecurityGroup4ByteAs sg(*iter);
-            if (sg.as_number() != as_number && !sg.IsGlobal())
-                continue;
-            security_group_list_.push_back(sg.security_group_id());
+            if (sg.as_number() != as_number)
+                sg_asn_match = false;
         } else if (ExtCommunity::is_mac_mobility(*iter)) {
             MacMobility mm(*iter);
             mobility_.sequence_number = mm.sequence_number();
@@ -608,6 +611,8 @@ void BgpXmppMessage::ProcessExtCommunity(const ExtCommunity *ext_community) {
             etree_leaf_ = etree.leaf();
         }
     }
+    if (!sg_asn_match)
+        security_group_list_.clear();
 }
 
 string BgpXmppMessage::GetVirtualNetwork(

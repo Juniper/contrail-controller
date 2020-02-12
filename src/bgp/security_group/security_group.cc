@@ -58,7 +58,7 @@ SecurityGroup4ByteAs::SecurityGroup4ByteAs(as_t asn, uint32_t sgid) {
     data_[0] = BgpExtendedCommunityType::Experimental4ByteAs;
     data_[1] = BgpExtendedCommunityExperimentalSubType::SgId;
     put_value(&data_[2], 4, asn);
-    put_value(&data_[4], 2, sgid);
+    put_value(&data_[6], 2, sgid);
 }
 
 SecurityGroup4ByteAs::SecurityGroup4ByteAs(const bytes_type &data) {
