@@ -101,6 +101,7 @@
     load: "override"
     format: "text"
     device_config: "{{ vendor_config }}"
+    host: "{{ prouter_dynamic_ip }}"
     timeout: "{{vc_timeout}}"
 
 - name: Print device response
@@ -121,6 +122,7 @@
         load: "set"
         format: "set"
         device_config: "{{ supplemental_config }}"
+        host: "{{ prouter_mgmt_ip }}"
 
     - name: Print device response
       debug: msg="{{ device_push_response }}" verbosity=1
