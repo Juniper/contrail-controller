@@ -1684,7 +1684,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             uint16_t sg_index = 0;
             for (SecurityGroupListType::const_iterator sit = isg_list.begin();
                 sit != isg_list.end(); ++sit) {
-                if (bgp_server_->autonomous_system() <= 0xFFFF) {
+                if (bgp_server_->autonomous_system() <= AS2_MAX) {
                     SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
                     ext.communities.push_back(sg.GetExtCommunityValue());
                 } else {
@@ -2033,10 +2033,19 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         // Process security group list.
         const EnetSecurityGroupListType &isg_list =
             item.entry.security_group_list;
+        uint16_t sg_index = 0;
         for (EnetSecurityGroupListType::const_iterator sit = isg_list.begin();
             sit != isg_list.end(); ++sit) {
-            SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
-            ext.communities.push_back(sg.GetExtCommunityValue());
+            if (bgp_server_->autonomous_system() <= AS2_MAX) {
+                SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
+                ext.communities.push_back(sg.GetExtCommunityValue());
+            } else {
+                SecurityGroup sg(sg_index, *sit);
+                SecurityGroup4ByteAs sg4(bgp_server_->autonomous_system(),
+                                             sg_index++);
+                ext.communities.push_back(sg4.GetExtCommunityValue());
+                ext.communities.push_back(sg.GetExtCommunityValue());
+            }
         }
 
         if (item.entry.mobility.seqno) {
