@@ -2,12 +2,15 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <pugixml/pugixml.hpp>
+
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/xmpp_message_builder.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/mvpn/mvpn_route.h"
+#include "bgp/security_group/security_group.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
@@ -16,16 +19,19 @@ using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
+using pugi::xml_document;
+using pugi::xml_node;
+using pugi::xml_parse_result;
 
 static const char *config = "\
 <config>\
     <bgp-router name=\'X\'>\
         <identifier>192.168.0.1</identifier>\
-        <autonomous-system>64512</autonomous-system>\
+        <autonomous-system>90000</autonomous-system>\
         <address>127.0.0.1</address>\
     </bgp-router>\
     <routing-instance name='blue'>\
-        <vrf-target>target:64512:100</vrf-target>\
+        <vrf-target>target:90000:100</vrf-target>\
     </routing-instance>\
 </config>\
 ";
@@ -78,6 +84,15 @@ protected:
         BgpAttrNextHop nexthop(0x0a0a0a0a);
         BgpAttrSpec spec;
         spec.push_back(&nexthop);
+
+        SecurityGroup sg(0, 0x123);
+        SecurityGroup4ByteAs sg4(90000, 0);
+        ExtCommunitySpec extcomm;
+        extcomm.communities.push_back(
+                get_value(sg.GetExtCommunity().begin(), 8));
+        extcomm.communities.push_back(
+                get_value(sg4.GetExtCommunity().begin(), 8));
+        spec.push_back(&extcomm);
         attr_ = bs_x_->attr_db()->Locate(spec);
 
         for (int idx = 0;  idx < kRouteCount; ++idx) {
@@ -89,6 +104,32 @@ protected:
                 100 + idx, 0, true);
             roattrs_.push_back(roattr);
         }
+    }
+
+    bool VerifySG(const uint8_t* msg, size_t msgsize, uint32_t exp_val) {
+        xml_document xdoc;
+        xml_parse_result result = xdoc.load_buffer(msg, msgsize);
+        if (!result) {
+            BGP_WARN_UT("Unable to load XML document. (status="
+                << result.status << ", offset=" << result.offset << ")");
+            assert(0);
+        }
+        xml_node parent = xdoc.first_child();
+        // This is the hierarchy of sg:
+        // nlri->security-group-list->security-group
+        while (parent && strcmp(parent.name(), "nlri"))
+            parent = parent.first_child();
+        while (parent && strcmp(parent.name(), "security-group-list"))
+            parent = parent.next_sibling();
+        if (parent)
+            parent = parent.first_child();
+        string sgid = integerToString(exp_val);
+        for (; parent; parent = parent.next_sibling()) {
+            xml_node sg = parent.first_child();
+            if (sg && !strcmp(sg.value(), sgid.c_str()))
+                return true;
+        }
+        return false;
     }
 
     virtual void TearDown() {
@@ -217,6 +258,8 @@ TEST_P(XmppMessageBuilderParamTest, Basic) {
             string temp;
             const uint8_t *msg = message_->GetData(&peer, &msgsize, &msg_str,
                                                    &temp);
+            if (idx == 0 && pidx == 0)
+                EXPECT_TRUE(VerifySG(msg, msgsize, 0x123));
             peer.SendUpdate(msg, msgsize, reuse_msg_str ? msg_str : NULL);
         }
     }
