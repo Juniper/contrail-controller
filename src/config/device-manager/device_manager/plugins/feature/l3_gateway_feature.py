@@ -52,6 +52,8 @@ class L3GatewayFeature(FeatureBase):
         if irb_ips:
             irb = self._add_or_lookup_li(li_map, 'irb.' + str(network_id),
                                          network_id)
+            if vn.has_ipv6_subnet is True:
+                irb.set_is_virtual_router(True)
             for (irb_ip, gateway) in irb_ips:
                 self._add_ip_address(irb, irb_ip, gateway=gateway)
 
