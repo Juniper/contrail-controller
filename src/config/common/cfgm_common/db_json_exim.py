@@ -185,7 +185,7 @@ class DatabaseExim(object):
             if path.split('/')[1] in zk_ignore_list:
                 continue
             value = path_value_ts[1][0]
-            self._zookeeper.create(path, str(value), makepath=True)
+            self._zookeeper.create(path, str.encode(str(value)), makepath=True)
     # end db_import
 
     def _make_ssl_socket_factory(self, ca_certs, validate=True):
