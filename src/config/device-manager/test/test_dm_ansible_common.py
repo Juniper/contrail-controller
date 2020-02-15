@@ -159,6 +159,55 @@ class TestAnsibleCommonDM(DMTestCase):
         return self._vnc_lib.virtual_network_read(id=vn_uuid)
     # end create_vn
 
+    def create_irt(self, irt_id, prefix_list):
+        irt_routes = RouteTableType()
+        for prefixv in prefix_list or []:
+            route = RouteType(prefix=prefixv)
+            irt_routes.add_route(route)
+        name = 'irt' + irt_id + '-' + self.id()
+        irt_obj = InterfaceRouteTable(name)
+        irt_obj.set_interface_route_table_routes(irt_routes)
+        irt_uuid = self._vnc_lib.interface_route_table_create(irt_obj)
+        return self._vnc_lib.interface_route_table_read(id=irt_uuid)
+    # end create_irt
+
+    def create_routing_policy_term(self, protocols=[], prefixs=[],
+                                   prefixtypes=[], extcommunity_list=[],
+                                   extcommunity_match_all = False,
+                                   community_match_all = False, action="",
+                                   local_pref=None, med=None, asn_list=[]):
+        prefix_list = []
+        for i in range(len(prefixs)):
+            prefix_list.append(PrefixMatchType(prefix=prefixs[i],
+                                               prefix_type=prefixtypes[i]))
+        tcond = TermMatchConditionType(
+            protocol=protocols, prefix=prefix_list,
+            community_match_all=community_match_all,
+            extcommunity_list=extcommunity_list,
+            extcommunity_match_all=extcommunity_match_all)
+        aspath = ActionAsPathType(expand=AsListType(asn_list=asn_list))
+        updateo = ActionUpdateType(as_path=aspath, local_pref=local_pref,
+                                   med=med)
+        taction = TermActionListType(action=action, update=updateo)
+        term = PolicyTermType(term_match_condition=tcond,
+                              term_action_list=taction)
+        return term
+    # end create_routing_policy_term
+
+    def create_routing_policy(self, rp_name, term_list):
+        rp = RoutingPolicy(name=rp_name)
+        rp.set_routing_policy_entries(PolicyStatementType(term=term_list))
+        rp_uuid = self._vnc_lib.routing_policy_create(rp)
+        return self._vnc_lib.routing_policy_read(id=rp_uuid)
+    # end create_routing_policy
+
+    def get_routing_instance_from_description(self, config, description):
+        for ri in config.get('routing_instances', []):
+            if description and description == ri.get('description'):
+                return ri
+        return None
+    # end get_routing_instance_from_description
+
     def create_sg(self, name):
         sg_obj = SecurityGroup(
             name="SG1",
@@ -348,10 +397,8 @@ class TestAnsibleCommonDM(DMTestCase):
     # end get_phy_interfaces
 
     def get_logical_interface(self, phy_intf, name=None):
-        log_intf = phy_intf.get('logical_interfaces')
-        if not log_intf:
-            return None
-        for intf in log_intf or []:
+        log_intf = phy_intf.get('logical_interfaces', [])
+        for intf in log_intf:
             if name and name == intf.get('name'):
                 return intf
         return None
