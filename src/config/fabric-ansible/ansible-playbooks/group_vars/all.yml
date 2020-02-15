@@ -162,7 +162,6 @@ role_to_feature_mapping:
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
-    - overlay_networking
   DC-Gateway@leaf:
     - basic
     - underlay_ip_clos
@@ -225,7 +224,6 @@ role_to_feature_mapping:
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
-    - overlay_networking
   PNF-Servicechain@leaf:
     - overlay_pim
     - overlay_service_chain

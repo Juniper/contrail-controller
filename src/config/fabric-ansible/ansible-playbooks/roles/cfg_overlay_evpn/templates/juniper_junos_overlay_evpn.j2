@@ -69,6 +69,9 @@ set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{b
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} routing-interface {{irb_interface}}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} vxlan vni {{vn_id}}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} vrf-import {{l2_vrf_import}}
+{%                         if ('CRB-MCAST-Gateway' in sys_roles) %}
+set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} bridge-domains {{bridge_domain_name}} protocols igmp-snooping proxy
+{%                         endif %}
 {%                         if (vn_id != '') and (ri.get('routing_instance_type', '') == 'virtual-switch') %}
 {%                             for export_target in ri.get('export_targets', []) %}
 set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn vni-options vni {{vn_id}} vrf-target {{export_target | rtfilter}}
