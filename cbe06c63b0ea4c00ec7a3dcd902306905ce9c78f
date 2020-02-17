@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "fbaf3849_576010bd",
+        "filename": "src/config/common/cfgm_common/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-02-17T17:43:40Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "eb1369dc_f77be4e2",
+      "revId": "cbe06c63b0ea4c00ec7a3dcd902306905ce9c78f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "56285098_4ade9459",
         "filename": "src/config/common/cfgm_common/utils.py",
         "patchSetId": 2
@@ -33,6 +51,24 @@
       "revId": "cbe06c63b0ea4c00ec7a3dcd902306905ce9c78f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "594fbb65_61078315",
+        "filename": "src/config/common/cfgm_common/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 126,
+      "author": {
+        "id": 720
+      },
+      "writtenOn": "2020-02-17T17:43:40Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "56285098_4ade9459",
+      "revId": "cbe06c63b0ea4c00ec7a3dcd902306905ce9c78f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
