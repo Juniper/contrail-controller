@@ -238,8 +238,11 @@ def set_backend_v1(pool, custom_attr_dict, custom_attrs):
         server_suffix, monitor_conf = set_health_monitor(hm)
         conf.extend(monitor_conf)
 
+    set_cookies = False
     session_conf = set_session_persistence(pool)
-    conf.extend(session_conf)
+    if session_conf:
+        conf.extend(session_conf)
+        set_cookies = True
 
     for member_id in pool.members:
         member = LoadbalancerMemberSM.get(member_id)
@@ -248,6 +251,8 @@ def set_backend_v1(pool, custom_attr_dict, custom_attrs):
         server = (('server %s %s:%s weight %s') % (member.uuid,
                   member.params['address'], member.params['protocol_port'],
                   member.params['weight'])) + server_suffix
+        if set_cookies:
+            server += " cookie %s" % member.uuid
         conf.append(server)
 
     # Adding custom_attributes config
@@ -406,8 +411,11 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
         server_suffix, monitor_conf = set_health_monitor(hm)
         conf.extend(monitor_conf)
 
+    set_cookies = False
     session_conf = set_session_persistence(pool)
-    conf.extend(session_conf)
+    if session_conf:
+        conf.extend(session_conf)
+        set_cookies = True
 
     for member_id in pool.members:
         member = LoadbalancerMemberSM.get(member_id)
@@ -418,6 +426,8 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
         server = (('server %s %s:%s weight %s') % (member.uuid,
                   member.params['address'], member.params['protocol_port'],
                   member.params['weight'])) + server_suffix
+        if set_cookies:
+            server += " cookie %s" % member.uuid
         conf.append(server)
 
     # Adding custom_attributes config
