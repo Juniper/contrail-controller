@@ -48,6 +48,30 @@
     },
     {
       "key": {
+        "uuid": "a66237fe_43a98810",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 137,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f9f123d9_823c403c",
+      "range": {
+        "startLine": 137,
+        "startChar": 22,
+        "endLine": 137,
+        "endChar": 43
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "aad4c563_cac34970",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
         "patchSetId": 6
@@ -71,6 +95,30 @@
     },
     {
       "key": {
+        "uuid": "d62727a8_4361c1b0",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "aad4c563_cac34970",
+      "range": {
+        "startLine": 158,
+        "startChar": 8,
+        "endLine": 165,
+        "endChar": 0
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bc18d29d_b00cf04a",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
         "patchSetId": 6
@@ -91,6 +139,30 @@
       "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "25e949da_cd806aa3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 178,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bc18d29d_b00cf04a",
+      "range": {
+        "startLine": 173,
+        "startChar": 8,
+        "endLine": 178,
+        "endChar": 23
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -140,6 +212,30 @@
     },
     {
       "key": {
+        "uuid": "1b295cd9_922e83d2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 207,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "https://i.redd.it/atf1ietqwaxy.jpg",
+      "parentUuid": "86265d25_40598d54",
+      "range": {
+        "startLine": 195,
+        "startChar": 8,
+        "endLine": 207,
+        "endChar": 54
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "465bf6be_9b3c9513",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
         "patchSetId": 6
@@ -151,6 +247,30 @@
       "writtenOn": "2020-02-11T12:26:31Z",
       "side": 1,
       "message": "What are the meaning of letters: r,w,e,d,o ?\nIt\u0027s not obvious and may be to hard to maintain in the future.",
+      "range": {
+        "startLine": 222,
+        "startChar": 12,
+        "endLine": 232,
+        "endChar": 42
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a3198026_21a79153",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 232,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "I\u0027ve got no idea",
+      "parentUuid": "465bf6be_9b3c9513",
       "range": {
         "startLine": 222,
         "startChar": 12,
@@ -186,6 +306,30 @@
     },
     {
       "key": {
+        "uuid": "b3312d00_7903cdc4",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 241,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "\"cross\"\nSymbolically, the most difficult part of some problem.",
+      "parentUuid": "e69b4457_f2a16869",
+      "range": {
+        "startLine": 241,
+        "startChar": 47,
+        "endLine": 241,
+        "endChar": 53
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "277b8dc0_ec8a95d8",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
         "patchSetId": 6
@@ -209,6 +353,30 @@
     },
     {
       "key": {
+        "uuid": "0350f6b3_313a46c2",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 276,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "277b8dc0_ec8a95d8",
+      "range": {
+        "startLine": 273,
+        "startChar": 8,
+        "endLine": 276,
+        "endChar": 36
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "3af9a9d4_995981e3",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
         "patchSetId": 6
@@ -220,6 +388,30 @@
       "writtenOn": "2020-02-11T12:26:31Z",
       "side": 1,
       "message": "Rename `data` to `old_data` and remove the comment.",
+      "range": {
+        "startLine": 278,
+        "startChar": 8,
+        "endLine": 278,
+        "endChar": 44
+      },
+      "revId": "e48346ce9d6be128e4877fd363adaa0f11d545f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a58add39_f9f864b3",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/in_place_upgrade/db_diff_tool.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 278,
+      "author": {
+        "id": 868
+      },
+      "writtenOn": "2020-02-17T12:29:52Z",
+      "side": 1,
+      "message": "No, because then old_data becomes new, as the object is being modified in-place.",
+      "parentUuid": "3af9a9d4_995981e3",
       "range": {
         "startLine": 278,
         "startChar": 8,
