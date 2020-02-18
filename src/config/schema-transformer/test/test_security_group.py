@@ -434,3 +434,37 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                       'egress-access-control-list',
                                       rule1['protocol'])
     # end test_create_sg_check_acl_protocol
+
+    def test_acl_without_parent_ref(self):
+        # create security group
+        sg1_obj = self.security_group_create('sg-1-%s' % self.id(),
+                                             ['default-domain',
+                                              'default-project'])
+
+        # create egress acl without parent_href
+        acl_fq_name = ['default-domain',
+                       'default-project',
+                       'sg-1-%s' % self.id(),
+                       'egress-access-control-list']
+
+        # TODO crate resource not working
+        self._vnc_lib.create_resource('access-control-list',
+                                      acl_fq_name)
+
+        # try to create valid acl engress rules
+        self.wait_to_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = {}
+        rule1['ip_prefix'] = None
+        rule1['protocol'] = 'any'
+        rule1['ether_type'] = 'IPv6'
+        rule1['sg_id'] = sg1_obj.get_security_group_id()
+        rule1['direction'] = 'egress'
+        rule1['port_min'] = 101
+        rule1['port_max'] = 200
+        rule_eg_obj = self._security_group_rule_build(rule1,
+                                                      sg1_obj.get_fq_name_str())
+
+        self._security_group_rule_append(sg1_obj, rule_eg_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
