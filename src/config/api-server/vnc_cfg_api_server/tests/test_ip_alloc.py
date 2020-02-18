@@ -3583,6 +3583,60 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             r_class.post_dbe_delete = orig_post_dbe_delete
             api_server._db_conn._object_db = orig_cassandra_db
 
+    def test_ip_alloc_with_routed_vn(self):
+        # Create Project
+        project = Project('proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('22.2.2.0', 30))
+
+        # Create VN
+        vn = VirtualNetwork('vn-%s' %(self.id()), project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        vn.set_virtual_network_category('routed')
+        self._vnc_lib.virtual_network_create(vn)
+        vn_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        ipam_refs = vn_obj.__dict__.get('network_ipam_refs', [])
+        for ipam_ref in ipam_refs:
+            vnsn_data = ipam_ref.get('attr') or {}
+            ipam_subnets = vnsn_data.get_ipam_subnets()
+            for ipam_subnet in ipam_subnets:
+                self.assertEqual(ipam_subnet.get_default_gateway(), u'None')
+                dns_ip = ipam_subnet.get_dns_server_address()
+                self.assertEqual(ipam_subnet.get_dns_server_address(), u'None')
+
+        # with /30 only 2 ips are possible for routed_vn
+        # .0 and .3 are for network and broadcast
+        # api-server will allocated .2 and .1
+        vmi = VirtualMachineInterface('vmi-%s' % self.id(),
+                                      parent_obj=Project())
+        vmi.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        iip1 = InstanceIp('iip1-%s' % self.id(), instance_ip_family='v4')
+        iip1.set_virtual_machine_interface(vmi)
+        iip1.set_virtual_network(vn)
+        self._vnc_lib.instance_ip_create(iip1)
+        iip1_obj = self._vnc_lib.instance_ip_read(id=iip1.uuid)
+
+        iip2 = InstanceIp('iip2-%s' % self.id(), instance_ip_family='v4')
+        iip2.set_virtual_machine_interface(vmi)
+        iip2.set_virtual_network(vn)
+        self._vnc_lib.instance_ip_create(iip2)
+        iip2_obj = self._vnc_lib.instance_ip_read(id=iip2.uuid)
+
+        self._vnc_lib.instance_ip_delete(id=iip1.uuid)
+        self._vnc_lib.instance_ip_delete(id=iip2.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+
     def test_ip_alloc_free_when_cassandra_down(self):
         """
         Test LP# 1749294
