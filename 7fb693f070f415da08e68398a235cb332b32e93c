@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fc2b3c72_5dbf334c",
+        "filename": "src/config/svc-monitor/svc_monitor/services/loadbalancer/drivers/ha_proxy/haproxy_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 418,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-02-18T08:52:24Z",
+      "side": 1,
+      "message": "Should be append only if the persistence is set to \u0027PERSISTENCE_HTTP_COOKIE\u0027 not in any persistence cases",
+      "revId": "7fb693f070f415da08e68398a235cb332b32e93c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "32ada019_878af56f",
+        "filename": "src/config/svc-monitor/svc_monitor/services/loadbalancer/drivers/ha_proxy/haproxy_config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 468,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-02-18T08:52:24Z",
+      "side": 1,
+      "message": "should return s an empty list",
+      "revId": "7fb693f070f415da08e68398a235cb332b32e93c",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
