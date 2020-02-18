@@ -11,6 +11,7 @@ from cfgm_common.exceptions import BadRequest
 from testtools import ExpectedException
 from vnc_api.gen.resource_xsd import KeyValuePair
 from vnc_api.gen.resource_xsd import KeyValuePairs
+from vnc_api.gen.resource_xsd import MacAddressesType
 from vnc_api.vnc_api import Fabric
 from vnc_api.vnc_api import PhysicalInterface
 from vnc_api.vnc_api import PhysicalRouter
@@ -134,7 +135,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         return proj_obj, fabric_obj, pr_obj
 
     def _create_kv_pairs(self, pi_fq_name, fabric_name, vpg_name,
-                         tor_port_vlan_id=0):
+                         tor_port_vlan_id='0'):
         # Populate binding profile to be used in VMI create
         binding_profile = {'local_link_information': [
             {'port_id': pi_fq_name[2],
@@ -142,7 +143,7 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
              'fabric': fabric_name[-1],
              'switch_info': pi_fq_name[1]}]}
 
-        if tor_port_vlan_id != 0:
+        if tor_port_vlan_id != '0':
             kv_pairs = KeyValuePairs(
                 [KeyValuePair(key='vpg', value=vpg_name[-1]),
                  KeyValuePair(key='vif_type', value='vrouter'),
@@ -852,3 +853,51 @@ class TestVirtualPortGroup(TestVirtualPortGroupBase):
         self.api.physical_router_delete(id=pr_obj_1.uuid)
         self.api.physical_router_delete(id=pr_obj_2.uuid)
         self.api.fabric_delete(id=fabric_obj.uuid)
+
+    def test_vmi_bindings_key_value_pair(self):
+        # Create Physical Interface for VPG-1
+        project, fabric, pr = self._create_prerequisites()
+
+        pi = PhysicalInterface(
+            name='5c-qfx10',
+            parent_obj=pr,
+            ethernet_segment_identifier='00:11:22:33:44:55:66:77:88:99',
+            physical_interface_type='fabric',
+            physical_interface_port_id='xe-0/0/8')
+        pi_uuid = self._vnc_lib.physical_interface_create(pi)
+        pi = self._vnc_lib.physical_interface_read(id=pi_uuid)
+
+        # Create VPG1
+        vpg = VirtualPortGroup(name='vpg1', parent_obj=fabric)
+        vpg_uuid = self.api.virtual_port_group_create(vpg)
+        vpg = self._vnc_lib.virtual_port_group_read(id=vpg_uuid)
+
+        # Create VN
+        vn = VirtualNetwork(name='vn-{}'.format(self.id()),
+                            parent_obj=project)
+        vn_uuid = self.api.virtual_network_create(vn)
+        vn.set_uuid(vn_uuid)
+
+        kv_pairs = self._create_kv_pairs(pi.fq_name, fabric.fq_name,
+                                         vpg.fq_name, tor_port_vlan_id='4092')
+
+        mac_addrs = MacAddressesType(['02:34:52:98:03:1a'])
+
+        vmi = VirtualMachineInterface(
+            name='vmi-{}'.format(self.id()),
+            parent_obj=project,
+            virtual_machine_interface_mac_addresses=mac_addrs,
+            virtual_machine_interface_bindings=kv_pairs)
+        vmi.set_virtual_network(vn)
+
+        vmi_uuid = self.api.virtual_machine_interface_create(vmi)
+        vmi.set_uuid(vmi_uuid)
+        vpg.add_virtual_machine_interface(vmi)
+        self.api.virtual_port_group_update(vpg)
+
+        vmi_obj = self.api.virtual_machine_interface_read(id=vmi.uuid)
+
+        kvps = [{kv.key: kv.value} for kv in kv_pairs.key_value_pair]
+        bindings = [{kv.key: kv.value} for kv in
+                    vmi_obj.virtual_machine_interface_bindings.key_value_pair]
+        self.assertItemsEqual(kvps, bindings)
