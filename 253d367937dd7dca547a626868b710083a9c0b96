@@ -16,6 +16,24 @@
       "revId": "253d367937dd7dca547a626868b710083a9c0b96",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "849be5c7_f1fb2726",
+        "filename": "src/config/common/cfgm_common/db_json_exim.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 76,
+      "author": {
+        "id": 10
+      },
+      "writtenOn": "2020-02-18T08:26:47Z",
+      "side": 1,
+      "message": "Cannot tell Sajeesh, that was introduced by the Analytics team here https://review.opencontrail.org/c/Juniper/contrail-controller/+/49535 Seems different if there is a cluster ID",
+      "parentUuid": "c4653a6b_f0e88a0c",
+      "revId": "253d367937dd7dca547a626868b710083a9c0b96",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
