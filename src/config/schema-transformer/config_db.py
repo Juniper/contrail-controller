@@ -20,6 +20,7 @@ import cfgm_common as common
 from netaddr import IPNetwork, IPAddress
 from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
 from cfgm_common.exceptions import HttpError
+from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common import svc_info
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import *
@@ -59,6 +60,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
         if entries is None:
             return None
         acl_obj = AccessControlList(name, obj, entries)
+        try:
+            # Remove stale acl
+            acl_uuid = DBBaseST._vnc_lib.fq_name_to_id(
+                obj_type='access-control-list',
+                fq_name=obj.fq_name + [name])
+            DBBaseST._vnc_lib.access_control_list_delete(id=acl_uuid)
+        except Exception:
+            pass
         try:
             DBBaseST._vnc_lib.access_control_list_create(acl_obj)
             return acl_obj
@@ -494,7 +503,13 @@ class VirtualNetworkST(DBBaseST):
         self.update_multiple_refs('virtual_machine_interface', {})
         self.delete_inactive_service_chains(self.service_chains)
         for ri_name in self.routing_instances:
-            RoutingInstanceST.delete(ri_name, True)
+            ri = RoutingInstanceST.get(ri_name)
+            # Don't delete default RI, API server will do and schema will
+            # clean RT and its internal when it will receive the RI delete
+            # notification. That prevents ST to fail to delete RT because RI
+            # was not yet removed
+            if ri is not None and not ri.is_default:
+                ri.delete(ri_name, True)
         if self.acl:
             self._vnc_lib.access_control_list_delete(id=self.acl.uuid)
         if self.dynamic_acl:
@@ -1395,7 +1410,7 @@ class RouteTargetST(DBBaseST):
                         obj.get_logical_router_back_refs()):
                     cls.locate(obj.get_fq_name_str(), obj)
                 else:
-                    cls._vnc_lib.route_target_delete(id=obj.uuid)
+                    cls.delete_vnc_obj(obj.get_fq_name_str())
             except Exception as e:
                 cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
@@ -2346,7 +2361,7 @@ class RoutingInstanceST(DBBaseST):
                     static_routes.add_route(static_route)
                     all_route_targets |= route_targets
 
-        if old_route_target_list != all_route_targets:
+        if old_route_target_list != all_route_targets and si_set is not None:
             self.update_route_target_list(
                     rt_add_import=all_route_targets - old_route_target_list,
                     rt_del=old_route_target_list - all_route_targets)
