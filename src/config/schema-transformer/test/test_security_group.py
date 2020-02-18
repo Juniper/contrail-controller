@@ -3,7 +3,7 @@
 #
 
 import uuid
-import copy
+import json
 
 try:
     import config_db
@@ -12,6 +12,7 @@ except ImportError:
 from vnc_api.vnc_api import (AddressType, SubnetType, PolicyRuleType,
         PortType, PolicyEntriesType, SecurityGroup, NoIdError)
 
+from cfgm_common import rest
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
 
@@ -434,3 +435,31 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                       'egress-access-control-list',
                                       rule1['protocol'])
     # end test_create_sg_check_acl_protocol
+
+    def test_stale_acl(self):
+        # create security group
+        sg_obj = self.security_group_create('sg-%s' % (self.id()),
+                                            ['default-domain',
+                                             'default-project'])
+        # create stale acl
+        acl_fq_name = sg_obj.get_fq_name() + ['egress-access-control-list']
+        acl_data = json.dumps({
+            'access-control-list': {
+                'uuid': str(uuid.uuid4()),
+                'fq_name': acl_fq_name,
+                'parent_type': 'security-group'
+            }
+        })
+        self._vnc_lib._request(rest.OP_POST,
+                               url=u'/access-control-lists',
+                               data=acl_data)
+
+        # try to create another acl beside stale acl
+        config_db._access_control_list_update(
+            acl_obj=None,
+            name="egress-access-control-list",
+            obj=sg_obj,
+            entries={})
+
+        # cleanup
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)

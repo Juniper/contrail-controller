@@ -61,6 +61,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             return None
         acl_obj = AccessControlList(name, obj, entries)
         try:
+            # Remove stale acl
+            acl_uuid = DBBaseST._vnc_lib.fq_name_to_id(
+                obj_type='access-control-list',
+                fq_name=obj.fq_name + [name])
+            DBBaseST._vnc_lib.access_control_list_delete(id=acl_uuid)
+        except Exception:
+            pass
+        try:
             DBBaseST._vnc_lib.access_control_list_create(acl_obj)
             return acl_obj
         except (NoIdError, BadRequest) as e:
