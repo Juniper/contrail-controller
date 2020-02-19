@@ -435,16 +435,13 @@ class AnsibleRoleCommon(AnsibleConf):
             return
 
         sg_list = []
-        for vpg_uuid in pr.virtual_port_groups or []:
-            vpg_obj = VirtualPortGroupDM.get(vpg_uuid)
-            if not vpg_obj:
-                continue
-
-            sg_list_temp = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
+        # now the vpg obj is available in interface object as vpg_obj
+        vpg_obj = interface.vpg_obj
+        sg_list_temp = vpg_obj.get_attached_sgs(unit.get_vlan_tag(),
                                                     interface)
-            for sg in sg_list_temp:
-                if sg not in sg_list:
-                    sg_list.append(sg)
+        for sg in sg_list_temp:
+            if sg not in sg_list:
+                sg_list.append(sg)
 
         for sg in sg_list or []:
             acls = sg.access_control_lists
@@ -644,14 +641,14 @@ class AnsibleRoleCommon(AnsibleConf):
                             if ae_id is not None and vlan_tag is not None:
                                 ae_name = "ae" + str(ae_id) + "." + str(vlan_tag)
                                 vn_dict.setdefault(vn_id, []).append(
-                                    JunosInterface(ae_name, 'l2', vlan_tag, port_vlan_tag=port_vlan_tag))
+                                    JunosInterface(ae_name, 'l2', vlan_tag, port_vlan_tag=port_vlan_tag, vpg_obj=vpg_obj))
                                 break
                             else:
                                 pi_obj = PhysicalInterfaceDM.get(pi_uuid)
                                 if pi_obj:
                                     li_name = pi_obj.name + "." + str(vlan_tag)
                                     vn_dict.setdefault(vn_id, []).append(
-                                    JunosInterface(li_name, 'l2', vlan_tag, port_vlan_tag=port_vlan_tag))
+                                    JunosInterface(li_name, 'l2', vlan_tag, port_vlan_tag=port_vlan_tag, vpg_obj=vpg_obj))
                                     break
         return vn_dict
     # end
