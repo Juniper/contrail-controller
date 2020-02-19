@@ -3083,23 +3083,12 @@ class VirtualPortGroupDM(DBBaseDM):
         if interface.vlan_tag:
             if vmi_obj.vlan_tag == int(vlan_tag):
                 vlan_tag_check = True
+                return vlan_tag_check
 
         elif interface.port_vlan_tag:
             if not vmi_obj.vlan_tag and int(vlan_tag) == \
                     int(vmi_obj.port_vlan_tag):
                 vlan_tag_check = True
-
-        for pi in self.physical_interfaces or []:
-            pi_obj = PhysicalInterfaceDM.get(pi)
-            pi_ae_interface_id = self.pi_ae_map.get(
-                pi_obj.uuid, None
-            )
-            if pi_ae_interface_id is not None:
-                ae_intf_name = "ae" + str(pi_ae_interface_id)
-                if interface_pi_name == ae_intf_name:
-                    return vlan_tag_check
-
-            elif interface_pi_name == pi_obj.name:
                 return vlan_tag_check
 
         return False
