@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "6d1c93be_a8006b0a",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_ip_alloc.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3586,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-02-20T19:27:43Z",
+      "side": 1,
+      "message": "We use default-network-ipam which has subnetting set to False for routed VN\u0027s. So no use-case for subnetting and routed_vn to be True together",
+      "parentUuid": "9ad40ad3_8eea502f",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "1f4153e8_9ce8b00f",
         "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_ip_alloc.py",
         "patchSetId": 2
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "c59e44b0_af74ae05",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_ip_alloc.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3625,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-02-20T19:27:43Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "1f4153e8_9ce8b00f",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1530169f_54dbc99f",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
         "patchSetId": 2
@@ -50,6 +86,24 @@
       "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "dc792bd6_5ed6c256",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 370,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-02-20T19:27:43Z",
+      "side": 1,
+      "message": "This should be and",
+      "parentUuid": "1530169f_54dbc99f",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -87,6 +141,24 @@
     },
     {
       "key": {
+        "uuid": "d7c8cdb6_6c92babc",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 807,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-02-20T19:27:43Z",
+      "side": 1,
+      "message": "This should be and",
+      "parentUuid": "fb19e73d_5bf9a3b5",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e33b6feb_8853e756",
         "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
         "patchSetId": 2
@@ -101,6 +173,24 @@
       "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0de1298f_798c055f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 845,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-02-20T19:27:43Z",
+      "side": 1,
+      "message": "This should be and",
+      "parentUuid": "e33b6feb_8853e756",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
