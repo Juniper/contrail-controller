@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b0518e06_93b46bef",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3109,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-02-20T22:20:54Z",
+      "side": 1,
+      "message": "We need to validate the cases for which this is added. Also, for both enterprise and SP style. Same hold true for firewalls",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
