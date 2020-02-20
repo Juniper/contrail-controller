@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9ad40ad3_8eea502f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_ip_alloc.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3586,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "is that possible to have subnetting and routed_vn together? If thats the case, add a case to validate them together.",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f4153e8_9ce8b00f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/tests/test_ip_alloc.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3625,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "Ensure API server isnt allocating network or broadcast address for iip1 and iip2",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1530169f_54dbc99f",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 370,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "should this be \"or\" instead of \"and\"?",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "de7ac19d_b9812b82",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 402,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "self.routed_vn is never used.",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fb19e73d_5bf9a3b5",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 807,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "Same question as #370",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e33b6feb_8853e756",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 845,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "Same question as #370",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "eb35f58d_2d710ddd",
+        "filename": "src/config/api-server/vnc_cfg_api_server/vnc_addr_mgmt.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 1582,
+      "author": {
+        "id": 64
+      },
+      "writtenOn": "2020-02-20T18:14:43Z",
+      "side": 1,
+      "message": "why subscriber_tag need to be None now?",
+      "revId": "271efd70ec18d66a5ce08d9d0999413b7cc42a91",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
