@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "19f8e0c3_98932d4a",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3109,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-02-21T19:37:21Z",
+      "side": 1,
+      "message": "Yes, we need to run this thru complete feature test regression, agreed.",
+      "parentUuid": "b0518e06_93b46bef",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b9694ab2_f4818a44",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 2
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "b4dbe25c_de175df7",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3111,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-02-21T19:37:21Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "b9694ab2_f4818a44",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "25eebc47_3f97c47e",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 2
@@ -50,6 +86,24 @@
       "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "47a0bf51_2811332c",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3117,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-02-21T19:37:21Z",
+      "side": 1,
+      "message": "as discussed this is not an issue",
+      "parentUuid": "25eebc47_3f97c47e",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
