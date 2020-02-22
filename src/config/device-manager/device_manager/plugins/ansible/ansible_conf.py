@@ -65,6 +65,7 @@ class AnsibleConf(AnsibleBase):
         self.ri_map = {}
         self.pi_map = {}
         self.forwarding_options_config = None
+        self.routing_policies = []
         self.firewall_config = None
         self.inet4_forwarding_filter = None
         self.inet6_forwarding_filter = None
@@ -365,6 +366,8 @@ class AnsibleConf(AnsibleBase):
         device.set_security_policies(
             self.get_values_sorted_by_key(
                 self.sc_policy_map))
+        if len(self.routing_policies) > 0:
+            device.set_routing_policies(self.routing_policies)
         if feature_configs:
             device.features = feature_configs
         return device

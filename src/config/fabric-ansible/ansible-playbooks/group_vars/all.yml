@@ -123,9 +123,13 @@ role_to_feature_mapping:
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
     - overlay_networking
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   lean@spine:
     - basic
     - underlay_ip_clos
@@ -148,14 +152,19 @@ role_to_feature_mapping:
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
+    - overlay_security_group
+    - overlay_lag
+    - overlay_multi_homing
   CRB-MCAST-Gateway@spine:
     - basic
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
     - overlay_evpn_mcast_gateway
@@ -218,6 +227,7 @@ role_to_feature_mapping:
     - underlay_infra_bms_access
     - overlay_bgp
     - overlay_evpn
+    - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
     - overlay_evpn_mcast_gateway
