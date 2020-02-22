@@ -41,7 +41,7 @@ class L2GatewayFeature(FeatureBase):
             name=ri_name, virtual_network_mode='l2',
             export_targets=export_targets, import_targets=import_targets,
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
-            is_public_network=vn.router_external)
+            is_public_network=vn.router_external, is_master=False)
 
         ri.set_virtual_network_id(str(network_id))
         ri.set_vxlan_id(str(vxlan_id))

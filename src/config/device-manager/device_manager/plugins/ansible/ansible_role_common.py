@@ -199,6 +199,7 @@ class AnsibleRoleCommon(AnsibleConf):
 
         ri = RoutingInstance(name=ri_name)
         is_master_int_vn = False
+        ri.set_is_master(is_master_int_vn)
         if vn:
             is_nat = True if fip_map else False
             ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat,

@@ -9,6 +9,7 @@ set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     endif %}
 {% endfor %}
 {% for ri in ris %}
+{%     if ri.is_master != true %}
 {%     set vrf_import = ri.name+'-import' %}
 {%     set vrf_export = ri.name+'-export' %}
 {%     for import_target in ri.get('import_targets', []) %}
@@ -24,6 +25,7 @@ set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 
 set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target  | rtfilter}}
 {%     endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then accept
+{%     endif %}
 {% endfor %}
 {% for bgp_elem in device_abstract_config.features.get('overlay-bgp').get('bgp', []) %}
 {%     set families = bgp_elem.get('families', []) %}
