@@ -206,11 +206,20 @@ class AnsibleRoleCommon(AnsibleConf):
             if is_internal_vn:
                 lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
                     ri_name)
-                lr = LogicalRouterDM.get(lr_uuid)
+            else:
+                if vn.logical_router is None:
+                    # try updating logical router incase of DM restart
+                    # vn.logical_router could be none as sequencing in
+                    # device_manager.py
+                    vn.set_logical_router(vn.fq_name[-1])
+                lr_uuid = vn.logical_router
+            if lr_uuid:
+                lr = LogicalRouterDM.get(lr_uuid, None)
                 if lr:
                     is_master_int_vn = lr.is_master
                     ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
-                    ri.set_is_master(is_master_int_vn)
+
+            ri.set_is_master(is_master_int_vn)
 
         self.ri_map[ri_name] = ri
 

@@ -778,12 +778,12 @@ class PhysicalRouterDM(DBBaseDM):
     # ip address is modified. This would also take care of case once routed VN
     # is part of VPG but deleted from LR.
     def check_and_update_routed_vn_ip_change(self, vn):
-        for prefix_len in vn.gateways.keys():
-            if not prefix_len:
-                return
+        vn_subnet = None
+        for prefix_len in vn.gateways.keys() or []:
             (prefix, plen) = prefix_len.split("/", 1)
             vn_subnet = vn.uuid + ":" + prefix_len
-
+        if not vn_subnet:
+            return
         for route_param in vn.routed_properties or []:
             if self.uuid == route_param.get('physical_router_uuid', None):
                 routed_ip = route_param.get('routed_interface_ip_address',
