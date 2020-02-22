@@ -206,11 +206,14 @@ class AnsibleRoleCommon(AnsibleConf):
             if is_internal_vn:
                 lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(
                     ri_name)
-                lr = LogicalRouterDM.get(lr_uuid)
-                if lr:
-                    is_master_int_vn = lr.is_master
-                    ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
-                    ri.set_is_master(is_master_int_vn)
+            else:
+                lr_uuid = vn.logical_router
+
+            lr = LogicalRouterDM.get(lr_uuid, None)
+            if lr:
+                is_master_int_vn = lr.is_master
+                ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
+            ri.set_is_master(is_master_int_vn)
 
         self.ri_map[ri_name] = ri
 

@@ -37,12 +37,18 @@ class L3GatewayFeature(FeatureBase):
         gevent.idle()
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni()
-
+        is_master_vn = False
+        lr_uuid = vn.logical_router
+        lr = LogicalRouterDM.get(lr_uuid, None)
+        if lr:
+            if lr.is_master == True:
+                is_master_vn = True
         ri = RoutingInstance(
             name=ri_name, virtual_network_mode='l3',
             export_targets=export_targets, import_targets=import_targets,
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
-            is_public_network=vn.router_external, routing_instance_type='vrf')
+            is_public_network=vn.router_external, routing_instance_type='vrf',
+            is_master=is_master_vn)
 
         for prefix in vn.get_prefixes(self._physical_router.uuid):
             ri.add_prefixes(self._get_subnet_for_cidr(prefix))
