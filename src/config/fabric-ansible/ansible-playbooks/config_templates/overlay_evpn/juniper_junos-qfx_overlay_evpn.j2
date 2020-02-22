@@ -9,21 +9,24 @@ set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     endif %}
 {% endfor %}
 {% for ri in ris %}
-{%     set vrf_import = ri.name+'-import' %}
-{%     set vrf_export = ri.name+'-export' %}
-{%     for import_target in ri.get('import_targets', []) %}
-{%         set community_target = import_target.replace(':', '_') %}
+{%     set master = ri.get('is_master', false) %}
+{%     if master != true %}
+{%         set vrf_import = ri.name+'-import' %}
+{%         set vrf_export = ri.name+'-export' %}
+{%         for import_target in ri.get('import_targets', []) %}
+{%             set community_target = import_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
 set groups {{cfg_group}} policy-options community {{community_target}} members {{import_target  | rtfilter}}
-{%     endfor %}
+{%         endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 then accept
 set groups {{cfg_group}} switch-options vrf-import {{vrf_import}}
-{%     for export_target in ri.get('export_targets', []) %}
-{%         set community_target = export_target.replace(':', '_') %}
+{%         for export_target in ri.get('export_targets', []) %}
+{%             set community_target = export_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
 set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target  | rtfilter}}
-{%     endfor %}
+{%         endfor %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then accept
+{%     endif %}
 {% endfor %}
 {% for bgp_elem in device_abstract_config.features.get('overlay-bgp').get('bgp', []) %}
 {%     set families = bgp_elem.get('families', []) %}
