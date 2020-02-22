@@ -8,6 +8,53 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 fro
 set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 then accept
 {% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
+{%         set is_master = ri.get('is_master', '') %}
+{%         if ri.get('is_master') == true %}{# /* BGP for master_LR */ #}
+{%         set name = ri.get('name', '')[:127] %}
+{%         for route in ri.get('static_routes', []) %}
+{%             set cidr = route.get('prefix') %}
+{%             set next_hop = route.get('next_hop') %}
+set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{next_hop}}
+{%         endfor %}
+{%         for protocols in ri.get('protocols', []) %}
+{%             for bgp in protocols.get('bgp', []) %}
+{%                 set bgp_name = bgp.get('name') %}
+{%                 set bgp_local_as = bgp.get('autonomous_system') %}
+{%                 set bgp_auth_key = bgp.get('authentication_key', '') %}
+{%                 if bgp_auth_key != '' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} authentication-key {{bgp_auth_key}}
+{%                 endif %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} type external
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} multipath
+{%                 for peer in bgp.get('peers', []) %}
+{%                     set peer_ip = peer.get('ip_address') %}
+{%                     set peer_as = peer.get('autonomous_system') %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} neighbor {{peer_ip}} peer-as {{peer_as}}
+{%                 endfor %}
+{%                 set bfd = bgp.get('bfd', {}) %}
+{%                 if bfd|length > 0 %}
+{%                      set rx_tx_interval = bfd.get('rx_tx_interval') %}
+{%                      set detection_time_multiplier = bfd.get('detection_time_multiplier') %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} bfd-liveness-detection minimum-interval {{rx_tx_interval}}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} bfd-liveness-detection multiplier {{detection_time_multiplier}}
+{%                 endif %}
+{%                     set rp = bgp.get('routing_policies', {}) %}
+{%                     if rp|length > 0 %}
+{%                         for import_rp in rp.get('import_routing_policies', []) %}
+{%                             if import_rp != '' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} import {{import_rp}}
+{%                             endif %}
+{%                         endfor %}
+{%                         for export_rp in rp.get('export_routing_policies', []) %}
+{%                             if export_rp != '' %}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} export {{export_rp}}
+{%                             endif %}
+{%                         endfor %}
+{%                     endif %}{# /* bgp has routing policies */ #}
+{%             endfor %}{# /* end of bgp for loop */ #}
+{%         endfor %}{# /* end of protocols for loop */ #}
+{%         else %}
 {%         set name = ri.get('name', '')[:127] %}
 {%         set vxlan_id = ri.get('vxlan_id') %}
 {%         set router_external = ri.get('is_public_network', '') %}
@@ -77,6 +124,7 @@ set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_na
 {%                     endif %}{# /* bgp has routing policies */ #}
 {%             endfor %}{# /* end of bgp for loop */ #}
 {%         endfor %}{# /* end of protocols for loop */ #}
+{%         endif %}{# /* end BGP for master_LR */ #}
 {%         set sys_config = device_abstract_config.get('system') %}
 {%         set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%         if (router_external == true and ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles)) %}
@@ -90,6 +138,7 @@ set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filt
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
 {%         endif %}
 {%     endfor %}
+
 {%     for rp in device_abstract_config.features.get('vn-interconnect').get('routing_policies', []) %}
 {%         set rp_entery = rp.get('routing_policy_entries', {}) %}
 {%         if rp_entery|length > 0 %}
