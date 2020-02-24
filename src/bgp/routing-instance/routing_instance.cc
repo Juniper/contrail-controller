@@ -1856,6 +1856,15 @@ bool RoutingInstance::IsServiceChainRoute(const BgpRoute *route) const {
 
 bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
                                            BgpPath *path) const {
+    ExtCommunityPtr ext_community = path->GetAttr()->ext_community();
+    if (path->IsReplicated() &&
+            ext_community && ext_community->GetSubClusterId()) {
+        // If self sub-cluster id macthes with what is associated with the route
+        // then no need to apply policy.
+        if (route->SubClusterId() == ext_community->GetSubClusterId()) {
+            return true;
+        }
+    }
      if (path->IsReplicated() && IsServiceChainRoute(route)) {
         // Don't apply routing policy on secondary path for service chain route
         return true;
