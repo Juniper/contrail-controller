@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "cb694ce5_923d609e",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3109,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-02-24T19:12:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "19f8e0c3_98932d4a",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "b9694ab2_f4818a44",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 2
@@ -72,6 +90,24 @@
     },
     {
       "key": {
+        "uuid": "b79cb29e_4f917779",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3111,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-02-24T19:12:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "b4dbe25c_de175df7",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "25eebc47_3f97c47e",
         "filename": "src/config/device-manager/device_manager/db.py",
         "patchSetId": 2
@@ -101,6 +137,24 @@
       "side": 1,
       "message": "as discussed this is not an issue",
       "parentUuid": "25eebc47_3f97c47e",
+      "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "3427bdf3_b1ac65ab",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 3117,
+      "author": {
+        "id": 81
+      },
+      "writtenOn": "2020-02-24T19:12:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "47a0bf51_2811332c",
       "revId": "12503dd8f705cfe49c5f926b185d1db742ed63fc",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": false
