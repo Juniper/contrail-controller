@@ -216,7 +216,8 @@ class Subnet(object):
                  should_persist=True,
                  ip_alloc_unit=1,
                  subnetting = False,
-                 subscriber_tag=None):
+                 subscriber_tag=None,
+                 routed_vn=False):
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
         # check allocation-pool
@@ -239,7 +240,7 @@ class Subnet(object):
                 raise AddrMgmtInvalidGatewayIp(name, gw)
 
         else:
-            if subnetting:
+            if subnetting or routed_vn:
                 gw_ip = None
             else:
                 # reserve a gateway ip in subnet
@@ -258,7 +259,7 @@ class Subnet(object):
         else:
             # reserve a service address ip in subnet
             # only if subnet is not a subnetting from bigger subnet
-            if subnetting:
+            if subnetting or routed_vn:
                 service_node_address = None
             else:
                 if addr_from_start:
@@ -366,7 +367,7 @@ class Subnet(object):
 
         # exclude gw_ip, service_node_address if they are within
         # allocation-pool and subnet is not subnetted
-        if not subnetting:
+        if not subnetting and not routed_vn:
             for alloc_int in alloc_int_list:
                 if alloc_int['start'] <= int(gw_ip) <= alloc_int['end']:
                     exclude.append(gw_ip)
@@ -398,6 +399,7 @@ class Subnet(object):
         self._addr_from_start = addr_from_start
         self.subnetting = subnetting
         self.subscriber_tag = subscriber_tag
+        self.routed_vn = routed_vn
     # end __init__
 
     @classmethod
@@ -587,7 +589,8 @@ class AddrMgmt(object):
     # end _get_net_subnet_dicts
 
     def _create_subnet_obj_for_ipam_subnet(self, ipam_subnet, fq_name_str,
-                                           should_persist, subnetting=False):
+                                           should_persist, subnetting=False,
+                                           routed_vn=False):
         subnet = ipam_subnet['subnet']
         subnet_name = str(subnet['ip_prefix']) + '/' + str(subnet['ip_prefix_len'])
         gateway_ip = ipam_subnet.get('default_gateway')
@@ -605,7 +608,8 @@ class AddrMgmt(object):
             alloc_pool_list=allocation_pools,
             addr_from_start=addr_start, should_persist=should_persist,
             ip_alloc_unit=alloc_unit, subnetting=subnetting,
-            subscriber_tag = subscriber_tag)
+            subscriber_tag = subscriber_tag,
+            routed_vn=routed_vn)
 
         return subnet_obj
     #end _create_subnet_obj_for_ipam_subnet
@@ -790,7 +794,8 @@ class AddrMgmt(object):
     # end _check_subnet_alloc_pools
 
     def _create_subnet_objs(self, fq_name_str, obj_uuid, ipam_subnets,
-                            should_persist, alloc_pool_change, subnetting):
+                            should_persist, alloc_pool_change, subnetting,
+                            routed_vn=False):
         for ipam_subnet in ipam_subnets:
             subnet = ipam_subnet['subnet']
             subnet_name = subnet['ip_prefix'] + '/' + str(
@@ -799,7 +804,7 @@ class AddrMgmt(object):
                 subnet_obj = self._subnet_objs[obj_uuid][subnet_name]
                 addr_from_start = subnet_obj._addr_from_start
                 old_dns_addr = str(subnet_obj.dns_server_address)
-                if not subnetting:
+                if not subnetting and not routed_vn:
                     if ('dns_server_address' not in ipam_subnet) or \
                         (ipam_subnet['dns_server_address'] is None) or \
                         (ipam_subnet['dns_server_address'] is 'None'):
@@ -837,7 +842,7 @@ class AddrMgmt(object):
                 # assign new dns_server_address
                 # reset old dns_server_address and set
                 # new dns_server_address in bitmap
-                if not subnetting:
+                if not subnetting and not routed_vn:
                     if old_dns_addr != new_dns_addr:
                         if subnet_obj.ip_belongs(old_dns_addr):
                             if IPAddress(old_dns_addr) in subnet_obj._exclude:
@@ -850,7 +855,8 @@ class AddrMgmt(object):
 
             except KeyError:
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
-                                 ipam_subnet, fq_name_str, should_persist, subnetting)
+                                 ipam_subnet, fq_name_str, should_persist, subnetting,
+                                 routed_vn)
                 self._subnet_objs[obj_uuid][subnet_name] = subnet_obj
 
             ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
@@ -877,6 +883,11 @@ class AddrMgmt(object):
         self._subnet_objs.setdefault(vn_uuid, OrderedDict())
         # create subnet for each new subnet
         refs = vn_dict.get('network_ipam_refs')
+        vn_category = vn_dict.get('virtual_network_category')
+        routed_vn = False
+        if vn_category and vn_category == "routed":
+            routed_vn = True
+
         if refs:
             for ref in refs:
                 # only create a subnet obj for a ref which is not a flat ipam
@@ -893,7 +904,7 @@ class AddrMgmt(object):
                 if ipam_subnets:
                     self._create_subnet_objs(vn_fq_name_str, vn_uuid,
                                              ipam_subnets, should_persist,
-                                             alloc_pool_change, False)
+                                             alloc_pool_change, False, routed_vn)
     # end _create_net_subnet_objs
 
     def config_log(self, msg, level):
@@ -1551,7 +1562,8 @@ class AddrMgmt(object):
         return subnet_obj.ip_count()
     # end ip_count_req
 
-    def _get_subnet_obj(self, fq_name_str, obj_uuid, subnet_name, subnet_dict):
+    def _get_subnet_obj(self, fq_name_str, obj_uuid, subnet_name, subnet_dict,
+                        routed_vn=False):
         try:
             subnet_obj = self._subnet_objs[obj_uuid][subnet_name]
         except KeyError:
@@ -1566,7 +1578,9 @@ class AddrMgmt(object):
                 alloc_pool_list=subnet_dict['allocation_pools'],
                 addr_from_start = subnet_dict['addr_start'],
                 should_persist=False,
-                ip_alloc_unit=subnet_dict['alloc_unit'])
+                ip_alloc_unit=subnet_dict['alloc_unit'],
+                subscriber_tag=None,
+                routed_vn=routed_vn)
             self._subnet_objs[obj_uuid][subnet_name] = subnet_obj
         return subnet_obj
     # end _get_subnet_obj
@@ -1834,6 +1848,10 @@ class AddrMgmt(object):
         else:
             vn_uuid = vn_dict['uuid']
 
+        vn_category = vn_dict.get('virtual_network_category')
+        routed_vn = False
+        if vn_category and vn_category == "routed":
+            routed_vn = True
         subnets_tried = []
         found_subnet_match = False
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid, vn_dict)
@@ -1852,7 +1870,7 @@ class AddrMgmt(object):
             # create subnet_obj internally if it was created by some other
             # api-server before
             subnet_obj = self._get_subnet_obj(vn_fq_name_str, vn_uuid,
-                                              subnet_name, subnet_dict)
+                                              subnet_name, subnet_dict, routed_vn)
             if asked_ip_version and asked_ip_version != subnet_obj.get_version():
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
