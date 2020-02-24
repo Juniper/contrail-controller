@@ -1,0 +1,27 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import os
+
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+GoEnv.AppendENVPath('GOPATH', GoEnv.Dir('#/controller').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
+
+# TODO: Add go mod to scons go env
+# TODO: Add clone of api-client or use from specified dir
+GoEnv.GoBuild('/cmd/contrailflcm/main.go', 'contrailflcm')
+
+go_build = GoEnv['TOP'] + '/feature-flag/feature-flag'
+GoEnv.Depends('install', go_build)
+GoEnv.Default(go_build)
+
+go_cmd_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/feature-flag/cmd/contrailflcm').abspath)
+go_pkg_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/feature-flag/pkg/feature').abspath)
+go_tests =[ go_cmd_test, go_pkg_test]
+GoEnv.Alias('controller/src/feature-flag:test', go_tests)
+
+if 'install' in BUILD_TARGETS:
+    GoEnv.Alias('install', GoEnv.InstallAs(GoEnv['INSTALL_BIN'] + '/contrailflcm', go_build))
