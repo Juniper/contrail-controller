@@ -21,6 +21,7 @@
 #include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/sub_cluster.h"
 #include "bgp/extended-community/tag.h"
 #include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
@@ -330,6 +331,12 @@ ExtCommunity::ExtCommunityList ExtCommunity::ExtCommunityFromString(
             return commList;
         }
         commList.push_back(vit.GetExtCommunity());
+    } else if (first == "subcluster") {
+        SubCluster sc = SubCluster::FromString(comm, &error);
+        if (error) {
+            return commList;
+        }
+        commList.push_back(sc.GetExtCommunity());
     } else {
         value = FromHexString(comm, &error);
         if (error) {
@@ -395,6 +402,9 @@ string ExtCommunity::ToString(const ExtCommunityValue &comm) {
     } else if (is_vrf_route_import(comm)) {
         VrfRouteImport rt_import(comm);
         return(rt_import.ToString());
+    } else if (is_sub_cluster(comm)) {
+        SubCluster sc(comm);
+        return(sc.ToString());
     }
     return ToHexString(comm);
 }
@@ -435,6 +445,17 @@ bool ExtCommunity::ContainsSourceAs(const ExtCommunityValue &val) const {
             return true;
     }
     return false;
+}
+
+uint32_t ExtCommunity::GetSubClusterId() const {
+    for (ExtCommunityList::const_iterator it = communities_.begin();
+            it != communities_.end(); ++it) {
+        if (ExtCommunity::is_sub_cluster(*it)) {
+            SubCluster sc(*it);
+            return sc.GetId();
+        }
+    }
+    return 0;
 }
 
 bool ExtCommunity::ContainsVrfRouteImport(const ExtCommunityValue &val) const {
@@ -548,6 +569,17 @@ void ExtCommunity::RemoveLoadBalance() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
         if (ExtCommunity::is_load_balance(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void ExtCommunity::RemoveSubCluster() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_sub_cluster(*it)) {
             it = communities_.erase(it);
         } else {
             ++it;
@@ -886,6 +918,21 @@ ExtCommunityPtr ExtCommunityDB::ReplaceLoadBalanceAndLocate(
 
     clone->RemoveLoadBalance();
     clone->Append(lb);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceSubClusterAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &sc) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSubCluster();
+    clone->Append(sc);
     return Locate(clone);
 }
 
