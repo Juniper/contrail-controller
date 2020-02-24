@@ -7,7 +7,7 @@
         - juniper_junos_config:
             load: "{{ load }}"
             lines: "{{ device_config }}"
-            comment: "Applied by Ansible"
+            comment: "Contrail execution ID: {{ job_ctx.job_execution_id }}"
             ignore_warning: "True"
             format: "{{ format }}"
             config_mode: private
