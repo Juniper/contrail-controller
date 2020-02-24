@@ -174,6 +174,7 @@ public:
     bool ContainsOriginVn4(const ExtCommunityValue &val) const;
     bool ContainsVrfRouteImport(const ExtCommunityValue &val) const;
     bool ContainsSourceAs(const ExtCommunityValue &val) const;
+    uint32_t GetSubClusterId() const;
 
     // Return vector of communities
     const ExtCommunityList &communities() const {
@@ -338,6 +339,17 @@ public:
                 (val[1] == BgpExtendedCommunitySubType::SourceAS));
     }
 
+    static bool is_sub_cluster(const ExtCommunityValue &val) {
+        //
+        // Sub Cluster extended community
+        // 1. Experimental AS specific extended community
+        // 2. Experimental4Byte  AS specific extended community
+        //
+        return (((val[0] == BgpExtendedCommunityType::Experimental) ||
+                (val[0] == BgpExtendedCommunityType::Experimental4ByteAs)) &&
+                (val[1] == BgpExtendedCommunitySubType::SubCluster));
+    }
+
     static bool is_vrf_route_import(const ExtCommunityValue &val) {
         //
         // VRF Route Import extended community
@@ -403,6 +415,7 @@ private:
     void RemoveOriginVn();
     void RemoveTunnelEncapsulation();
     void RemoveLoadBalance();
+    void RemoveSubCluster();
     void Set(const ExtCommunityList &list);
 
     mutable tbb::atomic<int> refcount_;
@@ -475,6 +488,8 @@ public:
             const ExtCommunity::ExtCommunityList &tunnel_encaps);
     ExtCommunityPtr ReplaceLoadBalanceAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &lb);
+    ExtCommunityPtr ReplaceSubClusterAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &sc);
     ExtCommunityPtr SetAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &list);
 

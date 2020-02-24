@@ -12,9 +12,11 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/community.h"
 #include "bgp/evpn/evpn_route.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
+#include "bgp/extended-community/sub_cluster.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
@@ -1267,6 +1269,27 @@ TEST_F(BgpAttrTest, SequenceNumber2) {
     attr_spec.push_back(&spec);
     BgpAttrPtr attr = attr_db_->Locate(attr_spec);
     EXPECT_EQ(13, attr->sequence_number());
+}
+
+TEST_F(BgpAttrTest, ExtCommunitySubCluster) {
+    BgpAttrSpec attr_spec;
+    ExtCommunitySpec spec;
+    SubCluster sc1(64512, 100);
+    spec.communities.push_back(sc1.GetExtCommunityValue());
+    attr_spec.push_back(&spec);
+    BgpAttrPtr attr_ptr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ("subcluster:64512:100", sc1.ToString());
+    EXPECT_EQ(100, attr_ptr->ext_community()->GetSubClusterId());
+    const BgpAttr *attr = attr_ptr.get();
+    ExtCommunityPtr ext_community = attr->ext_community();
+    SubCluster sc2(64512, 200);
+    ext_community = extcomm_db_->
+        ReplaceSubClusterAndLocate(ext_community.get(), sc2.GetExtCommunity());
+    attr_ptr = attr_db_->ReplaceExtCommunityAndLocate(attr, ext_community);
+    attr = attr_ptr.get();
+    EXPECT_EQ(200, attr_ptr->ext_community()->GetSubClusterId());
+    EXPECT_EQ("subcluster:64512:200",
+            ext_community.get()->ToString(sc2.GetExtCommunity()));
 }
 
 TEST_F(BgpAttrTest, RouterMac1) {

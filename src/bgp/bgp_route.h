@@ -79,6 +79,8 @@ public:
     void FillRouteInfo(const BgpTable *table, ShowRouteBrief *show_route) const;
     void FillRouteInfo(const BgpTable *table, ShowRoute *show_route,
         const std::string &source = "", const std::string &protocol = "") const;
+    uint32_t SubClusterId() const;
+    void AddExtCommunitySubCluster(BgpPath *path);
 
 private:
     DISALLOW_COPY_AND_ASSIGN(BgpRoute);
