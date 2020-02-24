@@ -62,6 +62,10 @@ env.Alias('src/bgp/extended-community:etree_test', etree_test)
 tag_test = env.UnitTest('tag_test', ['tag_test.cc'])
 env.Alias('src/bgp/extended-community:tag_test', tag_test)
 
+sub_cluster_test = env.UnitTest('sub_cluster_test',
+                                   ['sub_cluster_test.cc'])
+env.Alias('src/bgp/extended-community:sub_cluster_test', sub_cluster_test)
+
 test_suite = [
     default_gateway_test,
     es_import_test,
@@ -72,6 +76,7 @@ test_suite = [
     router_mac_test,
     site_of_origin_test,
     source_as_test,
+    sub_cluster_test,
     tag_test,
     vrf_route_import_test,
 ]
