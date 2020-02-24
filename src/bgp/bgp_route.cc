@@ -19,11 +19,13 @@
 #include "bgp/extended-community/source_as.h"
 #include "bgp/extended-community/tag.h"
 #include "bgp/extended-community/vrf_route_import.h"
+#include "bgp/extended-community/sub_cluster.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/bgp_config_ifmap.h"
 
 using std::string;
 using std::vector;
@@ -83,6 +85,20 @@ void BgpRoute::InsertPath(BgpPath *path) {
         // already has tunnel encapsulation specified.
 
         if (table->IsRoutingPolicySupported()) {
+            if (!path->IsReplicated()) {
+                // Add sub-cluster extended community to all routes
+                // originated within a sub-cluster
+                BgpAttr *attr = new BgpAttr(*(path->GetAttr()));
+                uint32_t subcluster_id = SubClusterId();
+                if (subcluster_id) {
+                    BgpAttrPtr modified_attr = table->AddExtCommunitySubCluster(
+                            attr, subcluster_id);
+                    // Update the path with new set of attributes
+                    if (modified_attr) {
+                        path->SetAttr(modified_attr, path->GetOriginalAttr());
+                    }
+                }
+            }
             RoutingInstance *rtinstance = table->routing_instance();
             rtinstance->ProcessRoutingPolicy(this, path);
         } else {
@@ -447,6 +463,7 @@ static void FillRoutePathCommunityInfo(const Community *comm,
     comm->BuildStringList(communities);
 }
 
+
 static void FillRoutePathExtCommunityInfo(const BgpTable *table,
     const ExtCommunity *extcomm,
     ShowRoutePath *show_path, vector<string> *communities) {
@@ -515,6 +532,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_source_as(*it)) {
             SourceAs sas(*it);
             communities->push_back(sas.ToString());
+        } else if (ExtCommunity::is_sub_cluster(*it)) {
+            SubCluster sc(*it);
+            communities->push_back(sc.ToString());
         } else if (ExtCommunity::is_vrf_route_import(*it)) {
             VrfRouteImport rt_import(*it);
             communities->push_back(rt_import.ToString());
@@ -721,4 +741,22 @@ void BgpRoute::NotifyOrDelete() {
     } else {
         Notify();
     }
+}
+
+uint32_t BgpRoute::SubClusterId() const {
+    BgpTable *table = static_cast<BgpTable *>(get_table());
+    const RoutingInstance *ri = table->routing_instance();
+    if (!ri) {
+        return 0;
+    }
+    const BgpConfigManager *config_manager_ = table->server()->config_manager();
+    if (!config_manager_) {
+        return 0;
+    }
+    const BgpProtocolConfig *proto = 
+        config_manager_->GetProtocolConfig(ri->name());
+    if (!proto) {
+        return 0;
+    }
+    return proto->subcluster_id();
 }

@@ -24,6 +24,7 @@
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
+#include "bgp/extended-community/sub_cluster.h"
 
 using std::make_pair;
 using std::string;
@@ -363,6 +364,19 @@ void BgpTable::ProcessDefaultTunnelEncapsulation(const RibOut *ribout,
             ext_community.get(), encap_list);
         attr->set_ext_community(ext_community);
     }
+}
+
+BgpAttrPtr BgpTable::AddExtCommunitySubCluster(BgpAttr *attr,
+        uint32_t subcluster_id) {
+    ExtCommunityPtr ext_community = attr->ext_community();
+    if (!ext_community) {
+        return NULL;
+    }
+    SubCluster sc(server()->autonomous_system(), subcluster_id);
+    ext_community = server()->extcomm_db()->
+        ReplaceSubClusterAndLocate(ext_community.get(), sc.GetExtCommunity());
+    return server()->attr_db()->
+        ReplaceExtCommunityAndLocate(attr, ext_community);
 }
 
 void BgpTable::PrependAsToAsPath2Byte(BgpAttr *attr, as2_t asn) const {
@@ -805,6 +819,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
 
         // Locate the new BgpAttrPtr.
         attr_ptr = clone->attr_db()->Locate(clone);
+
         attr = attr_ptr.get();
     }
 

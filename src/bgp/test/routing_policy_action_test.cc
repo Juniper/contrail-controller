@@ -225,22 +225,6 @@ TEST_F(UpdateAsPathTest, UpdateNonNullAs4) {
     EXPECT_EQ(4000, as_path_spec.path_segments[0]->path_segment[3]);
 }
 
-TEST_F(UpdateExtCommunityTest, ValidHexString1) {
-    vector<string> communities = list_of("0x123456789abcdef0");
-    UpdateExtCommunity action(communities, "add");
-    ExtCommunitySpec comm_spec;
-    comm_spec.communities.clear();
-    BgpAttrSpec spec;
-    spec.push_back(&comm_spec);
-    BgpAttrPtr attr = attr_db_->Locate(spec);
-    action(const_cast<BgpAttr *>(attr.get()));
-    const ExtCommunity *comm = attr->ext_community();
-    EXPECT_TRUE(comm!= NULL);
-    EXPECT_TRUE(comm->communities().size() == 1);
-    EXPECT_EQ("Extcommunity add [ 123456789abcdef0 ]",
-              action.ToString());
-}
-
 TEST_F(UpdateExtCommunityTest, ValidHexString2) {
     //hex string without prefix '0x'
     vector<string> communities = list_of("123456789abcdef0");
@@ -347,6 +331,54 @@ TEST_F(UpdateExtCommunityTest, InValidHexString4) {
     const ExtCommunity *comm = attr->ext_community();
     EXPECT_TRUE(comm!= NULL);
     EXPECT_TRUE(comm->communities().size() == 0);
+}
+
+TEST_F(UpdateExtCommunityTest, ValidSubCluster) {
+    vector<string> communities = list_of("subcluster:65535:100");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ subcluster:65535:100 ]",
+              action.ToString());
+}
+
+TEST_F(UpdateExtCommunityTest, ValidSubClusterHexString) {
+    vector<string> communities = list_of("0x8085ffffffffffff");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ subcluster:65535:4294967295 ]",
+              action.ToString());
+}
+
+TEST_F(UpdateExtCommunityTest, ValidHexString1) {
+    vector<string> communities = list_of("0x123456789abcdef0");
+    UpdateExtCommunity action(communities, "add");
+    ExtCommunitySpec comm_spec;
+    comm_spec.communities.clear();
+    BgpAttrSpec spec;
+    spec.push_back(&comm_spec);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    action(const_cast<BgpAttr *>(attr.get()));
+    const ExtCommunity *comm = attr->ext_community();
+    EXPECT_TRUE(comm!= NULL);
+    EXPECT_TRUE(comm->communities().size() == 1);
+    EXPECT_EQ("Extcommunity add [ 123456789abcdef0 ]",
+              action.ToString());
 }
 
 static void SetUp() {
