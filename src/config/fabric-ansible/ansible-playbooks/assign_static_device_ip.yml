@@ -58,6 +58,9 @@
         current_index: 3
         jl_message: "Assigned static ip to management interface {{interface_configuration.name}} info for {{prouter_vendor}} device, {{prouter_name}}"
     - import_role:
+        name: check_n_set_network_services_mode
+      when: "prouter_family == 'junos'"
+    - import_role:
         name: wait_for_fpc_online
     - import_role:
         name: check_config_mode
