@@ -31,6 +31,9 @@ import gevent
 from pycassa.connection import default_socket_factory
 from pycassa import ConnectionPool
 from pycassa import ColumnFamily
+from collections import deque
+import pycassa
+import pycassa.connection
 from pycassa.system_manager import SystemManager
 import kazoo.client
 import kazoo.handlers.gevent
@@ -52,6 +55,53 @@ KEYSPACES = ['config_db_uuid',
             'to_bgp_keyspace',
             'svc_monitor_keyspace',
             'dm_keyspace']
+
+# Class that provides an abstraction for a Zookeeper Directory Node
+class ZookeeperDirectoryNode(object):
+
+    # Constructor
+    def __init__(self, parent=None, value=None, children=[], path=None):
+        self.parent = parent
+        self.value = value
+        self.children = children
+        self.path=path
+        self.visited = False
+
+    # getter methods
+    def get_parent(self):
+        return self.parent
+
+    def get_child_list(self):
+        return self.children
+
+    def get_path(self):
+        return self.path
+
+    def get_visited(self):
+        return self.visited
+
+    def dir_name(self):
+        return self.value
+    # end getter methods
+
+    def set_visited(self):
+        self.visited = True
+
+    def __str__(self):
+        return self.value
+
+class ZookeeperDirectoryTree(object):
+    # Constructor
+    def __init__(self, root_dir):
+        self.root_node = ZookeeperDirectoryNode(value=root_dir, path=root_dir)
+
+    # getter methods
+    def get_root(self):
+        return self.root_node
+
+    # Function that sets all nodes to unvisited for BFS and DFS
+    def set_all_unvisited(self):
+        pass
 
 class DatabaseExim(object):
     def __init__(self, args_str):
@@ -107,6 +157,10 @@ class DatabaseExim(object):
             help="Number of rows fetched at once",
             default=1024)
 
+        parser.add_argument(
+            "pretty_print", help="Export for JSON usage for Database Manager",
+            action='store_true', default=False)
+        
         args_obj, remaining_argv = parser.parse_known_args(args_str.split())
         if ((args_obj.import_from is not None) and
             (args_obj.export_to is not None)):
@@ -120,7 +174,7 @@ class DatabaseExim(object):
         pass
     # end _parse_args
 
-    def db_import(self):
+    def cassandra_zookeeper_pre_check(self):
         if self._args.import_from.endswith('.gz'):
             try:
                 f = gzip.open(self._args.import_from, 'rb')
@@ -147,9 +201,13 @@ class DatabaseExim(object):
         if non_empty_errors:
             raise CassandraNotEmptyError('\n'.join(non_empty_errors))
 
-        non_empty_errors = []
+        non_empty_zk_errors = []
         existing_zk_dirs = set(
             self._zookeeper.get_children(self._api_args.cluster_id+'/'))
+        return non_empty_zk_errors, existing_zk_dirs
+    
+    def db_import(self):
+        non_empty_errors, existing_zk_dirs = self.cassandra_zookeeper_pre_check()
         import_zk_dirs = set([p_v_ts[0].split('/')[1]
             for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
 
@@ -170,7 +228,7 @@ class DatabaseExim(object):
                         cf.insert(row, {col_name: col_val_ts[0]})
         # end seed cassandra
 
-        zk_ignore_list = ['consumers', 'config', 'controller',
+        self.zk_ignore_list = ['consumers', 'config', 'controller',
                           'isr_change_notification', 'admin', 'brokers',
                           'zookeeper', 'controller_epoch',
                           'api-server-election', 'schema-transformer',
@@ -182,7 +240,7 @@ class DatabaseExim(object):
             path = path_value_ts[0]
             if path.endswith('/'):
                 path = path[:-1]
-            if path.split('/')[1] in zk_ignore_list:
+            if path.split('/')[1] in self.zk_ignore_list:
                 continue
             value = path_value_ts[1][0]
             self._zookeeper.create(path, str(value), makepath=True)
@@ -196,9 +254,47 @@ class DatabaseExim(object):
             return TSSLSocket.TSSLSocket(host, port, ca_certs=ca_certs, validate=validate)
         return ssl_socket_factory
 
-    def db_export(self):
+    def pre_db_export(self):
         db_contents = {'cassandra': {},
                        'zookeeper': {}}
+
+        cassandra_contents = db_contents['cassandra']
+        for ks_name in (set(KEYSPACES) -
+                        set(self._args.omit_keyspaces or [])):
+            if self._api_args.cluster_id:
+                full_ks_name = '%s_%s' %(self._api_args.cluster_id, ks_name)
+            else:
+                full_ks_name = ks_name
+            cassandra_contents[ks_name] = {}
+
+            socket_factory = default_socket_factory
+            if ('cassandra_use_ssl' in self._api_args and 
+                self._api_args.cassandra_use_ssl):
+                socket_factory = self._make_ssl_socket_factory(
+                    self._api_args.cassandra_ca_certs, validate=False)
+
+            creds = None
+            if (self._api_args.cassandra_user and
+                self._api_args.cassandra_password):
+                creds = {'username': self._api_args.cassandra_user,
+                         'password': self._api_args.cassandra_password}
+            pool = ConnectionPool(
+                full_ks_name, self._api_args.cassandra_server_list,
+                pool_timeout=120, max_retries=-1, timeout=5,
+                socket_factory=socket_factory, credentials=creds)
+            sys_mgr = SystemManager(self._api_args.cassandra_server_list[0],
+                credentials=creds, socket_factory=socket_factory)
+            for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
+                cassandra_contents[ks_name][cf_name] = {}
+                cf = ColumnFamily(pool, cf_name,
+                                  buffer_size=self._args.buffer_size)
+                for r,c in cf.get_range(column_count=10000000, include_timestamp=True):
+                    cassandra_contents[ks_name][cf_name][r] = c
+        return db_contents
+        # end pre_db_export
+    
+    def db_export(self):
+        db_contents = self.pre_db_export()
 
         cassandra_contents = db_contents['cassandra']
         for ks_name in (set(KEYSPACES) -
@@ -260,10 +356,150 @@ class DatabaseExim(object):
     # end db_export
 # end class DatabaseExim
 
+class DatabaseJSONExim(DatabaseExim):
+    def db_import(self):
+        non_empty_errors, existing_zk_dirs = self.cassandra_zookeeper_pre_check()
+        zk_dict = self.import_data['zookeeper']
+        if zk_dict is not {}:
+            import_zk_dirs = set([dir for dir in zk_dict['/'].keys()])
+        else:
+            import_zk_dirs = set([])
+
+        for non_empty in ((existing_zk_dirs & import_zk_dirs) -
+            set(['zookeeper'])):
+            non_empty_errors.append(
+                'Zookeeper has entries at /%s.' %(non_empty))
+
+        if non_empty_errors:
+            raise ZookeeperNotEmptyError('\n'.join(non_empty_errors))
+
+        # seed cassandra
+        for ks_name in self.import_data['cassandra'].keys():
+            for cf_name in self.import_data['cassandra'][ks_name].keys():
+                cf = self._cassandra.get_cf(cf_name)
+                for row,cols in self.import_data['cassandra'][ks_name][cf_name].items():
+                    for col_name, col_val_ts in cols.items():
+                        cf.insert(row, {col_name: col_val_ts[0]})
+        # end seed cassandra
+
+        # seed zookeeper
+        root_dir = self.import_data['zookeeper']['/']
+        json_tree = ZookeeperDirectoryTree('/')
+        # Function that builds tree from JSON
+        def build_tree_from_json(root, json_dict):
+            if type(json_dict) is list:
+                child_node = ZookeeperDirectoryNode (
+                                parent=root,
+                                value=json_dict,
+                                path=(root.get_path()),
+                                children = []
+                             )
+
+                root.get_child_list().append(child_node)
+                return
+
+            for json_key, json_val in json_dict.items():
+                if json_key in self.zk_ignore_list:
+                    continue
+
+                child_node = ZookeeperDirectoryNode (
+                                parent=root,
+                                value=json_key,
+                                path=(root.get_path() + json_key + '/'),
+                                children = []
+                             )
+
+                root.get_child_list().append(child_node)
+                recurse_json_dict = json_dict[json_key]
+                build_tree_from_json(child_node, recurse_json_dict)
+        # end build tree from JSON
+
+        # seed zookeeper from JSON using Depth First Search
+        def seed_zookeeper_dfs(root):
+            dfs_stack = []
+            dfs_stack.append(root)
+
+            while len(dfs_stack) != 0:
+                popped = dfs_stack.pop()
+
+                if type(popped.dir_name()) is list and popped.get_visited() == False:
+                    # at a leaf zookeeper node, cannot have additional
+                    # '/' char as leads to NodeExists Exception
+                    path = popped.get_path()[:-1]
+                    self._zookeeper.create(path, bytes(popped.dir_name()[0]), makepath=True)
+
+                popped.set_visited()
+                for child_node in popped.get_child_list():
+                    if child_node.get_visited() == False:
+                        dfs_stack.append(child_node)
+        # end seed zookeeper dfs
+
+        build_tree_from_json(json_tree.get_root(), root_dir)
+        seed_zookeeper_dfs(json_tree.get_root())
+    
+    def db_export(self):
+        db_contents = self.pre_db_export()
+        def build_directory_tree(root, path):
+            if not root:
+                return
+
+            try:
+                zk.get_children(path)
+            except:
+                return
+
+            # create the root node
+            for child in zk.get_children(path):
+                child_node = ZookeeperDirectoryNode(
+                                parent=root,
+                                value=child,
+                                path=(root.get_path() + child + '/'),
+                                children = []
+                             )
+
+                root.get_child_list().append(child_node)
+                build_directory_tree(child_node, child_node.get_path())
+
+        json_nodes_dict = {}
+        # Export Zookeeper to JSON format using Breadth First Search
+        def build_json_from_tree(root):
+            bfs_queue = deque([])
+            bfs_queue.append((root, json_nodes_dict))
+
+            while len(bfs_queue) is not 0:
+                dequeued, j_dict = bfs_queue.popleft()
+                j_dict[dequeued.dir_name()] = {}
+                dequeued.set_visited()
+
+                if not zk.get_children(dequeued.get_path()):
+                    j_dict[dequeued.dir_name()] = zk.get(dequeued.get_path())
+
+                for child_node in dequeued.get_child_list():
+                    if child_node.get_visited() == False:
+                        bfs_queue.append((child_node, j_dict[dequeued.dir_name()]))
+
+        zk = kazoo.client.KazooClient(self._api_args.zk_server_ip)
+        zk.start()
+        tree = ZookeeperDirectoryTree(self._api_args.cluster_id+'/')
+        build_directory_tree(tree.get_root(), self._api_args.cluster_id+'/')
+        build_json_from_tree(tree.get_root())
+        zk.stop()
+        db_contents['zookeeper'] = json_nodes_dict
+        f = open(self._args.export_to, 'w')
+        try:
+            f.write(json.dumps(db_contents, indent=4, sort_keys=True))
+        finally:
+            f.close()
+        # end db_export
+# end class DatabaseJSONExim
+
 def main(args_str):
     cgitb.enable(format='text')
     try:
-        db_exim = DatabaseExim(args_str)
+        if pretty_print in args_str:
+            db_exim = DatabaseJSONExim(args_str)
+        else:
+            db_exim = DatabaseExim(args_str)
     except InvalidArguments as e:
         print(str(e))
         return

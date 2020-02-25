@@ -51,6 +51,7 @@ from functools import reduce
 vnc_cgitb.enable(format='text')
 
 from cfgm_common.tests import test_common
+from cfgm_common.tests.test_utils import FakeKazooClient
 from cfgm_common.tests.test_utils import FakeKombu
 from cfgm_common.tests.test_utils import FakeExtensionManager
 from . import test_case
@@ -3768,6 +3769,37 @@ class TestDBAudit(test_case.ApiServerTestCase):
                     [type(x) for x in errors])
     # end test_checker_missing_mandatory_fields
 
+
+    def test_checker_missing_mandatory_fields_json(self):
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_obj = self._create_test_object()
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            orig_col_val_ts = uuid_cf.get(test_obj.uuid,
+                include_timestamp=True)
+            omit_col_names = random.sample(set(
+                ['type', 'fq_name', 'prop:id_perms']), 1)
+            wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
+                if k not in omit_col_names)
+            with uuid_cf.patch_row(
+                test_obj.uuid, wrong_col_val_ts):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+
+                errors = db_checker.check_obj_mandatory_fields()
+                self.assertIn(db_manage.MandatoryFieldsMissingError,
+                    [type(x) for x in errors])
+                os.remove('ut_db.json')
+
     def test_checker_fq_name_mismatch_index_to_object(self):
         # detect OBJ_UUID_TABLE and OBJ_FQ_NAME_TABLE inconsistency
         with self.audit_mocks():
@@ -3792,6 +3824,38 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
     # end test_checker_fq_name_mismatch_index_to_object
 
+    def test_checker_fq_name_mismatch_index_to_object_json(self):
+        # detect OBJ_UUID_TABLE and OBJ_FQ_NAME_TABLE inconsistency
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_obj = self._create_test_object()
+            self.assert_vnc_db_has_ident(test_obj)
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            orig_col_val_ts = uuid_cf.get(test_obj.uuid,
+                include_timestamp=True)
+            wrong_col_val_ts = copy.deepcopy(orig_col_val_ts)
+            wrong_col_val_ts['fq_name'] = (json.dumps(['wrong-fq-name']),
+                wrong_col_val_ts['fq_name'][1])
+            with uuid_cf.patch_row(
+                test_obj.uuid, wrong_col_val_ts):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+
+                errors = db_checker.check_fq_name_uuid_match()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNMismatchError, error_types)
+                self.assertIn(db_manage.FQNStaleIndexError, error_types)
+                self.assertIn(db_manage.FQNIndexMissingError, error_types)
+
     def test_checker_fq_name_index_stale(self):
         # fq_name table in cassandra has entry but obj_uuid table doesn't
         with self.audit_mocks():
@@ -3805,6 +3869,28 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
     # test_checker_fq_name_mismatch_stale
+
+    def test_checker_fq_name_index_stale_json(self):
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_obj = self._create_test_object()
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                errors = db_checker.check_fq_name_uuid_match()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNStaleIndexError, error_types)
+                os.remove('ut_db.json') 
 
     def test_checker_fq_name_index_missing(self):
         # obj_uuid table has entry but fq_name table in cassandra doesn't
@@ -3828,6 +3914,36 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
     # test_checker_fq_name_mismatch_missing
 
+    def test_checker_fq_name_index_missing_json(self):
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_obj = self._create_test_object()
+            self.assert_vnc_db_has_ident(test_obj)
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            test_obj_type = test_obj.get_type().replace('-', '_')
+            orig_col_val_ts = fq_name_cf.get(test_obj_type,
+                include_timestamp=True)
+            # remove test obj in fq-name table
+            wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
+                if ':'.join(test_obj.fq_name) not in k)
+            with fq_name_cf.patch_row(test_obj_type, new_columns=wrong_col_val_ts):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+
+                errors = db_checker.check_fq_name_uuid_match()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNIndexMissingError, error_types)
+                os.remove('ut_db.json')
+
     def test_checker_ifmap_identifier_extra(self):
         # ifmap has identifier but obj_uuid table in cassandra doesn't
         with self.audit_mocks():
@@ -3844,6 +3960,28 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
     # test_checker_ifmap_identifier_extra
 
+    def test_checker_ifmap_identifier_extra_json(self):
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_obj = self._create_test_object()
+            self.assert_vnc_db_has_ident(test_obj)
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                errors = db_checker.check_fq_name_uuid_match()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNStaleIndexError, error_types)
+    
     def test_checker_ifmap_identifier_missing(self):
         # ifmap doesn't have an identifier but obj_uuid table
         # in cassandra does
@@ -3861,6 +3999,31 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
     # test_checker_ifmap_identifier_missing
 
+    def test_checker_ifmap_identifier_missing_json(self):
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_obj = self._create_test_object()
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            with uuid_cf.patch_row(str(uuid.uuid4()),
+                    new_columns={'type': json.dumps(''),
+                                 'fq_name':json.dumps(''),
+                                 'prop:id_perms':json.dumps('')}):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                errors = db_checker.check_fq_name_uuid_match()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNIndexMissingError, error_types)
+                os.remove('ut_db.json')
+        
     def test_checker_useragent_subnet_key_missing(self):
         pass # move to vnc_openstack test
     # test_checker_useragent_subnet_key_missing
@@ -3905,6 +4068,36 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
     # test_checker_zk_vn_extra
 
+    def test_checker_zk_vn_extra_json(self):
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        orig_col_val_ts = fq_name_cf.get('virtual_network',
+            include_timestamp=True)
+        # remove test obj in fq-name table
+        wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
+            if ':'.join(vn_obj.fq_name) not in k)
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with fq_name_cf.patch_row('virtual_network',
+                new_columns=wrong_col_val_ts):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+
+                errors = db_checker.check_subnet_addr_alloc()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNIndexMissingError, error_types)
+                os.remove('ut_db.json')
+        # remove test obj in fq-name table
+    
     def test_checker_zk_vn_missing(self):
         vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
         with self.audit_mocks():
@@ -3922,6 +4115,34 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkSubnetMissingError, error_types)
     # test_checker_zk_vn_missing
 
+    def test_checker_zk_vn_missing_json(self):
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            test_zk = FakeKazooClient() 
+            with test_zk.patch_path(
+                '%s%s/%s' %(self._cluster_id,
+                          '/api-server/subnets',
+                          vn_obj.get_fq_name_str())):
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+
+                errors = db_checker.check_subnet_addr_alloc()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.ZkVNMissingError, error_types)
+                self.assertIn(db_manage.ZkSubnetMissingError, error_types)
+                os.remove('ut_db.json')
+    
     def test_checker_zk_ip_extra(self):
         vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
         with self.audit_mocks():
@@ -3941,6 +4162,33 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkIpExtraError, error_types)
     # test_checker_zk_ip_extra
 
+    def test_checker_zk_ip_extra_json(self):
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            iip_obj = vnc_api.InstanceIp(self.id())
+            iip_obj.add_virtual_network(vn_obj)
+            self._vnc_lib.instance_ip_create(iip_obj)
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            with uuid_cf.patch_row(iip_obj.uuid, None):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+            
+                errors = db_checker.check_subnet_addr_alloc()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.FQNStaleIndexError, error_types)
+                self.assertIn(db_manage.ZkIpExtraError, error_types)
+                os.remove('ut_db.json')
+    
     def test_checker_zk_ip_missing(self):
         vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
         with self.audit_mocks():
@@ -3963,6 +4211,38 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkIpMissingError, error_types)
     # test_checker_zk_ip_missing
 
+    def test_checker_zk_ip_missing_json(self):
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+            fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+            obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+            default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+            iip_obj = vnc_api.InstanceIp(self.id())
+            iip_obj.add_virtual_network(vn_obj)
+            self._vnc_lib.instance_ip_create(iip_obj)
+            ip_addr = self._vnc_lib.instance_ip_read(
+                id=iip_obj.uuid).instance_ip_address
+            ip_str = "%(#)010d" % {'#': int(netaddr.IPAddress(ip_addr))}
+            test_zk = FakeKazooClient()
+            with test_zk.patch_path(
+                '%s%s/%s:1.1.1.0/28/%s' %(
+                    self._cluster_id, db_manage.DatabaseManager.BASE_SUBNET_ZK_PATH,
+                    vn_obj.get_fq_name_str(), ip_str)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                errors = db_checker.check_subnet_addr_alloc()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.ZkIpMissingError, error_types)
+                os.remove('ut_db.json')
+        
     def test_checker_zk_route_target_extra(self):
         pass # move to schema transformer test
     # test_checker_zk_route_target_extra
@@ -3998,6 +4278,32 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkVNIdMissingError, error_types)
     # test_checker_zk_virtual_network_id_extra_and_missing
 
+    def test_checker_zk_virtual_network_id_extra_and_missing_json(self):
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with uuid_cf.patch_column(
+                    vn_obj.uuid,
+                    'prop:virtual_network_network_id',
+                    json.dumps(42)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+
+                errors = db_checker.check_virtual_networks_id()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.ZkVNIdExtraError, error_types)
+                self.assertIn(db_manage.ZkVNIdMissingError, error_types)
+    
     def test_checker_zk_virtual_network_id_duplicate(self):
         uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
         vn1_obj, _, _ = self._create_vn_subnet_ipam_iip('vn1-%s' % self.id())
@@ -4018,6 +4324,36 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkVNIdExtraError, error_types)
     # test_checker_zk_virtual_network_id_duplicate
 
+    def test_checker_zk_virtual_network_id_duplicate_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        vn1_obj, _, _ = self._create_vn_subnet_ipam_iip('vn1-%s' % self.id())
+        vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_obj.uuid)
+        vn2_obj, _, _ = self._create_vn_subnet_ipam_iip('vn2-%s' % self.id())
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with uuid_cf.patch_column(
+                    vn2_obj.uuid,
+                    'prop:virtual_network_network_id',
+                    json.dumps(vn1_obj.virtual_network_network_id)):
+                
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                
+                errors = db_checker.check_virtual_networks_id()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.VNDuplicateIdError, error_types)
+                self.assertIn(db_manage.ZkVNIdExtraError, error_types)
+                os.remove('ut_db.json')
+    
     def test_checker_zk_security_group_id_extra_and_missing(self):
         uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
         sg_obj = self._create_security_group(self.id())
@@ -4036,6 +4372,32 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkSGIdMissingError, error_types)
     # test_checker_zk_security_group_id_extra_and_missing
 
+    def test_checker_zk_security_group_id_extra_and_missing_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        sg_obj = self._create_security_group(self.id())
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with uuid_cf.patch_column(
+                    sg_obj.uuid,
+                    'prop:security_group_id',
+                    json.dumps(8000042)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                errors = db_checker.check_security_groups_id()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.ZkSGIdExtraError, error_types)
+                self.assertIn(db_manage.ZkSGIdMissingError, error_types)
+                os.remove('ut_db.json')
+    
     def test_checker_zk_security_group_id_duplicate(self):
         uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
         sg1_obj = self._create_security_group('sg1-%s' % self.id())
@@ -4056,6 +4418,33 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 self.assertIn(db_manage.ZkSGIdExtraError, error_types)
     # test_checker_zk_security_group_id_duplicate
 
+    def test_checker_zk_security_group_id_duplicate_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        sg1_obj = self._create_security_group('sg1-%s' % self.id())
+        sg1_obj = self._vnc_lib.security_group_read(id=sg1_obj.uuid)
+        sg2_obj = self._create_security_group('sg2-%s' % self.id())
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with uuid_cf.patch_column(
+                    sg2_obj.uuid,
+                    'prop:security_group_id',
+                    json.dumps(sg1_obj.security_group_id)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_checker = db_manage.DatabaseChecker(
+                    *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+                )
+                errors = db_checker.check_security_groups_id()
+                error_types = [type(x) for x in errors]
+                self.assertIn(db_manage.SGDuplicateIdError, error_types)
+                self.assertIn(db_manage.ZkSGIdExtraError, error_types)
+    
     def test_checker_security_group_0_missing(self):
         pass # move to schema transformer test
     # test_checker_security_group_0_missing
@@ -4074,11 +4463,37 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 'check --cluster_id %s' % self._cluster_id)
             db_checker = db_manage.DatabaseChecker(*args)
             db_checker.audit_route_targets_id()
+    
+    def test_checker_route_targets_id_with_vn_rt_list_set_to_none_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.virtual_network_create(vn)
+        vn.set_route_target_list(None)
+        self._vnc_lib.virtual_network_update(vn)
+
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            test_json_obj = self._create_cassandra_json(default_ks_list)
+            zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+            test_json_obj['zookeeper'] = zookeeper_json
+            with open('ut_db.json' , 'w') as outfile:
+                json.dump(test_json_obj, outfile, indent=4)
+            db_checker = db_manage.DatabaseChecker(
+                *db_manage._parse_args('check --in_json ut_db.json --cluster_id %s' %(self._cluster_id))
+            )
+
+            db_checker.audit_route_targets_id()
+            os.remove('ut_db.json')
 
     def test_cleaner(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_manage.db_clean(*db_manage._parse_args('clean --cluster_id %s' %(self._cluster_id)))
+            db_manage.db_clean(*db_manage._parse_args('clean --skip_backup --cluster_id %s' %(self._cluster_id)))
     # end test_cleaner
 
     def test_cleaner_zk_virtual_network_id(self):
@@ -4105,6 +4520,39 @@ class TestDBAudit(test_case.ApiServerTestCase):
                             zk_id_str))
                 )
 
+    def test_cleaner_zk_virtual_network_id_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table') 
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            fake_id = 42
+            with uuid_cf.patch_column(
+                    vn_obj.uuid,
+                    'prop:virtual_network_network_id',
+                    json.dumps(fake_id)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_cleaner = db_manage.DatabaseCleaner(
+                    *db_manage._parse_args('--execute clean --in_json ut_db.json --out_json ut_db_out.json --cluster_id %s' %(self._cluster_id)))
+                db_cleaner.clean_stale_virtual_network_id()
+                zk_id_str = "%(#)010d" %\
+                    {'#': vn_obj.virtual_network_network_id - 1}
+                self.assertIsNone (
+                    db_cleaner.zk_exists(
+                        '%s%s/%s' % (
+                            self._cluster_id, db_cleaner.BASE_VN_ID_ZK_PATH,
+                            zk_id_str))
+                )
+                os.remove('ut_db.json')
+        
     def test_healer_zk_virtual_network_id(self):
         uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
         vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
@@ -4129,6 +4577,38 @@ class TestDBAudit(test_case.ApiServerTestCase):
                              zk_id_str))[0],
                              vn_obj.get_fq_name_str())
 
+    def test_healer_zk_virtual_network_id_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        vn_obj, _, _ = self._create_vn_subnet_ipam_iip(self.id())
+        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            fake_id = 42
+            with uuid_cf.patch_column(
+                    vn_obj.uuid,
+                    'prop:virtual_network_network_id',
+                    json.dumps(fake_id)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_healer = db_manage.DatabaseHealer (
+                    *db_manage._parse_args('--execute heal --in_json ut_db.json --out_json ut_db_out.json --cluster_id %s' %(self._cluster_id)))
+                db_healer.heal_virtual_networks_id()
+                zk_id_str = "%(#)010d" % {'#': fake_id - 1}
+                self.assertEqual(
+                    db_healer.zk_exists(
+                        '%s%s/%s' % (
+                             self._cluster_id, db_healer.BASE_VN_ID_ZK_PATH,
+                             zk_id_str)),
+                             vn_obj.get_fq_name_str())
+                os.remove('ut_db.json')
+    
     def test_cleaner_zk_security_group_id(self):
         uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
         sg_obj = self._create_security_group(self.id())
@@ -4150,6 +4630,37 @@ class TestDBAudit(test_case.ApiServerTestCase):
                             self._cluster_id, db_cleaner.BASE_VN_ID_ZK_PATH,
                             zk_id_str))
                 )
+
+    def test_cleaner_zk_security_group_id_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        sg_obj = self._create_security_group(self.id())
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with uuid_cf.patch_column(
+                    sg_obj.uuid,
+                    'prop:security_group_id',
+                    json.dumps(8000042)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_cleaner = db_manage.DatabaseCleaner(
+                    *db_manage._parse_args('--execute clean --in_json ut_db.json --out_json ut_db_out.json --cluster_id %s' %(self._cluster_id)))
+                db_cleaner.clean_stale_security_group_id()
+                zk_id_str = "%(#)010d" % {'#': sg_obj.security_group_id}
+                self.assertIsNone(
+                    db_cleaner.zk_exists(
+                        '%s%s/%s' % (
+                            self._cluster_id, db_cleaner.BASE_VN_ID_ZK_PATH,
+                            zk_id_str))
+                )
+
+                os.remove('ut_db.json')
 
     def test_healer_zk_security_group_id(self):
         uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
@@ -4173,6 +4684,37 @@ class TestDBAudit(test_case.ApiServerTestCase):
                          zk_id_str))[0],
                     sg_obj.get_fq_name_str())
 
+    #Hello_Rajit
+    def test_healer_zk_security_group_id_json(self):
+        uuid_cf = self.get_cf('config_db_uuid', 'obj_uuid_table')
+        fq_name_cf = self.get_cf('config_db_uuid', 'obj_fq_name_table')
+        obj_shared_cf = self.get_cf('config_db_uuid', 'obj_shared_table')
+        default_ks_list = [uuid_cf, fq_name_cf, obj_shared_cf]
+        sg_obj = self._create_security_group(self.id())
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
+        with self.audit_mocks():
+            from vnc_cfg_api_server import db_manage
+            with uuid_cf.patch_column(
+                    sg_obj.uuid,
+                    'prop:security_group_id',
+                    json.dumps(8000042)):
+                test_json_obj = self._create_cassandra_json(default_ks_list)
+                zookeeper_json = self._create_zookeeper_json(self.get_zk_values())
+                test_json_obj['zookeeper'] = zookeeper_json
+                with open('ut_db.json' , 'w') as outfile:
+                    json.dump(test_json_obj, outfile, indent=4)
+                db_healer = db_manage.DatabaseHealer (
+                    *db_manage._parse_args('--execute heal --in_json ut_db.json --out_json ut_db_out.json --cluster_id %s' %(self._cluster_id)))
+                db_healer.heal_security_groups_id()
+                zk_id_str = "%(#)010d" % {'#': 42}
+                self.assertEqual(
+                    db_healer.zk_exists(
+                        '%s%s/%s' %
+                        (self._cluster_id, db_healer.BASE_SG_ID_ZK_PATH,
+                         zk_id_str)),
+                    sg_obj.get_fq_name_str())
+                os.remove('ut_db.json')
+
     def test_clean_obj_missing_mandatory_fields(self):
         pass
     # end test_clean_obj_missing_mandatory_fields
@@ -4192,7 +4734,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
     def test_healer(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_manage.db_heal(*db_manage._parse_args('heal --cluster_id %s' %(self._cluster_id)))
+            db_manage.db_heal(*db_manage._parse_args('heal --skip_backup --cluster_id %s' %(self._cluster_id)))
     # end test_healer
 
     def test_heal_fq_name_index(self):
