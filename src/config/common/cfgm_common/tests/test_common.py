@@ -41,7 +41,7 @@ from cfgm_common import db_json_exim
 from cfgm_common import vnc_cgitb
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.utils import cgitb_hook
-
+from cfgm_common.db_json_exim import *
 from .test_utils import *
 import bottle
 bottle.catchall=False
@@ -669,6 +669,95 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _create_test_object(self):
         return self._create_test_objects()[0]
 
+    def _create_cassandra_json(self, test_obj_list):
+        mock_json = {'cassandra':{}, 'zookeeper':{}}
+        cassandra_data = mock_json['cassandra']
+        default_ks_dict = {
+        'config_db_uuid':
+            ['obj_uuid_table', 'obj_fq_name_table', 'obj_shared_table'],
+            'useragent': ['useragent_keyval_table'],
+            'to_bgp_keyspace': ['service_chain_ip_address_table',
+                'service_chain_table',
+                'service_chain_uuid_table',
+                'route_target_table']
+        }
+
+        for ks_name, cf_list in default_ks_dict.items():
+            cassandra_data[ks_name] = {}
+            for cf_name in cf_list:
+                cassandra_data[ks_name][cf_name] = {}
+
+        config_db_ks = cassandra_data['config_db_uuid']
+        # popoulate data in tests objs
+        for test_obj in test_obj_list:
+            test_obj_data = test_obj._rows
+            for col, col_val_dict in test_obj_data.items():
+                config_db_ks[test_obj._name][col] = OrderedDict()
+                for tb_key, tb_val in col_val_dict.items():
+                    config_db_ks[test_obj._name][col][tb_key] = tb_val
+        mock_json['zookeeper']['TestDBAudit'] = {}
+        return mock_json
+
+
+
+    def _create_zookeeper_json(self, zk_vals):
+        dir_node_dict = {}
+        zookeeper_json = {}
+        # Instantiate Zookeeper Tree
+        zk_tree = ZookeeperDirectoryTree('TestDBAudit')
+        dir_node_dict[('TestDBAudit', None)] = zk_tree.get_root()
+        for path, path_val in zk_vals.items():
+            directories = path.split('/')
+            for i in range(1, len(directories)):
+                if (directories[i], directories[i-1]) in dir_node_dict:
+                    continue
+
+                else:
+
+                    if i == 1:
+                        child_node = ZookeeperDirectoryNode (
+                                    parent = dir_node_dict[(directories[i-1], None)],
+                                    value = directories[i],
+                                    path = dir_node_dict[(directories[i-1], None)].get_path() + directories[i] + '/',
+                                    children = []
+                                )
+                        dir_node_dict[(directories[i-1], None)].get_child_list().append(child_node)
+                    else:
+                        child_node = ZookeeperDirectoryNode (
+                                    parent = dir_node_dict[(directories[i-1], directories[i-2])],
+                                    value = directories[i],
+                                    path = dir_node_dict[(directories[i-1], directories[i-2])].get_path() + directories[i] + '/',
+                                    children = []
+                                )
+                        dir_node_dict[(directories[i-1], directories[i-2])].get_child_list().append(child_node)
+                    dir_node_dict[(directories[i], directories[i-1])] = child_node
+            
+            val_node = ZookeeperDirectoryNode (
+                            parent = dir_node_dict[(directories[-1], directories[-2])],
+                            value = path_val,
+                            path = dir_node_dict[(directories[-1], directories[-2])].get_path(),
+                            children = []
+                        )
+
+            dir_node_dict[(directories[-1], directories[-2])].get_child_list().append(val_node)
+        # now run simple BFS to populate JSON and return
+        source_node = zk_tree.get_root()
+        bfs_queue = deque([])
+        bfs_queue.append((source_node, zookeeper_json, None))
+        while len(bfs_queue) is not 0:
+            dequeued, j_dict, parent_dict  = bfs_queue.popleft()
+            j_dict[dequeued.dir_name()] = {}
+
+            if type(dequeued.dir_name()) is tuple and dequeued.get_visited() is False:
+                parent_dict[dequeued.parent.dir_name()] = [dequeued.dir_name()[0], dequeued.dir_name()[1]]
+            dequeued.set_visited()
+            for child in dequeued.get_child_list():
+                if child.get_visited() is False:
+                    bfs_queue.append((child, j_dict[dequeued.dir_name()], j_dict))
+
+        zookeeper_json['/'] = zookeeper_json['TestDBAudit']
+        del zookeeper_json['TestDBAudit']
+        return zookeeper_json
     def _delete_test_object(self, obj):
         self._vnc_lib.virtual_network_delete(id=obj.uuid)
 
@@ -677,6 +766,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return CassandraCFs.get_cf(ks_name, cf_name)
     # end get_cf
 
+    def get_zk_values(self):
+        return FakeKazooClient._values
+    
     def vnc_db_has_ident(self, obj=None, id=None, type_fq_name=None):
         if obj:
             _type = obj.get_type()
