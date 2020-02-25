@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1fb5a93f_a86c5579",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/vn_interconnect_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-02-25T09:03:16Z",
+      "side": 1,
+      "message": "Just pass the lr_obj to _build_ri_config instead of querying again.",
+      "revId": "b018763f980ec29907fb83e52bee291513f1fdf7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0678321c_8c4c7ddb",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_evpn_gateway/templates/juniper_junos_overlay_evpn_gateway.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 48,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-02-25T09:03:16Z",
+      "side": 1,
+      "message": "Seems the sys_roles read deleted, can you check?",
+      "revId": "b018763f980ec29907fb83e52bee291513f1fdf7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
