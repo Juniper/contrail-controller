@@ -1,0 +1,28 @@
+---
+# vendor agnostic tasks file for check_config_mode
+
+- set_fact:
+    job_ctx: "{{job_ctx|combine(percent_init_dict)}}"
+
+- name: Encapsulate all the operations in a block rescue for error handling
+  block:
+    - name: check to see if the ansible file for the vendor and family exists
+      stat:
+        path: "{{role_path}}/tasks/{{prouter_vendor}}_{{prouter_family}}.yml"
+      register: p
+
+    - name: Execute commands on device
+      block:
+        - include_tasks: "{{prouter_vendor}}_{{prouter_family}}.yml"
+      when: p.stat.exists == True
+
+  rescue:
+    - name: Perform the necessary error handling while trying to execute command
+      include_tasks: error_handler.yml
+      when: "'failed' in show_route_engine_resp and show_route_engine_resp.failed == true"
+      vars:
+        op_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{show_route_engine_resp.msg}}"
+        jl_err_message: "Error while trying to execute command on {{prouter_vendor}} device, {{prouter_name}}: {{show_route_engine_resp.msg}}"
+
+    # this is when the playbook has to end for other unhandled failures
+    - meta: end_play
