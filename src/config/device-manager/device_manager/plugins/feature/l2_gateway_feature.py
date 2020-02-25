@@ -58,6 +58,8 @@ class L2GatewayFeature(FeatureBase):
             feature_config.add_vlans(vlan)
             for interface in interfaces:
                 self._add_ref_to_list(vlan.get_interfaces(), interface.li_name)
+            irb_intf = "irb." + str(network_id)
+            self.add_ref_to_list(vlan.get_interfaces(), irb_intf)
         elif highest_encapsulation in ['MPLSoGRE', 'MPLSoUDP']:
             ri.set_routing_instance_type('evpn')
 
