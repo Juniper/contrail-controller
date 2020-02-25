@@ -55,7 +55,6 @@ struct VnIpam {
 
         return (plen < rhs.plen);
     }
-    Ip4Address GetBroadcastAddress() const;
     Ip4Address GetSubnetAddress() const;
     Ip6Address GetV6SubnetAddress() const;
 
@@ -336,7 +335,6 @@ public:
             const boost::uuids::uuid &u);
     virtual void Clear();
 
-    int ComputeCfgVxlanId(IFMapNode *node);
     void CfgForwardingFlags(IFMapNode *node, bool *rpf,
                             bool *flood_unknown_unicast,
                             Agent::ForwardingMode *forwarding_mode,

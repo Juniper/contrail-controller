@@ -761,17 +761,6 @@ void MulticastHandler::DeleteMulticastObject(const std::string &vrf_name,
     }
 }
 
-void MulticastHandler::DeleteMulticastObject(MulticastGroupObject *obj) {
-
-    MCTRACE(LogSG, "delete obj  vrf/source/grp/size ", obj->vrf_name(),
-            obj->GetSourceAddress().to_string(),
-            obj->GetGroupAddress().to_string(),
-            this->GetMulticastObjList().size());
-
-    delete obj;
-    this->GetMulticastObjList().erase(obj);
-}
-
 MulticastGroupObject *MulticastHandler::FindFloodGroupObject(const std::string &vrf_name) {
     boost::system::error_code ec;
     Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",

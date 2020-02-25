@@ -983,18 +983,6 @@ void VrfTable::Input(DBTablePartition *partition, DBClient *client,
     return;
 }
 
-bool VrfTable::CanNotify(IFMapNode *node) {
-    VrfKey key(node->name());
-    VrfEntry *entry = static_cast<VrfEntry *>(Find(&key, true));
-    // Check if there is an entry with given name in *any* DBState
-    if (entry && entry->IsDeleted()) {
-        OPER_TRACE(Vrf, "VRF pending delete, Ignoring config for ", node->name());
-        return false;
-    }
-
-    return true;
-}
-
 static void FindHbfInterfacesFromHBS(Agent* agent, IFMapNode *node,
                               uint32_t &hbf_rintf, uint32_t &hbf_lintf) {
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());

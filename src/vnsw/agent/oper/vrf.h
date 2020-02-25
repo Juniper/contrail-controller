@@ -329,8 +329,6 @@ public:
     VrfEntry *FindVrfFromIdIncludingDeletedVrf(size_t index);
     void FreeVrfId(size_t index);
 
-    virtual bool CanNotify(IFMapNode *dbe);
-
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable
         (const std::string &vrf_name);
     InetUnicastAgentRouteTable *GetInet4MplsUnicastRouteTable

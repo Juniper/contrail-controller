@@ -300,68 +300,6 @@ bool VmInterface::IsL2Active() const {
     return IsActive();
 }
 
-//Check if interface transitioned from inactive to active layer 2 forwarding
-bool VmInterface::L2Activated(bool old_l2_active) {
-    if (old_l2_active == false && l2_active_ == true) {
-        return true;
-    }
-    return false;
-}
-
-// check if interface transitioned from inactive to active for bridging
-bool VmInterface::BridgingActivated(bool old_bridging) {
-    if (old_bridging == false && bridging_ == true) {
-        return true;
-    }
-    return false;
-}
-
-//Check if interface transitioned from inactive to active IP forwarding
-bool VmInterface::Ipv4Activated(bool old_ipv4_active) {
-    if (old_ipv4_active == false && ipv4_active_ == true) {
-        return true;
-    }
-    return false;
-}
-
-bool VmInterface::Ipv6Activated(bool old_ipv6_active) {
-    if (old_ipv6_active == false && ipv6_active_ == true) {
-        return true;
-    }
-    return false;
-}
-
-//Check if interface transitioned from active bridging to inactive state
-bool VmInterface::L2Deactivated(bool old_l2_active) {
-    if (old_l2_active == true && l2_active_ == false) {
-        return true;
-    }
-    return false;
-}
-
-//Check if interface transitioned from active bridging to inactive state
-bool VmInterface::BridgingDeactivated(bool old_bridging) {
-    if (old_bridging == true && bridging_ == false) {
-        return true;
-    }
-    return false;
-}
-
-//Check if interface transitioned from active IP forwarding to inactive state
-bool VmInterface::Ipv4Deactivated(bool old_ipv4_active) {
-    if (old_ipv4_active == true && ipv4_active_ == false) {
-        return true;
-    }
-    return false;
-}
-
-bool VmInterface::Ipv6Deactivated(bool old_ipv6_active) {
-    if (old_ipv6_active == true && ipv6_active_ == false) {
-        return true;
-    }
-    return false;
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // Path preference utility methods
 /////////////////////////////////////////////////////////////////////////////
@@ -523,23 +461,6 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
          service_ip, ecmp_load_balance, is_local, is_health_check_service,
          name(), native_encap, intf_route_type);
     return;
-}
-
-void VmInterface::ResolveRoute(const std::string &vrf_name,
-                               const Ip4Address &addr, uint32_t plen,
-                               const std::string &dest_vn, bool policy) {
-    SecurityGroupList sg_id_list;
-    CopySgIdList(&sg_id_list);
-
-    TagList tag_list;
-    CopyTagIdList(&tag_list);
-
-    VmInterfaceKey vm_intf_key(AgentKey::ADD_DEL_CHANGE, GetUuid(), "");
-
-    InetUnicastAgentRouteTable::AddResolveRoute
-        (peer_.get(), vrf_name, Address::GetIp4SubnetAddress(addr, plen), plen,
-         vm_intf_key, vrf_->table_label(), policy, dest_vn, sg_id_list,
-         tag_list);
 }
 
 void VmInterface::DeleteRoute(const std::string &vrf_name,
@@ -732,17 +653,6 @@ uint32_t VmInterface::GetServiceVlanLabel(const VrfEntry *vrf) const {
     return 0;
 }
 
-uint32_t VmInterface::GetServiceVlanTag(const VrfEntry *vrf) const {
-    ServiceVlanSet::const_iterator it = service_vlan_list_.list_.begin();
-    while (it != service_vlan_list_.list_.end()) {
-        if (it->vrf_.get() == vrf) {
-            return it->tag_;
-        }
-        it++;
-    }
-    return 0;
-}
-
 const VrfEntry* VmInterface::GetServiceVlanVrf(uint16_t vlan_tag) const {
     ServiceVlanSet::const_iterator it = service_vlan_list_.list_.begin();
     while (it != service_vlan_list_.list_.end()) {
@@ -812,42 +722,6 @@ VmInterface::hc_instance_set() const {
 
 bool VmInterface::IsHealthCheckEnabled() const {
     return hc_instance_set_.size() != 0;
-}
-
-// Match the Health-Check instance for a packet from VM-Interface
-// A packet from vmi is assumed to be response for health-check request from
-// vhost0
-const HealthCheckInstanceBase *VmInterface::GetHealthCheckFromVmiFlow
-(const IpAddress &sip, const IpAddress &dip, uint8_t proto,
- uint16_t sport) const {
-    HealthCheckInstanceSet::const_iterator it = hc_instance_set_.begin();
-    while (it != hc_instance_set_.end()) {
-        const HealthCheckInstanceBase *hc_instance = *it;
-        it++;
-
-        // Match ip-proto and health-check port
-        const HealthCheckService *hc_service = hc_instance->service();
-        if (hc_service == NULL)
-            continue;
-
-        if (hc_service->ip_proto() != proto)
-            continue;
-
-        if (hc_service->url_port() != sport)
-            continue;
-
-        // The source-ip and destination-ip can be matched with the address
-        // allocated for HealthCheck
-        if (hc_instance->destination_ip() != sip)
-            continue;
-
-        if (hc_instance->source_ip() != dip)
-            continue;
-
-        return hc_instance;
-    }
-
-    return NULL;
 }
 
 // Check if the interface requires to resync the health check service instance
