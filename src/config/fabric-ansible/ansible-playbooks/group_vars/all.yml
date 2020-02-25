@@ -126,7 +126,6 @@ role_to_feature_mapping:
     - overlay_evpn_access
     - overlay_evpn_gateway
     - overlay_evpn_type5
-    - overlay_networking
     - overlay_security_group
     - overlay_lag
     - overlay_multi_homing
@@ -135,7 +134,6 @@ role_to_feature_mapping:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
-    - overlay_networking
   CRB-Access@spine:
     - basic
     - underlay_ip_clos
@@ -176,7 +174,6 @@ role_to_feature_mapping:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
-    - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
     - overlay_evpn_gateway
@@ -186,7 +183,6 @@ role_to_feature_mapping:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
-    - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
     - overlay_evpn_gateway
@@ -196,7 +192,6 @@ role_to_feature_mapping:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
-    - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
     - overlay_evpn_gateway
@@ -206,7 +201,6 @@ role_to_feature_mapping:
     - underlay_ip_clos
     - underlay_infra_bms_access
     - overlay_bgp
-    - overlay_networking
     - overlay_fip_snat
     - overlay_evpn
     - overlay_evpn_gateway
@@ -318,7 +312,6 @@ feature_apply_order:
   - overlay_lag
   - overlay_multi_homing
   - overlay_fip_snat
-  - overlay_networking
   - overlay_pim
   - overlay_service_chain
   - overlay_assisted_replicator
