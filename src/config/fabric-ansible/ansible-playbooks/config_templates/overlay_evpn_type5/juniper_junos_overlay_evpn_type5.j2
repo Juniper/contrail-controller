@@ -49,7 +49,11 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options static route
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%             for subnet in ri.get('prefixes', []) %}
 {%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                     if (':' in cidr) %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%                     else %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%                     endif %}
 {%             endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept

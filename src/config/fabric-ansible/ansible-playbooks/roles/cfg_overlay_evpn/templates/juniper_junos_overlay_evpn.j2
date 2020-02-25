@@ -1,23 +1,12 @@
-{% set sys_config = device_abstract_config.get('system', None) %}
-{% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{% set dcgw_enabled = false %}
-{% if ('DC-Gateway' in sys_roles) %}
-{%     set dcgw_enabled = true %}
-{% endif %}
-{% if dcgw_enabled == false %}
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 from protocol evpn
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then load-balance per-packet
 set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set ns = namespace(ri_name='') %}
-{%         if ri.get('description') %}
-{%             set ns.ri_name = ri.get('description') %}
-{%         else %}
-{%             set ns.ri_name = ri.name %}
-{%         endif %}
+{%         set ri_name = ri.get('name', '')[:127] %}
 {%         if ((ri.get('routing_instance_type') == 'virtual-switch') and (ri.get('comment') != 'PNF-Service-Chaining')) or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
-{%             set vrf_import = ns.ri_name+'-import' %}
-{%             set vrf_export = ns.ri_name+'-export' %}
+{%             set vrf_import = ri_name+'-import' %}
+{%             set vrf_export = ri_name+'-export' %}
 {%             for import_target in ri.get('import_targets', []) %}
 {%                 set community_target = import_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}
@@ -82,4 +71,3 @@ set groups {{cfg_group}} routing-instances {{contrail_l2_ri}} protocols evpn vni
 {%             endif %}
 {%         endfor %}
 {%     endfor %}
-{% endif %}
