@@ -1,10 +1,5 @@
 {% set sys_config = device_abstract_config.get('system', None) %}
 {% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
-{% set dcgw_enabled = false %}
-{% if ('DC-Gateway' in sys_roles) %}
-{%     set dcgw_enabled = true %}
-{% endif %}
-{% if dcgw_enabled == false %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         if phy_int.get('interface_type') == 'irb' %}
 set groups {{cfg_group}} interfaces irb gratuitous-arp-reply
@@ -38,9 +33,10 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-dat
 {%         endif %}
 {%         set ri_vn_mode = ri.get('virtual_network_mode', '') %}
 {%         if ('l3' == ri_vn_mode) and ('l3' in ri.name)  %}
-{%             set contrail_l3_ri = ri.get('description') %}
+{%             set contrail_l3_ri = ri.get('name', '')[:127] %}
 {%             set vn_id  = ri.get('virtual_network_id') | int %}
 {%             set vn_id_num_l3  = vn_id + 30000 %}
+{%             set router_external = ri.get('is_public_network', '') %}
 {%             for bgp_elem in device_abstract_config.get('bgp', []) %}
 {%                 set families = bgp_elem.get('families', []) %}
 {%                 for fam in families %}
@@ -51,9 +47,42 @@ set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type vrf
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} route-distinguisher {{route_distinguisher}}:{{vn_id_num_l3}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target target:{{as_number | asnfilter}}:{{vn_id_num_l3}}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export
+{%                         if ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles) %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import REJECT-MAINTENANCE-MODE
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-table-label
+{%                         endif %}
 {%                     endif %}
 {%                 endfor %}
 {%             endfor %}
+{%             if ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles) %}
+{%                 set inet_vars = namespace(inet4='no', inet6='no') %}
+{%                 for subnet in ri.get('prefixes', []) %}
+{%                     set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                     if (':' in cidr) %}
+{%                         if inet_vars.inet6 == 'no' %}
+{%                             set inet_vars.inet6 = 'yes' %}
+{%                         endif %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options rib {{contrail_l3_ri}}.inet6.0 static route {{cidr}} discard
+{%                         if ri.get('is_public_network') == true  %}
+set groups {{cfg_group}} routing-options rib inet6.0 static route {{cidr}} discard
+{%                         endif %}
+{%                     else %}
+{%                         if inet_vars.inet4 == 'no' %}
+{%                             set inet_vars.inet4 = 'yes' %}
+{%                         endif %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options static route {{cidr}} discard
+{%                         if ri.get('is_public_network') == true  %}
+set groups {{cfg_group}} routing-options static route {{cidr}} discard
+{%                         endif %}
+{%                     endif %}
+{%                 endfor %}
+{%                 if inet_vars.inet4 == 'yes' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet unicast
+{%                 endif %}
+{%                 if inet_vars.inet6 == 'yes' %}
+set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export family inet6 unicast
+{%                 endif %}
+{%             endif %}
 {%             for lo_int in ri.get('loopback_interfaces', []) %}
 {%                 set int_name = lo_int.get('name', '') %}
 {%                 set unit_num = int_name.split('.')[-1] %}
@@ -66,4 +95,3 @@ set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{irb_na
 {%             endfor %}
 {%         endif %}
 {%      endfor %}
-{%  endif %}

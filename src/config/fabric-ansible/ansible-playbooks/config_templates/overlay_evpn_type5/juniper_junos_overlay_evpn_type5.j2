@@ -19,7 +19,8 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 the
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
 {%         set name = ri.get('name', '')[:127] %}
 {%         set vxlan_id = ri.get('vxlan_id') %}
-{%         set vn_id  = ri.get('virtual_network_id') %}
+{%         set vn_id  = ri.get('virtual_network_id') | int %}
+{%         set vn_id_num_l3  = vn_id + 30000 %}
 {%         set router_external = ri.get('is_public_network', '') %}
 {%         for lo_int in ri.get('loopback_interfaces', []) %}
 {%             set int_name = lo_int.get('name', '') %}
@@ -28,7 +29,7 @@ set groups {{cfg_group}} interfaces lo0 unit {{unit_num}} family inet address 12
 set groups {{cfg_group}} routing-instances {{name}} interface {{int_name}}
 {%         endfor %}
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
-set groups {{cfg_group}} routing-instances {{name}} route-distinguisher {{dict_var.route_distinguisher}}:{{vn_id}}
+set groups {{cfg_group}} routing-instances {{name}} route-distinguisher {{dict_var.route_distinguisher}}:{{vn_id_num_l3}}
 set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
@@ -49,7 +50,11 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options static route
 set groups {{cfg_group}} forwarding-options family inet filter input redirect_to_public_vrf_filter
 {%             for subnet in ri.get('prefixes', []) %}
 {%                 set cidr = subnet.get('prefix') + '/' + (subnet.get('prefix_len')|string) %}
+{%                     if (':' in cidr) %}
+set groups {{cfg_group}} firewall family inet6 filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%                     else %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} from destination-address {{cidr}}
+{%                     endif %}
 {%             endfor %}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term term-{{vxlan_id}} then routing-instance {{name}}
 set groups {{cfg_group}} firewall family inet filter redirect_to_public_vrf_filter term default-term then accept
