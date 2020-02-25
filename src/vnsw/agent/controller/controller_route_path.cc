@@ -291,7 +291,8 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
             encap = agent_->controller()->GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
             if (vrf_name == agent_->fabric_vrf_name()) {
-                if (label != MplsTable::kInvalidLabel) {
+                if (label != MplsTable::kInvalidLabel &&
+                        label != MplsTable::kInvalidExportLabel) {
                     encap = TunnelType::MplsoMplsType();
                 } else {
                     encap = TunnelType::NativeType();
