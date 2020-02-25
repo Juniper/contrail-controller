@@ -59,15 +59,6 @@ VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
     oper_dhcp_options.set_host_routes(host_routes);
 }
 
-Ip4Address VnIpam::GetBroadcastAddress() const {
-    if (ip_prefix.is_v4()) {
-        Ip4Address broadcast(ip_prefix.to_v4().to_ulong() |
-                             ~(0xFFFFFFFF << (32 - plen)));
-        return broadcast;
-    }
-    return Ip4Address(0);
-}
-
 Ip4Address VnIpam::GetSubnetAddress() const {
     if (ip_prefix.is_v4()) {
         return Address::GetIp4SubnetAddress(ip_prefix.to_v4(), plen);
@@ -912,16 +903,6 @@ int VnTable::GetCfgVnId(VirtualNetwork *cfg_vn) {
         return cfg_vn->network_id();
     else
         return cfg_vn->properties().network_id;
-}
-
-int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
-    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
-    if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
-        Agent::CONFIGURED) {
-        return cfg->properties().vxlan_network_identifier;
-    } else {
-        return GetCfgVnId(cfg);
-    }
 }
 
 void VnTable::CfgForwardingFlags(IFMapNode *node,

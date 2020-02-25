@@ -1224,11 +1224,7 @@ public:
     static void DeleteNH(const boost::uuids::uuid &intf_uuid,
                          bool policy, uint8_t flags,
                          const MacAddress &mac, const std::string &intf_name);
-    static void DeleteVmInterfaceNHReq(const boost::uuids::uuid &intf_uuid,
-                                       const MacAddress &mac,
-                                       const std::string &intf_name);
     static void CreatePacketInterfaceNh(Agent *agent, const string &ifname);
-    static void DeleteHostPortReq(Agent *agent, const string &ifname);
     static void CreateInetInterfaceNextHop(const string &ifname,
                                            const string &vrf_name,
                                            const MacAddress &mac);
@@ -1752,7 +1748,6 @@ public:
     virtual void OnZeroRefCount() {
         return;
     }
-    uint32_t GetRemoteLabel(const Ip4Address &ip) const;
     ComponentNHKeyList AddComponentNHKey(ComponentNHKeyPtr component_nh_key,
                                          bool &comp_nh_policy) const;
     ComponentNHKeyList DeleteComponentNHKey(ComponentNHKeyPtr

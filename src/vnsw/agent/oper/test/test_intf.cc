@@ -4774,6 +4774,56 @@ TEST_F(IntfTest, FatFlowPrefixAggr1) {
     client->Reset();
 }
 
+TEST_F(IntfTest, FatFlowPrefixAggr1_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1, "2001::1"},
+    };
+    uint16_t port;
+    bool same_port;
+    IpAddress SrcIP, DstIP;
+    bool is_src_prefix, is_dst_prefix;
+    VmInterface::FatFlowIgnoreAddressType ignore_addr;
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    IpamInfo ipam_info[] = {{"2001::0", 64, "2001::128"}};
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    AddFatFlow(input, "udp", 53, "none", "2001:1::0", 64, 80, "2001:2::0", 64, 80);
+    AddFatFlow(input, "udp", 53, "none", "2002:1::0", 64, 80, "2002:2::0", 64, 80);
+    VmInterface::FatFlowEntrySet::iterator start, end;
+
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
+
+    port = 53;
+    SrcIP = IpAddress::from_string("2001:1::1");
+    DstIP = IpAddress::from_string("2001:2::2");
+
+    EXPECT_TRUE(intf->IsFatFlowPrefixAggregation(true, IPPROTO_UDP, &port, &port,
+                                                 &same_port, &SrcIP, &DstIP,
+                                                 &is_src_prefix, &is_dst_prefix,
+                                                 &ignore_addr) == true);
+
+    EXPECT_TRUE(is_src_prefix == true);
+    EXPECT_TRUE(is_dst_prefix == true);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
 // test fatflow cfg with ignore_address=src and dst_prefix ipv4
 TEST_F(IntfTest, FatFlowPrefixAggr2) {
     struct PortInfo input[] = {

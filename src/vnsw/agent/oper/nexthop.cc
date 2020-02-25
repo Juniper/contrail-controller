@@ -690,18 +690,6 @@ void InterfaceNH::DeleteNH(const boost::uuids::uuid &intf_uuid, bool policy,
     NextHopTable::GetInstance()->Process(req);
 }
 
-// Delete the 2 InterfaceNH. One with policy another without policy
-void InterfaceNH::DeleteVmInterfaceNHReq(const boost::uuids::uuid &intf_uuid,
-                                         const MacAddress &mac,
-                                         const string &intf_name) {
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, mac, intf_name);
-    DeleteNH(intf_uuid, true, InterfaceNHFlags::BRIDGE, mac, intf_name);
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4, mac, intf_name);
-    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4, mac, intf_name);
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST,
-             MacAddress::BroadcastMac(), intf_name);
-}
-
 void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
                                              const string &vrf_name,
                                              const MacAddress &mac) {
@@ -748,25 +736,6 @@ void InterfaceNH::CreatePacketInterfaceNh(Agent *agent, const string &ifname) {
         InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
     req.data.reset(new InterfaceNHData(""));
     agent->nexthop_table()->Process(req);
-}
-
-void InterfaceNH::DeleteHostPortReq(Agent *agent, const string &ifname) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    // delete NH without policy
-    req.key.reset(new InterfaceNHKey(
-        new PacketInterfaceKey(boost::uuids::nil_uuid(), ifname), false,
-        InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
-    req.data.reset(NULL);
-    agent->nexthop_table()->Enqueue(&req);
-
-    // delete NH with policy
-    req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(
-        boost::uuids::nil_uuid(), ifname), true,
-        InterfaceNHFlags::INET4, agent->pkt_interface_mac()));
-    req.data.reset(NULL);
-    agent->nexthop_table()->Enqueue(&req);
 }
 
 void InterfaceNH::CreatePhysicalInterfaceNh(const string &ifname,
@@ -2176,24 +2145,6 @@ bool CompositeNH::GetIndex(ComponentNH &component_nh, uint32_t &idx) const {
         idx++;
     }
     return false;
-}
-
-uint32_t CompositeNH::GetRemoteLabel(const Ip4Address &ip) const {
-    BOOST_FOREACH(ComponentNHPtr component_nh,
-                  component_nh_list_) {
-        if (component_nh.get() == NULL) {
-            continue;
-        }
-        const NextHop *nh = component_nh->nh();
-        if (nh->GetType() != NextHop::TUNNEL) {
-            continue;
-        }
-        const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
-        if (*(tun_nh->GetDip()) == ip) {
-            return component_nh->label();
-        }
-    }
-    return -1;
 }
 
 void CompositeNH::UpdateEcmpHashFieldsUponRouteDelete(Agent *agent,

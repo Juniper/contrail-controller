@@ -1404,9 +1404,6 @@ public:
     void DeleteHealthCheckInstance(HealthCheckInstanceBase *hc_inst);
     const HealthCheckInstanceSet &hc_instance_set() const;
     bool IsHealthCheckEnabled() const;
-    const HealthCheckInstanceBase *GetHealthCheckFromVmiFlow(
-                                   const IpAddress &sip, const IpAddress &dip,
-                                   uint8_t proto, uint16_t sport) const;
     void UpdateInterfaceHealthCheckService();
 
     const ServiceVlanList &service_vlan_list() const {
@@ -1418,7 +1415,6 @@ public:
         return (static_cast<InterfaceTable *>(get_table()))->agent();
     }
     uint32_t GetServiceVlanLabel(const VrfEntry *vrf) const;
-    uint32_t GetServiceVlanTag(const VrfEntry *vrf) const;
     const VrfEntry* GetServiceVlanVrf(uint16_t vlan_tag) const;
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void SetServiceVlanPathPreference(PathPreference *pref,
@@ -1530,14 +1526,6 @@ private:
     bool IsMetaDataL2Active() const;
     bool IsMetaDataIPActive() const;
     bool IsIpv4Active() const;
-    bool L2Activated(bool old_l2_active);
-    bool BridgingActivated(bool old_bridging);
-    bool Ipv4Activated(bool old_ipv4_active);
-    bool Ipv6Activated(bool old_ipv6_active);
-    bool L2Deactivated(bool old_l2_active);
-    bool BridgingDeactivated(bool old_bridging);
-    bool Ipv4Deactivated(bool old_ipv4_active);
-    bool Ipv6Deactivated(bool old_ipv6_active);
     bool PolicyEnabled() const;
     void FillV4ExcludeIp(uint64_t plen, const Ip4Address &ip,
                          FatFlowExcludeList *list) const;
@@ -1576,8 +1564,6 @@ private:
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyIp6Address(const Ip6Address &addr);
 
-    void ResolveRoute(const std::string &vrf_name, const Ip4Address &addr,
-                      uint32_t plen, const std::string &dest_vn, bool policy);
     void CleanupFloatingIpList();
 
     bool OnResyncStaticRoute(VmInterfaceConfigData *data, bool new_ipv4_active);
