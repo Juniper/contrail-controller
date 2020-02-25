@@ -1,3 +1,5 @@
+{% set sys_config = device_abstract_config.get('system', None) %}
+{% set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 from protocol evpn
 set groups {{cfg_group}} policy-options policy-statement EVPN-LB term term1 then load-balance per-packet
 set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
@@ -68,13 +70,19 @@ set groups {{cfg_group}} routing-instances {{ri_name}} vrf-export {{vrf_export}}
 {%                           set _ = dict_var.update({'l2_interfaces_present': True}) %}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} vlan-id {{vlan_id}}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} description "{{vlan.description}}"
+{%                           if ('CRB-MCAST-Gateway' in sys_roles) %}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} protocols igmp-snooping proxy
+{%                           endif %}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} vxlan vni {{vxlan_id}}
 set groups {{cfg_group}} routing-instances {{ri_name}} protocols evpn extended-vni-list {{vxlan_id}}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} vxlan ingress-node-replication
 {%                        endif %}
 {%                        for l2_if in l2_ifs %}
+{%                            if 'irb' not in l2_if.name%}
 set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} interface {{l2_if.name}}
+{%                            else %}
+set groups {{cfg_group}} routing-instances {{ri_name}} bridge-domains {{vlan_name}} routing-interface {{l2_if.name}}
+{%                            endif %}
 {%                        endfor %}
 {%                     endif %}
 {%                 endfor %}
