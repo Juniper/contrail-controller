@@ -251,17 +251,12 @@ class VncKombuClientBase(object):
     def reset(self):
         self._publish_queue = Queue()
 
-    _SSL_PROTOCOLS = {
-        "tlsv1": ssl.PROTOCOL_TLSv1,
-        "sslv23": ssl.PROTOCOL_SSLv23
-    }
+    _SUPPORTED_SSL_PROTOCOLS = ("tlsv1_2", "tlsv1.2")
 
     @classmethod
     def validate_ssl_version(cls, version):
         version = version.lower()
-        try:
-            return cls._SSL_PROTOCOLS[version]
-        except KeyError:
+        if version not in cls._SUPPORTED_SSL_PROTOCOLS:
             raise RuntimeError('Invalid SSL version: {}'.format(version))
 
     def _fetch_ssl_params(self, **kwargs):
@@ -271,9 +266,11 @@ class VncKombuClientBase(object):
             keyfile = kwargs.get('kombu_ssl_keyfile', '')
             certfile = kwargs.get('kombu_ssl_certfile', '')
             ca_certs = kwargs.get('kombu_ssl_ca_certs', '')
-            if ssl_version:
-                ssl_params.update({'ssl_version':
-                    self.validate_ssl_version(ssl_version)})
+            if config.ssl_version:
+                # legacy parameter - checking if user doesn't try to use
+                # unsupported protocol (he doesn't have choice anyway)
+                cls._validate_ssl_version(config.ssl_version)
+            ssl_params['ssl_version'] = ssl.PROTOCOL_TLSv1_2
             if keyfile:
                 ssl_params.update({'keyfile': keyfile})
             if certfile:

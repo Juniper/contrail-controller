@@ -23,10 +23,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
 class KombuAmqpClient(object):
-    _SSL_PROTOCOLS = {
-        "tlsv1": ssl.PROTOCOL_TLSv1,
-        "sslv23": ssl.PROTOCOL_SSLv23
-    }
+    _SUPPORTED_SSL_PROTOCOLS = ("tlsv1_2", "tlsv1.2")
 
     def __init__(self, logger, config, heartbeat=0):
         self._logger = logger
@@ -288,8 +285,10 @@ class KombuAmqpClient(object):
             return False
         ssl_params = dict()
         if config.ssl_version:
-            ssl_params['ssl_version'] = cls._validate_ssl_version(
-                config.ssl_version)
+            # legacy parameter - checking if user doesn't try to use
+            # unsupported protocol (he doesn't have choice anyway)
+            cls._validate_ssl_version(config.ssl_version)
+        ssl_params['ssl_version'] = ssl.PROTOCOL_TLSv1_2
         if config.ssl_keyfile:
             ssl_params['keyfile'] = config.ssl_keyfile
         if config.ssl_certfile:
@@ -303,9 +302,7 @@ class KombuAmqpClient(object):
     @classmethod
     def _validate_ssl_version(cls, version):
         version = version.lower()
-        try:
-            return cls._SSL_PROTOCOLS[version]
-        except KeyError:
+        if version not in cls._SUPPORTED_SSL_PROTOCOLS:
             raise RuntimeError('Invalid SSL version: {}'.format(version))
     # end _validate_ssl_version
 
