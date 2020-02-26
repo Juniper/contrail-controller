@@ -1,0 +1,58 @@
+- import_role:
+    name: Juniper.junos
+
+- name: Read the device network-services mode
+  juniper_junos_command:
+    commands:
+      - show chassis network-services
+    display: xml
+    provider:
+      host: "{{prouter_dynamic_ip}}"
+      username: "{{username}}"
+      password: "{{password}}"
+      port: 22
+      timeout: "{{timeout}}"
+  register: show_chassis_response
+
+- name: settings network services mode
+  set_fact:
+        command_resp: "{{show_chassis_response|json_query('parsed_output.\"network-services\".\"network-services-information\".\"name\"')}}"
+
+- name: Change the network services state - block
+  block:
+      - name: Change the network services state
+        juniper_junos_config:
+            load: "set"
+            lines: "set chassis network-services enhanced-ip"
+            comment: "Contrail execution ID: {{ job_ctx.job_execution_id }}"
+            ignore_warning: "True"
+            format: "set"
+            config_mode: private
+            provider:
+              host: "{{ prouter_dynamic_ip }}"
+              username: "{{ username }}"
+              password: "{{ password }}"
+              port: 22
+              timeout: "{{ timeout }}"
+        register: junos_response
+
+      - name: Reboot the Device
+        juniper_junos_system:
+            action: "reboot"
+            provider:
+              host: "{{prouter_dynamic_ip}}"
+              username: "{{username}}"
+              password: "{{password}}"
+              port: 22
+        ignore_errors: yes
+
+      - name: Wait 300 seconds, to establish the connection after reboot of device.
+        wait_for:
+          host: "{{prouter_dynamic_ip}}"
+          port: 22
+          delay: 90
+          sleep: 10
+          timeout: 300
+
+  when: "command_resp == 'IP'"
+
