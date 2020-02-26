@@ -13,6 +13,7 @@ from cfgm_common.exceptions import NoIdError
 import docker
 import gevent
 from netaddr import IPAddress, IPNetwork
+import psutil
 
 
 class DeviceZtpManager(object):
@@ -36,6 +37,7 @@ class DeviceZtpManager(object):
         self._dnsmasq_conf_dir = args.dnsmasq_conf_dir
         self._tftp_dir = args.tftp_dir
         self._dhcp_leases_file = args.dhcp_leases_file
+        self._dnsmasq_reload_by_signal = args.dnsmasq_reload_by_signal
         self._timeout = args.ztp_timeout
         self._host_ip = args.host_ip
         self._logger = logger
@@ -148,7 +150,7 @@ class DeviceZtpManager(object):
                 while timeout > 0 and not os.path.isfile(file_path):
                     timeout -= 1
                     gevent.sleep(1)
-                self._restart_dnsmasq_container()
+                self._restart_dnsmasq()
                 self._read_dhcp_leases(headers.get('fabric_name'), config)
             elif action == 'delete':
                 self._logger.info(
@@ -156,7 +158,7 @@ class DeviceZtpManager(object):
                 while timeout > 0 and os.path.isfile(file_path):
                     timeout -= 1
                     gevent.sleep(1)
-                self._restart_dnsmasq_container()
+                self._restart_dnsmasq()
             elif action == 'read':
                 self._logger.info("Reading leases file")
                 self._read_dhcp_leases(headers.get('fabric_name'), config)
@@ -264,6 +266,22 @@ class DeviceZtpManager(object):
             self._logger.error("ZTP manager: Error handling file request %s" %
                                repr(e))
     # end _handle_file_request
+
+    def _restart_dnsmasq(self):
+        if self._dnsmasq_reload_by_signal:
+            self._restart_dnsmasq_process()
+            return
+
+        self._restart_dnsmasq_container()
+    # end _restart_dnsmasq
+
+    def _restart_dnsmasq_process(self):
+        for process in psutil.process_iter():
+            if process.name() == "dnsmasq":
+                self._logger.info("Restarting dnsmasq process: pid = %d" %
+                                  process.pid)
+                process.terminate()
+    # end _restart_dnsmasq_process
 
     def _restart_dnsmasq_container(self):
         if self._client is None:
