@@ -1527,9 +1527,6 @@ void BgpPeer::SendOpen(TcpSession *session) {
         family_to_cap_map) {
         if (!LookupFamily(val.first))
             continue;
-        // Do not advertise rtarget family from route reflector
-        if (server()->cluster_id() && val.first == Address::RTARGET)
-            continue;
         BgpProto::OpenMessage::Capability *cap =
             new BgpProto::OpenMessage::Capability(
                 BgpProto::OpenMessage::Capability::MpExtension, val.second, 4);
