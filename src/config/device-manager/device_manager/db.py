@@ -3382,19 +3382,24 @@ class VirtualPortGroupDM(DBBaseDM):
 
     def get_attached_port_profiles(self, vlan_tag, interface):
         pp_list = []
-        for vmi_uuid in self.virtual_machine_interfaces:
+        # the sc profile is tied to the vpg, and same profile gets propogated
+        # across all vmi's of the given VPG, so just process first vmi
+        vmi_obj = None
+        if list(self.virtual_machine_interfaces):
+            vmi_uuid = list(self.virtual_machine_interfaces)[0]
             vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
-            if not vmi_obj:
-                return pp_list
+        if not vmi_obj:
+            return pp_list
 
-            if self._check_if_correct_vmi_object(vmi_obj, interface,
-                                                 vlan_tag):
+        if self._check_if_correct_vmi_object(vmi_obj, interface,
+                                             vlan_tag):
 
-                for pp in vmi_obj.port_profiles or []:
-                    pp = PortProfileDM.get(pp)
-                    if pp and pp not in pp_list:
-                        pp_list.append(pp)
+            for pp in vmi_obj.port_profiles or []:
+                pp = PortProfileDM.get(pp)
+                if pp and pp not in pp_list:
+                    pp_list.append(pp)
         return pp_list
+
     # end get_attached_port_profiles
 
     def delete_obj(self):

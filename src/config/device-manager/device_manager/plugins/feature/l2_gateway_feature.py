@@ -72,7 +72,7 @@ class L2GatewayFeature(FeatureBase):
 
         for interface in interfaces:
             interface_map.setdefault(interface.pi_name, []).append(interface)
-            vpg_map[interface.pi_name] = interface.vpg_name
+            vpg_map[interface.pi_name] = interface.vpg_obj.name
 
         for pi_name, interface_list in list(interface_map.items()):
             untagged = set([int(i.port_vlan_tag) for i in interface_list if

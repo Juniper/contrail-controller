@@ -656,7 +656,7 @@ class AnsibleConf(AnsibleBase):
 class JunosInterface(object):
 
     def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None,
-                 li_uuid=None, port_vlan_tag=4094):
+                 li_uuid=None, port_vlan_tag=4094, vpg_obj=None):
         """Initialize JunosInterface init params."""
         self.li_uuid = li_uuid
         self.name = if_name
@@ -667,6 +667,7 @@ class JunosInterface(object):
         self.ifd_name = ifparts[0]
         self.unit = ifparts[1]
         self.ip = if_ip
+        self.vpg_obj = vpg_obj
     # end __init__
 
     def is_untagged(self):
