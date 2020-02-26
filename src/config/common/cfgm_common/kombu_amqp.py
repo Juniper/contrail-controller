@@ -36,6 +36,7 @@ class KombuAmqpClient(object):
         self._queue_args = {"x-ha-policy": "all"} if config.ha_mode else None
         self._heartbeat = float(heartbeat)
         self._connection_lock = Semaphore()
+        self._consumer_lock = Semaphore()
         self._consumer_event = Event()
         self._consumers_created_event = Event()
         self._publisher_queue = Queue()
@@ -135,6 +136,26 @@ class KombuAmqpClient(object):
             pass
     # end _delete_consumer
 
+    def _create_consumer_list(self):
+        valid = False
+        consumer_list = []
+        while not valid:
+            consumer_candidate_list = list(self._consumers.keys())
+            # This code can yield the CPU to another greenlet
+            consumer_list = [kombu.Consumer(self._connection, queues=c.queue,
+                        callbacks=[c.callback] if c.callback else None)
+                        for c in list(self._consumers.values())]
+            # Other greenlets can add more entries to self._consumers here
+            # so check to see if the self._consumers has changed.
+            # If the self._consumers has changed, recreate consumer list
+            valid = True
+            for c_key in list(self._consumers.keys()):
+                if c_key not in consumer_candidate_list:
+                    valid = False
+                    break
+        return consumer_list
+    # end _create_consumer_list
+
     def _start_consuming(self):
         errors = (self._connection.connection_errors +
                   self._connection.channel_errors)
@@ -159,19 +180,21 @@ class KombuAmqpClient(object):
                     self._consumer_event.clear()
                     continue
 
-                consumers = [kombu.Consumer(self._connection, queues=c.queue,
-                             callbacks=[c.callback] if c.callback else None)
-                             for c in list(self._consumers.values())]
+                consumers = self._create_consumer_list()
+
                 msg = 'KombuAmqpClient: Created consumers %s' % str(list(self._consumers.keys()))
                 self._logger(msg, level=SandeshLevel.SYS_DEBUG)
-                self._consumers_changed = False
                 with nested(*consumers):
                     self._consumers_created_event.set()
+                    if self._consumer_lock.locked():
+                        self._consumer_lock.release()
                     while self._running and not self._consumers_changed:
                         try:
                             self._connection.drain_events(timeout=1)
                         except socket.timeout:
                             pass
+                    self._consumers_changed = False
+                    self._consumer_lock.acquire()
             except errors as e:
                 msg = 'KombuAmqpClient: Connection error in Kombu amqp consumer greenlet: %s' % str(e)
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
@@ -202,8 +225,11 @@ class KombuAmqpClient(object):
                         payload = self._publisher_queue.get()
 
                     exchange = self.get_exchange(payload.exchange)
-                    producer.publish(payload.message, exchange=exchange,
-                        routing_key=payload.routing_key, **payload.kwargs)
+                    with self._consumer_lock:
+                        msg = 'KombuAmqpClient: Producer publish: {}'.format(payload.routing_key)
+                        self._logger(msg, level=SandeshLevel.SYS_DEBUG)
+                        producer.publish(payload.message, exchange=exchange,
+                            routing_key=payload.routing_key, **payload.kwargs)
                     payload = None
             except errors as e:
                 msg = 'KombuAmqpClient: Connection error in Kombu amqp publisher greenlet: %s' % str(e)

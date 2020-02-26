@@ -51,7 +51,7 @@ def initialize_amqp_client(logger, args):
         )
         amqp_client = KombuAmqpClient(
             logger.log, rabbitmq_cfg,
-            heartbeat=args.rabbit_health_check_interval)
+            heartbeat=0)
         amqp_client.run()
     except Exception as e:
         logger.error("Error while initializing the AMQP"
