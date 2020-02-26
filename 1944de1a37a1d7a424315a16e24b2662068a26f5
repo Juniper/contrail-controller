@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "9ea790a5_2ba84718",
+        "filename": "src/bgp/bgp_config.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 564,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "As per the schema valid range is 1-4294967295",
+      "parentUuid": "999e0420_583c781c",
+      "range": {
+        "startLine": 564,
+        "startChar": 44,
+        "endLine": 564,
+        "endChar": 51
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "9ada7afa_d4d6e84c",
         "filename": "src/bgp/bgp_route.cc",
         "patchSetId": 3
@@ -45,6 +69,30 @@
       "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "458771f6_0fb25628",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 765,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "Yes this check is not required. ReplaceSubClusterAndLocate will take care of NULL ext_community.\nHence removing the check.",
+      "parentUuid": "9ada7afa_d4d6e84c",
+      "range": {
+        "startLine": 763,
+        "startChar": 4,
+        "endLine": 765,
+        "endChar": 8
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -71,6 +119,30 @@
     },
     {
       "key": {
+        "uuid": "1f91bceb_524f6368",
+        "filename": "src/bgp/bgp_route.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 83,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "Moved it to BgpPath. Done.",
+      "parentUuid": "99c30dd4_5a683605",
+      "range": {
+        "startLine": 83,
+        "startChar": 9,
+        "endLine": 83,
+        "endChar": 21
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "bc18110d_e193e341",
         "filename": "src/bgp/community.cc",
         "patchSetId": 3
@@ -91,6 +163,30 @@
       "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "498d2859_3b59ac1f",
+        "filename": "src/bgp/community.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 334,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "As per the task description https://contrail-jws.atlassian.net/browse/CEM-6741 keeping it as subcluster.",
+      "parentUuid": "bc18110d_e193e341",
+      "range": {
+        "startLine": 334,
+        "startChar": 25,
+        "endLine": 334,
+        "endChar": 35
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -117,6 +213,30 @@
     },
     {
       "key": {
+        "uuid": "3b4b2666_cf83e4c7",
+        "filename": "src/bgp/community.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 493,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ec8b8953_ca7adf54",
+      "range": {
+        "startLine": 493,
+        "startChar": 16,
+        "endLine": 493,
+        "endChar": 36
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d530bef3_5b490409",
         "filename": "src/bgp/extended-community/sub_cluster.cc",
         "patchSetId": 3
@@ -137,6 +257,30 @@
       "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "21b233f8_b9a6d0b8",
+        "filename": "src/bgp/extended-community/sub_cluster.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 126,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "Changed it to strtoll.\nDone",
+      "parentUuid": "d530bef3_5b490409",
+      "range": {
+        "startLine": 126,
+        "startChar": 18,
+        "endLine": 126,
+        "endChar": 24
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     },
     {
       "key": {
@@ -163,6 +307,30 @@
     },
     {
       "key": {
+        "uuid": "55433eb6_02d3a604",
+        "filename": "src/bgp/extended-community/test/sub_cluster_test.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "03398152_357c6305",
+      "range": {
+        "startLine": 37,
+        "startChar": 26,
+        "endLine": 37,
+        "endChar": 31
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e1c8538b_104c586d",
         "filename": "src/bgp/routing-instance/routing_instance.cc",
         "patchSetId": 3
@@ -186,6 +354,30 @@
     },
     {
       "key": {
+        "uuid": "4deb4d63_77a565b0",
+        "filename": "src/bgp/routing-instance/routing_instance.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 1861,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "This is the behaviour as per the requirement. \n\nIf there is no sub-cluster extended-community associated with the route, then do apply the policy for secondary routes. This is required to solve Orange\u0027s immediate use case where there may not be any sub-cluster configured.",
+      "parentUuid": "e1c8538b_104c586d",
+      "range": {
+        "startLine": 1860,
+        "startChar": 9,
+        "endLine": 1861,
+        "endChar": 12
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "eae6efcf_3616cb5a",
         "filename": "src/bgp/test/bgp_attr_test.cc",
         "patchSetId": 3
@@ -206,6 +398,30 @@
       "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "eb2c8eb5_9aff97e5",
+        "filename": "src/bgp/test/bgp_attr_test.cc",
+        "patchSetId": 3
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-02-26T07:07:04Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "eae6efcf_3616cb5a",
+      "range": {
+        "startLine": 21,
+        "startChar": 10,
+        "endLine": 21,
+        "endChar": 20
+      },
+      "revId": "1944de1a37a1d7a424315a16e24b2662068a26f5",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
