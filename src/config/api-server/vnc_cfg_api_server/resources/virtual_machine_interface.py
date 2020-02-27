@@ -415,7 +415,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
             mc = obj_dict['virtual_machine_interface_mac_addresses']
-            if 'mac_address' in mc and len(mc['mac_address']) == 1:
+            if 'mac_address' in mc and mc['mac_address']:
                 inmac = [m.replace("-", ":") for m in mc['mac_address']]
         if inmac is not None:
             mac_addrs_obj = MacAddressesType(inmac)
