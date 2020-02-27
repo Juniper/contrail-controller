@@ -145,7 +145,6 @@
             "vrouter"
         ],
         "scons_test_targets" : [
-            "vrouter:test",
             "vrouter-py-ut:test"
         ],
         "misc_test_targets" : [ ]
