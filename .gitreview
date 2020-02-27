@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2020 Juniper Networks, Inc. All rights reserved.
 #
 # OpenContrail Code Review System
 #
@@ -13,4 +13,4 @@
 host=review.opencontrail.org
 port=29418
 project=Juniper/contrail-controller.git
-defaultbranch=master
+defaultbranch=dgautam-test8
