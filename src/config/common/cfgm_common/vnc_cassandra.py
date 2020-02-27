@@ -1211,7 +1211,7 @@ class VncCassandraClient(object):
             raise NoIdError('%s %s' % (obj_type, fq_name_str))
         if len(col_infos) > 1:
             raise VncError('Multi match %s for %s' % (fq_name_str, obj_type))
-        fq_name_uuid = col_infos.popitem()[0].split(':')
+        fq_name_uuid = utils.decode_string(col_infos.popitem()[0]).split(':')
         if obj_type != 'route_target' and fq_name_uuid[:-1] != fq_name:
             raise NoIdError('%s %s' % (obj_type, fq_name_str))
         return fq_name_uuid[-1]
