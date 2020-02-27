@@ -278,5 +278,14 @@
           "controller/src/vcenter-import:test"
         ],
         "misc_test_targets" : [ ]
+    },
+    "featue-flag" : {
+        "source_directories" : [
+            "controller/src/feature-flag"
+        ],
+        "scons_test_targets" : [
+            "controller/src/feature-flag:test"
+        ],
+        "misc_test_targets" : [ ]
     }
 }

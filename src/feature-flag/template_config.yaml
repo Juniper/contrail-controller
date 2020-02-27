@@ -1,0 +1,4 @@
+- type: all
+  template_path: pkg/client/client_http.go.tmpl
+  module: github.com/Juniper/asf
+  output_dir: pkg/vncapi

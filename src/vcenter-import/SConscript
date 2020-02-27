@@ -6,20 +6,21 @@ import os
 
 Import('BuildEnv')
 GoEnv = BuildEnv.Clone()
-GoEnv.AppendENVPath('GOPATH', GoEnv.Dir('#/controller').abspath)
-GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+go_path = GoEnv.Dir('#controller').abspath
+go_bin_path = GoEnv.Dir('#/third_party/go/bin').abspath
+GoEnv.AppendENVPath('GOPATH', go_path)
+GoEnv.AppendENVPath('PATH', go_bin_path)
 GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
 
-GoEnv.GoBuild('main.go', 'vcenter-import')
+go_build = GoEnv.GoBuild(go_path + '/src/vcenter-import/main.go',
+                         GoEnv['TOP'] + '/vcenter-import/vcenter-import')
 
-go_build = GoEnv['TOP'] + '/vcenter-import/vcenter-import'
 GoEnv.Depends('install', go_build)
 GoEnv.Default(go_build)
 
-go_cmd_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/vcenter-import/command').abspath)
-go_vcenter_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/vcenter-import/vcenter').abspath)
-go_tests =[ go_cmd_test, go_vcenter_test]
-GoEnv.Alias('controller/src/vcenter-import:test', go_tests)
+go_test = GoEnv.GoTest(GoEnv['TOP'] + '/vcenter-import/unittest.logs',
+                       GoEnv.Dir('#controller/src/vcenter-import').abspath)
+GoEnv.Alias('controller/src/vcenter-import:test', go_test)
 
 if 'install' in BUILD_TARGETS:
     GoEnv.Alias('install', GoEnv.InstallAs(GoEnv['INSTALL_BIN'] + '/vcenter-import', go_build))
