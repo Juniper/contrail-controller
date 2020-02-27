@@ -12,7 +12,7 @@ from cfgm_common import jsonutils as json
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 import argparse
-from cStringIO import StringIO
+from six import StringIO
 
 import kazoo.client
 import kazoo.exceptions
@@ -38,12 +38,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.5"
+__version__ = "1.6"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.6:
+  - fix TypeError issue releated to StringIO
 * 1.5:
   - fix bug to identifying stale route target when it's a RT of a LR with a
     gateway
