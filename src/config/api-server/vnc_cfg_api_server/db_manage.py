@@ -35,7 +35,7 @@ except ImportError as err:
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 import argparse
-from io import StringIO
+from six import StringIO
 
 import kazoo.client
 import kazoo.exceptions
