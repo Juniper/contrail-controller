@@ -35,7 +35,7 @@ except ImportError as err:
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 import argparse
-from io import StringIO
+from six import StringIO
 
 import kazoo.client
 import kazoo.exceptions
@@ -63,12 +63,14 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 import schema_transformer.db
 
-__version__ = "1.25"
+__version__ = "1.27"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
+* 1.27:
+  - Fix StringIO TypeError compatibility between Py2 and Py3 CEM-12619
 * 1.25:
   - Fix route target validation code when VN RT list is set to none
 * 1.24:
