@@ -967,7 +967,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             if tor_port_vlan_id != 0:
                 tor_vlan_ids.append(tor_port_vlan_id)
 
-            all_vns = vmi_info.get('virtual_network_refs')
+            all_vns = vmi_info.get('virtual_network_refs') or []
             all_vn_ids.extend([ref['uuid'] for ref in all_vns])
 
         if len(set(tor_vlan_ids)) > 1:
@@ -1047,7 +1047,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'virtual_machine_interface_properties') or {}).get(
                     'sub_interface_vlan_tag') or 0
 
-            all_vns = vmi_info.get('virtual_network_refs')
+            all_vns = vmi_info.get('virtual_network_refs') or []
             for ref in all_vns:
                 if vlan_tag != 0:
                     vn_to_vlan_mapping[ref['uuid']].append(
@@ -1130,7 +1130,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'virtual_machine_interface_properties') or {}).get(
                     'sub_interface_vlan_tag') or 0
 
-            all_vns = vmi_info.get('virtual_network_refs')
+            all_vns = vmi_info.get('virtual_network_refs') or []
             for ref in all_vns:
                 if vlan_tag != 0:
                     all_vns_in_vpg_dict[ref['uuid']].append(vlan_tag)
