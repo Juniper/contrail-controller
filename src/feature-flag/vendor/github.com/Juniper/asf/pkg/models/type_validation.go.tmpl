@@ -1,0 +1,263 @@
+package models
+
+import (
+	"net"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/pkg/errors"
+	"github.com/Juniper/asf/pkg/models/basemodels"
+)
+
+// TODO(dfurman): move non-template code out of template
+// TODO(dfurman): write tests
+
+//NewTypeValidatorWithFormat creates new TypeValidator with format validators
+func NewTypeValidatorWithFormat() (*TypeValidator, error) {
+	base, err := basemodels.NewBaseValidatorWithFormat()
+	if err != nil {
+		return nil, err
+	}
+	tv := &TypeValidator{
+		SchemaValidator: SchemaValidator{
+			BaseValidator: base,
+		},
+	}
+
+	// Create regex used while validating CommunityAttributes
+	tv.communityAttributeRegexStr = "^[0-9]+:[0-9]+$"
+	r, err := regexp.Compile(tv.communityAttributeRegexStr)
+	if err != nil {
+		return nil, err
+	}
+	tv.communityAttributeRegex = r
+	return tv, nil
+}
+
+//SchemaValidator implementing basic checks based on information in schema
+type SchemaValidator struct {
+	*basemodels.BaseValidator
+}
+
+//TypeValidator embedding SchemaValidator validator. It enables defining custom validation for each type
+type TypeValidator struct {
+	SchemaValidator
+	communityAttributeRegex    *regexp.Regexp
+	communityAttributeRegexStr string
+}
+
+//ValidateAllowedAddressPair custom validation for AllowedAddressPair
+func (tv *TypeValidator) ValidateAllowedAddressPair(obj *AllowedAddressPair) error {
+	err := tv.SchemaValidator.ValidateAllowedAddressPair(obj)
+	if err != nil {
+		return err
+	}
+
+	if obj.AddressMode != "active-standby" {
+		return nil
+	}
+
+	ip := net.ParseIP(obj.IP.IPPrefix)
+
+	if ip.To4() == nil {
+		if obj.IP.IPPrefixLen < 120 {
+			return errors.Errorf("IPv6 Prefix length lesser than 120 is not acceptable")
+		}
+	} else {
+		if obj.IP.IPPrefixLen < 24 {
+			return errors.Errorf("IPv4 Prefix length lesser than 24 is not acceptable")
+		}
+	}
+	return nil
+}
+
+//ValidateCommunityAttributes custom validation for AllowedAddressPair
+func (tv *TypeValidator) ValidateCommunityAttributes(obj *CommunityAttributes) error {
+
+	restrictions := map[string]struct{}{
+		"no-export":           {},
+		"accept-own":          {},
+		"no-advertise":        {},
+		"no-export-subconfed": {},
+		"no-reoriginate":      {},
+	}
+
+	for _, value := range obj.CommunityAttribute {
+		if _, ok := restrictions[value]; ok {
+			continue
+		}
+
+		if !tv.communityAttributeRegex.MatchString(value) {
+			return errors.Errorf("CommunityAttribute value (%s) must be either one of "+
+					"[%s] or match \"%s\"", value, strings.Join(mapKeys(restrictions), ", "), tv.communityAttributeRegexStr)
+		}
+		asn := strings.Split(value, ":")
+
+		asn0, err := strconv.Atoi(asn[0])
+		if err != nil {
+			return errors.Wrapf(err, "error while parsing CommunityAttribute.")
+		}
+
+		if asn0 > 65535 {
+			return errors.Errorf("Out of range ASN value %v. ASN values cannot exceed 65535.", asn0)
+
+		}
+	}
+
+	return nil
+}
+
+// Returns array of map keys
+func mapKeys(m map[string]struct{}) (keys []string) {
+	for s := range m {
+		keys = append(keys, s)
+	}
+	return keys
+}
+
+{# Validates properties of type: #}
+{# - string (format, enum) #}
+{# - integer, number (minimum, maximum value) #}
+{# - complex types (calls proper Validate<typename> method) #}
+{% macro validateProperty(jsonSchema, variableName, property) %}
+	{# validate string property #}
+	{% if jsonSchema.Type == "string" %}
+		{# Check format #}
+		if {{variableName}} != "" {
+		{% if jsonSchema.Format != "" %}
+			fv, err := sv.GetFormatValidator("{{jsonSchema.Format}}")
+			if err != nil {
+				return err
+			}
+			err = fv({{variableName}})
+			if err != nil {
+				return err
+			}
+		{% endif -%}
+
+		{# Check enum #}
+		{%- if jsonSchema.Enum|length > 0 -%}
+		if _, ok := {{property}}_set[{{variableName}}]; !ok {
+			return errors.Errorf("{{property}} value (%s) must be one of [%s]", {{variableName}}, strings.Join(mapKeys({{property}}_set), ", "))
+		}
+		{%- endif %}
+		}
+	{# validate integer property #}
+	{# TODO: this validation should be moved past type logic service #}
+	{% elif jsonSchema.Type == "integer" or jsonSchema.Type == "number" %}
+		{% if jsonSchema.Maximum != nil %}
+		if {{variableName}} > {{jsonSchema.Maximum}} {
+			return errors.Errorf("{{jsonSchema.ID}} value (%v) must be smaller or equal to {{jsonSchema.Maximum}}", {{variableName}})
+		}
+		{% endif %}
+		{% if jsonSchema.Minimum != nil and jsonSchema.ID != "security_group_id" %} {# TODO: temporary fix until validation is refactored #}
+		if {{variableName}} < {{jsonSchema.Minimum}} {
+			return errors.Errorf("{{jsonSchema.ID}} value (%v) must be greater or equal to {{jsonSchema.Minimum}}", {{variableName}})
+		}
+		{% endif %}
+	{% elif jsonSchema.Type == "object" %}
+		if {{variableName}} != nil {
+			if err := sv.Validate{{ jsonSchema.GoType }}({{variableName}}); err != nil {
+				return err
+			}
+		}
+	{% endif %}
+{% endmacro %}
+
+{% macro validateProperties(resource, properties) %}
+	{% for property, pdef in properties %}
+		{# TODO: handle presence #}
+		{# In case of array we need to know definitions of objects stored in this array #}
+		{% if pdef.Type == "array" %}
+			{% set jsonSchema = pdef.Items %}
+		{% else %}
+			{% set jsonSchema = pdef %}
+		{% endif %}
+
+		{# Check whether validation is needed #}
+		{% if jsonSchema.Type == "string" and (jsonSchema.Enum|length > 0 or jsonSchema.Format != "") %}
+			{% set validationRequired = true %}
+		{% elif jsonSchema.Type == "integer" and (jsonSchema.Maximum != nil or jsonSchema.Minimum != nil) and jsonSchema.Presence == "required" %}
+			{% set validationRequired = true %}
+		{% elif jsonSchema.Type == "object" %}
+			{% set validationRequired = true %}
+		{% else %}
+			{% set validationRequired = false %}
+		{% endif %}
+
+		{# Here validation occurs #}
+		{% if validationRequired %}
+		{# If the string has defined restrictions, create map for checking them #}
+		{% if jsonSchema.Type == "string" and jsonSchema.Enum|length > 0 %}
+			{{property}}_set := map[string]struct {} {
+				{% for restriction in jsonSchema.Enum -%}
+				{% autoescape off -%}
+				"{{restriction}}": {},
+				{% endautoescape %}
+				{%- endfor %}
+			}
+		{% endif %}
+
+		{% if pdef.Type == "array" %}
+			for _, value := range obj.{{pdef.GoName}} {
+				{{- validateProperty(jsonSchema, "value", property) -}}
+			}
+		{% else %}
+			{{ validateProperty(jsonSchema, "obj."|add:pdef.GoName, property) }}
+		{% endif %}
+		{% endif %}
+	{% endfor %}
+{% endmacro %}
+
+{% for type, definition in types %}
+{% if definition.Type == "object" %}
+//Validate{{ type }} validation based on information in schema
+func (sv * SchemaValidator) Validate{{ type }}( obj * {{ type }}) error {
+	{{- validateProperties(type, definition.Properties) -}}
+	return nil
+}{% endif %}
+{% endfor %}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+//Validate{{ schema.JSONSchema.GoName }} validation based on information in schema
+func (sv * SchemaValidator) Validate{{ schema.JSONSchema.GoName }}( obj * {{ schema.JSONSchema.GoName }}) error {
+	{{- validateProperties(schema.ID, schema.JSONSchema.Properties) -}}
+	{% for linkTo, reference in schema.References %}
+		{% if reference.RefType %}
+		for _, r := range obj.{{ reference.GoName }}Refs {
+			if r.Attr != nil {
+				err := sv.Validate{{reference.RefType}}(r.Attr)
+				if err != nil {
+					return errors.Wrapf(err, "Bad {{ linkTo }} reference attributes, reference UUID: %s", obj.UUID)
+				}
+			}
+		}
+		{% endif %}
+	{% endfor %}
+
+	{% if schema.Parents|length > 0 %}
+	{% if !schema.IsConfigRootInParents %}
+	if obj.ParentUUID == "" {
+		return errors.Errorf("parent_uuid is required for {{schema.ID}} ")
+	}
+	{% endif %}
+	parentTypeSet := map[string]struct {} {
+		{% for parent, definition in schema.Parents -%}
+		{% autoescape off -%}
+		"{{definition.LinkTo.Path}}": {},
+		{% endautoescape %}
+		{%- endfor %}
+	}
+	{% if !schema.IsConfigRootInParents -%}
+	if _, ok := parentTypeSet[obj.ParentType]; !ok {
+	{%- else -%}
+	if _, ok := parentTypeSet[obj.ParentType]; !ok && obj.ParentType != "" {
+	{%- endif %}
+		return errors.Errorf("parent_type (%s) of {{schema.ID}} must be one of [%s]", obj.ParentType, strings.Join(mapKeys(parentTypeSet), ", "))
+	}
+
+	{% endif %}
+
+	return nil
+}{% endif %}{% endfor %}

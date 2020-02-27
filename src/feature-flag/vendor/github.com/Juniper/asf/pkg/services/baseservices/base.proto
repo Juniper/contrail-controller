@@ -1,0 +1,45 @@
+syntax = "proto3";
+package github.com.Juniper.asf.pkg.services.baseservices;
+
+import "gogoproto/gogo.proto";
+
+option (gogoproto.goproto_enum_prefix_all) = false;
+option (gogoproto.gostring_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.verbose_equal_all) = false;
+option (gogoproto.goproto_stringer_all) = false;
+option (gogoproto.stringer_all) =  true;
+option (gogoproto.populate_all) = false;
+option (gogoproto.benchgen_all) = false;
+option (gogoproto.marshaler_all) = false;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.unmarshaler_all) = false;
+option (gogoproto.protosizer_all) = false;
+
+option go_package = "baseservices";
+
+message UUIDs {
+    repeated string uuids = 1 [(gogoproto.customname) = "UUIDs"]; // UUIDs for refs and backrefs
+}
+
+message ListSpec {
+    repeated Filter filters = 1 [(gogoproto.customname) = "Filters"]; // QueryFilter
+    int64 limit = 2 [(gogoproto.customname) = "Limit"]; // Number of items expected to be returned
+    string marker = 3 [(gogoproto.customname) = "Marker"]; // Include only objects with UUID lexically greater than this.
+    bool detail = 4 [(gogoproto.customname) = "Detail"]; // Include detail informatoin or not
+    bool count = 5 [(gogoproto.customname) = "Count"]; // TBD
+    bool shared = 6 [(gogoproto.customname) = "Shared"]; // Include shared resources or not
+    bool exclude_hrefs = 7 [(gogoproto.customname) = "ExcludeHrefs"]; // Exclude href parameters
+    repeated string parent_fq_name = 8 [(gogoproto.customname) = "ParentFQName"]; // Filter by parent FQ Name
+    string parent_type = 9  [(gogoproto.customname) = "ParentType"]; // Filter by parent type
+    repeated string parent_uuids = 10 [(gogoproto.customname) = "ParentUUIDs"]; // Filter by parent UUIDs
+    repeated string backref_uuids = 11 [(gogoproto.customname) = "BackRefUUIDs"]; // Filter by backref UUIDss
+    map<string, UUIDs> ref_uuids = 12 [(gogoproto.customname) = "RefUUIDs"]; // Filter by ref UUIDss
+    repeated string object_uuids = 13 [(gogoproto.customname) = "ObjectUUIDs"]; // Filter by UUIDs
+    repeated string fields = 14 [(gogoproto.customname) = "Fields"]; // limit displayed fields
+}
+
+message Filter {
+    string key = 1 [(gogoproto.customname) = "Key"]; // Filter key
+    repeated string values = 2 [(gogoproto.customname) = "Values"]; // Filter values
+}

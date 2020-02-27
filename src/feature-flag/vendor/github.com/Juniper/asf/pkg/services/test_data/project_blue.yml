@@ -1,0 +1,6 @@
+---
+name: blue
+uuid: project_blue
+parent_type: domain
+parent_uuid: beefbeef-beef-beef-beef-beefbeef0002
+quota: {}

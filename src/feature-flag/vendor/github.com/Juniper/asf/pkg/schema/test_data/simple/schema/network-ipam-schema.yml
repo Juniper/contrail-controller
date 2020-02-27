@@ -1,0 +1,23 @@
+---
+  prefix: "/"
+  api_style: "contrail"
+  extends: 
+    - "base"
+  references: {}
+  parents: 
+    project: 
+      operations: "CRUD"
+      description: "IP Address Management object that controls, ip allocation, DNS and DHCP"
+      presence: "optional"
+  plural: "network_ipams"
+  id: "network_ipam"
+  schema: 
+    required: []
+    type: "object"
+    properties: 
+      ipam_subnets: 
+        operations: "CRD"
+        collectionType: "list"
+        presence: "optional"
+        description: "List of subnets for this ipam."
+        $ref: "types.json#/definitions/IpamSubnets"

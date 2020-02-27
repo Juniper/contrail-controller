@@ -1,0 +1,30 @@
+---
+  prefix: "/"
+  api_style: "contrail"
+  extends:
+    - "base"
+  parents:
+    project:
+      operations: "CRUD"
+      presence: "optional"
+  plural: "simple_objects"
+  id: "simple_object"
+  schema:
+    required: []
+    type: "object"
+    properties:
+      enum_as_ref:
+        operations: "CR"
+        presence: "optional"
+        description: "Type that uses enum as a reference in property"
+        $ref: "types.json#/definitions/ObjectThatReferencesEnumAsProperty"
+      enum_as_array_of_ref:
+        operations: "CR"
+        presence: "optional"
+        description: "Type that uses enum as type for array items"
+        $ref: "types.json#/definitions/ObjectThatReferencesEnumAsArray"
+      enum_as_array_of_ref_overriden:
+        operations: "CR"
+        presence: "optional"
+        description: "Type that uses enum as type for array items overriden from simpe enum ref"
+        $ref: "types.json#/definitions/ObjectThatReferencesEnumAsArrayOverriden"

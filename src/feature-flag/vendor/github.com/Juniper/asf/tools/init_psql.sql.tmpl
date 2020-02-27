@@ -1,0 +1,117 @@
+-- TODO store fq_name as json and in db pkg read and concatenate to string
+create table metadata
+(
+    "uuid"    varchar(255),
+    "type"    varchar(255),
+    "fq_name" varchar(512),
+    unique ("type", "fq_name"),
+    primary key ("uuid")
+);
+
+create index fq_name_index on metadata ("fq_name");
+
+create table int_pool
+(
+    "key"   varchar(255),
+    "start" int,
+    "end"   int
+);
+
+create table int_owner
+(
+    "pool"  varchar(255),
+    "value" int,
+    "owner" varchar(255) DEFAULT ''
+);
+
+alter table int_pool
+    replica identity full;
+
+create table ipaddress_pool
+(
+    "key"   varchar(255),
+    "start" inet,
+    "end"   inet
+);
+
+alter table ipaddress_pool
+    replica identity full;
+
+create table kv_store
+(
+    "key"   varchar(255),
+    "value" varchar(255),
+    primary key ("key")
+);
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+create table "{{ schema.Table }}" (
+    {% for column in schema.Columns %}"{{column.Column}}" {{column.JSONSchema.SQL}},
+    {% endfor %} primary key("uuid"));
+
+create index {{ schema.Table }}_parent_uuid_index on "{{ schema.Table }}" ("parent_uuid");
+{% endif %}
+{% endfor %}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+{% for _, reference in schema.References %}
+create table {{ reference.Table }} (
+    "from" varchar(255),
+    "to" varchar(255),
+    primary key ("from","to"),
+    "relaxed" boolean,
+    {%- for column in reference.Columns %}
+    "{{column.Column}}" {{column.JSONSchema.SQL}},
+    {%- endfor %}
+    foreign key ("from") references "{{ schema.Table }}"(uuid) on delete cascade,
+    foreign key ("to") references "{{ reference.LinkTo.Table }}"(uuid)
+    {%- if reference.Derived == true %} on delete cascade{% endif %});
+
+create index index_{{ reference.Table }} on {{ reference.Table }} ("from");
+{% endfor %}
+
+{% for _, reference in schema.Parents %}
+create table {{ reference.Table }} (
+    "from" varchar(255),
+    "to" varchar(255),
+    primary key ("from","to"),
+    foreign key ("from") references "{{ schema.Table }}"(uuid) on delete cascade,
+    foreign key ("to") references "{{ reference.LinkTo.Table }}"(uuid)
+    {%- if reference.Derived == true %} on delete cascade{% endif %});
+
+create index index_{{ reference.Table }} on {{ reference.Table }} ("from");
+{% endfor%}
+
+create table tenant_share_{{ schema.Table }} (
+    "uuid" varchar(255),
+    "to" varchar(255),
+    primary key ("uuid","to"),
+    "access" integer,
+    foreign key ("uuid") references "{{ schema.Table }}"(uuid) on delete cascade,
+    foreign key ("to") references project(uuid) on delete cascade);
+
+create index index_t_{{ schema.Table }}_id on tenant_share_{{ schema.Table }}("uuid");
+create index index_t_{{ schema.Table }}_to on tenant_share_{{ schema.Table }}("to");
+
+create table domain_share_{{ schema.Table }} (
+    "uuid" varchar(255),
+    "to" varchar(255),
+    primary key ("uuid","to"),
+    "access" integer,
+    foreign key ("uuid") references "{{ schema.Table }}"(uuid) on delete cascade,
+    foreign key ("to") references domain(uuid) on delete cascade);
+
+create index index_d_{{ schema.Table }}_id on domain_share_{{ schema.Table }}("uuid");
+create index index_d_{{ schema.Table }}_to on domain_share_{{ schema.Table }}("to");
+
+{% endif %}
+{% endfor %}
+
+-- publication containing all object and ref tables for Sync process
+create publication "syncpub" for table
+    {% for schema in schemas -%}{% if schema.Type != "abstract" and schema.ID -%}
+    {%- for _, reference in schema.References %}
+    {{ reference.Table }},
+    {%- endfor %}
+    {{ schema.Table }}{% if forloop.Last %};{% else %},{% endif %}
+{%- endif %}{% endfor %}

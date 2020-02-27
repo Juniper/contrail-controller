@@ -1,0 +1,16 @@
+api_style: contrail
+extends:
+- base
+id: derived_object
+parents: {}
+plural: derived_objects
+prefix: "/"
+schema:
+  properties:
+    colonseparatedinderived:
+      description: "Field with colon in name"
+      type: "string"
+      json_tag: "colon:separated:in:derived"
+  required: []
+  type: object
+

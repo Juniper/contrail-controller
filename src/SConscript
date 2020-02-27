@@ -35,6 +35,7 @@ subdirs += [
     'control-node',
     'utils',
     'vcenter-import',
+    'feature-flag',
 ]
 
 include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#controller/lib']

@@ -1,0 +1,8 @@
+---
+name: blue
+parent_type: project
+parent_uuid: project_blue
+route_target_list:
+  route_target: ["100:200"]
+network_ipam_refs:
+- uuid: ipam_blue

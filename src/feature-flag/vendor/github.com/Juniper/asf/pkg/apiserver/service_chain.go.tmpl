@@ -1,0 +1,68 @@
+package apiserver
+
+import (
+	"github.com/pkg/errors"
+	"github.com/spf13/viper"
+
+	asfetcd "github.com/Juniper/asf/pkg/etcd"
+	db "{{ dbImportPath }}"
+	etcd "{{ etcdImportPath }}"
+	models "{{ modelsImportPath }}"
+	services "{{ servicesImportPath }}"
+)
+
+// SetupServiceChain creates service chain using default services, given extra services and DB service.
+// It puts extra services after default services but before etcd notifier service and DB service.
+// It returns first service of the built service chain.
+// TODO(dfurman): return services.Service when ContrailService is split to plugins.
+func SetupServiceChain(
+	dbService *db.Service, ag services.AccessGetter, extraServices ...services.Service,
+) (*services.ContrailService, error) {
+	tv, err := models.NewTypeValidatorWithFormat()
+	if err != nil {
+		return nil, errors.Wrap(err, "new type validator with format")
+	}
+
+	cs := &services.ContrailService{
+		BaseService:        services.BaseService{},
+		DBService:          dbService,
+		TypeValidator:      tv,
+		MetadataGetter:     dbService,
+		InTransactionDoer:  dbService,
+		IntPoolAllocator:   dbService,
+		RefRelaxer:         dbService,
+		UserAgentKVService: dbService,
+	}
+
+	serviceChain := []services.Service{
+		cs,
+		&services.RefUpdateToUpdateService{
+			ReadService:       dbService,
+			InTransactionDoer: dbService,
+		},
+		&services.SanitizerService{
+			MetadataGetter: dbService,
+		},
+		&services.RBACService{
+			ReadService:  dbService,
+			AccessGetter: ag,
+			AAAMode:      viper.GetString("aaa_mode"),
+		},
+		services.NewQuotaCheckerService(dbService),
+	}
+
+	serviceChain = append(serviceChain, extraServices...)
+
+	if viper.GetBool("server.notify_etcd") {
+		// TODO(Michał): Make the codec configurable
+		en, enErr := etcd.NewNotifierService(viper.GetString(asfetcd.ETCDPathVK), models.JSONCodec)
+		if enErr != nil {
+			return nil, errors.Wrap(enErr, "new notifier service")
+		}
+		serviceChain = append(serviceChain, en)
+	}
+
+	serviceChain = append(serviceChain, dbService)
+	services.Chain(serviceChain...)
+	return cs, nil
+}

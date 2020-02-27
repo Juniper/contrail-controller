@@ -1,0 +1,73 @@
+package client
+
+import (
+	"context"
+
+	services "{{ servicesImportPath }}"
+)
+
+// Sanity typechecks
+var _ services.ReadService = &GRPC{}
+var _ services.WriteService = &GRPC{}
+
+// GRPC is a GRPC API server client.
+type GRPC struct {
+	c services.ContrailServiceClient
+}
+
+// NewGRPC returns a new GRPC.
+func NewGRPC(c services.ContrailServiceClient) *GRPC {
+	return &GRPC{c: c}
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+
+func (s *GRPC) Create{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *services.Create{{ schema.JSONSchema.GoName }}Request,
+) (*services.Create{{ schema.JSONSchema.GoName }}Response, error) {
+	return s.c.Create{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+func (s *GRPC) Update{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *services.Update{{ schema.JSONSchema.GoName }}Request,
+) (*services.Update{{ schema.JSONSchema.GoName }}Response, error) {
+	return s.c.Update{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+func (s *GRPC) Delete{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *services.Delete{{ schema.JSONSchema.GoName }}Request,
+) (*services.Delete{{ schema.JSONSchema.GoName }}Response, error) {
+	return s.c.Delete{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+func (s *GRPC) Get{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *services.Get{{ schema.JSONSchema.GoName }}Request,
+) (*services.Get{{ schema.JSONSchema.GoName }}Response, error) {
+	return s.c.Get{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+func (s *GRPC) List{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *services.List{{ schema.JSONSchema.GoName }}Request,
+) (*services.List{{ schema.JSONSchema.GoName }}Response, error) {
+	return s.c.List{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+{% for _, reference in schema.References %}
+
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+
+func (s *GRPC) Create{{ refType }}(
+	ctx context.Context, request *services.Create{{ refType }}Request,
+) (*services.Create{{ refType }}Response, error) {
+	return s.c.Create{{ refType }}(ctx, request)
+}
+
+func (s *GRPC) Delete{{ refType }}(
+	ctx context.Context, request *services.Delete{{ refType }}Request,
+) (*services.Delete{{ refType }}Response, error) {
+	return s.c.Delete{{ refType }}(ctx, request)
+}
+
+{% endfor %}
+
+{% endif%}{% endfor %}

@@ -1,0 +1,18 @@
+api_style: contrail
+extends:
+- base
+id: derived_own_refs_object
+parents: {}
+plural: derived_own_refs_objects
+prefix: "/"
+references:
+  own_tag:
+    operations: "CRUD"
+    description: "Tag attached to an object - has a type and value"
+    presence: "optional"
+schema:
+  properties: {}
+  required: []
+  type: object
+
+

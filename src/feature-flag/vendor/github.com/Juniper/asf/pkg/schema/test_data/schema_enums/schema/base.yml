@@ -1,0 +1,20 @@
+---
+  plural: "base"
+  prefix: "/"
+  references: {}
+  parents: {}
+  type: "abstract"
+  id: "base"
+  schema:
+    required: []
+    type: "object"
+    properties:
+      uuid:
+          presence: "true"
+          description: "UUID of the object, system automatically allocates one if not provided"
+          type: "string"
+      display_name:
+        operations: "CRUD"
+        type: "string"
+        description: "lay name user configured string(name) that can be updated any time. Used as openstack name."
+        presence: "optional"

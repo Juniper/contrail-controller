@@ -1,0 +1,27 @@
+---
+  definitions:
+    VnSubnetsType:
+      type: "object"
+      properties:
+        ipam_subnets:
+          items:
+            $ref: "types.json#/definitions/IpamSubnetType"
+          type: "array"
+    IpamSubnetType:
+      type: "object"
+      properties:
+        subnet_name:
+          type: "string"
+          description: "User provided name for this subnet"
+          presence: "optional"
+    IpamSubnets:
+      type: "object"
+      properties:
+        subnets:
+          items:
+            $ref: "types.json#/definitions/IpamSubnetType"
+          type: "array"
+    VirtualNetworkIdType:
+      minimum: 1
+      type: "integer"
+      maximum: 4294967296

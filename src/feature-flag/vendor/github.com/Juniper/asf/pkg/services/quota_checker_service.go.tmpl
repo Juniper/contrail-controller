@@ -1,0 +1,78 @@
+{% autoescape off %}
+package services
+
+import (
+	"context"
+
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/Juniper/asf/pkg/errutil"
+
+	models "{{ modelsImportPath }}"
+)
+
+type QuotaCheckerService struct {
+	BaseService
+	resourceCounter QuotaResourceCounter
+	limitGetter     QuotaLimitGetter
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %} {% set ThisID = schema.ID %}
+{% set name = schema.JSONSchema.GoName %}
+{% set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID %}
+{% if QuotaDef %}
+
+// Handle{{ name }} retrieves limit for the handled resource, counts resources of this type and verifies the quota.
+func (svc *QuotaCheckerService) Handle{{ name }}(ctx context.Context, obj *models.{{ name }}) error {
+	limit, err := svc.limitGetter.{{ name }}Limit(ctx, obj)
+	if err != nil {
+		return errors.Wrapf(err, "could not get quota for resource {{ name }}(%v)", obj.GetUUID())
+	}
+
+	if limit == NoQuotaLimit {
+		logrus.Debugf("Quota for {{ name }}(%v) in is not set - continue", obj.GetUUID())
+		return nil
+	}
+
+	count, err := svc.resourceCounter.Count{{ name }}(ctx, obj)
+	if err != nil {
+		return errors.Wrapf(err, "could not get count for resource {{ name }}(%v)", obj.GetUUID())
+	}
+
+	logrus.Debugf("Quota limit for {{ name }} is %v, count is %v", limit, count)
+
+	if count >= limit {
+		return errutil.ErrorQuotaExceededf("Quota exceeded for resource {{ name }}(%v); there are already %v resources", obj.GetUUID(), count)
+	}
+
+	return nil
+}
+
+// Create{{ name }} is an implementation of handling quota verification during object creation
+func (svc *QuotaCheckerService) Create{{ name }}(ctx context.Context, request *Create{{ name }}Request) (*Create{{ name }}Response, error) {
+	logrus.Debugf("Create{{ name }} request = %+v;", request)
+	if err := svc.Handle{{ name }}(ctx, request.{{ name }}); err != nil {
+		return nil, err
+	}
+	if svc.next == nil {
+		return nil, nil
+	}
+	return svc.Next().Create{{ name }}(ctx, request)
+}
+
+/* TODO might be not needed
+func (svc *QuotaCheckerService) Update{{ name }}(ctx context.Context, request *Update{{ name }}Request) (*Update{{ name }}Response, error) {
+	if err := svc.Handle{{ name }}(ctx, request.{{ name }}); err != nil {
+		return nil, err
+	}
+	if svc.next == nil {
+		return nil, nil
+	}
+	return svc.Next().Update{{ name }}(ctx, request)
+}
+*/
+{% else %}// Type {{ name }} is not under quota{% endif %}
+
+{% endif %}{% endfor %}
+
+{% endautoescape %}

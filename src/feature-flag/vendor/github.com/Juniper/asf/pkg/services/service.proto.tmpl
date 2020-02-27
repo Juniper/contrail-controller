@@ -1,0 +1,322 @@
+syntax = "proto3";
+package services;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/wrappers.proto";
+
+import "pkg/services/baseservices/base.proto";
+import "{{ modelsImportPath }}/gen_model.proto";
+
+option (gogoproto.goproto_enum_prefix_all) = false;
+option (gogoproto.gostring_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.verbose_equal_all) = false;
+option (gogoproto.goproto_stringer_all) = false;
+option (gogoproto.stringer_all) =  true;
+option (gogoproto.populate_all) = false;
+option (gogoproto.benchgen_all) = false;
+option (gogoproto.marshaler_all) = false;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.unmarshaler_all) = false;
+option (gogoproto.protosizer_all) = false;
+
+service ContrailService {
+	{% for schema in schemas %}
+		{% if schema.Type != "abstract" and schema.ID %}
+			rpc Get{{ schema.JSONSchema.GoName }} (Get{{ schema.JSONSchema.GoName }}Request) returns (Get{{ schema.JSONSchema.GoName }}Response);
+			rpc List{{ schema.JSONSchema.GoName }} (List{{ schema.JSONSchema.GoName }}Request) returns (List{{ schema.JSONSchema.GoName }}Response);
+			rpc Create{{ schema.JSONSchema.GoName }} (Create{{ schema.JSONSchema.GoName }}Request) returns (Create{{ schema.JSONSchema.GoName }}Response);
+			rpc Update{{ schema.JSONSchema.GoName }} (Update{{ schema.JSONSchema.GoName }}Request) returns (Update{{ schema.JSONSchema.GoName }}Response);
+			rpc Delete{{ schema.JSONSchema.GoName }} (Delete{{ schema.JSONSchema.GoName }}Request) returns (Delete{{ schema.JSONSchema.GoName }}Response);
+			{% for _, reference in schema.References %}
+				rpc Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref (Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest) returns (Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse);
+				rpc Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref (Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest) returns (Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse);
+			{% endfor %}
+		{% endif %}
+	{% endfor %}
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+
+message Create{{ schema.JSONSchema.GoName }}Request {
+	models.{{ schema.JSONSchema.GoName }} {{ schema.ID }} = 1 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}",(gogoproto.jsontag) = "{{ schema.Path }}"];
+	google.protobuf.FieldMask field_mask = 2 [(gogoproto.nullable) = false];
+}
+
+message Create{{ schema.JSONSchema.GoName }}Response {
+	models.{{ schema.JSONSchema.GoName }} {{ schema.ID }} = 1 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}" ,(gogoproto.jsontag) = "{{ schema.Path }}"];
+}
+
+message Update{{ schema.JSONSchema.GoName }}Request {
+	models.{{ schema.JSONSchema.GoName }} {{ schema.ID }} = 1 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}",(gogoproto.jsontag) = "{{ schema.Path }}"];
+	google.protobuf.FieldMask field_mask = 2 [(gogoproto.nullable) = false];
+}
+
+message Update{{ schema.JSONSchema.GoName }}Response {
+	models.{{ schema.JSONSchema.GoName }} {{ schema.ID }} = 1 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}",(gogoproto.jsontag) = "{{ schema.Path }}"];
+}
+
+message Delete{{ schema.JSONSchema.GoName }}Request {
+	string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message Delete{{ schema.JSONSchema.GoName }}Response {
+	string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message List{{ schema.JSONSchema.GoName }}Request {
+	github.com.Juniper.asf.pkg.services.baseservices.ListSpec spec = 1 [(gogoproto.customname) = "Spec"];
+}
+
+message List{{ schema.JSONSchema.GoName }}Response {
+	repeated models.{{ schema.JSONSchema.GoName }} {{ schema.Plural }} = 1 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}s"];
+	int64 {{ schema.ID }}_count = 2 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}Count"];
+}
+
+message Get{{ schema.JSONSchema.GoName }}Request {
+	string id = 1 [(gogoproto.customname) = "ID"];
+	repeated string fields = 13 [(gogoproto.customname) = "Fields"]; // limit displayed fields
+}
+
+message Get{{ schema.JSONSchema.GoName }}Response {
+	models.{{ schema.JSONSchema.GoName }} {{ schema.ID }} = 1 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}", (gogoproto.jsontag) = "{{ schema.Path }}"];
+}
+
+{% for linkTo, reference in schema.References %}
+message Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest {
+	string id = 1 [(gogoproto.customname) = "ID"];
+	models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref {{ schema.ID }} = 2 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref",(gogoproto.jsontag) = "{{ schema.Path }}_{{ linkTo }}_ref"];
+}
+
+message Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse {
+	string id = 1 [(gogoproto.customname) = "ID"];
+	models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref {{ schema.ID }} = 2 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref",(gogoproto.jsontag) = "{{ schema.Path }}_{{ linkTo }}_ref"];
+}
+
+message Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest {
+	string id = 1 [(gogoproto.customname) = "ID"];
+	models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref {{ schema.ID }} = 2 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref",(gogoproto.jsontag) = "{{ schema.Path }}_{{ linkTo }}_ref"];
+}
+
+message Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse {
+	string id = 1 [(gogoproto.customname) = "ID"];
+	models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref {{ schema.ID }} = 2 [(gogoproto.customname) = "{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref",(gogoproto.jsontag) = "{{ schema.Path }}_{{ linkTo }}_ref"];
+}{% endfor %}
+{% endif %}{% endfor %}
+
+message Event {
+	uint64 version = 1;
+	oneof request { {% set index = 2 %}{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+		Create{{ schema.JSONSchema.GoName }}Request create_{{ schema.ID }} = {{ index }} [(gogoproto.customname) = "Create{{ schema.JSONSchema.GoName }}Request"];
+		Update{{ schema.JSONSchema.GoName }}Request update_{{ schema.ID }} = {{ index+1 }} [(gogoproto.customname) = "Update{{ schema.JSONSchema.GoName }}Request"];
+		Delete{{ schema.JSONSchema.GoName }}Request delete_{{ schema.ID }} = {{ index+2 }} [(gogoproto.customname) = "Delete{{ schema.JSONSchema.GoName }}Request"];
+		{% set index = index + 3 %}{% for linkTo, reference in schema.References %}
+		{% set offset = forloop.Counter0 * 2 %}
+			Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest create_{{ schema.ID }}_{{ linkTo }}_ref = {{ index + offset }} [(gogoproto.customname) = "Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest"];
+			Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest delete_{{ schema.ID }}_{{ linkTo }}_ref = {{ index + offset + 1 }} [(gogoproto.customname) = "Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest"];
+		{% endfor %}
+		{% set index = index + 2 * (schema.References|length)%}{# pongo2 variables are scoped so we need to add offset #}
+		{% endif %}{% endfor %}
+	}
+}
+
+service Chown {
+	rpc Chown(ChownRequest) returns (google.protobuf.Empty);
+}
+
+message ChownRequest {
+	string UUID = 1 [(gogoproto.customname) = "UUID",(gogoproto.jsontag) = "uuid"];
+	string Owner = 2 [(gogoproto.customname) = "Owner",(gogoproto.jsontag) = "owner"];
+}
+
+service RefRelax {
+	rpc RelaxRef (RelaxRefRequest) returns (RelaxRefResponse);
+}
+
+message RelaxRefRequest {
+	string UUID = 1 [(gogoproto.customname) = "UUID",(gogoproto.jsontag) = "uuid"];
+	string RefUUID = 2 [(gogoproto.customname) = "RefUUID",(gogoproto.jsontag) = "ref-uuid"];
+}
+
+message RelaxRefResponse {
+	string UUID = 1 [(gogoproto.customname) = "UUID",(gogoproto.jsontag) = "uuid"];
+}
+
+service IPAM {
+	rpc CreateIntPool (CreateIntPoolRequest) returns (google.protobuf.Empty);
+	rpc GetIntOwner (GetIntOwnerRequest) returns (GetIntOwnerResponse);
+	rpc DeleteIntPool (DeleteIntPoolRequest) returns (google.protobuf.Empty);
+	rpc AllocateInt (AllocateIntRequest) returns (AllocateIntResponse);
+	rpc SetInt (SetIntRequest) returns (google.protobuf.Empty);
+	rpc DeallocateInt (DeallocateIntRequest) returns (google.protobuf.Empty);
+}
+
+message GetIntOwnerRequest {
+	string Pool = 1 [(gogoproto.customname) = "Pool",(gogoproto.jsontag) = "pool"];
+	int64 Value = 2 [(gogoproto.customname) = "Value",(gogoproto.jsontag) = "value"];
+}
+
+message GetIntOwnerResponse {
+	string Owner = 1 [(gogoproto.customname) = "Owner",(gogoproto.jsontag) = "owner"];
+}
+
+message CreateIntPoolRequest {
+	string Pool = 1 [(gogoproto.customname) = "Pool",(gogoproto.jsontag) = "pool"];
+	int64 Start = 2 [(gogoproto.customname) = "Start",(gogoproto.jsontag) = "start"];
+	int64 End = 3 [(gogoproto.customname) = "End",(gogoproto.jsontag) = "end"];
+}
+
+message DeleteIntPoolRequest {
+	string Pool = 1 [(gogoproto.customname) = "Pool",(gogoproto.jsontag) = "pool"];
+}
+
+message AllocateIntRequest {
+	string Pool = 1 [(gogoproto.customname) = "Pool"];
+	string Owner = 2 [(gogoproto.customname) = "Owner",(gogoproto.jsontag) = "owner"];
+}
+
+message AllocateIntResponse {
+	int64 Value = 1 [(gogoproto.customname) = "Value"];
+}
+
+message SetIntRequest {
+	string Pool = 1 [(gogoproto.customname) = "Pool"];
+	int64 Value = 2 [(gogoproto.customname) = "Value"];
+	string Owner = 3 [(gogoproto.customname) = "Owner",(gogoproto.jsontag) = "owner"];
+}
+
+message DeallocateIntRequest {
+	string Pool = 1 [(gogoproto.customname) = "Pool"];
+	int64 Value = 2 [(gogoproto.customname) = "Value"];
+}
+
+service SetTag {
+	rpc SetTag(SetTagRequest) returns (google.protobuf.Empty);
+}
+
+message SetTagRequest {
+	string ObjUUID = 1 [(gogoproto.customname) = "ObjUUID",(gogoproto.jsontag) = "obj_uuid"];
+	string ObjType = 2 [(gogoproto.customname) = "ObjType",(gogoproto.jsontag) = "obj_type"];
+	repeated SetTagAttr Tags = 3 [(gogoproto.customname) = "Tags"];
+}
+
+message SetTagAttr {
+	string Type = 1 [(gogoproto.customname) = "Type",(gogoproto.jsontag) = "type"];
+	google.protobuf.StringValue Value = 2 [(gogoproto.customname) = "Value",(gogoproto.jsontag) = "value"];
+	bool IsGlobal = 3 [(gogoproto.customname) = "IsGlobal",(gogoproto.jsontag) = "is_global"];
+	repeated string AddValues = 4 [(gogoproto.customname) = "AddValues",(gogoproto.jsontag) = "add_values"];
+	repeated string DeleteValues = 5 [(gogoproto.customname) = "DeleteValues",(gogoproto.jsontag) = "delete_values"];
+}
+
+service Watch {
+	rpc Watch(stream WatchRequest) returns (stream WatchResponse) {}
+}
+
+message WatchRequest {
+	// request_union is a request to either create a new watcher or cancel an existing watcher.
+	oneof request_union {
+		WatchCreateRequest create_request = 1;
+		WatchCancelRequest cancel_request = 2;
+	}
+}
+
+message WatchCreateRequest {
+	string key = 1;
+	int64 start_revision = 3;
+	int64 watch_id = 7;
+}
+
+message WatchCancelRequest {
+	int64 watch_id = 1;
+}
+
+message WatchResponse {
+	int64 watch_id = 1;
+	bool created = 2;
+	bool canceled = 3;
+	string cancel_reason = 4;
+	repeated Event events = 5;
+}
+
+service UserAgentKV {
+	rpc StoreKeyValue(StoreKeyValueRequest) returns (google.protobuf.Empty);
+	rpc RetrieveValues(RetrieveValuesRequest) returns (RetrieveValuesResponse);
+	rpc RetrieveKVPs(google.protobuf.Empty) returns (RetrieveKVPsResponse);
+	rpc DeleteKey(DeleteKeyRequest) returns (google.protobuf.Empty);
+}
+
+message StoreKeyValueRequest {
+	string Key = 1 [(gogoproto.customname) = "Key",(gogoproto.jsontag) = "key"];
+	string Value = 2 [(gogoproto.customname) = "Value",(gogoproto.jsontag) = "value"];
+}
+
+message RetrieveValuesRequest {
+	repeated string Keys = 1 [(gogoproto.customname) = "Keys",(gogoproto.jsontag) = "key"];
+}
+
+message RetrieveValuesResponse {
+	repeated string Values = 1 [(gogoproto.customname) = "Values",(gogoproto.jsontag) = "value"];
+}
+
+message RetrieveKVPsResponse {
+	repeated models.KeyValuePair value = 1 [(gogoproto.customname) = "KeyValuePairs",(gogoproto.jsontag) = "value"];
+}
+
+message DeleteKeyRequest {
+	string Key = 1 [(gogoproto.customname) = "Key",(gogoproto.jsontag) = "key"];
+}
+
+service FQNameToID {
+	rpc FQNameToID(FQNameToIDRequest) returns (FQNameToIDResponse);
+}
+
+message FQNameToIDRequest {
+	repeated string FQName = 1 [(gogoproto.customname) = "FQName",(gogoproto.jsontag) = "fq_name"];
+	string Type = 2 [(gogoproto.customname) = "Type",(gogoproto.jsontag) = "type"];
+}
+
+message FQNameToIDResponse {
+	string UUID = 1 [(gogoproto.customname) = "UUID",(gogoproto.jsontag) = "uuid"];
+}
+
+service IDToFQName {
+	rpc IDToFQName(IDToFQNameRequest) returns (IDToFQNameResponse);
+}
+
+message IDToFQNameRequest {
+	string UUID = 1 [(gogoproto.customname) = "UUID",(gogoproto.jsontag) = "uuid"];
+}
+
+message IDToFQNameResponse {
+	repeated string FQName = 1 [(gogoproto.customname) = "FQName",(gogoproto.jsontag) = "fq_name"];
+	string Type = 2 [(gogoproto.customname) = "Type",(gogoproto.jsontag) = "type"];
+}
+
+service PropCollectionUpdate {
+	rpc PropCollectionUpdate(PropCollectionUpdateRequest) returns (google.protobuf.Empty);
+}
+
+message PropCollectionUpdateRequest {
+	string UUID = 1 [(gogoproto.customname) = "UUID",(gogoproto.jsontag) = "uuid"];
+	repeated PropCollectionChange Updates = 2 [(gogoproto.jsontag) = "updates"];
+}
+
+message PropCollectionChange {
+	string Field = 1 [(gogoproto.customname) = "Field",(gogoproto.jsontag) = "field"];
+	string Operation = 2 [(gogoproto.customname) = "Operation",(gogoproto.jsontag) = "operation"];
+	oneof Position {
+		int32 PositionInt = 3;
+		string PositionString = 4;
+	};
+{% if types | length > 0 %}
+	oneof Value {
+ {% set index = 5 %}{% for type, definition in types %}{% if definition.CollectionType == "map" or definition.CollectionType == "list" %}
+	{%- set collectionType = definition.OrderedProperties | first %}{% set itemType = collectionType.Items.ProtoType %}
+	{% if itemType != "string" %}models.{% endif %}{{ itemType }} {{ itemType }}Value = {{ index }};
+	{% set index = index + 1 %}
+	{% endif %}{% endfor %}
+	};
+{% endif %}
+}

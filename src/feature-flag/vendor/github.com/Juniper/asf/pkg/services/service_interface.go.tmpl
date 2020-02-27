@@ -1,0 +1,389 @@
+package services
+
+import (
+    "context"
+
+    "github.com/gogo/protobuf/types"
+    "github.com/pkg/errors"
+    "github.com/Juniper/asf/pkg/services/baseservices"
+
+	models "{{ modelsImportPath }}"
+)
+
+// TODO(dfurman): move non-template code out of template
+// TODO(dfurman): write tests
+
+// Service is a generic service that can be placed in chain.
+type Service interface {
+    Next() Service
+    SetNext(Service)
+
+    ReadWriteService
+}
+
+// ReadWriteService is an object that has both read and write service methods.
+type ReadWriteService interface {
+    WriteService
+    ReadService
+}
+
+type WriteService interface {
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+    Create{{ schema.JSONSchema.GoName }}(context.Context, *Create{{ schema.JSONSchema.GoName }}Request) (*Create{{ schema.JSONSchema.GoName }}Response, error)
+    Update{{ schema.JSONSchema.GoName }}(context.Context, *Update{{ schema.JSONSchema.GoName }}Request) (*Update{{ schema.JSONSchema.GoName }}Response, error)
+    Delete{{ schema.JSONSchema.GoName }}(context.Context, *Delete{{ schema.JSONSchema.GoName }}Request) (*Delete{{ schema.JSONSchema.GoName }}Response, error)
+
+{% for _, reference in schema.References %}
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+    Create{{ refType }}(context.Context, *Create{{ refType }}Request) (*Create{{ refType }}Response, error)
+    Delete{{ refType }}(context.Context, *Delete{{ refType }}Request) (*Delete{{ refType }}Response, error)
+{% endfor %}
+{% endif%}{% endfor %}
+}
+
+type ReadService interface {
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+    Get{{ schema.JSONSchema.GoName }}(context.Context, *Get{{ schema.JSONSchema.GoName }}Request) (*Get{{ schema.JSONSchema.GoName }}Response, error)
+    List{{ schema.JSONSchema.GoName }}(context.Context, *List{{ schema.JSONSchema.GoName }}Request) (*List{{ schema.JSONSchema.GoName }}Response, error)
+{% endif %}{% endfor %}
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+func (w *InternalContextWriteServiceWrapper) Create{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Create{{ schema.JSONSchema.GoName }}Request) (*Create{{ schema.JSONSchema.GoName }}Response, error) {
+    return w.WriteService.Create{{ schema.JSONSchema.GoName }}(baseservices.WithInternalRequest(ctx), request)
+}
+
+func (w *InternalContextWriteServiceWrapper) Update{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Update{{ schema.JSONSchema.GoName }}Request) (*Update{{ schema.JSONSchema.GoName }}Response, error) {
+    return w.WriteService.Update{{ schema.JSONSchema.GoName }}(baseservices.WithInternalRequest(ctx), request)
+}
+
+func (w *InternalContextWriteServiceWrapper) Delete{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Delete{{ schema.JSONSchema.GoName }}Request) (*Delete{{ schema.JSONSchema.GoName }}Response, error) {
+    return w.WriteService.Delete{{ schema.JSONSchema.GoName }}(baseservices.WithInternalRequest(ctx), request)
+}
+
+{% for _, reference in schema.References %}
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+func (w *InternalContextWriteServiceWrapper) Create{{ refType }}(ctx context.Context, request *Create{{ refType }}Request) (*Create{{ refType }}Response, error) {
+    return w.WriteService.Create{{ refType }}(baseservices.WithInternalRequest(ctx), request)
+}
+
+func (w *InternalContextWriteServiceWrapper) Delete{{ refType }}(ctx context.Context, request *Delete{{ refType }}Request) (*Delete{{ refType }}Response, error) {
+    return w.WriteService.Delete{{ refType }}(baseservices.WithInternalRequest(ctx), request)
+}
+{% endfor %}
+{% endif%}{% endfor %}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+
+type {{ schema.JSONSchema.GoName }} = models.{{ schema.JSONSchema.GoName }}
+
+func (s *BaseService) Create{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Create{{ schema.JSONSchema.GoName }}Request) (*Create{{ schema.JSONSchema.GoName }}Response, error) {
+    if s.next == nil {
+        return &Create{{ schema.JSONSchema.GoName }}Response{
+            {{ schema.JSONSchema.GoName }}: request.Get{{ schema.JSONSchema.GoName }}(),
+        }, nil
+    }
+    return s.Next().Create{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+func (s *BaseService) Update{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Update{{ schema.JSONSchema.GoName }}Request) (*Update{{ schema.JSONSchema.GoName }}Response, error) {
+    if s.next == nil {
+        return &Update{{ schema.JSONSchema.GoName }}Response{
+            {{ schema.JSONSchema.GoName }}: request.Get{{ schema.JSONSchema.GoName }}(),
+        }, nil
+    }
+    return s.Next().Update{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+func (s *BaseService) Delete{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Delete{{ schema.JSONSchema.GoName }}Request) (*Delete{{ schema.JSONSchema.GoName }}Response, error) {
+    if s.next == nil {
+        return &Delete{{ schema.JSONSchema.GoName }}Response{
+            ID: request.ID,
+        }, nil
+    }
+    return s.Next().Delete{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+func (s *BaseService) Get{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Get{{ schema.JSONSchema.GoName }}Request) (*Get{{ schema.JSONSchema.GoName }}Response, error) {
+    if s.next == nil {
+        return nil, nil
+    }
+    return s.Next().Get{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+func (s *BaseService) List{{ schema.JSONSchema.GoName }}(ctx context.Context, request *List{{ schema.JSONSchema.GoName }}Request) (*List{{ schema.JSONSchema.GoName }}Response, error) {
+    if s.next == nil {
+        return nil, nil
+    }
+    return s.Next().List{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+{% for _, reference in schema.References %}
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+func (s *BaseService) Create{{ refType }}(ctx context.Context, request *Create{{ refType }}Request) (*Create{{ refType }}Response, error) {
+    if s.next == nil {
+        return &Create{{ refType }}Response{
+            ID: request.ID,
+            {{ refType }}: request.Get{{ refType }}(),
+        }, nil
+    }
+    return s.Next().Create{{ refType }}(ctx, request)
+}
+
+func (s *BaseService) Delete{{ refType }}(ctx context.Context, request *Delete{{ refType }}Request) (*Delete{{ refType }}Response, error) {
+    if s.next == nil {
+        return &Delete{{ refType }}Response{
+            ID: request.ID,
+            {{ refType }}: request.Get{{ refType }}(),
+        }, nil
+    }
+    return s.Next().Delete{{ refType }}(ctx, request)
+}
+
+func (s *RefUpdateToUpdateService) Create{{ refType }}(ctx context.Context, request *Create{{ refType }}Request) (*Create{{ refType }}Response, error) {
+    refField := models.{{ schema.JSONSchema.GoName }}Field{{ reference.GoName }}Refs
+    if err := s.InTransactionDoer.DoInTransaction(ctx, func(ctx context.Context) error {
+        objResp, err := s.ReadService.Get{{ schema.JSONSchema.GoName }}(ctx, &Get{{ schema.JSONSchema.GoName }}Request{
+            ID: request.ID,
+            Fields: []string{refField},
+        })
+        if err != nil {
+            return err
+        }
+        obj := objResp.{{ schema.JSONSchema.GoName }}
+        obj.Add{{ reference.GoName }}Ref(request.{{ refType }})
+
+        _, err = s.BaseService.Update{{ schema.JSONSchema.GoName }}(ctx, &Update{{ schema.JSONSchema.GoName }}Request{
+            {{ schema.JSONSchema.GoName }}: obj,
+            FieldMask: types.FieldMask{Paths: []string{refField}},
+        })
+        return err
+    }); err != nil {
+        return nil, err
+    }
+    return &Create{{ refType }}Response{
+        ID: request.ID,
+        {{ refType }}: request.Get{{ refType }}(),
+    }, nil
+}
+
+func (s *RefUpdateToUpdateService) Delete{{ refType }}(ctx context.Context, request *Delete{{ refType }}Request) (*Delete{{ refType }}Response, error) {
+    refField := models.{{ schema.JSONSchema.GoName }}Field{{ reference.GoName }}Refs
+    if err := s.InTransactionDoer.DoInTransaction(ctx, func(ctx context.Context) error {
+        objResp, err := s.ReadService.Get{{ schema.JSONSchema.GoName }}(ctx, &Get{{ schema.JSONSchema.GoName }}Request{
+            ID: request.ID,
+            Fields: []string{refField},
+        })
+        if err != nil {
+            return err
+        }
+        obj := objResp.{{ schema.JSONSchema.GoName }}
+        obj.Remove{{ reference.GoName }}Ref(request.{{ refType }})
+
+        _, err = s.BaseService.Update{{ schema.JSONSchema.GoName }}(ctx, &Update{{ schema.JSONSchema.GoName }}Request{
+            {{ schema.JSONSchema.GoName }}: obj,
+            FieldMask: types.FieldMask{Paths: []string{refField}},
+        })
+        return err
+    }); err != nil {
+        return nil, err
+    }
+    return &Delete{{ refType }}Response{
+        ID: request.ID,
+        {{ refType }}: request.Get{{ refType }}(),
+    }, nil
+}
+{% endfor %}
+
+func (s *EventProducerService) Create{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Create{{ schema.JSONSchema.GoName }}Request) (*Create{{ schema.JSONSchema.GoName }}Response, error) {
+    _, err := s.Processor.Process(
+        ctx,
+        &Event{
+            Request: &Event_Create{{ schema.JSONSchema.GoName }}Request{
+                Create{{ schema.JSONSchema.GoName }}Request: request,
+            },
+        })
+    if err != nil {
+        return nil, err
+    }
+    return s.Next().Create{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+func (s *EventProducerService) Update{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Update{{ schema.JSONSchema.GoName }}Request) (*Update{{ schema.JSONSchema.GoName }}Response, error) {
+    _, err := s.Processor.Process(
+        ctx,
+        &Event{
+            Request: &Event_Update{{ schema.JSONSchema.GoName }}Request{
+                Update{{ schema.JSONSchema.GoName }}Request: request,
+            },
+        })
+    if err != nil {
+        return nil, err
+    }
+    return s.Next().Update{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+func (s *EventProducerService) Delete{{ schema.JSONSchema.GoName }}(ctx context.Context, request *Delete{{ schema.JSONSchema.GoName }}Request) (*Delete{{ schema.JSONSchema.GoName }}Response, error) {
+    _, err := s.Processor.Process(
+        ctx,
+        &Event{
+            Request: &Event_Delete{{ schema.JSONSchema.GoName }}Request{
+                Delete{{ schema.JSONSchema.GoName }}Request: request,
+            },
+        })
+    if err != nil {
+        return nil, err
+    }
+    return s.Next().Delete{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+{% for _, reference in schema.References %}
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+func (s *EventProducerService) Create{{ refType }}(ctx context.Context, request *Create{{ refType }}Request) (*Create{{ refType }}Response, error) {
+    _, err := s.Processor.Process(
+        ctx,
+        &Event{Request: &Event_Create{{ refType }}Request{
+            Create{{ refType }}Request: request,
+        }},
+    )
+    if err != nil {
+        return nil, err
+    }
+    return s.Next().Create{{ refType }}(ctx, request)
+}
+
+func (s *EventProducerService) Delete{{ refType }}(ctx context.Context, request *Delete{{ refType }}Request) (*Delete{{ refType }}Response, error) {
+    _, err := s.Processor.Process(
+        ctx,
+        &Event{Request: &Event_Delete{{ refType }}Request{
+            Delete{{ refType }}Request: request,
+        }},
+    )
+    if err != nil {
+        return nil, err
+    }
+    return s.Next().Delete{{ refType }}(ctx, request)
+}
+{% endfor %}
+
+func (e *Event_Create{{ schema.JSONSchema.GoName }}Request) Process(ctx context.Context, service Service) (*Event, error) {
+    request := e.Create{{ schema.JSONSchema.GoName }}Request
+    model := request.{{ schema.JSONSchema.GoName }}
+    uuid := model.GetUUID()
+    if uuid != "" {
+        existing, err := service.Get{{ schema.JSONSchema.GoName }}(ctx,
+            &Get{{ schema.JSONSchema.GoName }}Request{
+                ID: uuid,
+                Fields: []string{"uuid"},
+        })
+        if err == nil && existing != nil {
+            update := e.ToUpdateEvent()
+            return update.Process(ctx, service)
+        }
+    }
+    response, err := service.Create{{ schema.JSONSchema.GoName }}(ctx, request)
+    if err != nil {
+        return nil, err
+    }
+    return &Event{
+        Request: &Event_Create{{ schema.JSONSchema.GoName }}Request{
+            Create{{ schema.JSONSchema.GoName }}Request: &Create{{ schema.JSONSchema.GoName }}Request{
+                {{ schema.JSONSchema.GoName }}: response.Get{{ schema.JSONSchema.GoName }}(),
+            },
+        },
+    }, nil
+}
+
+func (e *Event_Create{{ schema.JSONSchema.GoName }}Request) ToUpdateEvent() *Event {
+    request := e.Create{{ schema.JSONSchema.GoName }}Request
+    model := request.{{ schema.JSONSchema.GoName }}
+    return &Event{
+        Request: &Event_Update{{ schema.JSONSchema.GoName }}Request{
+            Update{{ schema.JSONSchema.GoName }}Request: &Update{{ schema.JSONSchema.GoName }}Request{
+                {{ schema.JSONSchema.GoName }}: model,
+                FieldMask: request.FieldMask,
+            },
+        },
+    }
+}
+
+func (e *Event_Update{{ schema.JSONSchema.GoName }}Request) Process(ctx context.Context, service Service) (*Event, error) {
+    request := e.Update{{ schema.JSONSchema.GoName }}Request
+    response, err := service.Update{{ schema.JSONSchema.GoName }}(ctx, request)
+    if err != nil {
+        return nil, err
+    }
+    return &Event{
+        Request: &Event_Update{{ schema.JSONSchema.GoName }}Request{
+            Update{{ schema.JSONSchema.GoName }}Request: &Update{{ schema.JSONSchema.GoName }}Request{
+                {{ schema.JSONSchema.GoName }}: response.Get{{ schema.JSONSchema.GoName }}(),
+            },
+        },
+    }, nil
+}
+
+func (e *Event_Update{{ schema.JSONSchema.GoName }}Request) ToUpdateEvent() *Event {
+    return &Event{Request: e}
+}
+
+func (e *Event_Delete{{ schema.JSONSchema.GoName }}Request) Process(ctx context.Context, service Service) (*Event, error) {
+    request := e.Delete{{ schema.JSONSchema.GoName }}Request
+    _, err := service.Delete{{ schema.JSONSchema.GoName }}(ctx, request)
+    if err != nil {
+        return nil, err
+    }
+    return &Event{
+        Request: &Event_Delete{{ schema.JSONSchema.GoName }}Request{
+            Delete{{ schema.JSONSchema.GoName }}Request: &Delete{{ schema.JSONSchema.GoName }}Request{
+                ID: request.ID,
+            },
+        },
+    }, nil
+}
+
+{% for _, reference in schema.References %}
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+func (e *Event_Create{{ refType }}Request) Process(ctx context.Context, service Service) (*Event, error) {
+    request := e.Create{{ refType }}Request
+    if _, err := service.Create{{ refType }}(ctx, request); err != nil {
+        return nil, err
+    }
+    return &Event{Request: &Event_Create{{ refType }}Request{
+        Create{{ refType }}Request: request,
+    }}, nil
+}
+
+func (e *Event_Delete{{ refType }}Request) Process(ctx context.Context, service Service) (*Event, error) {
+    request := e.Delete{{ refType }}Request
+    if _, err := service.Delete{{ refType }}(ctx, request); err != nil {
+        return nil, err
+    }
+    return &Event{Request: &Event_Delete{{ refType }}Request{
+        Delete{{ refType }}Request: request,
+    }}, nil
+}
+{% endfor %}
+
+{% endif%}{% endfor %}
+
+//Dump dumps all service data.
+func Dump(ctx context.Context, service Service) (*EventList, error) {
+    response := []*Event{}
+    {% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+    list{{ schema.JSONSchema.GoName }}, err := service.List{{ schema.JSONSchema.GoName }}(ctx,
+        &List{{ schema.JSONSchema.GoName }}Request{
+           &baseservices.ListSpec{
+               Detail: true,
+           },
+        },
+    )
+    if err != nil {
+        return nil, errors.Wrap(err, "error listing {{ schema.JSONSchema.GoName }} objects")
+    }
+    for _, resource := range list{{ schema.JSONSchema.GoName }}.{{ schema.JSONSchema.GoName }}s {
+        response = append(response, &Event{
+                    Request: &Event_Create{{ schema.JSONSchema.GoName }}Request{
+                        Create{{ schema.JSONSchema.GoName }}Request: &Create{{ schema.JSONSchema.GoName }}Request{
+                            {{ schema.JSONSchema.GoName }}: resource,
+                        }}})
+    }
+    {% endif %}{% endfor %}
+    return &EventList{
+        Events: response,
+    }, nil
+}
+

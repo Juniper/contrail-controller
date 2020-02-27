@@ -1,0 +1,12 @@
+---
+uuid: ipam_blue
+display_name: blue
+network_ipam_mgmt:
+  host_routes:
+    route:
+    - prefix: "test_prefix"
+      next_hop: "1.2.3.5"
+parent_type: project
+parent_uuid: project_blue
+fq_name:
+- ipam_blue

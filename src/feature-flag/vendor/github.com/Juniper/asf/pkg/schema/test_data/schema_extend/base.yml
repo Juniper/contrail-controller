@@ -1,0 +1,24 @@
+---
+  plural: "base"
+  prefix: "/"
+  references:
+    tag:
+      operations: "CRUD"
+      description: "Tag attached to an object - has a type and value"
+      presence: "optional"
+  parents: {}
+  type: "abstract"
+  id: "base"
+  schema:
+    required: []
+    type: "object"
+    properties:
+      uuid:
+        presence: "true"
+        description: "UUID of the object, system automatically allocates one if not provided"
+        type: "string"
+      colonseparatedinbase:
+        description: "Field with colon in name"
+        type: "string"
+        json_tag: "colon:separated:in:base"
+

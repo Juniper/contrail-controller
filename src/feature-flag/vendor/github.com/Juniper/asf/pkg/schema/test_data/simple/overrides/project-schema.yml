@@ -1,0 +1,7 @@
+---
+  id: "project"
+  schema:
+    properties:
+      extra_addon_property:
+        operation: "CR"
+        presence: "system-only"

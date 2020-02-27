@@ -1,0 +1,14 @@
+- type: all
+  template_path: test_data/templates/all.yml.tmpl
+  module: github.com/Juniper/asf/pkg/schema
+  output_dir: test_output
+- type: all
+  template_path: test_data/templates/hoge.go.tmpl
+  module: github.com/Juniper/asf/pkg/schema
+  output_dir: test_output
+- type: all
+  template_path: test_data/templates/hoge.proto.tmpl
+  output_dir: test_output
+- type: all
+  template_path: test_data/templates/hoge.sql.tmpl
+  output_dir: test_output

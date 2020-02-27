@@ -1,0 +1,24 @@
+package db
+
+import (
+	"github.com/Juniper/asf/pkg/db/basedb"
+)
+
+{%- macro propertiesStructure(JSONSchema) %}
+    {%- for property, definition in JSONSchema.Properties -%}
+    {%- if definition.Properties|length == 0 %}
+    "{{ property }}": struct{}{},
+    {%- else %}
+    "{{ property }}": {{definition.GoType}}Structure,
+    {%- endif %}
+    {%- endfor %}
+{% endmacro -%}
+
+{% for schema in schemas -%}
+{%- if schema.JSONSchema.Type == "object" and schema.Type != "abstract" %}
+// {{ schema.JSONSchema.GoName }}Structure describes {{ schema.JSONSchema.GoName }} structure
+var {{ schema.JSONSchema.GoName }}Structure = &basedb.Structure{
+    {{- propertiesStructure(schema.JSONSchema) -}}
+}
+{% endif -%}
+{%- endfor %}

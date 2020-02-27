@@ -1,0 +1,176 @@
+package db
+
+import (
+    "context"
+    "testing"
+    "time"
+
+    "github.com/gogo/protobuf/types"
+    "github.com/stretchr/testify/assert"
+    "github.com/Juniper/asf/pkg/services/baseservices"
+
+	models "{{ modelsImportPath }}"
+	services "{{ servicesImportPath }}"
+	uuid "github.com/satori/go.uuid"
+)
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+
+func create{{ schema.JSONSchema.GoName }}(t *testing.T, ctx context.Context, id string, createRef bool, share []*models.ShareType) *models.{{ schema.JSONSchema.GoName }} {
+    response, err := db.Get{{ schema.JSONSchema.GoName }}(
+            ctx, &services.Get{{ schema.JSONSchema.GoName }}Request{
+                ID: id})
+    if err == nil {
+        return response.{{ schema.JSONSchema.GoName }}
+    }
+
+    model := models.Make{{ schema.JSONSchema.GoName }}()
+    model.UUID = id
+    model.FQName = []string{"default", "default-domain", model.UUID}
+    model.Perms2.Owner = "admin"
+    model.Perms2.Share = share
+
+    {% if schema.HasParents() && !schema.ParentOptional %}
+    parent := create{{ schema.DefaultParent.GoName }}(t, ctx, uuid.NewV4().String(), false, share)
+    model.ParentUUID = parent.UUID
+    model.ParentType = "{{ schema.DefaultParent.LinkTo.Path }}"
+    {% endif %}
+
+    // Create referred objects
+    if createRef {
+        {% for linkTo, reference in schema.References %}
+        ref{{ reference.GoName }}1 := create{{ reference.GoName }}(t, ctx, uuid.NewV4().String(), false, share)
+        ref{{ reference.GoName }}2 := create{{ reference.GoName }}(t, ctx, uuid.NewV4().String(), false, share)
+        ref{{ reference.GoName }}3 := create{{ reference.GoName }}(t, ctx, uuid.NewV4().String(), false, share)
+
+        model.{{ reference.GoName }}Refs = []*models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref{
+                &models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref{
+                        UUID: ref{{ reference.GoName }}1.UUID,
+                },
+                &models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref{
+                        UUID: ref{{ reference.GoName }}2.UUID,
+                },
+                &models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref{
+                        UUID: ref{{ reference.GoName }}3.UUID,
+                },
+        }
+        {% endfor %}
+    }
+
+    _, err = db.Create{{ schema.JSONSchema.GoName }}(ctx,
+            &services.Create{{ schema.JSONSchema.GoName }}Request{
+                {{ schema.JSONSchema.GoName }}: model,
+    })
+
+    assert.NoError(t, err, "failed to create {{ schema.JSONSchema.GoName }}")
+    return model
+}
+
+func delete{{ schema.JSONSchema.GoName }}(t *testing.T, ctx context.Context, uuid string) {
+    getResponse, err := db.Get{{ schema.JSONSchema.GoName }}(
+            ctx, &services.Get{{ schema.JSONSchema.GoName }}Request{
+                ID: uuid})
+    if err != nil {
+        return
+    }
+    model := getResponse.{{ schema.JSONSchema.GoName }}
+    _, err = db.Delete{{ schema.JSONSchema.GoName }}(ctx,
+            &services.Delete{{ schema.JSONSchema.GoName }}Request{
+                ID: model.GetUUID()})
+    //TODO(nati) fix dependency issue
+    // assert.NoError(t, err, "Delete failed")
+    if err != nil {
+        return
+    }
+    {% for linkTo, reference in schema.References %}
+    for _, ref := range model.{{ reference.GoName }}Refs {
+        delete{{ reference.GoName }}(t, ctx, ref.UUID)
+    }
+
+    {% if schema.HasParents() && !schema.ParentOptional %}
+    delete{{ schema.DefaultParent.GoName }}(t, ctx, model.ParentUUID)
+    {% endif %}
+
+    {% endfor %}
+}
+
+func Test{{ schema.JSONSchema.GoName }}(t *testing.T) {
+    t.Parallel()
+    var err error
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    project := createProject(t, ctx, uuid.NewV4().String(), false, nil)
+    defer deleteProject(t, ctx, project.UUID)
+
+    share := []*models.ShareType{
+        &models.ShareType{Tenant:"tenant:" + project.UUID, TenantAccess:7}}
+    model := create{{ schema.JSONSchema.GoName }}(t, ctx, uuid.NewV4().String(), true, share)
+    defer delete{{ schema.JSONSchema.GoName }}(t, ctx, model.UUID)
+
+
+    listSpec := &baseservices.ListSpec{
+        Limit: 1,
+        Filters: []*baseservices.Filter{
+            &baseservices.Filter{
+                Key: "uuid",
+                Values: []string{model.UUID},
+            },
+        },
+    }
+    response, err := db.List{{ schema.JSONSchema.GoName }}(ctx,
+        &services.List{{ schema.JSONSchema.GoName }}Request{Spec: listSpec})
+    assert.NoError(t, err, "list failed")
+    assert.Equal(t, 1, len(response.{{ schema.JSONSchema.GoName }}s), "expected one element")
+    assert.Equal(t, int64(1), response.{{ schema.JSONSchema.GoName }}Count, "expected count = 1")
+
+    listSpec.Count = true
+    response, err = db.List{{ schema.JSONSchema.GoName }}(ctx,
+        &services.List{{ schema.JSONSchema.GoName }}Request{
+            Spec: listSpec,
+    })
+    assert.NoError(t, err, "list count failed")
+    assert.Equal(t, ([]*models.{{ schema.JSONSchema.GoName }})(nil), response.{{ schema.JSONSchema.GoName }}s, "expected nil list")
+    assert.Equal(t, int64(1), response.{{ schema.JSONSchema.GoName }}Count, "expected count = 1")
+
+    model.DisplayName = "updated"
+    {% for linkTo, reference in schema.References %}
+    model.{{ reference.GoName }}Refs = []*models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref{
+        model.{{ reference.GoName }}Refs[0],
+    }
+    {% endfor %}
+
+    _, err = db.Update{{ schema.JSONSchema.GoName }}(ctx,
+            &services.Update{{ schema.JSONSchema.GoName }}Request{
+                {{ schema.JSONSchema.GoName }}: model,
+                FieldMask: types.FieldMask{
+                    Paths: []string{
+                        "display_name",
+                    {% for linkTo, reference in schema.References %}
+                        "{{ linkTo | lower }}_refs",
+                    {% endfor %}
+                    },
+                },
+    })
+    assert.NoError(t, err, "updated failed")
+
+    getResponse, err := db.Get{{ schema.JSONSchema.GoName }}(ctx, &services.Get{{ schema.JSONSchema.GoName }}Request{
+            ID: model.UUID})
+    updatedModel := getResponse.{{ schema.JSONSchema.GoName }}
+    assert.NoError(t, err, "get response failed")
+    assert.Equal(t, model.DisplayName, updatedModel.DisplayName, "update failed")
+
+    {% for linkTo, reference in schema.References %}
+    assert.Equal(t, 1, len(updatedModel.{{ reference.GoName }}Refs), "update failed")
+    {% endfor %}
+
+    _, err = db.Create{{ schema.JSONSchema.GoName }}(ctx,
+            &services.Create{{ schema.JSONSchema.GoName }}Request{
+                {{ schema.JSONSchema.GoName }}: model})
+    assert.Error(t, err, "Raise Error On Duplicate Create failed")
+
+    return
+}
+
+{% endif %}
+{% endfor %}

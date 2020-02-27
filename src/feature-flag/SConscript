@@ -1,0 +1,38 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+import os
+
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+GoEnv.AppendENVPath('GOPATH', GoEnv.Dir('#/controller').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir('#/third_party/go/bin').abspath)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
+
+# Generate go-api client types
+contrail_api_client_repo = '#src/contrail-api-client/'
+contrail_go_api_types = '#controller/src/feature-flag/vendor/github.com/Juniper/contrail-go-api/types/'
+autogen_script = File(contrail_api_client_repo + 'generateds/generateDS.py').path
+autogen_cmd = '%s -f -o %s -g golang-api' % (autogen_script, Dir(contrail_go_api_types).path)
+generated_files = [contrail_go_api_types]
+#GoEnv.Command(generated_files,
+#              contrail_api_client_repo + '/schema/all_cfg.xsd',
+#              autogen_cmd + ' $SOURCE')
+
+# Build the binary
+GoEnv.GoBuild('cmd/contrailflcm/main.go', 'feature-flag', 'contrailflcm')
+
+go_build = GoEnv['TOP'] + '/feature-flag/contrailflcm'
+GoEnv.Depends('install', go_build)
+GoEnv.Default(go_build)
+
+# Unittest
+go_cmd_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/feature-flag/cmd/contrailflcm').abspath)
+go_pkg_test = GoEnv.GoTest(GoEnv.Dir('#controller/src/feature-flag/pkg/feature').abspath)
+go_tests =[ go_cmd_test, go_pkg_test]
+GoEnv.Alias('controller/src/feature-flag:test', go_tests)
+
+# Lint check
+
+if 'install' in BUILD_TARGETS:
+    GoEnv.Alias('install', GoEnv.InstallAs(GoEnv['INSTALL_BIN'] + '/contrailflcm', go_build))

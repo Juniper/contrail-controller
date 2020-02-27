@@ -1,0 +1,102 @@
+package services
+
+import (
+	"encoding/json"
+
+	"github.com/gogo/protobuf/types"
+	"github.com/Juniper/asf/pkg/errutil"
+	"github.com/Juniper/asf/pkg/models/basemodels"
+	"github.com/pkg/errors"
+
+	models "{{ modelsImportPath }}"
+)
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+{% set name = schema.JSONSchema.GoName %}
+{% set single = schema.Path %}
+{% set plural = schema.PluralPath %}
+
+func (r *List{{ name }}Response) UnmarshalJSON(data []byte) error {
+	return r.unmarshalWith(func(dest interface{}) error {
+		return json.Unmarshal(data, dest)
+	})
+}
+
+func (r *List{{ name }}Response) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	return r.unmarshalWith(unmarshal)
+}
+
+func (r *List{{ name }}Response) unmarshalWith(unmarshal func(interface{}) error) error {
+	var listResponse struct {
+		Resources []*models.{{ name }} `json:"{{ plural }}" yaml:"{{ plural }}"`
+	}
+	err := unmarshal(&listResponse)
+	if err == nil {
+		list := listResponse.Resources
+		*r = List{{ name }}Response{
+			{{ name }}s:	 list,
+			{{ name }}Count: int64(len(list)),
+		}
+		return nil
+	}
+
+	// err != nil is not necessarily an error: the response could be a count response
+	errs := errutil.MultiError{err}
+	var countResponse struct {
+		Resources struct {
+			Count int64 `json:"count" yaml="count"`
+		} `json:"{{ plural }}" yaml:"{{ plural }}"`
+	}
+	if err = unmarshal(&countResponse); err != nil {
+		errs = append(errs, err)
+		return errors.Wrap(errs, "failed to unmarshal List{{ name }}Response")
+	}
+
+	*r = List{{ name }}Response{
+		{{ name }}s:	 nil,
+		{{ name }}Count: countResponse.Resources.Count,
+	}
+	return nil
+}
+
+type List{{ name }}DetailedResponse struct {
+	{{ name }}s []*Get{{ name }}Response `json:"{{ plural }}"`
+}
+
+func (r List{{ name }}Response) Data() interface{} {
+	return map[string]interface{}{
+		"{{ plural }}": r.{{ name }}s,
+	}
+}
+
+func (r List{{ name }}Response) Detailed() *List{{ name }}DetailedResponse {
+	var res List{{ name }}DetailedResponse
+	res.{{ name }}s = make([]*Get{{ name }}Response, len(r.{{ name }}s))
+	for i, obj := range r.{{ name }}s {
+		res.{{ name }}s[i] = &Get{{ name }}Response{
+			{{ name }}: obj,
+		}
+	}
+	return &res
+}
+
+func (r List{{ name }}Response) ApplyFieldMask(fm types.FieldMask) map[string][]map[string]interface {} {
+	objList := make([]map[string]interface{}, 0, len(r.Get{{ name }}s()))
+	for _, val := range r.Get{{ name }}s() {
+		obj := basemodels.ApplyFieldMask(val.ToMap(), fm)
+		objList = append(objList, obj)
+	}
+	return map[string][]map[string]interface{}{
+		"{{ plural }}":objList,
+	}
+}
+
+func (r List{{ name}}Response) Count() interface{} {
+	return map[string]interface{}{
+		"{{ plural }}": map[string]interface{}{
+			"count": r.{{ name }}Count,
+		},
+	}
+}
+
+{% endif %}{% endfor %}

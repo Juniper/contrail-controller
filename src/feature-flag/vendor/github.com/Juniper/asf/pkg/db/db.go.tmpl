@@ -1,0 +1,1449 @@
+package db
+
+import (
+	"bytes"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"net"
+	"strings"
+
+	"github.com/Juniper/asf/pkg/auth"
+	"github.com/Juniper/asf/pkg/db/basedb"
+	"github.com/Juniper/asf/pkg/errutil"
+	"github.com/Juniper/asf/pkg/format"
+	"github.com/Juniper/asf/pkg/models/basemodels"
+	"github.com/Juniper/asf/pkg/schema"
+	"github.com/Juniper/asf/pkg/services/baseservices"
+	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/gogo/protobuf/types"
+	"github.com/pkg/errors"
+
+	models "{{ modelsImportPath }}"
+	services "{{ servicesImportPath }}"
+)
+
+// TODO(dfurman): move non-template code out of template
+// TODO(dfurman): write tests
+
+//Service for DB.
+type Service struct {
+	services.BaseService
+	basedb.BaseDB
+}
+
+//NewServiceFromConfig makes db service from viper config.
+func NewServiceFromConfig() (*Service, error) {
+	sqlDB, err := basedb.ConnectDB()
+	if err != nil {
+		return nil, errors.Wrap(err, "Init DB failed")
+	}
+	return NewService(sqlDB), nil
+}
+
+//NewService makes a DB service.
+func NewService(db *sql.DB) *Service {
+	dbService := &Service{
+		BaseService: services.BaseService{},
+		BaseDB:      basedb.NewBaseDB(db),
+	}
+	dbService.initQueryBuilders()
+	return dbService
+}
+
+// delete deletes a resource
+func (db *Service) delete(
+		ctx context.Context,
+		qb *basedb.QueryBuilder,
+		uuid string,
+		backrefFields map[string][]string,
+) error {
+	if err := db.checkPolicy(ctx, qb, uuid); err != nil {
+		return err
+	}
+
+	tx := basedb.GetTransaction(ctx)
+
+	for backref := range backrefFields {
+		_, err := tx.ExecContext(ctx, qb.DeleteRelaxedBackrefsQuery(backref), uuid)
+		if err != nil {
+			return errors.Wrapf(
+				basedb.FormatDBError(err),
+				"deleting all relaxed references from %s to resource with UUID '%v' from DB failed",
+				backref, uuid,
+			)
+		}
+	}
+
+	_, err := tx.ExecContext(ctx, qb.DeleteQuery(), uuid)
+	if err != nil {
+		err = basedb.FormatDBError(err)
+		return errors.Wrapf(err, "deleting resource with UUID '%v' from DB failed", uuid)
+	}
+
+	return db.DeleteMetadata(ctx, uuid)
+}
+
+func (db *Service) count(
+		ctx context.Context, qb *basedb.QueryBuilder, spec *baseservices.ListSpec,
+) (count int64, err error) {
+	query, values := qb.CountQuery(auth.GetIdentity(ctx), spec)
+
+	tx := basedb.GetTransaction(ctx)
+	row := tx.QueryRowContext(ctx, query, values...)
+
+	if err = row.Scan(&count); err != nil {
+		return 0, errors.Wrap(basedb.FormatDBError(err), "count query failed")
+	}
+
+	return count, nil
+}
+
+// checkPolicy check ownership of resources.
+func (db *Service) checkPolicy(ctx context.Context, qb *basedb.QueryBuilder, uuid string) (err error) {
+	tx := basedb.GetTransaction(ctx)
+	auth := auth.GetIdentity(ctx)
+
+	selectQuery := qb.SelectAuthQuery(auth.IsAdmin())
+
+	var row *sql.Row
+	if auth.IsAdmin() {
+		row = tx.QueryRowContext(ctx, selectQuery, uuid)
+	} else {
+		row = tx.QueryRowContext(ctx, selectQuery, uuid, auth.ProjectID())
+	}
+
+	var count int
+	err = row.Scan(&count)
+	if err != nil {
+		return basedb.FormatDBError(err)
+	}
+	if count == 0 {
+		return errutil.ErrorNotFound
+	}
+
+	return nil
+}
+
+type childObject interface {
+	GetUUID() string
+	GetParentUUID() string
+	GetParentType() string
+}
+
+func (db *Service) createParentReference(
+		ctx context.Context,
+		obj childObject,
+		qb *basedb.QueryBuilder,
+		possibleParents []string,
+		optional bool,
+) (err error) {
+	parentSchemaID := basemodels.KindToSchemaID(obj.GetParentType())
+
+	if !format.ContainsString(possibleParents, parentSchemaID) {
+		if optional {
+			return nil
+		}
+		return errutil.ErrorBadRequest("invalid parent type")
+	}
+
+	tx := basedb.GetTransaction(ctx)
+	_, err = tx.ExecContext(ctx, qb.CreateParentRefQuery(parentSchemaID), obj.GetUUID(), obj.GetParentUUID())
+
+	return errors.Wrapf(
+		basedb.FormatDBError(err), "creating resource %T with UUID '%v' in DB failed", obj, obj.GetUUID(),
+	)
+}
+
+func (db *Service) createRef(
+		ctx context.Context,
+		fromID, toID string,
+		fromSchemaID, toSchemaID string,
+		attrs ...interface{},
+) error {
+	qb := db.QueryBuilders[fromSchemaID]
+	tx := basedb.GetTransaction(ctx)
+
+	_, err := tx.ExecContext(ctx, qb.CreateRefQuery(toSchemaID), append([]interface{}{fromID, toID}, attrs...)...)
+	if err != nil {
+		return errors.Wrapf(
+			basedb.FormatDBError(err),
+			"%s_ref create failed for object %s with UUID: '%v' and ref UUID '%v'",
+			toSchemaID, fromSchemaID, fromID, toID,
+		)
+	}
+	return nil
+}
+
+func (db *Service) deleteRef(
+		ctx context.Context,
+		fromID, toID string,
+		fromSchemaID, toSchemaID string,
+) error {
+	query := db.QueryBuilders[fromSchemaID].DeleteRefQuery(toSchemaID)
+	tx := basedb.GetTransaction(ctx)
+
+	_, err := tx.ExecContext(ctx, query, fromID, toID)
+
+	return errors.Wrapf(
+		basedb.FormatDBError(err),
+		"%s_ref delete failed for object %s with UUID: '%v' and ref UUID '%v'",
+		toSchemaID, fromSchemaID, fromID, toID,
+	)
+}
+
+func listSpecForGet(uuid string, fields []string) *baseservices.ListSpec {
+	return &baseservices.ListSpec{
+		Limit:  1,
+		Detail: true,
+		Shared: true,
+		Fields: fields,
+		Filters: []*baseservices.Filter{
+			{
+				Key:    "uuid",
+				Values: []string{uuid},
+			},
+		},
+	}
+}
+
+func resolveUUIDAndFQNameFromMap(m map[string]interface{}) (uuid string, fqName []string, err error) {
+	uuid = format.InterfaceToString(m["to"])
+	if uuid == "" {
+		return "", nil, nil
+	}
+	fqNameStr := format.InterfaceToString(m["fq_name"])
+	fqName, err = basedb.ParseFQName(fqNameStr)
+	if err != nil {
+		return "", nil, err
+	}
+	return uuid, fqName, nil
+}
+
+// INT POOL
+
+
+// EmptyIntOwner is useful for creating pool when owner is not relevant.
+const EmptyIntOwner = ""
+
+// IntPool represents the half-open integer range [Start, End) in the set of integers identified by Key.
+type IntPool struct {
+	Key   string
+	Start int64
+	End   int64
+}
+
+// CreateIntPool creates int pool.
+func (db *Service) CreateIntPool(ctx context.Context, pool string, start int64, end int64) error {
+	intPool := &IntPool{
+		Key:   pool,
+		Start: start,
+		End:   end,
+	}
+
+	intPools, err := db.GetIntPools(ctx, intPool)
+	if err != nil {
+		return err
+	}
+
+	if len(intPools) > 0 {
+		return errutil.ErrorConflictf("int pool %+v already in use", intPool)
+	}
+
+	return db.DeallocateIntRange(ctx, intPool)
+}
+
+// DeleteIntPool deletes int pool.
+func (db *Service) DeleteIntPool(ctx context.Context, pool string) error {
+	return db.deleteIntPools(ctx, &IntPool{
+		Key: pool,
+	})
+}
+
+// GetIntOwner returns owner of an allocated integer
+func (db *Service) GetIntOwner(ctx context.Context, pool string, value int64) (string, error) {
+	var query bytes.Buffer
+	d := db.Dialect
+	tx := basedb.GetTransaction(ctx)
+	query.WriteString("select " + d.QuoteSep("owner") + "from int_owner")
+	query.WriteString(" where " + d.Quote("pool") + " = " + d.Placeholder(1))
+	query.WriteString(" and " + d.Quote("value") + " = " + d.Placeholder(2))
+
+	var owner string
+	err := tx.QueryRowContext(ctx, query.String(), pool, value).Scan(&owner)
+	err = basedb.FormatDBError(err)
+	if err != nil {
+		if errutil.IsNotFound(err) {
+			return "", err
+		}
+		return "", errors.Wrap(err, "failed to get int owner")
+	}
+	return owner, nil
+}
+
+// GetIntPools gets int pools overlaps in given the range.
+// return all if target.End is zero.
+func (db *Service) GetIntPools(ctx context.Context, target *IntPool) ([]*IntPool, error) {
+	var query bytes.Buffer
+	d := db.Dialect
+	tx := basedb.GetTransaction(ctx)
+	query.WriteString("select " + db.Dialect.QuoteSep("start", "end") + "from int_pool where ")
+	query.WriteString(db.Dialect.Quote("key") + " = " + db.Dialect.Placeholder(1))
+	var rows *sql.Rows
+	var err error
+	if target.End == 0 {
+		query.WriteString(" order by start for update ")
+		rows, err = tx.QueryContext(ctx, query.String(), target.Key)
+	} else {
+		query.WriteString(" and " + d.Placeholder(2) + "<" + d.Quote("end") + " and " +
+				d.Quote("start") + " < " + d.Placeholder(3) + " order by start for update")
+		rows, err = tx.QueryContext(ctx, query.String(), target.Key, target.Start, target.End)
+	}
+	pools := []*IntPool{}
+	err = basedb.FormatDBError(err)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get int pool")
+	}
+	for rows.Next() {
+		pool := &IntPool{
+			Key: target.Key,
+		}
+		err := rows.Scan(&pool.Start, &pool.End)
+		err = basedb.FormatDBError(err)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get int pool")
+		}
+		pools = append(pools, pool)
+	}
+	return pools, nil
+}
+
+// AllocateInt allocates integer.
+func (db *Service) AllocateInt(ctx context.Context, key, owner string) (int64, error) {
+	if key == "" {
+		return 0, errors.New("empty int-pool key provided to allocate")
+	}
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	query := "select " +
+			d.QuoteSep("start", "end") +
+			" from int_pool where " +
+			d.Quote("key") + " = " + d.Placeholder(1) +
+			" order by " + d.Quote("start") +
+			" limit 1 for update"
+	row := tx.QueryRowContext(ctx, query, key)
+	var start, end int64
+	err := row.Scan(&start, &end)
+	if err != nil {
+		return 0, basedb.FormatDBError(err)
+	}
+	updatedStart := start + 1
+	if updatedStart < end {
+		_, err = tx.ExecContext(ctx,
+			"update int_pool set "+d.Quote("start")+" = "+d.Placeholder(1)+
+					" where "+d.Quote("key")+" = "+d.Placeholder(2)+" and "+
+					d.Quote("start")+" = "+d.Placeholder(3),
+			updatedStart,
+			key,
+			start,
+		)
+	} else {
+		_, err = tx.ExecContext(ctx,
+			"delete from int_pool where "+d.Quote("key")+" = "+d.Placeholder(1)+" and "+
+					d.Quote("start")+" = "+d.Placeholder(2),
+			key,
+			start,
+		)
+	}
+	if err != nil {
+		return 0, basedb.FormatDBError(err)
+	}
+
+	if err := db.insertIntOwner(ctx, tx, start, key, owner); err != nil {
+		return 0, basedb.FormatDBError(err)
+	}
+
+	return start, nil
+}
+
+// SetInt set a id for allocation pool.
+func (db *Service) SetInt(ctx context.Context, key string, id int64, owner string) error {
+	if key == "" {
+		return errors.New("empty int-pool key provided to set")
+	}
+
+	storedOwner, err := db.GetIntOwner(ctx, key, id)
+	if err != nil && !errutil.IsNotFound(err) {
+		return err
+	}
+
+	if owner != "" && storedOwner == owner {
+		return nil
+	}
+
+	tx := basedb.GetTransaction(ctx)
+
+	if err := db.insertIntIntoPool(ctx, tx, key, id); err != nil {
+		return basedb.FormatDBError(err)
+	}
+
+	if err := db.insertIntOwner(ctx, tx, id, key, owner); err != nil {
+		return basedb.FormatDBError(err)
+	}
+	return nil
+}
+
+func (db *Service) insertIntIntoPool(ctx context.Context, tx *sql.Tx, key string, id int64) (err error) {
+	d := db.Dialect
+	rangePool := &IntPool{
+		Key:   key,
+		Start: id,
+		End:   id + 1,
+	}
+
+	pools, err := db.GetIntPools(ctx, rangePool)
+	if err != nil {
+		return err
+	}
+
+	if len(pools) == 0 {
+		return errutil.ErrorNotFound
+	}
+
+	err = db.deleteIntPools(ctx, rangePool)
+	if err != nil {
+		return err
+	}
+
+	pool := pools[0]
+	if pool.Start == id {
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into int_pool ("+d.QuoteSep("key", "start", "end")+") values ("+
+					d.Values("key", "start", "end")+");",
+			key, pool.Start+1, pool.End)
+	} else if pool.End-1 == id {
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into int_pool ("+d.QuoteSep("key", "start", "end")+") values ("+
+					d.Values("key", "start", "end")+");",
+			key, pool.Start, pool.End-1)
+	} else {
+		// We need divide one pool to two.
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into int_pool ("+d.QuoteSep("key", "start", "end")+") values ("+
+					d.Values("key", "start", "end")+");",
+			key, pool.Start, id)
+		if err != nil {
+			return basedb.FormatDBError(err)
+		}
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into int_pool ("+d.QuoteSep("key", "start", "end")+") values ("+
+					d.Values("key", "start", "end")+");",
+			key, id+1, pool.End)
+	}
+
+	return err
+}
+
+// DeallocateInt deallocate integer.
+func (db *Service) DeallocateInt(ctx context.Context, key string, id int64) error {
+	return db.DeallocateIntRange(ctx, &IntPool{
+		Key:   key,
+		Start: id,
+		End:   id + 1,
+	})
+}
+
+func (db *Service) insertIntOwner(ctx context.Context, tx *sql.Tx, value int64, pool, owner string) error {
+	if owner == "" {
+		// Inserting records with empty owner is pointless.
+		return nil
+	}
+
+	d := db.Dialect
+	_, err := tx.ExecContext(ctx,
+		"insert into int_owner ("+d.QuoteSep("pool", "value", "owner")+") values ("+
+				d.Values("pool", "value", "owner")+");", pool, value, owner,
+	)
+	return err
+}
+
+func (db *Service) deleteIntOwner(ctx context.Context, tx *sql.Tx, value int64, pool string) error {
+	d := db.Dialect
+	_, err := tx.ExecContext(ctx,
+		"delete from int_owner where "+d.Quote("pool")+" = "+d.Placeholder(1)+" and "+
+				d.Quote("value")+" = "+d.Placeholder(2), pool, value,
+	)
+	return err
+}
+
+func intMax(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func intMin(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// DeallocateIntRange deallocate integer range
+func (db *Service) DeallocateIntRange(ctx context.Context, target *IntPool) error {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	// range for pool we want to merge.
+	// We need enlarge range so that we can merge pools on the next.
+	mergePool := &IntPool{
+		Key:   target.Key,
+		Start: target.Start - 1,
+		End:   target.End + 1,
+	}
+	pools, err := db.GetIntPools(ctx, mergePool)
+	if err != nil && err != errutil.ErrorNotFound {
+		return err
+	}
+
+	start := target.Start
+	end := target.End
+
+	// Clear overlapping int pols
+	if len(pools) > 0 {
+		err = db.deleteIntPools(ctx, mergePool)
+		if err != nil {
+			return err
+		}
+		// Extend range based on existing pools.
+		start = intMin(start, pools[0].Start)
+		end = intMax(end, pools[len(pools)-1].End)
+	}
+	if err = db.deleteIntOwner(ctx, tx, target.Start, target.Key); err != nil {
+		return basedb.FormatDBError(err)
+	}
+	_, err = tx.ExecContext(
+		ctx,
+		"insert into int_pool ("+d.QuoteSep("key", "start", "end")+") values ("+
+				d.Values("key", "start", "end")+");",
+		target.Key, start, end)
+	return basedb.FormatDBError(err)
+}
+
+// SizeIntPool returns size of a int pool.
+func (db *Service) SizeIntPool(ctx context.Context, key string) (int, error) {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	query := "select sum( " +
+			d.Quote("end") + " - " + d.Quote("start") + " ) as size" +
+			" from int_pool where " +
+			d.Quote("key") + " = " + d.Placeholder(1)
+	row := tx.QueryRowContext(ctx, query, key)
+	var size int
+	err := row.Scan(&size)
+	if err != nil {
+		return 0, basedb.FormatDBError(err)
+	}
+	return size, nil
+}
+
+// deleteIntPools deletes int pool overlap with target range. delete all if target.End is zero.
+func (db *Service) deleteIntPools(ctx context.Context, target *IntPool) error {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	var err error
+	if target.End == 0 {
+		_, err = tx.ExecContext(ctx, "delete from int_pool where "+
+				db.Dialect.Quote("key")+" = "+db.Dialect.Placeholder(1)+";", target.Key)
+	} else {
+		_, err = tx.ExecContext(ctx, "delete from int_pool where "+
+				db.Dialect.Quote("key")+" = "+db.Dialect.Placeholder(1)+" and "+
+				d.Placeholder(2)+"<"+d.Quote("end")+" and "+
+				d.Quote("start")+" < "+d.Placeholder(3),
+			target.Key,
+			target.Start,
+			target.End,
+		)
+	}
+	return errors.Wrap(basedb.FormatDBError(err), "failed to delete int pools")
+}
+
+// IP POOL
+
+
+// ipPool struct, represents a range of available ips.
+type ipPool struct {
+	key   string
+	start net.IP
+	end   net.IP
+}
+
+// createIPPool creates ip pool.
+func (db *Service) createIPPool(ctx context.Context, target *ipPool) error {
+	return db.deallocateIPRange(ctx, target)
+}
+
+// getIPPools gets ip pools overlapping given range.
+// return all if target.End is zero.
+func (db *Service) getIPPools(ctx context.Context, target *ipPool) ([]*ipPool, error) {
+	var query bytes.Buffer
+	d := db.Dialect
+	tx := basedb.GetTransaction(ctx)
+	basedb.WriteStrings(
+		&query,
+		"select ",
+		db.Dialect.SelectIP("start"),
+		", ",
+		db.Dialect.SelectIP("end"),
+		" from ipaddress_pool where ",
+		db.Dialect.Quote("key"),
+		" = ",
+		db.Dialect.Placeholder(1),
+	)
+
+	var rows *sql.Rows
+	var err error
+	if target.end.Equal(net.IP{}) {
+		basedb.WriteStrings(&query, " order by start for update ")
+		rows, err = tx.QueryContext(ctx, query.String(), target.key)
+	} else {
+		basedb.WriteStrings(
+			&query,
+			" and ",
+			d.LiteralIP(target.start),
+			" < ",
+			d.Quote("end"),
+			" and ",
+			d.Quote("start"),
+			" < ",
+			d.LiteralIP(target.end),
+			" order by start for update ",
+		)
+		rows, err = tx.QueryContext(ctx, query.String(), target.key)
+	}
+	pools := []*ipPool{}
+	err = basedb.FormatDBError(err)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get ip pool")
+	}
+	for rows.Next() {
+		pool := &ipPool{
+			key: target.key,
+		}
+		var start, end string
+		err := rows.Scan(&start, &end)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan ip pool")
+		}
+		pool.start = stringToIP(start)
+		pool.end = stringToIP(end)
+		err = basedb.FormatDBError(err)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse ip pool")
+		}
+		pools = append(pools, pool)
+	}
+	return pools, nil
+}
+
+// deleteIPPools deletes ip pool that overlaps target range. delete all if target.End is zero.
+// Whole pools are removed, not only overlapping parts.
+func (db *Service) deleteIPPools(ctx context.Context, target *ipPool) (int64, error) {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	query := ""
+	if target.end.Equal(net.IP{}) {
+		query = "delete from ipaddress_pool where " + db.Dialect.Quote("key") + " = " + db.Dialect.Placeholder(1)
+	} else {
+		query = "delete from ipaddress_pool where " + db.Dialect.Quote("key") + " = " + db.Dialect.Placeholder(1) +
+				" and " + d.LiteralIP(target.start) + " < " + d.Quote("end") + " and " +
+				d.Quote("start") + " < " + d.LiteralIP(target.end)
+	}
+
+	res, err := tx.ExecContext(ctx, query, target.key)
+	if err != nil {
+		return 0, errors.Wrap(basedb.FormatDBError(err), "failed to delete ip pools")
+	}
+
+	return res.RowsAffected()
+}
+
+// allocateIP allocates smallest available ip.
+func (db *Service) allocateIP(ctx context.Context, key string) (net.IP, error) {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	query := "select " + db.Dialect.SelectIP("start") + ", " + db.Dialect.SelectIP("end") +
+			" from ipaddress_pool where " +
+			d.Quote("key") + " = " + db.Dialect.Placeholder(1) + " limit 1 for update"
+	row := tx.QueryRowContext(ctx, query, key)
+
+	var start, end net.IP
+	var startString, endString string
+	err := row.Scan(&startString, &endString)
+	if err != nil {
+		return nil, basedb.FormatDBError(err)
+	}
+
+	start = stringToIP(startString)
+	end = stringToIP(endString)
+	updatedStart := cidr.Inc(start)
+
+	if bytes.Compare(updatedStart.To16(), end.To16()) <= 0 {
+		_, err = tx.ExecContext(ctx,
+			"update ipaddress_pool set "+d.Quote("start")+" = "+d.LiteralIP(updatedStart)+
+					" where "+d.Quote("key")+" = "+db.Dialect.Placeholder(1)+" and "+d.Quote("start")+
+					" = "+d.LiteralIP(start), key)
+	} else {
+		_, err = tx.ExecContext(ctx,
+			"delete from ipaddress_pool where "+d.Quote("key")+" = "+db.Dialect.Placeholder(1)+" and "+
+					d.Quote("start")+" = "+d.LiteralIP(start), key)
+	}
+	if err != nil {
+		return nil, basedb.FormatDBError(err)
+	}
+
+	return start, nil
+}
+
+//setIP allocates given ip, if it's available. Can split pools.
+func (db *Service) setIP(ctx context.Context, key string, ip net.IP) error {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	rangePool := &ipPool{
+		key:   key,
+		start: ip,
+		end:   cidr.Inc(ip),
+	}
+
+	pools, err := db.getIPPools(ctx, rangePool)
+	if err != nil {
+		return err
+	}
+	if len(pools) == 0 {
+		return errors.Errorf("Cannot allocate address %s : pool containing this address not found", ip.String())
+	}
+	_, err = db.deleteIPPools(ctx, rangePool)
+	if err != nil {
+		return err
+	}
+	pool := pools[0]
+
+	if pool.start.Equal(ip) {
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into ipaddress_pool ("+d.QuoteSep("key", "start", "end")+
+					") values ( "+db.Dialect.Placeholder(1)+", "+d.LiteralIP(cidr.Inc(pool.start))+", "+
+					d.LiteralIP(pool.end)+")", key)
+		if err != nil {
+			return basedb.FormatDBError(err)
+		}
+	} else if cidr.Dec(pool.end).Equal(ip) {
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into ipaddress_pool ("+d.QuoteSep("key", "start", "end")+") values ( "+
+					db.Dialect.Placeholder(1)+", "+d.LiteralIP(pool.start)+", "+d.LiteralIP(cidr.Dec(pool.end))+")", key)
+		if err != nil {
+			return basedb.FormatDBError(err)
+		}
+	} else {
+		// We need divide one pool to two.
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into ipaddress_pool ("+d.QuoteSep("key", "start", "end")+") values ( "+
+					db.Dialect.Placeholder(1)+", "+d.LiteralIP(pool.start)+", "+d.LiteralIP(ip)+")", key)
+		if err != nil {
+			return basedb.FormatDBError(err)
+		}
+		_, err = tx.ExecContext(
+			ctx,
+			"insert into ipaddress_pool ("+d.QuoteSep("key", "start", "end")+") values ( "+
+					db.Dialect.Placeholder(1)+", "+d.LiteralIP(cidr.Inc(ip))+", "+d.LiteralIP(pool.end)+")", key)
+		if err != nil {
+			return basedb.FormatDBError(err)
+		}
+	}
+	return nil
+}
+
+//deallocateIP deallocates ip.
+//nolint: unused
+func (db *Service) deallocateIP(ctx context.Context, key string, ip net.IP) error {
+	return db.deallocateIPRange(ctx, &ipPool{
+		key:   key,
+		start: ip,
+		end:   cidr.Inc(ip),
+	})
+}
+
+//deallocateIPRange deallocates ip range.
+func (db *Service) deallocateIPRange(ctx context.Context, target *ipPool) error {
+	tx := basedb.GetTransaction(ctx)
+	d := db.Dialect
+	// range for pool we want to merge.
+	// We need enlarge range so that we can merge pools on the next.
+	mergePool := &ipPool{
+		key:   target.key,
+		start: cidr.Dec(target.start),
+		end:   cidr.Inc(target.end),
+	}
+
+	pools, err := db.getIPPools(ctx, mergePool)
+	if err != nil && err != errutil.ErrorNotFound {
+		return err
+	}
+
+	start := target.start
+	end := target.end
+
+	// Clear overlapping ip pools
+	if len(pools) > 0 {
+		_, err = db.deleteIPPools(ctx, mergePool)
+		if err != nil {
+			return err
+		}
+		// Extend range based on existing pools.
+		start = ipMin(start, pools[0].start)
+		end = ipMax(end, pools[len(pools)-1].end)
+	}
+	q := "insert into ipaddress_pool (" + d.QuoteSep("key", "start", "end") + ") values ( " +
+			db.Dialect.Placeholder(1) + ", " + d.LiteralIP(start) + ", " + d.LiteralIP(end) + ")"
+
+	_, err = tx.ExecContext(ctx, q, target.key)
+	return basedb.FormatDBError(err)
+}
+
+// stringToIP translates string representation to IP, removing redundant '0' bytes from the end.
+func stringToIP(s string) net.IP {
+	s = strings.TrimRightFunc(s, func(r rune) bool { return r == 0 })
+	return net.ParseIP(s).To16()
+}
+
+// ipMax returns bigger of two addresses
+func ipMax(a, b net.IP) net.IP {
+	if bytes.Compare(a.To16(), b.To16()) > 0 {
+		return a.To16()
+	}
+	return b.To16()
+}
+
+// ipMin returns smaller of two addresses
+func ipMin(a, b net.IP) net.IP {
+	if bytes.Compare(a.To16(), b.To16()) < 0 {
+		return a.To16()
+	}
+	return b.To16()
+}
+
+// REF RELAX
+
+// RelaxRef makes a reference not prevent the referenced resource from being deleted.
+// When the referenced resource gets deleted, the reference will be deleted as well.
+func (db *Service) RelaxRef(ctx context.Context, request *services.RelaxRefRequest) error {
+	return db.DoInTransaction(ctx, func(ctx context.Context) error {
+		fromSchemaID, err := db.getSchemaID(ctx, request.GetUUID())
+		if err != nil {
+			return errors.Wrapf(err, "failed to relax reference from %v to %v: failed to get schema ID for `from`",
+				request.GetUUID(), request.GetRefUUID())
+		}
+
+		toSchemaID, err := db.getSchemaID(ctx, request.GetRefUUID())
+		if err != nil {
+			return errors.Wrapf(err, "failed to relax reference from %v to %v: failed to get schema ID for `to`",
+				request.GetUUID(), request.GetRefUUID())
+		}
+
+		if err := db.relaxRef(ctx, fromSchemaID, toSchemaID, request); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (db *Service) getSchemaID(ctx context.Context, uuid string) (string, error) {
+	metadata, err := db.GetMetadata(ctx, basemodels.Metadata{
+		UUID: uuid,
+	})
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get metadata for the resource with UUID '%v'", uuid)
+	}
+
+	return basemodels.KindToSchemaID(metadata.Type), nil
+}
+
+func (db *Service) relaxRef(ctx context.Context, schemaID, linkTo string, request *services.RelaxRefRequest) error {
+	qb := db.QueryBuilders[schemaID]
+	tx := basedb.GetTransaction(ctx)
+	_, err := tx.ExecContext(ctx, qb.RelaxRefQuery(strings.ToLower(linkTo)), request.GetUUID(), request.GetRefUUID())
+	if err != nil {
+		err = basedb.FormatDBError(err)
+		return errors.Wrapf(err, "failed to relax reference from %v %v to %v %v",
+			schemaID, request.GetUUID(), linkTo, request.GetRefUUID())
+	}
+	return nil
+}
+
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+
+// {{ schema.JSONSchema.GoName }}Fields is db columns for {{ schema.JSONSchema.GoName }}
+var {{ schema.JSONSchema.GoName }}Fields = []string{
+   {% for column in schema.Columns %}"{{ column.Column }}",
+   {% endfor %}
+}
+
+// {{ schema.JSONSchema.GoName }}RefFields is db reference fields for {{ schema.JSONSchema.GoName }}
+var {{ schema.JSONSchema.GoName }}RefFields = map[string][]string{
+   {% for linkTo, reference in schema.References %}
+	"{{ reference.LinkTo.Table }}": []string{
+		{% for column in reference.Columns %}"{{ column.Column }}",
+		{% endfor %}
+	},
+   {% endfor %}
+}
+
+// {{ schema.JSONSchema.GoName }}ChildFields is db child fields for {{ schema.JSONSchema.GoName }}
+var {{ schema.JSONSchema.GoName }}ChildFields = map[string][]string{
+   {% for _, backref in schema.Children %}
+   {% set child = backref.LinkTo %}
+   "{{ child.Table }}": []string{
+		{% for column in child.Columns %}"{{ column.Column }}",
+		{% endfor %}
+   },
+   {% endfor %}
+}
+
+// {{ schema.JSONSchema.GoName }}BackRefFields is db back reference fields for {{ schema.JSONSchema.GoName }}
+var {{ schema.JSONSchema.GoName }}BackRefFields = map[string][]string{
+   {% for _, definition in schema.BackReferences %}
+   {% set backref = definition.LinkTo %}
+   "{{ backref.Table }}": []string{
+		{% for column in backref.Columns %}"{{ column.Column }}",
+		{% endfor %}
+   },
+   {% endfor %}
+}
+
+// {{ schema.JSONSchema.GoName }}ParentTypes is possible parents for {{ schema.JSONSchema.GoName }}
+var {{ schema.JSONSchema.GoName }}Parents = []string{
+   {% for parent in schema.Parents %}
+   "{{ parent }}",
+   {% endfor %}
+}
+
+func (db *Service) create{{ schema.JSONSchema.GoName }}Reference(
+	ctx context.Context,
+	request *services.Create{{ schema.JSONSchema.GoName }}Request) error {
+	{% for linkTo, reference in schema.References %}
+	for _, ref := range request.{{ schema.JSONSchema.GoName }}.{{ reference.GoName }}Refs {
+		if err := db.createRef(
+			ctx,
+			request.{{ schema.JSONSchema.GoName }}.UUID, ref.UUID,
+			"{{ schema.ID }}", "{{ linkTo | lower }}",
+			{% for column in reference.Columns %}{% if column.Bind == "json" %}format.MustJSON(ref.GetAttr(){{ column.GetPath }}){% elif column.Bind %}{{ column.Bind }}(ref.GetAttr(){{ column.GetPath }}){% else %}ref.GetAttr(){{ column.GetPath }}{% endif %},
+{% endfor %}
+		); err != nil {
+			return err
+		}
+	}
+	{% endfor %}
+	return nil
+}
+
+// create{{ schema.JSONSchema.GoName }} inserts {{ schema.JSONSchema.GoName }} to DB
+func (db *Service) create{{ schema.JSONSchema.GoName }}(
+	ctx context.Context,
+	request *services.Create{{ schema.JSONSchema.GoName }}Request) error {
+	qb := db.QueryBuilders["{{ schema.ID }}"]
+	tx := basedb.GetTransaction(ctx)
+	model := request.{{ schema.JSONSchema.GoName }}
+	_, err := tx.ExecContext(ctx, qb.CreateQuery(),
+	{% for column in schema.Columns %}
+		{%- if column.Bind == "json" -%}
+		format.MustJSON(model{{ column.GetPath }})
+		{%- elif column.Bind == "uint64" -%}
+		{# workaround for https://github.com/golang/go/issues/9373 #}
+		fmt.Sprint({{ column.Bind }}(model{{ column.GetPath }}))
+		{%- elif column.Bind -%}
+		{{ column.Bind }}(model{{ column.GetPath }})
+		{%- else -%}
+		model{{ column.GetPath }}
+		{%- endif -%},
+	{% endfor %})
+	if err != nil {
+		err = basedb.FormatDBError(err)
+		return errors.Wrap(err, "creating {{ schema.JSONSchema.GoName }} failed")
+	}
+
+	{% if schema.References %}
+	err = db.create{{ schema.JSONSchema.GoName }}Reference(ctx, request)
+	if err != nil {
+		return errors.Wrap(err, "creating references for {{ schema.JSONSchema.GoName }} failed")
+	}
+	{% endif %}
+
+	{% if schema.HasParents() %}
+	err = db.createParentReference(ctx, request.{{ schema.JSONSchema.GoName }}, qb, {{ schema.JSONSchema.GoName }}Parents, {% if schema.ParentOptional %}true{% else %}false{% endif %})
+	if err != nil {
+		return errors.Wrap(err, "creating parent reference for {{ schema.JSONSchema.GoName }} failed")
+	}
+	{% endif %}
+
+	metaData := &basemodels.Metadata{
+		UUID: model.UUID,
+		Type: "{{ schema.TypeName }}",
+		FQName: model.FQName,
+	}
+	err = db.CreateMetadata(ctx, metaData)
+	if err != nil {
+		return errors.Wrap(err, "creating meta-data for {{ schema.JSONSchema.GoName }} failed")
+	}
+	for _, share := range model.GetPerms2().GetShare() {
+		err = db.CreateSharing(tx, "{{ schema.ID }}", model.UUID, share)
+		if err != nil {
+			return errors.Wrap(err, "creating share perms2 for {{ schema.JSONSchema.GoName }} failed")
+		}
+	}
+	return nil
+}
+
+{% macro scanJSONObject(JSONSchema, path, arg) %}
+	{% if JSONSchema.Type == "array" -%}
+		{% if JSONSchema.Items.Type == "string" -%}
+			{{ path }} = format.InterfaceToStringList({{arg}})
+		{% elif JSONSchema.Items.GoType == "int64" -%}
+			{{ path }} = format.InterfaceToInt64List({{arg}})
+		{% elif JSONSchema.Items.GoType == "uint64" -%}
+			{{ path }} = format.InterfaceToUint64List({{arg}})
+		{% elif JSONSchema.Items.Type == "boolean" -%}
+			{{ path }} = format.InterfaceToBoolList({{arg}})
+		{% elif JSONSchema.Items.Type == "object" -%}
+			{{ path }} = models.InterfaceTo{{ JSONSchema.Items.GoType }}Slice({{arg}})
+		{% endif -%}
+	{% else -%}
+		{% if JSONSchema.Type == "string" -%}
+			{{ path }} = format.InterfaceToString({{arg}})
+		{% elif JSONSchema.GoType == "int64" -%}
+			{{ path }} = format.InterfaceToInt64({{arg}})
+		{% elif JSONSchema.GoType == "uint64" -%}
+			{{ path }} = format.InterfaceToUint64({{arg}})
+		{% elif JSONSchema.Type == "boolean" -%}
+			{{ path }} = format.InterfaceToBool({{arg}})
+		{% elif JSONSchema.Type == "object" -%}
+			{{ path }} = models.InterfaceTo{{ JSONSchema.Items.GoType }}({{arg}})
+		{% endif -%}
+	{% endif -%}
+{% endmacro %}
+
+func (db *Service) scan{{ schema.JSONSchema.GoName }}(
+	values map[string]interface{},
+) (
+	*models.{{ schema.JSONSchema.GoName }}, *types.FieldMask, error,
+) {
+	if values == nil {
+		return nil, nil, nil
+	}
+	m := models.Make{{ schema.JSONSchema.GoName }}()
+	var paths []string
+	{% for column in schema.Columns %}
+	if value, ok := values["{{ column.Column }}"]; ok {
+		paths = append(paths, "{{ column.UpdatePath }}")
+		{% if column.Bind == "json" -%}
+		if b, ok := value.([]byte); ok {
+			json.Unmarshal(b, &m{{ column.Path }})
+		} else {
+			{{scanJSONObject(column.JSONSchema, "m"|add:column.Path, "value")}}
+		}
+		{%- elif column.Bind == "int" -%}
+			m{{ column.Path }} = format.InterfaceToInt64(value)
+		{%- elif column.Bind == "uint64" -%}
+			m{{ column.Path }} = format.InterfaceToUint64(value)
+		{%- elif column.Bind == "bool" -%}
+			m{{ column.Path }} = format.InterfaceToBool(value)
+		{%- elif column.Bind == "string" -%}
+			m{{ column.Path }} = format.InterfaceToString(value)
+		{% endif -%}
+	}
+	{%- endfor -%}
+
+	{% if schema.References | length + schema.Children | length + schema.BackReferences | length  > 0 %}
+	qb := db.QueryBuilders["{{ schema.ID }}"]
+	{%- endif %}
+
+	{% for linkTo, reference in schema.References %}
+	if value, ok := values["ref_{{ linkTo | lower }}"]; ok {
+		paths = append(paths, "{{ linkTo | lower }}_refs")
+		references := qb.ScanResourceList(value)
+		for _, reference := range references {
+			referenceMap, ok := reference.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			referenceModel := &models.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref{}
+
+			var err error
+			referenceModel.UUID, referenceModel.To, err = resolveUUIDAndFQNameFromMap(referenceMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			if referenceModel.UUID == "" {
+				continue
+			}
+
+			{% if reference.RefType -%}
+			referenceModel.Attr, _ = db.scan{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefAttr(referenceMap)
+			{%- endif %}
+			m.Add{{ reference.GoName }}Ref(referenceModel)
+		}
+	}
+	{% endfor %}
+	{%- for _, definition in schema.Children %}
+	{% set child = definition.LinkTo %}
+	if value, ok := values[schema.ChildColumnName("{{ child.Table }}", "{{ schema.ID }}")]; ok {
+		childResources := qb.ScanResourceList(value)
+		for _, childResource := range childResources {
+			childResourceMap, ok := childResource.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			childModel, _, err := db.scan{{ child.JSONSchema.GoName }}(childResourceMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			if childModel.GetUUID() == "" {
+				continue
+			}
+
+			m.{{ child.JSONSchema.GoName }}s = append(m.{{ child.JSONSchema.GoName }}s, childModel)
+		}
+	}
+	{%- endfor %}
+	{% for _, definition in schema.BackReferences %}
+	{% set backref = definition.LinkTo %}
+	if value, ok := values[schema.BackRefColumnName("{{ backref.Table }}", "{{ schema.Table }}")]; ok {
+		backrefResources := qb.ScanResourceList(value)
+		for _, childResource := range backrefResources {
+			backrefResourceMap, ok := childResource.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			uuid := format.InterfaceToString(backrefResourceMap["uuid"])
+			if uuid == "" {
+				continue
+			}
+			backrefModel, _, err := db.scan{{ backref.JSONSchema.GoName }}(backrefResourceMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			if backrefModel.GetUUID() == "" {
+				continue
+			}
+
+			m.{{ backref.JSONSchema.GoName }}BackRefs = append(m.{{ backref.JSONSchema.GoName }}BackRefs, backrefModel)
+		}
+	}
+	{% endfor %}
+	return m, &types.FieldMask{Paths: paths}, nil
+}
+
+{% for linkTo, reference in schema.References %}{% if reference.RefType %}
+func (db *Service) scan{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefAttr(values map[string]interface{}) (*models.{{ reference.RefType }}, *types.FieldMask) {
+	attr := models.Make{{reference.RefType}}()
+	var paths []string
+	{% for column in reference.Columns %}
+	if refAttrValue, ok := values["{{column.Column}}"]; ok && refAttrValue != nil {
+		paths = append(paths, "{{ column.UpdatePath }}")
+		{{scanJSONObject(column.JSONSchema, "attr"|add:column.Path, "refAttrValue")}}
+	}
+	{% endfor %}
+	return attr, &types.FieldMask{Paths: paths}
+}
+{% endif %}{% endfor %}
+
+// list{{ schema.JSONSchema.GoName }} lists {{ schema.JSONSchema.GoName }} with list spec.
+func (db *Service) list{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.List{{ schema.JSONSchema.GoName }}Request) (response *services.List{{ schema.JSONSchema.GoName }}Response, err error) {
+	qb := db.QueryBuilders["{{ schema.ID }}"]
+	query, columns, values := qb.ListQuery(auth.GetIdentity(ctx), request.Spec)
+
+	tx := basedb.GetTransaction(ctx)
+	rows, err := tx.QueryContext(ctx, query, values...)
+	if err != nil {
+		err = basedb.FormatDBError(err)
+		return nil, errors.Wrap(err, "select query failed")
+	}
+
+	defer rows.Close()
+
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(basedb.FormatDBError(err), "row error")
+	}
+
+	result := []*models.{{ schema.JSONSchema.GoName }}{}
+	for rows.Next() {
+			valuesMap := map[string]interface{}{}
+			values := make([]interface{}, len(columns))
+			valuesPointers := make([]interface{}, len(columns))
+			for _, index := range columns {
+				valuesPointers[index] = &values[index]
+			}
+			if err := rows.Scan(valuesPointers...); err != nil {
+					return nil, errors.Wrap(err, "scan failed")
+			}
+			for column, index := range columns {
+				val := valuesPointers[index].(*interface{})
+				valuesMap[column] = *val
+			}
+			m, _, err := db.scan{{ schema.JSONSchema.GoName }}(valuesMap)
+			if err != nil {
+				return nil, errors.Wrap(err, "scan row failed")
+			}
+			result = append(result, m)
+	}
+
+	response = &services.List{{ schema.JSONSchema.GoName }}Response{
+		{{ schema.JSONSchema.GoName }}s: result,
+		{{ schema.JSONSchema.GoName }}Count: int64(len(result)),
+	}
+
+	return response, nil
+}
+
+// Update{{ schema.JSONSchema.GoName }} updates a resource
+func (db *Service) update{{ schema.JSONSchema.GoName }}(
+	ctx context.Context,
+	request *services.Update{{ schema.JSONSchema.GoName }}Request,
+	) error {
+	tx := basedb.GetTransaction(ctx)
+	qb := db.QueryBuilders["{{ schema.ID }}"]
+	model := request.{{ schema.JSONSchema.GoName }}
+
+	if err := db.checkPolicy(ctx, qb, model.UUID); err != nil {
+		return err
+	}
+
+	var paths []string
+	for _, path := range request.FieldMask.Paths {
+		childPaths := {{ schema.JSONSchema.GoName }}Structure.GetInnerPaths(path)
+		if len(childPaths) == 0 {
+			paths = append(paths, path)
+		} else {
+			paths = append(paths, childPaths...)
+		}
+	}
+
+	columns := []string{}
+	values := []interface{}{}
+	for _, updatedPath := range paths {
+		switch (updatedPath) {
+			{% for column in schema.Columns %}
+			case "{{ column.UpdatePath }}":
+				columns = append(columns, "{{ column.Column }}")
+				values = append(values,
+					{%- if column.Bind == "json" -%}
+					format.MustJSON(model{{ column.GetPath }})
+					{%- elif column.Bind == "uint64" -%}
+					fmt.Sprint({{ column.Bind }}(model{{ column.GetPath }}))
+					{%- elif column.Bind -%}
+					{{ column.Bind }}(model{{ column.GetPath }})
+					{%- else -%}
+					model{{ column.GetPath }}
+					{%- endif -%} )
+			{%- endfor %}
+			{% for linkTo, reference in schema.References %}
+			case "{{ linkTo | lower }}_refs":
+				_, err := tx.ExecContext(ctx, qb.DeleteRefsQuery("{{ linkTo | lower }}"), model.UUID)
+				if err != nil {
+					err = basedb.FormatDBError(err)
+				  return errors.Wrapf(err,"{{ reference.GoName }}Refs update failed for object {{ schema.JSONSchema.GoName }} with UUID: '%v': ", request.{{ schema.JSONSchema.GoName }}.GetUUID())
+				}
+				for _, ref := range model.{{ reference.GoName }}Refs {
+					{% if reference.RefType  %}
+					if ref.Attr == nil {
+						ref.Attr = &models.{{ reference.RefType }}{}
+					}
+					{% endif %}
+					_, err = tx.ExecContext(ctx, qb.CreateRefQuery("{{ linkTo | lower  }}"), model.UUID, ref.UUID, {% for column in reference.Columns %}{% if column.Bind == "json" %}format.MustJSON(ref.Attr{{ column.GetPath }}){% elif column.Bind %}{{ column.Bind }}(ref.Attr{{ column.GetPath }}){% else %}ref.Attr{{ column.GetPath }}{% endif %}{% if not forloop.Last %},
+				{% endif %}{% endfor %})
+					if err != nil {
+						err = basedb.FormatDBError(err)
+					  return errors.Wrapf(err,"{{ reference.GoName }}Refs create failed for object {{ schema.JSONSchema.GoName }} with UUID: '%v': ", request.{{ schema.JSONSchema.GoName }}.GetUUID())
+					}
+				}
+			{%- endfor %}
+		}
+	}
+	values = append(values, model.UUID)
+	if len(columns) == 0 {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, qb.UpdateQuery(columns), values...)
+	return basedb.FormatDBError(err)
+}
+
+//Create{{ schema.JSONSchema.GoName }} handle a Create API
+func (db *Service) Create{{ schema.JSONSchema.GoName }}(
+	ctx context.Context,
+	request *services.Create{{ schema.JSONSchema.GoName }}Request) (*services.Create{{ schema.JSONSchema.GoName }}Response, error) {
+	model := request.{{ schema.JSONSchema.GoName }}
+	if model == nil {
+		return nil, errutil.ErrorBadRequest("update body is empty")
+	}
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			return db.create{{ schema.JSONSchema.GoName }}(ctx, request)
+		}); err != nil {
+			return nil, err
+	}
+	return &services.Create{{ schema.JSONSchema.GoName }}Response{
+		{{ schema.JSONSchema.GoName }}: request.{{ schema.JSONSchema.GoName }},
+	}, nil
+}
+
+//Update{{ schema.JSONSchema.GoName }} handles a Update request.
+func (db *Service) Update{{ schema.JSONSchema.GoName }}(
+	ctx context.Context,
+	request *services.Update{{ schema.JSONSchema.GoName }}Request) (*services.Update{{ schema.JSONSchema.GoName }}Response, error) {
+	model := request.{{ schema.JSONSchema.GoName }}
+	if model == nil {
+		return nil, errutil.ErrorBadRequest("update body is empty")
+	}
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			return db.update{{ schema.JSONSchema.GoName }}(ctx, request)
+		}); err != nil {
+		return nil, err
+	}
+	return &services.Update{{ schema.JSONSchema.GoName }}Response{
+		{{ schema.JSONSchema.GoName }}: model,
+	}, nil
+}
+
+//Delete{{ schema.JSONSchema.GoName }} delete a resource.
+func (db *Service) Delete{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.Delete{{ schema.JSONSchema.GoName }}Request) (*services.Delete{{ schema.JSONSchema.GoName }}Response, error) {
+	id := request.GetID()
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			return db.delete(ctx, db.QueryBuilders["{{ schema.ID }}"], id, {{schema.JSONSchema.GoName}}BackRefFields)
+		}); err != nil {
+		return nil, err
+	}
+	return &services.Delete{{ schema.JSONSchema.GoName }}Response{
+		ID: id,
+	}, nil
+}
+
+{% for linkTo, reference in schema.References %}
+// Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref handles ref create.
+func (db *Service) Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref(
+	ctx context.Context,
+	request *services.Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest) (*services.Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse, error) {
+	ref := request.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref
+	if request.ID == "" {
+		return nil, errutil.ErrorBadRequest("reference from ID is missing")
+	}
+	if ref == nil {
+		return nil, errutil.ErrorBadRequest("reference data is missing")
+	}
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			return db.createRef(
+				ctx,
+				request.ID, ref.UUID,
+				"{{ schema.ID }}", "{{ linkTo | lower }}",
+				{% for column in reference.Columns %}{% if column.Bind == "json" %}format.MustJSON(ref.GetAttr(){{ column.GetPath }}){% elif column.Bind %}{{ column.Bind }}(ref.GetAttr(){{ column.GetPath }}){% else %}ref.GetAttr(){{ column.GetPath }}{% endif %},
+				{% endfor %}
+			)
+		}); err != nil {
+		return nil, err
+	}
+	return &services.Create{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse{
+		ID: request.ID,
+		{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref: request.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref,
+	}, nil
+}
+
+// Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref handles ref delete.
+func (db *Service) Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref(
+	ctx context.Context,
+	request *services.Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefRequest) (*services.Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse, error) {
+	ref := request.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref
+	if request.ID == "" {
+		return nil, errutil.ErrorBadRequest("reference from ID is missing")
+	}
+	if ref == nil {
+		return nil, errutil.ErrorBadRequest("reference data is missing")
+	}
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			return db.deleteRef(ctx, request.ID, ref.UUID, "{{ schema.ID }}", "{{ linkTo | lower }}")
+		}); err != nil {
+		return nil, err
+	}
+	return &services.Delete{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefResponse{
+		ID: request.ID,
+		{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref: request.{{ schema.JSONSchema.GoName }}{{ reference.GoName }}Ref,
+	}, nil
+}
+{% endfor %}
+
+//Get{{ schema.JSONSchema.GoName }} a Get request.
+func (db *Service) Get{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.Get{{ schema.JSONSchema.GoName }}Request) (response *services.Get{{ schema.JSONSchema.GoName }}Response, err error) {
+	listRequest := &services.List{{ schema.JSONSchema.GoName }}Request{
+		Spec: listSpecForGet(request.ID, request.Fields),
+	}
+	var result *services.List{{ schema.JSONSchema.GoName }}Response
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			result, err = db.list{{ schema.JSONSchema.GoName }}(ctx, listRequest)
+			return err
+		}); err != nil {
+		return nil, errutil.ErrorInternal
+	}
+	if len(result.{{ schema.JSONSchema.GoName }}s) == 0 {
+		return nil, errutil.ErrorNotFoundf("{{ schema.TypeName }} with uuid: '%s' does not exists", request.ID)
+	}
+
+	return &services.Get{{ schema.JSONSchema.GoName }}Response{
+	   {{ schema.JSONSchema.GoName }}: result.{{ schema.JSONSchema.GoName }}s[0],
+	}, nil
+}
+
+//List{{ schema.JSONSchema.GoName }} handles a List service Request.
+func (db *Service) List{{ schema.JSONSchema.GoName }}(
+	ctx context.Context,
+	request *services.List{{ schema.JSONSchema.GoName }}Request) (response *services.List{{ schema.JSONSchema.GoName }}Response, err error) {
+	spec := request.Spec
+	if err := db.DoInTransaction(
+		ctx,
+		func (ctx context.Context) error {
+			if spec.Count {
+				var count int64
+				count, err = db.count(ctx, db.QueryBuilders["{{ schema.ID }}"], request.Spec)
+				if err == nil {
+					response = &services.List{{ schema.JSONSchema.GoName }}Response{
+						{{ schema.JSONSchema.GoName }}Count: count,
+					}
+				}
+			} else {
+				response, err = db.list{{ schema.JSONSchema.GoName }}(ctx, request)
+			}
+
+			return err
+		}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+{% endif %}
+{% endfor %}

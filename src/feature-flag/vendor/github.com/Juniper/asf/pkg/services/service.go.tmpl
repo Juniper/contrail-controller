@@ -1,0 +1,445 @@
+package services
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"net/http"
+
+	"github.com/pkg/errors"
+	"github.com/gogo/protobuf/types"
+	"github.com/Juniper/asf/pkg/auth"
+	"github.com/Juniper/asf/pkg/errutil"
+	"github.com/Juniper/asf/pkg/format"
+	"github.com/Juniper/asf/pkg/services/baseservices"
+	"github.com/Juniper/asf/pkg/models/basemodels"
+	"github.com/labstack/echo"
+	"github.com/sirupsen/logrus"
+
+
+	models "{{ modelsImportPath }}"
+	uuid "github.com/satori/go.uuid"
+)
+
+// TODO(dfurman): move non-template code out of template
+// TODO(dfurman): write tests
+
+type withHref interface {
+	Kind() string
+	GetUUID() string
+	SetHref(string)
+}
+
+func applyHref(r basemodels.Object, req *http.Request) error {
+	if err := applyHrefOnResource(r, req); err != nil {
+		return err
+	}
+	for _, ref := range r.GetReferences() {
+		if err := applyHrefOnReference(r, newRefToHrefAdapter(ref), req); err != nil {
+			return err
+		}
+	}
+	for _, backRef := range r.GetBackReferences() {
+		if err := applyHrefOnReference(r, backRef, req); err != nil {
+			return err
+		}
+	}
+	for _, child := range r.GetChildren() {
+		if err := applyHrefOnReference(r, child, req); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applyHrefOnResource(o withHref, req *http.Request) error {
+	objURL, err := url.Parse(GetRequestSchema(req) + req.Host + "/" + o.Kind() + "/")
+	if err != nil {
+		return errors.Wrap(err, "failed to parse connection url")
+	}
+	uuidURL, err := url.Parse(o.GetUUID())
+	if err != nil {
+		return errors.Wrap(err, "failed to parse uuid")
+	}
+	o.SetHref(objURL.ResolveReference(uuidURL).String())
+	return nil
+}
+
+func applyHrefOnReference(from, to withHref, req *http.Request) error {
+	refURL, err := url.Parse(GetRequestSchema(req) + req.Host + "/" + to.Kind() + "/")
+	if err != nil {
+		return errors.Wrapf(err, "failed to resolve '%s-%s' reference url", from.Kind(), to.Kind())
+	}
+	uuidURL, err := url.Parse(to.GetUUID())
+	if err != nil {
+		return errors.Wrapf(err, "failed to parse '%s-%s' reference url with uuid '%s'",
+			from.Kind(), to.Kind(), to.GetUUID())
+	}
+	to.SetHref(refURL.ResolveReference(uuidURL).String())
+	return nil
+}
+
+type refToHrefAdapter struct {
+	basemodels.Reference
+}
+
+func newRefToHrefAdapter(r basemodels.Reference) *refToHrefAdapter {
+	return &refToHrefAdapter{
+		Reference: r,
+	}
+}
+
+func (r *refToHrefAdapter) Kind() string {
+	return r.GetToKind()
+}
+
+const xRequestIDHeader = "X-Request-Id"
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+type RESTUpdate{{ schema.JSONSchema.GoName }}Request struct{
+	{{ schema.JSONSchema.GoName }} map[string]interface{} `json:"{{ schema.Path }}"`
+	FieldMask types.FieldMask `json:"field_mask"`
+}
+
+// RESTCreate{{ schema.JSONSchema.GoName }} handles a REST create request.
+func (service *ContrailService) RESTCreate{{ schema.JSONSchema.GoName }}(c echo.Context) error {
+	requestData := &Create{{ schema.JSONSchema.GoName }}Request{}
+	if err := c.Bind(requestData); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid JSON format: %s", err))
+	}
+	req := c.Request()
+	ctx := WithRequestID(req.Context(), req.Header.Get(xRequestIDHeader))
+	response, err := service.Create{{ schema.JSONSchema.GoName }}(ctx, requestData)
+	if err != nil {
+		return errutil.ToHTTPError(err)
+	}
+	if err = applyHref(response.{{ schema.JSONSchema.GoName }}, c.Request()); err != nil {
+		logrus.WithError(err).Error("Failed to apply href")
+	}
+	return c.JSON(http.StatusOK, response)
+}
+
+// Create{{ schema.JSONSchema.GoName }} handles a create request.
+func (service *ContrailService) Create{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *Create{{ schema.JSONSchema.GoName }}Request,
+) (*Create{{ schema.JSONSchema.GoName }}Response, error) {
+	model := request.{{ schema.JSONSchema.GoName }}
+	if model == nil {
+		return nil, errutil.ErrorBadRequest("create body is empty")
+	}
+
+	ctx = WithRequestID(ctx, "")
+	authCTX := auth.GetIdentity(ctx)
+	if authCTX == nil {
+		return nil, errutil.ErrorUnauthenticated
+	}
+
+	if model.UUID == "" {
+		model.UUID = uuid.NewV4().String()
+	}
+
+	if model.Name == "" {
+		if fqName := model.FQName; len(fqName) > 0 {
+			model.Name = fqName[len(fqName)-1]
+		} else {
+			model.Name = "default-{{ schema.TypeName }}"
+		}
+	}
+
+{% if schema.IsConfigRootInParents %}
+	if model.ParentType == models.KindConfigRoot {
+		model.ParentType = ""
+	}
+{% endif %}
+
+	{% if schema.Parents | length == 1 and !schema.IsConfigRootInParents %}{# There is only one parent, so "for" will extract him #}
+	if model.ParentType == "" { {% for key, reference in schema.Parents %}
+		model.ParentType = "{{ reference.LinkTo.TypeName }}"{% endfor %}
+	}
+	{% endif %}
+
+
+	if err := service.sanitizeFQNameFor{{ schema.JSONSchema.GoName }}(ctx, request); err != nil {
+		return nil, err
+	}
+
+{% if schema.Parents | length != 0 %}
+	if model.ParentUUID == "" && model.ParentType != "" {
+		// fqName must be have at least 2 elements to contain parent fqName
+		if l := len(model.FQName); l > 1 {
+			// get parentUUID by parent fqName
+			parentFQName := model.FQName[:l-1]
+			metadata, err := service.MetadataGetter.GetMetadata(ctx,  basemodels.Metadata{Type: model.ParentType, FQName: parentFQName})
+			if err != nil {
+				return nil, errutil.ErrorBadRequestf("no parent for {{ schema.JSONSchema.GoName }} found by FQName=(%v): %v", parentFQName, err)
+			}
+			model.ParentUUID = metadata.UUID
+		}
+	}
+{% endif %}
+	if model.Perms2 == nil {
+		model.Perms2 = &models.PermType2{}
+	}
+	model.Perms2.OwnerAccess = basemodels.PermsRWX
+	if model.Perms2.Owner == "" {
+		model.Perms2.Owner = authCTX.ProjectID()
+	}
+	if model.Perms2.Share == nil {
+		model.Perms2.Share = []*models.ShareType{}
+	}
+
+	if isVerified := baseservices.IsInternalRequest(ctx); !isVerified {
+		if err := isVisibleObject(ctx, model.IDPerms); err != nil {
+			return nil, errutil.ErrorBadRequestf("%v", err)
+		}
+	}
+
+	if model.IDPerms == nil {
+		model.IDPerms = models.NewIDPerms(model.UUID)
+		model.IDPerms.UserVisible = true
+	}
+	model.IDPerms.EnsureDefault(model.UUID)
+
+	err := service.TypeValidator.Validate{{ schema.JSONSchema.GoName }}(request.{{ schema.JSONSchema.GoName }})
+	if err != nil {
+		return nil, errutil.ErrorBadRequestf(
+			"validation failed for resource with UUID %v: %v",
+			request.{{ schema.JSONSchema.GoName }}.UUID,
+			err,
+		)
+	}
+
+	return service.BaseService.Create{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+func (service *ContrailService) sanitizeFQNameFor{{ schema.JSONSchema.GoName }} (
+	ctx context.Context,
+	request *Create{{ schema.JSONSchema.GoName }}Request,
+) error {
+	model := request.{{ schema.JSONSchema.GoName }}
+	if len(model.FQName) != 0 {
+		return nil
+	}
+{% if schema.Parents | length == 0 %}
+	model.FQName = []string{model.Name}
+{% else %}
+	{% if schema.IsConfigRootInParents %}
+	if model.ParentUUID == "" && model.ParentType == "" {
+		model.FQName = []string{model.Name}
+		return nil
+	}
+	{% endif %}
+	if model.ParentUUID != "" {
+		// fqName is empty but parentUUID is not - get parent fqName
+		metadata, err := service.MetadataGetter.GetMetadata(ctx,  basemodels.Metadata{UUID: model.ParentUUID})
+		if err != nil {
+			return errutil.ErrorBadRequestf("Failed to generate FQName for UUID %v: %v", model.ParentUUID, err)
+		}
+		model.FQName = append(metadata.FQName, model.Name)
+		return nil
+	}
+	if model.ParentType != "" {
+		// assign default fqName
+		authCTX := auth.GetIdentity(ctx)
+		model.FQName = []string{authCTX.DomainID(), fmt.Sprintf("default-%s", model.ParentType), model.Name}
+	}
+{% endif %}
+	return nil
+}
+
+// RESTUpdate{{ schema.JSONSchema.GoName }} handles a REST update request.
+func (service *ContrailService) RESTUpdate{{ schema.JSONSchema.GoName }}(c echo.Context) error {
+	var request RESTUpdate{{ schema.JSONSchema.GoName }}Request
+	if err := c.Bind(&request); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid JSON format: %s", err))
+	}
+
+	req := c.Request()
+	ctx := WithRequestID(req.Context(), req.Header.Get(xRequestIDHeader))
+	model, err := models.InterfaceTo{{ schema.JSONSchema.GoName }}E(request.{{ schema.JSONSchema.GoName }})
+	if err != nil {
+		return err
+	}
+	model.UUID = c.Param("id")
+	var fm types.FieldMask
+	if request.FieldMask.Paths != nil {
+		fm = request.FieldMask
+	} else {
+		fm = basemodels.MapToFieldMask(request.{{ schema.JSONSchema.GoName }})
+	}
+
+	response, err := service.Update{{ schema.JSONSchema.GoName }}(
+		ctx,
+		&Update{{ schema.JSONSchema.GoName }}Request{
+			{{ schema.JSONSchema.GoName }}: model,
+			FieldMask: fm,
+		},
+	)
+	if err != nil {
+		return errutil.ToHTTPError(err)
+	}
+	if err = applyHref(model, c.Request()); err != nil {
+		logrus.WithError(err).Error("Failed to apply href")
+	}
+	return c.JSON(http.StatusOK, response)
+}
+
+// Update{{ schema.JSONSchema.GoName }} handles an update request.
+func (service *ContrailService) Update{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *Update{{ schema.JSONSchema.GoName }}Request,
+) (*Update{{ schema.JSONSchema.GoName }}Response, error) {
+	model := request.{{ schema.JSONSchema.GoName }}
+	if model == nil {
+		return nil, errutil.ErrorBadRequest("update request body is empty")
+	}
+
+	ctx = WithRequestID(ctx, "")
+	storedIDPerms, err := getStoredIDPerms(ctx, service, "{{ schema.TypeName }}", model.UUID)
+	if err != nil {
+		return nil, err
+	}
+
+	if isVerified := baseservices.IsInternalRequest(ctx); !isVerified {
+		if err := isVisibleObject(ctx, storedIDPerms); err != nil {
+			return nil, errutil.ErrorNotFoundf("%v", err)
+		}
+	}
+
+	model.IDPerms, request.FieldMask.Paths = sanitizeIDPermsUUID(model.GetIDPerms(), request.FieldMask.Paths)
+	if !model.IDPerms.IsUUIDMatch(model.UUID) {
+		logrus.Warn("UUID mismatch")
+	}
+	if model.IDPerms == nil {
+		model.IDPerms = models.NewIDPerms(model.UUID)
+	}
+	model.IDPerms.Merge(storedIDPerms)
+
+	return service.BaseService.Update{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+// RESTDelete{{ schema.JSONSchema.GoName }} handles a REST delete request.
+func (service *ContrailService) RESTDelete{{ schema.JSONSchema.GoName }}(c echo.Context) error {
+	request := &Delete{{ schema.JSONSchema.GoName }}Request{
+		ID: c.Param("id"),
+	}
+	req := c.Request()
+	ctx := WithRequestID(req.Context(), req.Header.Get(xRequestIDHeader))
+	 _, err := service.Delete{{ schema.JSONSchema.GoName }}(ctx, request)
+	if err != nil {
+		return errutil.ToHTTPError(err)
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+// Delete{{ schema.JSONSchema.GoName }} handles a delete request.
+func (service *ContrailService) Delete{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *Delete{{ schema.JSONSchema.GoName }}Request,
+) (*Delete{{ schema.JSONSchema.GoName }}Response, error) {
+	ctx = WithRequestID(ctx, "")
+	if isVerified := baseservices.IsInternalRequest(ctx); !isVerified {
+		storedIDPerms, err := getStoredIDPerms(ctx, service, "{{ schema.TypeName }}", request.ID)
+		if err != nil {
+			return nil, errutil.ErrorNotFoundf("%v", err)
+		}
+		if err = isVisibleObject(ctx, storedIDPerms); err != nil {
+			return nil, errutil.ErrorNotFoundf("%v", err)
+		}
+	}
+	return service.BaseService.Delete{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+// RESTGet{{ schema.JSONSchema.GoName }} handles a REST get request.
+func (service *ContrailService) RESTGet{{ schema.JSONSchema.GoName }}(c echo.Context) (error) {
+	request := &Get{{ schema.JSONSchema.GoName }}Request{
+		ID: c.Param("id"),
+	}
+	req := c.Request()
+	ctx := WithRequestID(req.Context(), req.Header.Get(xRequestIDHeader))
+	response, err := service.Get{{ schema.JSONSchema.GoName }}(ctx, request)
+	if err != nil {
+		return errutil.ToHTTPError(err)
+	}
+	if err = applyHref(response.{{ schema.JSONSchema.GoName }}, c.Request()); err != nil {
+		logrus.WithError(err).Error("Failed to apply href")
+	}
+	return c.JSON(http.StatusOK, response)
+}
+
+// Get{{ schema.JSONSchema.GoName }} handles a get request.
+func (service *ContrailService) Get{{ schema.JSONSchema.GoName }}(
+	ctx context.Context, request *Get{{ schema.JSONSchema.GoName }}Request,
+) (*Get{{ schema.JSONSchema.GoName }}Response, error) {
+	ctx = WithRequestID(ctx, "")
+	if isVerified := baseservices.IsInternalRequest(ctx); !isVerified {
+		storedIDPerms, err := getStoredIDPerms(ctx, service, "{{ schema.TypeName }}", request.ID)
+		if errutil.IsNotFound(err) {
+			// Resources may be created on get by resource plugins (Neutron)
+			return service.BaseService.Get{{ schema.JSONSchema.GoName }}(ctx, request)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		if err = isVisibleObject(ctx, storedIDPerms); err != nil {
+			return nil, errutil.ErrorNotFoundf("%v", err)
+		}
+	}
+
+	return service.BaseService.Get{{ schema.JSONSchema.GoName }}(ctx, request)
+}
+
+// RESTList{{ schema.JSONSchema.GoName }} handles a REST list request.
+func (service *ContrailService) RESTList{{ schema.JSONSchema.GoName }}(c echo.Context) (error) {
+	ls := baseservices.GetListSpec(c)
+
+	response, err := service.List{{ schema.JSONSchema.GoName }}(
+		WithRequestID(
+			c.Request().Context(),
+			c.Request().Header.Get(xRequestIDHeader),
+		),
+		&List{{ schema.JSONSchema.GoName }}Request{
+			Spec: ls,
+		},
+	)
+	if err != nil {
+		return errutil.ToHTTPError(err)
+	}
+
+	if !ls.ExcludeHrefs {
+		for _, r := range response.{{ schema.JSONSchema.GoName }}s {
+			if err = applyHref(r, c.Request()); err != nil {
+				logrus.WithError(err).Error("Failed to apply href - ignoring")
+			}
+		}
+	}
+
+	if ls.Count {
+		return c.JSON(http.StatusOK, response.Count())
+	}
+	if ls.Detail {
+		return c.JSON(http.StatusOK, response.Detailed())
+	}
+	if len(ls.Fields) > 0 {
+		fm := types.FieldMask{Paths: ls.Fields}
+		return c.JSON(http.StatusOK, response.ApplyFieldMask(fm))
+	}
+	return c.JSON(http.StatusOK, response.Data())
+}
+
+{% endif %}{% endfor %}
+
+func sanitizeIDPermsUUID(idPerms *models.IdPermsType, paths []string) (*models.IdPermsType, []string) {
+	if idPerms.GetUUID() != nil {
+		idPerms.UUID = nil
+	}
+
+	return idPerms, format.RemoveFromStringSlice(
+		paths,
+		map[string]struct{}{
+			"id_perms.uuid":             {},
+			"id_perms.uuid.uuid_mslong": {},
+			"id_perms.uuid.uuid_lslong": {},
+		},
+	)
+}

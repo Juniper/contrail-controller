@@ -1,0 +1,73 @@
+resources:
+- kind: project
+  data:
+    fq_name:
+    - default-domain
+    - test_convert_project
+    uuid: 9a76fa43-3c35-4c33-92e9-1133629df0ce
+    parent_type: domain
+    parent_uuid: beefbeef-beef-beef-beef-beefbeef0002
+    quota: {}
+    application_policy_set_refs:
+    - uuid: ddc62918-63c1-416b-96a2-e4ad976998fc
+
+- kind: application_policy_set
+  data:
+    uuid: ddc62918-63c1-416b-96a2-e4ad976998fc
+    parent_type: project
+    parent_uuid: 9a76fa43-3c35-4c33-92e9-1133629df0ce
+    name: default-application-policy-set
+    display_name: default-application-policy-set
+    fq_name:
+    - default-domain
+    - test_convert_project
+    - default-application-policy-set
+    all_applications: true
+
+- kind: security_group
+  data:
+    uuid: c0b52016-498f-4d29-836d-c6629a360f5d
+    parent_type: project
+    parent_uuid: 9a76fa43-3c35-4c33-92e9-1133629df0ce
+    fq_name:
+    - default-domain
+    - test_convert_project
+    - default
+
+- kind: routing_instance
+  data:
+    uuid: 088203d7-9b91-400b-9be4-9a513a2088b5
+    parent_type: virtual-network
+    parent_uuid: 85fa1791-65a3-4797-8732-1d55ba398395
+    route_target_refs:
+    - uuid: a544fde6-4bc1-4d68-99cf-e20c8e1c0768
+
+- kind: virtual_network
+  data:
+    uuid: 85fa1791-65a3-4797-8732-1d55ba398395
+    parent_type: project
+    parent_uuid: 9a76fa43-3c35-4c33-92e9-1133629df0ce
+    fq_name:
+    - default-domain
+    - test_convert_project
+    - test_convert_virtual_network
+    virtual_network_refs:
+    - uuid: 85fa1791-65a3-4797-8732-1d55ba398395
+    - uuid: 1df2fc73-39dc-44cb-b283-0c69ce6395b1
+
+- kind: virtual_network
+  data:
+    uuid: 1df2fc73-39dc-44cb-b283-0c69ce6395b1
+    parent_type: project
+    parent_uuid: 9a76fa43-3c35-4c33-92e9-1133629df0ce
+    fq_name:
+    - default-domain
+    - test_convert_project
+    - test_convert_virtual_network_2
+    virtual_network_refs:
+    - uuid: 85fa1791-65a3-4797-8732-1d55ba398395
+
+- kind: route_target
+  data:
+    uuid: a544fde6-4bc1-4d68-99cf-e20c8e1c0768
+    fq_name: ["target:100:200"]

@@ -1,0 +1,231 @@
+package client
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"strconv"
+
+	"github.com/Juniper/asf/pkg/client"
+	"github.com/pkg/errors"
+
+	models "{{ modelsImportPath }}"
+	services "{{ servicesImportPath }}"
+)
+
+// HTTP is an API client that implements services.Service interface.
+type HTTP struct {
+	services.BaseService
+	*client.HTTP
+}
+
+// NewHTTP makes API Server HTTP client.
+func NewHTTP(c *client.HTTPConfig) *HTTP {
+	return &HTTP{HTTP: client.NewHTTP(c)}
+}
+
+// NewHTTPFromConfig makes API Server HTTP client with viper config
+func NewHTTPFromConfig() *HTTP {
+	return &HTTP{HTTP: client.NewHTTPFromConfig()}
+}
+
+// RefUpdate sends a create/update API request
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) RefUpdate(ctx context.Context, data interface{}, output interface{}) (*http.Response, error) {
+	return h.Do(ctx, http.MethodPost, "/"+services.RefUpdatePath, nil, data, output, []int{http.StatusOK})
+}
+
+// CreateIntPool sends a create int pool request to remote int-pools.
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) CreateIntPool(ctx context.Context, pool string, start int64, end int64) error {
+	_, err := h.Do(
+		ctx,
+		http.MethodPost,
+		"/"+services.IntPoolsPath,
+		nil,
+		&services.CreateIntPoolRequest{
+			Pool:  pool,
+			Start: start,
+			End:   end,
+		},
+		&struct{}{},
+		[]int{http.StatusOK},
+	)
+	return errors.Wrap(err, "error creating int pool in int-pools via HTTP")
+}
+
+// GetIntOwner sends a get int pool owner request to remote int-owner.
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) GetIntOwner(ctx context.Context, pool string, value int64) (string, error) {
+	q := make(url.Values)
+	q.Set("pool", pool)
+	q.Set("value", strconv.FormatInt(value, 10))
+	var output struct {
+		Owner string `json:"owner"`
+	}
+
+	_, err := h.Do(ctx, http.MethodGet, "/"+services.IntPoolPath, q, nil, &output, []int{http.StatusOK})
+	return output.Owner, errors.Wrap(err, "error getting int pool owner via HTTP")
+}
+
+// DeleteIntPool sends a delete int pool request to remote int-pools.
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) DeleteIntPool(ctx context.Context, pool string) error {
+	_, err := h.Do(
+		ctx,
+		http.MethodDelete,
+		"/"+services.IntPoolsPath,
+		nil,
+		&services.DeleteIntPoolRequest{
+			Pool: pool,
+		},
+		&struct{}{},
+		[]int{http.StatusOK},
+	)
+	return errors.Wrap(err, "error deleting int pool in int-pools via HTTP")
+}
+
+// AllocateInt sends an allocate int request to remote int-pool.
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) AllocateInt(ctx context.Context, pool, owner string) (int64, error) {
+	var output struct {
+		Value int64 `json:"value"`
+	}
+	_, err := h.Do(
+		ctx,
+		http.MethodPost,
+		"/"+services.IntPoolPath,
+		nil,
+		&services.IntPoolAllocationBody{
+			Pool:  pool,
+			Owner: owner,
+		},
+		&output,
+		[]int{http.StatusOK},
+	)
+	return output.Value, errors.Wrap(err, "error allocating int in int-pool via HTTP")
+}
+
+// SetInt sends a set int request to remote int-pool.
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) SetInt(ctx context.Context, pool string, value int64, owner string) error {
+	_, err := h.Do(
+		ctx,
+		http.MethodPost,
+		"/"+services.IntPoolPath,
+		nil,
+		&services.IntPoolAllocationBody{
+			Pool:  pool,
+			Value: &value,
+			Owner: owner,
+		},
+		&struct{}{},
+		[]int{http.StatusOK},
+	)
+	return errors.Wrap(err, "error setting int in int-pool via HTTP")
+}
+
+// DeallocateInt sends a deallocate int request to remote int-pool.
+// TODO(mblotniak): Move to ASF/pkg/client package, when handler implementation(pkg/services/common.go) is moved.
+func (h *HTTP) DeallocateInt(ctx context.Context, pool string, value int64) error {
+	_, err := h.Do(
+		ctx,
+		http.MethodDelete,
+		"/"+services.IntPoolPath,
+		nil,
+		&services.IntPoolAllocationBody{
+			Pool:  pool,
+			Value: &value,
+		},
+		&struct{}{},
+		[]int{http.StatusOK},
+	)
+	return errors.Wrap(err, "error deallocating int in int-pool via HTTP")
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+
+func (h *HTTP) Create{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.Create{{ schema.JSONSchema.GoName }}Request) (*services.Create{{ schema.JSONSchema.GoName }}Response, error) {
+    response := &services.Create{{ schema.JSONSchema.GoName }}Response{}
+    _, err := h.Create(ctx, "{{ schema.Prefix }}{{ schema.PluralPath }}", request, response)
+    return response, err
+}
+
+func (h *HTTP) Update{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.Update{{ schema.JSONSchema.GoName }}Request) (*services.Update{{ schema.JSONSchema.GoName }}Response, error) {
+    response := &services.Update{{ schema.JSONSchema.GoName }}Response{}
+    _, err := h.Update(ctx, "{{ schema.Prefix }}{{ schema.Path }}/" + request.{{ schema.JSONSchema.GoName }}.UUID,
+        request, &response)
+    return response, err
+}
+
+func (h *HTTP) Delete{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.Delete{{ schema.JSONSchema.GoName }}Request) (*services.Delete{{ schema.JSONSchema.GoName }}Response, error) {
+    response := &services.Delete{{ schema.JSONSchema.GoName }}Response{}
+    _, err := h.Delete(ctx, "{{ schema.Prefix }}{{ schema.Path }}/" + request.ID, nil)
+    return response, err
+}
+
+func (h *HTTP) Get{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.Get{{ schema.JSONSchema.GoName }}Request) (*services.Get{{ schema.JSONSchema.GoName }}Response, error) {
+    response := &services.Get{{ schema.JSONSchema.GoName }}Response{}
+    _, err := h.Read(ctx, "{{ schema.Prefix }}{{ schema.Path }}/" + request.ID, response)
+    return response, err
+}
+
+func (h *HTTP) List{{ schema.JSONSchema.GoName }}(ctx context.Context, request *services.List{{ schema.JSONSchema.GoName }}Request) (*services.List{{ schema.JSONSchema.GoName }}Response, error) {
+    response := &services.List{{ schema.JSONSchema.GoName }}Response{}
+    _, err := h.ReadWithQuery(ctx, "{{ schema.Prefix }}{{ schema.PluralPath }}", request.GetSpec().URLQuery(), response)
+    return response, err
+}
+
+{% for _, reference in schema.References %}
+
+{% set refType = schema.JSONSchema.GoName| add:reference.GoName | add:"Ref" %}
+
+func (h *HTTP) Create{{ refType }}(
+    ctx context.Context, request *services.Create{{ refType }}Request,
+) (*services.Create{{ refType }}Response, error) {
+    data := getRefUpdateFromRequest{{ refType }} (request, services.RefOperationAdd)
+    _, err := h.RefUpdate(ctx, data, nil)
+    if err != nil {
+        return nil, err
+    }
+    return (*services.Create{{ refType }}Response)(request), nil
+}
+
+func (h *HTTP) Delete{{ refType }}(
+    ctx context.Context, request *services.Delete{{ refType }}Request,
+) (*services.Delete{{ refType }}Response, error) {
+    data := getRefUpdateFromRequest{{ refType }} ((*services.Create{{ refType }}Request)(request), services.RefOperationDelete)
+    _, err := h.RefUpdate(ctx, data, nil)
+    if err != nil {
+        return nil, err
+    }
+    return (*services.Delete{{ refType }}Response)(request), nil
+}
+
+func getRefUpdateFromRequest{{ refType }} (request *services.Create{{ refType }}Request, operation services.RefOperation) interface{}{
+    id := request.GetID()
+    reference := request.Get{{ refType }}()
+
+    data := struct{
+        services.RefUpdate
+        {% if reference.RefType %}
+        Attr *models.{{reference.RefType}} `json:"attr"`
+        {% endif %}
+    }{
+        services.RefUpdate{
+            Operation: operation,
+            Type: "{{ schema.Path }}",
+            UUID: id,
+            RefType: "{{ reference.LinkTo.Path }}",
+            RefUUID: reference.GetUUID(),
+        },
+        {% if reference.RefType %}
+        reference.GetAttr(),
+        {% endif %}
+    }
+    return data
+}
+
+{% endfor %}
+
+{% endif%}{% endfor %}

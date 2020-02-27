@@ -1,0 +1,88 @@
+{% autoescape off %}
+package services
+
+import (
+	"context"
+
+	"github.com/sirupsen/logrus"
+	"github.com/Juniper/asf/pkg/services/baseservices"
+
+	models "{{ modelsImportPath }}"
+)
+
+type QuotaResourceCounter interface {
+{%- for schema in schemas -%}
+{%- if schema.Type != "abstract" and schema.ID -%}
+{%- set ThisID = schema.ID -%}
+{%- set name = schema.JSONSchema.GoName -%}
+{%- set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID -%}
+{%- if QuotaDef %}
+	Count{{ name }}(ctx context.Context, obj *models.{{ name }}) (int64, error)
+{%- endif -%}
+{%- endif -%}
+{%- endfor %}
+}
+
+// DummyQuotaCounter is a dummy counter that returns a count of zero for all resources.
+// TODO (Kamil): can be removed after quota counting logic is implemented for all resources.
+type DummyQuotaCounter struct {}
+
+// SimpleQuotaCounter implements quota counting logic for resources whose only possible parent is project.
+type SimpleQuotaCounter struct {
+	DummyQuotaCounter
+	rs ReadService
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+{% set ThisID = schema.ID %}
+{% set name = schema.JSONSchema.GoName %}
+{% set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID %}
+{% if QuotaDef %}
+
+// Count{{ name }} returns a count of zero resources of type {{ name }}.
+func (_ *DummyQuotaCounter) Count{{ name }}(_ context.Context, _ *models.{{ name }}) (int64, error) {
+	return 0, nil
+}
+
+{% endif %}
+{% endif %}{% endfor %}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+{% set ThisID = schema.ID %}
+{% set name = schema.JSONSchema.GoName %}
+{% set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID %}
+{% if QuotaDef %}
+
+{% if schema.Parents|length == 1 %}{% for _, pdef in schema.Parents %}{% if pdef.LinkTo.TypeName == "project" %}
+
+// Count{{ name }} returns the number of resources of type {{ name }} in the given objects' parent project.
+func (c *SimpleQuotaCounter) Count{{ name }}(ctx context.Context, obj *models.{{ name }}) (int64, error) {
+	if obj.GetParentUUID() == "" {
+		logrus.Warnf("orphan resource: %v; counting 0 resources for quota", obj.GetUUID())
+		return 0, nil
+	}
+
+	resp, err := c.rs.List{{ name }}(ctx, &List{{ name }}Request{
+		Spec: &baseservices.ListSpec{
+			Count: true,
+			Filters: []*baseservices.Filter{
+				&baseservices.Filter{
+					Key:    "parent_uuid",
+					Values: []string{obj.GetParentUUID()},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return resp.{{ name }}Count, nil
+}
+
+{% endif %}{% endfor %}{% endif %}
+
+{% endif %}
+{% endif %}{% endfor %}
+
+{% endautoescape %}

@@ -1,0 +1,28 @@
+---
+  prefix: "/"
+  api_style: "contrail"
+  extends:
+    - "base"
+  references:
+    network_ipam:
+      operations: "CRUD"
+      $ref: "types.json#/definitions/VnSubnetsType"
+      description: "Reference to network-ipam this network is using. It has list of subnets that are being used as property of the reference."
+      presence: "required"
+  parents:
+    project:
+      operations: "CRUD"
+      description: "Virtual network is collection of end points (interface or ip(s) or MAC(s)) that can talk to each other by default. It is collection of subnets connected by implicit router which default gateway in each subnet."
+      presence: "optional"
+  plural: "virtual_networks"
+  id: "virtual_network"
+  table: "vn"
+  schema:
+    required: []
+    type: "object"
+    properties:
+      virtual_network_network_id:
+        operations: "CR"
+        presence: "system-only"
+        description: "System assigned unique 32 bit ID for every virtual network."
+        $ref: "types.json#/definitions/VirtualNetworkIdType"

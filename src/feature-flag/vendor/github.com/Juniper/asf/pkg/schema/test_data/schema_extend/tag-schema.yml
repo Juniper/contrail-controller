@@ -1,0 +1,16 @@
+api_style: contrail
+extends:
+- base
+id: tag
+parents: {}
+plural: tags
+prefix: /
+schema:
+  properties:
+    tag_value:
+      description: Tag value string representation
+      operations: CR
+      presence: required
+      type: string
+  type: object
+

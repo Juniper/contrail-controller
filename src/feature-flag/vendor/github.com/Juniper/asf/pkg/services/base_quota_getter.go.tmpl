@@ -1,0 +1,83 @@
+{% autoescape off %}
+package services
+
+import (
+	"context"
+
+	"github.com/sirupsen/logrus"
+
+	models "{{ modelsImportPath }}"
+)
+
+// NoQuotaLimit indicates no limit for resource creation.
+const NoQuotaLimit = 0
+
+type QuotaLimitGetter interface {
+{%- for schema in schemas -%}
+{%- if schema.Type != "abstract" and schema.ID -%}
+{%- set ThisID = schema.ID -%}
+{%- set name = schema.JSONSchema.GoName -%}
+{%- set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID -%}
+{%- if QuotaDef %}
+	{{ name }}Limit(ctx context.Context, obj *models.{{ name }}) (int64, error)
+{%- endif -%}
+{%- endif -%}
+{%- endfor %}
+}
+
+// DummyQuotaLimitGetter is a dummy getter that returns no limit for all resources.
+// TODO (Kamil): can be removed after getting the quota limit is implemented for all resources.
+type DummyQuotaLimitGetter struct {}
+
+// SimpleQuotaLimitGetter implements quota limit getting for resources whose only possible parent is project.
+type SimpleQuotaLimitGetter struct {
+	DummyQuotaLimitGetter
+	rs ReadService
+}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+{% set ThisID = schema.ID %}
+{% set name = schema.JSONSchema.GoName %}
+{% set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID %}
+{% if QuotaDef %}
+
+// {{ name }}Limit returns no limit for resources of type {{ name }}.
+func (_ *DummyQuotaLimitGetter) {{ name }}Limit(_ context.Context, _ *models.{{ name }}) (int64, error) {
+	return NoQuotaLimit, nil
+}
+
+{% endif %}
+{% endif %}{% endfor %}
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+{% set ThisID = schema.ID %}
+{% set name = schema.JSONSchema.GoName %}
+{% set QuotaDef = types.QuotaType.Properties|dict_get_JSONSchema_by_string_key:ThisID %}
+{% if QuotaDef %}
+
+{% if schema.Parents|length == 1 %}{% for _, pdef in schema.Parents %}{% if pdef.LinkTo.TypeName == "project" %}
+
+// {{ name }}Limit returns the quota limit in the given objects' parent project.
+func (g *SimpleQuotaLimitGetter) {{ name }}Limit(ctx context.Context, obj *models.{{ name }}) (int64, error) {
+	if obj.GetParentUUID() == "" {
+		logrus.Warnf("orphan resource: %v; assuming no limit for quota", obj.GetUUID())
+		return NoQuotaLimit, nil
+	}
+
+	resp, err := g.rs.GetProject(ctx, &GetProjectRequest{
+		ID:     obj.GetParentUUID(),
+		Fields: []string{"quota"},
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return resp.Project.Quota.{{ name }}, nil
+}
+
+{% endif %}{% endfor %}{% endif %}
+
+{% endif %}
+{% endif %}{% endfor %}
+
+{% endautoescape %}

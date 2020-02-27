@@ -1,0 +1,25 @@
+---
+  definitions:
+    SampleEnumType:
+      enum:
+        - a
+        - b
+        - c
+      type: string
+    ObjectThatReferencesEnumAsProperty:
+      type: "object"
+      properties:
+        enum_item:
+          $ref: "types.json#/definitions/SampleEnumType"
+    ObjectThatReferencesEnumAsArray:
+      type: "object"
+      properties:
+        arr_enum_items:
+          items:
+            $ref: "types.json#/definitions/SampleEnumType"
+          type: "array"
+    ObjectThatReferencesEnumAsArrayOverriden:
+      type: "object"
+      properties:
+        ovrd_enum_item:
+          $ref: "types.json#/definitions/SampleEnumType"

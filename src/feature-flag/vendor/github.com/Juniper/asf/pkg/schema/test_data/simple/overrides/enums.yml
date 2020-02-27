@@ -1,0 +1,10 @@
+---
+  definitions:
+    ObjectThatReferencesEnumAsArrayOverriden:
+      type: object
+      properties:
+        enum_item:
+          items:
+            $ref: "types.json#/definitions/SampleEnumType"
+          type: array
+

@@ -1,0 +1,39 @@
+package db
+
+import (
+    "fmt"
+
+    "github.com/gogo/protobuf/types"
+    "github.com/Juniper/asf/pkg/db/basedb"
+)
+
+func (db *Service) initQueryBuilders() {
+    queryBuilders := map[string]*basedb.QueryBuilder{}
+    db.QueryBuilders = queryBuilders
+
+{% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+    queryBuilders["{{ schema.ID }}"] = basedb.NewQueryBuilder(db.Dialect,
+       "{{ schema.Table }}",
+       {{ schema.JSONSchema.GoName }}Fields,
+       {{ schema.JSONSchema.GoName }}RefFields,
+       {{ schema.JSONSchema.GoName }}ChildFields,
+       {{ schema.JSONSchema.GoName }}BackRefFields)
+{% endif%}{% endfor %}
+}
+
+// ScanRow maps row from database table named schemaID into generated Go struct.
+func (db *Service) ScanRow(schemaID string, rowData map[string]interface{}) (basedb.Object, *types.FieldMask, error) {
+    switch schemaID { {% for schema in schemas %}{% if schema.Type != "abstract" and schema.ID %}
+    case "{{ schema.ID }}":
+        return db.scan{{schema.JSONSchema.GoName}}(rowData)
+        {%- for linkTo, reference in schema.References %}
+    case "ref_{{ schema.ID }}_{{ linkTo }}":
+        {% if reference.RefType %}o, fm := db.scan{{ schema.JSONSchema.GoName }}{{ reference.GoName }}RefAttr(rowData)
+        return o, fm, nil
+        {%- else %}return nil, nil, nil{% endif %}
+{%- endfor -%}
+    {% endif%}{% endfor %}
+    }
+
+    return nil, nil, fmt.Errorf("unknown schemaID: %v", schemaID)
+}
