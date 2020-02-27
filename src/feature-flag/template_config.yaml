@@ -1,0 +1,12 @@
+- type: all
+  template_path: pkg/client/client_http.go.tmpl
+  module: github.com/Juniper/asf
+  output_dir: pkg/vncapi
+- type: alltype
+  template_path: pkg/models/model.go.tmpl
+  module: github.com/Juniper/asf
+  output_dir: pkg/models
+- type: all
+  template_path: pkg/services/service_common.go.tmpl
+  module: github.com/Juniper/asf
+  output_dir: pkg/services

@@ -1,0 +1,94 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+Import('BuildEnv')
+GoEnv = BuildEnv.Clone()
+
+go_path = GoEnv.Dir('#controller').abspath
+go_bin_path = GoEnv.Dir('#/third_party/go/bin').abspath
+app_path = go_path + '/src/feature-flag'
+
+GoEnv.AppendENVPath('GOPATH', go_path)
+GoEnv.AppendENVPath('PATH', go_bin_path)
+GoEnv.AppendENVPath('PATH', GoEnv.Dir(GoEnv['TOP']).abspath + '/go/bin')
+GoEnv.AppendENVPath('GO111MODULE', 'on')
+
+# Generate yaml schema
+contrail_api_client_repo = '#src/contrail-api-client/'
+schemagen_depends = contrail_api_client_repo + '/schema/all_cfg.xsd'
+contrail_yaml_schema = GoEnv['TOP'] + '/feature-flag/yaml_schema'
+autogen_script = File(
+    contrail_api_client_repo + 'generateds/generateDS.py').path
+autogen_cmd = '%s -f -o %s -g contrail-json-schema' % (
+    autogen_script, Dir(contrail_yaml_schema).path)
+generated_files = [contrail_yaml_schema]
+
+schema_gen = GoEnv.Command(
+    generated_files,
+    schemagen_depends,
+    autogen_cmd + ' $SOURCE')
+GoEnv.Depends(schema_gen, schemagen_depends)
+
+# Download dependent go modules
+go_mod = GoEnv.GoMod(
+    go_path + '/src/feature-flag/go.sum',
+    GoEnv['TOP'] + '/feature-flag/gomod.logs',
+    sub_cmd='download',
+    retries=5)
+
+# Install contrailschema binary, which is used to gen code from schema
+# with template
+contrailschema_src = 'github.com/Juniper/asf/cmd/contrailschema'
+contrailschema_install_cmd = '/go install %s' % contrailschema_src
+
+go_codegen_tool = GoEnv.Command(
+    go_path + '/bin/contrailschema',
+    None,
+    go_bin_path + contrailschema_install_cmd,
+    chdir=app_path)
+GoEnv.Depends(go_codegen_tool, [schema_gen, go_mod])
+
+# Generate client types
+models_import_path = app_path + '/pkg/models'
+services_import_path = app_path + '/pkg/services'
+go_vnc_client_cmd = "%s/bin/contrailschema generate --no-regenerate \
+     --schemas %s \
+    --models-import-path %s \
+    --services-import-path %s \
+    --template-config" % (go_path,
+                          Dir(contrail_yaml_schema).path,
+                          models_import_path,
+                          services_import_path)
+
+template_config = app_path + '/template_config.yaml'
+gen_files = [app_path + '/pkg/vncapi/gen_client_http.go',
+             app_path + '/pkg/models/gen_model.go',
+             app_path + '/pkg/services/gen_service.go']
+go_vnc_client_gen = GoEnv.Command(
+    gen_files,
+    template_config,
+    go_vnc_client_cmd + ' $SOURCE')
+GoEnv.Depends(go_vnc_client_gen, go_codegen_tool)
+
+
+# Build the binary
+go_build = GoEnv.GoBuild(
+    go_path + '/src/feature-flag/cmd/contrailflcm/main.go',
+    GoEnv['TOP'] + '/feature-flag/contrailflcm')
+GoEnv.Depends(go_build, go_vnc_client_gen)
+
+GoEnv.Depends('install', go_build)
+GoEnv.Default(go_build)
+
+# Unittest
+# go_test = GoEnv.GoTest(GoEnv['TOP'] + '/feature-flag/unittest.logs',
+#                       GoEnv.Dir('#controller/src/feature-flag').abspath)
+# GoEnv.Alias('controller/src/feature-flag:test', go_test)
+
+# Lint check
+
+if 'install' in BUILD_TARGETS:
+    GoEnv.Alias(
+        'install',
+        GoEnv.InstallAs(GoEnv['INSTALL_BIN'] + '/contrailflcm', go_build)
+    )
