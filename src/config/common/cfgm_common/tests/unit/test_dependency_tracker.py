@@ -3,13 +3,12 @@ from __future__ import unicode_literals
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
-import unittest
-
 import mock
+import six
+import unittest
 
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common.vnc_db import DBBase
-import six
 
 #
 # Red ------------------
