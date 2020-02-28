@@ -31,6 +31,9 @@
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
 #include <resource_manager/mpls_index.h>
+#include <cmn/agent_cmn.h>
+#include <vrouter/ksync/ksync_init.h>
+#include <vrouter/ksync/vnswif_listener_base.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -224,6 +227,20 @@ void VmInterface::PostAdd() {
         dynamic_cast<IFMapTable::RequestKey *>(req.key.get());
     key->id_type = "virtual-machine-interface";
     ifmap_table->Enqueue(&req);
+
+    if ((node && (transport_ == TRANSPORT_PMD)
+        && (os_params_.os_oper_state_ == false)) ) {
+        VnswInterfaceListener *vnswif =
+            agent()->ksync()->vnsw_interface_listner();
+        VnswInterfaceListener::HostInterfaceEntry *host_intf = vnswif->GetHostInterfaceEntry(node->name());
+        if (host_intf != NULL) {
+            DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+            req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, GetUuid(),
+                                     name()));
+            req.data.reset(new VmInterfaceOsOperStateData(host_intf->link_up_));
+            table->Enqueue(&req);
+        }
+    }
 }
 
 bool VmInterface::OnChange(VmInterfaceData *data) {
