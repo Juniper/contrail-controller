@@ -63,6 +63,13 @@ bool ControlNode::ControlNodeInfoLogger(const BgpServer *server,
         memset(&state.__isset, 0, sizeof(state.__isset));
     }
 
+    /* Release process free memory to back to system */
+    int rc = malloc_trim(0);
+    if (!rc) {
+        LOG(ERROR, "Control-node free memory is not released to system,"
+            " rc: " << rc);
+    }
+
     first = false;
     return true;
 }
