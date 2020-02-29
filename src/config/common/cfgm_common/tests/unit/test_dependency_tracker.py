@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 import unittest
 
 import mock
+import six
 
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common.vnc_db import DBBase
-import six
 
 #
 # Red ------------------
