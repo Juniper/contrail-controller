@@ -91,7 +91,8 @@ class VnInterconnectFeature(FeatureBase):
                 export_targets=export_targets, import_targets=import_targets,
                 virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
                 is_public_network=vn.router_external,
-                routing_instance_type='vrf', virtual_network_is_internal=True)
+                routing_instance_type='vrf', virtual_network_is_internal=True,
+                is_master=False)
 
             _, li_map = self._add_or_lookup_pi(self.pi_map, 'lo0', 'loopback')
             lo0_unit = 1000 + int(network_id)
