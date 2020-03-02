@@ -36,12 +36,22 @@ class L2GatewayFeature(FeatureBase):
         highest_encapsulation = encapsulation_priorities[0]
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni()
+        is_master_vn = False
+        if vn.logical_router is None:
+            # try updating logical router incase of DM restart
+            vn.set_logical_router(vn.fq_name[-1])
+        lr_uuid = vn.logical_router
+        if lr_uuid:
+            lr = db.LogicalRouterDM.get(lr_uuid)
+            if lr:
+                if lr.is_master == True:
+                    is_master_vn = True
 
         ri = RoutingInstance(
             name=ri_name, virtual_network_mode='l2',
             export_targets=export_targets, import_targets=import_targets,
             virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
-            is_public_network=vn.router_external)
+            is_public_network=vn.router_external, is_master=is_master_vn)
 
         ri.set_virtual_network_id(str(network_id))
         ri.set_vxlan_id(str(vxlan_id))
