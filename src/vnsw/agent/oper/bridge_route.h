@@ -68,15 +68,9 @@ public:
                                       const std::string &vn_name,
                                       const std::string &interface,
                                       bool policy);
-    void AddBridgeReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
-                                  uint32_t vxlan_id, const MacAddress &mac,
-                                  const std::string &vn_name);
     void AddBridgeReceiveRoute(const Peer *peer, const std::string &vrf_name,
                                uint32_t vxlan_id, const MacAddress &mac,
                                const std::string &vn_name);
-    static void DeleteReq(const Peer *peer, const std::string &vrf_name,
-                          const MacAddress &mac, uint32_t ethernet_tag,
-                          AgentRouteData *data);
     static void Delete(const Peer *peer, const std::string &vrf_name,
                        const MacAddress &mac, uint32_t ethernet_tag);
     static void DeleteBroadcastReq(const Peer *peer,

@@ -2264,6 +2264,20 @@ void AddVn(const char *name, int id, int vxlan_id, bool admin_state) {
     AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
 }
 
+void AddMirrorVn(const char *name, int id, int vxlan_id, bool admin_state) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <vxlan-network-identifier>" << vxlan_id << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
+    str << "    <rpf>enable</rpf>" << endl;
+    str << "    <mirror-destination>true</mirror-destination>" << endl;
+    str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << vxlan_id << "</virtual-network-network-id>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
+}
+
+
 void DelVn(const char *name) {
     DelNode("virtual-network", name);
 }

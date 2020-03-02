@@ -86,6 +86,7 @@ protected:
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
         remote_subnet_ip_ = Ip4Address::from_string("1.1.1.9");
         trap_ip_ = Ip4Address::from_string("1.1.1.100");
+        drop_ip_ = Ip4Address::from_string("11.11.11.100");
         lpm1_ip_ = Ip4Address::from_string("2.0.0.0");
         lpm2_ip_ = Ip4Address::from_string("2.1.0.0");
         lpm3_ip_ = Ip4Address::from_string("2.1.1.0");
@@ -139,6 +140,12 @@ protected:
     void AddHostRoute(Ip4Address addr) {
         agent_->fabric_inet4_unicast_table()->AddHostRoute
             (vrf_name_, addr, 32, agent_->fabric_vn_name(), false);
+        client->WaitForIdle();
+    }
+
+    void AddDropRoute(Ip4Address addr) {
+        agent_->fabric_inet4_unicast_table()->AddDropRoute
+            (vrf_name_, addr, 32, agent_->fabric_vn_name());
         client->WaitForIdle();
     }
 
@@ -311,6 +318,7 @@ protected:
     Ip4Address  fabric_gw_ip_;
     Ip4Address  foreign_gw_ip_;
     Ip4Address  trap_ip_;
+    Ip4Address  drop_ip_;
     Ip4Address  server1_ip_;
     Ip4Address  server2_ip_;
     Ip4Address  asbr1_ip_;
@@ -421,6 +429,15 @@ TEST_F(RouteTest, HostRoute_1) {
 
     DeleteRoute(agent_->local_peer(), vrf_name_, trap_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, trap_ip_, 32));
+}
+
+TEST_F(RouteTest, DropRoute_1) {
+    //Add and delete drop route
+    AddDropRoute(drop_ip_);
+    EXPECT_TRUE(RouteFind(vrf_name_, drop_ip_, 32));
+
+    DeleteRoute(agent_->local_peer(), vrf_name_, drop_ip_, 32);
+    EXPECT_FALSE(RouteFind(vrf_name_, drop_ip_, 32));
 }
 
 TEST_F(RouteTest, SubnetRoute_1) {
