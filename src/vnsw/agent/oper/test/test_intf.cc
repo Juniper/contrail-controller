@@ -665,6 +665,115 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_1) {
     client->WaitForIdle();
 }
 
+TEST_F(IntfTest, AddDelVmIntfMirrorVn) {
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    struct PortInfo input2[] = {
+        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 1}
+    };
+    //Add VN
+    AddMirrorVn("vn1", 1, 4);
+
+    // Nova Port add message
+    NovaPortAdd(input1);
+    NovaPortAdd(input2);
+
+    // Config Port add
+    ConfigPortAdd(input1, true);
+    ConfigPortAdd(input2, true);
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input1, 0));
+    EXPECT_TRUE(VmPortInactive(input2, 0));
+
+    //Add VM
+    VmAdd(input1[0].vm_id);
+
+    //Add necessary objects and links to make vm-intf active
+    VrfAdd(input1[0].vn_id);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", input1[0].name);
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", input2[0].name);
+    client->WaitForIdle();
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", input1[0].name);
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", input2[0].name);
+    client->WaitForIdle();
+    AddVmPortVrf(input1[0].name, "", 0);
+    AddVmPortVrf(input2[0].name, "", 0);
+    client->WaitForIdle();
+    AddInstanceIp("instance0", input1[0].vm_id, input1[0].addr);
+    AddInstanceIp("instance1", input2[0].vm_id, input2[0].addr);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "instance-ip", "instance0");
+    AddLink("virtual-machine-interface", input2[0].name,
+            "instance-ip", "instance1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", input1[0].name,
+            "routing-instance", "vrf1");
+    AddLink("virtual-machine-interface-routing-instance", input2[0].name,
+            "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface-routing-instance", input1[0].name,
+            "virtual-machine-interface", input1[0].name);
+    AddLink("virtual-machine-interface-routing-instance", input2[0].name,
+            "virtual-machine-interface", input2[0].name);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortActive(input2, 0));
+
+    // Change the vxlan id
+    AddMirrorVn("vn1", 1, 5);
+    // Disable the admin status
+    ConfigPortAdd(input1, false);
+    ConfigPortAdd(input2, false);
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input1, 0));
+    EXPECT_TRUE(VmPortInactive(input2, 0));
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-machine-interface-routing-instance", input1[0].name,
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", input1[0].name,
+            "virtual-machine-interface", input1[0].name);
+    DelLink("virtual-machine-interface-routing-instance", input2[0].name,
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", input2[0].name,
+            "virtual-machine-interface", input2[0].name);
+    client->WaitForIdle();
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input1, 0));
+    EXPECT_TRUE(VmPortInactive(input2, 0));
+
+    //other cleanup
+    VnDelete(input1[0].vn_id);
+    DelLink("virtual-machine-interface", input1[0].name, "instance-ip", "instance0");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", input1[0].name);
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", input1[0].name);
+    DelLink("virtual-machine-interface", input2[0].name, "instance-ip", "instance1");
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", input2[0].name);
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", input2[0].name);
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelNode("virtual-machine-interface-routing-instance", input1[0].name);
+    DelNode("virtual-machine-interface-routing-instance", input2[0].name);
+    DelNode("virtual-machine", "vm1");
+    DelNode("routing-instance", "vrf1");
+    DelNode("virtual-network", "vn1");
+    DelNode("virtual-machine-interface", input1[0].name);
+    DelNode("virtual-machine-interface", input2[0].name);
+    DelInstanceIp("instance0");
+    DelInstanceIp("instance1");
+    client->WaitForIdle();
+    IntfCfgDel(input1, 0);
+    IntfCfgDel(input2, 0);
+    client->WaitForIdle();
+}
+
 // VM create, VMPort create, VN create, VRF create
 TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2_Mirror) {
     client->Reset();

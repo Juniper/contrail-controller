@@ -344,6 +344,7 @@ void AddL2Vn(const char *name, int id);
 void AddL3Vn(const char *name, int id);
 void AddVn(const char *name, int id, bool admin_state = true);
 void AddVn(const char *name, int id, int vxlan_id, bool admin_state = true);
+void AddMirrorVn(const char *name, int id, int vxlan_id, bool admin_state = true);
 void DelVn(const char *name);
 void SetVnMaxFlows(const string &name, int id, uint32_t max_flows);
 void SetVmiMaxFlows(std::string intf_name, int intf_id, uint32_t max_flows);
