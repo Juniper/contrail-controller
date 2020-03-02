@@ -81,10 +81,11 @@ struct CryptTunnel {
 };
 
 TEST_F(CryptTunnelConfigTest, Basic) {
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("2.2.2.10"));
     // Create two tunnels
     struct EncryptTunnelEndpoint endpoints[] = {
-        {"2.2.2.11"},
-        {"2.2.2.12"}
+        {"2.2.2.10"},
+        {"2.2.2.11"}
     };
     unsigned int num_endpoints = sizeof(endpoints)/sizeof(EncryptTunnelEndpoint);
     EXPECT_TRUE(agent->crypt_tunnel_table()->Size() == 0);
@@ -92,39 +93,33 @@ TEST_F(CryptTunnelConfigTest, Basic) {
     // Create VR to VR encryption, add the global vrouter configration
     AddEncryptRemoteTunnelConfig(endpoints, num_endpoints, "all");
     client->WaitForIdle();
-    WAIT_FOR(100, 100, agent->crypt_tunnel_table()->Size() == num_endpoints);
+    EXPECT_EQ(agent->crypt_tunnel_table()->Size(), num_endpoints-1);
     CryptTunnelEntry *entry;
-    entry = agent->crypt_tunnel_table()->Find(endpoints[0].ip);
+    entry = agent->crypt_tunnel_table()->Find(endpoints[1].ip);
     EXPECT_TRUE(entry != NULL);
 
     // Check for encryption
     EXPECT_TRUE(entry->GetVRToVRCrypt() == true);
     // Tunnel should be available
     client->WaitForIdle();
-    WAIT_FOR(2000, 1000, entry->GetTunnelAvailable());
+    EXPECT_EQ(entry->GetTunnelAvailable(), true);
 
     // Change and check for encryption false
     AddEncryptRemoteTunnelConfig(endpoints, num_endpoints, "none");
     client->WaitForIdle();
-    WAIT_FOR(2000, 1000, entry->GetTunnelAvailable());
-    WAIT_FOR(2000, 100, (entry = agent->crypt_tunnel_table()->Find(endpoints[1].ip)) != NULL);
-    WAIT_FOR(200, 100, (entry->GetVRToVRCrypt() == false));
+    EXPECT_EQ(entry->GetTunnelAvailable(), true);
+    EXPECT_TRUE((entry = agent->crypt_tunnel_table()->Find(endpoints[1].ip)) != NULL);
+    EXPECT_TRUE((entry->GetVRToVRCrypt() == false));
 
     // Change and check for encryption true
     AddEncryptRemoteTunnelConfig(endpoints, num_endpoints, "all");
-    WAIT_FOR(2000, 100, (entry = agent->crypt_tunnel_table()->Find(endpoints[0].ip)) != NULL);
-    WAIT_FOR(200, 100, (entry->GetVRToVRCrypt() == true));
-
-    // Delete all entries
-    for (unsigned int id = 0; id < num_endpoints; id++) {
-        agent->crypt_tunnel_table()->Delete(endpoints[id].ip);
-    }
     client->WaitForIdle();
-    // Wait for deletion of tunnel entries
-    //WAIT_FOR(2000, 100, agent->crypt_tunnel_table()->Size() == 0);
+    EXPECT_TRUE((entry = agent->crypt_tunnel_table()->Find(endpoints[1].ip)) != NULL);
+    EXPECT_TRUE((entry->GetVRToVRCrypt() == true));
 
     // Delete configuration
     DeleteGlobalVrouterConfig();
+
 }
 
 int main(int argc, char **argv) {

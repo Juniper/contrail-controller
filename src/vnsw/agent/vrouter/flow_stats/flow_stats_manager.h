@@ -127,6 +127,9 @@ public:
     void DeleteReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
     void FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
 
+    FlowStatsCollectorObject* proto(int protocol) {
+        return protocol_list_[protocol];
+    }
     uint32_t session_export_rate() const {
         return session_export_rate_;
     }

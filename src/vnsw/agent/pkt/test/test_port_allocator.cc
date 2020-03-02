@@ -104,6 +104,25 @@ TEST_F(PortAllocationTest, Test3) {
     port_table_->Free(key3, port2, true);
 }
 
+TEST_F(PortAllocationTest, Test4) {
+    AddPortTranslationConfig();
+    client->WaitForIdle();
+    PortTableManager *p = agent_->pkt()->get_flow_proto()->port_table_manager();
+    const PortTable *pt = p->GetPortTable(IPPROTO_TCP);
+    const PortTable *pu = p->GetPortTable(IPPROTO_UDP);
+    EXPECT_EQ(pt->port_config()->port_count, 101);
+    EXPECT_EQ(pu->port_config()->port_count, 101);
+    EXPECT_EQ(pt->port_config()->port_range[0].port_start, 400);
+    EXPECT_EQ(pt->port_config()->port_range[0].port_end, 500);
+    EXPECT_EQ(pu->port_config()->port_range[0].port_start, 600);
+    EXPECT_EQ(pu->port_config()->port_range[0].port_end, 700);
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
+    EXPECT_EQ(pt->port_config()->port_count, 0);
+    EXPECT_EQ(pu->port_config()->port_count, 0);
+
+}
+
 TEST_F(PortAllocationTest, Range) {
     PortConfig pc;
     pc.port_range.push_back(PortConfig::PortRange(50000, 50001));

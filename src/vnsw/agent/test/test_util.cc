@@ -2264,7 +2264,6 @@ void AddVn(const char *name, int id, int vxlan_id, bool admin_state) {
     AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
 }
 
-
 void DelVn(const char *name) {
     DelNode("virtual-network", name);
 }
@@ -3006,6 +3005,66 @@ void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int co
     AddNodeString(buf, len, "global-vrouter-config",
                   "default-global-system-config:default-global-vrouter-config",
                   1024, global_config.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
+void AddPortTranslationConfig() {
+    std::stringstream config;
+    config << "<port-translation-pools>";
+    config << "<port-translation-pool>";
+    config << "<protocol>tcp</protocol>";
+    config << "<port-range>";
+    config << "<start-port>400</start-port><end-port>500</end-port>";
+    config << "</port-range>";
+    config << "<port-count></port-count>";
+    config << "</port-translation-pool>";
+    config << "<port-translation-pool>";
+    config << "<protocol>udp</protocol>";
+    config << "<port-range>";
+    config << "<start-port>600</start-port><end-port>700</end-port>";
+    config << "</port-range>";
+    config << "<port-count></port-count>";
+    config << "</port-translation-pool>";
+    config << "</port-translation-pools>";
+
+    char buf[8192];
+    int len = 0;
+    memset(buf, 0, 8192);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, config.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+void AddFlowAgingTimerConfig(int tcp_timeout, int udp_timeout, int icmp_timeout) {
+    std::stringstream config;
+    config << "<flow-aging-timeout-list>";
+    config << "<flow-aging-timeout>";
+    config << "<protocol>tcp</protocol>";
+    config << "<port>0</port>";
+    config << "<timeout-in-seconds>" << tcp_timeout << "</timeout-in-seconds>";
+    config << "</flow-aging-timeout>";
+    config << "<flow-aging-timeout>";
+    config << "<protocol>udp</protocol>";
+    config << "<port>0</port>";
+    config << "<timeout-in-seconds>" << udp_timeout << "</timeout-in-seconds>";
+    config << "</flow-aging-timeout>";
+    config << "<flow-aging-timeout>";
+    config << "<protocol>icmp</protocol>";
+    config << "<port>0</port>";
+    config << "<timeout-in-seconds>" << icmp_timeout << "</timeout-in-seconds>";
+    config << "</flow-aging-timeout>";
+    config << "</flow-aging-timeout-list>";
+
+    char buf[8192];
+    int len = 0;
+    memset(buf, 0, 8192);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, config.str().c_str());
     AddXmlTail(buf, len);
     ApplyXmlString(buf);
 }
