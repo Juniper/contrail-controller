@@ -2458,6 +2458,7 @@ class ServiceObjectDM(DBBaseDM):
                 data=pr_trace, sandesh=DBBaseDM._sandesh)
             pr_msg.send(sandesh=DBBaseDM._sandesh)
     # end uve_send
+
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:

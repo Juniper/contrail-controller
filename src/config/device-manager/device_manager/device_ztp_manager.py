@@ -199,7 +199,7 @@ class DeviceZtpManager(object):
                               "with id %s : %s" % (pr_uuid, result)
                         self._logger.error(msg)
                 except NoIdError as ex:
-                    self._logger.error("Device not found %%s: %s" % (
+                    self._logger.error("Device not found %s: %s" % (
                         pr_uuid, str(ex)))
                 except Exception as e:
                     self._logger.error("Exception while reading device %s "

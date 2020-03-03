@@ -3249,35 +3249,6 @@ class VncApiServer(object):
 
     # Private Methods
     def _parse_args(self, args_str):
-        '''
-        Eg. python vnc_cfg_api_server.py --cassandra_server_list
-                                             10.1.2.3:9160 10.1.2.4:9160
-                                         --redis_server_ip 127.0.0.1
-                                         --redis_server_port 6382
-                                         --collectors 127.0.0.1:8086
-                                         --http_server_port 8090
-                                         --listen_ip_addr 127.0.0.1
-                                         --listen_port 8082
-                                         --admin_port 8095
-                                         --region_name RegionOne
-                                         --log_local
-                                         --log_level SYS_DEBUG
-                                         --logging_conf <logger-conf-file>
-                                         --log_category test
-                                         --log_file <stdout>
-                                         --trace_file /var/log/contrail/vnc_openstack.err
-                                         --use_syslog
-                                         --syslog_facility LOG_USER
-                                         --worker_id 1
-                                         --rabbit_max_pending_updates 4096
-                                         --rabbit_health_check_interval 120.0
-                                         --cluster_id <testbed-name>
-                                         [--auth keystone]
-                                         [--default_encoding ascii ]
-                                         --object_cache_size 10000
-                                         --object_cache_exclude_types ''
-                                         --max_request_size 1024000
-        '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
 

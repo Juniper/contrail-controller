@@ -8,6 +8,7 @@ from . import fake_neutron
 from vnc_openstack import neutron_plugin_db as db
 from cfgm_common.tests.test_utils import FakeKazooClient
 
+
 class MockDbInterface(db.DBInterface):
     def __init__(self):
         class MockConnection(object):
@@ -17,6 +18,7 @@ class MockDbInterface(db.DBInterface):
         self._zookeeper_client = FakeKazooClient()
         self.security_group_lock_prefix = '/vnc_cfg_api_locks/security_group'
         pass
+
 
 class TestDbInterface(unittest.TestCase):
     _tenant_ids = ['tenant_id_1',
@@ -123,18 +125,19 @@ class TestDbInterface(unittest.TestCase):
                          lambda: [{'uuid': 'router_port_uuid'}])])
 
         id_perms_obj = flexmock(
-            uuid = 'id_perms_uuid',
+            uuid='id_perms_uuid',
             get_created=lambda: 'create_time',
             get_last_modified=lambda: 'last_modified_time',
             get_description=lambda: 'description')
 
         fip_obj = flexmock(
-            uuid = 'fip_uuid',
+            uuid='fip_uuid',
             get_fq_name=lambda: ['domain', 'project', 'fip'],
             get_project_refs=lambda: [{'uuid': str(uuid.uuid4())}],
             get_floating_ip_address=lambda: 'fip_ip',
-            get_floating_ip_fixed_ip_address= lambda: 'fip_port_ip',
-            get_id_perms= lambda: id_perms_obj)
+            get_floating_ip_fixed_ip_address=lambda: 'fip_port_ip',
+            get_id_perms=lambda: id_perms_obj,
+            get_perms2=lambda: flexmock(get_owner=lambda: str(uuid.uuid4())))
 
         fip_obj.get_virtual_machine_interface_refs = \
             lambda: [{'uuid': 'fip_port_uuid1'}]
@@ -191,5 +194,5 @@ class TestDbInterface(unittest.TestCase):
             sg_obj = flexmock(operational=True,
                               name="default",
                               parent_uuid=tenant_uuid)
-            dbi._zookeeper_client.create_node( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid)) 
+            dbi._zookeeper_client.create_node( '%s/%s' %(dbi.security_group_lock_prefix, sg_uuid))
             dbi.security_group_delete(context, sg_uuid)
