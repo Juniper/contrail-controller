@@ -44,11 +44,12 @@ def lineno():
 
 
 try:
-    import vnc_cfg_api_server
-    if not hasattr(vnc_cfg_api_server, 'main'):
-        from vnc_cfg_api_server import vnc_cfg_api_server
+    import api_server
 except ImportError:
-    vnc_cfg_api_server = 'vnc_cfg_api_server could not be imported'
+    try:
+        from vnc_cfg_api_server import api_server
+    except ImportError:
+        api_server = 'api_server could not be imported'
 
 try:
     import to_bgp
@@ -279,7 +280,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
     kombu_mock = mock.Mock()
     kombu_patch = mock.patch(
-        'vnc_cfg_api_server.vnc_cfg_api_server.KombuAmqpClient')
+        'vnc_cfg_api_server.api_server.KombuAmqpClient')
     kombu_init_mock = kombu_patch.start()
     kombu_init_mock.side_effect = kombu_mock
 
@@ -308,9 +309,9 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
         args_str = args_str + "--conf_file %s " %(conf.name)
         args_str = args_str + "--logging_conf %s " %(logconf.name)
-        server = vnc_cfg_api_server.VncApiServer(args_str)
+        server = api_server.VncApiServer(args_str)
         gevent.getcurrent().api_server = server
-        vnc_cfg_api_server.main(args_str, server)
+        api_server.main(args_str, server)
 # end launch_api_server
 
 
