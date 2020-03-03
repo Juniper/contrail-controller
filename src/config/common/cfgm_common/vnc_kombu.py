@@ -68,7 +68,7 @@ class VncKombuClientBase(object):
         # If any app using this wants to register their own sigterm handler,
         # then we will have to modify this function to perhaps take an argument
         if register_handler:
-            gevent.signal(signal.SIGTERM, self.sigterm_handler)
+            gevent.signal.signal(signal.SIGTERM, self.sigterm_handler)
 
     def num_pending_messages(self):
         return self._publish_queue.qsize()

@@ -175,7 +175,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
             )
             self.assertEqual(db_checker._zk_client.get(new_path)[0],
                              ':'.join(ri_fq_name))
-    # test_db_manage_zk_route_target_missing
+    # end test_db_manage_zk_route_target_missing
 
     def test_route_target_of_virtual_network_deleted(self):
         vn = self.create_virtual_network('vn-%s' % self.id(), '10.0.0.0/24')
@@ -196,5 +196,57 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
 
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
         self.check_rt_is_deleted(rt.fq_name[0])
+
+    def test_route_target_id_collision(self):
+        db_checker = db_manage.DatabaseChecker(
+            *db_manage._parse_args('check --cluster_id %s' % self._cluster_id))
+        zkc = db_checker._zk_client
+
+        DEPRECATED_BASE_RTGT = "/".join(
+            [x for x in db_checker.BASE_RTGT_ID_ZK_PATH.split("/")
+             if x not in ["type0", "type1_2"]])
+
+        vn_exst_obj = self.create_virtual_network('existing_vn_%s' % self.id())
+        rt_exst_obj = self.wait_for_route_target(vn_exst_obj)
+        rt_exst_id_str = "%(#)010d" % {
+            '#': int(rt_exst_obj.get_fq_name_str().split(':')[-1])}
+
+        # TestRouteTarget/id/bgp/route-target/type0/{rt_exst_id_str}
+        node_exst_path = '%s%s%s' % (
+            self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_exst_id_str)
+
+        # TestRouteTarget/id/bgp/route-target/{rt_exst_id_str}
+        node_collision_path = '%s%s%s' % (
+            self._cluster_id,
+            DEPRECATED_BASE_RTGT,
+            rt_exst_id_str)
+
+        # TestRouteTarget/id/bgp/route-target
+        rt_path = '%s%s' % (self._cluster_id, DEPRECATED_BASE_RTGT)
+
+        # invariant
+        _, zk_node_stat = zkc.get(node_exst_path)
+
+        # create node in ZK
+        zkc.create_node(node_collision_path,
+                        "6a77156f-e062-4d6b-b228-05a173b612e3")
+
+        # is colliding node present
+        rts = zkc.get_children(rt_path)
+        self.assertIn(rt_exst_id_str, rts)
+
+        # reinit ST
+        test_common.reinit_schema_transformer()
+        self.wait_for_route_target(vn_exst_obj)
+
+        # check if initially existing node hasn't been modified
+        _, new_zk_node_stat = db_checker._zk_client.get(node_exst_path)
+        self.assertEqual(zk_node_stat, new_zk_node_stat)
+
+        # is colliding node gone
+        rts = zkc.get_children(rt_path)
+        self.assertNotIn(rt_exst_id_str, rts)
+
+    # end test_route_target_id_collision
 
 # end class TestRouteTarget
