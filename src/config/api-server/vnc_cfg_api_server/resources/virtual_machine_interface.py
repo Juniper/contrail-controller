@@ -959,7 +959,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
             if tor_port_vlan_id != 0:
                 tor_vlan_ids.append(tor_port_vlan_id)
 
-            all_vns = vmi_info.get('virtual_network_refs')
+            all_vns = vmi_info.get('virtual_network_refs') or []
             all_vn_ids.extend([ref['uuid'] for ref in all_vns])
 
         if len(set(tor_vlan_ids)) > 1:
@@ -1018,18 +1018,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if not ok:
             return ok, vmis
 
-        for vmi in vmis:
-            ok, read_result = cls.dbe_read(
-                db_conn,
-                'virtual_machine_interface',
-                vmi['uuid'],
-                obj_fields=['virtual_network_refs',
-                            'virtual_machine_interface_bindings',
-                            'virtual_machine_interface_properties'])
-            if not ok:
-                return ok, read_result
+        for vmi_info in vmis:
 
-            vmi_info = read_result
             bindings = vmi_info.get(
                 'virtual_machine_interface_bindings') or {}
             kvps = bindings.get('key_value_pair') or []
@@ -1039,7 +1029,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'virtual_machine_interface_properties') or {}).get(
                     'sub_interface_vlan_tag') or 0
 
-            all_vns = vmi_info.get('virtual_network_refs')
+            all_vns = vmi_info.get('virtual_network_refs') or []
             for ref in all_vns:
                 if vlan_tag != 0:
                     vn_to_vlan_mapping[ref['uuid']].append(
@@ -1122,7 +1112,7 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
                 'virtual_machine_interface_properties') or {}).get(
                     'sub_interface_vlan_tag') or 0
 
-            all_vns = vmi_info.get('virtual_network_refs')
+            all_vns = vmi_info.get('virtual_network_refs') or []
             for ref in all_vns:
                 if vlan_tag != 0:
                     all_vns_in_vpg_dict[ref['uuid']].append(vlan_tag)
