@@ -301,3 +301,58 @@ class TestBgpRouter(test_case.ApiServerTestCase):
 
         for i in range(2):
             self.api.control_node_zone_delete(fq_name=cnz[i].fq_name)
+
+    hold_time_test_cases = [{"hold_time": -1, "should_pass": False},
+                            {"hold_time": 0, "should_pass": True},
+                            {"hold_time": 1, "should_pass": False},
+                            {"hold_time": 2, "should_pass": False},
+                            {"hold_time": 3, "should_pass": True},
+                            {"hold_time": 10, "should_pass": True},
+                            {"hold_time": 65535, "should_pass": True},
+                            {"hold_time": 65536, "should_pass": False}]
+
+    def test_bgp_router_create_with_hold_time(self):
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+
+        for test in self.hold_time_test_cases:
+            bgp_router_params = BgpRouterParams(router_type='control-node',
+                                                hold_time=test[
+                                                    'hold_time'])
+            bgp_router_obj = BgpRouter(name='bgprouter',
+                                       parent_obj=rt_inst_obj,
+                                       bgp_router_parameters=bgp_router_params)
+            if test['should_pass']:
+                # Create gbp router object with proper hold time
+                bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+                self.api.bgp_router_delete(id=bgp_router_uuid)
+            else:
+                # Try to create gbp router object with improper hold time
+                # and expect error
+                self.assertRaises(BadRequest, self.api.bgp_router_create,
+                                  bgp_router_obj)
+
+    def test_bgp_router_update_with_hold_time(self):
+        # Create gbp router object
+        rt_inst_obj = self.api.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+        bgp_router_params = BgpRouterParams(router_type='control-node')
+        bgp_router_obj = BgpRouter(name='bgprouter', parent_obj=rt_inst_obj,
+                                   bgp_router_parameters=bgp_router_params)
+        bgp_router_uuid = self.api.bgp_router_create(bgp_router_obj)
+
+        for test in self.hold_time_test_cases:
+            # Update hold time with valid and invalid values
+            bgp_router_params = BgpRouterParams(router_type='control-node',
+                                                hold_time=test[
+                                                    'hold_time'])
+            bgp_router_obj.set_bgp_router_parameters(bgp_router_params)
+            if test['should_pass']:
+                self.api.bgp_router_update(bgp_router_obj)
+            else:
+                self.assertRaises(BadRequest, self.api.bgp_router_update,
+                                  bgp_router_obj)
+        # Finally, delete the bgp router object
+        self.api.bgp_router_delete(id=bgp_router_uuid)

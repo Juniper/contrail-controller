@@ -95,6 +95,10 @@ class DatabaseExim(object):
             nargs='*',
             help="List of keyspaces to omit in export/import",
             metavar='FILE')
+        parser.add_argument(
+            "--buffer-size", type=int,
+            help="Number of rows fetched at once",
+            default=1024)
 
         args_obj, remaining_argv = parser.parse_known_args(args_str.split())
         if ((args_obj.import_from is not None) and
@@ -142,7 +146,7 @@ class DatabaseExim(object):
         import_zk_dirs = set([p_v_ts[0].split('/')[1]
             for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
 
-        for non_empty in ((existing_zk_dirs & import_zk_dirs) - 
+        for non_empty in ((existing_zk_dirs & import_zk_dirs) -
                           set(['zookeeper'])):
             non_empty_errors.append(
                 'Zookeeper has entries at /%s.' %(non_empty))
@@ -217,7 +221,8 @@ class DatabaseExim(object):
                 credentials=creds, socket_factory=socket_factory)
             for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
                 cassandra_contents[ks_name][cf_name] = {}
-                cf = pycassa.ColumnFamily(pool, cf_name)
+                cf = pycassa.ColumnFamily(pool, cf_name,
+                                          buffer_size=self._args.buffer_size)
                 for r,c in cf.get_range(column_count=10000000, include_timestamp=True):
                     cassandra_contents[ks_name][cf_name][r] = c
 
