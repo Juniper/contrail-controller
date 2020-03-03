@@ -71,6 +71,8 @@ manually updated each time it is modified. We also maintain a change log list
 in that header:
 * 1.27:
   - Fix StringIO TypeError compatibility between Py2 and Py3 CEM-12619
+* 1.26:
+  - Remove raise Exception for InvalidIPAMRef and FQNStaleIndexError.
 * 1.25:
   - Fix route target validation code when VN RT list is set to none
 * 1.24:
@@ -851,6 +853,8 @@ class DatabaseManager(object):
                              Zero prefix (0.0.0.0/0) for IPAM subnets if
                              ipam method is flat-subnet
         """
+
+        logger = self._logger
         subnet_dicts = []
         ua_subnet_dicts = []
         obj_uuid_table = self._cf_dict['obj_uuid_table']
@@ -863,20 +867,22 @@ class DatabaseManager(object):
             try:
                 network_ipam_uuid = network_ipam_ref.split(':')[2]
             except (IndexError, AttributeError) as e:
-                msg = ("Exception (%s)\n"
+                msg = ("InvalidIPAMRef: Exception (%s)\n"
                        "Unable to find Network IPAM UUID "
                        "for (%s). Invalid IPAM?" % (e, network_ipam_ref))
-                raise InvalidIPAMRef(msg)
+                logger.debug(msg)
+                continue
 
             try:
                 network_ipam = obj_uuid_table.get(
                     network_ipam_uuid, columns=['fq_name',
                                                 'prop:ipam_subnet_method'])
             except pycassa.NotFoundException as e:
-                msg = ("Exception (%s)\n"
+                msg = ("FQNStaleIndexError: Exception (%s)\n"
                        "Invalid or non-existing "
                        "UUID (%s)" % (e, network_ipam_uuid))
-                raise FQNStaleIndexError(msg)
+                logger.debug(msg)
+                continue
 
             ipam_method = network_ipam.get('prop:ipam_subnet_method')
             if isinstance(ipam_method, str):
