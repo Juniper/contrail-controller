@@ -1208,6 +1208,87 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
+<<<<<<< HEAD   (e4c594 Merge "Add a new field to route path to store path VN inform)
+=======
+    // In EVPN VNF service chaining, control-node sends the route originated
+    // by us for the routing-vrf in the service-chain vrf as well.
+    // When encapsulation used is VXLAN, nexthop cannot be found from the
+    // message. Since EVPN Type5 local-route is not available in the
+    // serivce-chain vrf evpn table, set the next-hop for the local route
+    // (in the serice-chain's vrf) to primary-routing-vrf to have the common
+    // design for the EVPN Type5.
+
+    // Checking if the vrf received is service-chain vrf that belongs to
+    // Vxlan routing VN (service-chaining between LRs).
+    VnEntry *si_ref_vn = vrf->si_vn_ref();
+    if (si_ref_vn && (si_ref_vn->vxlan_routing_vn() == true)) {
+        // Vxlan routing VN (service-chaining between LRs). Local EVPN routes
+        // for service-chain VRF's will be allowed for the service-chain between
+        // Internal-VN (IVN) of the Vxlan Logiical Router (LR).
+
+        // service-chain vrf will have si_vn_ref set to primary vrf,
+        // in EVPN VNF service chaining, this vrf is to routing vrf
+        VrfEntry *routing_vrf = si_ref_vn->GetVrf();
+        assert(routing_vrf != vrf);
+
+        // service instance vrf received, adding evpn type5 route for
+        // that have local path
+        if (!(routing_vrf->vn() && routing_vrf->vn()->vxlan_routing_vn())) {
+            // primary vrf is not a routing vrf
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Not a Routing VRF. Ignoring route");
+            return;
+        }
+
+        // getting the local export path from the routing vrf
+        EvpnAgentRouteTable *evpn_rt_table =
+             static_cast<EvpnAgentRouteTable *>
+             (agent_->vrf_table()->GetEvpnRouteTable(routing_vrf->GetName()));
+        if (evpn_rt_table == NULL || evpn_rt_table->vrf_entry() == NULL) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Invalid Routing VRF. Ignoring route");
+            return;
+        }
+
+        EvpnRouteKey rt_key(agent_->local_vm_export_peer(),
+                            routing_vrf->GetName(), MacAddress(), ip_addr,
+                            plen, label);
+        const EvpnRouteEntry *evpn_rt = static_cast<EvpnRouteEntry *>
+                                     (evpn_rt_table->FindActiveEntry(&rt_key));
+        if (evpn_rt == NULL) {
+                CONTROLLER_INFO_TRACE (Trace, GetBgpPeerName(), vrf_name,
+                               "Local EVPN route not found, ignoring request");
+                return;
+        }
+
+        // Local port available, Add EVPN type5 route to service-chain vrf
+        VnListType vn_list;
+        vn_list.insert(item->entry.virtual_network);
+
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        nh_req.key.reset(new VrfNHKey(routing_vrf->GetName(), false, false));
+        nh_req.data.reset(new VrfNHData(false, false, false));
+
+        EvpnRoutingData *data =  new EvpnRoutingData(nh_req,
+                                 item->entry.security_group_list.security_group,
+                                 CommunityList(),
+                                 path_preference,
+                                 EcmpLoadBalance(),
+                                 tag_list,
+                                 routing_vrf,
+                                 routing_vrf->vxlan_id(), vn_list);
+
+        // adding local type5 route to service-chain vrf
+        rt_table->AddType5Route(bgp_peer_id(),
+                                vrf_name,
+                                ip_addr,
+                                item->entry.nlri.ethernet_tag,
+                                data);
+
+        return;
+    }
+
+>>>>>>> CHANGE (c19eeb Fix EVPN route add crash in VNF service-chaining)
     // Route originated by us and reflected back by control-node
     // When encap is MPLS based, the nexthop can be found by label lookup
     // When encapsulation used is VXLAN, nexthop cannot be found from message

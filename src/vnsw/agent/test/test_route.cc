@@ -2818,6 +2818,294 @@ TEST_F(RouteTest, fip_evpn_route_local) {
     DeleteVmportFIpEnv(input, 1, true);
     client->WaitForIdle();
 }
+<<<<<<< HEAD   (e4c594 Merge "Add a new field to route path to store path VN inform)
+=======
+
+// Adding EVPN Type5 route to service-instance vrf for the Local port VM
+TEST_F(RouteTest, si_evpn_type5_route_add_local) {
+    using boost::uuids::nil_uuid;
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+    IpamInfo ipam_info_1[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    struct PortInfo input2[] = {
+        {"vnet2", 20, "2.2.2.20", "00:00:02:02:02:20", 2, 20},
+    };
+    IpamInfo ipam_info_2[] = {
+        {"2.2.2.0", 24, "2.2.2.200", true},
+    };
+
+    // Brdige vrf
+    AddIPAM("vn1", ipam_info_1, 1);
+    AddIPAM("vn2", ipam_info_2, 1);
+    CreateVmportEnv(input1, 1);
+    CreateVmportEnv(input2, 1);
+    AddLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    AddLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
+            "instance_ip_2", 2);
+
+    // creating routing vrf with name: domain:l3evpn_1:l3evpn_1
+    const char *routing_vrf_name = "domain:l3evpn_1:l3evpn_1";
+    const char *si_to_routing_vn_vrf_name = "domain:l3evpn_1:service_l3evpn_1";
+    AddRoutingVrf(1);
+    AddLrBridgeVrf("vn1", 1);
+
+    EXPECT_TRUE(VmInterfaceGet(1)->logical_router_uuid() == nil_uuid());
+    EXPECT_TRUE(VmInterfaceGet(20)->logical_router_uuid() == nil_uuid());
+    EXPECT_TRUE(VmInterfaceGet(91)->logical_router_uuid() != nil_uuid());
+    ValidateRouting(routing_vrf_name, Ip4Address::from_string("1.1.1.10"), 32,
+            "vnet1", true);
+    ValidateRouting(routing_vrf_name, Ip4Address::from_string("2.2.2.20"), 32,
+            "vnet2", false);
+    // check to see if the default route added to the bridge vrf inet
+    ValidateBridge("vrf1", routing_vrf_name,
+            Ip4Address::from_string("0.0.0.0"), 0, true);
+
+    // check to see if the local port route added to the bridge vrf inet
+    ValidateBridge("vrf1", routing_vrf_name,
+            Ip4Address::from_string("1.1.1.10"), 32, true);
+
+    // since vn2 is ot included in the LR,
+    // check to see no route add by peer:EVPN_ROUTING_PEER
+    ValidateBridge("vrf2", routing_vrf_name,
+            Ip4Address::from_string("2.2.2.20"), 32, false);
+
+    // checking routing vrf have valid VXLAN ID
+    VrfEntry *routing_vrf= VrfGet(routing_vrf_name);
+    EXPECT_TRUE(routing_vrf->vxlan_id() != VxLanTable::kInvalidvxlan_id);
+
+    // Adding service-instance vrf having reference to the Internal VN of
+    // the logical router
+    AddVrf(si_to_routing_vn_vrf_name, 201);
+    AddLink("virtual-network",
+            "domain:l3evpn_1",
+            "routing-instance",
+            si_to_routing_vn_vrf_name);
+    client->WaitForIdle();
+    VrfEntry *si_vrf= VrfGet(si_to_routing_vn_vrf_name);
+    EXPECT_TRUE( si_vrf != NULL);
+    WAIT_FOR(1000, 1000, (si_vrf->si_vn_ref() != NULL));
+
+    //Creating CN type route for service-instance vrf and see if its added
+    //for the local port route
+    stringstream ss_node;
+    autogen::EnetItemType item;
+    SecurityGroupList sg;
+
+    /// get vxlan_id
+    InetUnicastRouteEntry *rt =
+        RouteGet(routing_vrf_name, Ip4Address::from_string("1.1.1.10"), 32);
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    item.entry.nlri.address="1.1.1.10/32";
+    item.entry.nlri.ethernet_tag = 0;
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = agent_->router_ip_ptr()->to_string();
+    nh.label = routing_vrf->vxlan_id();
+    item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
+
+    // EVPN type5 route from CN will have MAC 00:00:00:00:00:00
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_routing_vn_vrf_name,
+            "00:00:00:00:00:00",
+            Ip4Address::from_string("1.1.1.10"),
+            32, &item);
+    client->WaitForIdle();
+
+    // check if the route created in serivice-instance vrf
+    // with nh type vrf to routing vrf.
+    const VrfNH *si_nh = dynamic_cast<const VrfNH *>
+                         (LPMRouteToNextHop(si_to_routing_vn_vrf_name,
+                                     Ip4Address::from_string("1.1.1.10")));
+    WAIT_FOR(1000, 1000, (si_nh != NULL));
+    EXPECT_TRUE(si_nh->GetVrf() == routing_vrf);
+
+    // Adding non-local route.
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    item.entry.nlri.address="1.1.1.20/32";
+    item.entry.nlri.ethernet_tag = 0;
+    nh.af = Address::INET;
+    nh.address = agent_->router_ip_ptr()->to_string();
+    nh.label = routing_vrf->vxlan_id();
+    item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_routing_vn_vrf_name,
+            "00:00:00:00:00:00",
+            Ip4Address::from_string("1.1.1.20"),
+            32, &item);
+    client->WaitForIdle();
+
+    // check if the route is not created in serivice-instance vrf
+    si_nh = dynamic_cast<const VrfNH *>
+                         (LPMRouteToNextHop(si_to_routing_vn_vrf_name,
+                                     Ip4Address::from_string("1.1.1.20")));
+    client->WaitForIdle();
+    EXPECT_TRUE(si_nh == NULL);
+
+    // simulate route delete request from control and see if the route is
+    // cleared in the service chain vrf
+    EvpnAgentRouteTable *rt_table = static_cast<EvpnAgentRouteTable *>
+            (agent_->vrf_table()->GetEvpnRouteTable(si_to_routing_vn_vrf_name));
+    rt_table->DeleteReq(bgp_peer_->GetAgentXmppChannel()->bgp_peer_id(),
+        si_to_routing_vn_vrf_name,
+        MacAddress::FromString("00:00:00:00:00:00"),
+        Ip4Address::from_string("1.1.1.10"),
+        32, 0,
+        new ControllerVmRoute(bgp_peer_->GetAgentXmppChannel()->bgp_peer_id()));
+    client->WaitForIdle();
+    si_nh = dynamic_cast<const VrfNH *>
+                         (LPMRouteToNextHop(si_to_routing_vn_vrf_name,
+                                     Ip4Address::from_string("1.1.1.10")));
+    EXPECT_TRUE(si_nh == NULL);
+
+    // Clean up
+    DelLink("virtual-network",
+            "domain:l3evpn_1",
+            "routing-instance",
+            si_to_routing_vn_vrf_name);
+    si_vrf= VrfGet(si_to_routing_vn_vrf_name);
+    EXPECT_TRUE( si_vrf != NULL);
+    WAIT_FOR(1000, 1000, (si_vrf->si_vn_ref() == NULL));
+    DelVrf(si_to_routing_vn_vrf_name);
+    DelRoutingVrf(1);
+    DelIPAM("vn1");
+    DelIPAM("vn2");
+    DelNode("project", "admin");
+    DeleteVmportEnv(input1, 2, true);
+    DeleteVmportEnv(input2, 1, true);
+    DelLrVmiPort("lr-vmi-vn1", 91, "1.1.1.99", "vrf1", "vn1",
+            "instance_ip_1", 1);
+    DelLrVmiPort("lr-vmi-vn2", 92, "2.2.2.99", "vrf2", "vn2",
+            "instance_ip_2", 2);
+    client->WaitForIdle(5);
+    EXPECT_TRUE(VrfGet("vrf1") == NULL);
+    EXPECT_TRUE(VrfGet("vrf2") == NULL);
+    EXPECT_TRUE(agent_->oper_db()->vxlan_routing_manager()->vrf_mapper().
+            IsEmpty());
+    EXPECT_TRUE(agent_->oper_db()->vxlan_routing_manager()->vrf_mapper().
+            IsEmpty());
+    client->WaitForIdle();
+}
+
+/*
+ * Test EVPN type2 route for service-chain for local
+ * and remote routes.
+ */
+TEST_F(RouteTest, service_chain_evpn_local_remote_route) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+    IpamInfo ipam_info_1[] = {
+        {"1.1.1.0", 24, "1.1.1.254"},
+    };
+
+    //Creation
+    const char *pri_vn = "default-project:vn1";
+    const char *pri_vrf = "default-project:vn1:vn1";
+    AddIPAM(pri_vn, ipam_info_1, 1);
+    CreateVmportEnv(input, 1, 0, pri_vn, pri_vrf,
+                    NULL, true);
+    client->WaitForIdle();
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vmi != NULL);
+    Ip4Address addr = Ip4Address::from_string("1.1.1.10");
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind(pri_vrf, addr, 32));
+
+    //Search our evpn route
+    EvpnRouteEntry *rt = EvpnRouteGet(pri_vrf,
+                                      MacAddress::FromString(input[0].mac),
+                                      Ip4Address::from_string("1.1.1.10"), 0);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt != NULL);
+    AgentPath *path = rt->FindLocalVmPortPath();
+    EXPECT_TRUE(path != NULL);
+    EXPECT_TRUE(rt->GetActivePath() == path);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    const char *si_to_vn_vrf_name = "default-project:vn1:service_vn1";
+    AddVrf(si_to_vn_vrf_name, 201);
+    AddLink("virtual-network",
+            pri_vn,
+            "routing-instance",
+            si_to_vn_vrf_name);
+    client->WaitForIdle();
+    VrfEntry *si_vrf= VrfGet(si_to_vn_vrf_name);
+    EXPECT_TRUE( si_vrf != NULL);
+    WAIT_FOR(1000, 1000, (si_vrf->si_vn_ref() != NULL));
+
+    //Reflect CN local route and see if its added.
+    stringstream ss_node;
+    autogen::EnetItemType item;
+    SecurityGroupList sg;
+
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    item.entry.nlri.address="0.0.0.0/32";
+    item.entry.nlri.ethernet_tag = 0;
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = agent_->router_ip_ptr()->to_string();
+    nh.label = rt->GetActiveLabel();
+    item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
+
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_vn_vrf_name,
+                                                   "00:00:01:01:01:10",
+                                      Ip4Address::from_string("1.1.1.10"),
+                                                   32, &item);
+    client->WaitForIdle();
+
+    // remote EVPN route add message from CN
+    autogen::EnetItemType ritem;
+    ritem.entry.nlri.af = BgpAf::L2Vpn;
+    ritem.entry.nlri.safi = BgpAf::Enet;
+    ritem.entry.nlri.address="0.0.0.0/32";
+    ritem.entry.nlri.ethernet_tag = 0;
+    nh.af = Address::INET;
+    nh.address = "10.0.0.24";
+    nh.label = rt->GetActiveLabel();
+    ritem.entry.next_hops.next_hop.push_back(nh);
+    ritem.entry.med = 0;
+
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_vn_vrf_name,
+                                                   "00:00:02:02:02:20",
+                                      Ip4Address::from_string("2.2.2.20"),
+                                                   32, &ritem);
+    client->WaitForIdle();
+
+    // Local EVPN route shouldn't be added to service-chain vrf
+    EvpnRouteEntry *sc_rt = EvpnRouteGet(si_to_vn_vrf_name,
+                                      MacAddress::FromString(input[0].mac),
+                                      Ip4Address::from_string("1.1.1.10"), 0);
+    EXPECT_TRUE(sc_rt == NULL);
+
+    // Remote EVPN route added to service-chain vrf
+    EvpnRouteEntry *sc_rem_rt = EvpnRouteGet(si_to_vn_vrf_name,
+                                      MacAddress::FromString("00:00:02:02:02:20"),
+                                      Ip4Address::from_string("2.2.2.20"), 0);
+    WAIT_FOR(1000, 1000, (sc_rem_rt != NULL));
+    EXPECT_TRUE(sc_rem_rt != NULL);
+
+    DelIPAM(pri_vn);
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0, pri_vn, pri_vrf, true, false);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfGet(pri_vrf) == NULL));
+    DelVrf(si_to_vn_vrf_name);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfGet(si_to_vn_vrf_name) == NULL));
+    client->WaitForIdle();
+}
+
+>>>>>>> CHANGE (c19eeb Fix EVPN route add crash in VNF service-chaining)
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
