@@ -3110,6 +3110,118 @@ TEST_F(RouteTest, si_evpn_type5_route_add_local) {
     client->WaitForIdle();
 }
 
+/*
+ * Test EVPN type2 route for service-chain for local
+ * and remote routes.
+ */
+TEST_F(RouteTest, service_chain_evpn_local_remote_route) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+    IpamInfo ipam_info_1[] = {
+        {"1.1.1.0", 24, "1.1.1.254"},
+    };
+
+    //Creation
+    const char *pri_vn = "default-project:vn1";
+    const char *pri_vrf = "default-project:vn1:vn1";
+    AddIPAM(pri_vn, ipam_info_1, 1);
+    CreateVmportEnv(input, 1, 0, pri_vn, pri_vrf,
+                    NULL, true);
+    client->WaitForIdle();
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vmi != NULL);
+    Ip4Address addr = Ip4Address::from_string("1.1.1.10");
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(RouteFind(pri_vrf, addr, 32));
+
+    //Search our evpn route
+    EvpnRouteEntry *rt = EvpnRouteGet(pri_vrf,
+                                      MacAddress::FromString(input[0].mac),
+                                      Ip4Address::from_string("1.1.1.10"), 0);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt != NULL);
+    AgentPath *path = rt->FindLocalVmPortPath();
+    EXPECT_TRUE(path != NULL);
+    EXPECT_TRUE(rt->GetActivePath() == path);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    const char *si_to_vn_vrf_name = "default-project:vn1:service_vn1";
+    AddVrf(si_to_vn_vrf_name, 201);
+    AddLink("virtual-network",
+            pri_vn,
+            "routing-instance",
+            si_to_vn_vrf_name);
+    client->WaitForIdle();
+    VrfEntry *si_vrf= VrfGet(si_to_vn_vrf_name);
+    EXPECT_TRUE( si_vrf != NULL);
+    WAIT_FOR(1000, 1000, (si_vrf->si_vn_ref() != NULL));
+
+    //Reflect CN local route and see if its added.
+    stringstream ss_node;
+    autogen::EnetItemType item;
+    SecurityGroupList sg;
+
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    item.entry.nlri.address="0.0.0.0/32";
+    item.entry.nlri.ethernet_tag = 0;
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = agent_->router_ip_ptr()->to_string();
+    nh.label = rt->GetActiveLabel();
+    item.entry.next_hops.next_hop.push_back(nh);
+    item.entry.med = 0;
+
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_vn_vrf_name,
+                                                   "00:00:01:01:01:10",
+                                      Ip4Address::from_string("1.1.1.10"),
+                                                   32, &item);
+    client->WaitForIdle();
+
+    // remote EVPN route add message from CN
+    autogen::EnetItemType ritem;
+    ritem.entry.nlri.af = BgpAf::L2Vpn;
+    ritem.entry.nlri.safi = BgpAf::Enet;
+    ritem.entry.nlri.address="0.0.0.0/32";
+    ritem.entry.nlri.ethernet_tag = 0;
+    nh.af = Address::INET;
+    nh.address = "10.0.0.24";
+    nh.label = rt->GetActiveLabel();
+    ritem.entry.next_hops.next_hop.push_back(nh);
+    ritem.entry.med = 0;
+
+    bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute(si_to_vn_vrf_name,
+                                                   "00:00:02:02:02:20",
+                                      Ip4Address::from_string("2.2.2.20"),
+                                                   32, &ritem);
+    client->WaitForIdle();
+
+    // Local EVPN route shouldn't be added to service-chain vrf
+    EvpnRouteEntry *sc_rt = EvpnRouteGet(si_to_vn_vrf_name,
+                                      MacAddress::FromString(input[0].mac),
+                                      Ip4Address::from_string("1.1.1.10"), 0);
+    EXPECT_TRUE(sc_rt == NULL);
+
+    // Remote EVPN route added to service-chain vrf
+    EvpnRouteEntry *sc_rem_rt = EvpnRouteGet(si_to_vn_vrf_name,
+                                      MacAddress::FromString("00:00:02:02:02:20"),
+                                      Ip4Address::from_string("2.2.2.20"), 0);
+    WAIT_FOR(1000, 1000, (sc_rem_rt != NULL));
+    EXPECT_TRUE(sc_rem_rt != NULL);
+
+    DelIPAM(pri_vn);
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0, pri_vn, pri_vrf, true, false);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfGet(pri_vrf) == NULL));
+    DelVrf(si_to_vn_vrf_name);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfGet(si_to_vn_vrf_name) == NULL));
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();

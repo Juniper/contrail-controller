@@ -1216,9 +1216,14 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     // (in the serice-chain's vrf) to primary-routing-vrf to have the common
     // design for the EVPN Type5.
 
-    // Checking if the vrf received is service-chain vrf.
+    // Checking if the vrf received is service-chain vrf that belongs to
+    // Vxlan routing VN (service-chaining between LRs).
     VnEntry *si_ref_vn = vrf->si_vn_ref();
-    if (si_ref_vn) {
+    if (si_ref_vn && (si_ref_vn->vxlan_routing_vn() == true)) {
+        // Vxlan routing VN (service-chaining between LRs). Local EVPN routes
+        // for service-chain VRF's will be allowed for the service-chain between
+        // Internal-VN (IVN) of the Vxlan Logiical Router (LR).
+
         // service-chain vrf will have si_vn_ref set to primary vrf,
         // in EVPN VNF service chaining, this vrf is to routing vrf
         VrfEntry *routing_vrf = si_ref_vn->GetVrf();
