@@ -4,12 +4,15 @@
 
 from vnc_api.gen.resource_common import BgpAsAService
 
+from vnc_cfg_api_server.resources._bgp_base import check_hold_time_in_range
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
 class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
     @classmethod
-    def _validate_control_node_zone_dep(cls, obj_dict, db_dict={}):
+    def _validate_control_node_zone_dep(cls, obj_dict, db_dict=None):
+        if db_dict is None:
+            db_dict = {}
         cnz_refs = []
         if 'control_node_zone_refs' in db_dict:
             cnz_refs.extend(db_dict['control_node_zone_refs'])
@@ -20,7 +23,7 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
             if ('to' in ref and
                     ref['to'][0] == 'default-global-system-config'):
                 attr_type = ref['attr']['bgpaas_control_node_zone_type']
-                if (attr_type in cnz_db and cnz_db[attr_type] != ref['uuid']):
+                if attr_type in cnz_db and cnz_db[attr_type] != ref['uuid']:
                     msg = ("BGPaaS has configured with more than one %s "
                            "control-node-zones" % attr_type)
                     return False, (400, msg)
@@ -49,6 +52,13 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        bgp_session_attr = obj_dict.get('bgpaas_session_attributes')
+        if bgp_session_attr:
+            hold_time = bgp_session_attr.get('hold_time')
+            ok, result = check_hold_time_in_range(hold_time)
+            if not ok:
+                return ok, (400, result)
+
         ok, result = cls._check_asn(obj_dict)
         if not ok:
             return ok, (400, result)
@@ -61,11 +71,18 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
         if (not obj_dict.get('bgpaas_shared') is True or
                 obj_dict.get('bgpaas_ip_address') is not None):
             return True, ''
-        return (False, (400, 'BGPaaS IP Address needs to be ' +
+        return (False, (400, 'BGPaaS IP Address needs to be '
                              'configured if BGPaaS is shared'))
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        bgp_session_attr = obj_dict.get('bgpaas_session_attributes')
+        if bgp_session_attr:
+            hold_time = bgp_session_attr.get('hold_time')
+            ok, result = check_hold_time_in_range(hold_time)
+            if not ok:
+                return ok, (400, result)
+
         ok, result = cls._check_asn(obj_dict)
         if not ok:
             return ok, (400, result)
@@ -85,6 +102,6 @@ class BgpAsAServiceServer(ResourceMixin, BgpAsAService):
                 if not ok:
                     return ok, result
             if result.get('bgpaas_shared', False) != obj_dict['bgpaas_shared']:
-                return (False, (400, 'BGPaaS sharing cannot be modified'))
+                return False, (400, 'BGPaaS sharing cannot be modified')
 
         return True, ""

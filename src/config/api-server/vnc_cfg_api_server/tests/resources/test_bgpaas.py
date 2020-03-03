@@ -409,3 +409,55 @@ class TestBgpaas(test_case.ApiServerTestCase):
 
         for i in range(2):
             self.api.control_node_zone_delete(fq_name=cnz[i].fq_name)
+
+    hold_time_test_cases = [{"hold_time": -1, "should_pass": False},
+                            {"hold_time": 0, "should_pass": True},
+                            {"hold_time": 1, "should_pass": False},
+                            {"hold_time": 2, "should_pass": False},
+                            {"hold_time": 3, "should_pass": True},
+                            {"hold_time": 10, "should_pass": True},
+                            {"hold_time": 10234, "should_pass": True},
+                            {"hold_time": 65535, "should_pass": True},
+                            {"hold_time": 65536, "should_pass": False}]
+
+    def test_bgpaas_create_with_hold_time(self):
+        proj = self.api.project_read(
+            fq_name=["default-domain", "default-project"])
+        for test in self.hold_time_test_cases:
+            bgp_session_attr = BgpSessionAttributes(
+                hold_time=test['hold_time'])
+            bgpaas_obj = BgpAsAService(
+                name='bgpaas',
+                parent_obj=proj,
+                bgpaas_session_attributes=bgp_session_attr)
+            if test['should_pass']:
+                # Create bgpaas object with proper hold time
+                bgpaas_uuid = self.api.bgp_as_a_service_create(bgpaas_obj)
+                # Now delete the bgpaas object
+                self.api.bgp_as_a_service_delete(id=bgpaas_uuid)
+            else:
+                # Try to create bgpaas object with improper hold time
+                # and expect error
+                self.assertRaises(BadRequest, self.api.bgp_as_a_service_create,
+                                  bgpaas_obj)
+
+    def test_bgpaas_update_with_hold_time(self):
+        # Create bgpaas object
+        proj = self.api.project_read(
+            fq_name=['default-domain', 'default-project'])
+        bgpaas_obj = BgpAsAService(name='bgpaas_update',
+                                   parent_obj=proj)
+        bgpaas_uuid = self.api.bgp_as_a_service_create(bgpaas_obj)
+
+        for test in self.hold_time_test_cases:
+            # Update hold time with valid and invalid values
+            bgp_session_attr = BgpSessionAttributes(
+                hold_time=test['hold_time'])
+            bgpaas_obj.set_bgpaas_session_attributes(bgp_session_attr)
+            if test['should_pass']:
+                self.api.bgp_as_a_service_update(bgpaas_obj)
+            else:
+                self.assertRaises(BadRequest, self.api.bgp_as_a_service_update,
+                                  bgpaas_obj)
+        # Finally, delete the bgpaas object
+        self.api.bgp_as_a_service_delete(id=bgpaas_uuid)

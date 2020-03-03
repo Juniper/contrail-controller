@@ -50,7 +50,7 @@ setup(
     tests_require=requirements('test-requirements.txt'),
     entry_points={
         'console_scripts': [
-            'contrail-api = vnc_cfg_api_server.vnc_cfg_api_server:server_main',
+            'contrail-api = vnc_cfg_api_server.api_server:server_main',
             'contrail-db-check = vnc_cfg_api_server.db_manage:db_check',
         ],
     },

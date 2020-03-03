@@ -4,6 +4,7 @@
 
 from vnc_api.gen.resource_common import BgpRouter
 
+from vnc_cfg_api_server.resources._bgp_base import check_hold_time_in_range
 from vnc_cfg_api_server.resources._resource_base import ResourceMixin
 
 
@@ -12,6 +13,11 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         bgp_router_prop = obj_dict.get('bgp_router_parameters')
         if bgp_router_prop:
+            hold_time = bgp_router_prop.get('hold_time')
+            ok, result = check_hold_time_in_range(hold_time)
+            if not ok:
+                return ok, (400, result)
+
             asn = bgp_router_prop.get('autonomous_system')
             if asn and asn != 'null':
                 ok, result = cls.server.get_resource_class(
@@ -41,10 +47,10 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
 
         control_node_zone_ref = obj_dict.get('control_node_zone_refs')
         if control_node_zone_ref:
-            if (len(control_node_zone_ref) > 1):
-                msg = ("BgpRouter should refer only one control-node-zone")
+            if len(control_node_zone_ref) > 1:
+                msg = "BgpRouter should refer only one control-node-zone"
                 return False, (400, msg)
-            if (router_type != 'control-node'):
+            if router_type != 'control-node':
                 msg = ("BgpRouter type should be 'control-node' to refer "
                        "control-node-zone")
                 return False, (400, msg)
@@ -101,6 +107,11 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
             bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
             bgp_router_prop = bgp_obj.get('prop:bgp_router_parameters')
         if bgp_router_prop:
+            hold_time = bgp_router_prop.get('hold_time')
+            ok, result = check_hold_time_in_range(hold_time)
+            if not ok:
+                return ok, (400, result)
+
             asn = bgp_router_prop.get('autonomous_system')
             if asn and asn != 'null':
                 ok, result = cls.server.get_resource_class(
@@ -117,7 +128,7 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
             router_type = bgp_router_prop.get('router_type')
         control_node_zone_ref = obj_dict.get('control_node_zone_refs')
         if control_node_zone_ref:
-            if (router_type != 'control-node'):
+            if router_type != 'control-node':
                 msg = ("BgpRouter type should be 'control-node' to refer "
                        "control-node-zone")
                 return False, (400, msg)
@@ -125,8 +136,8 @@ class BgpRouterServer(ResourceMixin, BgpRouter):
                 bgp_obj = db_conn.uuid_to_obj_dict(obj_dict['uuid'])
             cnz_ref_db = ([key for key in bgp_obj.keys()
                           if key.startswith('ref:control_node_zone')])
-            if (len(cnz_ref_db) or len(control_node_zone_ref) > 1):
-                msg = ("BgpRouter should refer only one control-node-zone")
+            if len(cnz_ref_db) or len(control_node_zone_ref) > 1:
+                msg = "BgpRouter should refer only one control-node-zone"
                 return False, (400, msg)
 
         return True, ''

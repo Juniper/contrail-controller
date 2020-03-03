@@ -29,7 +29,7 @@ class TestExecuteJob(test_case.ApiServerTestCase):
 
         kombu_mock = mock.Mock()
         kombu_patch = mock.patch(
-            'vnc_cfg_api_server.vnc_cfg_api_server.KombuAmqpClient')
+            'vnc_cfg_api_server.api_server.KombuAmqpClient')
         kombu_init_mock = kombu_patch.start()
         kombu_init_mock.side_effect = kombu_mock
 

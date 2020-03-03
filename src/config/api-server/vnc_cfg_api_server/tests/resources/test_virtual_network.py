@@ -300,3 +300,54 @@ class TestVirtualNetwork(test_case.ApiServerTestCase):
         self.api.virtual_network_delete(id=vn2_obj.uuid)
         self.api.virtual_network_delete(id=vn1_obj.uuid)
         logger.debug('PASS - test_cannot_update_vxlan_id')
+
+    def test_update_auto_vxlan_id_with_the_same_value(self):
+        """
+        Test case.
+
+        1. Set VxLAN identifier mode to 'automatic'.
+        2. Create new VirtualNetwork.
+        3. Set VxLAN identifier mode to 'configured'.
+        4. Update VirtualNetwork with vxlan network identifier equal to
+           network id.
+        """
+        gvc_fq_name = ['default-global-system-config',
+                       'default-global-vrouter-config']
+        vxlan_id_mode = {'auto': 'automatic', 'user': 'configured'}
+
+        # Set VxLAN identifier mode to 'automatic'
+        gvc = self.api.global_vrouter_config_read(fq_name=gvc_fq_name)
+        gvc.set_vxlan_network_identifier_mode(vxlan_id_mode['auto'])
+        self.api.global_vrouter_config_update(gvc)
+        gvc = self.api.global_vrouter_config_read(fq_name=gvc_fq_name)
+        # verify vxlan id mode has been set
+        self.assertEqual(gvc.vxlan_network_identifier_mode,
+                         vxlan_id_mode['auto'])
+
+        # Create new VirtualNetwork
+        vn = VirtualNetwork('%s-vn' % self.id())
+        self.api.virtual_network_create(vn)
+        vn = self.api.virtual_network_read(fq_name=vn.fq_name)
+        # verify vn_network_id has been set
+        vn_network_id = vn.get_virtual_network_network_id()
+        self.assertTrue(vn_network_id > 0)
+
+        # Set VxLAN identifier mode to 'configured' (user defined)
+        gvc.set_vxlan_network_identifier_mode(vxlan_id_mode['user'])
+        self.api.global_vrouter_config_update(gvc)
+        gvc = self.api.global_vrouter_config_read(fq_name=gvc_fq_name)
+        # verify vxlan id mode has been set
+        self.assertEqual(gvc.vxlan_network_identifier_mode,
+                         vxlan_id_mode['user'])
+
+        # Update VirtualNetwork with vxlan network identifier
+        # equal to network id
+        vn_properties = VirtualNetworkType()
+        vn_properties.set_vxlan_network_identifier(vn_network_id)
+        vn.set_virtual_network_properties(vn_properties)
+        self.api.virtual_network_update(vn)
+        # verify vn_network_id is the same as vxlan_network_id
+        vn = self.api.virtual_network_read(fq_name=vn.fq_name)
+        vxlan_id = vn.get_virtual_network_properties()\
+            .get_vxlan_network_identifier()
+        self.assertEqual(vn_network_id, vxlan_id)
