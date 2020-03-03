@@ -61,7 +61,7 @@ class TestPostAuthKeystone(test_case.ApiServerTestCase):
         self._vnc_lib.set_auth_token(admin_token)
         project = Project('project-%s' % self.id())
         default_domain = self._vnc_lib.domain_read(['default-domain'])
-        with mock.patch('vnc_cfg_api_server.vnc_cfg_api_server.VncApiServer.'
+        with mock.patch('vnc_cfg_api_server.api_server.VncApiServer.'
                         'default_domain', new_callable=mock.PropertyMock) as\
                 dd_prop_mock:
             dd_prop_mock.return_value = default_domain.serialize_to_json()
@@ -99,7 +99,7 @@ class TestPostAuthKeystone2(test_case.ApiServerTestCase):
         self._vnc_lib.set_auth_token(admin_token)
         project = Project('project-%s' % self.id())
         default_domain = self._vnc_lib.domain_read(['default-domain'])
-        with mock.patch('vnc_cfg_api_server.vnc_cfg_api_server.VncApiServer.'
+        with mock.patch('vnc_cfg_api_server.api_server.VncApiServer.'
                         'default_domain', new_callable=mock.PropertyMock) as\
                 dd_prop_mock:
             dd_prop_mock.return_value = default_domain.serialize_to_json()
