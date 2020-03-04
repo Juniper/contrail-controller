@@ -1,0 +1,19 @@
+{% if valid_groups_cfg is defined and valid_groups_cfg != None %}
+{%     for group_item in valid_groups_cfg %}
+{%         set cfg_group = group_item.name %}
+{%         set bgp_group = group_item.protocols.bgp.group %}
+{%         if bgp_group is mapping %}
+{%             set bgp_group = [bgp_group] %}
+{%         endif %}
+{%         for bgp_item in bgp_group %}
+{%             set bgp_group_name = bgp_item.name %}
+{%             if bgp_item.family is defined and bgp_item.family.evpn is defined %}
+{%                 if device_maintenance_mode == "activate" %}
+delete groups {{cfg_group}} protocols bgp group {{bgp_group_name}} import REJECT-MAINTENANCE-MODE
+{%                 else %}
+set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} import REJECT-MAINTENANCE-MODE
+{%                 endif %}
+{%             endif %}
+{%         endfor %}
+{%     endfor %}
+{% endif %}

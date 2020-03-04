@@ -29,16 +29,18 @@ set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{route.
 {%     endif %}
 set system services netconf ssh
 set groups {{cfg_group}} policy-options community COM-MAINTENANCE members 9999:9999
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from family evpn
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 2
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 1
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 3
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 4
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 5
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from nlri-route-type 6
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 then community add COM-MAINTENANCE
-set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 then accept
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 from route-filter 172.16.0.5/32 exact
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term1 then next policy
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term2 from route-filter 0.0.0.0/0 prefix-length-range /32-/32
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term2 then community add COM-MAINTENANCE
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term2 then accept
 set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE term term100 then accept
+
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE2 term term1 from family evpn
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE2 term term1 from nlri-route-type 1
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE2 term term1 then community add COM-MAINTENANCE
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE2 term term1 then accept
+set groups {{cfg_group}} policy-options policy-statement MAINTENANCE-MODE2 term term100 then accept
 
 set groups {{cfg_group}} policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from family evpn
 set groups {{cfg_group}} policy-options policy-statement REJECT-MAINTENANCE-MODE term term1 from community COM-MAINTENANCE
