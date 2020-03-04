@@ -9,6 +9,10 @@
 - include_role:
     name: "maintenance_mode_config_push"
 
+- include_role:
+    name: "maintenance_mode_config_push_peers"
+  when: physical_role == 'leaf'
+
 - name: Check health of the device after deactivation of maintenance mode
   include_role:
     name: device_health_check

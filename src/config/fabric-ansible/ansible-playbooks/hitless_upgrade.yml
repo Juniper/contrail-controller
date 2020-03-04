@@ -59,6 +59,11 @@
               include_role:
                 name: maintenance_mode_validation
 
+            - name: Push config to multihomed peers
+              include_role:
+                name: maintenance_mode_config_push_peers
+              when: physical_role == 'leaf'
+
             - name: Push config
               include_role:
                 name: maintenance_mode_config_push
