@@ -102,7 +102,12 @@
           vars:
             advanced_parameters: "{{advanced_params}}"
 
-        - name: Push config
+        - name: Push config to multihomed peers
+          include_role:
+            name: maintenance_mode_config_push_peers
+          when: physical_role == 'leaf'
+
+        - name: Push config to device going into maintenance mode
           include_role:
             name: maintenance_mode_config_push
 

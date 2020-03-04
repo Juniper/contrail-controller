@@ -55,6 +55,44 @@
 - include_role:
     name: "commit_fabric_config"
 
+- block:
+    - name: Get vendor specific jinja file name for leaf
+      set_fact:
+        jinja_file: "{{device_vendor}}_maintenance_mode_leaf.j2"
+
+    - name: Generate maintenance mode config to be pushed on leaf device {{prouter_name}}
+      block:
+        - name: Generate script file on local host
+          template:
+            src: "{{jinja_file}}"
+            dest: "{{ conf_dir }}/final_config/final_hitless_config/maintenance_mode_leaf.conf"
+          register: cmd_res
+      rescue:
+        - name: Perform necessary error handling
+          include_tasks: error_handler.yml
+          vars:
+            op_err_message: "{{cmd_res.msg}}"
+            jl_err_message: "Failed to generate leaf script to {{device_maintenance_mode}} maintenance mode on device {{pr_name}}"
+
+    - name: Set the src file for config push
+      set_fact:
+        source_file: "{{ conf_dir }}/final_config/final_hitless_config/maintenance_mode_leaf.conf"
+
+    - name: Gonna take a long pause, so notify the user
+      job_objectlog:
+        job_ctx: "{{job_ctx}}"
+        message: "Pause 60 seconds to let commit settle on {{prouter_name}}"
+        device_name: "{{prouter_name}}"
+        status: "{{ JOBLOG_STATUS.IN_PROGRESS }}"
+
+    - name: Pause to let policy settle
+      pause:
+        seconds: 60
+
+    - include_role:
+        name: "commit_fabric_config"
+  when: physical_role == 'leaf'
+
 - name: Update prouter logs with maintenance mode status
   prouter_objectlog:
     prouter_fqname: "{{pr_fqname}}"
@@ -73,4 +111,3 @@
   include_tasks: percentage_update.yml
   vars:
     jl_message: "Configuration pushed down to {{device_maintenance_mode}} maintenance mode on the device {{prouter_name}}."
-

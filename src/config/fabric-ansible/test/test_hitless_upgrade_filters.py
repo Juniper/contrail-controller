@@ -980,6 +980,7 @@ mock_upgrade_plan_result = {
                     'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e513',
                     'mgmt_ip': '1.1.1.3',
                     'password': '***',
+                    'vendor': 'juniper',
                     'multihomed_interface_list': ['pi_2'],
                     'name': 'device_3'
                 }],
@@ -1017,6 +1018,7 @@ mock_upgrade_plan_result = {
                     'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e512',
                     'mgmt_ip': '1.1.1.2',
                     'password': '***',
+                    'vendor': 'juniper',
                     'multihomed_interface_list': ['pi_1'],
                     'name': 'device_2'
                 }],
@@ -1054,6 +1056,7 @@ mock_upgrade_plan_result = {
                     'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e516',
                     'mgmt_ip': '1.1.1.6',
                     'password': '***',
+                    'vendor': 'juniper',
                     'multihomed_interface_list': ['pi_4'],
                     'name': 'device_6'
                 }],
@@ -1091,6 +1094,7 @@ mock_upgrade_plan_result = {
                     'uuid': 'dfb0cd32-46ca-4996-b155-806878d4e515',
                     'mgmt_ip': '1.1.1.5',
                     'password': '***',
+                    'vendor': 'juniper',
                     'multihomed_interface_list': ['pi_3'],
                     'name': 'device_5'
                 }],
