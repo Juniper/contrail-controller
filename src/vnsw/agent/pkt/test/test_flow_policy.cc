@@ -1326,6 +1326,26 @@ TEST_F(FlowTest, AclRuleUpdate) {
     client->WaitForIdle(5);
 }
 
+TEST_F(FlowTest, FlowAgingTimerUpdate) {
+
+    int tcp_timeout = 60;
+    int udp_timeout = 70;
+    int icmp_timeout = 80;
+
+    AddFlowAgingTimerConfig(tcp_timeout, udp_timeout, icmp_timeout);
+
+    client->WaitForIdle();
+    FlowStatsManager *fm = Agent::GetInstance()->flow_stats_manager();
+    EXPECT_EQ(fm->proto(IPPROTO_TCP)->GetAgeTimeInSeconds(), tcp_timeout);
+    EXPECT_EQ(fm->proto(IPPROTO_UDP)->GetAgeTimeInSeconds(), udp_timeout);
+    EXPECT_EQ(fm->proto(IPPROTO_ICMP)->GetAgeTimeInSeconds(), icmp_timeout);
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
+    EXPECT_EQ(NULL, fm->proto(IPPROTO_TCP));
+    EXPECT_EQ(NULL, fm->proto(IPPROTO_UDP));
+    EXPECT_EQ(NULL, fm->proto(IPPROTO_ICMP));
+}
+
 TEST_F(FlowTest, FlowPolicyLogAction_1) {
     AddAclLogActionEntry("acl4", 4, 1, "deny", "true",
                          "fe6a4dcb-dde4-48e6-8957-856a7aacb2e2");

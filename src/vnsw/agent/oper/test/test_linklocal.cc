@@ -77,6 +77,32 @@ private:
     Agent *agent_;
 };
 
+TEST_F(LinkLocalTest, LinkLocalServiceReqTest) {
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
+    GlobalVrouter *gv = Agent::GetInstance()->oper_db()->global_vrouter();
+    TestLinkLocalService services[MAX_SERVICES];
+    FillServices(services, MAX_SERVICES);
+    AddLinkLocalConfig(services, MAX_SERVICES);
+    client->WaitForIdle();
+
+    /* Get link local services info for a given linklocal service <ip> */
+    boost::system::error_code err;
+    std::set<std::string> service_names;
+    const Ip4Address ll_ip = Ip4Address::from_string(linklocal_ip[0], err);
+    bool ret = gv->FindLinkLocalService(ll_ip, &service_names);
+    EXPECT_EQ(ret, true);
+
+    /* Get link local services, for a given service name */
+    const std::string svc_name = "metadata";
+    std::set<Ip4Address> service_ip;
+    ret = gv->FindLinkLocalService(svc_name, &service_ip);
+    EXPECT_EQ(ret, true);
+
+    // Delete linklocal config
+    DelLinkLocalConfig();
+    client->WaitForIdle();
+}
+
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
     Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
@@ -311,8 +337,8 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
+    usleep(100000);
     TestShutdown();
-    client->WaitForIdle();
     delete client;
     return ret;
 }
