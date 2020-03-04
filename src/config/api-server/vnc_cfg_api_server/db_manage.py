@@ -52,6 +52,8 @@ import pycassa.connection
 from pycassa.connection import default_socket_factory
 import schema_transformer.db
 from thrift.transport import TSSLSocket
+from collections import OrderedDict
+from cfgm_common.db_json_exim import DatabaseJSONExim
 
 
 if sys.version_info[0] < 3:
@@ -75,14 +77,20 @@ except ImportError:
     from vnc_cfg_ifmap import VncServerCassandraClient
 
 
-__version__ = "1.26"
+__version__ = "1.27"
 """
 NOTE: As that script is not self contained in a python package and as it
 supports multiple Contrail releases, it brings its own version that needs to be
 manually updated each time it is modified. We also maintain a change log list
 in that header:
-* 1.26:
+* 1.27:
   - Fix import statement compatibility for python 2 and reorganise them
+* 1.26:
+  - Completed CEM-5586
+  - Now, healing, checking, and cleaning works with JSON directly
+  - No further need to have an active connection to cassandra or zookeeper is needed.
+  - Healing and cleaning operations are directly performed on the Database dump provided by the client and the
+    healed/cleaned json is produced.
 * 1.25:
   - Fix route target validation code when VN RT list is set to none
 * 1.24:
@@ -183,14 +191,12 @@ def _parse_rt(rt):
         asn = int(asn)
     return asn, target
 
-
 # All possible errors from audit
 class AuditError(Exception):
     def __init__(self, msg):
         self.msg = msg
     # end __init__
 # class AuditError
-
 
 exceptions = [
     'ZkStandaloneError',
@@ -243,7 +249,6 @@ for exception_class in exceptions:
             exception_class,
             type(exception_class, (AuditError,), {}))
 
-
 def get_operations():
     checkers = {}
     healers = {}
@@ -273,7 +278,6 @@ def get_operations():
                   'cleaners': cleaners}
     return operations
 
-
 def format_help():
     operations = get_operations()
     help_msg = ''
@@ -288,16 +292,13 @@ def format_help():
 
     return help_msg
 
-
 def format_line(line, indent=0, newlines=0):
     indent = "    " * indent
     newlines = "\n" * newlines
     return "%s%s%s" % (indent, line, newlines)
 
-
 def format_oper(oper, lstr):
     return oper.lstrip(lstr).replace('_', ' ')
-
 
 def format_description():
     example_check_operations = ["check_route_targets_id"]
@@ -362,7 +363,6 @@ def format_description():
 
     return ''.join(description)
 
-
 def _parse_args(args_str):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
@@ -381,6 +381,11 @@ def _parse_args(args_str):
     parser.add_argument(
         "--debug", help="Run in debug mode, default False",
         action='store_true', default=False)
+
+    parser.add_argument(
+        "--skip_backup", help="Don't Take a backup before heal and clean operations and store in json backups directory." + \
+            "all backups are stored under /var/tmp/json_backups/ encoded with IP address and timestamp",
+        action='store_true', default=False)
     parser.add_argument(
         "--connection-timeout", type=float,
         help="Individual Connection timeout, in seconds",
@@ -396,6 +401,19 @@ def _parse_args(args_str):
         import tempfile
         default_log = '%s/contrail-db-manage.log' % tempfile.gettempdir()
 
+    # New arguments added to support JSON checking and healing
+    parser.add_argument(
+        "--in_json", type=str,
+        help="Input Customer JSON file to be healed, cleaned, or checked for discrepancies. " + \
+            "Need to export with pretty-print option in db_json_exim.py if want to use JSON functionality\n" + \
+            "Example db_json_exim usage: python db_json_exim.py --export-to db-dump.json pretty-print"
+    )
+
+    parser.add_argument(
+        "--out_json", type=str,
+        help="Output Customer JSON file after healing and cleaning."
+    )
+
     parser.add_argument(
         "--log_file", help="Log file to save output, default '%(default)s'",
         default=default_log)
@@ -409,6 +427,58 @@ def _parse_args(args_str):
     return (_args, _api_args)
 # end _parse_args
 
+class IndexJSONAllocator(IndexAllocator):
+    def __init__(self,  db_manager, path, size=0, start_idx=0,
+            reverse=False, alloc_list=None, max_alloc=0):
+        self._size = size
+        self._start_idx = start_idx
+        if alloc_list is None:
+            self._alloc_list = [{'start': start_idx, 'end': start_idx+size}]
+        else:
+            sorted_alloc_list = sorted(alloc_list, key=lambda k: k['start'])
+            self._alloc_list = sorted_alloc_list
+
+        size = self._get_range_size(self._alloc_list)
+
+        if max_alloc == 0:
+            self._max_alloc = size
+        else:
+            self._max_alloc = max_alloc
+
+        self._db_manager = db_manager
+        self._path = path
+        self._in_use = bitarray('0')
+        self._reverse = reverse
+        for idx in self._db_manager.zk_get_children(path):
+            idx_int = self._get_bit_from_zk_index(int(idx))
+            if idx_int >= 0:
+                self._set_in_use(self._in_use, idx_int)
+        # end for idx
+    # end __init__
+
+    # Override Implementation
+    def alloc(self, value=None, pools=None):
+        if pools:
+            idx = self._alloc_from_pools(pools)
+        else:
+            # Allocates a index from the allocation list
+            if self._in_use.all():
+                idx = self._in_use.length()
+                if idx > self._max_alloc:
+                    raise ResourceExhaustionError()
+                self._in_use.append(1)
+            else:
+                idx = self._in_use.index(0)
+                self._in_use[idx] = 1
+
+        idx = self._get_zk_index_from_bit(idx)
+        try:
+            # Create a node at path and return its integer value
+            id_str = "%(#)010d" % {'#': idx}
+            self._db_manager.zk_create(self._path + id_str, value)
+            return idx
+        except ResourceExistsError:
+            return self.alloc(value, pools)
 
 class DatabaseManager(object):
     OBJ_MANDATORY_COLUMNS = ['type', 'fq_name', 'prop:id_perms']
@@ -434,40 +504,81 @@ class DatabaseManager(object):
         logfile.setFormatter(logformat)
         self._logger.addHandler(logfile)
         cluster_id = self._api_args.cluster_id
+        self.using_json = False
+        self.backup = True
+        self.out_json = None
+        self.input_json = None
 
+        # extract the names of the input and output files
+        if self._args.in_json:
+            self.input_json = self._args.in_json
+            self.using_json = True
+
+        if self._args.out_json:
+            self.out_json = self._args.out_json
+
+        if self._args.skip_backup is True:
+            self.backup = False
         # cassandra connection
         self._cassandra_servers = self._api_args.cassandra_server_list
         self._db_info = VncServerCassandraClient.get_db_info() + \
             schema_transformer.db.SchemaTransformerDB.get_db_info()
         self._cf_dict = {}
         self.creds = None
-        if (self._api_args.cassandra_user is not None and
-                self._api_args.cassandra_password is not None):
-            self.creds = {
-                'username': self._api_args.cassandra_user,
-                'password': self._api_args.cassandra_password,
-            }
-        socket_factory = default_socket_factory
-        if ('cassandra_use_ssl' in self._api_args and
-            self._api_args.cassandra_use_ssl):
-            socket_factory = self._make_ssl_socket_factory(
-                self._api_args.cassandra_ca_certs, validate=False)
+
+        if self.using_json is False:
+            if (self._api_args.cassandra_user is not None and
+                    self._api_args.cassandra_password is not None):
+                self.creds = {
+                    'username': self._api_args.cassandra_user,
+                    'password': self._api_args.cassandra_password,
+                }
+
+            socket_factory = pycassa.connection.default_socket_factory
+            if ('cassandra_use_ssl' in self._api_args and
+                    self._api_args.cassandra_use_ssl):
+                socket_factory = self._make_ssl_socket_factory(
+                    self._api_args.cassandra_ca_certs, validate=False)
+        else:
+            with open(self.input_json) as json_file:
+                self.data = json.load(json_file)
+
+            # extract both subdatabases in JSON file
+            self.cassandra = self.data['cassandra']
+            self.zookeeper = self.data['zookeeper']
+
+        ''' Build All the Cassandra Data Structures needed for db operations '''
         for ks_name, cf_name_list in self._db_info:
             if cluster_id:
                 full_ks_name = '%s_%s' % (cluster_id, ks_name)
             else:
                 full_ks_name = ks_name
-            pool = pycassa.ConnectionPool(
-                keyspace=full_ks_name,
-                server_list=self._cassandra_servers,
-                prefill=False, credentials=self.creds,
-                socket_factory=socket_factory,
-                timeout=self._args.connection_timeout)
+
+            if self.using_json is True:
+                # extract the current database
+                curr_db_dict = self.cassandra[ks_name]
+            else:
+                pool = pycassa.ConnectionPool(
+                    keyspace=full_ks_name,
+                    server_list=self._cassandra_servers,
+                    prefill=False, credentials=self.creds,
+                    socket_factory=socket_factory,
+                    timeout=self._args.connection_timeout)
+
             for cf_name in cf_name_list:
-                self._cf_dict[cf_name] = pycassa.ColumnFamily(
-                    pool, cf_name,
-                    read_consistency_level=ConsistencyLevel.QUORUM,
-                    buffer_size=self._args.buffer_size)
+                if self.using_json is True:
+                    database_subset = curr_db_dict[cf_name]
+                    self._cf_dict[cf_name] = {}
+                    for key, val_dict in database_subset.items():
+                        # loop over the actual data elements and populate
+                        self._cf_dict[cf_name][key] = OrderedDict()
+                        for tb_key, tb_val in val_dict.items():
+                            self._cf_dict[cf_name][key][tb_key] = tb_val[0]
+                else:
+                    self._cf_dict[cf_name] = pycassa.ColumnFamily(
+                        pool, cf_name,
+                        read_consistency_level=ConsistencyLevel.QUORUM,
+                        buffer_size=self._args.buffer_size)
 
         # Get the system global autonomous system
         self.global_asn = self.get_autonomous_system()
@@ -481,9 +592,13 @@ class DatabaseManager(object):
         self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
         self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
         self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
-        self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
 
-        self._zk_client.start()
+        # Initialize Zookeeper Data Structures as per need
+        if self.using_json is True:
+            self.root_dir = self.zookeeper['/']
+        else:
+            self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
+            self._zk_client.start()
     # end __init__
 
     def _make_ssl_socket_factory(self, ca_certs, validate=True):
@@ -495,15 +610,232 @@ class DatabaseManager(object):
                                          ca_certs=ca_certs, validate=validate)
         return ssl_socket_factory
 
+    ''' Helper functions to implement Zookeeper wrapper functions '''
+    def get_path_list(self, path_id_str):
+        return [x for x in path_id_str.split('/') if x != '' and x != 'TestDBAudit']
+
+    def get_path_dict(self, dir_hierarchy, spl_idx):
+        curr_dict = self.root_dir
+        if spl_idx is not 0:
+            dir_hierarchy = dir_hierarchy[:spl_idx]
+
+        for i, folder in enumerate(dir_hierarchy):
+            parent_dict = curr_dict
+            try:
+                curr_dict = curr_dict[folder]
+            except KeyError:
+                break
+        return parent_dict, curr_dict, folder
+
+    ''' End Zookeeper wrapper helper functions '''
+
+    ''' Wrapper functions implemented to support KazooClient/Zookeeper Operations '''
+    # wrapper function for Zookeeper Delete
+    def zk_delete(self, path, recursive=False):
+        if self.using_json is True:
+            directory_hierarchy = self.get_path_list(path)
+            folder_to_delete = directory_hierarchy[-1]
+            p_dict, curr_dict, _ = self.get_path_dict(directory_hierarchy, 0)
+
+            if recursive is True:
+                p_dict[folder_to_delete] = None
+            else:
+                if self.zk_get_children(path) not in [[],{}]:
+                    raise kazoo.exceptions.NotEmptyError
+                else:
+                    p_dict[directory_hierarchy[-1]] = None
+        else:
+            self._zk_client.delete(path=path, recursive=recursive)
+
+    def zk_exists(self, path):
+        if self.using_json:
+            directory_hierarchy = self.get_path_list(path)
+            folder_to_check = directory_hierarchy[-1]
+            p_dict, curr_dict, _ = self.get_path_dict(directory_hierarchy, 0)
+            if folder_to_check in p_dict:
+                return p_dict[folder_to_check]
+            else:
+                return None
+        else:
+             return self._zk_client.exists(path=path)
+    # wrapper function for zookeeper set
+    def zk_set(self, path, value):
+        if self.using_json is True:
+            directory_hierarchy = self.get_path_list(path)
+            directory_to_update = directory_hierarchy[-1]
+            p_dict, curr_dict, folder = self.get_path_dict(directory_hierarchy, 0)
+            if folder != directory_to_update:
+                raise kazoo.exceptions.NoNodeError
+            p_dict[directory_to_update] = value
+        else:
+            self._zk_client.set(path=path, value=value)
+
+    def zk_create(self, path, value, makepath=False):
+        if self.using_json:
+            directory_hierarchy = self.get_path_list(path)
+            update_folder = directory_hierarchy[-1]
+            p_dict, c_dict, _folder = self.get_path_dict(directory_hierarchy, 0)
+            if makepath:
+                if self.zk_get(path):
+                    raise kazoo.exceptions.NodeExistsError
+                else:
+                     p_dict[update_folder] = value
+                if _folder != update_folder:
+                    curr_dict = self.root_dir
+                    for folder in directory_hierarchy:
+                        parent_dict = curr_dict
+                        if folder not in curr_dict:
+                            curr_dict[folder] = {}
+                        curr_dict = curr_dict[folder]
+                    parent_dict[update_folder] = value
+            else:
+                p_dict[update_folder] = value.encode()
+                if _folder != update_folder:
+                    raise kazoo.exceptions.NoNodeError
+        else:
+            self._zk_client.create(path=path, value=value, makepath=makepath)
+
+    # wrapper function that mimics zk client get
+    def zk_get(self, path_id_str):
+        if self.using_json:
+            directory_hierarchy = self.get_path_list(path_id_str)
+            _id = directory_hierarchy[-1]
+            _, curr_dict, _ = self.get_path_dict(directory_hierarchy, -1)
+            try:
+                return curr_dict[_id]
+            except KeyError:
+                raise kazoo.exceptions.NoNodeError
+        else:
+            return self._zk_client.get(path_id_str)
+
+    # wrapper function that mimics zk client get_children function
+    def zk_get_children(self, path_id_str):
+        if self.using_json:
+            directory_hierarchy = self.get_path_list(path_id_str)
+            last_dir = directory_hierarchy[-1]
+            _, curr_dict, folder = self.get_path_dict(directory_hierarchy, 0)
+            if folder != last_dir:
+                return []
+            # edge case where there are no ids
+            if type(curr_dict) is list:
+                return []
+            else:
+                return curr_dict.keys()
+        else:
+            return self._zk_client.get_children(path_id_str)
+    ''' End of Wrapper functions for Zookeeper '''
+
+    ''' Wrapper functions for PyCassa/Cassandra operations '''
+    # PyCassa Insert Wrapper function
+    def cassandra_get(self, table, t_key, column_start=None, column_finish=None, columns=None):
+        if self.using_json is True:
+            table_to_check = table.get(t_key, {})
+            if columns:
+                return OrderedDict({
+                            (k if k in table_to_check.keys() else k):(table_to_check[k] if k in
+                            table_to_check.keys() else json.dumps(dict())) for k in columns
+                       })
+            elif column_start:
+                return OrderedDict({
+                            (k if k in table_to_check.keys() else k):(table_to_check[k] if k in
+                            table_to_check.keys() else json.dumps(dict()))for k in
+                            filter(lambda k: column_start <= k <= column_finish, table_to_check.keys())
+                       })
+            else:
+                return OrderedDict({
+                            (k if k in table_to_check.keys() else k):(table_to_check[k] if k in
+                            table_to_check.keys() else json.dumps(dict())) for k in table_to_check.keys()
+                       })
+
+        else:
+            if columns:
+                return table.get(key=t_key, columns=columns)
+            else:
+                return table.get(key=t_key, column_start=column_start, column_finish=column_finish)
+
+
+    # PyCassa Insert Wrapper function
+    def cassandra_insert(self, table, key, columns):
+        if self.using_json is True:
+            table[key] = columns
+        else:
+            table.insert(key, columns)
+
+    # PyCassa Get Range Wrapper function
+    def cassandra_get_range(self, table, columns=None, column_count=None):
+        if self.using_json is True:
+            key_list = table.keys()
+            if key_list:
+                row_table = table.get(key_list[0], {})
+            else:
+                row_table = {}
+            row_table_keys = row_table.keys()
+
+            if columns:
+                keys_to_consider = [k for k in row_table_keys if k in columns]
+            elif column_count:
+                keys_to_consider = row_table_keys[:column_count+1]
+            else:
+                keys_to_consider = row_table_keys
+
+            return itertools.chain((tb_key, OrderedDict({k:table[tb_key][k] for k in keys_to_consider
+                            if k in table[tb_key]})) for tb_key in key_list)
+
+        else:
+            if columns:
+                return table.get_range(columns=columns)
+            elif column_count:
+                return table.get_range(column_count=column_count)
+            else:
+                return table.get_range()
+
+    # PyCassa XGet Wrapper function
+    def cassandra_xget(self, table, tb_key, column_start=None, column_finish=None):
+        if self.using_json is True:
+            if not column_start:
+                return table.get(tb_key, {}).items()
+            else:
+                return { k:v for k,v in table[tb_key].items() if column_start <= k <= column_finish }.items()
+        else:
+            if not column_start:
+                return table.xget(tb_key)
+            else:
+                return table.xget(tb_key, column_start=column_start, column_finish=column_finish)
+
+    # PyCassa remove wrapper function
+    def cassandra_remove(self, table, key, columns=None):
+        if self.using_json is True:
+            key_list = table.keys()
+            row_table = table[key_list[0]]
+            row_table_keys = row_table.keys()
+
+            if columns:
+                keys_to_consider = [k for k in row_table_keys if k in columns]
+            else:
+                keys_to_consider = row_table_keys
+            
+            for tb_key in key_list:
+                if tb_key is key:
+                    for k in keys_to_consider:
+                        if k in table[tb_key]:
+                            del table[tb_key][k]
+        else:
+            if columns:
+                table.remove(key, columns=columns)
+            else:
+                table.remove(key)
+    ''' End of PyCassa Wrapper functions '''
+
     def get_autonomous_system(self):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
-        cols = fq_name_table.get(
+        cols = self.cassandra_get(
+            fq_name_table,
             'global_system_config',
             column_start='default-global-system-config:',
             column_finish='default-global-system-config;')
         gsc_uuid = cols.popitem()[0].split(':')[-1]
-        cols = obj_uuid_table.get(gsc_uuid, columns=['prop:autonomous_system'])
+        cols = self.cassandra_get(obj_uuid_table, gsc_uuid, columns=['prop:autonomous_system'])
         return int(json.loads(cols['prop:autonomous_system']))
 
     def audit_subnet_uuid(self):
@@ -513,14 +845,14 @@ class DatabaseManager(object):
         # and vice-versa exist for all subnets
         ua_kv_cf = self._cf_dict['useragent_keyval_table']
         ua_subnet_info = {}
-        for key, cols in ua_kv_cf.get_range():
+        for key, cols in self.cassandra_get_range(ua_kv_cf):
             mch = self.KV_SUBNET_KEY_TO_UUID_MATCH.match(key)
             if mch:  # subnet key -> uuid
                 subnet_key = mch.group(1)
                 subnet_id = cols['value']
                 try:
                     reverse_map = ua_kv_cf.get(subnet_id)
-                except pycassa.NotFoundException:
+                except (pycassa.NotFoundException, KeyError):
                     errmsg = "Missing id(%s) to key(%s) mapping in useragent"\
                              % (subnet_id, subnet_key)
                     ret_errors.append(SubnetIdToKeyMissingError(errmsg))
@@ -530,7 +862,7 @@ class DatabaseManager(object):
                 ua_subnet_info[subnet_id] = subnet_key
                 try:
                     reverse_map = ua_kv_cf.get(subnet_key)
-                except pycassa.NotFoundException:
+                except (pycassa.NotFoundException, KeyError):
                     # Since release 3.2, only subnet_id/subnet_key are store in
                     # key/value store, the reverse was removed
                     continue
@@ -539,7 +871,7 @@ class DatabaseManager(object):
         vnc_all_subnet_info = {}
         fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
-        vn_row = fq_name_table.xget('virtual_network')
+        vn_row = self.cassandra_xget(fq_name_table, 'virtual_network')
         vn_uuids = [x.split(':')[-1] for x, _ in vn_row]
         for vn_id in vn_uuids:
             subnets, ua_subnets = self.get_subnets(vn_id)
@@ -570,12 +902,11 @@ class DatabaseManager(object):
 
         # read in route-target ids from zookeeper
         base_path = self.base_rtgt_id_zk_path
-
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         num_bad_rts = 0
-        for id in self._zk_client.get_children(base_path) or []:
+        for id in self.zk_get_children(base_path) or []:
             rt_zk_path = os.path.join(base_path, id)
-            res_fq_name_str = self._zk_client.get(rt_zk_path)[0]
+            res_fq_name_str = self.zk_get(rt_zk_path)[0]
             id = int(id)
             zk_set.add((id, res_fq_name_str))
             if id < get_bgp_rtgt_min_id(self.global_asn):
@@ -590,7 +921,7 @@ class DatabaseManager(object):
         logger.debug("Reading Route Target IDs from cassandra schema "
                      "transformer keyspace")
         num_bad_rts = 0
-        for res_fq_name_str, cols in rt_table.get_range(columns=['rtgt_num']):
+        for res_fq_name_str, cols in self.cassandra_get_range(rt_table, columns=['rtgt_num']):
             id = int(cols['rtgt_num'])
             if id < get_bgp_rtgt_min_id(self.global_asn):
                 # Should never append
@@ -608,7 +939,7 @@ class DatabaseManager(object):
                      "keyspace")
         user_rts = 0
         no_assoc_msg = "No Routing Instance or Logical Router associated"
-        for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
+        for fq_name_uuid_str, _ in self.cassandra_xget(fq_name_table, 'route_target'):
             fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
             try:
                 asn, id = _parse_rt(fq_name_str)
@@ -619,9 +950,8 @@ class DatabaseManager(object):
                 user_rts += 1
                 continue  # Ignore user defined RT
             try:
-                cols = uuid_table.xget(uuid, column_start='backref:',
-                                       column_finish='backref;')
-            except pycassa.NotFoundException:
+                cols = self.cassandra_xget(uuid_table, uuid, column_start='backref:', column_finish='backref;')
+            except (pycassa.NotFoundException, KeyError):
                 continue
             backref_uuid = None
             for col, _ in cols:
@@ -635,8 +965,8 @@ class DatabaseManager(object):
                 config_set.add((id, no_assoc_msg))
                 continue
             try:
-                cols = uuid_table.get(backref_uuid, columns=['fq_name'])
-            except pycassa.NotFoundException:
+                cols = self.cassandra_get(uuid_table, backref_uuid, columns=['fq_name'])
+            except (pycassa.NotFoundException, KeyError):
                 config_set.add((id, no_assoc_msg))
                 continue
             config_set.add((id, ':'.join(json.loads(cols['fq_name']))))
@@ -653,16 +983,18 @@ class DatabaseManager(object):
             'prop:export_route_target_list',
             'prop:configured_route_target_list',
         ]
+
         for fq_name_str_uuid, _ in itertools.chain(
-                fq_name_table.xget('virtual_network'),
-                fq_name_table.xget('logical_router')):
+                self.cassandra_xget(table=fq_name_table, tb_key='virtual_network'),
+                self.cassandra_xget(table=fq_name_table, tb_key='logical_router')):
             fq_name_str, _, uuid = fq_name_str_uuid.rpartition(':')
             for list_name in list_names:
                 try:
-                    cols = uuid_table.get(uuid, columns=[list_name])
-                except pycassa.NotFoundException:
+                    cols = self.cassandra_get(uuid_table, uuid, columns=[list_name])
+                except (pycassa.NotFoundException, KeyError):
                     continue
-                rts_col = json.loads(cols[list_name]) or {}
+                
+                rts_col = json.loads(str(cols[list_name])) or {}                
                 for rt in rts_col.get('route_target', []):
                     try:
                         asn, id = _parse_rt(rt)
@@ -697,19 +1029,19 @@ class DatabaseManager(object):
         fq_name_table = self._cf_dict['obj_fq_name_table']
         stale_zk_entry = set()
         zk_set_copy = zk_set.copy()
-
         # in ZK but not in config and schema, stale entry => delete it in ZK
         stale_zk_entry |= (zk_set_copy - (schema_set & config_set))
         zk_set_copy -= (zk_set_copy - (schema_set & config_set))
         # in ZK and schema but not in config
         for id, res_fq_name_str in (zk_set_copy & schema_set) - config_set:
             try:
-                fq_name_table.get(
+                self.cassandra_get(
+                    fq_name_table,
                     'routing_instance',
                     column_start='%s:' % res_fq_name_str,
                     column_finish='%s;' % res_fq_name_str,
                 )
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 stale_zk_entry.add((id, res_fq_name_str))
         # in ZK and config but not in schema, schema will fix it, nothing to do
 
@@ -723,8 +1055,8 @@ class DatabaseManager(object):
         base_path = self.base_sg_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_sgs = {}
-        for sg_id in self._zk_client.get_children(base_path) or []:
-            sg_val = self._zk_client.get(base_path + '/' + sg_id)[0]
+        for sg_id in self.zk_get_children(base_path) or []:
+            sg_val = self.zk_get(base_path + '/' + sg_id)[0]
 
             # sg-id of 0 is reserved
             if int(sg_id) == 0:
@@ -745,16 +1077,17 @@ class DatabaseManager(object):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading security-group objects from cassandra")
         sg_uuids = [x.split(':')[-1] for x, _ in
-                    fq_name_table.xget('security_group')]
+                    self.cassandra_xget(fq_name_table, 'security_group')]
         cassandra_all_sgs = {}
         duplicate_sg_ids = {}
         first_found_sg = {}
         missing_ids = set([])
         for sg_uuid in sg_uuids:
             try:
-                sg_cols = obj_uuid_table.get(
+                sg_cols = self.cassandra_get(
+                    obj_uuid_table,
                     sg_uuid, columns=['prop:security_group_id', 'fq_name'])
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 continue
             sg_fq_name_str = ':'.join(json.loads(sg_cols['fq_name']))
             if not sg_cols.get('prop:security_group_id'):
@@ -791,11 +1124,10 @@ class DatabaseManager(object):
         base_path = self.base_vn_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_vns = {}
-        for vn_id in self._zk_client.get_children(base_path) or []:
-            vn_fq_name_str = self._zk_client.get(base_path + '/' + vn_id)[0]
+        for vn_id in self.zk_get_children(base_path) or []:
+            vn_fq_name_str = self.zk_get(base_path + '/' + vn_id)[0]
             # VN-id in zk starts from 0, in cassandra starts from 1
             zk_all_vns[int(vn_id) + VN_ID_MIN_ALLOC] = vn_fq_name_str
-
         logger.debug("Got %d virtual-networks with id in ZK.", len(zk_all_vns))
 
         # read in virtual-networks from cassandra to get id+fq_name
@@ -803,19 +1135,20 @@ class DatabaseManager(object):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading virtual-network objects from cassandra")
         vn_uuids = [x.split(':')[-1] for x, _ in
-                    fq_name_table.xget('virtual_network')]
+                    self.cassandra_xget(fq_name_table, 'virtual_network')]
         cassandra_all_vns = {}
         duplicate_vn_ids = {}
         first_found_vn = {}
         missing_ids = set([])
         for vn_uuid in vn_uuids:
             try:
-                vn_cols = obj_uuid_table.get(
+                vn_cols = self.cassandra_get(
+                    obj_uuid_table,
                     vn_uuid,
                     columns=['prop:virtual_network_properties', 'fq_name',
                              'prop:virtual_network_network_id'],
                 )
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 continue
             vn_fq_name_str = ':'.join(json.loads(vn_cols['fq_name']))
             try:
@@ -866,9 +1199,11 @@ class DatabaseManager(object):
         ua_subnet_dicts = []
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         # find all subnets on this VN and add for later check
-        ipam_refs = obj_uuid_table.xget(vn_id,
-                                        column_start='ref:network_ipam:',
-                                        column_finish='ref:network_ipam;')
+        ipam_refs = self.cassandra_xget(
+                            obj_uuid_table, vn_id,
+                            column_start='ref:network_ipam:',
+                            column_finish='ref:network_ipam;'
+                        )
 
         for network_ipam_ref, attr_json_dict in ipam_refs:
             try:
@@ -880,10 +1215,10 @@ class DatabaseManager(object):
                 raise InvalidIPAMRef(msg)
 
             try:
-                network_ipam = obj_uuid_table.get(
+                network_ipam = self.cassandra_get(obj_uuid_table,
                     network_ipam_uuid, columns=['fq_name',
                                                 'prop:ipam_subnet_method'])
-            except pycassa.NotFoundException as e:
+            except (pycassa.NotFoundException, KeyError) as e:
                 msg = ("Exception (%s)\n"
                        "Invalid or non-existing "
                        "UUID (%s)" % (e, network_ipam_uuid))
@@ -911,10 +1246,12 @@ class DatabaseManager(object):
                     subnet.update([('subnet', zero_prefix)])
                     ua_subnet_dicts.append(subnet)
             if ipam_method == 'flat-subnet':
-                ipam_subnets = obj_uuid_table.xget(
+                ipam_subnets = self.cassandra_xget(
+                    obj_uuid_table,
                     network_ipam_uuid,
                     column_start='propl:ipam_subnets:',
                     column_finish='propl:ipam_subnets;')
+
                 for _, subnet_unicode in ipam_subnets:
                     sdict = json.loads(subnet_unicode)
                     sdict.update([('ipam_method', ipam_method),
@@ -973,16 +1310,15 @@ class DatabaseManager(object):
                     raise SubnetUuidMissingError(errmsg)
         # end set_reserved_addrs_in_cassandra
 
-        for fq_name_str_uuid, _ in obj_fq_name_table.xget('virtual_network'):
+        for fq_name_str_uuid, _ in self.cassandra_xget(obj_fq_name_table, 'virtual_network'):
             fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
             vn_id = fq_name_str_uuid.split(':')[-1]
             set_reserved_addrs_in_cassandra(vn_id, fq_name_str)
         # end for all VNs
 
         for ip_id in ip_uuids:
-
             # get addr
-            ip_cols = dict(obj_uuid_table.xget(ip_id))
+            ip_cols = dict(self.cassandra_xget(obj_uuid_table, ip_id))
             if not ip_cols:
                 errmsg = ('Missing object in uuid table for %s %s' %
                           (ip_type, ip_id))
@@ -1006,7 +1342,8 @@ class DatabaseManager(object):
                     vn_id = mch.group(1)
             else:
                 vn_fq_name_str = ':'.join(json.loads(ip_cols['fq_name'])[:-2])
-                vn_cols = obj_fq_name_table.get(
+                vn_cols = self.cassandra_get(
+                    obj_fq_name_table,
                     'virtual_network',
                     column_start='%s:' % (vn_fq_name_str),
                     column_finish='%s;' % (vn_fq_name_str))
@@ -1018,8 +1355,8 @@ class DatabaseManager(object):
                 continue
 
             try:
-                col = obj_uuid_table.get(vn_id, columns=['fq_name'])
-            except pycassa.NotFoundException:
+                col = self.cassandra_get(obj_uuid_table, vn_id, columns=['fq_name'])
+            except (pycassa.NotFoundException, KeyError):
                 ret_errors.append(VirtualNetworkMissingError(
                     'Missing VN in %s %s.' % (ip_type, ip_id)))
                 continue
@@ -1082,8 +1419,8 @@ class DatabaseManager(object):
                 IPNetwork(path.split(':', 3)[-1])
             except AddrFormatError:
                 try:
-                    suffixes = self._zk_client.get_children(path)
-                except kazoo.exceptions.NoNodeError:
+                    suffixes = self.zk_get_children(path)
+                except (kazoo.exceptions.NoNodeError, KeyError):
                     self._logger.debug("ZK subnet path '%s' does not exits" %
                                        path)
                     return
@@ -1117,19 +1454,19 @@ class DatabaseManager(object):
             vn_fq_name_str = ':'.join(vn_subnet_name.split(':', 3)[:-1])
             pfx = vn_subnet_name.split(':', 3)[-1]
             zk_all_vns.setdefault(vn_fq_name_str, {})
-            pfxlens = self._zk_client.get_children(subnet_path)
+            pfxlens = self.zk_get_children(subnet_path)
             if not pfxlens:
                 zk_all_vns[vn_fq_name_str][pfx] = []
                 continue
             for pfxlen in pfxlens:
                 subnet_key = '%s/%s' % (pfx, pfxlen)
                 zk_all_vns[vn_fq_name_str][subnet_key] = []
-                addrs = self._zk_client.get_children(
+                addrs = self.zk_get_children(
                     '%s/%s' % (subnet_path, pfxlen))
                 if not addrs:
                     continue
                 for addr in addrs:
-                    iip_uuid = self._zk_client.get(
+                    iip_uuid = self.zk_get(
                         subnet_path + '/' + pfxlen + '/' + addr)
                     if iip_uuid is not None:
                         zk_all_vns[vn_fq_name_str][subnet_key].append(
@@ -1145,21 +1482,21 @@ class DatabaseManager(object):
         num_addrs = 0
         fq_name_table = self._cf_dict['obj_fq_name_table']
 
-        iip_rows = fq_name_table.xget('instance_ip')
+        iip_rows = self.cassandra_xget(fq_name_table, 'instance_ip')
         iip_uuids = [x.split(':')[-1] for x, _ in iip_rows]
         ret_errors.extend(self._addr_alloc_process_ip_objects(
             cassandra_all_vns, duplicate_ips, 'instance-ip', iip_uuids))
 
         num_addrs += len(iip_uuids)
 
-        fip_rows = fq_name_table.xget('floating_ip')
+        fip_rows = self.cassandra_xget(fq_name_table, 'floating_ip')
         fip_uuids = [x.split(':')[-1] for x, _ in fip_rows]
         ret_errors.extend(self._addr_alloc_process_ip_objects(
             cassandra_all_vns, duplicate_ips, 'floating-ip', fip_uuids))
 
         num_addrs += len(fip_uuids)
 
-        aip_rows = fq_name_table.xget('alias_ip')
+        aip_rows = self.cassandra_xget(fq_name_table, 'alias_ip')
         aip_uuids = [x.split(':')[-1] for x, _ in aip_rows]
         ret_errors.extend(self._addr_alloc_process_ip_objects(
             cassandra_all_vns, duplicate_ips, 'alias-ip', aip_uuids))
@@ -1179,8 +1516,8 @@ class DatabaseManager(object):
         logger.debug("Reading all objects from obj_uuid_table")
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         orphan_resources = {}
-        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
-            cols = dict(obj_uuid_table.xget(obj_uuid))
+        for obj_uuid, _ in self.cassandra_get_range(obj_uuid_table, column_count=1):
+            cols = dict(self.cassandra_xget(obj_uuid_table, obj_uuid))
             obj_type = json.loads(cols.get('type', '"UnknownType"'))
             if 'parent_type' not in cols:
                 logger.debug("ignoring '%s' as not parent type", obj_type)
@@ -1193,7 +1530,7 @@ class DatabaseManager(object):
                     break
             try:
                 obj_uuid_table.get(parent_uuid)
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 msg = ("%s %s parent does not exists. Should be %s %s" %
                        (obj_type, obj_uuid, parent_type, parent_uuid))
                 errors.append(OrphanResourceError(msg))
@@ -1215,7 +1552,7 @@ class DatabaseManager(object):
 
         back_refs_to_remove = {}
         errors = []
-        for fq_name_uuid_str, _ in fq_name_table.xget('route_target'):
+        for fq_name_uuid_str, _ in self.cassandra_xget(fq_name_table, 'route_target'):
             fq_name_str, _, uuid = fq_name_uuid_str.rpartition(':')
             try:
                 asn, id = _parse_rt(fq_name_str)
@@ -1225,14 +1562,14 @@ class DatabaseManager(object):
                     id < get_bgp_rtgt_min_id(self.global_asn)):
                 continue  # Ignore user defined RT
             try:
-                cols = uuid_table.xget(uuid, column_start='backref:',
+                cols = self.cassandra_xget(uuid_table, uuid, column_start='backref:',
                                        column_finish='backref;')
             except pycassa.NotFoundException:
                 continue
             id_str = "%(#)010d" % {'#': id}
             rt_zk_path = os.path.join(self.base_rtgt_id_zk_path, id_str)
             try:
-                zk_fq_name_str = self._zk_client.get(rt_zk_path)[0]
+                zk_fq_name_str = self.zk_get(rt_zk_path)[0]
             except kazoo.exceptions.NoNodeError:
                 msg = ("Cannot read zookeeper RT ID %s for RT %s(%s)" %
                        (rt_zk_path, fq_name_str, uuid))
@@ -1258,7 +1595,8 @@ class DatabaseManager(object):
                 # just keep back-ref to RI pointed by zookeeper
                 # if the VN/RI is not part to a service chain
                 try:
-                    zk_ri_fq_name_uuid_str = fq_name_table.get(
+                    zk_ri_fq_name_uuid_str = self.cassandra_get(
+                        fq_name_table,
                         'routing_instance',
                         column_start='%s:' % zk_fq_name_str,
                         column_finish='%s;' % zk_fq_name_str,
@@ -1280,7 +1618,8 @@ class DatabaseManager(object):
                     errors.append(RTbackrefError(msg))
                 for ri_uuid in ri_uuids[:]:
                     try:
-                        ri_cols = uuid_table.get(
+                        ri_cols = self.cassandra_get(
+                            uuid_table,
                             ri_uuid, columns=['fq_name'] + sc_ri_fields)
                     except pycassa.NotFoundException:
                         msg = ("Cannot read from cassandra RI %s of RT %s(%s)"
@@ -1302,7 +1641,7 @@ class DatabaseManager(object):
                 lr_uuid = lr_uuids[0]
                 # check zookeeper pointed to that LR
                 try:
-                    lr_cols = dict(uuid_table.xget(lr_uuid))
+                    lr_cols = dict(self.cassandra_xget(uuid_table, lr_uuid))
                 except pycassa.NotFoundException:
                     msg = ("Cannot read from cassandra LR %s back-referenced "
                            "by RT %s(%s) in zookeeper" %
@@ -1343,7 +1682,8 @@ class DatabaseManager(object):
                         snat_ri_fq_name = si_fq_name[:-1] + 2 * [snat_ri_name]
                         snat_ri_fq_name_str = ':'.join(snat_ri_fq_name)
                         try:
-                            snat_ri_fq_name_uuid_str = fq_name_table.get(
+                            snat_ri_fq_name_uuid_str = self.cassandra_get(
+                                fq_name_table,
                                 'routing_instance',
                                 column_start='%s:' % snat_ri_fq_name_str,
                                 column_finish='%s;' % snat_ri_fq_name_str,
@@ -1359,7 +1699,7 @@ class DatabaseManager(object):
                         snat_ri_uuid = snat_ri_fq_name_uuid_str.popitem()[
                             0].rpartition(':')[-1]
                         try:
-                            ri_uuids.remove(snat_ri_uuid)
+                            self.cassandra_remove(ri_uuids, snat_ri_uuid)
                             # TODO(ethuleau): check only import
                         except ValueError:
                             # TODO(ethuleau): propose a heal method to add
@@ -1375,7 +1715,8 @@ class DatabaseManager(object):
                         continue
                     vmi_uuid = col.rpartition(':')[-1]
                     try:
-                        vmi_cols = uuid_table.xget(
+                        vmi_cols = self.cassandra_xget(
+                            uuid_table,
                             vmi_uuid,
                             column_start='ref:routing_instance:',
                             column_finish='ref:routing_instance;')
@@ -1391,7 +1732,7 @@ class DatabaseManager(object):
                         vmi_ri_uuid = col.rpartition(':')[-1]
                         try:
                             # TODO(ethuleau): check import and export
-                            ri_uuids.remove(vmi_ri_uuid)
+                            self.cassandra_remove(ri_uuids, vmi_ri_uuid)
                         except ValueError:
                             # TODO(ethuleau): propose a heal method to add
                             #                 missing RI back-refs
@@ -1405,7 +1746,6 @@ class DatabaseManager(object):
                 back_refs_to_remove[(fq_name_str, uuid)] = ri_uuids
 
         return errors, back_refs_to_remove
-
 
 class DatabaseChecker(DatabaseManager):
     def checker(func):
@@ -1498,18 +1838,16 @@ class DatabaseChecker(DatabaseManager):
         """Displays error info about wrong replication factor in Cassandra."""
         ret_errors = []
         logger = self._logger
-
         socket_factory = pycassa.connection.default_socket_factory
         if ('cassandra_use_ssl' in self._api_args and
-            self._api_args.cassandra_use_ssl):
+                self._api_args.cassandra_use_ssl):
             socket_factory = self._make_ssl_socket_factory(
-                self._api_args.cassandra_ca_certs, validate=False)
-
+                    self._api_args.cassandra_ca_certs, validate=False)
         for server in self._cassandra_servers:
             try:
                 sys_mgr = pycassa.SystemManager(server,
-                                                socket_factory=socket_factory,
-                                                credentials=self.creds)
+                                    socket_factory=socket_factory,
+                                    credentials=self.creds)
             except Exception as e:
                 msg = "Cannot connect to cassandra node %s: %s" % (server,
                                                                    str(e))
@@ -1553,23 +1891,22 @@ class DatabaseChecker(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         fq_name_table_all = []
         logger.debug("Reading all objects from obj_fq_name_table")
-        for obj_type, _ in obj_fq_name_table.get_range(column_count=1):
-            for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
+        for obj_type, _ in self.cassandra_get_range(obj_fq_name_table, column_count=1):
+            for fq_name_str_uuid, _ in self.cassandra_xget(obj_fq_name_table, obj_type):
                 fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
                 fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
                 obj_uuid = fq_name_str_uuid.split(':')[-1]
                 fq_name_table_all.append((obj_type, fq_name_str, obj_uuid))
                 try:
-                    obj_cols = obj_uuid_table.get(obj_uuid,
+                    obj_cols = self.cassandra_get(obj_uuid_table, obj_uuid,
                                                   columns=['fq_name'])
-                except pycassa.NotFoundException:
+                except (pycassa.NotFoundException, KeyError):
                     ret_errors.append(FQNStaleIndexError(
                         'Missing object %s %s %s in uuid table'
                         % (obj_uuid, obj_type, fq_name_str)))
                     continue
                 obj_fq_name_str = ':'.join(json.loads(obj_cols['fq_name']))
-                obj_fq_name_str = cfgm_common.utils.decode_string(
-                    obj_fq_name_str)
+                obj_fq_name_str = cfgm_common.utils.decode_string(obj_fq_name_str)
                 if fq_name_str != obj_fq_name_str:
                     ret_errors.append(FQNMismatchError(
                         'Mismatched FQ Name %s (index) vs %s (object)'
@@ -1580,18 +1917,17 @@ class DatabaseChecker(DatabaseManager):
 
         uuid_table_all = []
         logger.debug("Reading all objects from obj_uuid_table")
-        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
+        for obj_uuid, _ in self.cassandra_get_range(obj_uuid_table, column_count=1):
             try:
-                cols = obj_uuid_table.get(
+                cols = self.cassandra_get(obj_uuid_table,
                     obj_uuid, columns=['type', 'fq_name'])
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 msg = ("'type' and/or 'fq_name' properties of '%s' missing" %
                        obj_uuid)
                 ret_errors.append(MandatoryFieldsMissingError(msg))
                 continue
             obj_type = json.loads(cols['type'])
             fq_name_str = ':'.join(json.loads(cols['fq_name']))
-            fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
             uuid_table_all.append((obj_type, fq_name_str, obj_uuid))
 
         logger.debug("Got %d objects", len(uuid_table_all))
@@ -1627,16 +1963,16 @@ class DatabaseChecker(DatabaseManager):
                        "before.")
         resource_map = {}
         stale_fq_names = set([])
-        for obj_type, _ in fq_name_table.get_range(column_count=1):
-            for fq_name_str_uuid, _ in fq_name_table.xget(obj_type):
+        for obj_type, _ in self.cassandra_get_range(fq_name_table, column_count=1):
+            for fq_name_str_uuid, _ in self.cassandra_xget(fq_name_table, obj_type):
                 fq_name_str, _, uuid = fq_name_str_uuid.rpartition(':')
                 try:
-                    obj = uuid_table.get(uuid, columns=['prop:id_perms'])
+                    obj = self.cassandra_get(uuid_table, uuid, columns=['prop:id_perms'])
                     created_at = json.loads(obj['prop:id_perms']).get(
                         'created', 'unknown')
                     resource_map.setdefault(obj_type, {}).setdefault(
                         fq_name_str, set([])).add((uuid, created_at))
-                except pycassa.NotFoundException:
+                except (pycassa.NotFoundException, KeyError):
                     stale_fq_names.add(fq_name_str)
         if stale_fq_names:
             logger.info("Found stale fq_name index entry: %s. Use "
@@ -1670,13 +2006,14 @@ class DatabaseChecker(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         num_objs = 0
         num_bad_objs = 0
-        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
-            cols = dict(obj_uuid_table.xget(obj_uuid))
+        for obj_uuid, _ in self.cassandra_get_range(obj_uuid_table, column_count=1):
+            cols = dict(self.cassandra_xget(obj_uuid_table, obj_uuid))
             num_objs += 1
             for col_name in self.OBJ_MANDATORY_COLUMNS:
                 if col_name in cols:
                     continue
                 num_bad_objs += 1
+
                 ret_errors.append(MandatoryFieldsMissingError(
                     'Error, obj %s missing column %s' % (obj_uuid, col_name)))
 
@@ -1788,7 +2125,7 @@ class DatabaseChecker(DatabaseManager):
         for vn_key, vn in list(duplicate_ips.items()):
             for sn_key, subnet in list(vn.items()):
                 for ip_addr, iip_uuids in list(subnet.items()):
-                    cols = self._cf_dict['obj_uuid_table'].get(
+                    cols = self.cassandra_get(self._cf_dict['obj_uuid_table'],
                         iip_uuids[0], columns=['type'])
                     type = json.loads(cols['type'])
                     msg = ("%s %s from VN %s and subnet %s is duplicated: %s" %
@@ -1823,9 +2160,7 @@ class DatabaseChecker(DatabaseManager):
                           (ip_addr, iip_uuid, vn))
                 ret_errors.append(ZkIpMissingError(errmsg))
             # end all cassandra extra ips
-
         # for all common VN/subnets
-
         return ret_errors
     # end check_subnet_addr_alloc
 
@@ -1960,7 +2295,6 @@ class DatabaseChecker(DatabaseManager):
             errors.append(RTbackrefError(msg))
         return errors
 
-
 class DatabaseCleaner(DatabaseManager):
     def cleaner(func):
         @wraps(func)
@@ -1993,23 +2327,22 @@ class DatabaseCleaner(DatabaseManager):
 
     def _remove_config_object(self, type, uuids):
         uuid_table = self._cf_dict['obj_uuid_table']
-
         for uuid in uuids:
             try:
-                cols = uuid_table.get(uuid, column_start='backref:',
+                cols = self.cassandra_get(uuid_table, uuid, column_start='backref:',
                                       column_finish='backref;')
                 for backref_str in list(cols.keys()):
                     backref_uuid = backref_str.rpartition(':')[-1]
                     ref_str = 'ref:%s:%s' % (type, uuid)
                     try:
-                        uuid_table.remove(backref_uuid, columns=[ref_str])
-                    except pycassa.NotFoundException:
+                        self.cassandra_remove(uuid_table, backref_uuid, columns=[ref_str])
+                    except (pycassa.NotFoundException, KeyError):
                         continue
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 pass
             try:
-                uuid_table.remove(uuid)
-            except pycassa.NotFoundException:
+                self.cassandra_remove(uuid_table, uuid)
+            except (pycassa.NotFoundException, KeyError):
                 continue
 
     @cleaner
@@ -2024,14 +2357,14 @@ class DatabaseCleaner(DatabaseManager):
         if res_type is not None:
             iterator = ((type, None) for type in set(res_type))
         else:
-            iterator = obj_fq_name_table.get_range(column_count=1)
+            iterator = self.cassandra_get_range(obj_fq_name_table, column_count=1)
         for obj_type, _ in iterator:
             stale_cols = []
-            for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
+            for fq_name_str_uuid, _ in self.cassandra_xget(obj_fq_name_table, obj_type):
                 obj_uuid = fq_name_str_uuid.split(':')[-1]
                 try:
                     obj_uuid_table.get(obj_uuid)
-                except pycassa.NotFoundException:
+                except (KeyError, pycassa.NotFoundException):
                     logger.info("Found stale fq_name index entry: %s",
                                 fq_name_str_uuid)
                     stale_cols.append(fq_name_str_uuid)
@@ -2061,7 +2394,7 @@ class DatabaseCleaner(DatabaseManager):
         logger.debug("Reading all objects from obj_uuid_table")
         # dict of set, key is row-key val is set of col-names
         fixups = {}
-        for uuid, cols in uuid_table.get_range(columns=['type', 'fq_name']):
+        for uuid, cols in self.cassandra_get_range(uuid_table, columns=['type', 'fq_name']):
             type = json.loads(cols.get('type', ""))
             fq_name = json.loads(cols.get('fq_name', ""))
             if not type:
@@ -2072,9 +2405,9 @@ class DatabaseCleaner(DatabaseManager):
                 continue
             fq_name_str = ':'.join(fq_name)
             try:
-                fq_name_table.get(type,
+                self.cassandra_get(fq_name_table, type,
                                   columns=['%s:%s' % (fq_name_str, uuid)])
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 fixups.setdefault(type, {}).setdefault(
                     fq_name_str, set([])).add(uuid)
 
@@ -2082,19 +2415,20 @@ class DatabaseCleaner(DatabaseManager):
             for fq_name_str, uuids in list(fq_name_uuids.items()):
                 # Check fq_name already used
                 try:
-                    fq_name_uuid_str = fq_name_table.get(
+                    fq_name_uuid_str = self.cassandra_get(
+                        fq_name_table,
                         type,
                         column_start='%s:' % fq_name_str,
                         column_finish='%s;' % fq_name_str,
                     )
                     fq_name_str, _, uuid = list(fq_name_uuid_str.keys())[0].\
                         rpartition(':')
-                except pycassa.NotFoundException:
+                except (KeyError, pycassa.NotFoundException):
                     # fq_name index does not exists, need to be healed
                     continue
                 # FQ name already there, check if it's a stale entry
                 try:
-                    uuid_table.get(uuid, columns=['type'])
+                    self.cassandra_get(uuid_table, uuid, columns=['type'])
                     # FQ name already use by an object, remove stale object
                     if not self._args.execute:
                         logger.info("Would remove %s object(s) which share FQ "
@@ -2108,10 +2442,13 @@ class DatabaseCleaner(DatabaseManager):
                                     type.replace('_', ' ').title(),
                                     fq_name_str, uuid,
                                     ', '.join(uuids))
-                        bch = uuid_table.batch()
-                        [bch.remove(uuid) for uuid in uuids]
-                        bch.send()
-                except pycassa.NotFoundException:
+                        if self.using_json is True:
+                            [self.cassandra_remove(uuid_table, uuid) for uuid in uuids]
+                        else:
+                            bch = uuid_table.batch()
+                            [bch.remove(uuid) for uuid in uuids]
+                            bch.send()
+                except (pycassa.NotFoundException, KeyError):
                     msg = ("Stale FQ name entry '%s', please run "
                            "'clean_stale_fq_names' before trying to clean "
                            "objects" % fq_name_str)
@@ -2147,8 +2484,8 @@ class DatabaseCleaner(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
 
         logger.debug("Reading all objects from obj_uuid_table")
-        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
-            cols = dict(obj_uuid_table.xget(obj_uuid))
+        for obj_uuid, _ in self.cassandra_get_range(obj_uuid_table, column_count=1):
+            cols = dict(self.cassandra_xget(obj_uuid_table, obj_uuid))
             missing_cols = set(self.OBJ_MANDATORY_COLUMNS) - set(cols.keys())
             if not missing_cols:
                 continue
@@ -2172,8 +2509,8 @@ class DatabaseCleaner(DatabaseManager):
 
         stale_vm_uuids = []
         logger.debug("Reading all VMs from obj_uuid_table")
-        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
-            cols = dict(obj_uuid_table.xget(obj_uuid))
+        for obj_uuid, _ in self.cassandra_get_range(obj_uuid_table, column_count=1):
+            cols = dict(self.cassandra_xget(obj_uuid_table, obj_uuid))
             obj_type = json.loads(cols.get('type', '""'))
             if not obj_type or obj_type != 'virtual_machine':
                 continue
@@ -2228,14 +2565,14 @@ class DatabaseCleaner(DatabaseManager):
                             "server and schema cassandra keyspaces",
                             fq_name_str, uuid)
                 self._remove_config_object('route_target', [uuid])
-                rt_table.remove(fq_name_str)
-                fq_name_table.remove('route_target',
+                self.cassandra_remove(rt_table, fq_name_str)
+                self.cassandra_remove(fq_name_table, 'route_target',
                                      columns=[fq_name_uuid_str])
 
         for (fq_name_str, uuid, list_name), stale_rts in list(stale_list.items()):
             try:
-                cols = uuid_table.get(uuid, columns=[list_name])
-            except pycassa.NotFoundException:
+                cols = self.cassandra_get(uuid_table, uuid, columns=[list_name])
+            except (pycassa.NotFoundException, KeyError):
                 continue
             rts = set(json.loads(cols[list_name]).get('route_target', []))
             if not rts & stale_rts:
@@ -2251,14 +2588,14 @@ class DatabaseCleaner(DatabaseManager):
                             ','.join(stale_rts),
                             list_name[5:].replace('_', ' '), fq_name_str, uuid)
                 if not rts - stale_rts:
-                    uuid_table.remove(uuid, columns=[list_name])
+                    self.cassandra_remove(uuid_table, uuid, columns=[list_name])
                 else:
                     cols = {
                         list_name: json.dumps({
                             'route_target': list(rts - stale_rts),
                         }),
                     }
-                    uuid_table.insert(uuid, cols)
+                    self.cassandra_insert(uuid_table, uuid, cols)
         # Remove extra RT in Schema DB
         for id, res_fq_name_str in schema_set - zk_set:
             if not self._args.execute:
@@ -2267,18 +2604,19 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 logger.info("Removing stale route target %s in schema "
                             "cassandra keyspace", res_fq_name_str)
-                rt_table.remove(res_fq_name_str)
+                self.cassandra_remove(rt_table, res_fq_name_str)
 
         # Remove extra RT in Config DB
         for id, _ in config_set - zk_set:
             fq_name_str = 'target:%d:%d' % (self.global_asn, id)
             try:
-                cols = fq_name_table.get(
+                cols = self.cassandra_get(
+                    fq_name_table,
                     'route_target',
                     column_start='%s:' % fq_name_str,
                     column_finish='%s;' % fq_name_str,
                 )
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 continue
             uuid = list(cols.keys())[0].rpartition(':')[-1]
             fq_name_uuid_str = '%s:%s' % (fq_name_str, uuid)
@@ -2289,7 +2627,7 @@ class DatabaseCleaner(DatabaseManager):
                 logger.info("Removing stale route target %s (%s) in API "
                             "server cassandra keyspace ", fq_name_str, uuid)
                 self._remove_config_object('route_target', [uuid])
-                fq_name_table.remove('route_target',
+                self.cassandra_remove(fq_name_table, 'route_target',
                                      columns=[fq_name_uuid_str])
 
         stale_zk_entry = self.get_stale_zk_rt(zk_set, schema_set, config_set)
@@ -2303,9 +2641,12 @@ class DatabaseCleaner(DatabaseManager):
             logger.info("Removing stale route target(s) in schema cassandra "
                         "keyspace: %s",
                         ', '.join([f for _, f in stale_zk_entry]))
-            bch = rt_table.batch()
-            [bch.remove(key) for _, key in stale_zk_entry]
-            bch.send()
+            if self.using_json is True:
+                [self.cassandra_remove(rt_table, key) for _, key in stale_zk_entry]
+            else:
+                bch = rt_table.batch()
+                [bch.remove(key) for _, key in stale_zk_entry]
+                bch.send()
 
         return ret_errors
 
@@ -2328,8 +2669,8 @@ class DatabaseCleaner(DatabaseManager):
         for id, fq_name_uuids in list(duplicate_ids.items()):
             id_str = "%(#)010d" % {'#': id}
             try:
-                zk_fq_name_str = self._zk_client.get(path % id_str)[0]
-            except kazoo.exceptions.NoNodeError:
+                zk_fq_name_str = self.zk_get(path % id_str)[0]
+            except (kazoo.exceptions.NoNodeError, KeyError):
                 zk_fq_name_str = None
             uuids_to_deallocate |= {uuid for fq_name_str, uuid in fq_name_uuids
                                     if fq_name_str != zk_fq_name_str}
@@ -2341,10 +2682,14 @@ class DatabaseCleaner(DatabaseManager):
         else:
             logger.info("Removing the security ID allocation to %d SG: %s",
                         len(uuids_to_deallocate), uuids_to_deallocate)
-            bch = obj_uuid_table.batch()
-            [bch.remove(uuid, columns=['prop:security_group_id'])
-             for uuid in uuids_to_deallocate]
-            bch.send()
+            if self.using_json is True:
+                [self.cassandra_remove(obj_uuid_table, uuid, columns=['prop:security_group_id'])
+                        for uuid in uuids_to_deallocate]
+            else:
+                bch = obj_uuid_table.batch()
+                [bch.remove(uuid, columns=['prop:security_group_id'])
+                    for uuid in uuids_to_deallocate]
+                bch.send()
 
         return ret_errors
     # end clean_stale_security_group_id
@@ -2370,8 +2715,8 @@ class DatabaseCleaner(DatabaseManager):
         for id, fq_name_uuids in list(duplicate_ids.items()):
             id_str = "%(#)010d" % {'#': id - VN_ID_MIN_ALLOC}
             try:
-                zk_fq_name_str = self._zk_client.get(path % id_str)[0]
-            except kazoo.exceptions.NoNodeError:
+                zk_fq_name_str = self.zk_get(path % id_str)[0]
+            except (kazoo.exceptions.NoNodeError, KeyError):
                 zk_fq_name_str = None
             uuids_to_deallocate |= {uuid for fq_name_str, uuid in fq_name_uuids
                                     if fq_name_str != zk_fq_name_str}
@@ -2384,11 +2729,14 @@ class DatabaseCleaner(DatabaseManager):
         else:
             logger.info("Removing the virtual network ID allocation to %d SG: "
                         "%s", len(uuids_to_deallocate), uuids_to_deallocate)
-            bch = obj_uuid_table.batch()
-            [bch.remove(uuid, columns=['prop:virtual_network_network_id'])
-             for uuid in uuids_to_deallocate]
-            bch.send()
-
+            if self.using_json is True:
+                [self.cassandra_remove(obj_uuid_table, uuid, columns=['prop:virtual_network_network_id'])
+                    for uuid in uuids_to_deallocate]
+            else:
+                bch = obj_uuid_table.batch()
+                [bch.remove(uuid, columns=['prop:virtual_network_network_id'])
+                    for uuid in uuids_to_deallocate]
+                bch.send()
         return ret_errors
     # end clean_stale_virtual_network_id
 
@@ -2414,30 +2762,33 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 logger.info("Removing stale subnet uuid %s in useragent "
                             "keyspace", subnet_uuid)
-                ua_kv_cf.remove(subnet_uuid)
+                self.cassandra_remove(ua_kv_cf, subnet_uuid)
                 logger.info("Removing stale subnet key %s in useragent "
                             "keyspace", subnet_key)
-                ua_kv_cf.remove(subnet_key)
+                self.cassandra_remove(ua_kv_cf, subnet_key)
 
         # Since release 3.2, only subnet_id/subnet_key are store in
         # key/value store, the reverse was removed. Clean remaining key
         ua_kv_cf = self._cf_dict['useragent_keyval_table']
         stale_kv = set([])
-        for key, cols in ua_kv_cf.get_range():
+        for key, cols in self.cassandra_get_range(ua_kv_cf):
             if self.KV_SUBNET_KEY_TO_UUID_MATCH.match(key):
                 subnet_id = cols['value']
                 try:
-                    ua_kv_cf.get(subnet_id)
-                except pycassa.NotFoundException:
+                    self.cassandra_get(ua_kv_cf, subnet_id)
+                except (pycassa.NotFoundException, KeyError):
                     stale_kv.add(key)
         if stale_kv:
             if not self._args.execute:
                 logger.info("Would remove stale subnet keys: %s", stale_kv)
             else:
                 logger.info("Removing stale subnet keys: %s", stale_kv)
-                bch = ua_kv_cf.batch()
-                [bch.remove(key) for key in stale_kv]
-                bch.send()
+                if self.using_json is True:
+                    [self.cassandra_remove(ua_kv_cf, key) for key in stale_kv]
+                else:
+                    bch = ua_kv_cf.batch()
+                    [bch.remove(key) for key in stale_kv]
+                    bch.send()
 
         return ret_errors
     # end clean_stale_subnet_uuid
@@ -2448,8 +2799,8 @@ class DatabaseCleaner(DatabaseManager):
 
         obj_uuid_table = self._cf_dict['obj_uuid_table']
         logger.debug("Reading all objects from obj_uuid_table")
-        for obj_uuid, _ in obj_uuid_table.get_range(column_count=1):
-            cols = dict(obj_uuid_table.xget(obj_uuid))
+        for obj_uuid, _ in self.cassandra_get_range(obj_uuid_table, column_count=1):
+            cols = dict(self.cassandra_xget(obj_uuid_table, obj_uuid))
             obj_type = json.loads(cols.get('type', '"UnknownType"'))
             fq_name = json.loads(cols.get('fq_name', '"UnknownFQN"'))
             stale_cols = []
@@ -2459,7 +2810,7 @@ class DatabaseCleaner(DatabaseManager):
                 _, _, dangle_check_uuid = col_name.split(':')
                 try:
                     obj_uuid_table.get(dangle_check_uuid)
-                except pycassa.NotFoundException:
+                except (KeyError, pycassa.NotFoundException):
                     msg = ("Found stale %s index: %s in %s (%s %s)" %
                            (dangle_prefix, col_name, obj_uuid, obj_type,
                             fq_name))
@@ -2473,7 +2824,7 @@ class DatabaseCleaner(DatabaseManager):
                 else:
                     logger.info("Removing stale %s: %s", dangle_prefix,
                                 stale_cols)
-                    obj_uuid_table.remove(obj_uuid, columns=stale_cols)
+                    self.cassandra_remove(obj_uuid_table, obj_uuid, columns=stale_cols)
 
         return ret_errors
     # end _remove_stale_from_uuid_table
@@ -2493,7 +2844,7 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 logger.info("Removing stale id %s for %s", zk_path % id_str,
                             fq_name_str)
-                self._zk_client.delete(zk_path % id_str)
+                self.zk_delete(zk_path % id_str)
 
     @cleaner
     def clean_subnet_addr_alloc(self):
@@ -2507,7 +2858,7 @@ class DatabaseCleaner(DatabaseManager):
                 logger.info("Would delete zk: %s", path)
             else:
                 logger.info("Deleting zk path: %s", path)
-                self._zk_client.delete(path, recursive=True)
+                self.zk_delete(path, recursive=True)
 
         # Clean extra net in zk
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
@@ -2524,7 +2875,7 @@ class DatabaseCleaner(DatabaseManager):
                     logger.info("Would delete zk: %s", path)
                 else:
                     logger.info("Deleting zk path: %s", path)
-                    self._zk_client.delete(path, recursive=True)
+                    self.zk_delete(path, recursive=True)
             zk_all_vns.pop(vn, None)
 
         zk_all_vn_sn = []
@@ -2556,9 +2907,9 @@ class DatabaseCleaner(DatabaseManager):
                 logger.info("Would delete zk: %s", path)
             else:
                 logger.info("Deleting zk path: %s", path)
-                self._zk_client.delete(path, recursive=True)
+                self.zk_delete(path, recursive=True)
                 if path_no_mask != path:
-                    self._zk_client.delete(path_no_mask, recursive=False)
+                    self.zk_delete(path_no_mask, recursive=False)
             if vn in zk_all_vns:
                 zk_all_vns[vn].pop(sn_key, None)
 
@@ -2589,14 +2940,13 @@ class DatabaseCleaner(DatabaseManager):
                     logger.info("Would delete zk: %s", path)
                 else:
                     logger.info("Deleting zk path: %s", path)
-                    self._zk_client.delete(path, recursive=True)
+                    self.zk_delete(path, recursive=True)
 
     @cleaner
     def clean_orphan_resources(self):
         """Removes extra VN's, subnets and IP's from zk."""
         logger = self._logger
         orphan_resources, errors = self.audit_orphan_resources()
-
         if not orphan_resources:
             return
 
@@ -2605,12 +2955,20 @@ class DatabaseCleaner(DatabaseManager):
                         list(orphan_resources.items()))
         else:
             logger.info("Would delete orphan resources in Cassandra DB: %s",
-                        list(orphan_resources.items()))
-            uuid_bch = self._cf_dict['obj_uuid_table'].batch()
-            for obj_type, obj_uuids in list(orphan_resources.items()):
-                [uuid_bch.remove(obj_uuid) for obj_uuid in obj_uuids]
-            uuid_bch.send()
-            self.clean_stale_fq_names(list(orphan_resources.keys()))
+                        orphan_resources.items())
+            if self.using_json is False:
+                uuid_bch = self._cf_dict['obj_uuid_table'].batch()
+            else:
+                obj_uuid_table = self._cf_dict['obj_uuid_table']
+            for obj_type, obj_uuids in orphan_resources.items():
+                if self.using_json is True:
+                    [self.cassandra_remove(obj_uuid_table, obj_uuid) for obj_uuid in obj_uuids]
+                else:
+                    [uuid_bch.remove(obj_uuid) for obj_uuid in obj_uuids]
+
+            if self.using_json is False:
+                uuid_bch.send()
+            self.clean_stale_fq_names(orphan_resources.keys())
 
     def _clean_if_mandatory_refs_missing(self, obj_type, mandatory_refs,
                                          ref_type='ref'):
@@ -2619,26 +2977,27 @@ class DatabaseCleaner(DatabaseManager):
         obj_uuid_table = self._cf_dict['obj_uuid_table']
 
         logger.debug("Reading %s objects from cassandra", obj_type)
-        uuids = [x.split(':')[-1] for x, _ in fq_name_table.xget(obj_type)]
+        uuids = [x.split(':')[-1] for x, _ in self.cassandra_xget(fq_name_table, obj_type)]
 
         stale_uuids = []
         for uuid in uuids:
             missing_refs = []
             for ref in mandatory_refs:
                 try:
-                    cols = obj_uuid_table.get(
+                    cols = self.cassandra_get(
+                        obj_uuid_table,
                         uuid,
                         column_start='%s:%s:' % (ref_type, ref),
                         column_finish='%s:%s;' % (ref_type, ref),
                     )
-                except pycassa.NotFoundException:
+                except (pycassa.NotFoundException, KeyError):
                     missing_refs.append(True)
                     continue
                 for col in cols:
                     ref_uuid = col.split(':')[-1]
                     try:
                         obj_uuid_table.get(ref_uuid)
-                    except pycassa.NotFoundException:
+                    except (KeyError, pycassa.NotFoundException):
                         continue
                     break
                 else:
@@ -2659,9 +3018,12 @@ class DatabaseCleaner(DatabaseManager):
         else:
             logger.info("Deleting %d %s in Cassandra DB: %s", len(stale_uuids),
                         obj_type, stale_uuids)
-            uuid_bch = obj_uuid_table.batch()
-            [uuid_bch.remove(uuid) for uuid in stale_uuids]
-            uuid_bch.send()
+            if self.using_json is True:
+                [self.cassandra_remove(obj_uuid_table, uuid) for uuid in stale_uuids]
+            else:
+                uuid_bch = obj_uuid_table.batch()
+                [uuid_bch.remove(uuid) for uuid in stale_uuids]
+                uuid_bch.send()
             self.clean_stale_fq_names([obj_type])
         return stale_uuids
 
@@ -2698,17 +3060,22 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 self._logger.info(
                     "Removing RI back-refs %s from RT %s(%s)",
-                    ', '.join(ri_uuids), rt_fq_name_str, rt_uuid)
-                bch = uuid_table.batch()
+                    ','.join(ri_uuids), rt_fq_name_str, rt_uuid)
+                if self.using_json is False:
+                    bch = uuid_table.batch()
                 for ri_uuid in ri_uuids:
-                    bch.remove(ri_uuid,
-                               columns=['ref:route_target:%s' % rt_uuid])
-                    bch.remove(
-                        rt_uuid,
-                        columns=['backref:routing_instance:%s' % ri_uuid])
-                bch.send()
+                    if self.using_json is False:
+                        bch.remove(ri_uuid, 
+                                columns=['ref:route_target:%s' % rt_uuid])
+                        bch.remove(
+                            rt_uuid,
+                            columns=['backref:routing_instance:%s' % ri_uuid])
+                    else:
+                        self.cassandra_remove(uuid_table, ri_uuid, columns=['ref:route_target:%s' % rt_uuid])
+                        self.cassandra_remove(uuid_table, rt_uuid, columns=['backref:routing_instance:%s' % ri_uuid])
+                if self.using_json is False:
+                    bch.send()
         return errors
-
 
 class DatabaseHealer(DatabaseManager):
     def healer(func):
@@ -2754,7 +3121,7 @@ class DatabaseHealer(DatabaseManager):
         logger.debug("Reading all objects from obj_uuid_table")
         # dict of set, key is row-key val is set of col-names
         fixups = {}
-        for uuid, cols in uuid_table.get_range(
+        for uuid, cols in self.cassandra_get_range(uuid_table,
                 columns=['type', 'fq_name', 'prop:id_perms']):
             type = json.loads(cols.get('type', 'null'))
             fq_name = json.loads(cols.get('fq_name', 'null'))
@@ -2768,9 +3135,9 @@ class DatabaseHealer(DatabaseManager):
                 continue
             fq_name_str = ':'.join(fq_name)
             try:
-                fq_name_table.get(type,
+                self.cassandra_get(fq_name_table, type,
                                   columns=['%s:%s' % (fq_name_str, uuid)])
-            except pycassa.NotFoundException:
+            except (KeyError, pycassa.NotFoundException):
                 fixups.setdefault(type, {}).setdefault(
                     fq_name_str, set([])).add((uuid, created_at))
         # for all objects in uuid table
@@ -2778,12 +3145,13 @@ class DatabaseHealer(DatabaseManager):
         for type, fq_name_uuids in list(fixups.items()):
             for fq_name_str, uuids in list(fq_name_uuids.items()):
                 try:
-                    fq_name_uuid_str = fq_name_table.get(
+                    fq_name_uuid_str = self.cassandra_get(
+                        fq_name_table,
                         type,
                         column_start='%s:' % fq_name_str,
                         column_finish='%s;' % fq_name_str,
                     )
-                except pycassa.NotFoundException:
+                except (KeyError, pycassa.NotFoundException):
                     if len(uuids) != 1:
                         msg = ("%s FQ name '%s' is used by %d resources and "
                                "not indexed: %s. Script cannot decide which "
@@ -2804,12 +3172,12 @@ class DatabaseHealer(DatabaseManager):
                         logger.info("Inserting FQ name index: %s %s",
                                     type, fq_name_uuid_str)
                         cols = {fq_name_uuid_str: json.dumps(None)}
-                        fq_name_table.insert(type, cols)
+                        self.cassandra_insert(fq_name_table, type, cols)
                     continue
                 # FQ name already there, check if it's a stale entry
                 uuid = fq_name_uuid_str.popitem()[0].rpartition(':')[-1]
                 try:
-                    uuid_table.get(uuid, columns=['type'])
+                    self.cassandra_get(uuid_table, uuid, columns=['type'])
                     # FQ name already use by an object, remove stale object
                     msg = ("%s FQ name entry '%s' already used by %s, please "
                            "run 'clean_stale_object' to remove stale "
@@ -2820,7 +3188,7 @@ class DatabaseHealer(DatabaseManager):
                                           for u, c in uuids]),
                            ))
                     logger.warning(msg)
-                except pycassa.NotFoundException:
+                except (pycassa.NotFoundException, KeyError):
                     msg = ("%s stale FQ name entry '%s', please run "
                            "'clean_stale_fq_names' before trying to heal them"
                            % (type.replace('_', ' ').title(), fq_name_str))
@@ -2844,8 +3212,8 @@ class DatabaseHealer(DatabaseManager):
         logger.debug("Reading all objects from obj_uuid_table")
         # dict of set, key is parent row-key val is set of col-names
         fixups = {}
-        for obj_uuid, cols in obj_uuid_table.get_range(column_count=1):
-            cols = dict(obj_uuid_table.xget(obj_uuid, column_start='parent:',
+        for obj_uuid, cols in self.cassandra_get_range(obj_uuid_table, column_count=1):
+            cols = dict(self.cassandra_xget(obj_uuid_table, obj_uuid, column_start='parent:',
                                             column_finish='parent;'))
             if not cols:
                 continue  # no parent
@@ -2856,25 +3224,25 @@ class DatabaseHealer(DatabaseManager):
             parent_uuid = list(cols.keys())[0].split(':')[-1]
             try:
                 _ = obj_uuid_table.get(parent_uuid)
-            except pycassa.NotFoundException:
+            except (pycassa.NotFoundException, KeyError):
                 msg = "Missing parent %s for object %s" \
                     % (parent_uuid, obj_uuid)
                 logger.info(msg)
                 continue
 
             try:
-                cols = obj_uuid_table.get(obj_uuid, columns=['type'])
-            except pycassa.NotFoundException:
+                cols = self.cassandra_get(obj_uuid_table, obj_uuid, columns=['type'])
+            except (KeyError, pycassa.NotFoundException):
                 logger.info("Missing type for object %s", obj_uuid)
                 continue
             obj_type = json.loads(cols['type'])
 
             child_col = 'children:%s:%s' % (obj_type, obj_uuid)
             try:
-                _ = obj_uuid_table.get(parent_uuid, columns=[child_col])
+                _ = self.cassandra_get(obj_uuid_table, parent_uuid, columns=[child_col])
                 # found it, this object is indexed by parent fine
                 continue
-            except pycassa.NotFoundException:
+            except (KeyError, pycassa.NotFoundException):
                 msg = "Found missing children index %s for parent %s" \
                     % (child_col, parent_uuid)
                 logger.info(msg)
@@ -2890,7 +3258,7 @@ class DatabaseHealer(DatabaseManager):
             else:
                 logger.info("Inserting row/columns: %s %s",
                             parent_uuid, cols)
-                obj_uuid_table.insert(
+                self.cassandra_insert(obj_uuid_table,
                         parent_uuid,
                         columns=dict((x, json.dumps(None)) for x in cols))
 
@@ -2918,7 +3286,7 @@ class DatabaseHealer(DatabaseManager):
             else:
                 logger.info("Creating stale subnet uuid %s -> %s in "
                             "useragent keyspace", subnet_uuid, subnet_key)
-                ua_kv_cf.insert(subnet_uuid, {'value': subnet_key})
+                self.cassandra_insert(ua_kv_cf, subnet_uuid, {'value': subnet_key})
 
         return ret_errors
     # end heal_subnet_uuid
@@ -2937,23 +3305,36 @@ class DatabaseHealer(DatabaseManager):
                                     zk_set,
                                     id_oper='%%s - %d' % VN_ID_MIN_ALLOC)
 
+        if self.using_json is False:
+            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
+                                          self._api_args.listen_ip_addr)
+
         # Initialize the virtual network ID allocator
         if missing_ids and not self._args.execute:
             self._logger.info("Would allocate VN ID to %s", missing_ids)
         elif missing_ids and self._args.execute:
             obj_uuid_table = self._cf_dict['obj_uuid_table']
-            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
-                                        self._api_args.listen_ip_addr)
-            id_allocator = IndexAllocator(
-                zk_client, '%s/' % self.base_vn_id_zk_path, 1 << 24)
-            bch = obj_uuid_table.batch()
+
+            if self.using_json is False:
+                zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
+                                            self._api_args.listen_ip_addr)
+                id_allocator = IndexAllocator(
+                    zk_client, '%s/' % self.base_vn_id_zk_path, 1 << 24)
+            else:
+                id_allocator = IndexJSONAllocator(self, '%s/' % self.base_vn_id_zk_path, 1 << 24)
+            if self.using_json is False:
+                bch = obj_uuid_table.batch()
             for uuid, fq_name_str in missing_ids:
                 vn_id = id_allocator.alloc(fq_name_str) + VN_ID_MIN_ALLOC
                 self._logger.info("Allocating VN ID '%d' to %s (%s)",
                                   vn_id, fq_name_str, uuid)
                 cols = {'prop:virtual_network_network_id': json.dumps(vn_id)}
-                bch.insert(uuid, cols)
-            bch.send()
+                if self.using_json is False:
+                    bch.insert(uuid, cols)
+                else:
+                    self.cassandra_insert(obj_uuid_table, uuid, cols)
+            if self.using_json is False:
+                bch.send()
 
         return ret_errors
     # end heal_virtual_networks_id
@@ -2976,19 +3357,29 @@ class DatabaseHealer(DatabaseManager):
             self._logger.info("Would allocate SG ID to %s", missing_ids)
         elif missing_ids and self._args.execute:
             obj_uuid_table = self._cf_dict['obj_uuid_table']
-            zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
-                                        self._api_args.listen_ip_addr)
-            id_allocator = IndexAllocator(zk_client,
-                                          '%s/' % self.base_sg_id_zk_path,
-                                          1 << 32)
-            bch = obj_uuid_table.batch()
+            if self.using_json is False:
+                zk_client = ZookeeperClient(__name__, self._api_args.zk_server_ip,
+                                            self._api_args.listen_ip_addr)
+                id_allocator = IndexAllocator(zk_client,
+                                            '%s/' % self.base_sg_id_zk_path,
+                                            1 << 32)
+            else:
+                id_allocator = IndexJSONAllocator(zk_client,
+                        '%s/' % self.base_sg_id_zk_path,
+                        1 << 32)
+            if self.using_json is False:
+                bch = obj_uuid_table.batch()
             for uuid, fq_name_str in missing_ids:
                 sg_id = id_allocator.alloc(fq_name_str) + SG_ID_MIN_ALLOC
                 self._logger.info("Allocating SG ID '%d' to %s (%s)",
                                   sg_id, fq_name_str, uuid)
                 cols = {'prop:security_group_id': json.dumps(sg_id)}
-                bch.insert(uuid, cols)
-            bch.send()
+                if self.using_json is False:
+                    bch.insert(uuid, cols)
+                else:
+                    self.cassandra_insert(obj_uuid_table, uuid, cols)
+            if self.using_json is False:
+                bch.send()
 
         return ret_errors
     # end heal_security_groups_id
@@ -3005,27 +3396,27 @@ class DatabaseHealer(DatabaseManager):
             id_str = "%(#)010d" % {'#': id}
             if not self._args.execute:
                 try:
-                    zk_fq_name_str = self._zk_client.get(zk_path % id_str)[0]
+                    zk_fq_name_str = self.zk_get(zk_path % id_str)[0]
                     if fq_name_str != zk_fq_name_str:
                         logger.info("Would update id %s from %s to %s",
                                     zk_path % id_str, zk_fq_name_str,
                                     fq_name_str)
-                except kazoo.exceptions.NoNodeError:
+                except (KeyError, kazoo.exceptions.NoNodeError):
                     logger.info("Would add missing id %s for %s",
                                 zk_path % id_str, fq_name_str)
             else:
                 try:
-                    zk_fq_name_str = self._zk_client.get(zk_path % id_str)[0]
+                    zk_fq_name_str = self.zk_get(zk_path % id_str)[0]
                     if fq_name_str != zk_fq_name_str:
                         logger.info("Updating id %s from %s to %s",
                                     zk_path % id_str, zk_fq_name_str,
                                     fq_name_str)
-                        self._zk_client.delete(zk_path % id_str)
-                        self._zk_client.set(zk_path % id_str, str(fq_name_str))
-                except kazoo.exceptions.NoNodeError:
+                        self.zk_delete(zk_path % id_str)
+                        self.zk_set(zk_path % id_str, str(fq_name_str))
+                except (KeyError, kazoo.exceptions.NoNodeError):
                     logger.info("Adding missing id %s for %s",
                                 zk_path % id_str, fq_name_str)
-                    self._zk_client.create(zk_path % id_str, str(fq_name_str))
+                    self.zk_create(zk_path % id_str, str(fq_name_str))
 
     @healer
     def heal_subnet_addr_alloc(self):
@@ -3057,7 +3448,7 @@ class DatabaseHealer(DatabaseManager):
                     logger.info("Would create zk: %s", path)
                 else:
                     logger.info("Creating zk path: %s", path)
-                    self._zk_client.create(path, ip_addr[0], makepath=True)
+                    self.zk_create(path, ip_addr[0], makepath=True)
 
         # Re-create missing IP addresses in zk
         for vn, sn_key in cassandra_all_vn_sn:
@@ -3076,9 +3467,9 @@ class DatabaseHealer(DatabaseManager):
                 else:
                     logger.info("Creating zk path: %s %s", path, ip_addr)
                     try:
-                        self._zk_client.create(path, ip_addr[0], makepath=True)
-                    except kazoo.exceptions.NodeExistsError as e:
-                        iip_uuid = self._zk_client.get(path)[0]
+                        self.zk_create(path, ip_addr[0], makepath=True)
+                    except (kazoo.exceptions.NodeExistsError, KeyError) as e:
+                        iip_uuid = self.zk_get(path)[0]
                         logger.warn("Creating zk path: %s (%s). "
                                     "Addr lock already exists for IIP %s",
                                     path, ip_addr, iip_uuid)
@@ -3087,6 +3478,33 @@ class DatabaseHealer(DatabaseManager):
         return ret_errors
 # end class DatabaseCleaner
 
+# function that is called when json is healed or cleaned
+def write_json_to_out(db_man_obj):
+    with open(db_man_obj.out_json, 'w') as outfile:
+        json.dumps(db_man_obj.data, outfile, indent=4, sort_keys=True)
+
+# helper function to backup json before healing and cleaning operations
+def backup_json(db_man_obj):
+    logger = db_man_obj._logger
+    hostname = socket.gethostname()
+    IPAddr = socket.gethostbyname(hostname).replace('.', '')
+    logger.info("Your Computer Name is:" + hostname)
+    logger.info("Your Computer IP Address is:" + IPAddr)
+
+    # check if the backup directory exists
+    if not os.path.isdir("/var/tmp/json_backups/"):
+        logger.info("Creating directory")
+        os.mkdir("/var/tmp/json_backups/")
+    default_dir = "/var/tmp/json_backups/"
+
+    import calendar;
+    import time;
+    ts = calendar.timegm(time.gmtime())
+    logger.info("Saving backup at time {0}".format(ts))
+    backup_file = '{0}-{1}.json'.format(IPAddr, ts)
+    with open('{0}{1}'.format(default_dir, backup_file), 'w') as backup:
+        db_exim = DatabaseJSONExim('--export-to {0}{1} pretty_print'.format(default_dir, backup_file))
+        db_exim.db_export()
 
 def db_check(args, api_args):
     """Checks and displays all the inconsistencies in DB."""
@@ -3094,8 +3512,11 @@ def db_check(args, api_args):
 
     db_checker = DatabaseChecker(args, api_args)
     # Mode and node count check across all nodes
-    db_checker.check_zk_mode_and_node_count()
-    db_checker.check_cassandra_keyspace_replication()
+
+    # no need to do in the json case as this is checking Zookeeper/PyCassa Object specific logic
+    if db_checker.using_json is False:
+        db_checker.check_zk_mode_and_node_count()
+        db_checker.check_cassandra_keyspace_replication()
     # Obj UUID cassandra inconsistencies
     db_checker.check_obj_mandatory_fields()
     db_checker.check_orphan_resources()
@@ -3109,19 +3530,18 @@ def db_check(args, api_args):
     db_checker.check_route_targets_id()
     db_checker.check_virtual_networks_id()
     db_checker.check_security_groups_id()
-
     # db_checker.check_schema_db_mismatch()
 # end db_check
 
-
 db_check.is_checker = True
-
 
 def db_clean(args, api_args):
     """Removes stale entries from DB's."""
     vnc_cgitb.enable(format='text')
-
     db_cleaner = DatabaseCleaner(args, api_args)
+    if db_cleaner.backup:
+        backup_json(db_cleaner)
+
     # Obj UUID cassandra inconsistencies
     db_cleaner.clean_obj_missing_mandatory_fields()
     db_cleaner.clean_orphan_resources()
@@ -3141,16 +3561,26 @@ def db_clean(args, api_args):
     db_cleaner.clean_stale_security_group_id()
     db_cleaner.clean_subnet_addr_alloc()
 
+    if db_cleaner._args.execute is False:
+        if db_cleaner.out_json is not None:
+            db_cleaner._logger.error("Need to specify execute args to Clean JSON file")
+    else:
+        if db_cleaner.out_json is not None:
+            write_json_to_out(db_cleaner)
+        else:
+            db_cleaner._logger.error("Need to specify output file if going to execute Clean operations")
 
 # end db_clean
 db_clean.is_cleaner = True
 
-
 def db_heal(args, api_args):
     """Creates missing entries in DB's for all inconsistencies."""
     vnc_cgitb.enable(format='text')
-
     db_healer = DatabaseHealer(args, api_args)
+
+    # if backup option is enabled then store backup
+    if db_healer.backup:
+        backup_json(db_healer)
     # Obj UUID cassandra inconsistencies
     db_healer.heal_fq_name_index()
     db_healer.heal_back_ref_index()
@@ -3160,11 +3590,16 @@ def db_heal(args, api_args):
     db_healer.heal_virtual_networks_id()
     db_healer.heal_security_groups_id()
     db_healer.heal_subnet_addr_alloc()
-
-
+    if db_healer._args.execute is False:
+        if db_healer.out_json is not None:
+            db_healer._logger.error("Need to specify execute arg to Heal JSON file")
+    else:
+        if db_healer.out_json is not None:
+            write_json_to_out(db_healer)
+        else:
+            db_healer._logger.error("Need to specify output file if going to execute Heal operations")
 # end db_heal
 db_heal.is_healer = True
-
 
 def db_touch_latest(args, api_args):
     vnc_cgitb.enable(format='text')
@@ -3172,15 +3607,14 @@ def db_touch_latest(args, api_args):
     db_mgr = DatabaseManager(args, api_args)
     obj_uuid_table = db_mgr._cf_dict['obj_uuid_table']
 
-    for obj_uuid, cols in obj_uuid_table.get_range(column_count=1):
-        db_mgr._cf_dict['obj_uuid_table'].insert(
+    for obj_uuid, cols in db_mgr.cassandra_get_range(obj_uuid_table, column_count=1):
+        db_mgr.cassandra_insert(
+                db_mgr._cf_dict['obj_uuid_table'],
                 obj_uuid,
                 columns={'META:latest_col_ts': json.dumps(None)})
 
-
 # end db_touch_latest
 db_touch_latest.is_operation = True
-
 
 def main():
     args, api_args = _parse_args(' '.join(sys.argv[1:]))
@@ -3202,7 +3636,6 @@ def main():
 
     print("Warning: Unknown operation '%s'\n\t Use --help" % verb)
 # end main
-
 
 if __name__ == '__main__':
     main()
