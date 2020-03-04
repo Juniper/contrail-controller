@@ -622,3 +622,4 @@ class ZookeeperClient(object):
             identifier = '%s-%s' % (socket.getfqdn(self.host_ip),
                     os.getpid())
         return self._zk_client.WriteLock(path, identifier)
+
