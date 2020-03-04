@@ -1,0 +1,35 @@
+- name:
+  include_tasks: "{{item.vendor}}_bgp_config.yml"
+
+- name: Get vendor specific jinja file name
+  set_fact:
+    jinja_file: "{{item.vendor}}_maintenance_mode_mh_peer.j2"
+
+- name: Set peer config file name
+  set_fact:
+    peer_conf_file: "{{peer_conf_dir}}/final_config/final_hitless_peer_config/{{item.mgmt_ip}}_maintenance_mode.conf"
+
+- name: Generate maintenance mode config to be pushed on peer device
+  block:
+    - name: Generate script file on local host
+      template:
+        src: "{{jinja_file}}"
+        dest: "{{peer_conf_file}}"
+      register: cmd_res
+  rescue:
+    - name: Perform necessary error handling
+      include_tasks: error_handler.yml
+      vars:
+        op_err_message: "{{cmd_res.msg}}"
+        jl_err_message: "Failed to generate script to push maintenance mode config on peer device {{item.name}}"
+
+- name: Push config to peer device
+  include_role:
+    name: commit_fabric_config
+  vars:
+    source_file: "{{peer_conf_file}}"
+    device_name: "{{item.name}}"
+    device_vendor: "{{item.vendor}}"
+    device_mgmt_ip: "{{item.mgmt_ip}}"
+    device_username: "{{item.username}}"
+    device_password: "{{item.password}}"
