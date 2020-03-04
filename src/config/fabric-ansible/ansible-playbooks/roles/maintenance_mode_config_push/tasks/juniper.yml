@@ -1,4 +1,6 @@
-#Vendor specific playbook for config push
+# Vendor specific playbook for config push
+# fixes issue where detection of VPG interfaces is not done at all
+# regardless of fact that changing admin-key does not do anything at all
 ---
 
     - name: Get the bgp group names with config groups
@@ -29,6 +31,12 @@
     - name: Get the group information
       set_fact:
         results_json_cfg: "{{group_info_cfg|json_query('config_parsed.configuration')}}"
+
+    - name: Get possible LAG groups from results
+      ignore_errors: true
+      set_fact:
+        interface_groups_info: "{{results_json_cfg.groups| selectattr('interfaces','defined')| list}}"
+      when: results_json_cfg.groups is defined
 
     - name: Get the required groups from results
       set_fact:
@@ -74,12 +82,7 @@
       debug: msg="{{bgp_group_info}}" verbosity=1
 
     - block:
-        - name: Get possible lag groups from results
-          set_fact:
-              interface_groups_info: "{{bgp_group_info.groups| selectattr('interfaces','defined')| list}}"
-          when: bgp_group_info.groups is defined
-
-        - name: Print group_info
+        - name: Print LAG info with config groups
           debug: msg="{{interface_groups_info}}" verbosity=1
           when: interface_groups_info is defined
 
@@ -109,11 +112,10 @@
                 op_err_message: "{{group_info.msg}}"
                 jl_err_message: "Error while obtaining group information (without config groups) from Juniper device: {{group_info.msg}}"
 
-        - name: Get the group information
+        - name: Get the lag information
           set_fact:
             interface_results_json: "{{group_info|json_query('config_parsed.configuration')}}"
 
-        - name: Print group_info
+        - name: Print LAG info without config groups
           debug: msg="{{interface_results_json}}" verbosity=1
       when: physical_role == 'leaf'
-
