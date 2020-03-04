@@ -97,21 +97,18 @@ delete protocols bgp group {{bgp_group_name}} export MAINTENANCE-MODE-underlay
 {%     for item in interface_list %}
 {%         if item.get('esi') is defined and item.get('esi') != None and item.get('aggregated-ether-options') is defined and item.get('aggregated-ether-options') != None %}
 {%             set aggregated_group = item.get('aggregated-ether-options') %}
-{%             set admin_key = aggregated_group.get('lacp').get('admin-key') | int %}
 {%             set lag_interface_name = item.get('name') %}
 {%             if device_maintenance_mode == "activate" %}
-{%                 set new_admin_key = admin_key + 1 %}
 {%                 if interface_group_name != None %}
-set groups {{interface_group_name}} interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+set groups {{interface_group_name}} interfaces {{lag_interface_name}} disable
 {%                 else %}
-set interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+set interfaces {{lag_interface_name}} disable
 {%                 endif %}
 {%             else %}
-{%                 set new_admin_key = admin_key - 1 %}
 {%                 if interface_group_name != None %}
-set groups {{interface_group_name}} interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+delete groups {{interface_group_name}} interfaces {{lag_interface_name}} disable
 {%                 else %}
-set interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{new_admin_key}}
+delete interfaces {{lag_interface_name}} disable
 {%                 endif %}
 {%             endif %}
 {%         endif %}
@@ -137,4 +134,3 @@ set interfaces {{lag_interface_name}} aggregated-ether-options lacp admin-key {{
 {{ lag_configurations(interface_results) }}
 {%     endif %}
 {% endif %}
-
