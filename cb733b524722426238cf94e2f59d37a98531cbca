@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "93651527_e35637e9",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/l2_gateway_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-03-05T23:33:34Z",
+      "side": 1,
+      "message": "As discussed could you please use interfaces from l3_gateway.",
+      "revId": "cb733b524722426238cf94e2f59d37a98531cbca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "cdc80ad3_2c5c040c",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/vn_interconnect_feature.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 117,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-03-05T23:33:34Z",
+      "side": 1,
+      "message": "We can set this to false for master LR case.",
+      "revId": "cb733b524722426238cf94e2f59d37a98531cbca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a104e25c_c02bd282",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn/juniper_junos_overlay_evpn.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-03-05T23:33:34Z",
+      "side": 1,
+      "message": "You might need to update/remove this check if changing l2_gateway.py",
+      "revId": "cb733b524722426238cf94e2f59d37a98531cbca",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
