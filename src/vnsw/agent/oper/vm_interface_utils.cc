@@ -33,6 +33,9 @@
 #include <resource_manager/resource_table.h>
 #include <resource_manager/mpls_index.h>
 
+#include <vrouter/ksync/ksync_init.h>
+#include <vrouter/ksync/vnswif_listener_base.h>
+
 using namespace std;
 using namespace boost::uuids;
 using namespace autogen;
@@ -202,6 +205,18 @@ bool VmInterface::IsActive()  const {
     }
 
     if (NeedOsStateWithoutDevice() && os_oper_state() == false) {
+        VnswInterfaceListener *vnswif =
+            agent()->ksync()->vnsw_interface_listner();
+            bool link_status = vnswif->IsHostLinkStateUp(name());
+            if ((transport_ == TRANSPORT_PMD) && link_status &&
+                (os_index() != Interface::kInvalidIndex) && (!agent()->test_mode())) {
+                DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+                req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, GetUuid(),
+                                     name()));
+                req.data.reset(new VmInterfaceOsOperStateData(link_status));
+                agent()->interface_table()->Enqueue(&req);
+                return true;
+            }
         return false;
     }
 
