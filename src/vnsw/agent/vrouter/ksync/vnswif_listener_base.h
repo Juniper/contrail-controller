@@ -187,6 +187,14 @@ public:
     uint32_t ll_add_count() const { return ll_add_count_; }
     uint32_t ll_del_count() const { return ll_del_count_; }
 
+    bool IsHostLinkStateUp(const std::string &name) const {
+        HostInterfaceTable::const_iterator it = host_interface_table_.find(name);
+        bool link_state = false;
+        if (it != host_interface_table_.end())
+            link_state = it->second->link_up_;
+        return link_state;
+    }
+
 protected:
     friend class TestVnswIf;
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
