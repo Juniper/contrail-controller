@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "27bbfbd2_a6a582e3",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_security_group/templates/juniper_junos_overlay_security_group.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-03-06T00:43:41Z",
+      "side": 1,
+      "message": "Do not change anything for MX - MX follows bridge hierarchy and not ethernet-switching. Also, we added deny term because of QFX issue. not sure if MX has same issue, Pradeep needs to confirm this what is the default behaviour for MX.",
+      "revId": "00c01bfdfbdc0535e5016eec1826a12db7ef1515",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
