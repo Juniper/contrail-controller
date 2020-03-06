@@ -16,6 +16,24 @@
       "revId": "e78dd14fc2edb4b113f1ec3a4d77c27948a7183f",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c67a740a_0bb1d91c",
+        "filename": "src/vnsw/agent/oper/nexthop.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 2370,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-03-06T05:21:19Z",
+      "side": 1,
+      "message": "when interface goes down, inet routes are deleted in overlay VRF and it will be notified to all listeners. one of the listener is route leak VRF state in default VRF , it is used to leak routes in default VRF when ip fabric forwarding is enabled. when it is notified of route delete, \nit updates the route and triggers component NH deletion from composite NH.",
+      "parentUuid": "9b9277ef_ed24ce9c",
+      "revId": "e78dd14fc2edb4b113f1ec3a4d77c27948a7183f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
