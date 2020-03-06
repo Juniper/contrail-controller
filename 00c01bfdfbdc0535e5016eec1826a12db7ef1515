@@ -16,6 +16,24 @@
       "revId": "00c01bfdfbdc0535e5016eec1826a12db7ef1515",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "95bdc612_584b8546",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/roles/cfg_overlay_security_group/templates/juniper_junos_overlay_security_group.j2",
+        "patchSetId": 2
+      },
+      "lineNbr": 53,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-03-06T00:56:45Z",
+      "side": 1,
+      "message": "Yes. done.",
+      "parentUuid": "27bbfbd2_a6a582e3",
+      "revId": "00c01bfdfbdc0535e5016eec1826a12db7ef1515",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
     }
   ]
 }
