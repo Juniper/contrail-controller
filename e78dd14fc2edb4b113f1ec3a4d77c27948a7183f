@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9b9277ef_ed24ce9c",
+        "filename": "src/vnsw/agent/oper/nexthop.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 2370,
+      "author": {
+        "id": 695
+      },
+      "writtenOn": "2020-03-06T04:19:49Z",
+      "side": 1,
+      "message": "Could you please elaborate on step 3\u0027s \"and something happens as in step 1\"?. It was not clear to me.",
+      "revId": "e78dd14fc2edb4b113f1ec3a4d77c27948a7183f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
