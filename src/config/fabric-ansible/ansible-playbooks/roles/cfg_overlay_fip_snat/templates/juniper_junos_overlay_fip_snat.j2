@@ -5,10 +5,6 @@
 {%         endif %}
 {%         set contrail_l3_ri = ri.get('name') %}
 {%         set intfs = ri.get('interfaces', []) %}
-{%         for intf in intfs %}
-{%             set name = intf.get('name') %}
-set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} interface {{name}}
-{%         endfor %}
 {%         set ri_type = ri.get('routing_instance_type') %}
 {%         for intf in ri.get('ingress_interfaces', []) %}
 {%             set intf_name = intf.get('name') %}

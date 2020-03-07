@@ -78,19 +78,27 @@ class VnInterconnectFeature(FeatureBase):
         return forwarding_options
     # end _build_dhcp_relay_config
 
-    def _build_ri_config(self, vn, ri_name, ri_obj, export_targets,
-                         import_targets, vn_list, is_master_int_vn):
+    def _build_ri_config(self, vn, ri_obj, lr_obj, vn_list, is_master_int_vn):
         gevent.idle()
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
+        ri_name = DMUtils.make_vrf_name(vn.fq_name[-1],
+                                        vn.vn_network_id, 'l3')
+
+        ri_description = "__contrail_%s_%s" % (lr_obj.name, vn.logical_router)
+
+        export_targets, import_targets = self._get_export_import_targets(
+            vn, ri_obj)
+
         if not is_master_int_vn:
             # create routing instance of type vrf
             ri = RoutingInstance(
-                name=ri_name, description=ri_name, virtual_network_mode='l3',
+                name=ri_name, description=ri_description,
+                virtual_network_mode='l3',
                 export_targets=export_targets, import_targets=import_targets,
                 virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
-                is_public_network=vn.router_external,
+                is_public_network=lr_obj.logical_router_gateway_external,
                 routing_instance_type='vrf', virtual_network_is_internal=True,
                 is_master=False)
 
@@ -103,9 +111,11 @@ class VnInterconnectFeature(FeatureBase):
                                   lo0_li.get_name())
         else:
             # create routing instance of type master, which represents inet.0
+            # setting is_public_network to false as per review comment - 57282
             ri = RoutingInstance(
-                name=ri_name, description=ri_name, virtual_network_mode='l3',
-                is_public_network=vn.router_external,
+                name=ri_name, description=ri_description,
+                virtual_network_mode='l3',
+                is_public_network=False,
                 routing_instance_type='master',
                 virtual_network_is_internal=True, is_master=True)
 
@@ -129,16 +139,22 @@ class VnInterconnectFeature(FeatureBase):
 
             lr_obj = db.LogicalRouterDM.get(vn_obj.logical_router)
             if lr_obj:
-                ri_name = "__contrail_%s_%s" % (lr_obj.name,
-                                                vn_obj.logical_router)
                 is_master_int_vn = lr_obj.is_master
 
-            export_targets, import_targets = self._get_export_import_targets(
-                vn_obj, ri_obj)
-
-            ri = self._build_ri_config(vn_obj, ri_name, ri_obj, export_targets,
-                                       import_targets, vn_list,
+            ri = self._build_ri_config(vn_obj, ri_obj, lr_obj, vn_list,
                                        is_master_int_vn)
+
+            fip_map = vn_obj.instance_ip_map
+            if lr_obj.logical_router_gateway_external:
+                prefixes = vn_obj.get_prefixes(self._physical_router.uuid)
+                if not fip_map:
+                    if prefixes:
+                        for prefix in prefixes:
+                            ri.add_static_routes(
+                                self._get_route_for_cidr(prefix))
+                            ri.add_prefixes(
+                                self._get_subnet_for_cidr(prefix))
+
             if dhcp_servers.get(internal_vn):
                 in_network = self._is_dhcp_server_in_same_network(
                     dhcp_servers[internal_vn], vn_list)
