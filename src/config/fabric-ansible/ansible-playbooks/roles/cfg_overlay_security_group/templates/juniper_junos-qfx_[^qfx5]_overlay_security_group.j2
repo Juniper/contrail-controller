@@ -1,4 +1,5 @@
 {%     set firewall = device_abstract_config.get('firewall') %}
+{%     set ns = namespace(found=false) %}
 {%     if firewall != None %}
 {%         set firewall_filters = firewall.get('firewall_filters', []) %}
 {%         for filter in firewall_filters %}
@@ -7,7 +8,6 @@
 {%             endif %}
 {%             set filter_name = filter.get('name', '') %}
 {%             set terms = filter.get('terms', []) %}
-{%             set ns = namespace(found=false) %}
 {%             for term in terms %}
 {%                 set term_name = term.get('name') %}
 {%                 set term_from = term.get('fromxx') %}
@@ -49,17 +49,20 @@ set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name
 {%                     set ns.found = true %}
 set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term {{term_name}} then accept
 {%                 endif %}
-{%             endfor %}
-{%             if ns.found == true %}
-set groups {{cfg_group}} firewall family ethernet-switching filter {{filter_name}} term tdenyall then discard
-{%             endif %}
-{%         endfor %}
-{%     endif %}
+{%             endfor %}{# /* for each terms under firewall filter */ #}
+{%         endfor %}{# /* for each firewall filter */ #}
+{%         if ns.found == true %}
+set groups {{cfg_group}} firewall family ethernet-switching filter denyall term tdenyall then discard
+{%         endif %}
+{%     endif %}{# /* firewall valid */ #}
 {%     set sys_config = device_abstract_config.get('system', None) %}
 {%     set sys_roles = sys_config.get('routing_bridging_roles', []) %}
 {%     for phy_int in device_abstract_config.get('physical_interfaces', []) %}
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             set firewall_filters = li.get('firewall_filters', []) %}
+{%             if ns.found == true %}
+{%                 do firewall_filters.append('denyall') %}
+{%             endif %}
 {%             for firewall_filter in firewall_filters %}
 {%                 if enterprise_style == True or 'ERB-UCAST-Gateway' in sys_roles %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family ethernet-switching filter input-list {{firewall_filter}}
