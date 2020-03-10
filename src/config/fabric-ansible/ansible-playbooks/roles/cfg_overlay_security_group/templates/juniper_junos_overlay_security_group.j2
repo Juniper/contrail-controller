@@ -61,12 +61,8 @@ set groups {{cfg_group}} firewall family bridge filter {{filter_name}} term tden
 {%         for li in phy_int.get('logical_interfaces', []) %}
 {%             set firewall_filters = li.get('firewall_filters', []) %}
 {%             for firewall_filter in firewall_filters %}
-{%                 if enterprise_style == True or 'ERB-UCAST-Gateway' in sys_roles %}
-set groups {{cfg_group}} interfaces {{phy_int.name}} unit 0 family bridge filter input-list {{firewall_filter}}
-{%                 else %}
-{%                     set unit = li.get('unit') %}
+{%                 set unit = li.get('unit') %}
 set groups {{cfg_group}} interfaces {{phy_int.name}} unit {{unit}} family bridge filter input-list {{firewall_filter}}
-{%                 endif %}
 {%             endfor %}
 {%         endfor %}
 {%     endfor %}
