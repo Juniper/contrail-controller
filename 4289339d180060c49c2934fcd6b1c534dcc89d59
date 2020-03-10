@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "61c0bc55_c392105c",
+        "filename": "src/bgp/bgp_table.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 645,
+      "author": {
+        "id": 564
+      },
+      "writtenOn": "2020-03-10T20:32:09Z",
+      "side": 1,
+      "message": "You could keep the old code as is with respect to checking for cluster_id. Don\u0027t need to check for server()-\u003ecluster_id() since it has already been checked earlier. Rather we could just check if family is non route-target.\nAlso, can you add a UT case to check this.",
+      "revId": "4289339d180060c49c2934fcd6b1c534dcc89d59",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
