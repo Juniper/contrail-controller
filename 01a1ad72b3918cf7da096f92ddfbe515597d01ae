@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "7a5708cb_baef080f",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2194,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-03-10T19:29:06Z",
+      "side": 1,
+      "message": "Could you please put comment here above line 2194 \"Code flow for DC gateway functionality only\". Future item: Also do you think is there a need to go from vn to lr and get all vns and their prefixes. This seems to be redundant as we call vn.get_prefixes everywhere after iterating the lr.",
+      "revId": "01a1ad72b3918cf7da096f92ddfbe515597d01ae",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
