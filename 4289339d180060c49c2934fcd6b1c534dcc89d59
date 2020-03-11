@@ -16,6 +16,24 @@
       "revId": "4289339d180060c49c2934fcd6b1c534dcc89d59",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4c2b9649_6e099ecc",
+        "filename": "src/bgp/bgp_table.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 645,
+      "author": {
+        "id": 213
+      },
+      "writtenOn": "2020-03-11T03:41:56Z",
+      "side": 1,
+      "message": "Hi Mahesh,\nI did this way just to avoid changing indentation of existing code.\nIts I\u0027ll add in subsequent commit if it is ok with you.",
+      "parentUuid": "61c0bc55_c392105c",
+      "revId": "4289339d180060c49c2934fcd6b1c534dcc89d59",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
