@@ -123,6 +123,10 @@ set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_na
 {%                                 endif %}
 {%                             endfor %}
 {%                         endif %}{# /* bgp has routing policies */ #}
+set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export BGP_ROUTES
+set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT_BGP from protocol bgp
+set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES term DEFAULT_BGP then accept
+set groups {{cfg_group}} policy-options policy-statement BGP_ROUTES then reject
 {%                     endif %}{# /* bgp is for routed VN */ #}
 {%                 endfor %}
 {%             endfor %}{# /* end of bgp for loop */ #}
