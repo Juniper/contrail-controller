@@ -16,6 +16,24 @@
       "revId": "01a1ad72b3918cf7da096f92ddfbe515597d01ae",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a1623a74_20e6ee25",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2194,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-03-11T02:36:31Z",
+      "side": 1,
+      "message": "Abhinav, this is not introduced as part of the DC-GW. Seems it is added as part of the \"[DM] Changes for LR-incterconnect (unmanaged PNF service) story.\" I just fixed the bug.",
+      "parentUuid": "7a5708cb_baef080f",
+      "revId": "01a1ad72b3918cf7da096f92ddfbe515597d01ae",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
