@@ -83,10 +83,9 @@ class VnInterconnectFeature(FeatureBase):
         network_id = vn.vn_network_id
         vxlan_id = vn.get_vxlan_vni(is_internal_vn=True)
 
-        ri_name = DMUtils.make_vrf_name(vn.fq_name[-1],
-                                        vn.vn_network_id, 'l3')
-
-        ri_description = "__contrail_%s_%s" % (lr_obj.name, vn.logical_router)
+        if lr_obj:
+            ri_name = "__contrail_%s_%s" % (lr_obj.name,
+                                            vn.logical_router)
 
         export_targets, import_targets = self._get_export_import_targets(
             vn, ri_obj)
@@ -94,7 +93,7 @@ class VnInterconnectFeature(FeatureBase):
         if not is_master_int_vn:
             # create routing instance of type vrf
             ri = RoutingInstance(
-                name=ri_name, description=ri_description,
+                name=ri_name, description=ri_name,
                 virtual_network_mode='l3',
                 export_targets=export_targets, import_targets=import_targets,
                 virtual_network_id=str(network_id), vxlan_id=str(vxlan_id),
@@ -113,7 +112,7 @@ class VnInterconnectFeature(FeatureBase):
             # create routing instance of type master, which represents inet.0
             # setting is_public_network to false as per review comment - 57282
             ri = RoutingInstance(
-                name=ri_name, description=ri_description,
+                name=ri_name, description=ri_name,
                 virtual_network_mode='l3',
                 is_public_network=False,
                 routing_instance_type='master',

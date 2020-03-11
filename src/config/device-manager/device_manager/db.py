@@ -3568,17 +3568,12 @@ class RoutingPolicyDM(DBBaseDM):
             self.routing_policy_entries = rp_entries['term']
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        if obj.get('virtual_network_back_refs') is not None:
-            self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('virtual_network', obj)
     # end update
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
+    def delete_obj(self):
         self.update_multiple_refs('virtual_network', {})
-        del cls._dict[uuid]
-    # end delete
+    # end delete_obj
 # end RoutingPolicyDM
 
 
@@ -3604,19 +3599,14 @@ class InterfaceRouteTableDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.get_route_prefix(obj.get('interface_route_table_routes', {}))
-        if obj.get('virtual_machine_interface_back_refs') is not None:
-            self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
     # end update
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
+    def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
-    # end delete
+    # end delete_obj
 # end InterfaceRouteTableDM
 
 
