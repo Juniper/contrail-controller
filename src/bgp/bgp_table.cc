@@ -640,12 +640,14 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                         .ClusterListLoop(server()->cluster_id())) {
                     return NULL;
                 }
+            }
 
-                RibPeerSet route_peerset;
+            if (server()->cluster_id() && (family() != Address::RTARGET)) {
                 // route reflector should not reflect the route back to the peer
-                // from which it received that route
+                // from which it received that route, for non rtarget routes
                 // This is done by checking peer_router_id of all the feasible
                 // paths of this route
+                RibPeerSet route_peerset;
                 for (Route::PathList::iterator it= route->GetPathList().begin();
                         it != route->GetPathList().end(); it++) {
                     BgpPath *ipath = static_cast<BgpPath *>(it.operator->());
