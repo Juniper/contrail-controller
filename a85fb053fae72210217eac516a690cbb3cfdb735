@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2a59cd55_da65bba6",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn_type5/juniper_junos-qfx_overlay_evpn_type5.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 856
+      },
+      "writtenOn": "2020-03-11T02:02:01Z",
+      "side": 1,
+      "message": "Do we need check here for route \u0027static_routes\u0027 comments is it routed VN or not ? Not sure from my understanding, it will be safe to do if statement if ri.comments !\u003d routed vn then do next-hop.  for ri not marked with is_master we are setting static routes only for ri marked with comments routed vn. below.",
+      "range": {
+        "startLine": 15,
+        "startChar": 30,
+        "endLine": 15,
+        "endChar": 35
+      },
+      "revId": "a85fb053fae72210217eac516a690cbb3cfdb735",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
