@@ -68,6 +68,7 @@ class DatabaseExim(object):
             'consumers',
             'config',
             'controller',
+            'vcenter-plugin'
             'isr_change_notification',
             'admin',
             'brokers',
