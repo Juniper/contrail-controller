@@ -1548,12 +1548,14 @@ class FilterModule(object):
                 device_obj = vnc_api.physical_router_read(
                     id=device_uuid, fields=['physical_interfaces',
                                             'bgp_router_refs',
+                                            'device_chassis_refs',
                                             'display_name']
                 )
             elif device_fq_name:
                 device_obj = vnc_api.physical_router_read(
                     fq_name=device_fq_name, fields=['physical_interfaces',
                                                     'bgp_router_refs',
+                                                    'device_chassis_refs',
                                                     'display_name']
                 )
         except NoIdError:
@@ -1648,11 +1650,39 @@ class FilterModule(object):
         # delete the corresponding bgp-router if exist
         self._delete_bgp_router(vnc_api, device_obj)
 
+        # delete the corresponding device_chassis if exist
+        self._delete_device_chassis(vnc_api, device_obj)
+
         # Now we can delete the device finally
-        _task_log("Deleting deivce %s" % device_obj.display_name)
+        _task_log("Deleting device %s" % device_obj.display_name)
         vnc_api.physical_router_delete(id=device_obj.uuid)
         _task_done()
     # end _delete_fabric_device
+
+    @staticmethod
+    def _delete_device_chassis(vnc_api, device_obj):
+        """Delete device chassis object(s) for router.
+
+        delete corresponding device_chassis for a specific device
+        :param vnc_api: <vnc_api.VncApi>
+        :param device_obj: <vnc_api.gen.resource_client.PhysicalRouter>
+        :return: None
+        """
+        for chassis_ref_obj in device_obj.get_device_chassis_refs() or []:
+            try:
+                chassis_uuid = chassis_ref_obj.get('uuid')
+                chassis_obj = vnc_api.device_chassis_read(id=chassis_uuid)
+                _task_log("Deleting device-chassis %s for device %s" %
+                          (chassis_obj.name, device_obj.display_name))
+                device_obj.del_device_chassis(chassis_obj)
+                vnc_api.physical_router_update(device_obj)
+                vnc_api.device_chassis_delete(id=chassis_obj.uuid)
+                _task_done()
+            except NoIdError:
+                _task_debug_log(
+                    'device-chassis for device %s does not exist' %
+                    device_obj.name)
+    # end _delete_device_chassis
 
     @staticmethod
     def _delete_bgp_router(vnc_api, device_obj):
