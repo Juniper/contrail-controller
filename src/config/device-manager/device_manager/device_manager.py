@@ -37,7 +37,7 @@ from .db import AccessControlListDM, BgpRouterDM, DataCenterInterconnectDM, \
     FabricNamespaceDM, FeatureConfigDM, FeatureDM, FloatingIpDM, \
     FloatingIpPoolDM, FlowNodeDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, \
-    InstanceIpDM, InterfaceRouteTableDM, \
+    InstanceIpDM, IntentMapDM, InterfaceRouteTableDM, \
     LinkAggregationGroupDM, LogicalInterfaceDM, \
     LogicalRouterDM, NetworkDeviceConfigDM, NetworkIpamDM, NodeProfileDM, \
     OverlayRoleDM, PeeringPolicyDM, PhysicalInterfaceDM, PhysicalRoleDM, \
@@ -83,6 +83,7 @@ class DeviceManager(object):
             'virtual_port_group': [],
             'service_instance': [],
             'service_appliance': [],
+            'intent_map': [],
         },
         'global_system_config': {
             'self': ['physical_router', 'data_center_interconnect'],
@@ -160,7 +161,8 @@ class DeviceManager(object):
                      'service_endpoint',
                      'virtual_port_group'],
             'logical_interface': ['virtual_network'],
-            'virtual_network': ['logical_interface', 'logical_router'],
+            'virtual_network': ['logical_interface', 'logical_router',
+                                'intent_map'],
             'logical_router': [],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
@@ -221,10 +223,11 @@ class DeviceManager(object):
             'physical_router': [],
             'logical_router': ['physical_router'],
             'data_center_interconnect': ['physical_router'],
-            'virtual_machine_interface': ['physical_router'],
+            'virtual_machine_interface': ['physical_router', 'intent_map'],
             'floating_ip_pool': ['physical_router'],
             'network_ipam': ['tag'],
             'routing_policy': ['virtual_machine_interface'],
+            'intent_map': ['physical_router'],
         },
         'logical_router': {
             'self': ['physical_router', 'virtual_network', 'port_tuple'],
@@ -303,6 +306,11 @@ class DeviceManager(object):
         'routing_policy': {
             'self': ['virtual_network'],
         },
+        'intent_map': {
+            'self': ['physical_router'],
+            'virtual_network': ['physical_router'],
+            'virtual_machine_interface': ['physical_router']
+        }
     }
 
     _instance = None
@@ -416,6 +424,7 @@ class DeviceManager(object):
         BgpRouterDM.locate_all()
         PhysicalInterfaceDM.locate_all()
         LogicalInterfaceDM.locate_all()
+        IntentMapDM.locate_all()
         PhysicalRouterDM.locate_all()
         LinkAggregationGroupDM.locate_all()
         VirtualPortGroupDM.locate_all()
