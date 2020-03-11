@@ -3572,13 +3572,9 @@ class RoutingPolicyDM(DBBaseDM):
             self.update_multiple_refs('virtual_network', obj)
     # end update
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
+    def delete_obj(self):
         self.update_multiple_refs('virtual_network', {})
-        del cls._dict[uuid]
-    # end delete
+    # end delete_obj
 # end RoutingPolicyDM
 
 
@@ -3610,13 +3606,9 @@ class InterfaceRouteTableDM(DBBaseDM):
         self.fq_name = obj['fq_name']
     # end update
 
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
+    def delete_obj(self):
         self.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
-    # end delete
+    # end delete_obj
 # end InterfaceRouteTableDM
 
 
