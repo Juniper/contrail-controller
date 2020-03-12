@@ -53,7 +53,7 @@ class FilterModule(object):
             if tup[0] == 'RTA_PREFSRC':
                 lookup_ip = str(tup[1])
 
-        for ifaceName in interfaces():
+        for ifaceName in interfaces() or []:
             addresses = [i['addr'] for i in ifaddresses(ifaceName)\
                          .setdefault(AF_INET, [{'addr':'No IP addr'}] )]
             if (addresses[0]) == lookup_ip.decode('utf-8'):
@@ -103,7 +103,7 @@ class FilterModule(object):
                         subnet.update({'intf_name':intf_name})
 
             # Get static ip configuration for physical routers
-            pr_refs = fabric.get_physical_router_back_refs()
+            pr_refs = fabric.get_physical_router_back_refs() or []
             pr_uuids = [ref['uuid'] for ref in pr_refs]
             static_ips = {}
             for pr_uuid in pr_uuids:
@@ -115,6 +115,19 @@ class FilterModule(object):
                     static_ips[ip] = mac
             if static_ips:
                 dhcp_config['static_ips'] = static_ips
+
+            # Get user-specified static ip configuration
+            static_host_ips = {}
+            job_input = job_ctx.get('job_input', {})
+            device_to_ztp = job_input.get('device_to_ztp', [])
+            for dev in device_to_ztp:
+                mgmt_ip = dev.get('mgmt_ip')
+                sernum = dev.get('serial_number')
+                if mgmt_ip and sernum:
+                    static_host_ips[mgmt_ip] = sernum
+            if static_host_ips:
+                dhcp_config['static_host_ips'] = static_host_ips
+
         except Exception as ex:
             logging.error(
                 "Error getting ZTP DHCP configuration: {}".format(ex))
