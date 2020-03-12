@@ -15,7 +15,7 @@ from job_manager.job_utils import JobVncApi
 sys.path.append("/opt/contrail/fabric_ansible_playbooks/module_utils")
 from filter_utils import FilterLog, _task_error_log, get_job_transaction, \
     set_job_transaction  # noqa
-
+from vnc_api.exceptions import NoIdError
 
 class FilterModule(object):
 
@@ -113,7 +113,6 @@ class FilterModule(object):
             device_name = device_obj.name
             device_cli_obj_name = device_name + "_" + "cli_config"
             cli_obj_fq_name = ['default-global-system-config', device_name, device_cli_obj_name]
-            cli_obj = self.vncapi.cli_config_read(fq_name=cli_obj_fq_name)
             underlay_managed = \
                 device_obj.get_physical_router_underlay_managed()
 
@@ -128,11 +127,17 @@ class FilterModule(object):
                 self.vncapi.physical_router_update(device_obj)
                 continue
 
+            # Try to read cli config object if present, else return empty string for config
+            try:
+                cli_obj = self.vncapi.cli_config_read(fq_name=cli_obj_fq_name)
+                accepted_cli_config = cli_obj.get_accepted_cli_config()
+            except NoIdError:
+                accepted_cli_config = ""
+
             # Get device supplemental config, if any, and append to overall
             # supplemental config
             device_supp_cfg = \
                 device_obj.get_physical_router_supplemental_config()
-            accepted_cli_config = cli_obj.get_accepted_cli_config()
             self._supplemental_config_append(device_name,
                                              new_serial_number,
                                              device_supp_cfg, accepted_cli_config)
