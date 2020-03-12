@@ -212,7 +212,7 @@ bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
         if (vm_itf->vmi_type() == VmInterface::VHOST) {
             continue;
         }
-        if (vrf->GetName() != vm_itf->vrf()->GetName()) {
+        if (!vm_itf->vrf() || (vrf->GetName() != vm_itf->vrf()->GetName())) {
             continue;
         }
         if (!ipam->IsSubnetMember(IpAddress(vm_itf->primary_ip_addr()))) {
