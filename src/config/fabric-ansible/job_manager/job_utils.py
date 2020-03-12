@@ -204,3 +204,16 @@ class JobAnnotations(object):
                          value=json.dumps(job_input)))
         self.vncapi.fabric_update(fabric_obj)
     # end _cache_job_input
+
+    # Fetch the job input on the fabric object
+    def fetch_job_input(self, fabric_uuid, job_template_name):
+        fabric_obj = self.vncapi.fabric_read(id=fabric_uuid)
+        job_input = ''
+        annotations = fabric_obj.get_annotations()
+        if annotations:
+            kv_pairs = annotations.get_key_value_pair() or []
+            for kv_pair in kv_pairs:
+                if kv_pair.get_key() == job_template_name:
+                    job_input = json.loads(kv_pair.get_value())
+                    break
+        return job_input

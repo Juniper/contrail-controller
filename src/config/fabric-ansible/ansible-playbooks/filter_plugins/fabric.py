@@ -1881,6 +1881,59 @@ class FilterModule(object):
 
     # end _validate_fabric_device_deletion
 
+    def _assign_lb_li_bgpr(self, vnc_api, role_assignments,
+                           fabric_fq_name, devicefqname2_phy_role_map,
+                           assign_static=False):
+        static_ips = {}
+
+        if assign_static:
+            # read device_to_ztp, get all static loopback IP assignments
+            fabric_uuid = vnc_api.fq_name_to_id('fabric', fabric_fq_name)
+            job_input = JobAnnotations(vnc_api).fetch_job_input(
+                fabric_uuid, 'fabric_onboard_template')
+            device_to_ztp = job_input.get('device_to_ztp', [])
+            for dev in device_to_ztp:
+                ip_addr = dev.get('loopback_ip')
+                if ip_addr:
+                    dev_name = dev.get('hostname') or dev.get('serial_number')
+                    if dev_name:
+                        static_ips[dev_name] = ip_addr
+
+        for device_roles in role_assignments:
+            ar_flag = False
+            # this check ensures that roles are assigned
+            # to the device only if node_profile_refs are present
+            # in the device
+            if "AR-Replicator" in device_roles.get(
+                    'routing_bridging_roles'):
+                ar_flag = True
+                # add PR to intent-map
+
+                intent_map_name = _fabric_intent_map_name(
+                    fabric_fq_name[-1], 'assisted-replicator-intent-map')
+
+                intent_map_fq_name = ['default-global-system-config',
+                                      intent_map_name]
+                vnc_api.ref_update("physical_router",
+                                   device_roles.get(
+                                       'device_obj').get_uuid(),
+                                   "intent_map",
+                                   vnc_api.fq_name_to_id(
+                                       'intent_map',
+                                       intent_map_fq_name), None, 'ADD')
+            if device_roles.get('supported_roles'):
+                device_obj = device_roles.get('device_obj')
+                dev_name = device_obj.name
+                ip_addr = None
+                if dev_name in static_ips:
+                    ip_addr = static_ips[dev_name]
+                self._add_loopback_interface(vnc_api, device_obj,
+                                             ar_flag, ip_addr=ip_addr)
+                self._add_logical_interfaces_for_fabric_links(
+                    vnc_api, device_obj, devicefqname2_phy_role_map
+                )
+                self._add_bgp_router(vnc_api, device_roles)
+
     # ***************** assign_roles filter ***********************************
     def assign_roles(self, job_ctx):
         """Assign roles.
@@ -1989,36 +2042,19 @@ class FilterModule(object):
 
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
-            for device_roles in role_assignments:
-                ar_flag = False
-                # this check ensures that roles are assigned
-                # to the device only if node_profile_refs are present
-                # in the device
-                if "AR-Replicator" in device_roles.get(
-                        'routing_bridging_roles'):
-                    ar_flag = True
-                    # add PR to intent-map
 
-                    intent_map_name = _fabric_intent_map_name(
-                        fabric_fq_name[-1], 'assisted-replicator-intent-map')
+            # First handle static loopback IP assignments to reserve those
+            # addresses before assigning dynamic IPs
+            self._assign_lb_li_bgpr(vnc_api, role_assignments,
+                                    fabric_fq_name,
+                                    devicefqname2_phy_role_map,
+                                    assign_static=True)
 
-                    intent_map_fq_name = ['default-global-system-config',
-                                          intent_map_name]
-                    vnc_api.ref_update("physical_router",
-                                       device_roles.get(
-                                           'device_obj').get_uuid(),
-                                       "intent_map",
-                                       vnc_api.fq_name_to_id(
-                                           'intent_map',
-                                           intent_map_fq_name), None, 'ADD')
-                if device_roles.get('supported_roles'):
-                    device_obj = device_roles.get('device_obj')
-                    self._add_loopback_interface(vnc_api, device_obj,
-                                                 ar_flag)
-                    self._add_logical_interfaces_for_fabric_links(
-                        vnc_api, device_obj, devicefqname2_phy_role_map
-                    )
-                    self._add_bgp_router(vnc_api, device_roles)
+            # Now handle dynamic loopback IP assignments
+            self._assign_lb_li_bgpr(vnc_api, role_assignments,
+                                    fabric_fq_name,
+                                    devicefqname2_phy_role_map,
+                                    assign_static=False)
 
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
@@ -2543,7 +2579,8 @@ class FilterModule(object):
         return network_obj
     # end _get_device_network
 
-    def _add_loopback_interface(self, vnc_api, device_obj, ar_flag):
+    def _add_loopback_interface(self, vnc_api, device_obj, ar_flag,
+                                ip_addr=None):
         """Add loopback interface.
 
         :param vnc_api: <vnc_api.VncApi>
@@ -2585,7 +2622,8 @@ class FilterModule(object):
             try:
                 iip_obj = vnc_api.instance_ip_read(fq_name=[iip_name])
             except NoIdError:
-                iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4')
+                iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4',
+                                     instance_ip_address=ip_addr)
                 iip_obj.set_logical_interface(loopback_li_obj)
                 iip_obj.set_virtual_network(loopback_network_obj)
                 _task_log(
