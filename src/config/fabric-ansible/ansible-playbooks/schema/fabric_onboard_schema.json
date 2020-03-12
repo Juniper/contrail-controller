@@ -215,9 +215,30 @@
               "type": "string",
               "pattern": "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
             },
+            "underlay_asn": {
+              "title": "Underlay eBGP autonomous system number",
+              "type": ["integer", "string"]
+            },
+            "loopback_ip": {
+              "title": "Loopback IP address",
+              "type": "string",
+              "format": "ipv4"
+            },
+            "mgmt_ip": {
+              "title": "Management IP address",
+              "type": "string",
+              "format": "ipv4"
+            },
+            "to_ztp": {
+              "title": "Management IP address",
+              "type": "boolean"
+            },
             "supplemental_day_0_cfg": {
-              "title": "Name of the supplemental day-0 config that can be optionally specified for this device",
-              "type": "string"
+              "title": "Name(s) of the supplemental day-0 config(s) that can be optionally specified for this device",
+              "type": ["string", "array"],
+              "items": {
+                "type": "string"
+              }
             }
           }
         }

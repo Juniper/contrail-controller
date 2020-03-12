@@ -25,6 +25,7 @@ from vnc_api.gen.resource_client import PhysicalRouter
 from vnc_api.vnc_api import VncApi
 
 from job_manager.job_utils import JobFileWrite, JobVncApi
+import json
 
 REF_EXISTS_ERROR = 3
 JOB_IN_PROGRESS = "JOB_IN_PROGRESS"
@@ -459,10 +460,14 @@ class DeviceInfo(object):
                               for d in device_to_ztp)
             config_map = dict((c.get('name'), c) for c in supplemental_configs)
             if device_name in device_map:
-                config_name = device_map[device_name].get(
-                    'supplemental_day_0_cfg')
-                if config_name in config_map:
-                    supplemental_config = config_map[config_name].get('cfg')
+                config_names = \
+                    device_map[device_name].get('supplemental_day_0_cfg', [])
+                if type(config_names) is not list:
+                    config_names = [config_names]
+                for config_name in config_names:
+                    if config_name in config_map:
+                        supplemental_config += \
+                            config_map[config_name].get('cfg') + '\n'
         return supplemental_config
 
     def device_info_processing(self, host, oid_mapped):
