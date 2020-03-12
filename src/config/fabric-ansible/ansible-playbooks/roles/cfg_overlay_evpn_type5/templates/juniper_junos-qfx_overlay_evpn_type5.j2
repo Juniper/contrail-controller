@@ -90,9 +90,11 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options auto-export
 set groups {{cfg_group}} routing-instances {{name}} interface {{irb_name}}
 {%             endfor %}
 {%             for route in ri.get('static_routes', []) %}
-{%                 set cidr = route.get('prefix') %}
-{%                 set next_hop = route.get('next_hop') %}
+{%                 if 'Routed VN static route' in route.get('comment','') %}
+{%                     set cidr = route.get('prefix') %}
+{%                     set next_hop = route.get('next_hop') %}
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{cidr}} next-hop {{next_hop}}
+{%                 endif %}
 {%             endfor %}
 {%             for protocols in ri.get('protocols', []) %}
 {%                 for bgp in protocols.get('bgp', []) %}
