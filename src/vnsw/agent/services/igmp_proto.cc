@@ -194,7 +194,7 @@ bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
 
     do {
         const NextHop *nh = rt->GetActiveNextHop();
-        if (!nh) {
+        if (!nh || nh->IsDeleted()) {
             continue;
         }
         const InterfaceNH *inh = dynamic_cast<const InterfaceNH *>(nh);
@@ -212,15 +212,15 @@ bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
         if (vm_itf->vmi_type() == VmInterface::VHOST) {
             continue;
         }
+        if (!vm_itf->igmp_enabled()) {
+            IncrSendStats(vm_itf, false);
+            continue;
+        }
         if (vrf->GetName() != vm_itf->vrf()->GetName()) {
             continue;
         }
         if (!ipam->IsSubnetMember(IpAddress(vm_itf->primary_ip_addr()))) {
             break;
-        }
-        if (!vm_itf->igmp_enabled()) {
-            IncrSendStats(vm_itf, false);
-            continue;
         }
 
         igmp_handler.SendPacket(vm_itf, vrf, gmp_addr, packet);
