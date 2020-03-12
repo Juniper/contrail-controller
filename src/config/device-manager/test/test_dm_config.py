@@ -6,7 +6,6 @@ from __future__ import absolute_import
 from builtins import range
 import sys
 import gevent
-from testtools.matchers import Equals, Contains, Not
 from . import test_case
 import xmltodict
 import collections

@@ -5,14 +5,10 @@ from __future__ import absolute_import
 from builtins import str
 import gevent
 import mock
-from attrdict import AttrDict
-from device_manager.device_manager import DeviceManager
-from cfgm_common.tests.test_common import retries
-from cfgm_common.tests.test_common import retry_exc_handler
-from .test_dm_ansible_common import TestAnsibleCommonDM
-from .test_dm_utils import FakeJobHandler
 from unittest import skip
+from attrdict import AttrDict
 from vnc_api.vnc_api import *
+from .test_dm_ansible_common import TestAnsibleCommonDM
 
 
 class TestAnsibleStormControlDM(TestAnsibleCommonDM):
@@ -35,6 +31,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         actions = ['interface-shutdown']
 
         self.create_feature_objects_and_params()
+
         sc_obj = self.create_storm_control_profile(sc_name, bw_percent, traffic_type, actions, recovery_timeout=None)
         pp_obj = self.create_port_profile('port_profile_vmi', sc_obj)
 
@@ -49,7 +46,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         gevent.sleep(1)
         abstract_config = self.check_dm_ansible_config_push()
         device_abstract_config = abstract_config.get('device_abstract_config')
-
         storm_control_profiles = device_abstract_config.get(
             'features', {}).get('storm-control',{}).get('storm_control', [])
         storm_control_profile = storm_control_profiles[-1]
@@ -87,8 +83,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
         self.assertEqual(storm_control_profile.get('actions'), None)
         self.assertEqual(storm_control_profile.get('traffic_type'), None)
         self.assertEqual(storm_control_profile.get('recovery_timeout'), 1200)
-
-        # delete workflow
 
         self.delete_objects()
 
@@ -137,10 +131,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                 if "xe-0/0/0" in log_intf.get('name'):
                     self.assertEqual(log_intf.get('storm_control_profile'),
                                      sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
 
         self.delete_objects()
-
 
     def test_03_port_profile_service_provider_style_crb_access(self):
         # create objects
@@ -171,11 +163,7 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
         self.assertEqual(storm_control_profiles, [])
 
-
-        # delete workflow
-
         self.delete_objects()
-
 
     def test_04_disassociate_PP_from_VMI(self):
         sc_name = 'strm_ctrl_pp'
@@ -241,10 +229,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
             for log_intf in log_intfs:
                 if "xe-0/0/0" in log_intf.get('name'):
                     self.assertIsNone(log_intf.get('storm_control_profile'))
-        # delete workflow
 
         self.delete_objects()
-
 
     def test_05_port_profile_service_provider_style_erb_ucast(self):
         # create objects
@@ -291,8 +277,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                 if "xe-0/0/0" in log_intf.get('name'):
                     self.assertEqual(log_intf.get('storm_control_profile'),
                                      sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-
-        # delete workflow
 
         self.delete_objects()
 
@@ -368,8 +352,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                         self.assertEqual(log_intf.get('storm_control_profile'),
                                          sc_obj1_fqname[-1] + "-" + sc_obj1_fqname[-2])
 
-        # delete workflow
-
         self.delete_objects()
 
     def test_07_vpg_lag(self):
@@ -417,7 +399,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                 if "ae" in log_intf.get('name'):
                     self.assertEqual(log_intf.get('storm_control_profile'),
                                      sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
 
         self.delete_objects()
 
@@ -500,10 +481,8 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                 if "ae" in log_intf.get('name'):
                     self.assertEqual(log_intf.get('storm_control_profile'),
                                      sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
 
         self.delete_objects()
-
 
     def test_09_vpg_mh_and_single(self):
         # create objects
@@ -606,7 +585,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
                 if "ae" in log_intf.get('name'):
                     self.assertEqual(log_intf.get('storm_control_profile'),
                                      sc_obj_fqname[-1] + "-" + sc_obj_fqname[-2])
-        # delete workflow
 
         self.delete_objects()
 
@@ -684,7 +662,6 @@ class TestAnsibleStormControlDM(TestAnsibleCommonDM):
 
     def create_vpg_and_vmi(self, pp_obj_1, pr1, fabric, pi_obj,
                            vn_obj, pp_obj_2=None, pr2=None, pi_obj2=None, vpg_nm=1):
-
         device_name = pr1.get_fq_name()[-1]
         fabric_name = fabric.get_fq_name()[-1]
         phy_int_name = pi_obj.get_fq_name()[-1]

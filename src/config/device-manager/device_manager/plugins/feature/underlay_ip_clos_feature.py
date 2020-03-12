@@ -7,9 +7,10 @@
 from collections import OrderedDict
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+
+from .db import LogicalInterfaceDM, PhysicalInterfaceDM, PhysicalRouterDM
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 
 class UnderlayIpClosFeature(FeatureBase):
@@ -26,18 +27,18 @@ class UnderlayIpClosFeature(FeatureBase):
 
     def _fetch_pi_li_iip(self, physical_interfaces):
         for pi_uuid in physical_interfaces:
-            pi_obj = db.PhysicalInterfaceDM.get(pi_uuid)
+            pi_obj = PhysicalInterfaceDM.get(pi_uuid)
             if pi_obj is None:
                 self._logger.error("unable to read physical interface %s" %
                                    pi_uuid)
             else:
                 for li_uuid in pi_obj.logical_interfaces:
-                    li_obj = db.LogicalInterfaceDM.get(li_uuid)
+                    li_obj = LogicalInterfaceDM.get(li_uuid)
                     if li_obj is None:
                         self._logger.error(
                             "unable to read logical interface %s" % li_uuid)
                     elif li_obj.instance_ip is not None:
-                        iip_obj = db.InstanceIpDM.get(li_obj.instance_ip)
+                        iip_obj = InstanceIpDM.get(li_obj.instance_ip)
                         if iip_obj is None:
                             self._logger.error(
                                 "unable to read instance ip %s" %
@@ -83,7 +84,7 @@ class UnderlayIpClosFeature(FeatureBase):
                     if peer_pi_obj and peer_li_obj and peer_iip_obj and\
                             peer_iip_obj.instance_ip_address:
 
-                        peer_pr = db.PhysicalRouterDM.get(
+                        peer_pr = PhysicalRouterDM.get(
                             peer_pi_obj.physical_router)
                         if peer_pr is None:
                             self._logger.error(

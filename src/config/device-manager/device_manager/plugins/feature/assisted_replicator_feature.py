@@ -5,9 +5,10 @@
 """Assisted Replicator Feature Implementation."""
 
 from abstract_device_api.abstract_device_xsd import *
-import db
-from dm_utils import DMUtils
-from feature_base import FeatureBase
+
+from .db import IntentMapDM, VirtualNetworkDM
+from .dm_utils import DMUtils
+from .feature_base import FeatureBase
 
 
 class AssistedReplicatorFeature(FeatureBase):
@@ -25,10 +26,10 @@ class AssistedReplicatorFeature(FeatureBase):
     def _build_vn_config(self, feature_config):
         if self._physical_router.intent_maps:
             for intent_uuid in self._physical_router.intent_maps or ():
-                imp = db.IntentMapDM.get(intent_uuid)
+                imp = IntentMapDM.get(intent_uuid)
                 if imp.intent_type == 'assisted-replicator':
                     for vn_uuid in imp.virtual_networks or []:
-                        vn_obj = db.VirtualNetworkDM.get(vn_uuid)
+                        vn_obj = VirtualNetworkDM.get(vn_uuid)
                         ri_obj = self._get_primary_ri(vn_obj)
                         if ri_obj is None:
                             continue

@@ -4,23 +4,18 @@
 from __future__ import absolute_import
 from builtins import str
 import sys
-import gevent
 import uuid
-from time import sleep
 from unittest import skip
 from vnc_api.vnc_api import *
-from cfgm_common.vnc_db import DBBase
 from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
 from gevent import monkey
 monkey.patch_all()
+sys.path.append('../common/cfgm_common/tests/mocked_libs')
 from device_manager.db import DMCassandraDB
-from device_manager.db import DBBaseDM
-from device_manager.device_manager import DeviceManager
 from cfgm_common.tests.test_common import retries
 from cfgm_common.tests.test_common import retry_exc_handler
 from .test_dm_common import *
-from .test_case import DMTestCase
 from .test_dm_utils import FakeDeviceConnect
 from .test_dm_utils import FakeNetconfManager
 
