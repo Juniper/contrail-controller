@@ -194,7 +194,7 @@ bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
 
     do {
         const NextHop *nh = rt->GetActiveNextHop();
-        if (!nh) {
+        if (!nh || nh->IsDeleted()) {
             continue;
         }
         const InterfaceNH *inh = dynamic_cast<const InterfaceNH *>(nh);
