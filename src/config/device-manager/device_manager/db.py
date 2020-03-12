@@ -601,12 +601,24 @@ class PhysicalRouterDM(DBBaseDM):
                 asn_ranges.extend(namespace.asn_ranges)
         asn_ranges = sorted(asn_ranges)
 
+        # If underlay ASN is specified for this PR, then use it
+        asn = self.fabric_obj.static_asn_by_pr(self.name)
+        if asn:
+            # TODO ensure ASN is in range
+            self.allocated_asn = asn
+            self._object_db.add_asn(self.uuid, asn)
+            self._logger.debug(
+                "physical router: static asn %d for %s" %
+                (self.allocated_asn, self.uuid))
+            return
+
         # find the first available asn
         # loop through all asns to account for dangling asn in a range
         # due to deleted PRs
         for asn_range in asn_ranges:
             for asn in range(asn_range[0], asn_range[1] + 1):
-                if self._object_db.get_pr_for_asn(asn) is None:
+                if self._object_db.get_pr_for_asn(asn) is None \
+                        and self.fabric_obj.static_asn_rsvd(asn) is None:
                     self.allocated_asn = asn
                     self._object_db.add_asn(self.uuid, asn)
                     self._logger.debug(
@@ -2979,6 +2991,10 @@ class FabricDM(DBBaseDM):
         self.fabric_namespaces = set()
         self.lo0_ipam_subnet = None
         self.ip_fabric_ipam_subnet = None
+        self.device_to_ztp = []
+        self.underlay_managed = True
+        self.static_asn_pr_map = {}
+        self.static_pr_asn_map = {}
         self.update(obj_dict)
     # end __init__
 
@@ -3003,6 +3019,34 @@ class FabricDM(DBBaseDM):
         return ipam_subnets
     # end _get_ipam_for_virtual_network
 
+    def cache_static_asn(self, obj):
+        annotations = obj.get('annotations')
+        if annotations:
+            kv_pairs = annotations.get('key_value_pair', [])
+            for kv_pair in kv_pairs:
+                if kv_pair.get('key') == 'fabric_onboard_template':
+                    job_input = json.loads(kv_pair.get('value', '{}'))
+                    self.device_to_ztp = job_input.get('device_to_ztp', [])
+                    self.underlay_managed = job_input.get('manage_underlay',
+                                                          True)
+                    break
+        if not self.underlay_managed:
+            return
+
+        for dev in self.device_to_ztp:
+            asn = dev.get('underlay_asn')
+            if asn:
+                dev_name = dev.get('hostname')
+                if dev_name:
+                    self.static_pr_asn_map[dev_name] = asn
+                    self.static_asn_pr_map[asn] = dev_name
+
+    def static_asn_rsvd(self, asn):
+        return self.static_asn_pr_map.get(asn)
+
+    def static_asn_by_pr(self, pr_name):
+        return self.static_pr_asn_map.get(pr_name)
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
@@ -3019,6 +3063,10 @@ class FabricDM(DBBaseDM):
 
         # Get the enterprise-style flag
         self.enterprise_style = obj.get('fabric_enterprise_style', True)
+
+        # Cache static underlay ASN values specified in onboarding
+        # input YAML file
+        self.cache_static_asn(obj)
     # end update
 # end class FabricDM
 

@@ -690,20 +690,73 @@ class FilterModule(object):
                         "asn_min={} and asn_max={} are same.".
                         format(asn_min, asn_max))
 
-    @staticmethod
-    def _validate_device_to_ztp(vnc_api, fabric_info):
-        # Make sure physical router does not already exists with a different
+    def _valid_loopback_ip(self, fabric_info, dtz):
+        loopback_ip = dtz.get('loopback_ip')
+        if not loopback_ip:
+            return True
+        loopback_subnets = fabric_info.get('loopback_subnets', [])
+        for loopback_subnet in loopback_subnets:
+            if loopback_ip in IPNetwork(loopback_subnet):
+                return True
+        _task_warn_log("loopback_ip {} out of range for device {}".format(
+            loopback_ip, dtz.get('hostname')))
+        return False
+
+    def _valid_mgmt_ip(self, fabric_info, dtz):
+        mgmt_ip = dtz.get('mgmt_ip')
+        if not mgmt_ip:
+            return True
+        mgmt_subnets = fabric_info.get('management_subnets', [])
+        for mgmt_subnet in mgmt_subnets:
+            if mgmt_ip in IPNetwork(mgmt_subnet):
+                return True
+        _task_warn_log("mgmt_ip {} out of range for device {}".format(
+            mgmt_ip, dtz.get('hostname')))
+        return False
+
+    def _valid_underlay_asn(self, fabric_info, dtz):
+        asn = dtz.get('underlay_asn')
+        if not asn:
+            return True
+        asn_pool = fabric_info.get('fabric_asn_pool', [])
+        for asn_range in asn_pool:
+            if asn_range['asn_min'] <= asn <= asn_range['asn_max']:
+                return True
+        _task_warn_log("underlay_asn {} out of range for device {}".format(
+            asn, dtz.get('hostname')))
+        return False
+
+    def _validate_device_to_ztp(self, vnc_api, fabric_info):
+        # Make sure physical router does not already exist with a different
         # serial number
+        final_device_to_ztp = []
         for dtz in fabric_info.get('device_to_ztp', []):
             ser_num = dtz.get('serial_number')
             device_name = dtz.get('hostname')
+            to_ztp = dtz.get('to_ztp')
             device_fq_name = ['default-global-system-config', device_name]
+
+            # Validate the loopback_ip is within range
+            if not self._valid_loopback_ip(fabric_info, dtz):
+                del dtz['loopback_ip']
+
+            # Validate the mgmt_ip is within range
+            if not self._valid_mgmt_ip(fabric_info, dtz):
+                del dtz['mgmt_ip']
+
+            # Validate the underlay_asn is within range
+            if not self._valid_underlay_asn(fabric_info, dtz):
+                del dtz['underlay_asn']
+
             try:
                 device_obj = vnc_api.physical_router_read(
                     fq_name=device_fq_name,
                     fields=['physical_router_serial_number'])
             except NoIdError:
                 # Device not found, that's OK
+                # Run ZTP on this device unless to_ztp flag is false
+                if not to_ztp or to_ztp is True:
+                    final_device_to_ztp.append(dtz)
                 continue
 
             # verify that serial number in the input is the same as that
@@ -715,6 +768,14 @@ class FilterModule(object):
                         'Device {} found in database with '
                         'different serial number: {} vs {}'.
                         format(device_name, obj_ser_num, ser_num))
+
+            # Device is already discovered, but ZTP anyway
+            if to_ztp and to_ztp is True:
+                final_device_to_ztp.append(dtz)
+
+        # We have removed entries which have already been ZTP'd
+        # or which have been marked to skip
+        fabric_info['device_to_ztp'] = final_device_to_ztp
 
     @staticmethod
     def _carve_out_subnets(subnets, cidr):
@@ -1881,6 +1942,59 @@ class FilterModule(object):
 
     # end _validate_fabric_device_deletion
 
+    def _assign_lb_li_bgpr(self, vnc_api, role_assignments,
+                           fabric_fq_name, devicefqname2_phy_role_map,
+                           assign_static=False):
+        static_ips = {}
+
+        if assign_static:
+            # read device_to_ztp, get all static loopback IP assignments
+            fabric_uuid = vnc_api.fq_name_to_id('fabric', fabric_fq_name)
+            job_input = JobAnnotations(vnc_api).fetch_job_input(
+                fabric_uuid, 'fabric_onboard_template')
+            device_to_ztp = job_input.get('device_to_ztp', [])
+            for dev in device_to_ztp:
+                ip_addr = dev.get('loopback_ip')
+                if ip_addr:
+                    dev_name = dev.get('hostname')
+                    if dev_name:
+                        static_ips[dev_name] = ip_addr
+
+        for device_roles in role_assignments:
+            ar_flag = False
+            # this check ensures that roles are assigned
+            # to the device only if node_profile_refs are present
+            # in the device
+            if "AR-Replicator" in device_roles.get(
+                    'routing_bridging_roles'):
+                ar_flag = True
+                # add PR to intent-map
+
+                intent_map_name = _fabric_intent_map_name(
+                    fabric_fq_name[-1], 'assisted-replicator-intent-map')
+
+                intent_map_fq_name = ['default-global-system-config',
+                                      intent_map_name]
+                vnc_api.ref_update("physical_router",
+                                   device_roles.get(
+                                       'device_obj').get_uuid(),
+                                   "intent_map",
+                                   vnc_api.fq_name_to_id(
+                                       'intent_map',
+                                       intent_map_fq_name), None, 'ADD')
+            if device_roles.get('supported_roles'):
+                device_obj = device_roles.get('device_obj')
+                dev_name = device_obj.name
+                ip_addr = None
+                if dev_name in static_ips:
+                    ip_addr = static_ips[dev_name]
+                self._add_loopback_interface(vnc_api, device_obj,
+                                             ar_flag, ip_addr=ip_addr)
+                self._add_logical_interfaces_for_fabric_links(
+                    vnc_api, device_obj, devicefqname2_phy_role_map
+                )
+                self._add_bgp_router(vnc_api, device_roles)
+
     # ***************** assign_roles filter ***********************************
     def assign_roles(self, job_ctx):
         """Assign roles.
@@ -1989,36 +2103,19 @@ class FilterModule(object):
 
             # before assigning roles, let's assign IPs to the loopback and
             # fabric interfaces, create bgp-router and logical-router, etc.
-            for device_roles in role_assignments:
-                ar_flag = False
-                # this check ensures that roles are assigned
-                # to the device only if node_profile_refs are present
-                # in the device
-                if "AR-Replicator" in device_roles.get(
-                        'routing_bridging_roles'):
-                    ar_flag = True
-                    # add PR to intent-map
 
-                    intent_map_name = _fabric_intent_map_name(
-                        fabric_fq_name[-1], 'assisted-replicator-intent-map')
+            # First handle static loopback IP assignments to reserve those
+            # addresses before assigning dynamic IPs
+            self._assign_lb_li_bgpr(vnc_api, role_assignments,
+                                    fabric_fq_name,
+                                    devicefqname2_phy_role_map,
+                                    assign_static=True)
 
-                    intent_map_fq_name = ['default-global-system-config',
-                                          intent_map_name]
-                    vnc_api.ref_update("physical_router",
-                                       device_roles.get(
-                                           'device_obj').get_uuid(),
-                                       "intent_map",
-                                       vnc_api.fq_name_to_id(
-                                           'intent_map',
-                                           intent_map_fq_name), None, 'ADD')
-                if device_roles.get('supported_roles'):
-                    device_obj = device_roles.get('device_obj')
-                    self._add_loopback_interface(vnc_api, device_obj,
-                                                 ar_flag)
-                    self._add_logical_interfaces_for_fabric_links(
-                        vnc_api, device_obj, devicefqname2_phy_role_map
-                    )
-                    self._add_bgp_router(vnc_api, device_roles)
+            # Now handle dynamic loopback IP assignments
+            self._assign_lb_li_bgpr(vnc_api, role_assignments,
+                                    fabric_fq_name,
+                                    devicefqname2_phy_role_map,
+                                    assign_static=False)
 
             # now we are ready to assign the roles to trigger DM to invoke
             # fabric_config playbook to push the role-based configuration to
@@ -2543,7 +2640,8 @@ class FilterModule(object):
         return network_obj
     # end _get_device_network
 
-    def _add_loopback_interface(self, vnc_api, device_obj, ar_flag):
+    def _add_loopback_interface(self, vnc_api, device_obj, ar_flag,
+                                ip_addr=None):
         """Add loopback interface.
 
         :param vnc_api: <vnc_api.VncApi>
@@ -2585,7 +2683,8 @@ class FilterModule(object):
             try:
                 iip_obj = vnc_api.instance_ip_read(fq_name=[iip_name])
             except NoIdError:
-                iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4')
+                iip_obj = InstanceIp(name=iip_name, instant_ip_family='v4',
+                                     instance_ip_address=ip_addr)
                 iip_obj.set_logical_interface(loopback_li_obj)
                 iip_obj.set_virtual_network(loopback_network_obj)
                 _task_log(
