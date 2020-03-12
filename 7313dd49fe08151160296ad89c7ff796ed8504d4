@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "40accb9b_5779e0ff",
+        "filename": "src/vnsw/agent/services/igmp_proto.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 209,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-03-12T20:58:43Z",
+      "side": 1,
+      "message": "Can you please add check for igmp enabled on the interface early in the loop probably.",
+      "range": {
+        "startLine": 209,
+        "startChar": 8,
+        "endLine": 209,
+        "endChar": 10
+      },
+      "revId": "7313dd49fe08151160296ad89c7ff796ed8504d4",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
