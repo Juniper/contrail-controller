@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "25d2a022_29c76465",
+        "filename": "src/config/device-manager/device_manager/plugins/feature/vn_interconnect_feature.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 86,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-03-12T00:11:13Z",
+      "side": 1,
+      "message": "Not sure how is it causing the issue, Every where we are using the name DMUtils.make_vrf_name? This may cause failure to DC-GW on MX.",
+      "revId": "b50a203015d6d46a05310212cd27e1f5c0fe0a12",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
