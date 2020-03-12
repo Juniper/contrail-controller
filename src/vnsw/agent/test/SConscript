@@ -93,6 +93,7 @@ test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
                                                   agent_suite)
 test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
                                                agent_suite)
+test_dpdk_intf = AgentEnv.MakeTestCmd(env, 'test_dpdk_intf', agent_suite)
 
 test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', flaky_agent_suite)
 test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap', agent_suite)
