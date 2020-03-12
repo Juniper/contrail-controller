@@ -2242,7 +2242,8 @@ class VirtualNetworkDM(DBBaseDM):
             prefix_set = set(self.gateways.keys())
         for vn in vn_list:
             vn_obj = VirtualNetworkDM.get(vn)
-            if vn_obj:
+            # Need to skip the current vn_obj from this loop.
+            if vn_obj and vn_obj.uuid != self.uuid:
                 prefixes = vn_obj.get_prefixes(pr_uuid)
                 if prefixes:
                     prefix_set = prefix_set.union(prefixes)
