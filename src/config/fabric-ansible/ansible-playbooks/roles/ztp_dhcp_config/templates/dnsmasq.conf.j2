@@ -46,5 +46,10 @@ dhcp-option=tag:jn,encap:43,3,"tftp"
 dhcp-host={{ mac }},{{ ip }}
 {%   endfor %}
 {% endif %}
+{% if ztp_dhcp_config.static_host_ips is defined %}
+{%   for ip, host in ztp_dhcp_config.static_host_ips.items() %}
+dhcp-host={{ host }},{{ ip }}
+{%   endfor %}
+{% endif %}
 dhcp-script=/etc/scripts/dnsmasq_init_script.sh
 leasefile-ro
