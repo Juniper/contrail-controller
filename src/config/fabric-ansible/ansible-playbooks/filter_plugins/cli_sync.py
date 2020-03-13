@@ -218,7 +218,8 @@ class FilterModule(object):
         partial_accepted_config = self._accept_config(user_commited_config,
                                                       contrail_cli_group,
                                                       device_mgmt_ip)
-        return partial_accepted_config
+        partial_accepted_config_final = self._process_file_for_group(partial_accepted_config, device_mgmt_ip)
+        return partial_accepted_config_final
 
     # Routine to reject config
     # 1. Delete the committed configs
@@ -246,6 +247,21 @@ class FilterModule(object):
             )
             _task_error_log(errmsg)
 
+    def _process_file_for_group(self, partial_accepted_config, device_mgmt_ip):
+        path_to_file = PLAYBOOK_BASE + "/manual_config" "/" + \
+                       device_mgmt_ip + "/approve_config.conf"
+        fp = ""
+        try:
+            fp = open(path_to_file, "a+")
+            contents = fp.read()
+            if CLI_GROUP in contents:
+                line = 'set apply-groups __cli_contrail_group__'
+                fp.write(line + "\n")
+                partial_accepted_config += line + "\n"
+        finally:
+            fp.close()
+        return partial_accepted_config
+
     # Merge the accept and the delete into one file
     def merge_files(self, device_mgmt_ip):
         path_to_files = PLAYBOOK_BASE + "/manual_config" \
@@ -260,7 +276,7 @@ class FilterModule(object):
                             outfile.write(line)
                 else:
                     line = 'set groups __contrail_basic__'
-                    outfile.write(line + "\n")                            
+                    outfile.write(line + "\n")
 
     def _process_file_for_delete_commands(self, partial_acc_config,
                                           device_mgmt_ip):
@@ -483,3 +499,4 @@ class FilterModule(object):
 
                     # end _reject_config
                     # end cli filter
+
