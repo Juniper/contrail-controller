@@ -17,7 +17,7 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 the
 
 {% set dummy_ip = device_abstract_config.get('system', {}).get('dummy_ip') %}
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
-{%         set name = ri.get('name', '')[:127] %}
+{%         set name = ri.get('description', '')[:127] %}
 {%         set vxlan_id = ri.get('vxlan_id') %}
 {%         set vn_id  = ri.get('virtual_network_id') | int %}
 {%         set vn_id_num_l3  = vn_id + 30000 %}
