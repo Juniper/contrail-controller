@@ -6,6 +6,9 @@ set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     for ri in device_abstract_config.get('routing_instances', []) %}
 {%         set ns = namespace(ri_name='') %}
 {%         set ri_name = ri.get('name', '')[:127] %}
+{%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%             set ri_name = ri.get('description', '')[:127] %}
+{%         endif %}
 {%         if ((ri.get('routing_instance_type') == 'virtual-switch') and (ri.get('comment') != 'PNF-Service-Chaining')) or (ri.get('virtual_network_is_internal') == true) or ((ri.get('routing_instance_type') == 'vrf') and (ri.get('is_public_network') == true)) %}
 {%             set vrf_import = ri_name+'-import' %}
 {%             set vrf_export = ri_name+'-export' %}
