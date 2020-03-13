@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "d9e16be8_9002e8b4",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-13T20:50:35Z",
+      "side": 1,
+      "message": "Why not combine strings?",
+      "revId": "70fc04f54792ae51ff1d65ba6cd665d663ac3b8f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "7582a55e_919c13e2",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/filter_plugins/cli_sync.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 260,
+      "author": {
+        "id": 510
+      },
+      "writtenOn": "2020-03-13T20:50:35Z",
+      "side": 1,
+      "message": "Can the newline be included in the the \"line\"?",
+      "revId": "70fc04f54792ae51ff1d65ba6cd665d663ac3b8f",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
