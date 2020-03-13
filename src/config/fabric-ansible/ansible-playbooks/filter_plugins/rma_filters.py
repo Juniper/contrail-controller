@@ -138,6 +138,8 @@ class FilterModule(object):
             # supplemental config
             device_supp_cfg = \
                 device_obj.get_physical_router_supplemental_config()
+            if not device_supp_cfg:
+                device_supp_cfg = ""
             self._supplemental_config_append(device_name,
                                              new_serial_number,
                                              device_supp_cfg, accepted_cli_config)
@@ -214,3 +216,4 @@ class FilterModule(object):
             dev2ztp_entry['supplemental_day_0_cfg'] = cfg_name
 
         self.device_to_ztp.append(dev2ztp_entry)
+
