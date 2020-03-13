@@ -14,34 +14,31 @@ set groups {{cfg_group}} routing-options autonomous-system {{bf_global_asn}}
 {%             set bgp_group_name = bgp.get('name') %}
 {%             set bgp_group_type = bgp.get('type_') %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.autonomous_system}}
+{# We will set the GRE or UDP related dynamic tunnels only if they are in highest priority #}
 {%             set encap_priorities = device_abstract_config.get('system', {}).get('encapsulation_priorities', []) %}
-{%             set mode = [] %}
-{%             for encap_mode in encap_priorities %}
-{%                 if encap_mode != 'VXLAN' %}
-{%                     do mode.append(encap_mode) %}
-{%                     break %}
-{%                 endif %}
-{%             endfor %}
-{%             if mode|length > 0 and mode[0] == 'MPLSoUDP' %}
-{%             set tunnel_type = '_contrail_udp_tunnel' %}
+{%             if encap_priorities|length > 0 and encap_priorities[0] == 'MPLSoUDP' %}
+{%                 set tunnel_type = '_contrail_udp_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export mpls_over_udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then community add encap-udp
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then accept
 set groups {{cfg_group}} policy-options community encap-udp members 0x030c:64512:13
-{%             else %}
-{%             set tunnel_type = '_contrail_gre_tunnel' %}
+{%             elif encap_priorities|length > 0 and encap_priorities[0] == 'MPLSoGRE' %}
+{%                 set tunnel_type = '_contrail_gre_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} gre
 {%             endif %}
-set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} source-address {{bgp.get('ip_address')}}
 {%             for peer in bgp.get('peers', []) %}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} neighbor {{peer.get('ip_address')}} peer-as {{peer.get('autonomous_system')}}
 {%             endfor %}
-{%             set system_info = device_abstract_config.get('system') %}
-{%             for net in system_info.get('tunnel_destination_networks', []) %}
+{%             if encap_priorities|length > 0 and encap_priorities[0] in ['MPLSoUDP', 'MPLSoGRE'] %}
+{%                 set system_info = device_abstract_config.get('system') %}
+set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} source-address {{bgp.get('ip_address')}}
+{%                 for net in system_info.get('tunnel_destination_networks', []) %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} destination-networks {{net.get('prefix')}}/{{net.get('prefix_len')}}
-{%             endfor %}
+{%                 endfor %}
+{%             endif %}
+
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} type {{bgp_group_type}}
 {%             set cluster_id = bgp.get('cluster_id') %}
 {%             if cluster_id != None %}

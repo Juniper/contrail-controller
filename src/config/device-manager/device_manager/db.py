@@ -824,9 +824,8 @@ class PhysicalRouterDM(DBBaseDM):
                     continue
                 for subnet_prefix in list(vn.gateways.keys()):
                     new_vn_ip_set.add(vn_uuid + ':' + subnet_prefix)
-            use_gw_ip = self.is_erb_only() and self.device_family != 'junos'
             self.evaluate_vn_ip_map(new_vn_ip_set, self.vn_ip_map[
-                ip_used_for], ip_used_for, use_gateway_ip=use_gw_ip)
+                ip_used_for], ip_used_for, use_gateway_ip=self.is_erb_only())
     # end evaluate_vn_irb_ip_map
 
     def evaluate_vn_ip_map(self, vn_set, ip_map, ip_used_for,
@@ -834,6 +833,11 @@ class PhysicalRouterDM(DBBaseDM):
         old_set = set(ip_map.keys())
         delete_set = old_set.difference(vn_set)
         create_set = vn_set.difference(old_set)
+
+        # set use_gateway_ip = False for MX family as we are using different
+        #  IPs for IRB and VGA.
+        if self.device_family == 'junos':
+            use_gateway_ip = False
 
         if not use_gateway_ip:
             for vn_subnet in vn_set.intersection(old_set):
