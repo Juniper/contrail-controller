@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "27b5bdea_ac1327d6",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/config_templates/overlay_evpn/juniper_junos_overlay_evpn.j2",
+        "patchSetId": 1
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 126
+      },
+      "writtenOn": "2020-03-13T18:24:07Z",
+      "side": 1,
+      "message": "I dont have the entire context of this template but in general the routes could be learnt from evpn protocol too (like type5 routes on CRB-Gateway based on type2 learnt from CRB-Access) so in which case we may not be adding the RT before exporting to the remote peer. I may be wrong with the example usecase i picked since i dont see any Routing instance configuration above.\n\nPlease consider talking to JunOS team before changing the templates.",
+      "revId": "c01ab57447db4e4d21efe07627212184d78a70ba",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
