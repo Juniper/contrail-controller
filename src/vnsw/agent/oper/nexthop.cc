@@ -1625,7 +1625,8 @@ void CompositeNHKey::ReplaceLocalNexthop(const ComponentNHKeyList &lnh) {
     //Clear all local nexthop
     for (uint32_t i = 0; i < component_nh_key_list_.size();) {
         ComponentNHKeyPtr cnh = component_nh_key_list_[i];
-        if (cnh->nh_key()->GetType() == NextHop::INTERFACE) {
+        if ((cnh.get() != NULL) &&
+                (cnh->nh_key()->GetType() == NextHop::INTERFACE)) {
             component_nh_key_list_.erase(component_nh_key_list_.begin() + i);
         } else {
             i++;
