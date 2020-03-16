@@ -11,8 +11,12 @@ set groups {{cfg_group}} routing-options forwarding-table export EVPN-LB
 {%     endif %}
 {% endfor %}
 {% for ri in ris %}
-{%     set vrf_import = ri.name+'-import' %}
-{%     set vrf_export = ri.name+'-export' %}
+{%     set name = ri.get('name', '')[:127] %}
+{%     if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%         set name = ri.get('description', '')[:127] %}
+{%     endif %}
+{%     set vrf_import = name+'-import' %}
+{%     set vrf_export = name+'-export' %}
 {%     for import_target in ri.get('import_targets', []) %}
 {%         set community_target = import_target.replace(':', '_') %}
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 from community {{community_target}}

@@ -7,7 +7,10 @@ delete groups __contrail_overlay_networking__
 {%         if (ri_vn_mode == 'l2') or ('l2' in ri.get('name', '')) %}
 {%             continue %}
 {%         endif %}
-{%         set contrail_l3_ri = ri.get('name') %}
+{%         set contrail_l3_ri = ri.get('name', '')[:127] %}
+{%         if (ri.get('virtual_network_is_internal') == true) and ('vrf' in ri.get('routing_instance_type', '')) %}
+{%             set contrail_l3_ri = ri.get('description', '')[:127] %}
+{%         endif %}
 {%         set intfs = ri.get('interfaces', []) %}
 {%         set ri_type = ri.get('routing_instance_type') %}
 {%         for intf in ri.get('ingress_interfaces', []) %}
