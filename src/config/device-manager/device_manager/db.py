@@ -1357,7 +1357,7 @@ class PhysicalRouterDM(DBBaseDM):
             route = AbstractDevXsd.Route(
                 prefix=ip, prefix_len=32,
                 next_hop=static_route.get('next_hop_ip_address')[-1],
-                comment='')
+                comment='Routed VN static route')
             ri.add_static_routes(route)
     # end set_routed_vn_static_route_info
 
