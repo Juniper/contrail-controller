@@ -851,7 +851,13 @@ class PhysicalRouterDM(DBBaseDM):
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
             vn = VirtualNetworkDM.get(vn_uuid)
             ip = ip_map[vn_subnet]
-            if vn and vn.gateways.get(subnet_prefix) is None:
+            # Handing following conditions for free ip:
+            # If user deletes the subnet then delete allocated ip.
+            # VN subnet is there but VN is detached from LR or
+            # LR is detached from PR.
+            if vn and (vn.gateways.get(subnet_prefix) is None or
+                       ip != vn.gateways.get(subnet_prefix).get(
+                       'default_gateway')):
                 # check if ip has prefix Fe80 then use internal ipv6 link
                 # local VN.
                 if DMUtils.is_ipv6_ll_subnet(ip_map[vn_subnet]) is True\
