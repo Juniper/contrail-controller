@@ -48,8 +48,6 @@ KSyncSockUds::KSyncSockUds(boost::asio::io_service &ios) :
     socket_(0),
     connected_(false) {
     boost::system::error_code ec;
-    reset_use_wait_tree();
-    set_process_data_inline();
 retry:;
     sock_.connect(server_ep_, ec);
     if (ec) {
@@ -228,12 +226,36 @@ void KSyncSockUds::Receive(mutable_buffers_1 buf) {
     boost::system::error_code ec;
     uint32_t bytes_read = 0;
     const struct nlmsghdr *nlh = NULL;
+    int ret_val = 0;
 
     char *netlink_header(buffer_cast<char *>(buf));
 
     while (bytes_read < sizeof(struct nlmsghdr)) {
         char *buffer = netlink_header + bytes_read;
-        bytes_read += recv(socket_, buffer, sizeof(struct nlmsghdr) - bytes_read, 0);
+        ret_val = recv(socket_, buffer, sizeof(struct nlmsghdr) - bytes_read, 0);
+        if (ret_val == 0) {
+            // connection reset by peer
+            // close socket and exit
+            sock_.close(ec);
+            LOG(INFO, " dpdk vrouter is down, exiting.. errno:" << errno);
+            exit(0);
+        }
+        if (ret_val < 0) {
+            if (errno != EAGAIN) {
+                sock_.close(ec);
+                connected_ = false;
+retry_1:;
+                sock_.connect(server_ep_, ec);
+                if (ec) {
+                    sleep(1);
+                    goto retry_1;
+                }
+                socket_ = sock_.native();
+                connected_ = true;
+            }
+            continue;
+        }
+        bytes_read += ret_val;
         //Data read is lesser than netlink header
         //continue reading
         if (bytes_read == sizeof(struct nlmsghdr)) {
@@ -253,6 +275,29 @@ void KSyncSockUds::Receive(mutable_buffers_1 buf) {
 
     while (bytes_read < payload_size) {
         char *buffer = data + bytes_read;
-        bytes_read += recv(socket_, buffer, payload_size - bytes_read, 0);
+        ret_val = recv(socket_, buffer, payload_size - bytes_read, 0);
+        if (ret_val == 0) {
+            // connection reset by peer
+            // close socket and exit
+            sock_.close(ec);
+            LOG(INFO, " dpdk vrouter is down, exiting.. errno:" << errno);
+            exit(0);
+        }
+        if (ret_val < 0) {
+            if (errno != EAGAIN) {
+                sock_.close(ec);
+                connected_ = false;
+retry_2:;
+                sock_.connect(server_ep_, ec);
+                if (ec) {
+                    sleep(1);
+                    goto retry_2;
+                }
+                socket_ = sock_.native();
+                connected_ = true;
+            }
+            continue;
+        }
+        bytes_read += ret_val;
     }
 }
