@@ -2368,7 +2368,7 @@ CompositeNH::DeleteComponentNHKey(ComponentNHKeyPtr cnh,
                                   bool &comp_nh_new_policy) const {
     Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
     const NextHop *nh = static_cast<const NextHop *>(agent->nexthop_table()->
-                                       FindActiveEntry(cnh->nh_key()));
+                                       Find(cnh->nh_key(), true));
     assert(nh);
 
     ComponentNHKeyList component_nh_key_list = component_nh_key_list_;
