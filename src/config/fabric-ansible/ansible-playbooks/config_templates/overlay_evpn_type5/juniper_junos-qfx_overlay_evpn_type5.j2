@@ -10,7 +10,7 @@ set groups {{cfg_group}} policy-options policy-statement type5_policy term 3 the
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
 {%         set is_master = ri.get('is_master', '') %}
 {%         if ri.get('is_master') == true %}{# /* BGP for master_LR */ #}
-{%             set name = ri.get('name', '')[:127] %}
+{%             set name = ri.get('description', '')[:127] %}
 {%             for route in ri.get('static_routes', []) %}
 {%                 set cidr = route.get('prefix') %}
 {%                 set next_hop = route.get('next_hop') %}
@@ -55,7 +55,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_name}} export {{export_rp}}
 {%                 endfor %}{# /* end of bgp for loop */ #}
 {%             endfor %}{# /* end of protocols for loop */ #}
 {%         else %}
-{%             set name = ri.get('name', '')[:127] %}
+{%             set name = ri.get('description', '')[:127] %}
 {%             set vxlan_id = ri.get('vxlan_id') %}
 {%             set router_external = ri.get('is_public_network', '') %}
 {%             for lo_int in ri.get('loopback_interfaces', []) %}

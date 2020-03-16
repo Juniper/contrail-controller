@@ -1,5 +1,5 @@
 {%     for ri in device_abstract_config.features.get('vn-interconnect').get('routing_instances', []) %}
-{%         set vrf = ri.get('name', '')[:127] %}
+{%         set vrf = ri.get('description', '')[:127] %}
 {%         set rib_group_name = ri.get('rib_group', '') %}
 {%         if ri.get('loopback_interfaces', []) %}
 {%             set loopback_ip = ri.get('loopback_interfaces')[0].get('name')%}
