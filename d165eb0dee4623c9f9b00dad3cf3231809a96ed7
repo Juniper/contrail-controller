@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "372397ee_50d73bf8",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2260,
+      "author": {
+        "id": 515
+      },
+      "writtenOn": "2020-03-17T03:47:33Z",
+      "side": 1,
+      "message": "should we check for vn_obj.gateways as well ?",
+      "revId": "d165eb0dee4623c9f9b00dad3cf3231809a96ed7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
