@@ -25,7 +25,12 @@ set groups {{cfg_group}} routing-options static route {{cidr}} next-hop {{next_h
 set groups {{cfg_group}} protocols bgp group {{bgp_name}} authentication-key {{bgp_auth_key}}
 {%                     endif %}
 set groups {{cfg_group}} protocols bgp group {{bgp_name}} type external
-set groups {{cfg_group}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}}
+set groups {{cfg_group}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}} loops 2
+{%                     set bf_global_asn = device_abstract_config.get('system', {}).get('brownfield_global_asn', '') %}
+{%                     if bf_global_asn == bgp_local_as %}
+set groups __contrail_overlay_bgp__ protocols bgp group _contrail_asn-{{bf_global_asn}} local-as {{bf_global_asn}} loops 2
+set groups __contrail_overlay_bgp__ routing-options autonomous-system loops 2
+{%                     endif %}
 set groups {{cfg_group}} protocols bgp group {{bgp_name}} multipath
 {%                     for peer in bgp.get('peers', []) %}
 {%                         set peer_ip = peer.get('ip_address') %}
@@ -98,7 +103,12 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options static route
 set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} authentication-key {{bgp_auth_key}}
 {%                         endif %}
 set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} type external
-set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}}
+set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} local-as {{bgp_local_as}} loops 2
+{%                         set bf_global_asn = device_abstract_config.get('system', {}).get('brownfield_global_asn', '') %}
+{%                         if bf_global_asn == bgp_local_as %}
+set groups __contrail_overlay_bgp__ protocols bgp group _contrail_asn-{{bf_global_asn}} local-as {{bf_global_asn}} loops 2
+set groups __contrail_overlay_bgp__ routing-options autonomous-system loops 2
+{%                         endif %}
 set groups {{cfg_group}} routing-instances {{name}} protocols bgp group {{bgp_name}} multipath
 {%                         for peer in bgp.get('peers', []) %}
 {%                             set peer_ip = peer.get('ip_address') %}
