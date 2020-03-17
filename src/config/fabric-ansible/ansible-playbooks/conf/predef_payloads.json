@@ -1618,11 +1618,11 @@
             "role_mappings": [
               {
                 "physical_role": "leaf",
-                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway", "CRB-MCAST-Gateway", "PNF-Servicechain", "AR-Client"]
+                "rb_roles": ["CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "ERB-UCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
               },
               {
                 "physical_role": "spine",
-                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "CRB-MCAST-Gateway", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
+                "rb_roles": ["lean", "CRB-Access", "CRB-Gateway", "DC-Gateway", "Route-Reflector", "DCI-Gateway", "PNF-Servicechain", "AR-Client"]
               }
             ]
           }
