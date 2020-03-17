@@ -16,6 +16,24 @@
       "revId": "d165eb0dee4623c9f9b00dad3cf3231809a96ed7",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0cd12ae6_0dcb6c8d",
+        "filename": "src/config/device-manager/device_manager/db.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 2260,
+      "author": {
+        "id": 858
+      },
+      "writtenOn": "2020-03-17T04:37:14Z",
+      "side": 1,
+      "message": "I did not check as gateways is always initialized(once VN object is created) either having empty dictionary{} if no subnet is created or valid subnet prefix as keys.",
+      "parentUuid": "372397ee_50d73bf8",
+      "revId": "d165eb0dee4623c9f9b00dad3cf3231809a96ed7",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
