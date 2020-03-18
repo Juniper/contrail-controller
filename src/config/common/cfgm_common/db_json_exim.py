@@ -82,7 +82,10 @@ class DatabaseExim(object):
             'contrail_cs',
             'lockpath',
             'analytics-discovery-',
-            'analytics-discovery-' + self._api_args.cluster_id,])
+            'analytics-discovery-' + self._api_args.cluster_id,
+            'vcenter-plugin',
+            'vcenter-fabric-manager',
+        ])
 
         self._zookeeper = kazoo.client.KazooClient(
             self._api_args.zk_server_ip,
