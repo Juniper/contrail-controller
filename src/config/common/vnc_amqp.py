@@ -188,6 +188,10 @@ class VncAmqpHandle(object):
         self.init_msgbus_fq_name()
         self.init_msgbus_dtr()
 
+        evaluate_kwargs = {}
+        if self.timer and self.timer.yield_in_evaluate:
+            evaluate_kwargs['timer'] = self.timer
+
         for res_type, res_id_list in self.dependency_tracker.resources.items():
             if not res_id_list:
                 continue
@@ -199,6 +203,10 @@ class VncAmqpHandle(object):
                 res_obj = cls.get(res_id)
                 if res_obj is not None:
                     res_obj.evaluate()
+                    if evaluate_kwargs:
+                        res_obj.evaluate(**evaluate_kwargs)
+                    else:
+                        res_obj.evaluate()
                     if self.timer:
                         self.timer.timed_yield()
 
