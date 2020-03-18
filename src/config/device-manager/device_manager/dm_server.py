@@ -9,6 +9,7 @@ import random
 import signal
 import socket
 import sys
+import subprocess, psutil
 
 from attrdict import AttrDict
 from cfgm_common import vnc_cgitb
@@ -104,6 +105,57 @@ def run_device_manager(dm_logger, args):
         gevent.joinall([_amqp_client._consumer_gl])
 # end run_device_manager
 
+def run_full_dm():
+    # won master election, destroy existing process
+    running_procs = [x for x in psutil.process_iter()]
+    for proc in running_procs:
+        if proc.pid == 1:
+            continue
+        elif 'contrail-device-manager' in ' '.join(proc.cmdline()):
+            proc.kill()
+    script_to_run = sys.argv
+    script_to_run.append('--dm_run_mode Full')
+    proc = subprocess.Popen(script_to_run, close_fds=True)
+    gevent.joinall([gevent.spawn(dummy_gl, proc)])
+# end run_full_dm
+
+def dummy_gl(proc):
+    while True:
+        gevent.sleep(10)
+        if proc.poll() == None:
+            # proc is still running
+            pass
+        elif proc.poll() == 0:
+            # proc is terminated, kill self
+            os._exit(2)
+        else:
+            # proc completed, this shouldnt happen
+            os._exit(2)
+# end dummy_gl
+
+def run_partial_dm():
+    # if we are not master, start only DeviceJobManager
+    is_master = False
+    running_procs = [x for x in psutil.process_iter()]
+    for proc in running_procs:
+        if proc.pid == 1:
+            continue
+        elif 'contrail-device-manager' in ' '.join(proc.cmdline()):
+            is_master = True
+    if not is_master:
+        # start dm with Partial flag
+        script_to_run = sys.argv
+        script_to_run.append('--dm_run_mode Partial')
+        proc = subprocess.Popen(script_to_run, close_fds=True)
+        for x in range(3):
+            gevent.sleep(5)
+            if proc.poll() == None:
+                # proc is still running
+                pass
+            else:
+                # proc completed, this shouldnt happen
+                os._exit(2)
+# end master_watcher
 
 def sighup_handler():
     if DeviceManager.get_instance() is not None:
@@ -122,32 +174,7 @@ def sigterm_handler():
         _amqp_client.stop()
 # end sigterm_handler
 
-
-def main(args_str=None):
-    global _amqp_client
-    global _zookeeper_client
-
-    if not args_str:
-        args_str = ' '.join(sys.argv[1:])
-    args = parse_args(args_str)
-    if args.cluster_id:
-        client_pfx = args.cluster_id + '-'
-        zk_path_pfx = args.cluster_id + '/'
-    else:
-        client_pfx = ''
-        zk_path_pfx = ''
-
-    # randomize collector list
-    args.random_collectors = args.collectors
-    if args.collectors:
-        args.random_collectors = random.sample(args.collectors,
-                                               len(args.collectors))
-
-    args.log_level = str(args.log_level)
-
-    # Initialize logger without introspect thread
-    dm_logger = DeviceManagerLogger(args, http_server_port=-1)
-
+def run_job_ztp_manager(dm_logger, _zookeeper_client, args):
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
     vnc_amqp = DMAmqpHandle(dm_logger, {}, args)
@@ -155,12 +182,8 @@ def main(args_str=None):
     vnc_amqp.close()
     dm_logger.debug("Removed remaining AMQP queue from previous run")
 
-    if 'host_ip' not in args:
-        args.host_ip = socket.gethostbyname(socket.getfqdn())
-
+    global _amqp_client
     _amqp_client = initialize_amqp_client(dm_logger, args)
-    _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
-                                        args.zk_server_ip, args.host_ip)
     _db_conn = initialize_db_connection(dm_logger, args)
 
     try:
@@ -184,14 +207,57 @@ def main(args_str=None):
                         "manager %s" % str(e))
         raise e
 
+    if args.dm_run_mode == 'Partial':
+        dm_logger.notice("Process %s started in Partial mode..." %os.getpid())
+        if _amqp_client._consumer_gl is not None:
+            gevent.joinall([_amqp_client._consumer_gl])
+# end run_job_ztp_manager
+
+def main(args_str=None):
+    global _amqp_client
+    global _zookeeper_client
+
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
+    args = parse_args(args_str)
+    if args.cluster_id:
+        client_pfx = args.cluster_id + '-'
+        zk_path_pfx = args.cluster_id + '/'
+    else:
+        client_pfx = ''
+        zk_path_pfx = ''
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                               len(args.collectors))
+
+    args.log_level = str(args.log_level)
+
+    if 'host_ip' not in args:
+        args.host_ip = socket.gethostbyname(socket.getfqdn())
+
+    _zookeeper_client = ZookeeperClient(client_pfx + "device-manager",
+                                        args.zk_server_ip, args.host_ip)
+
     gevent.signal(signal.SIGHUP, sighup_handler)
     gevent.signal(signal.SIGTERM, sigterm_handler)
     gevent.signal(signal.SIGINT, sigterm_handler)
 
-    dm_logger.notice("Waiting to be elected as master...")
-    _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
-                                      os.getpid(), run_device_manager,
-                                      dm_logger, args)
+
+    if args.dm_run_mode == 'Full':
+        dm_logger = DeviceManagerLogger(args, http_server_port=-1)
+        run_job_ztp_manager(dm_logger, _zookeeper_client, args)
+        run_device_manager(dm_logger, args)
+    elif args.dm_run_mode == 'Partial':
+        dm_logger = DeviceManagerLogger(args, http_server_port=-1)
+        dm_logger.notice("Process %s prepared to run in Partial mode..." %os.getpid())
+        run_job_ztp_manager(dm_logger, _zookeeper_client, args)
+    else:
+        run_partial_dm()
+        _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
+                                          os.getpid(), run_full_dm)
 # end main
 
 
