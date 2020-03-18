@@ -105,18 +105,6 @@ void BridgeAgentRouteTable::AddBridgeReceiveRoute(const Peer *peer,
     BridgeTableEnqueue(agent, &req);
 }
 
-void BridgeAgentRouteTable::AddBridgeReceiveRouteReq(const Peer *peer,
-                                                     const string &vrf_name,
-                                                     uint32_t vxlan_id,
-                                                     const MacAddress &mac,
-                                                     const string &vn_name) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, vxlan_id));
-    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference(),
-                                      peer->sequence_number()));
-    agent()->fabric_l2_unicast_table()->Enqueue(&req);
-}
-
 void BridgeAgentRouteTable::AddBridgeReceiveRoute(const Peer *peer,
                                                   const string &vrf_name,
                                                   uint32_t vxlan_id,
@@ -171,16 +159,6 @@ void BridgeAgentRouteTable::DeleteBridgeRoute(const AgentRoute *rt) {
                                      evpn_rt->mac(), 0));
     req.data.reset(new EvpnDerivedPathData(evpn_rt));
     BridgeTableProcess(Agent::GetInstance(), evpn_rt->vrf()->GetName(), req);
-}
-
-void BridgeAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
-                                      const MacAddress &mac,
-                                      uint32_t ethernet_tag,
-                                      AgentRouteData *data) {
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, ethernet_tag));
-    req.data.reset(data);
-    BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void BridgeAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
