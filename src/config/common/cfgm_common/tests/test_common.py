@@ -413,6 +413,7 @@ def launch_device_manager(test_id, api_server_ip, api_server_port,
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
+    args_str = args_str + "--dm_run_mode Full "
 
     if conf_sections is not None:
         with tempfile.NamedTemporaryFile(mode='w+') as conf:
