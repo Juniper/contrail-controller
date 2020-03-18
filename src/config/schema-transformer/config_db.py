@@ -110,8 +110,8 @@ class DBBaseST(DBBase):
         for ref_field in self.ref_fields:
             self.update_refs(ref_field, {})
 
-    def evaluate(self):
-        # Implement in the derived class
+    def evaluate(self, **kwargs):
+        #Implement in the derived class
         pass
 
     @classmethod
@@ -265,7 +265,7 @@ class GlobalSystemConfigST(DBBaseST):
         return True
     # end update_autonomous_system
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         for router in BgpRouterST.values():
             router.update_global_asn(self._autonomous_system)
             router.update_peering()
@@ -1034,7 +1034,7 @@ class VirtualNetworkST(DBBaseST):
                         daddr_match.network_policy = None
                         daddr_match.virtual_network = self.name
                     else:
-                        self._logger.error(
+                        self._logger.debug(
                             "network policy rule attached to %s has src = %s,"
                             " dst = %s. Ignored." % (self.name,
                                                      svn or spol,
@@ -1048,7 +1048,7 @@ class VirtualNetworkST(DBBaseST):
                         saddr_match.network_policy = None
                         saddr_match.virtual_network = self.name
                     else:
-                        self._logger.error(
+                        self._logger.debug(
                             "network policy rule attached to %s has src = %s,"
                             " dst = %s. Ignored." % (self.name,
                                                      svn or spol,
@@ -1057,13 +1057,13 @@ class VirtualNetworkST(DBBaseST):
                 elif (not svn and not dvn and not spol and not dpol and
                       (s_cidr or s_cidr_list) and (d_cidr or d_cidr_list)):
                     if prule.action_list.apply_service:
-                        self._logger.error(
+                        self._logger.debug(
                             "service chains not allowed in cidr only rules "
                             "network %s, src = %s, dst = %s. Ignored." %
                             (self.name, s_cidr, d_cidr))
                         continue
                 else:
-                    self._logger.error("network policy rule attached to %s"
+                    self._logger.debug("network policy rule attached to %s"
                                        " has svn = %s, dvn = %s. Ignored." %
                                        (self.name, svn, dvn))
                     continue
@@ -1152,7 +1152,8 @@ class VirtualNetworkST(DBBaseST):
             self._vnc_lib.routing_instance_update(default_ri.obj)
     # end update_pnf_presence
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
+        self.timer = kwargs.get('timer')
         old_virtual_network_connections = self.expand_connections()
         old_service_chains = self.service_chains
         self.connections = set()
@@ -1206,7 +1207,11 @@ class VirtualNetworkST(DBBaseST):
                     if connected_network and action.simple_action:
                         self.add_connection(connected_network)
 
+                    if self.timer:
+                        self.timer.timed_yield(is_evaluate_yield=True)
                 # end for acl_rule_list
+                if self.timer:
+                    self.timer.timed_yield(is_evaluate_yield=True)
             # end for policy_rule_entries.policy_rule
         # end for self.network_policys
 
@@ -1823,7 +1828,7 @@ class SecurityGroupST(DBBaseST):
         self.process_referred_sgs()
     # end delete_obj
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.update_policy_entries()
 
     def update_policy_entries(self):
@@ -3106,7 +3111,7 @@ class BgpRouterST(DBBaseST):
         return True
     # end update_autonomous_system
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         if self.router_type == 'bgpaas-client':
             bgpaas = BgpAsAServiceST.get(self.bgp_as_a_service)
             ret = self.update_bgpaas_client(bgpaas)
@@ -3351,7 +3356,7 @@ class BgpAsAServiceST(DBBaseST):
         return changed
     # end update
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         # If the BGP Service is shared, just create
         # one BGP Router.
         if self.obj.get_bgpaas_shared() == True:
@@ -3496,7 +3501,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_routing_instances([])
     # end delete_obj
 
-    def evaluate(self):
+    def evaluate(self, **kwargs):
         self.set_virtual_network()
         self._add_pbf_rules()
         self.process_analyzer()
