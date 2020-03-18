@@ -621,6 +621,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.del_tokens");
     GetOptValue<uint32_t>(var_map, flow_update_tokens_,
                           "FLOWS.update_tokens");
+    GetOptValue<bool>(var_map, flow_hash_excl_rid_,
+                      "FLOWS.hash_exclude_router_id");
     GetOptValue<uint16_t>(var_map, max_sessions_per_aggregate_,
                           "FLOWS.max_sessions_per_aggregate");
     GetOptValue<uint16_t>(var_map, max_aggregates_per_session_endpoint_,
@@ -1508,6 +1510,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Maximum session aggregates  : " << max_aggregates_per_session_endpoint_);
     LOG(DEBUG, "Maximum session endpoints   : " << max_endpoints_per_session_msg_);
     LOG(DEBUG, "Fabric SNAT hash table size : " << fabric_snat_hash_table_size_);
+    LOG(DEBUG, "Flow excluding Router ID in hash    :" << flow_hash_excl_rid_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1668,6 +1671,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         agent_base_dir_(),
         flow_thread_count_(Agent::kDefaultFlowThreadCount),
         flow_trace_enable_(true),
+        flow_hash_excl_rid_(false),
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         max_sessions_per_aggregate_(Agent::kMaxSessions),
         max_aggregates_per_session_endpoint_(Agent::kMaxSessionAggs),
@@ -2122,6 +2126,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Number of delete-tokens")
             ("FLOWS.update_tokens", opt::value<uint32_t>()->default_value(default_flow_update_tokens),
              "Number of update-tokens")
+            ("FLOWS.hash_exclude_router_id", opt::value<bool>(),
+             "Exclude router-id in hash calculation")
             ("FLOWS.index_sm_log_count", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowIndexSmLogCount),
              "Index Sm Log Count")
             ("FLOWS.latency_limit", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowLatencyLimit),
