@@ -217,7 +217,9 @@ class AnsibleRoleCommon(AnsibleConf):
                 lr = LogicalRouterDM.get(lr_uuid)
                 if lr:
                     is_master_int_vn = lr.is_master
-                    ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
+                    if is_internal_vn:
+                        # set description only for interval VN/VRF
+                        ri.set_description("__contrail_%s_%s" % (lr.name, lr_uuid))
 
             ri.set_is_master(is_master_int_vn)
 
