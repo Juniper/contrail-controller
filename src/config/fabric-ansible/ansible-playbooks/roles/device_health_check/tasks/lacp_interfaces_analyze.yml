@@ -13,6 +13,10 @@
   set_fact:
     multihomed_interface: "{{item.1}}"
 
+- name: Change the format if required
+  set_fact:
+    multihomed_interface: "{{ multihomed_interface | replace('_',':') }}"
+
 - name: Set the device name
   set_fact:
     device_name: "{{item.0.name}}"
