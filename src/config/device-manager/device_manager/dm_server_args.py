@@ -78,6 +78,7 @@ def default_options():
         'job_manager_db_conn_retry_timeout': '10',
         'job_manager_db_conn_max_retries': '6',
         'fabric_ansible_dir': '/opt/contrail/fabric_ansible_playbooks',
+        'dm_run_mode' : None,
     }
 # end default_options
 
@@ -187,6 +188,8 @@ def add_parser_arguments(parser):
                         help="Max number of job manager retries")
     parser.add_argument("--fabric_ansible_dir",
                         help="Fabric ansible directory path")
+    parser.add_argument("--dm_run_mode",
+                        help="Run all classes or just DeviceJobManager and DeviceZtpManager")
     SandeshConfig.add_parser_arguments(parser)
 # end add_parser_arguments
 
