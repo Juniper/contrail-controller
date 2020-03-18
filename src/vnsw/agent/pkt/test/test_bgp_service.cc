@@ -577,6 +577,9 @@ TEST_F(BgpServiceTest, Test_10) {
 
 //ControlNodeZone is not associated to a BgpRouter
 TEST_F(BgpServiceTest, Test_11) {
+
+    DeleteControlNodeZone("cnz-b");
+    client->WaitForIdle();
     BgpRouterConfig *bgp_router_config =
         agent_->oper_db()->bgp_router_config();
     std::string bgp_router_1 = AddBgpRouterConfig("127.0.0.10", 0, 5000,
@@ -671,6 +674,7 @@ TEST_F(BgpServiceTest, Test_13) {
     AddLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
     AddBgpaasControlNodeZoneLink("link1", bgpaas[6], "cnz-a", "primary");
     AddBgpaasControlNodeZoneLink("link2", bgpaas[6], "cnz-b", "secondary");
+    client->WaitForIdle();
     AddAap("vnet7", 7,
         Ip4Address::from_string("70.70.70.70"), "00:00:07:07:07:07");
 
@@ -720,6 +724,7 @@ TEST_F(BgpServiceTest, Test_13) {
         2, "ip-fabric", "control-node");
     bgp_router_3 = AddBgpRouterConfig("127.0.0.15", 0, 5000,
         3, "ip-fabric", "control-node");
+    client->WaitForIdle();
     AddControlNodeZone("cnz-a", 1);
     AddControlNodeZone("cnz-b", 2);
     AddControlNodeZone("cnz-c", 3);
@@ -728,10 +733,10 @@ TEST_F(BgpServiceTest, Test_13) {
     AddLink("bgp-router", bgp_router_3.c_str(), "control-node-zone", "cnz-c");
     AddBgpaasControlNodeZoneLink("link1", bgpaas[6], "cnz-c", "primary");
     AddBgpaasControlNodeZoneLink("link2", bgpaas[6], "cnz-a", "secondary");
+    client->WaitForIdle();
     AddAap("vnet7", 7,
         Ip4Address::from_string("70.70.70.70"), "00:00:07:07:07:07");
     client->WaitForIdle();
-
     TxTcpPacket(VmInterfaceGet(7)->id(), "70.70.70.70", "7.7.7.7", 10000, 179,
                 false);
     client->WaitForIdle();
@@ -768,9 +773,9 @@ TEST_F(BgpServiceTest, Test_13) {
     DeleteControlNodeZone("cnz-a");
     DeleteControlNodeZone("cnz-b");
     DeleteControlNodeZone("cnz-c");
-    DeleteBgpRouterConfig("127.0.0.10", 0, "ip-fabric");
-    DeleteBgpRouterConfig("127.0.0.11", 0, "ip-fabric");
-    DeleteBgpRouterConfig("127.0.0.12", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.13", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.14", 0, "ip-fabric");
+    DeleteBgpRouterConfig("127.0.0.15", 0, "ip-fabric");
     client->WaitForIdle();
 }
 
