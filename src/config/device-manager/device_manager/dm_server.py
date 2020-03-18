@@ -93,15 +93,72 @@ def initialize_db_connection(logger, args):
 
 
 def run_device_manager(dm_logger, args):
-    global _amqp_client
-    global _zookeeper_client
+    dm_pid = os.fork()
+    if dm_pid == 0:
+        gevent.get_hub().destroy(destroy_loop=True)
+        # the zk and amqp gls are still available here, None them
+        _zookeeper_client = None
+        _amqp_client = None
+        _db_conn = None
+        dm_logger.notice("Elected master Device Manager node. Initializing...")
+        dm_logger.introspect_init()
 
-    dm_logger.notice("Elected master Device Manager node. Initializing... ")
-    dm_logger.introspect_init()
-    DeviceZtpManager.get_instance().set_active()
-    DeviceManager(dm_logger, args, _zookeeper_client, _amqp_client)
-    if _amqp_client._consumer_gl is not None:
-        gevent.joinall([_amqp_client._consumer_gl])
+        if args.cluster_id:
+            client_pfx = args.cluster_id + '-'
+            zk_path_pfx = args.cluster_id + '/'
+        else:
+            client_pfx = ''
+            zk_path_pfx = ''
+
+        _zk_client_fork = ZookeeperClient(client_pfx + "device-manager",
+                                          args.zk_server_ip, args.host_ip)
+
+        _amqp_client_fork = initialize_amqp_client(dm_logger, args)
+
+        _db_conn_fork = initialize_db_connection(dm_logger, args)
+
+        #gevent.signal(signal.SIGHUP, sighup_handler_fork)
+        #gevent.signal(signal.SIGTERM, sigterm_handler_fork)
+        #gevent.signal(signal.SIGINT, sigterm_handler_fork)
+
+
+        #import pdb; pdb.set_trace()
+        # the devicejobmanager in child causes childwatcher exception saved in ideas file
+        #try:
+        #    # Initialize the device job manager
+        #    DeviceJobManager(_amqp_client_fork, _zk_client_fork, _db_conn_fork, args,
+        #                     dm_logger)
+        #    # Allow kombu client to connect consumers
+        #    gevent.sleep(0.5)
+        #except Exception as e:
+        #    dm_logger.error("Error while initializing the device job "
+        #                    "manager %s" % str(e))
+        #    raise e
+
+        try:
+            # Initialize the device ztp manager
+            DeviceZtpManager(_amqp_client_fork, _db_conn_fork, args, dm_logger)
+            # Allow kombu client to connect consumers
+            gevent.sleep(0.5)
+        except Exception as e:
+            dm_logger.error("Error while initializing the device ztp "
+                            "manager %s" % str(e))
+            raise e
+
+        DeviceZtpManager.get_instance().set_active()
+        dm_logger.notice("starting ztp mgr")
+        DeviceManager(dm_logger, args, _zk_client_fork, _amqp_client_fork)
+        #DeviceManager(None, args, _zk_client_fork, _amqp_client_fork)
+        dm_logger.notice("starting ztp mgr")
+        if _amqp_client_fork._consumer_gl is not None:
+            gevent.joinall([_amqp_client_fork._consumer_gl])
+    else:
+        # wait for child to complete, this is blocking zk gl
+        #os.waitpid(dm_pid, 0)
+        while True:
+            #dm_logger.notice("parent pid %s sleeping now, monitor the zk connect" %os.getpid())
+            gevent.sleep(10)
+
 # end run_device_manager
 
 
@@ -109,7 +166,6 @@ def sighup_handler():
     if DeviceManager.get_instance() is not None:
         DeviceManager.get_instance().sighup_handler()
 # end sighup_handler
-
 
 def sigterm_handler():
     global _amqp_client
@@ -121,7 +177,6 @@ def sigterm_handler():
     if _amqp_client is not None:
         _amqp_client.stop()
 # end sigterm_handler
-
 
 def main(args_str=None):
     global _amqp_client
@@ -174,15 +229,15 @@ def main(args_str=None):
                         "manager %s" % str(e))
         raise e
 
-    try:
-        # Initialize the device ztp manager
-        DeviceZtpManager(_amqp_client, _db_conn, args, dm_logger)
-        # Allow kombu client to connect consumers
-        gevent.sleep(0.5)
-    except Exception as e:
-        dm_logger.error("Error while initializing the device ztp "
-                        "manager %s" % str(e))
-        raise e
+    #try:
+    #    # Initialize the device ztp manager
+    #    DeviceZtpManager(_amqp_client, _db_conn, args, dm_logger)
+    #    # Allow kombu client to connect consumers
+    #    gevent.sleep(0.5)
+    #except Exception as e:
+    #    dm_logger.error("Error while initializing the device ztp "
+    #                    "manager %s" % str(e))
+    #    raise e
 
     gevent.signal(signal.SIGHUP, sighup_handler)
     gevent.signal(signal.SIGTERM, sigterm_handler)
