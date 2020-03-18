@@ -832,8 +832,14 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
     in->vn_ = NULL;
     if (nat_done == false) {
-        UpdateRoute(&in->rt_, it->vrf_.get(), pkt->ip_saddr, pkt->smac,
+        // lookup for source route in FIP VRF for egress flows only
+        // because for source route VRF is always present for ingress flows
+        // so there is no need to update source route with route lookup
+        // in FIP's VRF
+        if(!ingress) {
+            UpdateRoute(&in->rt_, it->vrf_.get(), pkt->ip_saddr, pkt->smac,
                     flow_source_plen_map);
+        }
         nat_dest_vrf = it->vrf_.get()->vrf_id();
     }
     UpdateRoute(&out->rt_, it->vrf_.get(), pkt->ip_daddr, pkt->dmac,

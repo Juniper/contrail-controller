@@ -13,6 +13,7 @@
 
 #include "test_flow_base.cc"
 
+#define fip_vn5_1 "11.1.1.100"
 
 TEST_F(FlowTest, UnderlayWithinSameVn) {
     //Make VN5 as underlay
@@ -184,7 +185,67 @@ TEST_F(FlowTest, UnderlayFipToFip) {
     AddLink("floating-ip", "fip2", "virtual-machine-interface", "flow5");
     FlowTeardown();
 }
+//Scenario:
+//1. create two Vns (VN1 and Vn2) and enable ip forward forwarding
+//2. spawn VMs from both VNs ( VM1-VN1, VM2-VN2)
+//3. alloacte FIP from VN1 and assign it to VM1-VN1 ( VM1-VN1-FIP)
+//4. ping from VM2-VN2 to VM1-VN1-FIP
+TEST_F(FlowTest, UnderlayInstanceIpToFip) {
+    FlowSetup();
+    AddLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn6", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    // Configure Floating-IP
+    AddFloatingIpPool("fip-pool_same_vn", 2);
+    AddFloatingIp("fip_vn5_1", 2, "11.1.1.100");
+    AddFloatingIp("fip_vn5_2", 2, "11.1.1.101");
+    AddLink("floating-ip", "fip_vn5_1", "floating-ip-pool", "fip-pool_same_vn");
+    AddLink("floating-ip", "fip_vn5_2", "floating-ip-pool", "fip-pool_same_vn");
+    AddLink("floating-ip-pool", "fip-pool_same_vn", "virtual-network",
+            "vn5");
+    client->WaitForIdle();
 
+    AddLink("floating-ip", "fip_vn5_1", "virtual-machine-interface", "flow0");
+    //AddLink("floating-ip", "fip2", "virtual-machine-interface", "flow5");
+    client->WaitForIdle();
+
+    TxIpPacket(flow5->id(), vm_a_ip, fip_vn5_1, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, vm_a_ip, fip_vn5_1, IPPROTO_ICMP, 0, 0,
+                            flow5->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+
+    VrfEntry *vrf5 = VrfGet("vrf5");
+
+    VnListType src_vn_list;
+    VnListType dest_vn_list;
+    src_vn_list.insert("vn6");
+    dest_vn_list.insert("vn5");
+
+    EXPECT_TRUE(fe->data().src_policy_vrf == 0);
+    EXPECT_TRUE(fe->data().dst_policy_vrf == vrf5->vrf_id());
+    EXPECT_TRUE(fe->data().dest_vrf == 0);
+    EXPECT_TRUE(fe->data().source_vn_list == src_vn_list);
+    EXPECT_TRUE(fe->data().dest_vn_list == dest_vn_list);
+    EXPECT_TRUE(fe->reverse_flow_entry()->data().dest_vrf == 0);
+
+    DelLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn6", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    FlowTeardown();
+}
 TEST_F(FlowTest, OverlayToUnderlayTransition) {
     TxL2Packet(flow0->id(), "00:00:00:01:01:01",
                "00:00:00:01:01:02", vm1_ip, vm2_ip, 1);
