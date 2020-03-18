@@ -1026,18 +1026,8 @@ class VirtualMachineInterfaceServer(ResourceMixin, VirtualMachineInterface):
         if not ok:
             return ok, vmis
 
-        for vmi in vmis:
-            ok, read_result = cls.dbe_read(
-                db_conn,
-                'virtual_machine_interface',
-                vmi['uuid'],
-                obj_fields=['virtual_network_refs',
-                            'virtual_machine_interface_bindings',
-                            'virtual_machine_interface_properties'])
-            if not ok:
-                return ok, read_result
+        for vmi_info in vmis:
 
-            vmi_info = read_result
             bindings = vmi_info.get(
                 'virtual_machine_interface_bindings') or {}
             kvps = bindings.get('key_value_pair') or []
