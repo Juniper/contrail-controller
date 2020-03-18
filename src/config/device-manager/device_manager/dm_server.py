@@ -9,6 +9,7 @@ import random
 import signal
 import socket
 import sys
+import subprocess
 
 from attrdict import AttrDict
 from cfgm_common import vnc_cgitb
@@ -104,6 +105,26 @@ def run_device_manager(dm_logger, args):
         gevent.joinall([_amqp_client._consumer_gl])
 # end run_device_manager
 
+def prepare_device_manager(dm_logger, args):
+    # won master election, destroy all things done in main
+    global _amqp_client
+
+    DeviceZtpManager.destroy_instance()
+    DeviceJobManager.destroy_instance()
+
+    if _amqp_client is not None:
+        _amqp_client.stop()
+    dm_logger = None
+    _amqp_client = None
+
+    script_to_run = ' '.join(sys.argv)
+    proc = subprocess.Popen(sys.argv, close_fds=True)
+    gevent.joinall([gevent.spawn(dummy_gl)])
+
+def dummy_gl():
+    while True:
+        gevent.sleep(20)
+
 
 def sighup_handler():
     if DeviceManager.get_instance() is not None:
@@ -189,9 +210,13 @@ def main(args_str=None):
     gevent.signal(signal.SIGINT, sigterm_handler)
 
     dm_logger.notice("Waiting to be elected as master...")
-    _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
-                                      os.getpid(), run_device_manager,
-                                      dm_logger, args)
+
+    if os.getpid() != 1:
+        run_device_manager(dm_logger, args)
+    else:
+        _zookeeper_client.master_election(zk_path_pfx + "/device-manager",
+                                          os.getpid(), prepare_device_manager,
+                                          dm_logger, args)
 # end main
 
 
