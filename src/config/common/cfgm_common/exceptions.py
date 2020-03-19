@@ -56,6 +56,17 @@ class ResourceExhaustionError(VncError):
 # end class ResourceExhaustionError
 
 
+class ResourceOutOfRangeError(VncError):
+    def __init__(self, requested_id, min_range, max_range):
+        self._requested_id = requested_id
+        self._min_range = min_range
+        self._max_range = max_range
+
+    def __str__(self):
+        return "Requested ID '%d' is out of the ID range [%d, %d]" % (
+            self._requested_id, self._min_range, self._max_range)
+
+
 class NoUserAgentKey(VncError):
     pass
 # end class NoUserAgentKey
