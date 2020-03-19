@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "75f0ad28_7d0dc6cb",
+        "filename": "src/bgp/bgp_path.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 316,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-03-19T17:45:22Z",
+      "side": 1,
+      "message": "Done.",
+      "parentUuid": "dbbf8d8d_24fc2d3b",
+      "range": {
+        "startLine": 316,
+        "startChar": 19,
+        "endLine": 316,
+        "endChar": 27
+      },
+      "revId": "da9a7871e685563e4f9a254e5f3fb09a6759d798",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "ae35dde7_7d0e81e6",
         "filename": "src/bgp/bgp_route.cc",
         "patchSetId": 6
@@ -36,6 +60,30 @@
       "writtenOn": "2020-03-19T03:44:53Z",
       "side": 1,
       "message": "we are adding this ext community only when routing policy is supported .(inet and inet6 tables today). Are we not supposed to add it for other tables? I thought it should be applied on all routes? can you please confirm",
+      "range": {
+        "startLine": 93,
+        "startChar": 25,
+        "endLine": 93,
+        "endChar": 51
+      },
+      "revId": "da9a7871e685563e4f9a254e5f3fb09a6759d798",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "20b66a58_f937eaeb",
+        "filename": "src/bgp/bgp_route.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 93,
+      "author": {
+        "id": 705
+      },
+      "writtenOn": "2020-03-19T17:45:22Z",
+      "side": 1,
+      "message": "Checking this behaviour in Junos. Once we are clear on the behaviour, I will make the necessary changes.",
+      "parentUuid": "ae35dde7_7d0e81e6",
       "range": {
         "startLine": 93,
         "startChar": 25,
