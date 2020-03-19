@@ -172,8 +172,14 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
 }
 
 autogen::VirtualMachineInterface *VmInterfaceConfigData::GetVmiCfg() const {
-    return static_cast <autogen::VirtualMachineInterface *>
-                        (ifmap_node()->GetObject());
+    IFMapNode *node = ifmap_node();
+    if (node != NULL) {
+        if (node->GetObject() != NULL) {
+            return static_cast <autogen::VirtualMachineInterface *>
+                        (node->GetObject());
+        }
+    }
+    return NULL;
 }
 
 //Configuration of vhost interface to be filled from

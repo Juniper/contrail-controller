@@ -23,6 +23,38 @@ using contrail::regex;
 using contrail::regex_match;
 using contrail::regex_search;
 
+class RestServerGetVmCfgTask : public Task {
+public:
+    RestServerGetVmCfgTask(Agent *agent,
+                            const struct RESTServer::RESTData& data):
+        Task(agent->task_scheduler()->GetTaskId(kTaskHttpRequstHandler), 0),
+        agent_(agent),
+        pih_(agent->port_ipc_handler()),
+        vm_uuid_((*data.match)[1]),
+        data_(data) {
+    }
+    virtual ~RestServerGetVmCfgTask() { }
+    virtual bool Run();
+    std::string Description() const { return "RestServerGetVmCfgTask"; }
+private:
+    Agent *agent_;
+    const PortIpcHandler *pih_;
+    std::string vm_uuid_;
+    const struct RESTServer::RESTData& data_;
+    DISALLOW_COPY_AND_ASSIGN(RestServerGetVmCfgTask);
+};
+
+bool RestServerGetVmCfgTask::Run() {
+
+    std::string info;
+    if (pih_->GetVmVnCfgPort(vm_uuid_, info)) {
+        REST::SendResponse(data_.session, info);
+    } else {
+        REST::SendErrorResponse(data_.session, "{ Not Found }", 404);
+    }
+    return true;
+}
+
 void RESTServer::VmPortPostHandler(const struct RESTData& data) {
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
@@ -151,15 +183,11 @@ void RESTServer::VmVnPortGetHandler(const struct RESTData& data) {
 }
 
 void RESTServer::VmVnPortCfgGetHandler(const struct RESTData& data) {
-    const std::string &vm_uuid = (*data.match)[1];
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
-        std::string info;
-        if (pih->GetVmVnCfgPort(vm_uuid, info)) {
-            REST::SendResponse(data.session, info);
-        } else {
-            REST::SendErrorResponse(data.session, "{ Not Found }", 404);
-        }
+        RestServerGetVmCfgTask *t =
+            new RestServerGetVmCfgTask(agent_, data);
+        agent_->task_scheduler()->Enqueue(t);
     } else {
         REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
     }

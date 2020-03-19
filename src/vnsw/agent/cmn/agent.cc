@@ -202,6 +202,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::PktHandler",
         "Agent::Diag",
         "http::RequestHandlerTask",
+        "Agent::RestApi",
         kTaskHealthCheck,
         kTaskCryptTunnel,
         kTaskDBExclude,
