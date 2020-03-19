@@ -591,6 +591,11 @@ void AgentParam::ParseFlows() {
         flow_trace_enable_ = true;
     }
 
+    if (!GetValueFromTree<bool>(flow_hash_excl_rid_,
+                                "FLOWS.hash_exclude_router_id")) {
+        flow_hash_excl_rid_ = false;
+    }
+
     if (!GetValueFromTree<float>(max_vm_flows_, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = (float) 100;
     }
@@ -931,6 +936,8 @@ void AgentParam::ParseFlowArguments
     GetOptValue<uint16_t>(var_map, flow_latency_limit_,
                           "FLOWS.latency_limit");
     GetOptValue<bool>(var_map, flow_trace_enable_, "FLOWS.trace_enable");
+    GetOptValue<bool>(var_map, flow_hash_excl_rid_,
+                      "FLOWS.hash_exclude_router_id");
     uint16_t val = 0;
     if (GetOptValue<uint16_t>(var_map, val, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = (float)val;
@@ -1371,6 +1378,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Flow ksync-tokens           : " << flow_ksync_tokens_);
     LOG(DEBUG, "Flow del-tokens             : " << flow_del_tokens_);
     LOG(DEBUG, "Flow update-tokens          : " << flow_update_tokens_);
+    LOG(DEBUG, "Flow excluding Router ID in hash    :" << flow_hash_excl_rid_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1512,6 +1520,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         send_ratelimit_(sandesh_send_rate_limit()),
         flow_thread_count_(Agent::kDefaultFlowThreadCount),
         flow_trace_enable_(true),
+        flow_hash_excl_rid_(false),
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
         bgp_as_a_service_port_range_("50000-50512"),
@@ -1667,6 +1676,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Number of delete-tokens")
             ("FLOWS.update_tokens", opt::value<uint32_t>(),
              "Number of update-tokens")
+            ("FLOWS.hash_exclude_router_id", opt::value<bool>(),
+             "Exclude router-id in hash calculation")
             ;
         options_.add(flow);
     }

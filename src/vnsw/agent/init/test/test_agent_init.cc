@@ -135,6 +135,7 @@ TEST_F(FlowTest, Agent_Flows_Option_1) {
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_FALSE(param.flow_trace_enable());
+    EXPECT_TRUE(param.flow_use_rid_in_hash());
     EXPECT_EQ(param.flow_add_tokens(), 1000);
     EXPECT_EQ(param.flow_ksync_tokens(), 1000);
     EXPECT_EQ(param.flow_del_tokens(), 1000);
@@ -142,7 +143,7 @@ TEST_F(FlowTest, Agent_Flows_Option_1) {
 }
 
 TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
-    int argc = 19;
+    int argc = 21;
     char *argv[] = {
         (char *) "",
         (char *) "--FLOWS.thread_count",                   (char *)"8",
@@ -154,6 +155,7 @@ TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
         (char *) "--FLOWS.ksync_tokens",                   (char *)"2000",
         (char *) "--FLOWS.del_tokens",                     (char *)"2000",
         (char *) "--FLOWS.update_tokens",                  (char *)"1000",
+        (char *) "--FLOWS.hash_exclude_router_id",         (char *)"true",
     };
 
     AgentParam param;
@@ -165,6 +167,7 @@ TEST_F(FlowTest, Agent_Flows_Option_Arguments) {
     EXPECT_EQ(param.linklocal_system_flows(), 24);
     EXPECT_EQ(param.linklocal_vm_flows(), 20);
     EXPECT_TRUE(param.flow_trace_enable());
+    EXPECT_FALSE(param.flow_use_rid_in_hash());
     EXPECT_EQ(param.flow_add_tokens(), 2000);
     EXPECT_EQ(param.flow_ksync_tokens(), 2000);
     EXPECT_EQ(param.flow_del_tokens(), 2000);

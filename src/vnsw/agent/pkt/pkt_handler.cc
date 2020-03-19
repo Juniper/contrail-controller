@@ -9,6 +9,7 @@
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 
+#include "init/agent_param.h"
 #include "cmn/agent_cmn.h"
 #include "net/address_util.h"
 #include "oper/ecmp_load_balance.h"
@@ -1065,7 +1066,9 @@ std::size_t PktInfo::hash(const Agent *agent,
     // We need to ensure that hash computed in Compute-1 and Compute-2 are
     // different. We also want to have same hash on agent restarts. So, include
     // vhost-ip also to compute hash
-    boost::hash_combine(seed, agent->router_id().to_ulong());
+    if (agent->params()->flow_use_rid_in_hash()) {
+        boost::hash_combine(seed, agent->router_id().to_ulong());
+    }
 
     if (family == Address::INET) {
         if (ecmp_load_balance.is_source_ip_set()) {
