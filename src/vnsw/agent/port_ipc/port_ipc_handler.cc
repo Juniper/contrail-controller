@@ -1090,21 +1090,23 @@ bool PortIpcHandler::MakeJsonFromVmiConfig(const boost::uuids::uuid &vmi_uuid,
     doc.AddMember("sub-interface", (bool)vmi_entry->sub_interface_, a);
     doc.AddMember("vlan-id", (int)vmi_entry->vlan_tag_, a);
 
-    const std::vector<autogen::KeyValuePair> & annotations =
-        vmi_entry->vmi_cfg->annotations();
-    if (annotations.size()) {
-        string str6;
-        contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
-        contrail_rapidjson::Value array(contrail_rapidjson::kArrayType);
-        std::vector<autogen::KeyValuePair>::const_iterator it =
-            annotations.begin();
-        while (it != annotations.end()) {
-            str6 = "{" + it->key + ":" + it->value + "}";
-            val.SetString(str6.c_str(), a);
-            array.PushBack(val, a);
-            it++;
+    if (vmi_entry->vmi_cfg != NULL) {
+        const std::vector<autogen::KeyValuePair> annotations(
+            vmi_entry->vmi_cfg->annotations());
+        if (annotations.size()) {
+            string str6;
+            contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
+            contrail_rapidjson::Value array(contrail_rapidjson::kArrayType);
+            std::vector<autogen::KeyValuePair>::const_iterator it =
+                annotations.begin();
+            while (it != annotations.end()) {
+                str6 = "{" + it->key + ":" + it->value + "}";
+                val.SetString(str6.c_str(), a);
+                array.PushBack(val, a);
+                it++;
+            }
+            doc.AddMember("annotations", array, a);
         }
-        doc.AddMember("annotations", array, a);
     }
 
     contrail_rapidjson::StringBuffer buffer;
