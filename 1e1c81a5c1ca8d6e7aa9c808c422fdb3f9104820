@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "26f520bd_ec372dbd",
+        "filename": "src/vnsw/agent/services/igmp_proto.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 197,
+      "author": {
+        "id": 484
+      },
+      "writtenOn": "2020-03-19T16:35:00Z",
+      "side": 1,
+      "message": "Is nh marked deleted at this point. Can you pl confirm from the db flags?\nCan you pl also take care of the previous comment as well.",
+      "range": {
+        "startLine": 197,
+        "startChar": 0,
+        "endLine": 197,
+        "endChar": 8
+      },
+      "revId": "1e1c81a5c1ca8d6e7aa9c808c422fdb3f9104820",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
