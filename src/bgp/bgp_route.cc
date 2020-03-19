@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_route.h"
 
 #include "bgp/bgp_peer.h"
@@ -17,6 +18,7 @@
 #include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/sub_cluster.h"
 #include "bgp/extended-community/tag.h"
 #include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -83,6 +85,14 @@ void BgpRoute::InsertPath(BgpPath *path) {
         // already has tunnel encapsulation specified.
 
         if (table->IsRoutingPolicySupported()) {
+            if (!path->IsReplicated()) {
+                // Add sub-cluster extended community to all routes
+                // originated within a sub-cluster
+                uint32_t subcluster_id = SubClusterId();
+                if (subcluster_id) {
+                    path->AddExtCommunitySubCluster(subcluster_id);
+                }
+            }
             RoutingInstance *rtinstance = table->routing_instance();
             rtinstance->ProcessRoutingPolicy(this, path);
         } else {
@@ -515,6 +525,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_source_as(*it)) {
             SourceAs sas(*it);
             communities->push_back(sas.ToString());
+        } else if (ExtCommunity::is_sub_cluster(*it)) {
+            SubCluster sc(*it);
+            communities->push_back(sc.ToString());
         } else if (ExtCommunity::is_vrf_route_import(*it)) {
             VrfRouteImport rt_import(*it);
             communities->push_back(rt_import.ToString());
@@ -721,4 +734,22 @@ void BgpRoute::NotifyOrDelete() {
     } else {
         Notify();
     }
+}
+
+uint32_t BgpRoute::SubClusterId() const {
+    BgpTable *table = static_cast<BgpTable *>(get_table());
+    const RoutingInstance *ri = table->routing_instance();
+    if (!ri) {
+        return 0;
+    }
+    const BgpConfigManager *config_manager_ = table->server()->config_manager();
+    if (!config_manager_) {
+        return 0;
+    }
+    const BgpProtocolConfig *proto =
+        config_manager_->GetProtocolConfig(ri->name());
+    if (!proto) {
+        return 0;
+    }
+    return proto->subcluster_id();
 }

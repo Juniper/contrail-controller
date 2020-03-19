@@ -9,6 +9,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
+#include "bgp/extended-community/sub_cluster.h"
 #include "net/community_type.h"
 
 using std::string;
@@ -298,4 +299,26 @@ BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,
 
 RouteDistinguisher BgpSecondaryPath::GetPrimaryRouteDistinguisher() const {
     return src_entry_->GetRouteDistinguisher();
+}
+
+void BgpPath::AddExtCommunitySubCluster(uint32_t subcluster_id) {
+    BgpAttr *attr = new BgpAttr(*(GetOriginalAttr()));
+    BgpServer *server = attr->attr_db()->server();
+    ExtCommunityPtr ext_community = attr->ext_community();
+
+    SubCluster sc(server->autonomous_system(), subcluster_id);
+    ext_community = server->extcomm_db()->
+        ReplaceSubClusterAndLocate(ext_community.get(),
+                sc.GetExtCommunity());
+    BgpAttrPtr modified_attr = server->attr_db()->
+        ReplaceExtCommunityAndLocate(attr, ext_community);
+    // Since routing policies are applied only to original attribute hence
+    // we are updating original_attr with subcluster extended community.
+    // Also we need to set modified_attr in attr as well as orignal_attr,
+    // because there may or may not be a policy but we still need to add this
+    // community.
+    // Modifying original attr should be done judiciously and only if required.
+    if (modified_attr) {
+        SetAttr(modified_attr, modified_attr);
+    }
 }
