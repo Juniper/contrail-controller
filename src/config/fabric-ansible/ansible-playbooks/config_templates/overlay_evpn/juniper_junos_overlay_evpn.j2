@@ -25,7 +25,6 @@ set groups {{cfg_group}} policy-options community {{community_target}} members {
 set groups {{cfg_group}} policy-options policy-statement {{vrf_import}} term t1 then accept
 {%     for export_target in ri.get('export_targets', []) %}
 {%         set community_target = export_target.replace(':', '_') %}
-set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 from protocol direct
 set groups {{cfg_group}} policy-options policy-statement {{vrf_export}} term t1 then community add {{community_target}}
 set groups {{cfg_group}} policy-options community {{community_target}} members {{export_target  | rtfilter}}
 {%     endfor %}
