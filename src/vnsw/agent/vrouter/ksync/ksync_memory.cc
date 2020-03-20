@@ -95,24 +95,21 @@ void KSyncMemory::Mmap(bool unlink_node) {
             assert(0);
         }
     }
-
     parse_ini_file();
+
     const char *mmap_error_msg = vr_table_map(major_devid_, minor_devid_, table_path_.c_str(),
                                               table_size_, &table_);
     if (mmap_error_msg) {
         LOG(ERROR, "Error mapping KSync memory. Device: " << table_path_ << "; " << mmap_error_msg);
         assert(0);
     }
+    LOG(INFO, "Mem mapped dev file:" << table_path_.c_str() << " to addr:" << table_ << "\n");
 
     table_entries_count_ = table_size_ / get_entry_size();
     SetTableSize();
 }
 
-// Steps to map  table entry
-// - Query the  table parameters from kernel
-// - Create device /dev/ with major-num and minor-num
-// - Map device memory
-void KSyncMemory::InitMem() {
+int KSyncMemory::GetKernelTableSize() {
     struct nl_client *cl;
     int attr_len;
     int encode_len, ret;
@@ -143,7 +140,15 @@ void KSyncMemory::InitMem() {
                                          KSyncSock::GetAgentSandeshContext(0));
     }
     nl_free_client(cl);
+    return table_size_;
+}
 
+// Steps to map  table entry
+// - Query the  table parameters from kernel
+// - Create device /dev/ with major-num and minor-num
+// - Map device memory
+void KSyncMemory::InitMem() {
+    GetKernelTableSize();
     Mmap(true);
     return;
 }

@@ -110,9 +110,9 @@ private:
     void NetlinkInit();
     void CreateVhostIntf();
 
-    static const int kHugePages = 4;
-    int huge_fd_[kHugePages];
-    void *huge_pages_[kHugePages];
+    static const int kHugePageFiles = 4;
+    int huge_fd_[kHugePageFiles];
+    void *huge_pages_[kHugePageFiles];
 
     DISALLOW_COPY_AND_ASSIGN(KSync);
 };

@@ -153,7 +153,7 @@ void KSyncSandeshContext::VrouterHugePageHandler(vr_hugepage_config *r) {
             message = "Failed to set huge pages, vrouter using allocated memory (not huge pages)";
             break;
         case VR_HPAGE_CFG_RESP_MEM_ALREADY_INITED:
-            message = "Failed to set huge pages, vrouter using already allocated memory (not huge pages)";
+            message = "Vrouter using already allocated memory";
             break;
         case VR_HPAGE_CFG_RESP_HPAGE_PARTIAL_SUCCESS:
             message = "Not all huge pages are successfully set, vrouter using allocated memory (not huge pages)";
@@ -163,7 +163,7 @@ void KSyncSandeshContext::VrouterHugePageHandler(vr_hugepage_config *r) {
             break;
     }
 
-    LOG(DEBUG, message);
+    LOG(INFO, message);
 }
 
 void KSyncSandeshContext::VrouterOpsMsgHandler(vrouter_ops *r) {
