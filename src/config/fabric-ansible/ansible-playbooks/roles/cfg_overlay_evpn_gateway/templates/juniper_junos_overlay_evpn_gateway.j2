@@ -45,7 +45,8 @@ set groups {{cfg_group}} interfaces irb unit {{unit}} virtual-gateway-accept-dat
 {%                         set as_number = bgp_elem.get('autonomous_system') %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} instance-type vrf
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} route-distinguisher {{route_distinguisher}}:{{vn_id_num_l3}}
-set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target target:{{as_number | asnfilter}}:{{vn_id_num_l3}}
+{# set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-target
+target:{{as_number | asnfilter}}:{{vn_id_num_l3}} #}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} routing-options auto-export
 {%                         if ('DC-Gateway' in sys_roles or 'DCI-Gateway' in sys_roles) %}
 set groups {{cfg_group}} routing-instances {{contrail_l3_ri}} vrf-import REJECT-MAINTENANCE-MODE
