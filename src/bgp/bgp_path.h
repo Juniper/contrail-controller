@@ -61,6 +61,8 @@ public:
     virtual ~BgpPath() {
     }
 
+    void AddExtCommunitySubCluster(uint32_t subcluster_id);
+
     RouteDistinguisher GetSourceRouteDistinguisher() const;
 
     bool IsVrfOriginated() const {

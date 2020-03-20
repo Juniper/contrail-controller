@@ -622,6 +622,21 @@ bool BgpConfigParser::ParseSubCluster(const xml_node &node,
         MapObjectClearProperty("sub-cluster", subcluster_name,
                                "sub-cluster-asn", requests);
     }
+
+    auto_ptr<autogen::SubCluster::NtProperty> id_property(
+        new autogen::SubCluster::NtProperty);
+    if (node.child("sub-cluster-id")) {
+        std::stringstream sub_cluster_id(
+                string(node.child_value("sub-cluster-id")));
+        sub_cluster_id >> id_property->data;
+    }
+    if (add_change) {
+        MapObjectSetProperty("sub-cluster", subcluster_name,
+            "sub-cluster-id", id_property.release(), requests);
+    } else {
+        MapObjectClearProperty("sub-cluster", subcluster_name,
+                               "sub-cluster-id", requests);
+    }
     return true;
 }
 
