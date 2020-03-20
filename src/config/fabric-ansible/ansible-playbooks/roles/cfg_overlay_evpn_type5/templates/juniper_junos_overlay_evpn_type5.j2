@@ -20,11 +20,15 @@ set groups {{cfg_group}} routing-instances {{name}} routing-options multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options rib {{name}}.inet6.0 multipath
 set groups {{cfg_group}} routing-instances {{name}} routing-options static route {{dummy_ip}}/32 discard
 {%                 if (vxlan_id != '') %}
+{%                    if (router_external != true) %}
+{# This is for the DC-GW on MX - we are seeing issues with the VXLAN so moving to MPLSoGRE below protocol is reqired for the VXLAN only. We will revisit later
+ #}
 set groups {{cfg_group}} protocols evpn 
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes advertise direct-nexthop
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes encapsulation vxlan
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes vni {{vxlan_id}}
 set groups {{cfg_group}} routing-instances {{name}} protocols evpn ip-prefix-routes export type5_policy
+{%                    endif %}
 {%                 endif %}
 set groups {{cfg_group}} routing-instances {{name}} instance-type vrf
 {%                 set vrf_import = name+'-import' %}
