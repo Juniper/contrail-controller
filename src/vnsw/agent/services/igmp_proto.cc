@@ -2,12 +2,15 @@
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/uuid/uuid_io.hpp>
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
 #include "oper/vn.h"
 #include "oper/route_common.h"
 #include "oper/multicast.h"
 #include "services/igmp_proto.h"
+
+using namespace boost::uuids;
 
 IgmpProto::IgmpProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::IGMP, io),
@@ -179,6 +182,78 @@ bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
         return false;
     }
 
+    boost::system::error_code ec;
+    Ip4Address src, grp;
+    src = Ip4Address::from_string("0.0.0.0", ec);
+    grp = Ip4Address::from_string("255.255.255.255", ec);
+    MulticastGroupObject *obj = agent_->oper_db()->multicast()->FindGroupObject(
+                                    vrf->GetName(), src, grp);
+    if (!obj) {
+        return false;
+    }
+
+    boost::shared_ptr<PktInfo> pkt(new PktInfo(agent_, 1024, PktHandler::IGMP,
+                                    0));
+    IgmpHandler igmp_handler(agent_, pkt,
+                                    *(agent_->event_manager()->io_service()));
+
+    std::map<uuid, MacAddress>::const_iterator it;
+    uuid vmi_uuid;
+    for (it = obj->GetLocalList().begin();
+            it != obj->GetLocalList().end(); it++) {
+
+        vmi_uuid = it->first;
+        InterfaceConstRef itf = agent_->interface_table()->FindVmi(vmi_uuid);
+        if (!itf) {
+            continue;
+        }
+        const VmInterface *vm_itf = dynamic_cast<const VmInterface *>(itf.get());
+        if (!vm_itf) {
+            continue;
+        }
+        if (vm_itf->vmi_type() == VmInterface::VHOST) {
+            continue;
+        }
+        if (!vm_itf->igmp_enabled()) {
+            IncrSendStats(vm_itf, false);
+            continue;
+        }
+        if (!ipam->IsSubnetMember(IpAddress(vm_itf->primary_ip_addr()))) {
+            continue;
+        }
+        if (!vm_itf->vrf() || vrf->GetName() != vm_itf->vrf()->GetName()) {
+            continue;
+        }
+
+        igmp_handler.SendPacket(vm_itf, vrf, gmp_addr, packet);
+    }
+
+    return true;
+}
+
+#if 0
+// Send IGMP packets to the VMs part of the IPAM VN
+bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
+                            GmpPacket *packet) {
+
+    if (!vrf || !packet) {
+        return false;
+    }
+
+    if (!gmp_addr.is_v4()) {
+        return false;
+    }
+
+    VnEntry *vn = vrf->vn();
+    if (!vn) {
+        return false;
+    }
+
+    const VnIpam *ipam = vn->GetIpam(gmp_addr);
+    if (!ipam) {
+        return false;
+    }
+
     Ip4Address subnet = ipam->GetSubnetAddress();
     InetUnicastAgentRouteTable *inet_table =
                                     vrf->GetInet4UnicastRouteTable();
@@ -229,6 +304,7 @@ bool IgmpProto::SendIgmpPacket(const VrfEntry *vrf, IpAddress gmp_addr,
 
     return true;
 }
+#endif
 
 void IgmpProto::IncrSendStats(const VmInterface *vm_itf, bool tx_done) {
 
