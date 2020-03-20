@@ -17,26 +17,33 @@ set groups {{cfg_group}} routing-options autonomous-system {{bf_global_asn}}
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} local-as {{bgp.autonomous_system}}
 {%             set sys_config = device_abstract_config.get('system', None) %}
 {%             set sys_roles = sys_config.get('routing_bridging_roles', []) %}
+{# Seeing issues with the ping from VM is not working for CRB-GW and CRB-MCAST-GW when GRE tunnels enabled. So disabling #}
 {%             set crb_enabled = false %}
-{%             if ('CRB-Gateway' in sys_roles) %}
+{%             if ('CRB-Gateway' in sys_roles or 'CRB-MCAST-Gateway' in sys_roles) %}
 {%                 set crb_enabled = true %}
 {%             endif %}
-{# We will set the GRE or UDP related dynamic tunnels only if they are in highest priority #}
 {%             set encap_priorities = device_abstract_config.get('system', {}).get('encapsulation_priorities', []) %}
+{%             set mode = [] %}
+{%             for encap_mode in encap_priorities %}
+{%                 if (crb_enabled == true) or (encap_mode != 'VXLAN') %}
+{%                     do mode.append(encap_mode) %}
+{%                     break %}
+{%                 endif %}
+{%             endfor %}
 {%             set dynamic_tunnels = false %}
-{%             if encap_priorities|length > 0 and encap_priorities[0] == 'MPLSoUDP' %}
-{%                 set tunnel_type = '_contrail_udp_tunnel' %}
+{%             if mode|length > 0 and mode[0] == 'MPLSoUDP' %}
+{%             set tunnel_type = '_contrail_udp_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} export mpls_over_udp
 set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then community add encap-udp
 set groups {{cfg_group}} policy-options policy-statement mpls_over_udp term 1 then accept
 set groups {{cfg_group}} policy-options community encap-udp members 0x030c:64512:13
-{%                 set dynamic_tunnels = true %}
-{%             elif encap_priorities[0] == 'MPLSoGRE' %}
-{%                 set tunnel_type = '_contrail_gre_tunnel' %}
+{%             set dynamic_tunnels = true %}
+{%             elif mode[0] == 'MPLSoGRE' %}
+{%             set tunnel_type = '_contrail_gre_tunnel' %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} gre
-{%                 set dynamic_tunnels = true %}
+{%             set dynamic_tunnels = true %}
 {%             endif %}
 {%             if dynamic_tunnels == true %}
 set groups {{cfg_group}} routing-options dynamic-tunnels {{tunnel_type}} source-address {{bgp.get('ip_address')}}
@@ -63,7 +70,7 @@ set groups {{cfg_group}} protocols bgp group {{bgp_group_name}} vpn-apply-export
 {%                 if family == 'inet-labeled' %}
 {%                       set family = 'inet' %}
 {%                       set mode = 'labeled-unicast' %}
-{%                 elif family.startswith('inet') and crb_enabled == false %}
+{%                 elif family.startswith('inet') %}
 {%                     set mode='unicast' %}
 {%                 elif family == 'evpn' %}
 {%                     set mode='signaling' %}
