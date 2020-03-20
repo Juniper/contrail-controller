@@ -229,10 +229,12 @@ void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
             gmp_intf_state = it->second;
             GmpIntfSGClear(state, gmp_intf_state);
             // Cleanup the GMP database and timers
-            gmp_intf_state->gmp_intf_->set_vrf_name(string());
-            gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
-            DeleteIntf(gmp_intf_state->gmp_intf_);
-            delete gmp_intf_state;
+            if (gmp_intf_state->gmp_intf_) {
+                gmp_intf_state->gmp_intf_->set_vrf_name(string());
+                gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
+                DeleteIntf(gmp_intf_state->gmp_intf_);
+                delete gmp_intf_state;
+            }
             itf_attach_count_--;
         }
         state->gmp_intf_map_.clear();
@@ -270,16 +272,20 @@ void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
         gmp_intf_state = it->second;
         GmpIntfSGClear(state, gmp_intf_state);
         // Cleanup the GMP database and timers
-        gmp_intf_state->gmp_intf_->set_vrf_name(string());
-        gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
-        DeleteIntf(gmp_intf_state->gmp_intf_);
+        if (gmp_intf_state->gmp_intf_) {
+            gmp_intf_state->gmp_intf_->set_vrf_name(string());
+            gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
+            DeleteIntf(gmp_intf_state->gmp_intf_);
+        }
         delete gmp_intf_state;
         itf_attach_count_--;
         state->gmp_intf_map_.erase(it++);
     }
 
     const std::vector<VnIpam> &ipam = vn->GetVnIpam();
+    bool create_intf = false;
     for (unsigned int i = 0; i < ipam.size(); ++i) {
+        create_intf = false;
         if (!ipam[i].IsV4()) {
             continue;
         }
@@ -301,12 +307,18 @@ void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
                 gmp_intf_state = it->second;
                 GmpIntfSGClear(state, gmp_intf_state);
                 // Cleanup the GMP database and timers
-                gmp_intf_state->gmp_intf_->set_vrf_name(string());
-                gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
-                DeleteIntf(gmp_intf_state->gmp_intf_);
+                if (gmp_intf_state->gmp_intf_) {
+                    gmp_intf_state->gmp_intf_->set_vrf_name(string());
+                    gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
+                    DeleteIntf(gmp_intf_state->gmp_intf_);
+                    gmp_intf_state->gmp_intf_ = NULL;
+                    create_intf = true;
+                }
+                if (!create_intf) {
+                    delete gmp_intf_state;
+                    state->gmp_intf_map_.erase(it->first);
+                }
                 itf_attach_count_--;
-                delete gmp_intf_state;
-                state->gmp_intf_map_.erase(it->first);
             }
 
             gmp_address = ipam[i].default_gw;
@@ -314,16 +326,19 @@ void GmpProto::GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
         it = state->gmp_intf_map_.find(gmp_address);
         if (it == state->gmp_intf_map_.end()) {
-            gmp_intf_state = new VnGmpDBState::VnGmpIntfState();
-            gmp_intf_state->gmp_intf_ = CreateIntf();
-            itf_attach_count_++;
-            state->gmp_intf_map_.insert(
+            if (!create_intf) {
+                gmp_intf_state = new VnGmpDBState::VnGmpIntfState();
+                state->gmp_intf_map_.insert(
                             std::pair<IpAddress,VnGmpDBState::VnGmpIntfState*>
                             (gmp_address, gmp_intf_state));
+            } else {
+                gmp_intf_state->gmp_intf_ = CreateIntf();
+            }
+            itf_attach_count_++;
         } else {
             gmp_intf_state = it->second;
         }
-        if (gmp_intf_state) {
+        if (gmp_intf_state && gmp_intf_state->gmp_intf_) {
             gmp_intf_state->gmp_intf_->set_ip_address(gmp_address);
             if (vn->GetVrf()) {
                 gmp_intf_state->gmp_intf_->set_vrf_name(vn->GetVrf()->GetName());
@@ -365,6 +380,11 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
             agent_->oper_db()->multicast()->DeleteVmInterfaceFromVrfSourceGroup(
                                     vmi_state->vrf_name_, vm_itf);
         }
+
+        if (vmi_state->igmp_enabled_ != vm_itf->igmp_enabled()) {
+            TryCreateDeleteIntf(vmi_state, vm_itf);
+        }
+
         if (itf->IsDeleted()) {
             vm_ip_to_vmi_.erase(vmi_state->vmi_v4_addr_);
             entry->ClearState(part->parent(), itf_listener_id_);
@@ -382,16 +402,15 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         entry->SetState(part->parent(), itf_listener_id_, vmi_state);
     }
 
-    if (vm_itf->vrf()) {
-        if (vmi_state->vrf_name_ != vm_itf->vrf()->GetName()) {
-            if (agent_->oper_db()->multicast()) {
-                agent_->oper_db()->multicast()->
+    std::string vrf_name = vm_itf->vrf() ? vm_itf->vrf()->GetName() : "";
+    if (vmi_state->vrf_name_ != vrf_name) {
+        if (agent_->oper_db()->multicast()) {
+            agent_->oper_db()->multicast()->
                             DeleteVmInterfaceFromVrfSourceGroup(
                                     vmi_state->vrf_name_, vm_itf);
-            }
-
-            vmi_state->vrf_name_ = vm_itf->vrf()->GetName();
         }
+
+        vmi_state->vrf_name_ = vm_itf->vrf()->GetName();
     }
 
     if (vmi_state->vmi_v4_addr_ != vm_itf->primary_ip_addr()) {
@@ -413,7 +432,103 @@ void GmpProto::GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry) {
                                          vm_itf->GetUuid()));
     }
 
+    if (vmi_state->igmp_enabled_ != vm_itf->igmp_enabled()) {
+        TryCreateDeleteIntf(vmi_state, vm_itf);
+    }
+
     return;
+}
+
+void GmpProto::TryCreateDeleteIntf(VmiGmpDBState *vmi_state, VmInterface *vm_itf) {
+
+    const VnEntry *vn = vm_itf->vn();
+    const VnIpam *ipam;
+
+    if (!vn || vn->IsDeleted()) {
+        return;
+    }
+
+    ipam = vn->GetIpam(vmi_state->vmi_v4_addr_);
+    if (!ipam) {
+        return;
+    }
+
+    VnGmpDBState *vn_state = static_cast<VnGmpDBState *>
+                        (vn->GetState(vn->get_table(), vn_listener_id_));
+    if (!vn_state) {
+        return;
+    }
+
+    if ((ipam->default_gw == IpAddress(Ip4Address())) &&
+        (ipam->dns_server == IpAddress(Ip4Address()))) {
+        return;
+    }
+
+    VnGmpDBState::VnGmpIntfState *gmp_intf_state = NULL;
+    IpAddress gmp_address = IpAddress(Ip4Address());
+    VnGmpDBState::VnGmpIntfMap::const_iterator it;
+
+    if (ipam->dns_server != IpAddress(Ip4Address())) {
+        it = vn_state->gmp_intf_map_.find(ipam->dns_server);
+        gmp_address = ipam->dns_server;
+    }
+    if (ipam->default_gw != IpAddress(Ip4Address())) {
+        if ((it != vn_state->gmp_intf_map_.end()) &&
+            (ipam->default_gw != ipam->dns_server)) {
+            gmp_intf_state = it->second;
+            GmpIntfSGClear(vn_state, gmp_intf_state);
+            // Cleanup the GMP database and timers
+            if (gmp_intf_state->gmp_intf_) {
+                gmp_intf_state->gmp_intf_->set_vrf_name(string());
+                gmp_intf_state->gmp_intf_->set_ip_address(IpAddress(Ip4Address()));
+                DeleteIntf(gmp_intf_state->gmp_intf_);
+            }
+            itf_attach_count_--;
+            delete gmp_intf_state;
+            vn_state->gmp_intf_map_.erase(it->first);
+        }
+
+        gmp_address = ipam->default_gw;
+    }
+
+    it = vn_state->gmp_intf_map_.find(gmp_address);
+    if (it == vn_state->gmp_intf_map_.end()) {
+        gmp_intf_state = new VnGmpDBState::VnGmpIntfState();
+        gmp_intf_state->gmp_intf_ = CreateIntf();
+        vn_state->gmp_intf_map_.insert(
+                        std::pair<IpAddress,VnGmpDBState::VnGmpIntfState*>
+                        (gmp_address, gmp_intf_state));
+    } else {
+        gmp_intf_state = it->second;
+    }
+
+    if (!gmp_intf_state) {
+        return;
+    }
+
+    if (vm_itf->igmp_enabled()) {
+        gmp_intf_state->igmp_enabled_vmi_count_++;
+    } else {
+        gmp_intf_state->igmp_enabled_vmi_count_--;
+    }
+
+    if (gmp_intf_state->igmp_enabled_vmi_count_ && !gmp_intf_state->gmp_intf_) {
+        gmp_intf_state->gmp_intf_ = CreateIntf();
+    } else if (!gmp_intf_state->igmp_enabled_vmi_count_) {
+        if (gmp_intf_state->gmp_intf_) {
+            DeleteIntf(gmp_intf_state->gmp_intf_);
+        }
+        gmp_intf_state->gmp_intf_ = NULL;
+    }
+
+    if (gmp_intf_state->gmp_intf_) {
+        gmp_intf_state->gmp_intf_->set_ip_address(gmp_address);
+        if (vn->GetVrf()) {
+            gmp_intf_state->gmp_intf_->set_vrf_name(vn->GetVrf()->GetName());
+        }
+    }
+
+    vmi_state->igmp_enabled_ = vm_itf->igmp_enabled();
 }
 
 // Create a GmpIntf. Represents per-IPAM entry.

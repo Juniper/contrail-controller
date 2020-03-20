@@ -61,11 +61,17 @@ public:
     class VnGmpIntfState {
     public:
 
-        VnGmpIntfState() { }
+        VnGmpIntfState() {
+            gmp_intf_ = NULL;
+            gmp_intf_sg_list_.clear();
+            igmp_enabled_vmi_count_ = 0;
+
+        }
         ~VnGmpIntfState() { }
 
         GmpIntf *gmp_intf_;
         VnGmpIntfSGList gmp_intf_sg_list_;
+        uint32_t igmp_enabled_vmi_count_;
     };
 
     typedef std::map<IpAddress, VnGmpIntfState *> VnGmpIntfMap;
@@ -86,6 +92,7 @@ public:
 
     std::string vrf_name_;
     IpAddress vmi_v4_addr_;
+    bool igmp_enabled_;
 };
 
 class GmpIntf {
@@ -141,6 +148,7 @@ public:
     GmpProto(GmpType::Type type, Agent *agent, const std::string &task_name,
                             int instance, boost::asio::io_service &io);
     ~GmpProto();
+
     GmpIntf *CreateIntf();
     bool DeleteIntf(GmpIntf *gif);
 
@@ -182,6 +190,7 @@ private:
     void GmpVnNotify(DBTablePartBase *part, DBEntryBase *entry);
     void GmpVrfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void GmpItfNotify(DBTablePartBase *part, DBEntryBase *entry);
+    void TryCreateDeleteIntf(VmiGmpDBState *vmi_state, VmInterface *vm_itf);
 
     GmpType::Type type_;
     Agent *agent_;
