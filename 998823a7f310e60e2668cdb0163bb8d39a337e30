@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cc6e1e64_1c72170d",
+        "filename": "src/config/fabric-ansible/ansible-playbooks/schema/fabric_onboard_schema.json",
+        "patchSetId": 5
+      },
+      "lineNbr": 233,
+      "author": {
+        "id": 843
+      },
+      "writtenOn": "2020-03-20T10:12:29Z",
+      "side": 1,
+      "message": "do you want to change the title for to_ztp?",
+      "revId": "998823a7f310e60e2668cdb0163bb8d39a337e30",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
