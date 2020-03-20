@@ -70,7 +70,7 @@ KSync::KSync(Agent *agent)
       qos_config_ksync_obj_(new QosConfigKSyncObject(this)),
       bridge_route_audit_ksync_obj_(new BridgeRouteAuditKSyncObject(this)),
       ksync_bridge_memory_(new KSyncBridgeMemory(this, VR_MEM_BRIDGE_TABLE_OBJECT)) {
-      for (uint16_t i = 0; i < kHugePages; i++) {
+      for (uint16_t i = 0; i < kHugePageFiles; i++) {
           huge_fd_[i] = -1;
       }
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
@@ -80,7 +80,7 @@ KSync::KSync(Agent *agent)
 }
 
 KSync::~KSync() {
-      for (uint16_t i = 0; i < kHugePages; i++) {
+      for (uint16_t i = 0; i < kHugePageFiles; i++) {
           if (huge_fd_[i] != -1)
               close (huge_fd_[i]);
       }
@@ -241,26 +241,47 @@ void KSync::InitVrouterOps(vrouter_ops *v) {
 
 void KSync::SetHugePages() {
     vr_hugepage_config encoder;
-    bool fail[kHugePages];
-    std::string filename[kHugePages];
-    uint32_t filesize[kHugePages];
-    uint32_t flags[kHugePages];
-
+    bool fail[kHugePageFiles];
+    std::string filename[kHugePageFiles];
+    uint32_t filesize[kHugePageFiles];
+    uint32_t flags[kHugePageFiles];
+    uint32_t pagesize[kHugePageFiles];
     uint16_t i, j;
-    for (i = 0; i < kHugePages / 2; ++i) {
+    uint32_t bridge_table_size, flow_table_size;
+
+    // get the table size for bridge and flow
+    bridge_table_size = ksync_bridge_memory_.get()->GetKernelTableSize();
+    flow_table_size = ksync_flow_memory_.get()->GetKernelTableSize();
+
+    LOG(INFO, __FUNCTION__ << ": " << "Bridge table size:" << bridge_table_size
+                     << " Flow table size:" << flow_table_size << "\n");
+
+    for (i = 0; i < kHugePageFiles / 2; ++i) {
         filename[i] = agent_->params()->huge_page_file_1G(i);
-        filesize[i] = 1024 * 1024 * 1024;
-        flags[i] = O_RDWR;
+        if ((i % 2) == 0) {
+            filesize[i] = bridge_table_size;
+        } else {
+            filesize[i] = flow_table_size;
+        }
+        // set pagesize array
+        pagesize[i] = 1024 * 1024 * 1024;
+        flags[i] = O_CREAT | O_RDWR;
         fail[i] = false;
     }
-    for (j = i; j < kHugePages; ++j) {
+    for (j = i; j < kHugePageFiles; ++j) {
         filename[j] = agent_->params()->huge_page_file_2M(j - i);
-        filesize[j] = 2 * 1024 * 1024;
+        if ((j % 2) == 0) {
+            filesize[j] = bridge_table_size;
+        } else {
+            filesize[j] = flow_table_size;
+        }
+        // set pagesize array
+        pagesize[j] = 2 * 1024 * 1024;
         flags[j] = O_CREAT | O_RDWR;
         fail[j] = false;
     }
 
-    for (i = 0; i < kHugePages; ++i) {
+    for (i = 0; i < kHugePageFiles; ++i) {
         if (filename[i].empty()) {
             fail[i] = true;
             continue;
@@ -272,31 +293,42 @@ void KSync::SetHugePages() {
             continue;
         }
 
+        LOG(INFO, "Mem mapping hugepage file:" << filename[i].c_str()
+                  << " size:" << filesize[i] << "\n");
         huge_pages_[i] = (void *) mmap(NULL, filesize[i],
                                        PROT_READ | PROT_WRITE, MAP_SHARED,
                                        huge_fd_[i], 0);
         if (huge_pages_[i] == MAP_FAILED) {
+            LOG(INFO, "Failed to Mmap hugepage file:" << filename[i].c_str() << "\n");
             fail[i] = true;
+        } else {
+            LOG(INFO, "Mem mapped hugepage file:" << filename[i].c_str()
+                      << " to addr:" << huge_pages_[i] << "\n");
         }
     }
 
     encoder.set_vhp_op(sandesh_op::ADD);
 
     std::vector<uint64_t> huge_mem;
-    std::vector<uint32_t> huge_size;
-    for (uint16_t i = 0; i < kHugePages; ++i) {
+    std::vector<uint32_t> huge_mem_size;
+    std::vector<uint32_t> huge_page_size;
+    for (uint16_t i = 0; i < kHugePageFiles; ++i) {
         if (fail[i] == false) {
             huge_mem.push_back((uint64_t) huge_pages_[i]);
-            huge_size.push_back(filesize[i]);
+            huge_page_size.push_back(pagesize[i]);
+            huge_mem_size.push_back(filesize[i]);
         }
     }
     encoder.set_vhp_mem(huge_mem);
-    encoder.set_vhp_msize(huge_size);
+    encoder.set_vhp_psize(huge_page_size);
+    // set huge_mem_size
+    encoder.set_vhp_mem_sz(huge_mem_size);
     encoder.set_vhp_resp(VR_HPAGE_CFG_RESP_HPAGE_SUCCESS);
 
     uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
     int len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
 
+    LOG(INFO, "Sending Huge Page configuration to VROUTER\n");
     KSyncSock *sock = KSyncSock::Get(0);
     sock->BlockingSend((char *)msg, len);
     if (sock->BlockingRecv()) {
