@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "251dadce_d994cd99",
+        "filename": "src/vnsw/agent/pkt/test/test_bgp_service.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 581,
+      "author": {
+        "id": 474
+      },
+      "writtenOn": "2020-03-20T07:04:05Z",
+      "side": 1,
+      "message": "why are u deleting this in this testcase, cleanup should have been done in previous testcases?",
+      "range": {
+        "startLine": 581,
+        "startChar": 34,
+        "endLine": 581,
+        "endChar": 35
+      },
+      "revId": "6a571215e5529c753972c247cd41598489e45176",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
+    }
+  ]
+}
