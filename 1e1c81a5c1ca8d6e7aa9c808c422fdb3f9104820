@@ -22,6 +22,30 @@
       "revId": "1e1c81a5c1ca8d6e7aa9c808c422fdb3f9104820",
       "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4e9e3f58_cb294c02",
+        "filename": "src/vnsw/agent/services/igmp_proto.cc",
+        "patchSetId": 2
+      },
+      "lineNbr": 197,
+      "author": {
+        "id": 473
+      },
+      "writtenOn": "2020-03-20T04:24:39Z",
+      "side": 1,
+      "message": "nh-flags is 2 which means in issue case, NH is deleted. Also, addressed previous comment.",
+      "parentUuid": "26f520bd_ec372dbd",
+      "range": {
+        "startLine": 197,
+        "startChar": 0,
+        "endLine": 197,
+        "endChar": 8
+      },
+      "revId": "1e1c81a5c1ca8d6e7aa9c808c422fdb3f9104820",
+      "serverId": "c72cd27d-1743-4a55-84a4-cd13b8400c52",
+      "unresolved": true
     }
   ]
 }
